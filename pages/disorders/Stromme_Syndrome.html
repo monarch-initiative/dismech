@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>Stromme Syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0009477" target="_blank">
                         MONDO:0009477
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">multiple congenital anomalies/dysmorphic syndrome-intellectual disability</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">primary ciliary dyskinesia</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hereditary lethal multiple congenital anomalies/dysmorphic syndrome</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,11 +2993,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Stromme syndrome is an ultra-rare autosomal recessive congenital malformation syndrome caused by biallelic pathogenic variants in CENPF. The classic phenotype combines microcephaly, ocular anomalies such as microphthalmia or anterior chamber abnormalities, and apple-peel intestinal or jejunal atresia. CENPF encodes a centromere and centriolar protein with roles in cilium assembly, intraflagellar transport protein targeting, mitotic spindle organization, and cortical neurogenesis; severe loss-of-function alleles can cause a lethal fetal ciliopathy spectrum with brain, craniofacial, gastrointestinal, renal, and cardiac malformations.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2997,33 +3067,33 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
+
+
             <a class="stat-link" href="#definitions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📘</div>
@@ -3031,8 +3101,8 @@
                 <div class="stat-label">Definitions</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3040,8 +3110,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3049,8 +3119,8 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#histopathology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">✶</div>
@@ -3058,8 +3128,8 @@
                 <div class="stat-label">Histopath.</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3067,10 +3137,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3078,8 +3148,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3087,8 +3157,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3096,8 +3166,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3105,13 +3175,13 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3119,8 +3189,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3128,1161 +3198,1303 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
         <div class="card" id="definitions">
             <div class="card-header">
                 <div class="card-icon" style="background: #cffafe; color: #0e7490;">📘</div>
                 <h2 class="card-title">Definitions</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box definition-box">
                 <div class="item-name">Orphanet Stromme syndrome definition</div>
-                
+
                 <div class="item-desc">Orphanet defines Stromme syndrome as a rare multiple congenital anomalies syndrome centered on microcephaly, ocular anomalies, and apple-peel intestinal atresia, with variable craniofacial, renal, cardiac, neurologic, and hematologic findings.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-classification">OTHER</span>
-                    
-                    
+
+
                 </div>
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A rare multiple congenital anomalies syndrome usually characterized by microcephaly, ocular anomalies such as microphthalmia, and apple-peel intestinal atresia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet provides the structured clinical definition for Stromme syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26820108" target="_blank">PMID:26820108</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Strømme syndrome was first described by Strømme et al. (1993) in siblings presenting with &#34;apple peel&#34; type intestinal atresia, ocular anomalies and microcephaly."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The CENPF discovery paper anchors the classic triad in affected siblings.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
+
+
+
             </div>
-            
+
             <div class="item-box definition-box">
                 <div class="item-name">CENPF ciliopathy definition</div>
-                
+
                 <div class="item-desc">CENPF-related Stromme syndrome is modeled as a ciliopathy because patient, fetal tissue, cell, and zebrafish data link CENPF dysfunction to basal-body localization, IFT88 ciliary targeting, short or abnormal cilia, and ciliopathy phenotypes.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-classification">OTHER</span>
-                    
-                    
+
+
                 </div>
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CONCLUSIONS: Our data identify CENPF as a new centriolar disease gene implicated in severe human ciliopathy and microcephaly related phenotypes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports defining CENPF disease as a centriolar/ciliopathy disorder.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive inheritance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Stromme syndrome is caused by biallelic CENPF variants, including compound heterozygous and homozygous truncating alleles reported in affected sibling pairs and families.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Autosomal recessive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records autosomal recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26820108" target="_blank">PMID:26820108</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We show for the first time that Strømme syndrome is an autosomal-recessive disease caused by mutations in CENPF that can result in a wide phenotypic spectrum."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The discovery report directly states autosomal recessive CENPF disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">2</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Classic Stromme syndrome
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">The classic presentation combines microcephaly, ocular anomalies, and apple-peel intestinal or jejunal atresia, with variable developmental, craniofacial, renal, cardiac, and hematologic involvement.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A rare multiple congenital anomalies syndrome usually characterized by microcephaly, ocular anomalies such as microphthalmia, and apple-peel intestinal atresia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet supports the classic phenotype definition.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Lethal fetal CENPF ciliopathy spectrum
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">The severe fetal phenotype includes mid-gestation lethality with hydrocephalus, cerebellar vermis hypoplasia, corpus callosum agenesis, duodenal atresia, gastrointestinal malrotation, bilateral renal hypoplasia, and dysmorphic craniofacial features.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinical manifestations include hydrocephalus, cerebellar vermis hypoplasia, corpus callosum agenesis, duodenal atresia, gastrointestinal malrotation, bilateral renal hypoplasia, and dysmorphic craniofacial features"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet supports the severe fetal CENPF-associated subtype description.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cenpf-dysfunction">
                 <div class="item-name">Biallelic CENPF dysfunction</div>
-                
+
                 <div class="item-desc">Biallelic truncating, splice-site, or frameshift CENPF variants reduce CENP-F function at the kinetochore, centrosome, and ciliary basal body, initiating Stromme syndrome and the severe fetal CENPF ciliopathy spectrum.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        CENPF
-                        
-                        <a href="https://bioregistry.io/hgnc:1857" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CENPF
+
+
+    <a href="https://bioregistry.io/hgnc:1857" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1857">hgnc:1857</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cilium assembly
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060271">GO:0060271</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         mitotic spindle organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007052" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007052" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007052">GO:0007052</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         ciliary basal body
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036064">GO:0036064</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Defective CENPF-dependent IFT88 ciliary targeting</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of CENP-F function impairs localization of IFT88 and related ciliary transport components to ciliary axonemes.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cortical neurogenesis impairment</span>
-	                            
+
 	                            <span class="crosslink-desc">CENP-F interacts with spindle-orientation and cortical polarity machinery, providing a mechanism for microcephaly.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26820108" target="_blank">PMID:26820108</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using family-based whole-exome sequencing, we identified truncating mutations in the centrosome gene CENPF in the two nonconsanguineous Caucasian sibling pairs."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human sequencing evidence places biallelic truncating CENPF variants at the start of the disease mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CENP-F has a novel putative function in ciliogenesis and cortical neurogenesis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The mechanistic study links CENPF function to the key cellular processes modeled downstream.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-cenpf-dependent-ift88-ciliary-targeting">
                 <div class="item-name">Defective CENPF-dependent IFT88 ciliary targeting</div>
-                
+
                 <div class="item-desc">CENP-F localizes to the ciliary basal body and interacts with IFT88/KIF3B; mutant CENPF kidneys show short abnormal renal epithelial cilia and loss of IFT88 localization to ciliary axonemes and centrioles. Zebrafish cenpf knockdown produces ciliary-function phenotypes including abnormal heart looping, hydrocephalus, and pronephric cysts.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         kidney epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002518">CL:0002518</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        CENPF
-                        
-                        <a href="https://bioregistry.io/hgnc:1857" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CENPF
+
+
+    <a href="https://bioregistry.io/hgnc:1857" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1857">hgnc:1857</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         intraciliary transport
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042073">GO:0042073</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         protein localization to cilium
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0061512" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0061512" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061512">GO:0061512</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         cilium
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-component">
                         ciliary basal body
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036064">GO:0036064</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Jejunal atresia</span>
-	                            
+
 	                            <span class="crosslink-desc">The ciliary developmental defect is consistent with the core congenital apple-peel jejunal atresia phenotype.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Microphthalmia</span>
-	                            
+
 	                            <span class="crosslink-desc">Ciliary developmental disruption contributes to ocular malformation.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Abnormal anterior chamber morphology</span>
-	                            
+
 	                            <span class="crosslink-desc">Ciliary developmental disruption contributes to anterior segment anomalies.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Renal hypoplasia</span>
-	                            
+
 	                            <span class="crosslink-desc">Fetal CENPF ciliopathy includes renal developmental hypoplasia.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hydrocephalus</span>
-	                            
+
 	                            <span class="crosslink-desc">CENPF ciliary dysfunction causes hydrocephalus in the severe developmental spectrum.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Abnormal heart morphology</span>
-	                            
+
 	                            <span class="crosslink-desc">Zebrafish cenpf knockdown supports heart-looping and laterality effects relevant to variable cardiac anomalies.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"IFT88 did not localise to ciliary axonemes and centrioles in mutant CENPF kidneys"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mutant human fetal kidney tissue directly supports defective IFT88 ciliary localization.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The occurrence of these morphological findings support a role for CENP-F in zebrafish ciliary function."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Zebrafish knockdown phenotypes support CENP-F function in ciliary biology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-neurogenesis-impairment">
                 <div class="item-name">Cortical neurogenesis impairment</div>
-                
+
                 <div class="item-desc">CENP-F has a putative role in cortical neurogenesis and asymmetric division through interactions with spindle-orientation and cortical polarity proteins; impaired function provides a mechanistic basis for microcephaly and neurodevelopmental findings.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neural progenitor cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        CENPF
-                        
-                        <a href="https://bioregistry.io/hgnc:1857" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CENPF
+
+
+    <a href="https://bioregistry.io/hgnc:1857" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1857">hgnc:1857</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         asymmetric cell division
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008356" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008356" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008356">GO:0008356</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell division
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0051301" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0051301" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051301">GO:0051301</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Microcephaly</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired cortical neurogenesis manifests as congenital microcephaly.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Motor delay</span>
-	                            
+
 	                            <span class="crosslink-desc">Neurodevelopmental disruption contributes to delayed motor milestones.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Intellectual disability</span>
-	                            
+
 	                            <span class="crosslink-desc">Neurodevelopmental disruption contributes to cognitive impairment.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Agenesis of corpus callosum</span>
-	                            
+
 	                            <span class="crosslink-desc">Severe fetal CENPF ciliopathy can include major brain malformations.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cerebellar vermis hypoplasia</span>
-	                            
+
 	                            <span class="crosslink-desc">Severe fetal CENPF ciliopathy can include posterior fossa malformations.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our data identify CENPF as a new centriolar disease gene implicated in severe human ciliopathy and microcephaly related phenotypes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human genetic and fetal data support CENPF as a microcephaly-related disease gene.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"MCPH phenotypes have been ascribed to defective asymmetric divisions of neuronal progenitors and failure of correct neural cell fate specification."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The mechanistic discussion links microcephaly to neuronal progenitor asymmetric division and cell fate specification.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
         <div class="card" id="histopathology">
             <div class="card-header">
                 <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
                 <h2 class="card-title">Histopathology</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box histopathology-box">
                 <div class="item-name">
                     Short renal epithelial cilia with IFT88 mislocalization
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Mutant CENPF fetal kidneys show short abnormal cilia on renal epithelial cells and loss of IFT88 localization to ciliary axonemes and centrioles, supporting a tissue-level ciliopathy mechanism.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"GT335-positive cilia are shorter than cilia in control kidneys."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human fetal kidney immunofluorescence supports short renal epithelial cilia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"IFT88 did not localise to ciliary axonemes and centrioles in mutant CENPF kidneys"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human fetal kidney immunofluorescence supports IFT88 mislocalization.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4293,1926 +4505,2007 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal anterior chamber morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior chamber anomalies are part of the ocular phenotype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000593\"}}, {\"id\": \"Abnormal heart morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac malformations are variably present.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Agenesis of corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum agenesis is part of the severe fetal brain malformation spectrum.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Lethal fetal\"], \"term_id\": \"HP:0001274\"}}, {\"id\": \"Biallelic CENPF dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic truncating, splice-site, or frameshift CENPF variants reduce CENP-F function at the kinetochore, centrosome, and ciliary basal body, initiating Stromme syndrome and the severe fetal CENPF ciliopathy spectrum.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cilium assembly\", \"mitotic spindle organization\"], \"genes\": [\"CENPF\"]}}, {\"id\": \"Biallelic CENPF pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CENPF\"], \"association\": \"Biallelic pathogenic variants causing autosomal recessive Stromme syndrome\"}}, {\"id\": \"Cerebellar vermis hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar vermis hypoplasia is reported in the severe fetal phenotype.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Lethal fetal\"], \"term_id\": \"HP:0001320\"}}, {\"id\": \"Cortical neurogenesis impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CENP-F has a putative role in cortical neurogenesis and asymmetric division through interactions with spindle-orientation and cortical polarity proteins; impaired function provides a mechanistic basis for microcephaly and neurodevelopmental findings.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"asymmetric cell division\", \"cell division\"], \"genes\": [\"CENPF\"]}}, {\"id\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CENP-F localizes to the ciliary basal body and interacts with IFT88/KIF3B; mutant CENPF kidneys show short abnormal renal epithelial cilia and loss of IFT88 localization to ciliary axonemes and centrioles. Zebrafish cenpf knockdown produces ciliary-function phenotypes including abnormal heart looping, hydrocephalus, and pronephric cysts.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"kidney epithelial cell\"], \"biological_processes\": [\"intraciliary transport\", \"protein localization to cilium\"], \"genes\": [\"CENPF\"]}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hydrocephalus occurs in the severe fetal phenotype.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Lethal fetal\"], \"term_id\": \"HP:0000238\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is variably reported in survivors.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Jejunal atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The classic intestinal manifestation is apple-peel type jejunal or intestinal atresia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005235\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a core congenital feature in classic Stromme syndrome and also appears in the severe fetal CENPF spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microphthalmia is a recurrent ocular malformation in Stromme syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000568\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor delay has been reported in affected individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001270\"}}, {\"id\": \"Renal hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral renal hypoplasia is part of the severe fetal CENPF ciliopathy spectrum.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Lethal fetal\"], \"term_id\": \"HP:0000089\"}}, {\"id\": \"Symptom-directed supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is supportive and multidisciplinary, directed at the congenital gastrointestinal, ocular, neurologic, renal, cardiac, and craniofacial manifestations present in an individual child.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic CENPF dysfunction\", \"target\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CENP-F function impairs localization of IFT88 and related ciliary transport components to ciliary axonemes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic CENPF dysfunction\", \"target\": \"Cortical neurogenesis impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CENP-F interacts with spindle-orientation and cortical polarity machinery, providing a mechanism for microcephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Jejunal atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ciliary developmental defect is consistent with the core congenital apple-peel jejunal atresia phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ciliary developmental disruption contributes to ocular malformation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Abnormal anterior chamber morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ciliary developmental disruption contributes to anterior segment anomalies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Renal hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal CENPF ciliopathy includes renal developmental hypoplasia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CENPF ciliary dysfunction causes hydrocephalus in the severe developmental spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Abnormal heart morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Zebrafish cenpf knockdown supports heart-looping and laterality effects relevant to variable cardiac anomalies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical neurogenesis impairment\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cortical neurogenesis manifests as congenital microcephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical neurogenesis impairment\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental disruption contributes to delayed motor milestones.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical neurogenesis impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental disruption contributes to cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical neurogenesis impairment\", \"target\": \"Agenesis of corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe fetal CENPF ciliopathy can include major brain malformations.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical neurogenesis impairment\", \"target\": \"Cerebellar vermis hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe fetal CENPF ciliopathy can include posterior fossa malformations.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Jejunal atresia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Microphthalmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Microcephaly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Biallelic CENPF pathogenic variants\", \"target\": \"Biallelic CENPF dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CENPF pathogenic variants\", \"target\": \"Cortical neurogenesis impairment\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CENPF pathogenic variants\", \"target\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal anterior chamber morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior chamber anomalies are part of the ocular phenotype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000593\"}}, {\"id\": \"Abnormal heart morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac malformations are variably present.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Agenesis of corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum agenesis is part of the severe fetal brain malformation spectrum.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Lethal fetal\"], \"term_id\": \"HP:0001274\"}}, {\"id\": \"Biallelic CENPF dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic truncating, splice-site, or frameshift CENPF variants reduce CENP-F function at the kinetochore, centrosome, and ciliary basal body, initiating Stromme syndrome and the severe fetal CENPF ciliopathy spectrum.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cilium assembly\", \"mitotic spindle organization\"], \"genes\": [\"CENPF\"], \"gene_terms\": [{\"label\": \"CENPF\", \"id\": \"hgnc:1857\"}]}}, {\"id\": \"Biallelic CENPF pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CENPF\"], \"gene_terms\": [{\"label\": \"CENPF\", \"id\": \"hgnc:1857\"}], \"association\": \"Biallelic pathogenic variants causing autosomal recessive Stromme syndrome\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cerebellar vermis hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar vermis hypoplasia is reported in the severe fetal phenotype.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Lethal fetal\"], \"term_id\": \"HP:0001320\"}}, {\"id\": \"Cortical neurogenesis impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CENP-F has a putative role in cortical neurogenesis and asymmetric division through interactions with spindle-orientation and cortical polarity proteins; impaired function provides a mechanistic basis for microcephaly and neurodevelopmental findings.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"asymmetric cell division\", \"cell division\"], \"genes\": [\"CENPF\"], \"gene_terms\": [{\"label\": \"CENPF\", \"id\": \"hgnc:1857\"}]}}, {\"id\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CENP-F localizes to the ciliary basal body and interacts with IFT88/KIF3B; mutant CENPF kidneys show short abnormal renal epithelial cilia and loss of IFT88 localization to ciliary axonemes and centrioles. Zebrafish cenpf knockdown produces ciliary-function phenotypes including abnormal heart looping, hydrocephalus, and pronephric cysts.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"kidney epithelial cell\"], \"biological_processes\": [\"intraciliary transport\", \"protein localization to cilium\"], \"genes\": [\"CENPF\"], \"gene_terms\": [{\"label\": \"CENPF\", \"id\": \"hgnc:1857\"}]}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hydrocephalus occurs in the severe fetal phenotype.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Lethal fetal\"], \"term_id\": \"HP:0000238\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is variably reported in survivors.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Jejunal atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The classic intestinal manifestation is apple-peel type jejunal or intestinal atresia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005235\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a core congenital feature in classic Stromme syndrome and also appears in the severe fetal CENPF spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microphthalmia is a recurrent ocular malformation in Stromme syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000568\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor delay has been reported in affected individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001270\"}}, {\"id\": \"Renal hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral renal hypoplasia is part of the severe fetal CENPF ciliopathy spectrum.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Lethal fetal\"], \"term_id\": \"HP:0000089\"}}, {\"id\": \"Symptom-directed supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is supportive and multidisciplinary, directed at the congenital gastrointestinal, ocular, neurologic, renal, cardiac, and craniofacial manifestations present in an individual child.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic CENPF dysfunction\", \"target\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CENP-F function impairs localization of IFT88 and related ciliary transport components to ciliary axonemes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic CENPF dysfunction\", \"target\": \"Cortical neurogenesis impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CENP-F interacts with spindle-orientation and cortical polarity machinery, providing a mechanism for microcephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Jejunal atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ciliary developmental defect is consistent with the core congenital apple-peel jejunal atresia phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ciliary developmental disruption contributes to ocular malformation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Abnormal anterior chamber morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ciliary developmental disruption contributes to anterior segment anomalies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Renal hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal CENPF ciliopathy includes renal developmental hypoplasia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CENPF ciliary dysfunction causes hydrocephalus in the severe developmental spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"target\": \"Abnormal heart morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Zebrafish cenpf knockdown supports heart-looping and laterality effects relevant to variable cardiac anomalies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical neurogenesis impairment\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cortical neurogenesis manifests as congenital microcephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical neurogenesis impairment\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental disruption contributes to delayed motor milestones.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical neurogenesis impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental disruption contributes to cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical neurogenesis impairment\", \"target\": \"Agenesis of corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe fetal CENPF ciliopathy can include major brain malformations.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical neurogenesis impairment\", \"target\": \"Cerebellar vermis hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe fetal CENPF ciliopathy can include posterior fossa malformations.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Jejunal atresia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Microphthalmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Microcephaly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Biallelic CENPF pathogenic variants\", \"target\": \"Biallelic CENPF dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CENPF pathogenic variants\", \"target\": \"Cortical neurogenesis impairment\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CENPF pathogenic variants\", \"target\": \"Defective CENPF-dependent IFT88 ciliary targeting\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">27</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Ear<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(4)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(7)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(5)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(3)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Thrombocytopenia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank">
-                            Thrombocytopenia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001873)</span>
-                        </span>
-                        
+                        Thrombocytopenia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001873">HP:0001873</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"thrombocytopenia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records thrombocytopenia among variable anomalies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Abnormal heart morphology
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank">
-                            Abnormal heart morphology
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001627)</span>
-                        </span>
-                        
+                        Abnormal heart morphology
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Heart, brain, craniofacial abnormalities, renal hypoplasia and other anomalies (e.g. lower limb edema, thrombocytopenia) are variably present."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records variable heart abnormalities.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Jejunal atresia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005235" target="_blank">
-                            Jejunal atresia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005235)</span>
-                        </span>
-                        
+                        Jejunal atresia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005235" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005235">HP:0005235</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407396" target="_blank">PMID:28407396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Stromme syndrome is a rare genetic disorder characterized by microcephaly, anterior ocular chamber anomalies, and &#34;apple peel&#34; type jejunal atresia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">A CENPF family report directly supports apple-peel type jejunal atresia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26820108" target="_blank">PMID:26820108</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"presenting with &#34;apple peel&#34; type intestinal atresia, ocular anomalies and microcephaly."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The discovery cohort supports apple-peel intestinal atresia as part of the core triad.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Duodenal atresia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002247" target="_blank">
-                            Duodenal atresia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002247)</span>
-                        </span>
-                        
+                        Duodenal atresia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002247" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002247">HP:0002247</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"duodenal atresia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records duodenal atresia in the lethal fetal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Examination of a dissected gastrointestinal tract from the same affected fetus revealed complete duodenal atresia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human fetal autopsy directly supports complete duodenal atresia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intestinal malrotation
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank">
-                            Intestinal malrotation
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002566)</span>
-                        </span>
-                        
+                        Intestinal malrotation
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002566">HP:0002566</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"gastrointestinal malrotation"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records gastrointestinal malrotation in the lethal fetal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Low-set ears
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank">
-                            Low-set ears
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000369)</span>
-                        </span>
-                        
+                        Low-set ears
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000369">HP:0000369</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"low-set ears"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records low-set ears in the severe fetal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"dysmorphic craniofacial features such as a high nasal bridge, short columella, micrognathia, wide mouth and low-set ears."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human fetal morphology directly supports low-set ears.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Macrotia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000400" target="_blank">
-                            Macrotia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000400)</span>
-                        </span>
-                        
+                        Macrotia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000400" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000400">HP:0000400</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"large or low set ears"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records large or low-set ears among reported facial features.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">4</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Microphthalmia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank">
-                            Microphthalmia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000568)</span>
-                        </span>
-                        
+                        Microphthalmia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ocular anomalies such as microphthalmia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet identifies microphthalmia among ocular anomalies.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18203155" target="_blank">PMID:18203155</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We describe another patient with the combination of apple peel intestinal atresia, microcephaly, microphthalmia, and anterior eye chamber anomalies."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This case report directly supports microphthalmia in the clinical syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Corneal opacity
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank">
-                            Corneal opacity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0007957)</span>
-                        </span>
-                        
+                        Corneal opacity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007957">HP:0007957</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18203155" target="_blank">PMID:18203155</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"there is major visual impairment due to the corneal clouding."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports corneal clouding as the cause of visual impairment.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Visual impairment
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank">
-                            Visual impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000505)</span>
-                        </span>
-                        
+                        Visual impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18203155" target="_blank">PMID:18203155</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Development so far seems to be normal, although there is major visual impairment due to the corneal clouding."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This case report directly supports major visual impairment.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypertelorism
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank">
-                            Hypertelorism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000316)</span>
-                        </span>
-                        
+                        Hypertelorism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Facial dysmorphism is reported in some cases and may include narrow or sloped forehead, hypertelorism, microphthalmia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records hypertelorism among reported facial features.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">7</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Microcephaly
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank">
-                            Microcephaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000252)</span>
-                        </span>
-                        
+                        Microcephaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A rare multiple congenital anomalies syndrome usually characterized by microcephaly, ocular anomalies such as microphthalmia, and apple-peel intestinal atresia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet identifies microcephaly as part of the usual syndrome characterization.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407396" target="_blank">PMID:28407396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A 3-month-old girl was hospitalized due to prenatally diagnosed microcephaly, microphthalmia, and dysmorphological features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">A CENPF-confirmed family report supports prenatal microcephaly.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Anteverted nares
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank">
-                            Anteverted nares
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000463)</span>
-                        </span>
-                        
+                        Anteverted nares
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000463">HP:0000463</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"anteverted or broad nasal tip"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records anteverted or broad nasal tip.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Long philtrum
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank">
-                            Long philtrum
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000343)</span>
-                        </span>
-                        
+                        Long philtrum
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000343">HP:0000343</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"long philtrum"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records long philtrum among reported facial features.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Micrognathia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank">
-                            Micrognathia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000347)</span>
-                        </span>
-                        
+                        Micrognathia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"micrognathia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records micrognathia among reported facial features.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"dysmorphic craniofacial features such as a high nasal bridge, short columella, micrognathia, wide mouth and low-set ears."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human fetal morphology directly supports micrognathia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Wide mouth
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000154" target="_blank">
-                            Wide mouth
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000154)</span>
-                        </span>
-                        
+                        Wide mouth
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000154" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000154">HP:0000154</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"large mouth"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records large mouth among reported facial features.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"dysmorphic craniofacial features such as a high nasal bridge, short columella, micrognathia, wide mouth and low-set ears."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human fetal morphology directly supports wide mouth.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cleft palate
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank">
-                            Cleft palate
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000175)</span>
-                        </span>
-                        
+                        Cleft palate
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"cleft palate"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records cleft palate in the severe fetal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Autopsy findings revealed ciliopathy features, such as cerebellar vermis hypoplasia, corpus callosum agenesis, cleft palate, duodenal atresia and bilateral renal hypoplasia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human fetal autopsy directly supports cleft palate.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Prominent nose
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000448" target="_blank">
-                            Prominent nose
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000448)</span>
-                        </span>
-                        
+                        Prominent nose
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000448" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000448">HP:0000448</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"prominent nose"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records prominent nose in the severe fetal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Lower limb edema
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank">
-                            Edema
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000969)</span>
-                        </span>
-                        
+                        Edema
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000969">HP:0000969</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"lower limb edema"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records lower limb edema among variable anomalies.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">5</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Motor delay
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank">
-                            Motor delay
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001270)</span>
-                        </span>
-                        
+                        Motor delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Motor delay and intellectual disability have been reported."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports motor delay in Stromme syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intellectual disability
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
-                            Intellectual disability
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001249)</span>
-                        </span>
-                        
+                        Intellectual disability
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Motor delay and intellectual disability have been reported."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet reports intellectual disability in Stromme syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hydrocephalus
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank">
-                            Hydrocephalus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000238)</span>
-                        </span>
-                        
+                        Hydrocephalus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Clinical manifestations include hydrocephalus"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records hydrocephalus in the lethal fetal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"At 72 hpf, hydrocephalus was observed in cenpf morphants"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Zebrafish cenpf knockdown supports hydrocephalus as a ciliary-function phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cerebellar vermis hypoplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank">
-                            Cerebellar vermis hypoplasia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001320)</span>
-                        </span>
-                        
+                        Cerebellar vermis hypoplasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001320">HP:0001320</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"cerebellar vermis hypoplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records cerebellar vermis hypoplasia in the lethal fetal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Autopsy findings revealed ciliopathy features, such as cerebellar vermis hypoplasia, corpus callosum agenesis, cleft palate, duodenal atresia and bilateral renal hypoplasia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human fetal autopsy directly supports cerebellar vermis hypoplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Agenesis of corpus callosum
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank">
-                            Agenesis of corpus callosum
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001274)</span>
-                        </span>
-                        
+                        Agenesis of corpus callosum
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001274">HP:0001274</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"corpus callosum agenesis"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records corpus callosum agenesis in the lethal fetal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Autopsy findings revealed ciliopathy features, such as cerebellar vermis hypoplasia, corpus callosum agenesis, cleft palate, duodenal atresia and bilateral renal hypoplasia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human fetal autopsy directly supports corpus callosum agenesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Abnormal anterior chamber morphology
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000593" target="_blank">
-                            Abnormal anterior chamber morphology
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000593)</span>
-                        </span>
-                        
+                        Abnormal anterior chamber morphology
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000593" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000593">HP:0000593</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407396" target="_blank">PMID:28407396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Stromme syndrome is a rare genetic disorder characterized by microcephaly, anterior ocular chamber anomalies, and &#34;apple peel&#34; type jejunal atresia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The case report directly identifies anterior ocular chamber anomalies.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18203155" target="_blank">PMID:18203155</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"microcephaly, microphthalmia, and anterior eye chamber anomalies."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The case report supports anterior chamber anomalies in the classic syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Renal hypoplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank">
-                            Renal hypoplasia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000089)</span>
-                        </span>
-                        
+                        Renal hypoplasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000089">HP:0000089</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"bilateral renal hypoplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records bilateral renal hypoplasia in the lethal fetal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Autopsy findings revealed ciliopathy features, such as cerebellar vermis hypoplasia, corpus callosum agenesis, cleft palate, duodenal atresia and bilateral renal hypoplasia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human fetal autopsy findings directly support bilateral renal hypoplasia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Wide nasal bridge
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank">
-                            Wide nasal bridge
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000431)</span>
-                        </span>
-                        
+                        Wide nasal bridge
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000431">HP:0000431</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"broad nasal root"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records broad nasal root among reported facial features.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -6237,354 +6530,401 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     Biallelic CENPF pathogenic variants
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Biallelic pathogenic variants causing autosomal recessive Stromme syndrome)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CENPF
+
+
+    <a href="https://bioregistry.io/hgnc:1857" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1857">hgnc:1857</a>
+
+
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CENPF | centromere protein F | hgnc:1857 | Disease-causing germline mutation(s) in"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet identifies CENPF as the disease-causing germline gene.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26820108" target="_blank">PMID:26820108</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Using family-based whole-exome sequencing, we identified truncating mutations in the centrosome gene CENPF in the two nonconsanguineous Caucasian sibling pairs."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports truncating CENPF variants in affected sibling pairs.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407396" target="_blank">PMID:28407396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we report a Stromme syndrome family with two affected siblings with a homozygous truncating frameshift mutation in CENPF."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This independently supports homozygous truncating CENPF variation in Stromme syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Symptom-directed supportive care
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Management is supportive and multidisciplinary, directed at the congenital gastrointestinal, ocular, neurologic, renal, cardiac, and craniofacial manifestations present in an individual child.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Jejunal atresia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0005235" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005235" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005235">HP:0005235</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Microphthalmia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Microcephaly
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Heart, brain, craniofacial abnormalities, renal hypoplasia and other anomalies (e.g. lower limb edema, thrombocytopenia) are variably present."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The multisystem variable phenotype supports symptom-directed multidisciplinary care.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling addresses autosomal recessive inheritance, carrier testing for parents and relatives, recurrence risk, prenatal diagnostic options, and genotype-informed counseling for the severe fetal spectrum.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26820108" target="_blank">PMID:26820108</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Compound heterozygous inheritance was confirmed in both families."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirmed familial biallelic inheritance supports recurrence-risk counseling.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Autosomal recessive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet inheritance supports genetic counseling for affected families.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -7669,257 +8009,257 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">6</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
                             </div>
-                            
+
                             <div class="reference-title">Stromme syndrome</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Orphanet provides the structured Stromme syndrome definition, inheritance, antenatal onset, prevalence, CENPF gene association, and cross-references.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"CENPF | centromere protein F | hgnc:1857 | Disease-causing germline mutation(s) in"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
                             </div>
-                            
+
                             <div class="reference-title">Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Orphanet provides the severe fetal CENPF-associated ciliopathy spectrum.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"A rare genetic lethal multiple congenital anomalies/dysmorphic syndrome characterized by mid-gestation lethality and features of a ciliopathy."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/26820108" target="_blank">PMID:26820108</a>
                             </div>
-                            
+
                             <div class="reference-title">Strømme Syndrome Is a Ciliary Disorder Caused by Mutations in CENPF.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Family-based exome sequencing identified truncating CENPF variants in Stromme syndrome sibling pairs and established autosomal recessive CENPF disease.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Using family-based whole-exome sequencing, we identified truncating mutations in the centrosome gene CENPF in the two nonconsanguineous Caucasian sibling pairs."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407396" target="_blank">PMID:28407396</a>
                             </div>
-                            
+
                             <div class="reference-title">A further family of Stromme syndrome carrying CENPF mutation.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">An independent affected sibling family carried a homozygous truncating frameshift CENPF mutation and showed the classic Stromme syndrome triad.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"we report a Stromme syndrome family with two affected siblings with a homozygous truncating frameshift mutation in CENPF."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/18203155" target="_blank">PMID:18203155</a>
                             </div>
-                            
+
                             <div class="reference-title">Exclusion of a PAX6, FOXC1, PITX2, and MYCN mutation in another patient with apple peel intestinal atresia, ocular anomalies and microcephaly and review of the literature.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">A pre-CENPF case report supports the classic apple-peel intestinal atresia, microcephaly, microphthalmia, anterior chamber anomaly, and corneal clouding phenotype.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"We describe another patient with the combination of apple peel intestinal atresia, microcephaly, microphthalmia, and anterior eye chamber anomalies."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
                             </div>
-                            
+
                             <div class="reference-title">The kinetochore protein, CENPF, is mutated in human ciliopathy and microcephaly phenotypes.</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">CENPF variants segregated with severe fetal ciliopathy and microcephaly, and mechanistic data support CENP-F roles in IFT88 ciliary targeting, ciliary function, and cortical neurogenesis.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"CONCLUSIONS: Our data identify CENPF as a new centriolar disease gene implicated in severe human ciliopathy and microcephaly related phenotypes."</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Stromme Syndrome Deep Research Fallback</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h1>Stromme Syndrome Deep Research Fallback</h1>
 <h2>Scope</h2>
@@ -7975,11 +8315,11 @@ evidence to avoid blocking on provider availability.</p>
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

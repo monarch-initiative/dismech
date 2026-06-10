@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Sickle Cell Disease</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0011382" target="_blank">
                         MONDO:0011382
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Hematological Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Genetic Disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,7 +2991,7 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2991,36 +3061,36 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-            
-                
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
+
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
@@ -3028,9 +3098,9 @@
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3038,8 +3108,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3047,9 +3117,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3057,8 +3127,8 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#mechanistic-hypotheses">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◈</div>
@@ -3066,9 +3136,9 @@
                 <div class="stat-label">Hypotheses</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3076,8 +3146,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3085,8 +3155,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3094,14 +3164,14 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3109,8 +3179,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3118,8 +3188,8 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#mechanistic-hypotheses">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◈</div>
@@ -3127,925 +3197,1005 @@
                 <div class="stat-label">Hyp. Reports</div>
             </div>
             </a>
-            
+
         </div>
 
         <!-- Classifications -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            
+
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Harrison's Chapter</div>
                 <div class="tag-list">
-                    
+
                     <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-                    
+
                     <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
-                    
+
                 </div>
             </div>
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
         </div>
-        
+
 
         <!-- Mappings -->
-        
+
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-            
+
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/MONDO_0011382" target="_blank">MONDO:0011382</a>
-                        
-                        
+
+
                         <span class="mapping-label">sickle cell disease</span>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">ORPHA:232</span>
-                        
-                        
-                        
+
+
+
                         <span class="tag tag-mechanistic">ORPHA:232: CONSISTENT</span>
-                        
-                        
+
+
                     </div>
-                    
+
                     <div class="mapping-notes">Orphanet&#39;s cross-reference table lists &#34;MONDO:0011382 | Exact&#34; for the ORPHA:232 sickle cell anemia structured record.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
-            
-            
+
+
+
+
+
         </div>
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive inheritance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Orphanet records sickle cell anemia as autosomal recessive, consistent with disease from biallelic pathogenic HBB alleles.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"- Autosomal recessive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet directly records autosomal recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
         <div class="card" id="mechanistic-hypotheses">
             <div class="card-header">
                 <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
                 <h2 class="card-title">Mechanistic Hypotheses</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-canonical-hbs-polymerization-vasoocclusion-model">
                 <div class="item-name">Canonical HbS Polymerization and Vaso-Occlusion Model</div>
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-parent">canonical_hbs_polymerization_vasoocclusion_model</span>
-                    
-                    
+
+
                     <span class="tag tag-mechanistic">CANONICAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="item-desc" style="margin-top: 8px;">Biallelic HBB pathogenic variants (most commonly βS/βS) produce hemoglobin S, which polymerizes upon deoxygenation into rigid intracellular fibers that deform erythrocytes into the characteristic sickle shape. Sickle erythrocytes show reduced deformability, increased adhesion to endothelium and leukocytes, and shortened survival, producing chronic hemolytic anemia and recurrent vaso-occlusive episodes. Downstream consequences include painful crises, acute chest syndrome, stroke, splenic infarction, end-organ damage (kidney, lung, retina, bone), and chronic inflammation driven by free heme and reactive oxygen species.</div>
-                
-                
+
+
                 <div class="mapping-notes">Retained as CANONICAL. The 2026 openscientist hypothesis-search report (kb/hypotheses/Sickle_Cell_Disease/canonical_hbs_polymerization_vasoocclusion_model) found the model strongly supported with mandatory qualifications. Most decisive evidence: CRISPR-Cas9 gene therapy (exa-cel) achieves 97% freedom from severe VOCs by reactivating HbF to inhibit HbS polymerization — definitive that polymerization is the rate-limiting upstream event. Biophysical foundations (double-nucleation kinetics, extreme HbS-concentration dependence of polymerization delay) are among the most rigorously characterized in molecular medicine. Three qualifications: (1) vaso-occlusion is multicellular (endothelium, neutrophil, platelet, RBC adhesion), not purely RBC; (2) chronic hemolysis-driven oxidative stress and NO depletion drive pulmonary/renal end-organ damage independent of acute occlusion; (3) chronic inflammation persists post-HbF-reactivation, partly self-sustaining.</div>
-                
-                
-                
+
+
+
                 <div class="crosslink-block">
                     <div class="crosslink-title">Deep research</div>
                     <div class="crosslink-list">
-                        
+
                         <div class="crosslink-item">
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Sickle_Cell_Disease/canonical_hbs_polymerization_vasoocclusion_model/openscientist.md" target="_blank">OpenScientist</a>
-                            
+
                             <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Sickle_Cell_Disease/canonical_hbs_polymerization_vasoocclusion_model/openscientist.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
-                            
-                            
+
+
                             <span class="reference-summary">38 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-23T15:45:45.618885</span>
-                            
+
                         </div>
-                        
+
                     </div>
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29614632" target="_blank">PMID:29614632</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Due to the unique dependence of Hb S polymerization on cellular Hb S concentration"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Canonical mechanism review used as the seed reference for the hypothesis-search deep-research run.
 </div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hemoglobin-polymerization">
                 <div class="item-name">Hemoglobin Polymerization</div>
-                
+
                 <div class="item-desc">Deoxygenated HbS polymerizes into rigid fibers, deforming red blood cells into sickle shape. HbS has glutamic acid to valine substitution at position 6 of beta-globin.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         protein polymerization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0051258" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0051258" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051258">GO:0051258</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         response to hypoxia
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Red Blood Cell Sickling</span>
-	                            
+
 	                            <span class="crosslink-desc">HbS polymer formation deforms erythrocytes and drives sickling.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29614632" target="_blank">PMID:29614632</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Due to the unique dependence of Hb S polymerization on cellular Hb S concentration, cell dehydration promotes polymerization and sickling."</div>
-                
-                
+
+
                 <div class="evidence-explanation">HbS polymerization is concentration-dependent and leads to sickling.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3965046" target="_blank">PMID:3965046</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our results support the hypothesis that the intracellular polymerization of HbS is the primary determinant of the severity of both anemia and clinical symptomatology in the sickle hemoglobinopathies."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes HbS polymerization as the primary determinant of clinical severity in sickling syndromes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-red-blood-cell-sickling">
                 <div class="item-name">Red Blood Cell Sickling</div>
-                
+
                 <div class="item-desc">Sickled RBCs are rigid and fragile, leading to hemolytic anemia and shortened RBC lifespan (10-20 days vs normal 120 days).
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Red Blood Cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000232">CL:0000232</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         erythrocyte homeostasis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034101">GO:0034101</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         positive regulation of erythrocyte clearance
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0034108" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0034108" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034108">GO:0034108</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Vaso-Occlusion</span>
-	                            
+
 	                            <span class="crosslink-desc">Rigid sickled erythrocytes increase microvascular obstruction and endothelial interactions.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Chronic Hemolysis</span>
-	                            
+
 	                            <span class="crosslink-desc">Repeated membrane injury promotes erythrocyte destruction and clearance.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29614632" target="_blank">PMID:29614632</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In double heterozygosis for Hb S and C (SC disease) dehydration is the determining factor in disease pathophysiology."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cell dehydration promotes sickling and fragility of red blood cells.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vaso-occlusion">
                 <div class="item-name">Vaso-Occlusion</div>
-                
+
                 <div class="item-desc">Sickled cells adhere to vascular endothelium and obstruct microcirculation, causing tissue ischemia and pain crises. Inflammation amplifies adhesion.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Endothelial Cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         leukocyte adhesion to vascular endothelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0061756" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0061756" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061756">GO:0061756</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         positive regulation of cell adhesion
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0045785" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045785" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045785">GO:0045785</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Pain Crises</span>
-	                            
+
 	                            <span class="crosslink-desc">Microvascular obstruction causes ischemic vaso-occlusive pain episodes.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Chronic Organ Damage</span>
-	                            
+
 	                            <span class="crosslink-desc">Recurrent vaso-occlusion causes ischemia-reperfusion injury in end organs.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24277079" target="_blank">PMID:24277079</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"intravascular hemolysis in SCD releases heme that activates endothelial TLR4 signaling leading to WPB degranulation, NF-κB activation, and vaso-occlusion."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Heme released from hemolysis triggers TLR4 signaling on endothelial cells, leading to Weibel-Palade body degranulation and release of P-selectin and von Willebrand factor, which promote adhesion and vaso-occlusion.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-hemolysis">
                 <div class="item-name">Chronic Hemolysis</div>
-                
+
                 <div class="item-desc">Intravascular hemolysis releases free hemoglobin, scavenging nitric oxide and causing endothelial dysfunction, pulmonary hypertension, and stroke risk.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         nitric oxide metabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0046209" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0046209" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046209">GO:0046209</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Chronic Organ Damage</span>
-	                            
+
 	                            <span class="crosslink-desc">Nitric oxide depletion and oxidative stress drive progressive endothelial and tissue injury.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Chronic Hemolytic Anemia</span>
-	                            
+
 	                            <span class="crosslink-desc">Sustained erythrocyte destruction contributes to chronic hemolytic anemia.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15998894" target="_blank">PMID:15998894</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"hemolysis contributes to reduced nitric oxide bioavailability and endothelial dysfunction via release of erythrocyte arginase, which limits arginine bioavailability, and release of erythrocyte hemoglobin, which scavenges nitric oxide."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hemolysis releases both arginase (which depletes L-arginine, the substrate for nitric oxide synthesis) and free hemoglobin (which directly scavenges nitric oxide), leading to endothelial dysfunction and pulmonary hypertension.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15998894" target="_blank">PMID:15998894</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The ratios of arginine to ornithine and arginine to ornithine plus citrulline are independently associated with pulmonary hypertension and increased mortality in patients with sickle cell disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Low arginine bioavailability due to increased arginase activity is directly associated with pulmonary hypertension severity and mortality risk in SCD patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-organ-damage">
                 <div class="item-name">Chronic Organ Damage</div>
-                
+
                 <div class="item-desc">Repeated vaso-occlusion and ischemia-reperfusion injury cause progressive damage to spleen, kidneys, lungs, and brain.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         response to ischemia
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0002931" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002931" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002931">GO:0002931</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cellular response to oxidative stress
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034599">GO:0034599</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
-    
+
+
+
+
+
+
+
+
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4061,1411 +4211,1474 @@
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">21</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Immune<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Integument<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Respiratory<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Constitutional<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(5)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Thrombocytosis
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001894" target="_blank">
-                            Thrombocytosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001894)</span>
-                        </span>
-                        
+                        Thrombocytosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001894" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001894">HP:0001894</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0001894 | Thrombocytosis | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records thrombocytosis as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Reticulocytosis
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001923" target="_blank">
-                            Reticulocytosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001923)</span>
-                        </span>
-                        
+                        Reticulocytosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001923" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001923">HP:0001923</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0001923 | Reticulocytosis | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records reticulocytosis as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Splenic Sequestration
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank">
-                            Splenomegaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001744)</span>
-                        </span>
-                        
+                        Splenomegaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001744">HP:0001744</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Medical emergency in children</div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Stroke
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank">
-                            Ischemic stroke
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002140)</span>
-                        </span>
-                        
+                        Ischemic stroke
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002140">HP:0002140</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Children and adults at risk</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0002140 | Ischemic stroke | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records ischemic stroke as an occasional phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pulmonary Arterial Hypertension
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank">
-                            Pulmonary arterial hypertension
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002092)</span>
-                        </span>
-                        
+                        Pulmonary arterial hypertension
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002092">HP:0002092</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0002092 | Pulmonary arterial hypertension | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records pulmonary arterial hypertension as an occasional phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Jaundice
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank">
-                            Jaundice
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000952)</span>
-                        </span>
-                        
+                        Jaundice
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000952">HP:0000952</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">From chronic hemolysis</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000952 | Jaundice | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records jaundice as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Retinopathy
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000488" target="_blank">
-                            Retinopathy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000488)</span>
-                        </span>
-                        
+                        Retinopathy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000488" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000488">HP:0000488</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000488 | Retinopathy | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records retinopathy as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Priapism
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0200023" target="_blank">
-                            Priapism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0200023)</span>
-                        </span>
-                        
+                        Priapism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200023" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200023">HP:0200023</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">In males</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0200023 | Priapism | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records priapism as an occasional phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Chronic Kidney Disease
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank">
-                            Chronic kidney disease
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012622)</span>
-                        </span>
-                        
+                        Chronic kidney disease
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Recurrent vaso-occlusion and hemolysis contribute to sickle nephropathy.</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0012622 | Chronic kidney disease | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records chronic kidney disease as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Recurrent Infections
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank">
-                            Recurrent infections
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002719)</span>
-                        </span>
-                        
+                        Recurrent infections
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002719">HP:0002719</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Functional asplenia and impaired splenic clearance increase infection risk.</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0002719 | Recurrent infections | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records recurrent infections as a very frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Osteomyelitis
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank">
-                            Osteomyelitis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002754)</span>
-                        </span>
-                        
+                        Osteomyelitis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002754">HP:0002754</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0002754 | Osteomyelitis | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records osteomyelitis as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Leg Ulcers
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank">
-                            Skin ulcer
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0200042)</span>
-                        </span>
-                        
+                        Skin ulcer
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200042">HP:0200042</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0200042 | Skin ulcer | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records skin ulcer as an occasional phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Osteoporosis
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank">
-                            Osteoporosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000939)</span>
-                        </span>
-                        
+                        Osteoporosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000939">HP:0000939</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0000939 | Osteoporosis | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records osteoporosis as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Acute Chest Syndrome
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank">
-                            Respiratory distress
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002098)</span>
-                        </span>
-                        
+                        Respiratory distress
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002098">HP:0002098</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Leading cause of death</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24620350" target="_blank">PMID:24620350</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Sickle cell disease (SCD) is characterized by recurring episodes of vascular occlusion in which neutrophil activation plays a major role. The disease is associated with chronic hemolysis with elevated cell-free hemoglobin and heme."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Neutrophil activation and hemolysis contribute to vascular occlusion and acute complications like acute chest syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24620350" target="_blank">PMID:24620350</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we have identified a novel role for heme in the induction of neutrophil extracellular trap (NET) formation in SCD. NETs are decondensed chromatin decorated by granular enzymes and are released by activated neutrophils."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Heme triggers neutrophil extracellular trap formation, which contributes to acute lung injury and acute chest syndrome in sickle cell disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pain Crises
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank">
-                            Pain
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012531)</span>
-                        </span>
-                        
+                        Pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Acute vaso-occlusive episodes</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24277079" target="_blank">PMID:24277079</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Heme rapidly (5 minutes) mobilized Weibel-Palade body (WPB) P-selectin and VWF onto EC and vessel wall surfaces and activated EC nuclear factor κB (NF-κB)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Heme-induced rapid release of adhesion molecules (P-selectin and von Willebrand factor) triggers vaso-occlusion, which causes pain crises in sickle cell disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0012531 | Pain | Very frequent (99-80%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet independently records pain as a very frequent HPO phenotype of sickle cell anemia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Chest Pain
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank">
-                            Chest pain
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0100749)</span>
-                        </span>
-                        
+                        Chest pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100749">HP:0100749</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0100749 | Chest pain | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records chest pain as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-11">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">5</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Chronic Hemolytic Anemia
-                        
+
                         <span class="phenotype-freq">OBLIGATE</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004870" target="_blank">
-                            Chronic hemolytic anemia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004870)</span>
-                        </span>
-                        
+                        Chronic hemolytic anemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004870" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004870">HP:0004870</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15998894" target="_blank">PMID:15998894</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"hemolysis contributes to reduced nitric oxide bioavailability and endothelial dysfunction via release of erythrocyte arginase"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Chronic hemolysis is a hallmark feature of sickle cell disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0004870 | Chronic hemolytic anemia | Obligate (100%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records chronic hemolytic anemia as an obligate phenotype of sickle cell anemia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Abnormality of the Spleen
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001743" target="_blank">
-                            Abnormality of the spleen
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001743)</span>
-                        </span>
-                        
+                        Abnormality of the spleen
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001743" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001743">HP:0001743</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Broad Orphanet spleen phenotype complementing specific splenic sequestration risk.</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0001743 | Abnormality of the spleen | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records spleen abnormality as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pigment Gallstones
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011981" target="_blank">
-                            Pigment gallstones
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011981)</span>
-                        </span>
-                        
+                        Pigment gallstones
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011981" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011981">HP:0011981</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Chronic hemolysis increases bilirubin turnover and pigment gallstone risk.</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0011981 | Pigment gallstones | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records pigment gallstones as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Avascular Necrosis
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0010885" target="_blank">
-                            Avascular necrosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0010885)</span>
-                        </span>
-                        
+                        Avascular necrosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010885" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010885">HP:0010885</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Vaso-occlusion can compromise bone blood supply.</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0010885 | Avascular necrosis | Frequent (79-30%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records avascular necrosis as a frequent phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Finger Dactylitis
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0031090" target="_blank">
-                            Finger dactylitis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0031090)</span>
-                        </span>
-                        
+                        Finger dactylitis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031090" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031090">HP:0031090</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:232" target="_blank">ORPHA:232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"HP:0031090 | Finger dactylitis | Occasional (29-5%)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Orphanet records finger dactylitis as an occasional phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -5490,1139 +5703,1142 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     HBB
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18667698" target="_blank">PMID:18667698</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Sickle cell disease (SCD) is a debilitating monogenic blood disorder with a highly variable phenotype characterized by severe pain crises, acute clinical events, and early mortality."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms SCD is a monogenic blood disorder caused by HBB mutations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     BCL11A
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Modifier)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18667698" target="_blank">PMID:18667698</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Common single nucleotide polymorphisms (SNPs) at the BCL11A and HBS1L-MYB loci have been implicated previously in HbF level variation"</div>
-                
-                
+
+
                 <div class="evidence-explanation">BCL11A polymorphisms regulate fetal hemoglobin levels and modify sickle cell disease severity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     HBS1L-MYB
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Modifier)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18667698" target="_blank">PMID:18667698</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Together, common SNPs at the BCL11A, HBS1L-MYB, and beta-globin (HBB) loci account for &gt;20% of the variation in HbF levels in SCD patients."</div>
-                
-                
+
+
                 <div class="evidence-explanation">HBS1L-MYB locus polymorphisms are major modifiers of HbF levels in sickle cell disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">9</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Hydroxyurea
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Increases HbF, reduces pain crises, first-line disease-modifying therapy.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7715639" target="_blank">PMID:7715639</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"the 152 patients assigned to hydroxyurea treatment had lower annual rates of crises than the 147 patients given placebo (median, 2.5 vs. 4.5 crises per year, P &lt; 0.001)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Landmark RCT demonstrating hydroxyurea reduces painful crises by nearly half in sickle cell disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Voxelotor
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">HbS polymerization inhibitor formerly used to improve anemia; voluntarily withdrawn from worldwide markets in 2024 due to postmarketing safety concerns.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Crizanlizumab
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">P-selectin inhibitor for reducing vaso-occlusive crises; regulatory status is jurisdiction-dependent after EU authorization revocation was recommended in 2023 when STAND did not confirm benefit.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     L-Glutamine
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Reduces oxidative stress in RBCs.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Blood Transfusions
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Chronic transfusions for stroke prevention, acute for severe anemia.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pain Management
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">NSAIDs, opioids for acute crises.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Penicillin Prophylaxis
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">In children to prevent pneumococcal sepsis.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Hematopoietic Stem Cell Transplant
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Curative option for selected patients.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Gene Therapy
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Emerging curative approach (lovotibeglogene autotemcel).</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38661449" target="_blank">PMID:38661449</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Exagamglogene autotemcel (exa-cel) is a nonviral cell therapy designed to reactivate fetal hemoglobin synthesis by means of ex vivo clustered regularly interspaced short palindromic repeats (CRISPR)-Cas9 gene editing of autologous CD34+ hematopoietic stem and progenitor cells (HSPCs) at the..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">CRISPR-Cas9 gene editing of the BCL11A enhancer reactivates fetal hemoglobin, which prevents sickling.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38661449" target="_blank">PMID:38661449</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Treatment with exa-cel eliminated vaso-occlusive crises in 97% of patients with sickle cell disease for a period of 12 months or more."</div>
-                
-                
+
+
                 <div class="evidence-explanation">In phase 3 clinical trials, exagamglogene autotemcel (exa-cel) eliminated vaso-occlusive crises in 97% of patients for 12+ months, demonstrating high therapeutic efficacy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Dehydration</div>
-                
-                
+
+
                 <div class="item-desc">Triggers sickling</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29614632" target="_blank">PMID:29614632</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Cell dehydration is a distinguishing characteristic of sickle cell disease and an important contributor to disease pathophysiology. Due to the unique dependence of Hb S polymerization on cellular Hb S concentration, cell dehydration promotes polymerization and sickling."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Dehydration increases intracellular HbS concentration, promoting sickling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Hypoxia</div>
-                
-                
+
+
                 <div class="item-desc">Promotes HbS polymerization</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29614632" target="_blank">PMID:29614632</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Each of these pathways exhibit unique characteristics in regulation by oxygen tension, intracellular and extracellular environment"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Low oxygen tension affects ion transport pathways that contribute to sickling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Cold Exposure</div>
-                
-                
+
+
                 <div class="item-desc">Triggers vaso-occlusion</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">High Altitude</div>
-                
-                
+
+
                 <div class="item-desc">Low oxygen triggers crises</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Infections</div>
-                
-                
+
+
                 <div class="item-desc">Common trigger for crises</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Hemoglobin
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Decreased)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Chronic anemia, Hb typically 6-9 g/dL</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Chronic Hemolysis</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Negative
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Monitoring
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Lower hemoglobin concentration reflects anemia from ongoing hemolysis and marrow compensation limits.</div>
-                        
-                        
+
+
                         <div class="regulatory-endpoints">
-                            
+
                             <div class="regulatory-endpoint">
                                 <div>
-                                    
+
                                     <a class="regulatory-endpoint-id" href="https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure" target="_blank" rel="noopener">FDA-SE-adult-noncancer-078</a>
-                                    
+
                                     <span class="tag" style="background: #dbeafe; color: #1d4ed8; font-size: 0.72rem;">FDA</span>
                                 </div>
                                 <div class="regulatory-endpoint-title">Hemoglobin response rate</div>
                                 <div class="regulatory-endpoint-meta">
-                                    
+
                                     <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.72rem;">
                                         Accelerated Or Traditional
                                     </span>
-                                    
-                                    
+
+
                                     <span class="tag" style="background: #dcfce7; color: #166534; font-size: 0.72rem;">
                                         Context Dependent Surrogate Endpoint
                                     </span>
-                                    
+
                                 </div>
-                                
+
                                 <div style="margin-top: 5px; color: #4f46e5;">Patients with sickle cell disease; Proxysmal nocturnal hemoglobinuria (PNH)</div>
-                                
+
                             </div>
-                            
+
                             <div class="regulatory-endpoint">
                                 <div>
-                                    
+
                                     <a class="regulatory-endpoint-id" href="https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure" target="_blank" rel="noopener">FDA-SE-pediatric-noncancer-054</a>
-                                    
+
                                     <span class="tag" style="background: #dbeafe; color: #1d4ed8; font-size: 0.72rem;">FDA</span>
                                 </div>
                                 <div class="regulatory-endpoint-title">Hemoglobin response rate</div>
                                 <div class="regulatory-endpoint-meta">
-                                    
+
                                     <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.72rem;">
                                         Accelerated
                                     </span>
-                                    
-                                    
+
+
                                     <span class="tag" style="background: #dcfce7; color: #166534; font-size: 0.72rem;">
                                         Reasonably Likely Surrogate Endpoint
                                     </span>
-                                    
+
                                 </div>
-                                
+
                                 <div style="margin-top: 5px; color: #4f46e5;">Patients with sickle cell disease</div>
-                                
+
                             </div>
-                            
+
                         </div>
-                        
-                        
-                        
-    
-    
+
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31199090" target="_blank">PMID:31199090</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The primary end point was the percentage of participants who had a hemoglobin response, which was defined as an increase of more than 1.0 g per deciliter from baseline at week 24 in the intention-to-treat analysis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This phase 3 SCD trial used hemoglobin response as a blood biomarker endpoint, supporting hemoglobin concentration as a clinically measured biomarker in SCD.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15998894" target="_blank">PMID:15998894</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"hemolysis contributes to reduced nitric oxide bioavailability and endothelial dysfunction via release of erythrocyte arginase, which limits arginine bioavailability, and release of erythrocyte hemoglobin, which scavenges nitric oxide."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Chronic hemolysis releases free hemoglobin, contributing to anemia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Reticulocytes
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Compensatory increased production</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Chronic Hemolysis</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Positive
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Monitoring
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Elevated reticulocytes reflect marrow response to red-cell destruction in chronic hemolysis.</div>
-                        
-                        
-                        
-                        
-    
-    
+
+
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16291595" target="_blank">PMID:16291595</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In a cohort of 213 patients with sickle cell disease, we found statistically significant associations of steady-state LDH with low levels of hemoglobin and haptoglobin and high levels of reticulocytes, bilirubin, plasma hemoglobin, aspartate aminotransferase, arginase, and soluble adhesion molecules."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This SCD cohort study supports elevated reticulocytes as part of the hemolysis-associated biomarker profile.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Bilirubin
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Indirect, from hemolysis</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Chronic Hemolysis</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Positive
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Monitoring
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Higher indirect bilirubin reflects heme catabolism from accelerated red-cell breakdown.</div>
-                        
-                        
-                        
-                        
-    
-    
+
+
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31199090" target="_blank">PMID:31199090</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"At week 24, the 1500-mg voxelotor group had significantly greater reductions from baseline in the indirect bilirubin level and percentage of reticulocytes than the placebo group."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This phase 3 SCD trial used indirect bilirubin as a hemolysis biomarker that changed with treatment.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     LDH
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Hemolysis marker</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Chronic Hemolysis</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Positive
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Prognostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Higher LDH reflects intravascular hemolysis and has been associated with hemolysis-linked vasculopathy risk.</div>
-                        
-                        
-                        
-                        
-    
-    
+
+
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16291595" target="_blank">PMID:16291595</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We hypothesized that serum LDH may represent a convenient biomarker of intravascular hemolysis and NO bioavailability, characterizing a clinical subphenotype of hemolysis-associated vasculopathy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This human SCD cohort paper directly evaluates serum LDH as a biomarker of intravascular hemolysis and nitric-oxide bioavailability.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     HbS
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Present)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Greater than 50% on hemoglobin electrophoresis</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Correlates With
                         </span>
                         <span class="readout-target">Hemoglobin Polymerization</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Threshold Dependent
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Diagnostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">HbS fraction identifies the polymerizing hemoglobin substrate; risk depends on genotype, oxygenation, concentration, and modifying hemoglobins.</div>
-                        
-                        
-                        
-                        
-    
-    
+
+
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31199090" target="_blank">PMID:31199090</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Deoxygenated sickle hemoglobin (HbS) polymerization drives the pathophysiology of sickle cell disease. Therefore, direct inhibition of HbS polymerization has potential to favorably modify disease outcomes. Voxelotor is an HbS polymerization inhibitor."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This phase 3 SCD trial frames HbS polymerization as the proximal disease biochemical process targeted by therapy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Fetal Hemoglobin
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Variable)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Higher HbF modifies SCD severity and is induced by therapies such as hydroxyurea.</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Correlates With
                         </span>
                         <span class="readout-target">Hemoglobin Polymerization</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Negative
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Pharmacodynamic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Higher HbF is associated with reduced HbS polymerization and can serve as a pharmacodynamic readout for HbF-inducing therapies.</div>
-                        
-                        
-                        
-                        
-    
-    
+
+
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18667698" target="_blank">PMID:18667698</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Interindividual variation in fetal hemoglobin (HbF) expression is a known and potentially heritable modifier of SCD severity. High HbF levels are correlated with reduced morbidity and mortality."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This human genetic association study supports HbF level as a clinically meaningful modifier biomarker in SCD.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7715639" target="_blank">PMID:7715639</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In a previous open-label study of hydroxyurea therapy, the synthesis of fetal hemoglobin increased in most patients with sickle cell anemia, with only mild myelotoxicity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This sickle-cell anemia trial background supports HbF induction as a treatment-linked biomarker.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -7642,239 +7858,239 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">12</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1001/jama.2008.598" target="_blank">DOI:10.1001/jama.2008.598</a>
                             </div>
-                            
+
                             <div class="reference-title">Evolution of Novel Small-Molecule Therapeutics Targeting Sickle Cell Vasculopathy</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1001/jama.294.1.81" target="_blank">DOI:10.1001/jama.294.1.81</a>
                             </div>
-                            
+
                             <div class="reference-title">Dysregulated Arginine Metabolism, Hemolysis-Associated Pulmonary Hypertension, and Mortality in Sickle Cell Disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s00277-025-06216-1" target="_blank">DOI:10.1007/s00277-025-06216-1</a>
                             </div>
-                            
+
                             <div class="reference-title">A review on disease modifying pharmacologic therapies for sickle cell disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.bvth.2024.100015" target="_blank">DOI:10.1016/j.bvth.2024.100015</a>
                             </div>
-                            
+
                             <div class="reference-title">Targeting the P-selectin/PSGL-1 pathway: discovery of disease-modifying therapeutics for disorders of thromboinflammation</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1056/nejmoa2309676" target="_blank">DOI:10.1056/nejmoa2309676</a>
                             </div>
-                            
+
                             <div class="reference-title">Exagamglogene Autotemcel for Severe Sickle Cell Disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1080/17474086.2017.1327809" target="_blank">DOI:10.1080/17474086.2017.1327809</a>
                             </div>
-                            
+
                             <div class="reference-title">Heme-mediated cell activation: the inflammatory puzzle of sickle cell anemia</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1182/blood-2013-04-495887" target="_blank">DOI:10.1182/blood-2013-04-495887</a>
                             </div>
-                            
+
                             <div class="reference-title">Heme triggers TLR4 signaling leading to endothelial cell activation and vaso-occlusion in murine sickle cell disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1182/blood-2013-10-529982" target="_blank">DOI:10.1182/blood-2013-10-529982</a>
                             </div>
-                            
+
                             <div class="reference-title">Heme-induced neutrophil extracellular traps contribute to the pathogenesis of sickle cell disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1182/hematology.2023000467" target="_blank">DOI:10.1182/hematology.2023000467</a>
                             </div>
-                            
+
                             <div class="reference-title">Pyruvate kinase activators: targeting red cell metabolism in sickle cell disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fphys.2024.1369120" target="_blank">DOI:10.3389/fphys.2024.1369120</a>
                             </div>
-                            
+
                             <div class="reference-title">Impact of intravascular hemolysis on functional and molecular alterations in the urinary bladder: implications for an overactive bladder in sickle cell disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fphys.2024.1474569" target="_blank">DOI:10.3389/fphys.2024.1474569</a>
                             </div>
-                            
+
                             <div class="reference-title">Therapeutics for sickle cell disease intravascular hemolysis</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/jcm13216404" target="_blank">DOI:10.3390/jcm13216404</a>
                             </div>
-                            
+
                             <div class="reference-title">The Current Role of Hydroxyurea in the Treatment of Sickle Cell Anemia</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Disorder</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h3>Disorder</h3>
 <ul>
@@ -7910,29 +8126,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Pathophysiology description (current understanding)</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">34 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2025-12-18T00:11:07.717394</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Pathophysiology description (current understanding)
 SCD arises from a single missense variant in HBB (β6 Glu→Val) that promotes deoxygenated hemoglobin S (HbS) polymerization, driving red cell sickling, membrane injury, ion dysregulation, dehydration, and premature hemolysis. Intravascular hemolysis releases cell-free hemoglobin, heme, and erythrocyte arginase-1, which together mediate nitric oxide (NO) depletion, oxidative stress, endothelial activation, sterile inflammation, and a thromboinflammatory vasculopathy characterized by multicellular adhesion and vaso-occlusion. Hemolysis-derived heme triggers endothelial TLR4 signaling that rapidly releases Weibel–Palade body cargo (P-selectin and von Willebrand factor [VWF]), enhancing leukocyte rolling/adhesion and microvascular stasis. Heme and oxidized hemoglobin promote neutrophil extracellular traps (NETs), while emerging data implicate mast cell extracellular traps (MCETs) in neural and vascular injury that can exacerbate pain. These axes—HbS polymerization/sickling, hemolysis/NO depletion, adhesion/vaso-occlusion, and thromboinflammation—interact to cause acute crises (pain, acute chest) and chronic organ damage (pulmonary hypertension, renal and cerebrovascular disease). Foundational and recent studies support these mechanisms and identify therapeutic entry points, including HbF induction, heme scavenging, selectin blockade, metabolic modulation of red cells (PK activators), and gene editing that reactivates HbF. (ilboudo2022multiomicsapproachesto pages 20-24, belcher2014hemetriggerstlr4 pages 6-9, chen2014hemeinducedneutrophilextracellular pages 1-2, guarda2017hememediatedcellactivation pages 1-5)</p>
@@ -8132,11 +8348,11 @@ SCD arises from a single missense variant in HBB (β6 Glu→Val) that promotes d
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

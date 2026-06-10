@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Thomsen and Becker disease</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0009710" target="_blank">
                         MONDO:0009710
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hereditary disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">channelopathy</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Thomsen and Becker disease refers to autosomal dominant and autosomal recessive forms of myotonia congenita caused by pathogenic CLCN1 variants. Reduced chloride conductance in skeletal muscle causes membrane hyperexcitability with delayed muscle relaxation, stiffness, transient weakness, and in some patients marked muscle hypertrophy. Becker disease is generally more severe than Thomsen disease.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,34 +3065,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3030,8 +3100,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3039,9 +3109,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3049,10 +3119,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3060,8 +3130,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3069,8 +3139,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3078,8 +3148,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3087,8 +3157,8 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#differentials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔀</div>
@@ -3096,12 +3166,12 @@
                 <div class="stat-label">Differentials</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3109,8 +3179,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3118,775 +3188,856 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal dominant Thomsen disease
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Thomsen disease is the dominant CLCN1-related form. Most affected individuals have an affected parent, but variant-level prediction can be difficult because some CLCN1 variants are reported with both dominant and recessive inheritance.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Autosomal dominant inheritance: The majority of individuals diagnosed with autosomal dominant myotonia congenita have an affected parent."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports dominant inheritance and counseling expectations for Thomsen disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive Becker disease
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Becker disease is the recessive CLCN1-related form. When both parents are carriers, each pregnancy has a 25% chance of an affected child, a 50% chance of a heterozygous carrier, and a 25% chance of inheriting neither familial variant.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Autosomal recessive inheritance: If both parents are known to be heterozygous for a CLCN1 pathogenic variant, each sib of an affected individual has at conception a 25% chance of being affected"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports recessive inheritance and recurrence-risk counseling for Becker disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Variant-level mode can be ambiguous
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Some CLCN1 variants have been associated with both dominant and recessive disease, so segregation, zygosity, and parental phenotype should be used when assigning inheritance in a simplex case.</div>
-                
-                
-    
-    
-    
-    
-                
-    
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"the same pathogenic variant may be associated with both autosomal dominant and autosomal recessive inheritance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Captures the GeneReviews caution that the mode of inheritance may not be predictable from the variant alone.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">2</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Thomsen disease (autosomal dominant myotonia congenita)
-                        
+
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0008055" target="_blank">MONDO:0008055</a>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 CLCN1
-                                
-                                <a href="https://bioregistry.io/hgnc:2019" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2019" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2019">hgnc:2019</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                            
+
+
+
+
                             <span class="subtype-inheritance-tag">Autosomal dominant inheritance</span>
-                            
-                        
-                        
-                        
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal dominant myotonia congenita, typically milder than Becker disease and usually beginning in infancy or early childhood.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Myotonia congenita is inherited in either an autosomal recessive (Becker disease) or an autosomal dominant (Thomsen disease) manner"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies Thomsen disease as the autosomal dominant form of CLCN1-related myotonia congenita.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Becker disease (autosomal recessive myotonia congenita)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                            
+
+
+
                             <span class="subtype-gene-tag">
                                 CLCN1
-                                
-                                <a href="https://bioregistry.io/hgnc:2019" target="_blank" class="linkout">link</a>
-                                
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2019" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2019">hgnc:2019</a>
+
+
+
                             </span>
-                            
-                        
-                        
-                            
+
+
+
+
                             <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
-                            
-                        
-                        
-                        
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Autosomal recessive myotonia congenita, typically more severe than Thomsen disease, with later average onset, transient weakness after rest, and possible progressive distal weakness.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Myotonia congenita is inherited in either an autosomal recessive (Becker disease) or an autosomal dominant (Thomsen disease) manner"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies Becker disease as the autosomal recessive form of CLCN1-related myotonia congenita.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clcn1-chloride-channel-dysfunction">
                 <div class="item-name">CLCN1 chloride channel dysfunction</div>
-                
+
                 <div class="item-desc">Pathogenic CLCN1 variants reduce skeletal muscle chloride channel function and impair stabilization of the resting membrane potential.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         skeletal muscle fiber
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        CLCN1
-                        
-                        <a href="https://bioregistry.io/hgnc:2019" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CLCN1
+
+
+    <a href="https://bioregistry.io/hgnc:2019" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2019">hgnc:2019</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         chloride transport
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006821" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006821" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006821">GO:0006821</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Skeletal muscle membrane hyperexcitability</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced chloride conductance increases repetitive muscle fiber firing.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37355912" target="_blank">PMID:37355912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Myotonia congenita is the most common form of nondystrophic myotonia and is caused by Mendelian inherited mutations in the CLCN1 gene encoding the voltage-gated chloride channel of skeletal muscle."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports CLCN1 chloride-channel dysfunction in skeletal muscle as the initiating lesion.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-membrane-hyperexcitability">
                 <div class="item-name">Skeletal muscle membrane hyperexcitability</div>
-                
+
                 <div class="item-desc">Hyperexcitable muscle fibers continue to discharge after voluntary contraction or percussion.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         skeletal muscle fiber
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         regulation of membrane potential
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042391">GO:0042391</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Delayed muscle relaxation</span>
-	                            
+
 	                            <span class="crosslink-desc">Delayed relaxation is the direct clinical expression of membrane hyperexcitability.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Activity-related muscle stiffness</span>
-	                            
+
 	                            <span class="crosslink-desc">Repetitive muscle firing produces stiffness, especially after rest.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37355912" target="_blank">PMID:37355912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Myotonia congenita is the most common form of nondystrophic myotonia and is caused by Mendelian inherited mutations in the CLCN1 gene encoding the voltage-gated chloride channel of skeletal muscle."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract directly supports skeletal muscle myotonia caused by CLCN1, while membrane hyperexcitability is the accepted mechanistic interpretation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-muscle-relaxation">
                 <div class="item-name">Delayed muscle relaxation</div>
-                
+
                 <div class="item-desc">Persistent muscle firing after contraction produces clinically evident myotonia.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         skeletal muscle fiber
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-activity-related-muscle-stiffness">
                 <div class="item-name">Activity-related muscle stiffness</div>
-                
+
                 <div class="item-desc">Hyperexcitable muscle fibers produce stiffness that is often worst after rest and improves with repeated movement.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         skeletal muscle fiber
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3897,511 +4048,526 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activity-related muscle stiffness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable muscle fibers produce stiffness that is often worst after rest and improves with repeated movement.\", \"meta\": {\"cell_types\": [\"skeletal muscle fiber\"]}}, {\"id\": \"CLCN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CLCN1\"], \"association\": \"Causal dominant or recessive pathogenic variant causing myotonia congenita\"}}, {\"id\": \"CLCN1 chloride channel dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic CLCN1 variants reduce skeletal muscle chloride channel function and impair stabilization of the resting membrane potential.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"chloride transport\"], \"genes\": [\"CLCN1\"]}}, {\"id\": \"Carbamazepine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carbamazepine is also used for symptomatic control of myotonia in some patients.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carbamazepine\"]}}, {\"id\": \"Delayed muscle relaxation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent muscle firing after contraction produces clinically evident myotonia.\", \"meta\": {\"cell_types\": [\"skeletal muscle fiber\"]}}, {\"id\": \"Lamotrigine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lamotrigine is an alternative sodium-channel blocker for symptomatic reduction of myotonia and is particularly relevant when mexiletine is unavailable, poorly tolerated, or not preferred.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"lamotrigine\"]}}, {\"id\": \"Mexiletine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel blocking therapy with mexiletine has randomized-trial and aggregated N-of-1 evidence for reducing stiffness in nondystrophic myotonia. Cardiac contraindications and QTc/conduction risk should be reviewed before and during treatment.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"mexiletine\"]}}, {\"id\": \"Muscle stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stiffness is often most prominent after rest and improves with repeated movement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003552\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient weakness after rest and minor progressive distal weakness are especially associated with the recessive Becker form.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Becker disease\"], \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed relaxation after contraction is the defining clinical feature and is often improved by repeated contractions.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002486\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Stretching, conditioning, and practical mobility strategies help patients manage stiffness and weakness.\"}, {\"id\": \"Skeletal muscle membrane hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable muscle fibers continue to discharge after voluntary contraction or percussion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"regulation of membrane potential\"]}}], \"edges\": [{\"source\": \"CLCN1 chloride channel dysfunction\", \"target\": \"Skeletal muscle membrane hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced chloride conductance increases repetitive muscle fiber firing.\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Delayed muscle relaxation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed relaxation is the direct clinical expression of membrane hyperexcitability.\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Activity-related muscle stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repetitive muscle firing produces stiffness, especially after rest.\"}, {\"source\": \"Mexiletine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lamotrigine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Carbamazepine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Muscle stiffness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CLCN1\", \"target\": \"CLCN1 chloride channel dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activity-related muscle stiffness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable muscle fibers produce stiffness that is often worst after rest and improves with repeated movement.\", \"meta\": {\"cell_types\": [\"skeletal muscle fiber\"]}}, {\"id\": \"CLCN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CLCN1\"], \"gene_terms\": [{\"label\": \"CLCN1\", \"id\": \"hgnc:2019\"}], \"association\": \"Causal dominant or recessive pathogenic variant causing myotonia congenita\"}}, {\"id\": \"CLCN1 chloride channel dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic CLCN1 variants reduce skeletal muscle chloride channel function and impair stabilization of the resting membrane potential.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"chloride transport\"], \"genes\": [\"CLCN1\"], \"gene_terms\": [{\"label\": \"CLCN1\", \"id\": \"hgnc:2019\"}]}}, {\"id\": \"Carbamazepine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carbamazepine is also used for symptomatic control of myotonia in some patients.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carbamazepine\"]}}, {\"id\": \"Delayed muscle relaxation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent muscle firing after contraction produces clinically evident myotonia.\", \"meta\": {\"cell_types\": [\"skeletal muscle fiber\"]}}, {\"id\": \"Lamotrigine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lamotrigine is an alternative sodium-channel blocker for symptomatic reduction of myotonia and is particularly relevant when mexiletine is unavailable, poorly tolerated, or not preferred.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"lamotrigine\"]}}, {\"id\": \"Mexiletine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel blocking therapy with mexiletine has randomized-trial and aggregated N-of-1 evidence for reducing stiffness in nondystrophic myotonia. Cardiac contraindications and QTc/conduction risk should be reviewed before and during treatment.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"mexiletine\"]}}, {\"id\": \"Muscle stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stiffness is often most prominent after rest and improves with repeated movement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003552\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient weakness after rest and minor progressive distal weakness are especially associated with the recessive Becker form.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Becker disease\"], \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed relaxation after contraction is the defining clinical feature and is often improved by repeated contractions.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002486\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Stretching, conditioning, and practical mobility strategies help patients manage stiffness and weakness.\"}, {\"id\": \"Skeletal muscle membrane hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable muscle fibers continue to discharge after voluntary contraction or percussion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"regulation of membrane potential\"]}}], \"edges\": [{\"source\": \"CLCN1 chloride channel dysfunction\", \"target\": \"Skeletal muscle membrane hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced chloride conductance increases repetitive muscle fiber firing.\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Delayed muscle relaxation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed relaxation is the direct clinical expression of membrane hyperexcitability.\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Activity-related muscle stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repetitive muscle firing produces stiffness, especially after rest.\"}, {\"source\": \"Mexiletine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lamotrigine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Carbamazepine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Muscle stiffness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CLCN1\", \"target\": \"CLCN1 chloride channel dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">5</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Metabolism<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Elevated circulating creatine kinase concentration
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank">
-                            Elevated circulating creatine kinase concentration
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003236)</span>
-                        </span>
-                        
+                        Elevated circulating creatine kinase concentration
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003236">HP:0003236</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35170402" target="_blank">PMID:35170402</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The proportion of abnormal CK levels (4/5) was higher than data from literature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports abnormal CK as a reported supportive laboratory finding in myotonia congenita.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Myotonia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank">
-                            Myotonia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002486)</span>
-                        </span>
-                        
+                        Myotonia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002486">HP:0002486</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37355912" target="_blank">PMID:37355912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Myotonia congenita is the most common form of nondystrophic myotonia and is caused by Mendelian inherited mutations in the CLCN1 gene encoding the voltage-gated chloride channel of skeletal muscle."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports myotonia as the defining clinical phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Stiffness is relieved by repeated contractions of the muscle (the &#34;warm-up&#34; phenomenon)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the characteristic warm-up phenomenon in myotonia congenita.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Muscle stiffness
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank">
-                            Muscle stiffness
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003552)</span>
-                        </span>
-                        
+                        Muscle stiffness
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003552">HP:0003552</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Myotonia congenita is characterized by muscle stiffness present from childhood"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes muscle stiffness as a core childhood-onset feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
+
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (2)
         </summary>
-        
+
         <div class="context-card">
             <div class="context-header">
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <span class="context-label context-label-subtype">Thomsen disease</span>
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
                 <span class="context-onset">Onset: INFANTILE</span>
-                
-                
-                
+
+
+
                 <span class="context-severity">MILD</span>
-                
+
             </div>
-            
-            
+
+
             <div class="context-notes">Thomsen disease is usually milder than Becker disease and commonly starts in infancy or early childhood.</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The age of onset varies: in AD myotonia congenita onset is usually in infancy or early childhood"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports early onset for the Thomsen subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
         <div class="context-card">
             <div class="context-header">
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <span class="context-label context-label-subtype">Becker disease</span>
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
                 <span class="context-onset">Onset: JUVENILE</span>
-                
-                
-                
+
+
+
                 <span class="context-severity">SEVERE</span>
-                
+
             </div>
-            
-            
+
+
             <div class="context-notes">Becker disease has a slightly later average onset and more severe manifestations than Thomsen disease.</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"in AR myotonia congenita the average age of onset is slightly older."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports the slightly later average onset of the recessive Becker subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </details>
-    
-    
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Muscle weakness
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank">
-                            Muscle weakness
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001324)</span>
-                        </span>
-                        
+                        Muscle weakness
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"progressive minor distal weakness and attacks of transient weakness brought on by movement after rest"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports subtype-specific transient and distal weakness in Becker disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Muscle hypertrophy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank">
-                            Skeletal muscle hypertrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003712)</span>
-                        </span>
-                        
+                        Skeletal muscle hypertrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003712">HP:0003712</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Muscles are usually hypertrophic."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports skeletal muscle hypertrophy as a common feature of myotonia congenita.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4426,799 +4592,887 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CLCN1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal dominant or recessive pathogenic variant causing myotonia congenita)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant Thomsen disease</span>
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive Becker disease</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CLCN1
+
+
+    <a href="https://bioregistry.io/hgnc:2019" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2019">hgnc:2019</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant Thomsen disease</span>
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive Becker disease</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37355912" target="_blank">PMID:37355912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Myotonia congenita is the most common form of nondystrophic myotonia and is caused by Mendelian inherited mutations in the CLCN1 gene encoding the voltage-gated chloride channel of skeletal muscle."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports CLCN1 as the causal gene for Thomsen and Becker disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Myotonia-Aggravating Drug Precautions
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Anesthesia and drug precautions</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Several agents can aggravate myotonia in CLCN1-related myotonia congenita and should be avoided or used with caution, especially during anesthesia.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Depolarizing muscle relaxants (e.g., suxamethonium), adrenaline, beta-adrenergic agonists, and propranolol may aggravate myotonia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies these agents as myotonia-aggravating and therefore to be avoided in myotonia congenita.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Mexiletine therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         mexiletine
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_6916" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6916" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6916">CHEBI:6916</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Sodium-channel blocking therapy with mexiletine has randomized-trial and aggregated N-of-1 evidence for reducing stiffness in nondystrophic myotonia. Cardiac contraindications and QTc/conduction risk should be reviewed before and during treatment.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myotonia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002486">HP:0002486</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Muscle stiffness may respond to sodium channel blockers such as mexiletine (currently the medication with best documented effect)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies mexiletine as the best-documented symptomatic medication for myotonia congenita.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23032552" target="_blank">PMID:23032552</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mexiletine was associated with significantly improved stiffness as reported on the IVR in both treatment periods."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports mexiletine efficacy for stiffness in a randomized controlled crossover trial of nondystrophic myotonia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30535218" target="_blank">PMID:30535218</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"mexiletine resulted in a 100% posterior probability of reaching a clinically meaningful reduction in self-reported muscle stiffness for the nondystrophic myotonia group overall and the CLCN1 genotype subgroup"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms mexiletine benefit in aggregated N-of-1 trials including the CLCN1 genotype subgroup.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Mexiletine cardiac safety screening
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">electrocardiography</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000900" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000900</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000900" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000900">MAXO:0000900</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Before and during mexiletine treatment, clinicians should screen for QTc, conduction, cardiac, hepatic, and renal contraindications because mexiletine is an antiarrhythmic sodium-channel blocker.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23032552" target="_blank">PMID:23032552</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Participants were ineligible if they has specific contraindications to taking mexiletine (cardiac conduction defects, hepatic or renal disease, or heart failure)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports screening for cardiac and organ contraindications before mexiletine treatment.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23032552" target="_blank">PMID:23032552</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Of 62 participants recruited, 3 were ineligible: 1 had a prolonged QTc at screening visit"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports QTc screening as part of mexiletine safety assessment.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Lamotrigine therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000058">MAXO:0000058</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         lamotrigine
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_6367" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6367" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6367">CHEBI:6367</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Lamotrigine is an alternative sodium-channel blocker for symptomatic reduction of myotonia and is particularly relevant when mexiletine is unavailable, poorly tolerated, or not preferred.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myotonia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002486">HP:0002486</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29050397" target="_blank">PMID:29050397</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lamotrigine effectively reduced myotonia, emphasized by consistency between effects on patient-related outcomes and objective outcomes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports lamotrigine efficacy in a randomized placebo-controlled crossover trial that included genetically confirmed myotonia congenita.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29050397" target="_blank">PMID:29050397</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we suggest that lamotrigine should be used as the first line of treatment for myotonia in treatment-naive patients with non-dystrophic myotonias."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Captures the trial authors&#39; first-line recommendation for treatment-naive nondystrophic myotonia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39304240" target="_blank">PMID:39304240</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lamotrigine is an important treatment consideration in non-dystrophic myotonias alongside mexiletine"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The head-to-head trial did not prove formal non-inferiority but supports lamotrigine as an important clinical treatment consideration.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Carbamazepine therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         carbamazepine
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3387">CHEBI:3387</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Carbamazepine is also used for symptomatic control of myotonia in some patients.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myotonia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002486">HP:0002486</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37355912" target="_blank">PMID:37355912</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Carbamazepine (46.3%), mexiletine (27.8%), phenytoin (9.3%) were preferred for treatment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports carbamazepine as a common symptomatic treatment option in the cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Physical therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">physical therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Stretching, conditioning, and practical mobility strategies help patients manage stiffness and weakness.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Muscle stiffness
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003552">HP:0003552</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Muscle weakness
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Creatine kinase
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Abnormal or mildly elevated in some patients)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Serum CK is a supportive laboratory readout in suspected CLCN1-related myotonia congenita, but it is not required for diagnosis and may be normal.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35170402" target="_blank">PMID:35170402</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The proportion of abnormal CK levels (4/5) was higher than data from literature."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Documents abnormal CK levels in a myotonia congenita series.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
         <div class="card" id="differentials">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
@@ -5228,388 +5482,388 @@
             <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
                 Conditions with similar clinical presentations that must be differentiated from Thomsen and Becker disease:
             </p>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <span class="missing-disease-name" title="No Dismech page yet for this disease">paramyotonia congenita of Von Eulenburg</span>
                     <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0008195" target="_blank" class="missing-ontology-link">
                             MONDO:0008195
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Sodium channel myotonias overlap clinically but typically show cold sensitivity and paradoxical worsening.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>Cold-triggered and exercise-worsened myotonia favor paramyotonia congenita.</li>
-                        
+
                         <li>SCN4A rather than CLCN1 variants support the sodium-channel diagnosis.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23032552" target="_blank">PMID:23032552</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Thirty-four participants had chloride channel mutations, 21 had sodium channel mutations, and 4 had no mutation identified."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports sodium-channel nondystrophic myotonias as clinically overlapping comparators to CLCN1-related myotonia congenita.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <a class="item-name-link" href="Myotonic_Dystrophy_Type_1.html">myotonic dystrophy type 1</a>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0008056" target="_blank">
                             MONDO:0008056
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     DM1 can present with clinical and electrical myotonia but is a multisystem repeat-expansion disorder with dystrophic/systemic features rather than isolated CLCN1 skeletal-muscle chloride-channel myotonia.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>DMPK CTG-repeat testing distinguishes DM1 from CLCN1-related disease.</li>
-                        
+
                         <li>Cataracts, cardiac conduction disease, endocrine features, and characteristic distal weakness favor DM1.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23032552" target="_blank">PMID:23032552</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Participants were either enrolled in the CINCH NDM Natural History Study, or a new patient with genetically confirmed NDM, or with clinical features of NDM but negative myotonic dystrophy DNA testing."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that myotonic dystrophy DNA testing is part of distinguishing nondystrophic myotonia from dystrophic myotonia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <span class="missing-disease-name" title="No Dismech page yet for this disease">myotonic dystrophy type 2</span>
                     <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0011266" target="_blank" class="missing-ontology-link">
                             MONDO:0011266
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     DM2 is another repeat-expansion myotonic dystrophy that can overlap with nondystrophic myotonia but usually includes proximal weakness, pain, cataract risk, and multisystem manifestations.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>CNBP CCTG-repeat testing distinguishes DM2 from CLCN1-related disease.</li>
-                        
+
                         <li>Proximal weakness, cataracts, and multisystem findings favor DM2.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23032552" target="_blank">PMID:23032552</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Participants were either enrolled in the CINCH NDM Natural History Study, or a new patient with genetically confirmed NDM, or with clinical features of NDM but negative myotonic dystrophy DNA testing."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports explicitly excluding myotonic dystrophy when diagnosing nondystrophic CLCN1-related myotonia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <span class="missing-disease-name" title="No Dismech page yet for this disease">potassium-aggravated myotonia</span>
                     <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0018959" target="_blank" class="missing-ontology-link">
                             MONDO:0018959
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Potassium-aggravated myotonia is an SCN4A sodium-channel nondystrophic myotonia that can mimic CLCN1 disease but is worsened by potassium exposure.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>Potassium-triggered painful myotonia and SCN4A variants favor this diagnosis.</li>
-                        
+
                         <li>Absence of the classic CLCN1 inheritance pattern argues against Thomsen/Becker disease.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39304240" target="_blank">PMID:39304240</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Non-dystrophic myotonias are skeletal muscle channelopathies caused by ion channel dysfunction."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports sodium-channel nondystrophic myotonias as mechanistically related differentials within the channelopathy group.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <span class="missing-disease-name" title="No Dismech page yet for this disease">hyperkalemic periodic paralysis</span>
                     <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0008224" target="_blank" class="missing-ontology-link">
                             MONDO:0008224
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Hyperkalemic periodic paralysis is an SCN4A skeletal-muscle channelopathy that may include myotonia but is dominated by episodic weakness/paralysis.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>Episodic paralytic attacks with potassium sensitivity favor hyperkalemic periodic paralysis.</li>
-                        
+
                         <li>Persistent warm-up myotonia without paralytic attacks favors Thomsen/Becker disease.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23032552" target="_blank">PMID:23032552</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Thirty-four participants had chloride channel mutations, 21 had sodium channel mutations, and 4 had no mutation identified."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports sodium-channel channelopathies as a key genetic differential when evaluating nondystrophic myotonia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6545,169 +6799,169 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">7</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301529" target="_blank">PMID:20301529</a>
                             </div>
-                            
+
                             <div class="reference-title">Myotonia Congenita.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/23032552" target="_blank">PMID:23032552</a>
                             </div>
-                            
+
                             <div class="reference-title">Mexiletine for symptoms and signs of myotonia in nondystrophic myotonia: a randomized controlled trial.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/30535218" target="_blank">PMID:30535218</a>
                             </div>
-                            
+
                             <div class="reference-title">Effect of Mexiletine on Muscle Stiffness in Patients With Nondystrophic Myotonia Evaluated Using Aggregated N-of-1 Trials.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/29050397" target="_blank">PMID:29050397</a>
                             </div>
-                            
+
                             <div class="reference-title">The antimyotonic effect of lamotrigine in non-dystrophic myotonias: a double-blind randomized study.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/39304240" target="_blank">PMID:39304240</a>
                             </div>
-                            
+
                             <div class="reference-title">Mexiletine versus lamotrigine in non-dystrophic myotonias: a randomised, double-blind, head-to-head, crossover, non-inferiority, phase 3 trial.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/35170402" target="_blank">PMID:35170402</a>
                             </div>
-                            
+
                             <div class="reference-title">Clinical and molecular characteristics of myotonia congenita in China: Case series and a literature review.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/33092578" target="_blank">PMID:33092578</a>
                             </div>
-                            
+
                             <div class="reference-title">Recessive myotonia congenita caused by a homozygous splice site variant in CLCN1 gene: a case report.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Thomsen and Becker disease. Core disease mechanisms, molecular and cellula...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-13T13:49:48.346616</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Thomsen and Becker disease. Core disease mechanisms, molecular and cellula...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -7056,11 +7310,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
