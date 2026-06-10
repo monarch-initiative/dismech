@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Vulvar Adenocarcinoma</h1>
             <div class="header-meta">
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0024336" target="_blank">
                         MONDO:0024336
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">vulvar glandular neoplasm</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">vulvar carcinoma</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">adenocarcinoma</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Vulvar adenocarcinoma is a rare, heterogeneous group of gland-forming vulvar epithelial malignancies. Important adenocarcinoma-related entities include Bartholin gland adenocarcinoma, intestinal-type vulvar adenocarcinoma, mammary gland type adenocarcinoma, and invasive or Paget-associated extramammary Paget disease. Because adenocarcinoma subtypes are uncommon, diagnosis and management rely on subtype-directed pathology plus broader vulvar cancer staging and treatment principles.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,33 +3065,33 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
+
+
             <a class="stat-link" href="#definitions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📘</div>
@@ -3029,9 +3099,9 @@
                 <div class="stat-label">Definitions</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3039,9 +3109,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3049,10 +3119,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3060,8 +3130,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3069,8 +3139,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3078,8 +3148,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3087,14 +3157,14 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3102,1223 +3172,1373 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
         <div class="card" id="definitions">
             <div class="card-header">
                 <div class="card-icon" style="background: #cffafe; color: #0e7490;">📘</div>
                 <h2 class="card-title">Definitions</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box definition-box">
                 <div class="item-name">Clinicopathologic definition</div>
-                
+
                 <div class="item-desc">A primary vulvar malignant epithelial tumor with glandular differentiation, diagnosed by biopsy and histopathology, with subtype-specific immunohistochemistry used to distinguish primary vulvar origin from metastatic gastrointestinal, breast, urothelial, or other primaries.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-classification">CASE_DEFINITION</span>
-                    
-                    
+
+
                     <span class="tag tag-parent">Gynecologic oncology and surgical pathology definition</span>
-                    
+
                 </div>
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-    
-    
-                
-                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38503056" target="_blank">PMID:38503056</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Rarer histologies exist and include melanoma, extramammary Paget&#39;s disease, Bartholin gland adenocarcinoma, verrucous carcinoma, basal cell carcinoma, and sarcoma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The NCCN guideline recognizes Bartholin gland adenocarcinoma and extramammary Paget disease among rare vulvar cancer histologies that need subtype-aware management.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36291953" target="_blank">PMID:36291953</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"To confirm vulvar origin, a thorough diagnostic, and radiological examination is required to rule out other primary malignancies."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports the need to exclude metastatic or non-vulvar primaries when diagnosing intestinal-type vulvar adenocarcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">4</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-            
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="classification-header">histologic</div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Intestinal-type vulvar adenocarcinoma
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">A rare sporadic vulvar carcinoma with intestinal differentiation, commonly resembling mucinous colorectal carcinoma and requiring exclusion of a colorectal or other gastrointestinal primary.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36291953" target="_blank">PMID:36291953</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Intestinal-type adenocarcinoma (VAIt) represents a sporadic variant of vulvar carcinoma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly defines VAIt as a vulvar adenocarcinoma subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Vulvar adenocarcinoma of mammary gland type
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">A very rare vulvar adenocarcinoma with mammary-like morphology or immunophenotype; diagnosis can require breast-carcinoma mimicry assessment and exclusion of metastatic breast carcinoma.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35672058" target="_blank">PMID:35672058</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Adenocarcinoma of mammary gland type (AMGT) of the vulva is extremely rare and its aetiopathogenesis is not fully understood."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This case-report paper defines AMGT as an extremely rare vulvar adenocarcinoma entity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Invasive or Paget-associated vulvar adenocarcinoma
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Extramammary Paget disease of the vulva is an adenocarcinoma-related vulvar entity that can remain intraepithelial, become invasive, or be associated with an underlying adenocarcinoma, with HER2-positive metastatic examples reported.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38831459" target="_blank">PMID:38831459</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Extramammary Paget&#39;s disease (EMPD) is a rare cancer that occurs within the epithelium of the skin, arising predominantly in areas with high apocrine gland concentration such as the vulva, scrotum, penis and perianal regions."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports EMPD as a rare apocrine-rich skin cancer involving the vulva and related to the glandular vulvar cancer differential.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
-                
+
+
+
                 <div class="classification-header">anatomic and histologic</div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Bartholin gland adenocarcinoma
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">A Bartholin-region primary adenocarcinoma. Published Bartholin gland carcinoma cohorts are very small and are dominated by squamous carcinoma, so adenocarcinoma-specific evidence remains limited.</div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29406447" target="_blank">PMID:29406447</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"There were 12 squamous cell carcinomas (SCCs), including 1 SCC with transitional-like morphology and 1 papillary SCC, and 1 adenocarcinoma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This Bartholin gland carcinoma cohort included a Bartholin gland adenocarcinoma case, supporting the subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vulvar-glandular-epithelial-transformation">
                 <div class="item-name">Vulvar Glandular Epithelial Transformation</div>
-                
+
                 <div class="item-desc">Malignant transformation of glandular or secretory epithelial structures in the vulva produces a rare adenocarcinoma phenotype. Depending on anatomic origin and differentiation program, tumors may present as Bartholin gland, intestinal-type, mammary-like, or Paget-associated disease.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         vulvar glandular epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000066">CL:0000066</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         vulvar secretory epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000151" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000151" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000151">CL:0000151</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         epithelial cell proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050673">GO:0050673</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         vulva
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Subtype-Specific Differentiation Programs</span>
-	                            
+
 	                            <span class="crosslink-desc">The transformed glandular epithelium follows intestinal, mammary-like, Bartholin, or Paget-associated programs.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38503056" target="_blank">PMID:38503056</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Rarer histologies exist and include melanoma, extramammary Paget&#39;s disease, Bartholin gland adenocarcinoma, verrucous carcinoma, basal cell carcinoma, and sarcoma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">NCCN identifies Bartholin gland adenocarcinoma and EMPD as rare vulvar cancer histologies, supporting glandular subtype heterogeneity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-differentiation-program">
                 <div class="item-name">Intestinal Differentiation Program</div>
-                
+
                 <div class="item-desc">Intestinal-type vulvar adenocarcinoma resembles mucinous colonic carcinoma, probably arises from cloacal remnants or related intestinalized epithelium, and is supported by intestinal marker expression such as CK20 and CDX2.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         intestinalized vulvar glandular epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000066">CL:0000066</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         epithelial cell proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050673">GO:0050673</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         vulva
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Subtype-Directed Diagnostic Workup</span>
-	                            
+
 	                            <span class="crosslink-desc">Intestinal differentiation prompts CK20, CDX2, and CK7 immunohistochemistry and exclusion of a gastrointestinal primary.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36291953" target="_blank">PMID:36291953</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It appears frequently localized to epithelial glands in the vulvar region, and it probably derives from cloacal remnants persisting in the adult."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review supports a glandular vulvar location and proposed cloacal remnant origin for intestinal-type disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36291953" target="_blank">PMID:36291953</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The principal histological VAIt characteristic is that it resembles mucinous colonic carcinomas."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports intestinal or colorectal-like differentiation in VAIt.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mammary-like-carcinoma-program">
                 <div class="item-name">Mammary-Like Carcinoma Program</div>
-                
+
                 <div class="item-desc">Mammary gland type vulvar adenocarcinoma can show breast-carcinoma-like pathology or immunophenotype, making histopathology and breast-primary exclusion central to diagnosis.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         mammary-like vulvar glandular epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000066">CL:0000066</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         epithelial cell proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050673">GO:0050673</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         vulva
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Subtype-Directed Diagnostic Workup</span>
-	                            
+
 	                            <span class="crosslink-desc">Breast-carcinoma-like immunophenotype requires correlation with imaging and pathology to exclude metastatic breast carcinoma.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35672058" target="_blank">PMID:35672058</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Interestingly, it presented an immunophenotypical profile similar to triple-negative breast cancers, supporting the molecular similarities between vulvar AMGT and breast carcinomas."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports a mammary-like molecular and pathologic program in some AMGT cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-her2-positive-paget-associated-signaling">
                 <div class="item-name">HER2-Positive Paget-Associated Signaling</div>
-                
+
                 <div class="item-desc">Some invasive or metastatic EMPD cases show HER2-positive tumor cells and a copy-number landscape enriched for receptor tyrosine kinase, FGFR1, and TGF-beta signaling programs, creating a rationale for HER2-directed systemic treatment in selected advanced disease.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         apocrine-rich epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000066">CL:0000066</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        ERBB2
-                        
-                        <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                    <span class="tag tag-gene">
-                        FGFR1
-                        
-                        <a href="https://bioregistry.io/hgnc:3688" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ERBB2
+
+
+    <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3430">hgnc:3430</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FGFR1
+
+
+    <a href="https://bioregistry.io/hgnc:3688" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3688">hgnc:3688</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cell surface receptor protein tyrosine kinase signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007169" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007169" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007169">GO:0007169</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         transforming growth factor beta receptor signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         fibroblast growth factor receptor signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008543">GO:0008543</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         vulva
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">HER2-Directed Pharmacotherapy Response</span>
-	                            
+
 	                            <span class="crosslink-desc">HER2-positive metastatic EMPD can respond to HER2-directed systemic therapy in selected cases.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38831459" target="_blank">PMID:38831459</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Immunohistochemical staining on the scrotal wall tumor and bone marrow metastasis demonstrated HER2 overexpression."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This demonstrates HER2 overexpression in a metastatic EMPD tumor sample.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38831459" target="_blank">PMID:38831459</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Enrichment in pathways associated with transforming growth factor-beta (TGFβ) (FDR = 0.0376, Enrichment Ratio = 8.12) and fibroblast growth factor receptor (FGFR1) signaling (FDR = 0.0082, Enrichment Ratio = 2.3) was detected."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The pathway enrichment analysis supports TGF-beta and FGFR1 signaling as part of the metastatic EMPD molecular landscape.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subtype-directed-diagnostic-workup">
                 <div class="item-name">Subtype-Directed Diagnostic Workup</div>
-                
+
                 <div class="item-desc">Histology, immunohistochemistry, biopsy confirmation, imaging, and exclusion of other primary sites determine whether a glandular vulvar tumor is a primary vulvar adenocarcinoma subtype or metastasis.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Surgical Local Control</span>
-	                            
+
 	                            <span class="crosslink-desc">Subtype and stage guide local excision, nodal assessment, adjuvant treatment, and systemic therapy selection.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36291953" target="_blank">PMID:36291953</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Therefore, immunohistochemical workup, with different tumor markers including CK20, CDX2, and CK7 staining, is needed."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports immunohistochemistry as a central diagnostic step for intestinal-type vulvar adenocarcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35672058" target="_blank">PMID:35672058</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Histopathological patterns are considered essential for diagnosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports histopathology as essential for AMGT diagnosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="graph-warning">
                 <strong>Referential integrity issues (3):</strong>
                 <ul>
-                    
+
                     <li>Target &#39;Subtype-Specific Differentiation Programs&#39; (from &#39;Vulvar Glandular Epithelial Transformation&#39;) not found in named elements</li>
-                    
+
                     <li>Target &#39;HER2-Directed Pharmacotherapy Response&#39; (from &#39;HER2-Positive Paget-Associated Signaling&#39;) not found in named elements</li>
-                    
+
                     <li>Target &#39;Surgical Local Control&#39; (from &#39;Subtype-Directed Diagnostic Workup&#39;) not found in named elements</li>
-                    
-                    
+
+
                 </ul>
             </div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4329,335 +4549,347 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjuvant or Advanced-Disease Chemoradiation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Chemotherapy and radiation are used selectively for advanced, recurrent, or histology-specific vulvar cancers, with many adenocarcinoma decisions extrapolated from broader vulvar cancer evidence.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ERBB2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ERBB2\"], \"association\": \"HER2 overexpression in Paget-associated disease\"}}, {\"id\": \"FGFR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR1\"], \"association\": \"Pathway enrichment in HER2-positive metastatic EMPD\"}}, {\"id\": \"HER2-Directed Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"HER2-directed systemic therapy may be relevant in selected HER2-positive metastatic EMPD or Paget-associated adenocarcinoma settings.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"HER2-Directed Pharmacotherapy Response\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"HER2-Positive Paget-Associated Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some invasive or metastatic EMPD cases show HER2-positive tumor cells and a copy-number landscape enriched for receptor tyrosine kinase, FGFR1, and TGF-beta signaling programs, creating a rationale for HER2-directed systemic treatment in selected advanced disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"apocrine-rich epithelial cell\"], \"biological_processes\": [\"cell surface receptor protein tyrosine kinase signaling pathway\", \"transforming growth factor beta receptor signaling pathway\", \"fibroblast growth factor receptor signaling pathway\"], \"genes\": [\"ERBB2\", \"FGFR1\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Intestinal Differentiation Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intestinal-type vulvar adenocarcinoma resembles mucinous colonic carcinoma, probably arises from cloacal remnants or related intestinalized epithelium, and is supported by intestinal marker expression such as CK20 and CDX2.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinalized vulvar glandular epithelial cell\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Mammary-Like Carcinoma Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mammary gland type vulvar adenocarcinoma can show breast-carcinoma-like pathology or immunophenotype, making histopathology and breast-primary exclusion central to diagnosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mammary-like vulvar glandular epithelial cell\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Subtype-Directed Diagnostic Workup\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Histology, immunohistochemistry, biopsy confirmation, imaging, and exclusion of other primary sites determine whether a glandular vulvar tumor is a primary vulvar adenocarcinoma subtype or metastasis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Subtype-Specific Differentiation Programs\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Surgical Local Control\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Surgical Local Excision or Vulvectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgery is the principal local-control strategy for primary vulvar adenocarcinoma subtypes when technically feasible, with margin goals and nodal evaluation tailored to histology, size, and stage.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vulvar Glandular Epithelial Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant transformation of glandular or secretory epithelial structures in the vulva produces a rare adenocarcinoma phenotype. Depending on anatomic origin and differentiation program, tumors may present as Bartholin gland, intestinal-type, mammary-like, or Paget-associated disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vulvar glandular epithelial cell\", \"vulvar secretory epithelial cell\"], \"biological_processes\": [\"epithelial cell proliferation\", \"cell migration\"], \"locations\": [\"vulva\"]}}], \"edges\": [{\"source\": \"Vulvar Glandular Epithelial Transformation\", \"target\": \"Subtype-Specific Differentiation Programs\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"The transformed glandular epithelium follows intestinal, mammary-like, Bartholin, or Paget-associated programs.\"}, {\"source\": \"Intestinal Differentiation Program\", \"target\": \"Subtype-Directed Diagnostic Workup\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intestinal differentiation prompts CK20, CDX2, and CK7 immunohistochemistry and exclusion of a gastrointestinal primary.\"}, {\"source\": \"Mammary-Like Carcinoma Program\", \"target\": \"Subtype-Directed Diagnostic Workup\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Breast-carcinoma-like immunophenotype requires correlation with imaging and pathology to exclude metastatic breast carcinoma.\"}, {\"source\": \"HER2-Positive Paget-Associated Signaling\", \"target\": \"HER2-Directed Pharmacotherapy Response\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"HER2-positive metastatic EMPD can respond to HER2-directed systemic therapy in selected cases.\"}, {\"source\": \"Subtype-Directed Diagnostic Workup\", \"target\": \"Surgical Local Control\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Subtype and stage guide local excision, nodal assessment, adjuvant treatment, and systemic therapy selection.\"}, {\"source\": \"Surgical Local Excision or Vulvectomy\", \"target\": \"Vulvar Glandular Epithelial Transformation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjuvant or Advanced-Disease Chemoradiation\", \"target\": \"Vulvar Glandular Epithelial Transformation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HER2-Directed Pharmacotherapy\", \"target\": \"HER2-Positive Paget-Associated Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ERBB2\", \"target\": \"HER2-Positive Paget-Associated Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGFR1\", \"target\": \"HER2-Positive Paget-Associated Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"HER2-Directed Pharmacotherapy Response\", \"Subtype-Specific Differentiation Programs\", \"Surgical Local Control\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjuvant or Advanced-Disease Chemoradiation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Chemotherapy and radiation are used selectively for advanced, recurrent, or histology-specific vulvar cancers, with many adenocarcinoma decisions extrapolated from broader vulvar cancer evidence.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ERBB2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ERBB2\"], \"gene_terms\": [{\"label\": \"ERBB2\", \"id\": \"hgnc:3430\"}], \"association\": \"HER2 overexpression in Paget-associated disease\"}}, {\"id\": \"FGFR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR1\"], \"gene_terms\": [{\"label\": \"FGFR1\", \"id\": \"hgnc:3688\"}], \"association\": \"Pathway enrichment in HER2-positive metastatic EMPD\"}}, {\"id\": \"HER2-Directed Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"HER2-directed systemic therapy may be relevant in selected HER2-positive metastatic EMPD or Paget-associated adenocarcinoma settings.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"HER2-Directed Pharmacotherapy Response\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"HER2-Positive Paget-Associated Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some invasive or metastatic EMPD cases show HER2-positive tumor cells and a copy-number landscape enriched for receptor tyrosine kinase, FGFR1, and TGF-beta signaling programs, creating a rationale for HER2-directed systemic treatment in selected advanced disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"apocrine-rich epithelial cell\"], \"biological_processes\": [\"cell surface receptor protein tyrosine kinase signaling pathway\", \"transforming growth factor beta receptor signaling pathway\", \"fibroblast growth factor receptor signaling pathway\"], \"genes\": [\"ERBB2\", \"FGFR1\"], \"gene_terms\": [{\"label\": \"ERBB2\", \"id\": \"hgnc:3430\"}, {\"label\": \"FGFR1\", \"id\": \"hgnc:3688\"}], \"locations\": [\"vulva\"]}}, {\"id\": \"Intestinal Differentiation Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intestinal-type vulvar adenocarcinoma resembles mucinous colonic carcinoma, probably arises from cloacal remnants or related intestinalized epithelium, and is supported by intestinal marker expression such as CK20 and CDX2.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinalized vulvar glandular epithelial cell\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Mammary-Like Carcinoma Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mammary gland type vulvar adenocarcinoma can show breast-carcinoma-like pathology or immunophenotype, making histopathology and breast-primary exclusion central to diagnosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mammary-like vulvar glandular epithelial cell\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Subtype-Directed Diagnostic Workup\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Histology, immunohistochemistry, biopsy confirmation, imaging, and exclusion of other primary sites determine whether a glandular vulvar tumor is a primary vulvar adenocarcinoma subtype or metastasis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Subtype-Specific Differentiation Programs\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Surgical Local Control\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Surgical Local Excision or Vulvectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgery is the principal local-control strategy for primary vulvar adenocarcinoma subtypes when technically feasible, with margin goals and nodal evaluation tailored to histology, size, and stage.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vulvar Glandular Epithelial Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant transformation of glandular or secretory epithelial structures in the vulva produces a rare adenocarcinoma phenotype. Depending on anatomic origin and differentiation program, tumors may present as Bartholin gland, intestinal-type, mammary-like, or Paget-associated disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vulvar glandular epithelial cell\", \"vulvar secretory epithelial cell\"], \"biological_processes\": [\"epithelial cell proliferation\", \"cell migration\"], \"locations\": [\"vulva\"]}}], \"edges\": [{\"source\": \"Vulvar Glandular Epithelial Transformation\", \"target\": \"Subtype-Specific Differentiation Programs\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"The transformed glandular epithelium follows intestinal, mammary-like, Bartholin, or Paget-associated programs.\"}, {\"source\": \"Intestinal Differentiation Program\", \"target\": \"Subtype-Directed Diagnostic Workup\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intestinal differentiation prompts CK20, CDX2, and CK7 immunohistochemistry and exclusion of a gastrointestinal primary.\"}, {\"source\": \"Mammary-Like Carcinoma Program\", \"target\": \"Subtype-Directed Diagnostic Workup\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Breast-carcinoma-like immunophenotype requires correlation with imaging and pathology to exclude metastatic breast carcinoma.\"}, {\"source\": \"HER2-Positive Paget-Associated Signaling\", \"target\": \"HER2-Directed Pharmacotherapy Response\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"HER2-positive metastatic EMPD can respond to HER2-directed systemic therapy in selected cases.\"}, {\"source\": \"Subtype-Directed Diagnostic Workup\", \"target\": \"Surgical Local Control\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Subtype and stage guide local excision, nodal assessment, adjuvant treatment, and systemic therapy selection.\"}, {\"source\": \"Surgical Local Excision or Vulvectomy\", \"target\": \"Vulvar Glandular Epithelial Transformation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjuvant or Advanced-Disease Chemoradiation\", \"target\": \"Vulvar Glandular Epithelial Transformation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HER2-Directed Pharmacotherapy\", \"target\": \"HER2-Positive Paget-Associated Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ERBB2\", \"target\": \"HER2-Positive Paget-Associated Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGFR1\", \"target\": \"HER2-Positive Paget-Associated Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"HER2-Directed Pharmacotherapy Response\", \"Subtype-Specific Differentiation Programs\", \"Surgical Local Control\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">5</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Integument<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Vulvar Ulcer
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank">
-                            Skin ulcer
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0200042)</span>
-                        </span>
-                        
+                        Skin ulcer
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200042">HP:0200042</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34669204" target="_blank">PMID:34669204</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"While vulvar cancer may be asymptomatic, most women present with vulvar pruritus or pain, or have noticed a lump or ulcer."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports ulcer as a presenting sign for vulvar cancer overall; the evidence is partial for adenocarcinoma-specific presentation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Vulvar Pruritus
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank">
-                            Pruritus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000989)</span>
-                        </span>
-                        
+                        Pruritus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34669204" target="_blank">PMID:34669204</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"While vulvar cancer may be asymptomatic, most women present with vulvar pruritus or pain, or have noticed a lump or ulcer."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports pruritus as a vulvar cancer symptom, with partial support for rare adenocarcinoma subtypes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Vulvar Pain or Burning
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank">
-                            Pain
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012531)</span>
-                        </span>
-                        
+                        Pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34669204" target="_blank">PMID:34669204</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"While vulvar cancer may be asymptomatic, most women present with vulvar pruritus or pain, or have noticed a lump or ulcer."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports pain as a vulvar cancer symptom, with partial support for the adenocarcinoma subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Vulvar Lump or Mass
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0030416" target="_blank">
-                            Vulvar neoplasm
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0030416)</span>
-                        </span>
-                        
+                        Vulvar neoplasm
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030416" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030416">HP:0030416</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34669204" target="_blank">PMID:34669204</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"While vulvar cancer may be asymptomatic, most women present with vulvar pruritus or pain, or have noticed a lump or ulcer."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports lump as a presenting sign for vulvar cancer overall; the evidence is treated as partial for the rarer adenocarcinoma subtype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Abnormal Glandular Cytology in Paget Spread
-                        
-                    
+
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36766569" target="_blank">PMID:36766569</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All cases except one were firstly detected by abnormal glandular cytology. None reported vaginal bleeding or other suspicious symptoms."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports abnormal glandular cytology as a clinically relevant finding in cervico-vaginal involvement from vulvar EMPD.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4682,850 +4914,921 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     ERBB2
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(HER2 overexpression in Paget-associated disease)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ERBB2
+
+
+    <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3430">hgnc:3430</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38831459" target="_blank">PMID:38831459</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Interestingly, ERBB2 gene did not exhibit high copy number gain (log2FC = 0.4) although 90% of tumor cells stained HER2-positive."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports ERBB2/HER2 as a clinically relevant biomarker axis in selected Paget-associated disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     FGFR1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathway enrichment in HER2-positive metastatic EMPD)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FGFR1
+
+
+    <a href="https://bioregistry.io/hgnc:3688" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3688">hgnc:3688</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38831459" target="_blank">PMID:38831459</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Prominent cancer-associated genes include ZNF703, HOOK3, DDHD2, LSM1, NSD3, ADAM9, BRF2, KAT6A and FGFR1."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports FGFR1 involvement in the copy-number landscape of the reported metastatic EMPD tumor.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Local Excision or Vulvectomy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Surgery is the principal local-control strategy for primary vulvar adenocarcinoma subtypes when technically feasible, with margin goals and nodal evaluation tailored to histology, size, and stage.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
                         <strong style="color: #5b21b6;">Vulvar Glandular Epithelial Transformation</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Surgical removal aims to eliminate the local malignant glandular tumor.</span>
-                        
-                        
-    
-    
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36291953" target="_blank">PMID:36291953</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The gold standard of treatment for VAIt is surgery, with local excision with tumor-free margins."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports surgery with tumor-free margins for intestinal-type vulvar adenocarcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35672058" target="_blank">PMID:35672058</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Surgical procedures include radical vulvectomy or radical local excision."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports radical vulvectomy or local excision for AMGT cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Nodal Assessment
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Lymph-node staging or assessment is considered for larger or clinically suspicious intestinal-type tumors and for mammary gland type adenocarcinoma.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36291953" target="_blank">PMID:36291953</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lymph node staging is an option advised if the tumor size is &gt;2 cm or if lymph node metastases are suspected on imaging."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports lymph-node staging for selected VAIt tumors.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35672058" target="_blank">PMID:35672058</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lymphatic involvement may be assessed by sentinel lymph node biopsy or lymphadenectomy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports lymphatic assessment approaches in AMGT.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Adjuvant or Advanced-Disease Chemoradiation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">chemotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000647">MAXO:0000647</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Chemotherapy and radiation are used selectively for advanced, recurrent, or histology-specific vulvar cancers, with many adenocarcinoma decisions extrapolated from broader vulvar cancer evidence.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
                         <strong style="color: #5b21b6;">Vulvar Glandular Epithelial Transformation</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Cytotoxic and radiation-based approaches aim to reduce residual or advanced malignant tumor burden.</span>
-                        
-                        
-    
-    
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34669204" target="_blank">PMID:34669204</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Treatment is predominantly surgical, particularly for squamous cell carcinoma, although concurrent chemoradiation is an effective alternative, particularly for advanced tumors."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports chemoradiation in advanced vulvar cancer generally; it is partial for adenocarcinoma because the evidence base is histology-mixed and dominated by squamous carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36291953" target="_blank">PMID:36291953</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"On the other hand, the role of neoadjuvant therapy is still in doubt, but a good response to adjuvant chemotherapy treatments has been described in both advanced and recurrent diseases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports a limited, subtype-specific role for adjuvant chemotherapy in advanced or recurrent VAIt while preserving uncertainty.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     HER2-Directed Pharmacotherapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">HER2-directed systemic therapy may be relevant in selected HER2-positive metastatic EMPD or Paget-associated adenocarcinoma settings.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
                         <strong style="color: #5b21b6;">HER2-Positive Paget-Associated Signaling</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; HER2-directed treatment is intended to counter HER2-positive signaling in selected metastatic EMPD.</span>
-                        
-                        
-    
-    
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38831459" target="_blank">PMID:38831459</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The presence of alternative signalling pathways and genetic variants suggests potential interactions with HER2 signalling, which possibly contributed to the HER2 overexpression and observed response to HER2-directed therapy combined with other agents in a comprehensive treatment regimen."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports HER2-directed treatment response in a single metastatic EMPD case, so the treatment evidence is intentionally marked partial.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Topical Imiquimod for Vulvar Paget Disease
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">topical pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001573" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001573</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001573" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001573">MAXO:0001573</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         imiquimod
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_36704" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_36704" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:36704">CHEBI:36704</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Topical imiquimod is an investigational or non-surgical pharmacotherapy option studied in non-invasive or recurrent vulvar Paget disease. Its relevance to invasive Paget-associated vulvar adenocarcinoma is indirect, so the treatment evidence is treated as partial.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02385188" target="_blank">clinicaltrials:NCT02385188</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The purpose of this study is to evaluate the efficacy, safety and immunological response of topical 5% imiquimod cream for non-invasive vulvar Paget&#39;s disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports topical imiquimod as a studied treatment for non-invasive vulvar Paget disease, with partial applicability to the broader adenocarcinoma page.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00504023" target="_blank">clinicaltrials:NCT00504023</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"PURPOSE: This clinical trial is studying how well topical imiquimod works in treating patients with recurrent Paget&#39;s disease of the vulva."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports topical imiquimod as a trialed treatment for recurrent vulvar Paget disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Photodynamic Therapy for Vulvar Paget Disease
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">photodynamic therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0020022" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0020022</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0020022" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0020022">MAXO:0020022</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Photodynamic therapy is being studied as a local treatment alternative for vulvar Paget disease. It is annotated as partial because the trial evidence is Paget-specific and not direct evidence for all invasive vulvar adenocarcinoma subtypes.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03713203" target="_blank">clinicaltrials:NCT03713203</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Photodynamic therapy (PDT) is already used in some dermatological pathologies and could therefore be an alternative treatment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports photodynamic therapy as an investigational alternative for vulvar Paget disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03713203" target="_blank">clinicaltrials:NCT03713203</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The objective of this study is to assess the efficacy and evaluate the safety of the new PDT device &#34;PAGETEX&#34; for the treatment of vulvar Paget&#39;s disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This clinical trial record directly links PDT evaluation to vulvar Paget disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">General Vulvar Cancer Risk Context</div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Increasing age, HPV infection, smoking, inflammatory vulvar disease, and immunodeficiency are recognized vulvar cancer risk factors. Their adenocarcinoma-subtype specificity is limited, so this is annotated as contextual rather than definitive adenocarcinoma causation.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38503056" target="_blank">PMID:38503056</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Known risk factors for vulvar cancer include increasing age, infection with human papillomavirus, cigarette smoking, inflammatory conditions affecting the vulva, and immunodeficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports the general vulvar cancer risk context, but the evidence is partial for vulvar adenocarcinoma because many data are dominated by squamous carcinoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6377,42 +6680,42 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">1. Disease Information</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">43 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-09T09:45:02.379918</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h2>1. Disease Information</h2>
 <h3>1.1 What is the disease?</h3>
@@ -6463,10 +6766,10 @@ notes: &gt;-
 - High relapse burden: persistence/recurrence is common (86% in one cohort), often requiring repeated procedures. (iacobone2023tipsandtricks pages 2-4)
 - Cervico-vaginal spread can be clinically silent: <strong>“None reported vaginal bleeding or other suspicious symptoms”</strong> and detection was frequently via abnormal glandular cytology. (iacobone2023tipsandtricks pages 1-2)</p>
 <p><strong>Suggested HPO terms (examples):</strong>
-- Vulvar pruritus (HP:0031297; if unavailable, use “Pruritus” HP:0000989) 
-- Burning pain (Pain; HP:0012531) 
-- Erythematous skin lesion (HP:0025548) 
-- Eczematous dermatitis (HP:0000964) 
+- Vulvar pruritus (HP:0031297; if unavailable, use “Pruritus” HP:0000989)
+- Burning pain (Pain; HP:0012531)
+- Erythematous skin lesion (HP:0025548)
+- Eczematous dermatitis (HP:0000964)
 - Vulvar mass (HP:0030417; if unavailable, “Mass” HP:0100242)</p>
 <p><strong>B. Bartholin-region carcinoma (including adenocarcinoma subtype)</strong>
 - Presents as a mass in the Bartholin region; diagnostic delay is common due to misclassification as cyst/abscess, motivating biopsy in women ≥40–45 with persistent/recurrent solid lesions. (kostov2025bartholinglandcarcinoma pages 20-21)</p>
@@ -6823,11 +7126,11 @@ notes: &gt;-
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
