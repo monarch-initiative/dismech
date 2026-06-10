@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Ayme-Gripp syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0010992" target="_blank">
                         MONDO:0010992
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">genetic syndrome</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hereditary disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Ayme-Gripp syndrome is an autosomal dominant multisystem developmental disorder caused by heterozygous pathogenic variants in MAF. The core phenotype combines congenital or early-onset cataracts, sensorineural hearing impairment, developmental delay or intellectual disability, seizures, growth restriction, and a distinctive flat facial appearance. Disease-causing variants cluster in the MAF transactivation domain, where they impair GSK3-mediated phosphorylation and proteasomal turnover, leading to abnormal persistence of the transcription factor and dysregulation of developmental gene-expression programs.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,36 +3065,36 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-            
-                
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
+
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
@@ -3032,9 +3102,9 @@
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3042,8 +3112,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3051,9 +3121,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3061,10 +3131,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3072,8 +3142,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3081,8 +3151,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3090,9 +3160,9 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#differentials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔀</div>
@@ -3100,8 +3170,8 @@
                 <div class="stat-label">Differentials</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#datasets">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📊</div>
@@ -3109,11 +3179,11 @@
                 <div class="stat-label">Datasets</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3121,8 +3191,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3130,471 +3200,538 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-            
+
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        
+
                         <a href="http://purl.obolibrary.org/obo/MONDO_0010992" target="_blank">MONDO:0010992</a>
-                        
-                        
+
+
                         <span class="mapping-label">Ayme-Gripp syndrome</span>
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="tag-list">
-                        
+
                         <span class="tag tag-classification">skos:exactMatch</span>
-                        
-                        
+
+
                         <span class="tag tag-parent">MONDO</span>
-                        
-                        
+
+
                     </div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
-            
-            
-            
+
+
+
+
+
         </div>
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal dominant inheritance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Ayme-Gripp syndrome is inherited in an autosomal dominant manner, with most reported individuals representing de novo simplex cases. Parental testing is appropriate after a proband is diagnosed, and recurrence counseling should distinguish the generally low sibling recurrence risk in simplex families from the 50% transmission risk for an affected individual.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Aymé-Gripp syndrome is inherited in an autosomal dominant manner. Almost all individuals reported to date have been simplex cases (i.e., a single occurrence in a family) resulting from a de novo pathogenic variant."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews directly states the inheritance pattern and that most cases arise de novo.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Once the causative genetic alteration has been identified in the proband, parental testing may be offered."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports parental testing as part of recurrence-risk counseling after diagnosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-gsk3-mediated-maf-phosphorylation">
                 <div class="item-name">Impaired GSK3-mediated MAF phosphorylation</div>
-                
+
                 <div class="item-desc">Pathogenic missense variants in the MAF transactivation domain disrupt the conserved GSK3 phosphorylation motifs that normally regulate MAF turnover.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        MAF
-                        
-                        <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MAF
+
+
+    <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6776">hgnc:6776</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         protein phosphorylation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006468">GO:0006468</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Stabilized MAF protein and dysregulated transcriptional programs</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of normal phosphorylation prevents normal ubiquitination and turnover of MAF</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Seven different de novo missense mutations involving conserved residues of the four GSK3 phosphorylation motifs were identified in eight unrelated individuals."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly locates the pathogenic variants in the GSK3-regulated phosphorylation motifs of MAF.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stabilized-maf-protein-and-dysregulated-transcriptional-programs">
                 <div class="item-name">Stabilized MAF protein and dysregulated transcriptional programs</div>
-                
+
                 <div class="item-desc">Failure of MAF phosphorylation impairs ubiquitination and proteasomal degradation, producing an abnormally persistent transcription factor that perturbs developmental gene-expression programs.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        MAF
-                        
-                        <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MAF
+
+
+    <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6776">hgnc:6776</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Multisystem developmental defects in lens, ear, brain, and growth</span>
-	                            
+
 	                            <span class="crosslink-desc">Abnormal MAF dosage disrupts multiple developmental programs</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Disease-causing mutations were demonstrated to impair proper MAF phosphorylation, ubiquitination and proteasomal degradation, perturbed gene expression in primary skin fibroblasts"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports defective phosphorylation-dependent turnover and abnormal transcriptional consequences in cell-based systems and primary fibroblasts.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"induced neurodevelopmental defects in an in vivo model."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This provides distinct in vivo support that the stabilized mutant protein perturbs neurodevelopment.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-developmental-defects-in-lens-ear-brain-and-growth">
                 <div class="item-name">Multisystem developmental defects in lens, ear, brain, and growth</div>
-                
+
                 <div class="item-desc">Dysregulated MAF activity affects multiple organ systems, producing cataract, hearing loss, abnormal skull growth, developmental impairment, and other ectodermal and skeletal features.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37186330" target="_blank">PMID:37186330</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our murine model exhibited similar phenotypes to those in humans, such as lens abnormalities, short stature, growth retardation, and abnormal skull morphology."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The knock-in mouse model supports a causal developmental link between mutant Maf and the multisystem phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3605,744 +3742,777 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital or early-onset bilateral cataracts are a cardinal feature of Ayme-Gripp syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cataract Surgery and Ophthalmologic Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cataracts are treated with ophthalmologic surgery when indicated, with ongoing refraction and ophthalmology follow-up for refractive error and other visual complications.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Developmental Therapies and Educational Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Developmental delay and variable cognitive impairment are managed with early intervention, physical therapy, speech-language therapy, occupational therapy, and individualized educational supports.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is universal or near-universal across reported individuals, although severity varies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing aids are used for sensorineural hearing loss, with cochlear implant evaluation when hearing loss is severe or inadequately managed by hearing aids.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired GSK3-mediated MAF phosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic missense variants in the MAF transactivation domain disrupt the conserved GSK3 phosphorylation motifs that normally regulate MAF turnover.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein phosphorylation\"], \"genes\": [\"MAF\"]}}, {\"id\": \"MAF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MAF\"], \"association\": \"Pathogenic missense variants impairing phosphorylation-dependent turnover\"}}, {\"id\": \"Multisystem developmental defects in lens, ear, brain, and growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated MAF activity affects multiple organ systems, producing cataract, hearing loss, abnormal skull growth, developmental impairment, and other ectodermal and skeletal features.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a recurrent neurologic feature in Ayme-Gripp syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Seizure Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are managed with standard antiseizure therapy and neurologic follow-up, including EEG or imaging when clinically indicated.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is usually congenital or recognized early in life and forms part of the classic diagnostic triad.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Stabilized MAF protein and dysregulated transcriptional programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of MAF phosphorylation impairs ubiquitination and proteasomal degradation, producing an abnormally persistent transcription factor that perturbs developmental gene-expression programs.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MAF\"]}}], \"edges\": [{\"source\": \"Impaired GSK3-mediated MAF phosphorylation\", \"target\": \"Stabilized MAF protein and dysregulated transcriptional programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of normal phosphorylation prevents normal ubiquitination and turnover of MAF\"}, {\"source\": \"Stabilized MAF protein and dysregulated transcriptional programs\", \"target\": \"Multisystem developmental defects in lens, ear, brain, and growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal MAF dosage disrupts multiple developmental programs\"}, {\"source\": \"Cataract Surgery and Ophthalmologic Surveillance\", \"target\": \"Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing Rehabilitation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Seizure Management\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental Therapies and Educational Support\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MAF\", \"target\": \"Impaired GSK3-mediated MAF phosphorylation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MAF\", \"target\": \"Stabilized MAF protein and dysregulated transcriptional programs\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital or early-onset bilateral cataracts are a cardinal feature of Ayme-Gripp syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cataract Surgery and Ophthalmologic Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cataracts are treated with ophthalmologic surgery when indicated, with ongoing refraction and ophthalmology follow-up for refractive error and other visual complications.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Developmental Therapies and Educational Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Developmental delay and variable cognitive impairment are managed with early intervention, physical therapy, speech-language therapy, occupational therapy, and individualized educational supports.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is universal or near-universal across reported individuals, although severity varies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing aids are used for sensorineural hearing loss, with cochlear implant evaluation when hearing loss is severe or inadequately managed by hearing aids.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired GSK3-mediated MAF phosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic missense variants in the MAF transactivation domain disrupt the conserved GSK3 phosphorylation motifs that normally regulate MAF turnover.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein phosphorylation\"], \"genes\": [\"MAF\"], \"gene_terms\": [{\"label\": \"MAF\", \"id\": \"hgnc:6776\"}]}}, {\"id\": \"MAF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MAF\"], \"gene_terms\": [{\"label\": \"MAF\", \"id\": \"hgnc:6776\"}], \"association\": \"Pathogenic missense variants impairing phosphorylation-dependent turnover\"}}, {\"id\": \"Multisystem developmental defects in lens, ear, brain, and growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated MAF activity affects multiple organ systems, producing cataract, hearing loss, abnormal skull growth, developmental impairment, and other ectodermal and skeletal features.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a recurrent neurologic feature in Ayme-Gripp syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Seizure Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are managed with standard antiseizure therapy and neurologic follow-up, including EEG or imaging when clinically indicated.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is usually congenital or recognized early in life and forms part of the classic diagnostic triad.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Stabilized MAF protein and dysregulated transcriptional programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of MAF phosphorylation impairs ubiquitination and proteasomal degradation, producing an abnormally persistent transcription factor that perturbs developmental gene-expression programs.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MAF\"], \"gene_terms\": [{\"label\": \"MAF\", \"id\": \"hgnc:6776\"}]}}], \"edges\": [{\"source\": \"Impaired GSK3-mediated MAF phosphorylation\", \"target\": \"Stabilized MAF protein and dysregulated transcriptional programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of normal phosphorylation prevents normal ubiquitination and turnover of MAF\"}, {\"source\": \"Stabilized MAF protein and dysregulated transcriptional programs\", \"target\": \"Multisystem developmental defects in lens, ear, brain, and growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal MAF dosage disrupts multiple developmental programs\"}, {\"source\": \"Cataract Surgery and Ophthalmologic Surveillance\", \"target\": \"Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing Rehabilitation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Seizure Management\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental Therapies and Educational Support\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MAF\", \"target\": \"Impaired GSK3-mediated MAF phosphorylation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MAF\", \"target\": \"Stabilized MAF protein and dysregulated transcriptional programs\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">11</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sensorineural hearing impairment
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank">
-                            Sensorineural hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000407)</span>
-                        </span>
-                        
+                        Sensorineural hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hearing loss is often congenital."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports early sensorineural hearing involvement.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cataract
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank">
-                            Cataract
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000518)</span>
-                        </span>
-                        
+                        Cataract
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Aymé-Gripp syndrome is classically defined as the triad of bilateral early cataracts, sensorineural hearing loss, and characteristic facial features in combination with neurodevelopmental abnormalities."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews identifies bilateral early cataracts as part of the defining diagnostic triad.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Brachycephaly
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank">
-                            Brachycephaly
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000248)</span>
-                        </span>
-                        
+                        Brachycephaly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000248">HP:0000248</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The facial features are often described as &#34;Down syndrome-like&#34; and include brachycephaly, flat facial appearance, short nose, long philtrum, narrow mouth, and low-set and posteriorly rotated ears."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews explicitly lists brachycephaly among the characteristic facial findings.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Flat facial profile
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank">
-                            Flat face
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012368)</span>
-                        </span>
-                        
+                        Flat face
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012368">HP:0012368</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The facial features are often described as &#34;Down syndrome-like&#34; and include brachycephaly, flat facial appearance, short nose, long philtrum, narrow mouth, and low-set and posteriorly rotated ears."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports the characteristic flat facial profile in the syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Dental anomalies
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank">
-                            Abnormality of the dentition
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000164)</span>
-                        </span>
-                        
+                        Abnormality of the dentition
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000164">HP:0000164</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other features including gastrointestinal and endocrine abnormalities, ectodermal dysplasia (i.e., nail dystrophy and mammary gland hypoplasia), dental anomalies, and chronic glomerulopathy with proteinuria have been reported in rare affected individuals."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews lists dental anomalies among rare reported features.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37186330" target="_blank">PMID:37186330</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The murine model showed decreased brain volume and malocclusion."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mouse model data support a dental/occlusal consequence of the MAF pathogenic variant.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Skeletal abnormalities and joint limitations
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank">
-                            Limitation of joint mobility
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001376)</span>
-                        </span>
-                        
+                        Limitation of joint mobility
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001376">HP:0001376</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other features may include postnatal short stature, seizure disorder, nonspecific brain abnormalities on head imaging, skeletal abnormalities, and joint limitations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports joint limitation and skeletal abnormalities as associated musculoskeletal features.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Global developmental delay
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank">
-                            Global developmental delay
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001263)</span>
-                        </span>
-                        
+                        Global developmental delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All affected individuals have had developmental delay, but the degree of cognitive impairment is extremely variable."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews directly states that developmental delay is present in all affected individuals.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Seizure
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank">
-                            Seizure
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001250)</span>
-                        </span>
-                        
+                        Seizure
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Seizures and abnormal EEG findings consistent with focal and diffuse abnormal activity were present in all individuals, most often diagnosed in early childhood."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The original case-series abstract explicitly identifies seizures as a frequent early neurologic manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Growth delay
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank">
-                            Growth delay
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001510)</span>
-                        </span>
-                        
+                        Growth delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001510">HP:0001510</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other features may include postnatal short stature, seizure disorder, nonspecific brain abnormalities on head imaging, skeletal abnormalities, and joint limitations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews documents postnatal short stature as part of the recurring phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pericardial effusion
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001698" target="_blank">
-                            Pericardial effusion
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001698)</span>
-                        </span>
-                        
+                        Pericardial effusion
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001698" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001698">HP:0001698</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A subset of individuals have been found to have pericarditis or pericardial effusion during the neonatal or infantile period."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews documents pericardial involvement in a subset of affected individuals.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Abnormal brain morphology
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank">
-                            Abnormal brain morphology
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012443)</span>
-                        </span>
-                        
+                        Abnormal brain morphology
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012443">HP:0012443</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Other features may include postnatal short stature, seizure disorder, nonspecific brain abnormalities on head imaging, skeletal abnormalities, and joint limitations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews lists nonspecific brain abnormalities on imaging among associated features.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4367,710 +4537,783 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     MAF
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic missense variants impairing phosphorylation-dependent turnover)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MAF
+
+
+    <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6776">hgnc:6776</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Seven different de novo missense mutations involving conserved residues of the four GSK3 phosphorylation motifs were identified in eight unrelated individuals."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This establishes the disease-causing variant class and its clustering in the phosphorylation-regulatory domain of MAF.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Supportive multidisciplinary management
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Management is symptomatic and centers on hearing rehabilitation, cataract surgery and refractive care, developmental therapies, and treatment of seizures and orthopedic or endocrine complications as needed.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Treatment is symptomatic and ideally involves multidisciplinary care."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews directly states that current management is supportive and multidisciplinary.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cataract Surgery and Ophthalmologic Surveillance
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">cataract extraction with intraocular lens insertion</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0009043" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0009043</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0009043" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0009043">MAXO:0009043</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Cataracts are treated with ophthalmologic surgery when indicated, with ongoing refraction and ophthalmology follow-up for refractive error and other visual complications.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cataract
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hearing aids or cochlear implant for sensorineural hearing loss; surgical intervention and eye glasses for cataracts and refractive errors, respectively"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports cataract surgery and refractive care.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Hearing Rehabilitation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">hearing aid usage</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0009030" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0009030</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0009030" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0009030">MAXO:0009030</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Hearing aids are used for sensorineural hearing loss, with cochlear implant evaluation when hearing loss is severe or inadequately managed by hearing aids.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Hearing aids or cochlear implant for sensorineural hearing loss; surgical intervention and eye glasses for cataracts and refractive errors, respectively"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports hearing aids or cochlear implant consideration.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Seizure Management
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">anticonvulsant agent therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000167" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000167</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000167" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000167">MAXO:0000167</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Seizures are managed with standard antiseizure therapy and neurologic follow-up, including EEG or imaging when clinically indicated.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"standard therapy for developmental delay / cognitive impairment, seizure disorder, scoliosis, congenital heart defects / pericardial issues, oligodontia, and hypothyroidism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports standard therapy for seizure disorder and associated systemic complications.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Developmental Therapies and Educational Support
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">physical therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Developmental delay and variable cognitive impairment are managed with early intervention, physical therapy, speech-language therapy, occupational therapy, and individualized educational supports.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Global developmental delay
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"standard therapy for developmental delay / cognitive impairment, seizure disorder, scoliosis, congenital heart defects / pericardial issues, oligodontia, and hypothyroidism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports standard therapies for developmental delay and cognitive impairment.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cardiac, Dental, and Skeletal Surveillance
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Follow-up should include assessment and standard management of congenital heart defects or pericardial issues, dental anomalies, scoliosis, progressive joint restriction, and other skeletal complications.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Surveillance: Dental evaluation every six months; assessment for new neurologic manifestations, progressive joint restriction in major joints, and developmental and educational needs at each visit; clinical examination for scoliosis at each visit until skeletal maturity; at least annual..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports dental, neurologic, joint, scoliosis, audiology, and ophthalmology surveillance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling should cover autosomal dominant inheritance, de novo presentation in most reported individuals, parental testing after the proband&#39;s variant is identified, and prenatal diagnosis options for pregnancies at increased risk.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Aymé-Gripp syndrome is inherited in an autosomal dominant manner. Almost all individuals reported to date have been simplex cases (i.e., a single occurrence in a family) resulting from a de novo pathogenic variant."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports autosomal dominant inheritance with predominantly de novo presentation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Prenatal diagnosis for pregnancies at increased risk is possible if the pathogenic variant in an affected family member is known."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports prenatal diagnostic counseling when the familial MAF pathogenic variant is known.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
         <div class="card" id="differentials">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
@@ -5080,276 +5323,276 @@
             <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
                 Conditions with similar clinical presentations that must be differentiated from Ayme-Gripp syndrome:
             </p>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <a class="item-name-link" href="Down_syndrome.html">Down syndrome</a>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0008608" target="_blank">
                             MONDO:0008608
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Down syndrome overlaps through a brachycephalic, flat facial gestalt and neurodevelopmental delay, but congenital cataracts with sensorineural hearing loss and a heterozygous MAF pathogenic variant support Ayme-Gripp syndrome.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>Trisomy 21 or mosaic trisomy 21 supports Down syndrome.</li>
-                        
+
                         <li>MAF pathogenic variant with cataract-hearing-neurodevelopmental triad supports Ayme-Gripp syndrome.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <span class="missing-disease-name" title="No Dismech page yet for this disease">CHARGE syndrome</span>
                     <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0008965" target="_blank" class="missing-ontology-link">
                             MONDO:0008965
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     CHARGE syndrome can overlap through hearing impairment, developmental delay, and ocular anomalies, but choanal atresia, coloboma, characteristic ear anomalies, and CHD7-related disease support CHARGE rather than MAF-related Ayme-Gripp syndrome.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>Choanal atresia, coloboma, and CHD7 pathogenic variants favor CHARGE syndrome.</li>
-                        
+
                         <li>Bilateral early cataracts and pathogenic MAF variants favor Ayme-Gripp syndrome.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <span class="missing-disease-name" title="No Dismech page yet for this disease">Stickler syndrome</span>
                     <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0019354" target="_blank" class="missing-ontology-link">
                             MONDO:0019354
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Stickler syndrome overlaps through congenital cataract, hearing impairment, and craniofacial findings, but it is primarily a collagenopathy with vitreoretinopathy and joint disease rather than a MAF-related neurodevelopmental syndrome.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>Developmental delay and seizures favor Ayme-Gripp syndrome.</li>
-                        
+
                         <li>Vitreoretinal degeneration and cleft-related Pierre Robin sequence favor Stickler syndrome.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <span class="missing-disease-name" title="No Dismech page yet for this disease">Marshall syndrome</span>
                     <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0007949" target="_blank" class="missing-ontology-link">
                             MONDO:0007949
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Marshall syndrome can mimic Ayme-Gripp syndrome with cataract, hearing loss, and midface flattening, but is typically driven by collagen-gene defects and lacks the characteristic MAF-related seizure and neurodevelopmental profile.
                 </div>
-                
-                
+
+
                 <div class="differential-distinctions">
                     <strong>Distinguishing Features</strong>
-                    
+
                     <ul>
-                        
+
                         <li>Congenital cataracts with developmental delay and seizure disorder favor Ayme-Gripp syndrome.</li>
-                        
+
                         <li>Progressive connective-tissue and ocular collagenopathy features favor Marshall syndrome.</li>
-                        
+
                     </ul>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Datasets -->
-        
+
         <div class="card" id="datasets">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
                 <h2 class="card-title">Related Datasets</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box dataset-box">
                 <div class="item-name">
                     Mutations Impairing GSK3-Mediated MAF Phosphorylation Cause Cataract, Deafness, Intellectual Disability, Seizures, and a Down Syndrome-like Facies.
-                    
+
                     <span class="dataset-accession">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Foundational human clinical-genetic cohort describing eight unrelated individuals with de novo MAF transactivation-domain variants and defining the core Ayme-Gripp syndrome phenotype.</div>
-                
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-organism">human</span>
-                    
-                    
-                    
+
+
+
                     <span class="tag tag-dataset">n=8</span>
-                    
-                    
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 6px;">
                     <strong style="font-size: 0.8rem; color: #0369a1;">Conditions:</strong>
-                    
+
                     <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">Ayme-Gripp syndrome</span>
-                    
+
                     <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">de novo MAF pathogenic variants</span>
-                    
+
                 </div>
-                
-                
-                
-    
-    
-                
+
+
+
+
+
+
                 <div style="margin-top: 8px; font-size: 0.85rem;">
                     <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank" style="color: var(--secondary);">PMID:25865493</a>
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Seven different de novo missense mutations involving conserved residues of the four GSK3 phosphorylation motifs were identified in eight unrelated individuals."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This defines a reusable disease-specific human cohort dataset linking MAF genotype to the canonical Ayme-Gripp phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6099,67 +6342,67 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                             </div>
-                            
+
                             <div class="reference-title">Aymé-Gripp Syndrome.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Ayme-Gripp syndrome. Core disease mechanisms, molecular and cellular pathw...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">19 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-11T16:00:10.241443</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Ayme-Gripp syndrome. Core disease mechanisms, molecular and cellular pathw...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -6485,11 +6728,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

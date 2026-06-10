@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>NARP syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0010794" target="_blank">
                         MONDO:0010794
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hereditary disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">mitochondrial disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 NARP syndrome is a maternally inherited mitochondrial disease caused most often by pathogenic MT-ATP6 variants, including canonical nucleotide 8993 substitutions. The syndrome is characterized by impaired oxidative phosphorylation with prominent neurologic and retinal vulnerability, classically manifesting with neuropathy, ataxia, and retinitis pigmentosa. Clinical severity varies with heteroplasmy and may overlap with Leigh syndrome.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,35 +3065,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3031,9 +3101,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3041,10 +3111,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3052,8 +3122,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3061,8 +3131,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3070,9 +3140,9 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#differentials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔀</div>
@@ -3080,12 +3150,12 @@
                 <div class="stat-label">Differentials</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3093,8 +3163,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3102,887 +3172,994 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">8</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mt-atp6-atp-synthase-dysfunction">
                 <div class="item-name">MT-ATP6 ATP synthase dysfunction</div>
-                
+
                 <div class="item-desc">Canonical MT-ATP6 nucleotide 8993 variants and other pathogenic MT-ATP6 variants impair the proton-translocating membrane sector of mitochondrial ATP synthase.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        MT-ATP6
-                        
-                        <a href="https://bioregistry.io/hgnc:7414" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MT-ATP6
+
+
+    <a href="https://bioregistry.io/hgnc:7414" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7414">hgnc:7414</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         proton motive force-driven ATP synthesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0015986" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0015986" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015986">GO:0015986</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         proton-transporting ATP synthase activity, rotational mechanism
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0046933" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0046933" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046933">GO:0046933</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         proton-transporting ATP synthase complex
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0045259" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045259" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045259">GO:0045259</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Mitochondrial complex V assembly defect</span>
-	                            
+
 	                            <span class="crosslink-desc">The atypical m.8561C&gt;G MT-ATP6/8 variant disrupts assembly of mitochondrial ATP synthase complex V in patient-derived myoblasts.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Reduced mitochondrial ATP production</span>
-	                            
+
 	                            <span class="crosslink-desc">Defective ATP synthase coupling decreases efficient ATP generation.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pathogenic mutations in MT-ATP6 are associated with the Leigh syndrome, the syndrome of neuropathy, ataxia, and retinitis pigmentosa (NARP), as well as with non-classical phenotypes, while MT-ATP8 is less frequently mutated in patients with mitochondrial disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports MT-ATP6 dysfunction as the canonical initiating lesion in NARP-spectrum mitochondrial disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16525806" target="_blank">PMID:16525806</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The 8993 T&gt;G mutation in mitochondrial DNA has been associated with variable syndromes of differing severity ranging from maternally inherited Leigh&#39;s syndrome (MILS) to neuropathy, ataxia, retinitis pigmentosa (NARP), depending on the mutation loads in affected patients."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports canonical 8993 T&gt;G MT-ATP6-associated NARP/MILS as a heteroplasmy-dependent clinical spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22819295" target="_blank">PMID:22819295</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in mitochondrial DNA (mtDNA) encoded nucleotide 8993 can cause NARP syndrome (neuropathy, ataxia, and retinitis pigmentosa) or MILS (maternally inherited Leigh syndrome)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This family report supports m.8993T&gt;C as another canonical MT-ATP6 nucleotide 8993 variant in the NARP/MILS spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-complex-v-assembly-defect">
                 <div class="item-name">Mitochondrial complex V assembly defect</div>
-                
+
                 <div class="item-desc">In the atypical m.8561C&gt;G MT-ATP6/8 sibling report, patient-derived myoblasts showed abnormal complex V assembly, with accumulation of an assembly intermediate and excess F1 subcomplex despite unchanged total complex V abundance.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         mitochondrial proton-transporting ATP synthase complex assembly
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0033615" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0033615" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033615">GO:0033615</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-component">
                         proton-transporting ATP synthase complex
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0045259" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045259" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045259">GO:0045259</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-	                
-	                
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Reduced mitochondrial ATP production</span>
-	                            
+
 	                            <span class="crosslink-desc">Abnormal complex V assembly reduces ATP production in m.8561C&gt;G patient-derived myoblasts.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"An additional assembly intermediate of complex V and increased amount of subcomplex F1 were observed in myoblasts of the two patients, but the total amount of complex V was unaffected."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This patient-derived myoblast study identifies abnormal complex V assembly as a biochemical lesion of the m.8561C&gt;G MT-ATP6/8 variant.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mitochondrial-atp-production">
                 <div class="item-name">Reduced mitochondrial ATP production</div>
-                
+
                 <div class="item-desc">Inefficient oxidative phosphorylation limits ATP availability in tissues with high metabolic demand.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         oxidative phosphorylation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006119">GO:0006119</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neuroretinal energy failure</span>
-	                            
+
 	                            <span class="crosslink-desc">Neurons, peripheral nerves, and retinal cells are especially vulnerable.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Endocrine energy vulnerability</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired ATP production can also involve endocrine tissues in the MT-ATP6/8 phenotype, producing diabetes and primary hypogonadism.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Intracellular ATP concentration</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced ATP production is directly measurable as lower intracellular ATP concentration in patient-derived myoblasts.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Furthermore, intracellular ATP concentration was lower in patient myoblasts indicating defective energy production."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Patient-derived myoblast data directly supports reduced ATP production downstream of MT-ATP6/8 dysfunction.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31276579" target="_blank">PMID:31276579</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The m.8993T&gt;G mutation of the mitochondrial MT-ATP6 gene has been associated with numerous cases of neuropathy, ataxia and retinitis pigmentosa and maternally inherited Leigh syndrome, which are diseases known to result from abnormalities affecting mitochondrial energy transduction."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This NARP cellular-model paper connects the canonical m.8993T&gt;G MT-ATP6 variant with mitochondrial energy-transduction abnormalities.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroretinal-energy-failure">
                 <div class="item-name">Neuroretinal energy failure</div>
-                
+
                 <div class="item-desc">Energy failure in the nervous system and retina drives the core neurologic and ophthalmologic phenotype.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         photoreceptor cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000210">CL:0000210</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         oxidative phosphorylation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006119">GO:0006119</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cerebellar dysfunction</span>
-	                            
+
 	                            <span class="crosslink-desc">Cerebellar energy failure contributes to gait instability.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Peripheral nerve dysfunction</span>
-	                            
+
 	                            <span class="crosslink-desc">Peripheral nerve energy failure produces sensory and motor neuropathy.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Retinal degeneration</span>
-	                            
+
 	                            <span class="crosslink-desc">Retinal energy failure leads to pigmentary retinopathy and vision loss.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We suggest that the m.8561C&gt;G mutation in MT-ATP6/8 is pathogenic, leads biochemically to impaired assembly and decreased ATP production of complex V, and results clinically in a phenotype with the core features of cerebellar ataxia, peripheral neuropathy, diabetes mellitus, and..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This links impaired complex V energy production to the characteristic multisystem neurologic phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16525806" target="_blank">PMID:16525806</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report a kindred with several members in the same generation suffering NARP or Leigh&#39;s syndrome due to a 8993 T&gt;G mutation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This canonical 8993 T&gt;G kindred supports neuroretinal NARP manifestations within the MT-ATP6 disease spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocrine-energy-vulnerability">
                 <div class="item-name">Endocrine energy vulnerability</div>
-                
+
                 <div class="item-desc">The atypical m.8561C&gt;G MT-ATP6/8 complex V defect can involve endocrine tissues, producing diabetes mellitus and hypergonadotropic hypogonadism in addition to the neurologic and retinal syndrome.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         oxidative phosphorylation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006119">GO:0006119</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Diabetes mellitus</span>
-	                            
+
 	                            <span class="crosslink-desc">Endocrine involvement includes diabetes mellitus.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypergonadotropic hypogonadism</span>
-	                            
+
 	                            <span class="crosslink-desc">Endocrine involvement also includes primary gonadal failure.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We investigated two adult siblings presenting with features of cerebellar ataxia, peripheral neuropathy, diabetes mellitus, sensorineural hearing impairment, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The patient phenotype directly documents endocrine involvement in the MT-ATP6/8-related NARP-overlap presentation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-dysfunction">
                 <div class="item-name">Cerebellar dysfunction</div>
-                
+
                 <div class="item-desc">Energetic failure within cerebellar systems produces impaired coordination and gait instability.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ataxia</span>
-	                            
+
 	                            <span class="crosslink-desc">Cerebellar system involvement manifests clinically as ataxia in NARP-spectrum disease.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
-    
+
+
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-nerve-dysfunction">
                 <div class="item-name">Peripheral nerve dysfunction</div>
-                
+
                 <div class="item-desc">Mitochondrial failure in peripheral nerves contributes to sensory and motor neuropathy.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Peripheral neuropathy</span>
-	                            
+
 	                            <span class="crosslink-desc">Peripheral nerve involvement is represented clinically by peripheral neuropathy.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
-    
+
+
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-degeneration">
                 <div class="item-name">Retinal degeneration</div>
-                
+
                 <div class="item-desc">Retinal energetic vulnerability contributes to pigmentary retinopathy and progressive visual dysfunction.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Retinitis pigmentosa</span>
-	                            
+
 	                            <span class="crosslink-desc">Retinal degeneration is represented clinically by retinitis pigmentosa in the NARP phenotype.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
-    
+
+
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3993,475 +4170,493 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive gait and coordination impairment is a core clinical feature.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cerebellar dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energetic failure within cerebellar systems produces impaired coordination and gait instability.\"}, {\"id\": \"Complex V assembly intermediate and F1 subcomplex accumulation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"ABNORMAL\", \"readouts\": [{\"target\": \"Mitochondrial complex V assembly defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Abnormal complex V assembly intermediates report the mitochondrial ATP synthase assembly defect in the m.8561C\u003eG patient-derived myoblast model.\"}]}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes mellitus was reported in the atypical m.8561C\u003eG MT-ATP6/8 NARP-overlap phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000819\"}}, {\"id\": \"Endocrine energy vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The atypical m.8561C\u003eG MT-ATP6/8 complex V defect can involve endocrine tissues, producing diabetes mellitus and hypergonadotropic hypogonadism in addition to the neurologic and retinal syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Hypergonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypergonadotropic hypogonadism was reported in the atypical m.8561C\u003eG MT-ATP6/8 NARP-overlap phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000815\"}}, {\"id\": \"Intracellular ATP concentration\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C147307\", \"term_label\": \"Adenosine Triphosphate Measurement\", \"readouts\": [{\"target\": \"Reduced mitochondrial ATP production\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Lower intracellular ATP concentration reports the reduced ATP production node caused by impaired ATP synthase complex V in the m.8561C\u003eG myoblast model.\"}]}}, {\"id\": \"MT-ATP6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MT-ATP6\"], \"association\": \"Causal pathogenic mitochondrial DNA variants, including canonical nucleotide 8993 substitutions, with heteroplasmy-dependent NARP/MILS severity\"}}, {\"id\": \"MT-ATP6 ATP synthase dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Canonical MT-ATP6 nucleotide 8993 variants and other pathogenic MT-ATP6 variants impair the proton-translocating membrane sector of mitochondrial ATP synthase.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"proton motive force-driven ATP synthesis\"], \"molecular_functions\": [\"proton-transporting ATP synthase activity, rotational mechanism\"], \"genes\": [\"MT-ATP6\"]}}, {\"id\": \"Mitochondrial complex V assembly defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the atypical m.8561C\u003eG MT-ATP6/8 sibling report, patient-derived myoblasts showed abnormal complex V assembly, with accumulation of an assembly intermediate and excess F1 subcomplex despite unchanged total complex V abundance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial proton-transporting ATP synthase complex assembly\"]}}, {\"id\": \"Neuroretinal energy failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy failure in the nervous system and retina drives the core neurologic and ophthalmologic phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"photoreceptor cell\"], \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Peripheral nerve dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial failure in peripheral nerves contributes to sensory and motor neuropathy.\"}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy contributes to sensory loss, weakness, and areflexia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rehabilitation is used to preserve mobility, balance, and function in progressive neuromuscular disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced mitochondrial ATP production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inefficient oxidative phosphorylation limits ATP availability in tissues with high metabolic demand.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Retinal degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinal energetic vulnerability contributes to pigmentary retinopathy and progressive visual dysfunction.\"}, {\"id\": \"Retinitis pigmentosa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pigmentary retinal degeneration causes progressive visual impairment.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000510\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing impairment is part of the broader MT-ATP6-associated neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Supportive mitochondrial disease management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is supportive and includes symptom-based neurologic, ophthalmologic, rehabilitation, and medication-avoidance care.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"MT-ATP6 ATP synthase dysfunction\", \"target\": \"Mitochondrial complex V assembly defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The atypical m.8561C\u003eG MT-ATP6/8 variant disrupts assembly of mitochondrial ATP synthase complex V in patient-derived myoblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MT-ATP6 ATP synthase dysfunction\", \"target\": \"Reduced mitochondrial ATP production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective ATP synthase coupling decreases efficient ATP generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial complex V assembly defect\", \"target\": \"Reduced mitochondrial ATP production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal complex V assembly reduces ATP production in m.8561C\u003eG patient-derived myoblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced mitochondrial ATP production\", \"target\": \"Neuroretinal energy failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons, peripheral nerves, and retinal cells are especially vulnerable.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced mitochondrial ATP production\", \"target\": \"Endocrine energy vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired ATP production can also involve endocrine tissues in the MT-ATP6/8 phenotype, producing diabetes and primary hypogonadism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced mitochondrial ATP production\", \"target\": \"Intracellular ATP concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ATP production is directly measurable as lower intracellular ATP concentration in patient-derived myoblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuroretinal energy failure\", \"target\": \"Cerebellar dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar energy failure contributes to gait instability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuroretinal energy failure\", \"target\": \"Peripheral nerve dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve energy failure produces sensory and motor neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuroretinal energy failure\", \"target\": \"Retinal degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal energy failure leads to pigmentary retinopathy and vision loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endocrine energy vulnerability\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endocrine involvement includes diabetes mellitus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endocrine energy vulnerability\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endocrine involvement also includes primary gonadal failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar dysfunction\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar system involvement manifests clinically as ataxia in NARP-spectrum disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral nerve dysfunction\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve involvement is represented clinically by peripheral neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal degeneration\", \"target\": \"Retinitis pigmentosa\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal degeneration is represented clinically by retinitis pigmentosa in the NARP phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive mitochondrial disease management\", \"target\": \"Ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive mitochondrial disease management\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive mitochondrial disease management\", \"target\": \"Retinitis pigmentosa\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive mitochondrial disease management\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive mitochondrial disease management\", \"target\": \"Diabetes mellitus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced mitochondrial ATP production\", \"target\": \"Intracellular ATP concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower intracellular ATP concentration reports the reduced ATP production node caused by impaired ATP synthase complex V in the m.8561C\u003eG myoblast model.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Mitochondrial complex V assembly defect\", \"target\": \"Complex V assembly intermediate and F1 subcomplex accumulation\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Abnormal complex V assembly intermediates report the mitochondrial ATP synthase assembly defect in the m.8561C\u003eG patient-derived myoblast model.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"MT-ATP6\", \"target\": \"MT-ATP6 ATP synthase dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive gait and coordination impairment is a core clinical feature.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cerebellar dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energetic failure within cerebellar systems produces impaired coordination and gait instability.\"}, {\"id\": \"Complex V assembly intermediate and F1 subcomplex accumulation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"ABNORMAL\", \"readouts\": [{\"target\": \"Mitochondrial complex V assembly defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Abnormal complex V assembly intermediates report the mitochondrial ATP synthase assembly defect in the m.8561C\u003eG patient-derived myoblast model.\"}]}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes mellitus was reported in the atypical m.8561C\u003eG MT-ATP6/8 NARP-overlap phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000819\"}}, {\"id\": \"Endocrine energy vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The atypical m.8561C\u003eG MT-ATP6/8 complex V defect can involve endocrine tissues, producing diabetes mellitus and hypergonadotropic hypogonadism in addition to the neurologic and retinal syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Hypergonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypergonadotropic hypogonadism was reported in the atypical m.8561C\u003eG MT-ATP6/8 NARP-overlap phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000815\"}}, {\"id\": \"Intracellular ATP concentration\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C147307\", \"term_label\": \"Adenosine Triphosphate Measurement\", \"readouts\": [{\"target\": \"Reduced mitochondrial ATP production\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Lower intracellular ATP concentration reports the reduced ATP production node caused by impaired ATP synthase complex V in the m.8561C\u003eG myoblast model.\"}]}}, {\"id\": \"MT-ATP6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MT-ATP6\"], \"gene_terms\": [{\"label\": \"MT-ATP6\", \"id\": \"hgnc:7414\"}], \"association\": \"Causal pathogenic mitochondrial DNA variants, including canonical nucleotide 8993 substitutions, with heteroplasmy-dependent NARP/MILS severity\"}}, {\"id\": \"MT-ATP6 ATP synthase dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Canonical MT-ATP6 nucleotide 8993 variants and other pathogenic MT-ATP6 variants impair the proton-translocating membrane sector of mitochondrial ATP synthase.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"proton motive force-driven ATP synthesis\"], \"molecular_functions\": [\"proton-transporting ATP synthase activity, rotational mechanism\"], \"genes\": [\"MT-ATP6\"], \"gene_terms\": [{\"label\": \"MT-ATP6\", \"id\": \"hgnc:7414\"}]}}, {\"id\": \"Mitochondrial complex V assembly defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the atypical m.8561C\u003eG MT-ATP6/8 sibling report, patient-derived myoblasts showed abnormal complex V assembly, with accumulation of an assembly intermediate and excess F1 subcomplex despite unchanged total complex V abundance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial proton-transporting ATP synthase complex assembly\"]}}, {\"id\": \"Neuroretinal energy failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy failure in the nervous system and retina drives the core neurologic and ophthalmologic phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"photoreceptor cell\"], \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Peripheral nerve dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial failure in peripheral nerves contributes to sensory and motor neuropathy.\"}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy contributes to sensory loss, weakness, and areflexia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rehabilitation is used to preserve mobility, balance, and function in progressive neuromuscular disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced mitochondrial ATP production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inefficient oxidative phosphorylation limits ATP availability in tissues with high metabolic demand.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Retinal degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinal energetic vulnerability contributes to pigmentary retinopathy and progressive visual dysfunction.\"}, {\"id\": \"Retinitis pigmentosa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pigmentary retinal degeneration causes progressive visual impairment.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000510\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing impairment is part of the broader MT-ATP6-associated neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Supportive mitochondrial disease management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is supportive and includes symptom-based neurologic, ophthalmologic, rehabilitation, and medication-avoidance care.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"MT-ATP6 ATP synthase dysfunction\", \"target\": \"Mitochondrial complex V assembly defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The atypical m.8561C\u003eG MT-ATP6/8 variant disrupts assembly of mitochondrial ATP synthase complex V in patient-derived myoblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MT-ATP6 ATP synthase dysfunction\", \"target\": \"Reduced mitochondrial ATP production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective ATP synthase coupling decreases efficient ATP generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial complex V assembly defect\", \"target\": \"Reduced mitochondrial ATP production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal complex V assembly reduces ATP production in m.8561C\u003eG patient-derived myoblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced mitochondrial ATP production\", \"target\": \"Neuroretinal energy failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons, peripheral nerves, and retinal cells are especially vulnerable.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced mitochondrial ATP production\", \"target\": \"Endocrine energy vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired ATP production can also involve endocrine tissues in the MT-ATP6/8 phenotype, producing diabetes and primary hypogonadism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced mitochondrial ATP production\", \"target\": \"Intracellular ATP concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ATP production is directly measurable as lower intracellular ATP concentration in patient-derived myoblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuroretinal energy failure\", \"target\": \"Cerebellar dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar energy failure contributes to gait instability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuroretinal energy failure\", \"target\": \"Peripheral nerve dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve energy failure produces sensory and motor neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuroretinal energy failure\", \"target\": \"Retinal degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal energy failure leads to pigmentary retinopathy and vision loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endocrine energy vulnerability\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endocrine involvement includes diabetes mellitus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endocrine energy vulnerability\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endocrine involvement also includes primary gonadal failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar dysfunction\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar system involvement manifests clinically as ataxia in NARP-spectrum disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral nerve dysfunction\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve involvement is represented clinically by peripheral neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal degeneration\", \"target\": \"Retinitis pigmentosa\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal degeneration is represented clinically by retinitis pigmentosa in the NARP phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive mitochondrial disease management\", \"target\": \"Ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive mitochondrial disease management\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive mitochondrial disease management\", \"target\": \"Retinitis pigmentosa\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive mitochondrial disease management\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive mitochondrial disease management\", \"target\": \"Diabetes mellitus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced mitochondrial ATP production\", \"target\": \"Intracellular ATP concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower intracellular ATP concentration reports the reduced ATP production node caused by impaired ATP synthase complex V in the m.8561C\u003eG myoblast model.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Mitochondrial complex V assembly defect\", \"target\": \"Complex V assembly intermediate and F1 subcomplex accumulation\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Abnormal complex V assembly intermediates report the mitochondrial ATP synthase assembly defect in the m.8561C\u003eG patient-derived myoblast model.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"MT-ATP6\", \"target\": \"MT-ATP6 ATP synthase dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">6</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sensorineural hearing impairment
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank">
-                            Sensorineural hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000407)</span>
-                        </span>
-                        
+                        Sensorineural hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We investigated two adult siblings presenting with features of cerebellar ataxia, peripheral neuropathy, diabetes mellitus, sensorineural hearing impairment, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly documents sensorineural hearing impairment in an MT-ATP6/8 NARP-overlap phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Diabetes mellitus
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank">
-                            Diabetes mellitus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000819)</span>
-                        </span>
-                        
+                        Diabetes mellitus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000819">HP:0000819</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We investigated two adult siblings presenting with features of cerebellar ataxia, peripheral neuropathy, diabetes mellitus, sensorineural hearing impairment, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly documents diabetes mellitus in an MT-ATP6/8 NARP-overlap phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypergonadotropic hypogonadism
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank">
-                            Hypergonadotropic hypogonadism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000815)</span>
-                        </span>
-                        
+                        Hypergonadotropic hypogonadism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000815">HP:0000815</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We investigated two adult siblings presenting with features of cerebellar ataxia, peripheral neuropathy, diabetes mellitus, sensorineural hearing impairment, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly documents hypergonadotropic hypogonadism in an MT-ATP6/8-related NARP-overlap phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Retinitis pigmentosa
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank">
-                            Rod-cone dystrophy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000510)</span>
-                        </span>
-                        
+                        Rod-cone dystrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000510">HP:0000510</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pathogenic mutations in MT-ATP6 are associated with the Leigh syndrome, the syndrome of neuropathy, ataxia, and retinitis pigmentosa (NARP), as well as with non-classical phenotypes, while MT-ATP8 is less frequently mutated in patients with mitochondrial disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly names retinitis pigmentosa within the canonical NARP phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22819295" target="_blank">PMID:22819295</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in mitochondrial DNA (mtDNA) encoded nucleotide 8993 can cause NARP syndrome (neuropathy, ataxia, and retinitis pigmentosa) or MILS (maternally inherited Leigh syndrome)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This canonical nucleotide 8993 family report explicitly includes retinitis pigmentosa in the NARP syndrome definition.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Ataxia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank">
-                            Ataxia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001251)</span>
-                        </span>
-                        
+                        Ataxia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We investigated two adult siblings presenting with features of cerebellar ataxia, peripheral neuropathy, diabetes mellitus, sensorineural hearing impairment, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly documents ataxia in MT-ATP6/8-related NARP-spectrum disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22819295" target="_blank">PMID:22819295</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in mitochondrial DNA (mtDNA) encoded nucleotide 8993 can cause NARP syndrome (neuropathy, ataxia, and retinitis pigmentosa) or MILS (maternally inherited Leigh syndrome)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This canonical nucleotide 8993 family report explicitly includes ataxia in the NARP syndrome definition.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Peripheral neuropathy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank">
-                            Peripheral neuropathy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0009830)</span>
-                        </span>
-                        
+                        Peripheral neuropathy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We investigated two adult siblings presenting with features of cerebellar ataxia, peripheral neuropathy, diabetes mellitus, sensorineural hearing impairment, and hypergonadotropic hypogonadism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly documents peripheral neuropathy as a core NARP-spectrum manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22819295" target="_blank">PMID:22819295</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in mitochondrial DNA (mtDNA) encoded nucleotide 8993 can cause NARP syndrome (neuropathy, ataxia, and retinitis pigmentosa) or MILS (maternally inherited Leigh syndrome)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This canonical nucleotide 8993 family report explicitly includes neuropathy in the NARP syndrome definition.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4486,677 +4681,740 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     MT-ATP6
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal pathogenic mitochondrial DNA variants, including canonical nucleotide 8993 substitutions, with heteroplasmy-dependent NARP/MILS severity)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Mitochondrial inheritance</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MT-ATP6
+
+
+    <a href="https://bioregistry.io/hgnc:7414" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7414">hgnc:7414</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Mitochondrial inheritance</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pathogenic mutations in MT-ATP6 are associated with the Leigh syndrome, the syndrome of neuropathy, ataxia, and retinitis pigmentosa (NARP), as well as with non-classical phenotypes, while MT-ATP8 is less frequently mutated in patients with mitochondrial disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports MT-ATP6 as the established causal gene for NARP-spectrum disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16525806" target="_blank">PMID:16525806</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report a kindred with several members in the same generation suffering NARP or Leigh&#39;s syndrome due to a 8993 T&gt;G mutation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This kindred directly supports the canonical 8993 T&gt;G mitochondrial DNA mutation as a cause of NARP/Leigh-spectrum disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22819295" target="_blank">PMID:22819295</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here, we report the results of whole mitochondrial genome analysis of a family with m.8993T&gt;C mutation in the MT-ATP6 gene and associated with NARP/MILS, and discuss the familial inheritance, effects of variation in combinations and heteroplasmy levels on the clinical findings."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports m.8993T&gt;C in MT-ATP6 as another familial NARP/MILS variant with heteroplasmy-dependent clinical expression.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Supportive mitochondrial disease management
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Management is supportive and includes symptom-based neurologic, ophthalmologic, rehabilitation, and medication-avoidance care.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ataxia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Peripheral neuropathy
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Retinitis pigmentosa
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000510">HP:0000510</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Diabetes mellitus
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000819">HP:0000819</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301352" target="_blank">PMID:20301352</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Treatment of manifestations: Treatment is supportive."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports supportive, symptom-directed management for mtDNA-associated Leigh-spectrum disease overlapping NARP/MILS.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301352" target="_blank">PMID:20301352</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Sodium valproate, medications that cause acidosis, and dichloroacetate should be avoided or used with caution;"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports avoiding mitochondrial stressors such as valproate and acidosis-provoking medications in this spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Physical therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">physical therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Rehabilitation is used to preserve mobility, balance, and function in progressive neuromuscular disease.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ataxia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301352" target="_blank">PMID:20301352</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"developmental and educational support; physical therapy and occupational therapy; standard treatment of eye movement disorders;"</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews includes physical therapy among supportive interventions for mtDNA-associated Leigh-spectrum manifestations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling addresses maternal mtDNA inheritance, heteroplasmy, recurrence-risk uncertainty, and reproductive options.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301352" target="_blank">PMID:20301352</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Reproductive options for the family members of a proband with an mtDNA pathogenic variant may include prenatal testing, preimplantation genetic testing, and oocyte donation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GeneReviews supports genetic counseling and reproductive planning for families with pathogenic mtDNA variants.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Intracellular ATP concentration
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: In the m.8561C&gt;G report, patient-derived myoblasts show reduced intracellular ATP concentration, reflecting defective complex V energy production.</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Reduced mitochondrial ATP production</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Negative
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Diagnostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Lower intracellular ATP concentration reports the reduced ATP production node caused by impaired ATP synthase complex V in the m.8561C&gt;G myoblast model.</div>
-                        
-                        
-                        
-                        
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Furthermore, intracellular ATP concentration was lower in patient myoblasts indicating defective energy production."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The study directly supports lower intracellular ATP concentration as a biochemical readout of defective energy production.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Furthermore, intracellular ATP concentration was lower in patient myoblasts indicating defective energy production."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Patient myoblast measurements document decreased intracellular ATP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Complex V assembly intermediate and F1 subcomplex accumulation
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(ABNORMAL)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: In the m.8561C&gt;G report, patient myoblasts show an additional complex V assembly intermediate and increased F1 subcomplex despite unchanged total complex V.</div>
-                
-                
+
+
                 <div class="biomarker-readouts">
                     <div class="biomarker-readouts-title">Pathograph Readouts</div>
-                    
+
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
                             Readout Of
                         </span>
                         <span class="readout-target">Mitochondrial complex V assembly defect</span>
-                        
+
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
                             Positive
                         </span>
-                        
-                        
+
+
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
                             Diagnostic
                         </span>
-                        
-                        
+
+
                         <div class="readout-interpretation">Abnormal complex V assembly intermediates report the mitochondrial ATP synthase assembly defect in the m.8561C&gt;G patient-derived myoblast model.</div>
-                        
-                        
-                        
-                        
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"An additional assembly intermediate of complex V and increased amount of subcomplex F1 were observed in myoblasts of the two patients, but the total amount of complex V was unaffected."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Patient myoblast data directly document the complex V assembly readout.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27502083" target="_blank">PMID:27502083</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"An additional assembly intermediate of complex V and increased amount of subcomplex F1 were observed in myoblasts of the two patients, but the total amount of complex V was unaffected."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports abnormal complex V assembly intermediates as a biochemical readout of the ATP synthase defect.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
         <div class="card" id="differentials">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
@@ -5166,111 +5424,110 @@
             <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
                 Conditions with similar clinical presentations that must be differentiated from NARP syndrome:
             </p>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
+
                     <a class="item-name-link" href="Leigh_Syndrome.html">Leigh syndrome</a>
-                    
-                    
+
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/MONDO_0009723" target="_blank">
                             MONDO:0009723
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     The same canonical MT-ATP6 nucleotide 8993 variants can produce NARP or maternally inherited Leigh syndrome, with severity related to mutant load.
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16525806" target="_blank">PMID:16525806</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The 8993 T&gt;G mutation in mitochondrial DNA has been associated with variable syndromes of differing severity ranging from maternally inherited Leigh&#39;s syndrome (MILS) to neuropathy, ataxia, retinitis pigmentosa (NARP), depending on the mutation loads in affected patients."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports Leigh syndrome as a heteroplasmy-related presentation of the same canonical MT-ATP6 variant spectrum.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
-            
-            
+
+
+
             <div class="item-box differential-box">
                 <div class="item-name">
-                    
-                    <span class="missing-disease-name" title="No Dismech page yet for this disease">MELAS syndrome</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
-                    
-                    
+
+                    <a class="item-name-link" href="MELAS_Syndrome.html">MELAS syndrome</a>
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0010789" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0010789" target="_blank">
                             MONDO:0010789
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
                     Other mitochondrial DNA disorders can overlap with neurologic impairment and ophthalmologic findings.
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6090,67 +6347,67 @@ datasets: []
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301352" target="_blank">PMID:20301352</a>
                             </div>
-                            
+
                             <div class="reference-title">Mitochondrial DNA-Associated Leigh Syndrome Spectrum.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of NARP syndrome. Core disease mechanisms, molecular and cellular pathways, i...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-13T13:49:48.432029</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of NARP syndrome. Core disease mechanisms, molecular and cellular pathways, i...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -6501,11 +6758,11 @@ datasets: []
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

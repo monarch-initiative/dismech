@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Hypoplasminogenemia</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0009009" target="_blank">
                         MONDO:0009009
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Coagulation Disorder</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Hereditary Hematologic Disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Hypoplasminogenemia is an autosomal recessive PLG-related disorder in which low plasminogen antigen and activity impair plasmin-mediated fibrinolysis and wound healing on mucosal surfaces. The disease produces fibrin-rich ligneous pseudomembranes, most often ligneous conjunctivitis, and can involve the periodontium, respiratory tract, genitourinary tract, gastrointestinal tract, and central nervous system.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,34 +3065,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3030,8 +3100,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3039,9 +3109,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3049,10 +3119,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3060,8 +3130,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3069,8 +3139,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3078,11 +3148,11 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+
+
             <a class="stat-link" href="#trials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
@@ -3090,11 +3160,11 @@
                 <div class="stat-label">Trials</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3102,448 +3172,514 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21174000" target="_blank">PMID:21174000</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Homozygous or compound-heterozygous mutations in the plasminogen (PLG) gene were found in 16 of 23 patients (70%), three of which were novel mutations reported here for the first time (C166Y, Y264S, IVS10-7T/G)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The patient series identifies biallelic PLG genotypes in most severe hypoplasminogenemia cases, supporting recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plg-related-plasminogen-deficiency">
                 <div class="item-name">PLG-Related Plasminogen Deficiency</div>
-                
+
                 <div class="item-desc">Biallelic pathogenic PLG variants reduce plasminogen antigen and activity, limiting the substrate available for plasmin generation.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PLG
+
+
+    <a href="https://bioregistry.io/hgnc:9071" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9071">hgnc:9071</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-meta">
+
                     <span class="tag tag-bio">
                         plasminogen activation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0031639" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0031639" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031639">GO:0031639</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Fibrinolysis</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21174000" target="_blank">PMID:21174000</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here we report the molecular genetic and clinical findings on 23 new cases with severe hypoplasminogenaemia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This case series directly studies severe hypoplasminogenemia and its PLG molecular basis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27976734" target="_blank">PMID:27976734</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Although plasminogen is a key protein in fibrinolysis and several mutations in the plasminogen gene (PLG) have been identified that result in plasminogen deficiency, there are conflicting reports to associate it with the risk of thrombosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports PLG variants as the genetic cause of plasminogen deficiency while distinguishing fibrinolysis biology from uncertain thrombosis risk.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fibrinolysis">
                 <div class="item-name">Impaired Fibrinolysis</div>
-                
+
                 <div class="item-desc">Reduced plasmin activity impairs fibrin degradation and extravascular wound repair, so fibrin persists after mucosal injury or inflammation.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         fibrinolysis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042730" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042730" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042730">GO:0042730</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ligneous Mucosal Pseudomembrane Formation</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21174000" target="_blank">PMID:21174000</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Inherited severe hypoplasminogenaemia is a multisystemic disorder leading to deficient extravascular fibrinolysis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract directly states that inherited severe hypoplasminogenemia causes deficient extravascular fibrinolysis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ligneous-mucosal-pseudomembrane-formation">
                 <div class="item-name">Ligneous Mucosal Pseudomembrane Formation</div>
-                
+
                 <div class="item-desc">Persistent fibrin-rich deposits form thick pseudomembranes on mucosal surfaces. The conjunctiva is the hallmark site, but airway, oral, genitourinary, gastrointestinal, and tympanic mucosa can also be involved.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         conjunctival epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_1000432" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000432" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000432">CL:1000432</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         wound healing
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042060">GO:0042060</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39372655" target="_blank">PMID:39372655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Plasminogen deficiency type 1 (PLGD-1, hypoplasminogenemia) is an ultra-rare, lifelong disease associated with development of fibrinous lesions in multiple organ systems."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This recent clinical case series supports multisystem fibrinous lesion formation as a core disease mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3554,454 +3690,475 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Airway Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fibrinous lesions can develop in the respiratory tract and compromise respiratory function, sometimes producing life-threatening airway disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006536\"}}, {\"id\": \"Impaired Fibrinolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced plasmin activity impairs fibrin degradation and extravascular wound repair, so fibrin persists after mucosal injury or inflammation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fibrinolysis\"]}}, {\"id\": \"Intravenous Plasminogen Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Plasminogen, human-tvmh replacement restores circulating plasminogen activity and is disease-targeted therapy for visible and non-visible lesions in type 1 plasminogen deficiency.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"plasminogen\"]}}, {\"id\": \"Ligneous Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic or recurrent conjunctival pseudomembranes are the hallmark clinical manifestation and can cause progressive visual morbidity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034814\"}}, {\"id\": \"Ligneous Mucosal Pseudomembrane Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent fibrin-rich deposits form thick pseudomembranes on mucosal surfaces. The conjunctiva is the hallmark site, but airway, oral, genitourinary, gastrointestinal, and tympanic mucosa can also be involved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"conjunctival epithelial cell\"], \"biological_processes\": [\"wound healing\"]}}, {\"id\": \"PLG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PLG\"], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"PLG-Related Plasminogen Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic PLG variants reduce plasminogen antigen and activity, limiting the substrate available for plasmin generation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"plasminogen activation\"], \"genes\": [\"PLG\"]}}, {\"id\": \"Plasminogen Replacement for Respiratory Lesions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous plasminogen, human-tvmh can resolve or greatly improve severe respiratory complications due to airway fibrinous lesions.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"plasminogen\"]}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe respiratory lesions can impair respiratory function and may require disease-targeted replacement therapy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Topical Plasminogen Eye Drops\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical plasminogen has been used to prevent recurrent conjunctival pseudomembranes in ligneous conjunctivitis, including long-term pediatric follow-up after ocular surgery.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"plasminogen\"]}}], \"edges\": [{\"source\": \"PLG-Related Plasminogen Deficiency\", \"target\": \"Impaired Fibrinolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Fibrinolysis\", \"target\": \"Ligneous Mucosal Pseudomembrane Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired fibrin degradation\", \"defective mucosal wound healing\"]}, {\"source\": \"Intravenous Plasminogen Replacement\", \"target\": \"PLG-Related Plasminogen Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous Plasminogen Replacement\", \"target\": \"Impaired Fibrinolysis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasminogen Replacement for Respiratory Lesions\", \"target\": \"Ligneous Mucosal Pseudomembrane Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasminogen Replacement for Respiratory Lesions\", \"target\": \"Airway Obstruction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Plasminogen Replacement for Respiratory Lesions\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Topical Plasminogen Eye Drops\", \"target\": \"Ligneous Mucosal Pseudomembrane Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topical Plasminogen Eye Drops\", \"target\": \"Ligneous Conjunctivitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PLG\", \"target\": \"PLG-Related Plasminogen Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Airway Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fibrinous lesions can develop in the respiratory tract and compromise respiratory function, sometimes producing life-threatening airway disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006536\"}}, {\"id\": \"Impaired Fibrinolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced plasmin activity impairs fibrin degradation and extravascular wound repair, so fibrin persists after mucosal injury or inflammation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fibrinolysis\"]}}, {\"id\": \"Intravenous Plasminogen Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Plasminogen, human-tvmh replacement restores circulating plasminogen activity and is disease-targeted therapy for visible and non-visible lesions in type 1 plasminogen deficiency.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"plasminogen\"]}}, {\"id\": \"Ligneous Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic or recurrent conjunctival pseudomembranes are the hallmark clinical manifestation and can cause progressive visual morbidity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034814\"}}, {\"id\": \"Ligneous Mucosal Pseudomembrane Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent fibrin-rich deposits form thick pseudomembranes on mucosal surfaces. The conjunctiva is the hallmark site, but airway, oral, genitourinary, gastrointestinal, and tympanic mucosa can also be involved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"conjunctival epithelial cell\"], \"biological_processes\": [\"wound healing\"]}}, {\"id\": \"PLG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PLG\"], \"gene_terms\": [{\"label\": \"PLG\", \"id\": \"hgnc:9071\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"PLG-Related Plasminogen Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic PLG variants reduce plasminogen antigen and activity, limiting the substrate available for plasmin generation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"plasminogen activation\"], \"genes\": [\"PLG\"], \"gene_terms\": [{\"label\": \"PLG\", \"id\": \"hgnc:9071\"}]}}, {\"id\": \"Plasminogen Replacement for Respiratory Lesions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous plasminogen, human-tvmh can resolve or greatly improve severe respiratory complications due to airway fibrinous lesions.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"plasminogen\"]}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe respiratory lesions can impair respiratory function and may require disease-targeted replacement therapy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Topical Plasminogen Eye Drops\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical plasminogen has been used to prevent recurrent conjunctival pseudomembranes in ligneous conjunctivitis, including long-term pediatric follow-up after ocular surgery.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"plasminogen\"]}}], \"edges\": [{\"source\": \"PLG-Related Plasminogen Deficiency\", \"target\": \"Impaired Fibrinolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Fibrinolysis\", \"target\": \"Ligneous Mucosal Pseudomembrane Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired fibrin degradation\", \"defective mucosal wound healing\"]}, {\"source\": \"Intravenous Plasminogen Replacement\", \"target\": \"PLG-Related Plasminogen Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous Plasminogen Replacement\", \"target\": \"Impaired Fibrinolysis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasminogen Replacement for Respiratory Lesions\", \"target\": \"Ligneous Mucosal Pseudomembrane Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasminogen Replacement for Respiratory Lesions\", \"target\": \"Airway Obstruction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Plasminogen Replacement for Respiratory Lesions\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Topical Plasminogen Eye Drops\", \"target\": \"Ligneous Mucosal Pseudomembrane Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topical Plasminogen Eye Drops\", \"target\": \"Ligneous Conjunctivitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PLG\", \"target\": \"PLG-Related Plasminogen Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">7</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Respiratory<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(5)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hydrocephalus
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank">
-                            Hydrocephalus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000238)</span>
-                        </span>
-                        
+                        Hydrocephalus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21174000" target="_blank">PMID:21174000</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Compared to 79 previously published cases, clinical manifestations of the current group of patients showed higher percentages of ligneous periodontitis, congenital hydrocephalus, and involvement of the female genital tract."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The 23-patient series identifies congenital hydrocephalus among clinical manifestations enriched in the cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Respiratory Insufficiency
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank">
-                            Respiratory insufficiency
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002093)</span>
-                        </span>
-                        
+                        Respiratory insufficiency
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39372655" target="_blank">PMID:39372655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Early recognition and effective treatment of airway obstruction caused by fibrinous lesions are critical to prevent morbidity due to respiratory compromise."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports respiratory compromise as a consequence of airway fibrinous lesions.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">5</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Ligneous Conjunctivitis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0034814" target="_blank">
-                            Conjunctival membrane
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0034814)</span>
-                        </span>
-                        
+                        Conjunctival membrane
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034814" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034814">HP:0034814</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37612758" target="_blank">PMID:37612758</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Ligneous Conjunctivitis (LC) is the most common clinical manifestation of Type I Plasminogen deficiency (T1PD; OMIM# 217090), and it is characterized by the formation of pseudomembranes (due to deposition of fibrin) on the conjunctivae leading to progressive vision loss."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports conjunctival pseudomembranes as the most common manifestation and links them to vision loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Severe Periodontitis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000166" target="_blank">
-                            Severe periodontitis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000166)</span>
-                        </span>
-                        
+                        Severe periodontitis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000166" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000166">HP:0000166</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37506226" target="_blank">PMID:37506226</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We reason that the role of fibrin in periodontitis becomes most evident in individuals with the Mendelian genetic defect, congenital plasminogen (PLG) deficiency, who are predisposed to severe periodontitis in childhood due to a defect in fibrinolysis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports childhood severe periodontitis as a mucosal consequence of PLG deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Premature Loss of Teeth
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0006480" target="_blank">
-                            Premature loss of teeth
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0006480)</span>
-                        </span>
-                        
+                        Premature loss of teeth
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006480" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006480">HP:0006480</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37506226" target="_blank">PMID:37506226</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We reason that the role of fibrin in periodontitis becomes most evident in individuals with the Mendelian genetic defect, congenital plasminogen (PLG) deficiency, who are predisposed to severe periodontitis in childhood due to a defect in fibrinolysis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract supports severe childhood periodontitis; tooth loss is a downstream clinical consequence of severe periodontal destruction, so this is marked partial rather than direct support.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Airway Obstruction
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank">
-                            Airway obstruction
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0006536)</span>
-                        </span>
-                        
+                        Airway obstruction
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006536">HP:0006536</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39372655" target="_blank">PMID:39372655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Depending on lesion location, clinical manifestations of PLGD-1 can result in acute and/or chronic respiratory airway disease which can compromise respiratory function leading to life-threatening events."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports clinically important respiratory tract involvement and airway compromise in PLGD-1.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Female Genital Tract Involvement
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0010460" target="_blank">
-                            Abnormality of the female genitalia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0010460)</span>
-                        </span>
-                        
+                        Abnormality of the female genitalia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010460" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010460">HP:0010460</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21174000" target="_blank">PMID:21174000</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Compared to 79 previously published cases, clinical manifestations of the current group of patients showed higher percentages of ligneous periodontitis, congenital hydrocephalus, and involvement of the female genital tract."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports female genital tract involvement as a documented clinical manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4026,774 +4183,837 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     PLG
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Biallelic Pathogenic Variant)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PLG
+
+
+    <a href="https://bioregistry.io/hgnc:9071" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9071">hgnc:9071</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21174000" target="_blank">PMID:21174000</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Homozygous or compound-heterozygous mutations in the plasminogen (PLG) gene were found in 16 of 23 patients (70%), three of which were novel mutations reported here for the first time (C166Y, Y264S, IVS10-7T/G)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The cohort directly supports PLG as the causal gene and documents the biallelic variant pattern.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27976734" target="_blank">PMID:27976734</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The whole PLG was tested using Next Generation Sequencing (NGS) and 5 putative pathogenic mutations were found (after in silico predictions) and associated with plasminogen deficiency."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Independent family sequencing supports pathogenic PLG variants as the genetic basis of plasminogen deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_2c9320e7-9f02-4b54-beba-0ca781a442eb-2019-10-23T160000.000Z" target="_blank">CGGV:assertion_2c9320e7-9f02-4b54-beba-0ca781a442eb-2019-10-23T160000.000Z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"PLG | HGNC:9071 | hypoplasminogenemia | MONDO:0009009 | AR | Definitive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinGen classifies the PLG-hypoplasminogenemia gene-disease relationship as definitive with autosomal recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Intravenous Plasminogen Replacement
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">infusion procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000757" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000757</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000757" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000757">MAXO:0000757</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         plasminogen
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Plasminogen, human-tvmh replacement restores circulating plasminogen activity and is disease-targeted therapy for visible and non-visible lesions in type 1 plasminogen deficiency.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             RESTORES
                         </span>
                         <strong style="color: #5b21b6;">PLG-Related Plasminogen Deficiency</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Replacement therapy restores plasminogen substrate for plasmin generation.</span>
-                        
-                        
-    
-    
+
+
+
+
                     </div>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             RESTORES
                         </span>
                         <strong style="color: #5b21b6;">Impaired Fibrinolysis</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Increased plasminogen activity supports restoration of fibrinolytic capacity.</span>
-                        
-                        
-    
-    
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
-                
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/hae.14849" target="_blank">DOI:10.1111/hae.14849</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The primary efficacy endpoint was achieved, as 100% of subjects (n = 11) with visible and assessable non‐visible lesions at baseline demonstrated ≥ 50% improvement after 48 weeks of study drug treatment with plasminogen, human‐tvmh."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Phase 2/3 clinical evidence supports systemic plasminogen replacement for lesion improvement in type 1 plasminogen deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/hae.14849" target="_blank">DOI:10.1111/hae.14849</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All subjects achieved the targeted ≥ 10% increase in trough plasminogen activity above baseline through Week 12."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports the biochemical restoration mechanism of intravenous plasminogen replacement.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Plasminogen Replacement for Respiratory Lesions
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">infusion procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000757" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000757</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000757" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000757">MAXO:0000757</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         plasminogen
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Intravenous plasminogen, human-tvmh can resolve or greatly improve severe respiratory complications due to airway fibrinous lesions.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             MODULATES
                         </span>
                         <strong style="color: #5b21b6;">Ligneous Mucosal Pseudomembrane Formation</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Replacement therapy can clear or reduce fibrinous airway lesions.</span>
-                        
-                        
-    
-    
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         airway obstruction
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006536">HP:0006536</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         respiratory insufficiency
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39372655" target="_blank">PMID:39372655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Presented here is a case series of one adult and three pediatric patients with severe respiratory complications of PLGD-1 successfully managed by infusions of plasminogen, human-tvmh replacement therapy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly supports systemic replacement therapy for severe airway complications.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39372655" target="_blank">PMID:39372655</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients&#39; respiratory symptoms were resolved or greatly improved, and treatment was generally well tolerated."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The case series reports clinical improvement of respiratory symptoms with replacement therapy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Topical Plasminogen Eye Drops
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         plasminogen
-                        
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Topical plasminogen has been used to prevent recurrent conjunctival pseudomembranes in ligneous conjunctivitis, including long-term pediatric follow-up after ocular surgery.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             MODULATES
                         </span>
                         <strong style="color: #5b21b6;">Ligneous Mucosal Pseudomembrane Formation</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Topical replacement targets local fibrin-rich membrane recurrence.</span>
-                        
-                        
-    
-    
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         conjunctival membrane
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0034814" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034814" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034814">HP:0034814</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37612758" target="_blank">PMID:37612758</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Treatment with topical purified plasminogen is used to prevent pseudomembranes formation (Blood 108:3021-3026, 2006, Ophthalmology 129:955-957, 2022)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This supports topical plasminogen as a local treatment strategy for conjunctival pseudomembrane prevention.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37612758" target="_blank">PMID:37612758</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The patient showed a progressive response to the topical plasminogen, with a complete absence of pseudomembrane formation at a twelve-year follow-up, despite using an ocular prosthesis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Long-term follow-up supports durable control of conjunctival membranes in one pediatric case.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Low Plasminogen Activity
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(PRESENT)</span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/hae.14849" target="_blank">DOI:10.1111/hae.14849</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All subjects achieved the targeted ≥ 10% increase in trough plasminogen activity above baseline through Week 12."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The replacement-therapy trial uses trough plasminogen activity as a biochemical endpoint in subjects with type 1 plasminogen deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
         <div class="card" id="trials">
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
                 <h2 class="card-title">Clinical Trials</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT02690714
-                    
+
                     <span class="tag tag-phase">PHASE_II</span>
-                    
-                    
+
+
                     <span class="tag tag-status">COMPLETED</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Phase 2/3 open-label repeat-dose trial evaluating pharmacokinetics, efficacy, and safety of intravenous Prometic plasminogen in pediatric and adult subjects with hypoplasminogenemia.</div>
-                
-                
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         conjunctival membrane
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0034814" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034814" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034814">HP:0034814</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         airway obstruction
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006536">HP:0006536</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02690714" target="_blank">clinicaltrials:NCT02690714</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This is a Phase 2/3 pivotal study to evaluate pharmacokinetics (PK), efficacy, and safety of Prometic Plasminogen (Human) Intravenous Lyophilized Solution, the investigational medicinal product (IMP), in pediatric and adult subjects with hypoplasminogenemia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov identifies this pivotal intravenous plasminogen study in pediatric and adult hypoplasminogenemia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT01554956
-                    
+
                     <span class="tag tag-phase">PHASE_II</span>
-                    
-                    
+
+
                     <span class="tag tag-status">COMPLETED</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Historically controlled phase 2/3 clinical trial evaluating topical human plasminogen eye drops in patients diagnosed with ligneous conjunctivitis.</div>
-                
-                
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         conjunctival membrane
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0034814" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034814" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034814">HP:0034814</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01554956" target="_blank">clinicaltrials:NCT01554956</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Kedrion Human Plasminogen, a sterile human plasma-derived plasminogen preparation for topical ocular use will be evaluated for the indication of treatment of ligneous conjunctivitis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov supports topical plasminogen eye drops as a clinical trial intervention for ligneous conjunctivitis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5303,42 +5523,42 @@ datasets:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Characteristics Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">42 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-07T09:31:19.148794</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -6200,11 +6420,11 @@ Additional model organism claims (e.g., engineered Plg−/− mice) are mentione
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>

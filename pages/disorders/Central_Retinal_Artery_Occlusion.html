@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Central Retinal Artery Occlusion</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Complex</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0001633" target="_blank">
                         MONDO:0001633
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Retinal Vascular Disorder</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Ischemic Vascular Disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Central retinal artery occlusion is an acute retinal arterial ischemic disorder caused by obstruction of the central retinal artery, producing inner retinal infarction and sudden severe monocular vision loss.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,35 +3065,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3031,9 +3101,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3041,10 +3111,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3052,9 +3122,9 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3062,8 +3132,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3071,10 +3141,10 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#trials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
@@ -3082,11 +3152,11 @@
                 <div class="stat-label">Trials</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3094,573 +3164,624 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">2</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Non-arteritic Central Retinal Artery Occlusion
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Most CRAO cases are non-arteritic and arise from thromboembolic or atherosclerotic vascular occlusion.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Arteritic Central Retinal Artery Occlusion
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Arteritic CRAO is most often associated with giant cell arteritis and requires urgent systemic evaluation and treatment.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-retinal-arterial-obstruction">
                 <div class="item-name">Central Retinal Arterial Obstruction</div>
-                
+
                 <div class="item-desc">Embolic or thrombotic obstruction of the central retinal artery abruptly reduces retinal perfusion.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal blood vessel endothelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002585">CL:0002585</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         blood coagulation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Inner Retinal Ischemic Injury</span>
-	                            
+
 	                            <span class="crosslink-desc">Abrupt central retinal artery obstruction deprives the inner retina of arterial perfusion, producing ischemic injury.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33677974" target="_blank">PMID:33677974</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Central retinal artery occlusion (CRAO) is a form of acute ischemic stroke that causes severe visual loss and is a harbinger of further cerebrovascular and cardiovascular events."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The AHA scientific statement supports CRAO as an acute ischemic vascular event causing severe visual loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inner-retinal-ischemic-injury">
                 <div class="item-name">Inner Retinal Ischemic Injury</div>
-                
+
                 <div class="item-desc">Loss of arterial inflow deprives the inner retina of oxygen and energy, leading to retinal edema and downstream neuronal injury.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         response to hypoxia
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Retinal Ganglion Cell Death</span>
-	                            
+
 	                            <span class="crosslink-desc">Inner retinal ischemia causes oxidative stress and retinal ganglion cell death, explaining irreversible vision loss.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ocular Neovascularization</span>
-	                            
+
 	                            <span class="crosslink-desc">Persistent retinal ischemia can drive later ocular neovascularization and neovascular glaucoma.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38905460" target="_blank">PMID:38905460</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Subsequently, CRAO has consistently been identified as a serious medical condition that leads to substantial visual impairment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review supports severe retinal injury and visual impairment as a consequence of CRAO.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ganglion-cell-death">
                 <div class="item-name">Retinal Ganglion Cell Death</div>
-                
+
                 <div class="item-desc">Ischemia-reperfusion injury in CRAO produces oxidative stress and death of retinal ganglion cells, the principal neurons conveying retinal output to the optic nerve.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal ganglion cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000740">CL:0000740</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         neuron apoptotic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051402">GO:0051402</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41254661" target="_blank">PMID:41254661</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Central retinal artery occlusion (CRAO) causes irreversible vision loss through ischemia-reperfusion (I/R) injury, characterized by oxidative stress and retinal ganglion cell (RGC) death."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This translational CRAO study directly links retinal ischemia-reperfusion injury to oxidative stress and retinal ganglion cell death.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-neovascularization">
                 <div class="item-name">Ocular Neovascularization</div>
-                
+
                 <div class="item-desc">Ischemic retinal signaling after CRAO can promote ocular neovascularization, including neovascular glaucoma and progressive loss of remaining vision.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal blood vessel endothelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002585">CL:0002585</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         angiogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1177/24741264231213169" target="_blank">DOI:10.1177/24741264231213169</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Purpose: To determine the time-based incidence of total blindness after central retinal artery occlusion (CRAO) with secondary ocular neovascularization (ONV)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This CRAO cohort study directly supports ocular neovascularization as a secondary complication after CRAO.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3676,345 +3797,363 @@
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">6</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cherry-red Spot
-                        
+
                         <span class="phenotype-freq">COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0010729" target="_blank">
-                            Cherry red spot of the macula
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0010729)</span>
-                        </span>
-                        
+                        Cherry red spot of the macula
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010729">HP:0010729</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Retained as a characteristic fundus sign from the deep research synthesis. The previous abstract snippet did not directly mention a cherry-red spot, so this entry is documented without an evidence item.</div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sudden Monocular Vision Loss
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank">
-                            Visual loss
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000572)</span>
-                        </span>
-                        
+                        Visual loss
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000572">HP:0000572</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41109232" target="_blank">PMID:41109232</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Central retinal artery occlusion (CRAO) is a subtype of ischaemic stroke that results in acute monocular vision loss."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This phase 3 CRAO trial background directly describes the defining acute monocular visual-loss presentation. A more specific local HP term was not available, so the broader visual-loss term is retained with a specific preferred term.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Reduced Visual Acuity
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank">
-                            Reduced visual acuity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0007663)</span>
-                        </span>
-                        
+                        Reduced visual acuity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40832714" target="_blank">PMID:40832714</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This individual participant data meta-analysis aimed to determine whether time to treatment influences the effect of intraarterial thrombolysis (IAT), intravenous thrombolysis, and conservative standard therapy on visual outcomes in nonarteritic central retinal artery occlusion."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The CRAO meta-analysis evaluates visual acuity outcomes, supporting reduced visual acuity as the measurable clinical deficit.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Neovascular Glaucoma
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank">
-                            Glaucoma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000501)</span>
-                        </span>
-                        
+                        Glaucoma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1177/24741264231213169" target="_blank">DOI:10.1177/24741264231213169</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Neovascular glaucoma can present up to 4 months after CRAO, challenging the paradigm of “30-day-glaucoma.”"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This CRAO cohort study directly supports neovascular glaucoma as a post-CRAO complication requiring follow-up.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Retinal Ischemia
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0033401" target="_blank">
-                            Tissue ischemia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0033401)</span>
-                        </span>
-                        
+                        Tissue ischemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033401" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033401">HP:0033401</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33677974" target="_blank">PMID:33677974</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Central retinal artery occlusion (CRAO) is a form of acute ischemic stroke that causes severe visual loss and is a harbinger of further cerebrovascular and cardiovascular events."</div>
-                
-                
+
+
                 <div class="evidence-explanation">CRAO is characterized as an acute ischemic event affecting the retina.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Relative Afferent Pupillary Defect
-                        
+
                         <span class="phenotype-freq">COMMON</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0200057" target="_blank">
-                            Marcus Gunn pupil
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0200057)</span>
-                        </span>
-                        
+                        Marcus Gunn pupil
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200057" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200057">HP:0200057</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Retained as a common bedside sign from the deep research synthesis. The previous abstract snippet did not directly mention RAPD, and no exact abstract-level quote was available, so this entry is documented without an evidence item.</div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4039,668 +4178,718 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Acute Stroke-Center Evaluation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">emergency care</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: emergency medicine specialist evaluation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000672" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000672</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000672" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000672">MAXO:0000672</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">CRAO is evaluated as an ocular stroke, with urgent systemic vascular risk assessment and consideration of time-sensitive reperfusion strategies.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33677974" target="_blank">PMID:33677974</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Acute CRAO is a medical emergency. Systems of care should evolve to prioritize early recognition and triage of CRAO to emergency medical attention."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The AHA statement directly supports urgent emergency evaluation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Thrombolysis
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">thrombolytic therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Thrombolytic Therapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15338" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15338</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15338" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15338">NCIT:C15338</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         alteplase
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C39607" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C39607" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C39607">NCIT:C39607</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         tenecteplase
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C29489" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29489" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29489">NCIT:C29489</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Intravenous thrombolysis is considered in selected early-presenting patients under stroke-like protocols.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40832714" target="_blank">PMID:40832714</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Early intervention in nonarteritic central retinal artery occlusion is associated with improvement in visual recovery, with intraarterial thrombolysis and intravenous thrombolysis outperforming nonthrombolytic treatments."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The individual-participant meta-analysis supports potential benefit of early thrombolysis while still calling for randomized trial confirmation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Aspirin Antiplatelet Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">aspirin therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000903" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000903</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000903" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000903">MAXO:0000903</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         aspirin
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:15365">CHEBI:15365</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Aspirin-based antiplatelet therapy is used as part of antithrombotic management and secondary vascular prevention after retinal artery occlusion.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39817651" target="_blank">PMID:39817651</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This paper reviews current literature and clinical trials investigating the efficacy and safety of anticoagulant and antiplatelet therapies, such as systemic heparinization and direct oral anticoagulants and aspirin, in treating RAO."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This recent review supports aspirin and antiplatelet therapy as an antithrombotic strategy for retinal artery occlusion, while noting that prospective evidence remains incomplete.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     High-Dose Corticosteroids for Arteritic CRAO
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">corticosteroid agent therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000640" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000640</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000640" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000640">MAXO:0000640</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         methylprednisolone
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C647" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C647" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C647">NCIT:C647</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Suspected giant-cell-arteritis-associated arteritic CRAO requires urgent systemic corticosteroid treatment to reduce risk of further vision-threatening ischemia.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fopht.2022.848861" target="_blank">DOI:10.3389/fopht.2022.848861</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vision-threatening GCA is treated acutely with emergent admission for intravenous methylprednisolone, and long-term high dose oral corticosteroids remain the standard of care, despite common and sometimes serious side effects."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Arteritic CRAO is commonly GCA-associated, and this review directly supports urgent corticosteroid treatment for vision-threatening GCA.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Ocular Neovascularization Treatment
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">laser photocoagulation</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Laser Photocoagulation</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C217424" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C217424</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C217424" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C217424">NCIT:C217424</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         bevacizumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C2039">NCIT:C2039</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Panretinal photocoagulation and intravitreal anti-VEGF therapy are used to manage ocular neovascularization after CRAO.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1177/24741264231213169" target="_blank">DOI:10.1177/24741264231213169</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ONV management included PRP (70.6%), glaucoma drainage implant surgery or transscleral cyclophotocoagulation (32.4%), and intravitreal anti-VEGF therapy (mean 2.8 ± 5.6 injections per patient)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This CRAO cohort directly documents panretinal photocoagulation and intravitreal anti-VEGF use for post-CRAO ocular neovascularization.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Systemic vascular risk</div>
-                
-                
+
+
                 <div class="item-desc">CRAO warrants urgent evaluation for systemic cerebrovascular and cardiovascular risk factors and embolic sources.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33677974" target="_blank">PMID:33677974</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Central retinal artery occlusion (CRAO) is a form of acute ischemic stroke that causes severe visual loss and is a harbinger of further cerebrovascular and cardiovascular events."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The AHA statement supports systemic vascular risk evaluation and secondary prevention as part of CRAO care.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
         <div class="card" id="trials">
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
                 <h2 class="card-title">Clinical Trials</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT04526951
-                    
+
                     <span class="tag tag-phase">PHASE_III</span>
-                    
-                    
+
+
                     <span class="tag tag-status">COMPLETED</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">TenCRAOS phase 3 randomized, double-dummy, double-blind trial of systemic tenecteplase versus aspirin in early central retinal artery occlusion.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04526951" target="_blank">clinicaltrials:NCT04526951</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"TENecteplase in Central Retinal Artery Occlusion (TenCRAOS): A Prospective, randomized-controlled, double-dummy, double-blind phase 3 multi-centre trial of TNK 0.25 mg/kg + placebo vs. ASA + placebo (2 arms with 1:1 block randomization)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov identifies TenCRAOS as a phase 3 trial directly testing tenecteplase against aspirin in CRAO.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT04965038
-                    
+
                     <span class="tag tag-phase">PHASE_III</span>
-                    
-                    
+
+
                     <span class="tag tag-status">RECRUITING</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">REVISION phase 3 trial evaluating intravenous alteplase within 4.5 hours of acute non-arteritic thromboembolic CRAO.</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04965038" target="_blank">clinicaltrials:NCT04965038</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Therefore, the REVISION randomized placebo-controlled interventional trial will investigate intravenous alteplase in CRAO as it is practiced in acute ischemic stroke, i.e. within 4.5 hours after symptom onset."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov identifies REVISION as a phase 3 alteplase trial for acute CRAO within the stroke-like reperfusion window.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5141,42 +5330,42 @@ clinical_trials:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Central Retinal Artery Occlusion (CRAO): Disease Characteristics Research Report</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">65 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-06T08:19:25.767582</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Central Retinal Artery Occlusion (CRAO): Disease Characteristics Research Report</h1>
 <h2>Executive summary</h2>
@@ -5647,11 +5836,11 @@ Pan-retinal photocoagulation (PRP) ± intravitreal anti-VEGF is recommended for 
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
