@@ -46,6 +46,19 @@ Concretely:
 - **Do not flag schema fields** (required/optional presence, field types, enum values) — the schema validator is authoritative.
 - **Do not flag HGNC CURIE case** if you have not confirmed it actually fails validation. Only flag it if you can verify the mismatch exists and causes validation failure.
 
+### CRITICAL: Do NOT use `cache/enums/*.csv` as a term validation proxy
+
+**The `cache/enums/*.csv` files are static CI snapshot artifacts.** They materialize schema enum constraints at a point in time but do NOT reflect the full, current HPO/GO/CL/MAXO/etc. ontology. These CSV files are regularly stale relative to the OAK/`sqlite:obo:*` adapters used by `just validate-terms`.
+
+**If a term appears absent from a `cache/enums/*.csv` file, that is NOT evidence it will fail `just validate-terms`.** The actual term validator queries the live ontology database — it is authoritative. The CSV is not.
+
+**Prohibited behavior:**
+- Inspecting `cache/enums/phenotypeterm_*.csv` (or any other `cache/enums/*.csv`) to check whether an ontology term is present
+- Issuing a review finding that an ontology term "will fail validation" or "is absent" based on CSV inspection alone
+- Overriding or contradicting a PR author's explicit statement that `just validate-terms` passed, based on CSV inspection
+
+**If `just validate-terms` passed (as stated in the PR description or CI logs), that is the final word.** Do not second-guess it by inspecting cache artifacts.
+
 The reviewer's role is to evaluate **non-deterministic components** using biological judgment, domain expertise, and the rubrics below: biological plausibility, ontology specificity, evidence quality, claim–snippet alignment, and section appropriateness. Focus there.
 
 ## Things NOT to flag
@@ -53,6 +66,7 @@ The reviewer's role is to evaluate **non-deterministic components** using biolog
 - **`updated_date`**: Do NOT flag or request updates to `updated_date` in reviews. Change tracking is handled via separate git logs and traces.
 - **Empty YAML keys** that pass schema validation (e.g., `datasets:`, `clinical_trials:`).
 - **Structural or formatting issues** that would be caught by `just validate` — trust CI.
+- **Ontology terms absent from `cache/enums/*.csv`** — the cache CSV files are stale snapshots and are NOT authoritative for term validation. If `just validate-terms` passed, the term is valid. Never issue a critical finding based solely on CSV inspection (see "Trust the Validation Process" above).
 
 ## Deep Research Cross-Check
 

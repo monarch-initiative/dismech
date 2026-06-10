@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,20 +2961,20 @@
         <header class="page-header">
             <h1>Osteogenesis Imperfecta Type I</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0008146" target="_blank">
                         MONDO:0008146
                     </a>
                 </span>
-                
-                
-                
+
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Osteogenesis imperfecta</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2917,12 +2987,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Osteogenesis imperfecta type I (OI type I) is the mildest form of osteogenesis imperfecta, caused by heterozygous null mutations in COL1A1 leading to quantitative deficiency of type I collagen (haploinsufficiency). Affected individuals have blue sclerae, mild bone fragility with variable fracture frequency, near-normal stature, and may develop hearing loss in adulthood. Unlike the more severe OI types caused by structural collagen mutations, type I results from reduced collagen quantity rather than abnormal collagen structure.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2992,34 +3062,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3027,8 +3097,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3036,21 +3106,21 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3058,23 +3128,23 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3082,8 +3152,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3091,624 +3161,1297 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal Dominant
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Autosomal dominant inheritance with high penetrance but variable expressivity. Most cases are inherited from an affected parent; de novo mutations also occur.
 </div>
-                
-                
-    
-    
-    
-    
-                
-    
-    
+
+
+
+
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-i-collagen-haploinsufficiency">
                 <div class="item-name">Type I Collagen Haploinsufficiency</div>
-                
+
                 <div class="item-desc">Null mutations in COL1A1 (nonsense, frameshift, splice site mutations causing nonsense-mediated mRNA decay) result in ~50% reduction in type I collagen production. The collagen that is produced has normal structure, explaining the milder phenotype compared to dominant-negative structural mutations.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Osteoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Collagen Fibril Organization
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030199">GO:0030199</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Bone Development
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0060348" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060348" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060348">GO:0060348</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1353940" target="_blank">PMID:1353940</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Dermal fibroblasts from most individuals with osteogenesis imperfecta (OI) type I produce about half the normal amount of type I procollagen, as a result of decreased synthesis of one of its constituent chains, pro alpha 1 (I)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Landmark paper demonstrating that OI type I results from 50% reduced type I procollagen synthesis due to diminished pro alpha 1(I) chain production.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23529829" target="_blank">PMID:23529829</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"COL1A1 haploinsufficiency mutations lead to the mildest form of osteogenesis imperfecta (OI), OI type I."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large clinical study (86 patients) confirming that COL1A1 haploinsufficiency specifically causes the mild type I phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">14</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
-                
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(5)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(1)</span></button>
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Ear
+                    Blood
                     <span class="cat-count">1</span>
                 </summary>
-                
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Bruising Susceptibility
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+                    <span class="phenotype-id">
+                        Bruising susceptibility
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000978">HP:0000978</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:666" target="_blank">ORPHA:666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000978 | Bruising susceptibility | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists bruising susceptibility as an occasional feature across the OI spectrum, consistent with its documented occurrence in type I.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6822598" target="_blank">PMID:6822598</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In Type 4 the first fracture more commonly occurs at birth, dentinogenesis imperfecta is more frequent than in Type 1 and bruising and nose-bleeds are less common."</div>
+
+
+                <div class="evidence-explanation">This type I versus type IV comparison explicitly states that bruising and nose-bleeds are more common in type I than in type IV, confirming bruising susceptibility as a feature of type I OI.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Ear
+                    <span class="cat-count">2</span>
+                </summary>
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hearing Impairment
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank">
-                            Hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000365)</span>
-                        </span>
-                        
+                        Hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11276328" target="_blank">PMID:11276328</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It was found that the most common age of onset was in the second, third and fourth decades of life. At the age of 50 approximately 50 per cent of the patients had symptoms of hearing impairment; over the next 20 years there was little further increase. Differences were shown between patients..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large OI survey showing typical adult onset of hearing impairment and demonstrating that hearing loss is more common in type I than in type IV disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Progressive Hearing Impairment
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-id">
+                        Progressive hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001730" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001730">HP:0001730</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:666" target="_blank">ORPHA:666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001730 | Progressive hearing impairment | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists progressive hearing impairment as a frequent feature of OI, consistent with its well-documented progressive course in type I.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11276328" target="_blank">PMID:11276328</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It was found that the most common age of onset was in the second, third and fourth decades of life. At the age of 50 approximately 50 per cent of the patients had symptoms of hearing impairment; over the next 20 years there was little further increase."</div>
+
+
+                <div class="evidence-explanation">This large survey of 1,394 OI patients demonstrates the progressive trajectory of hearing loss in type I OI, plateauing at about 50% by age 50.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
-            
-            <details class="phenotype-category-group" id="pheno-cat-2">
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Blue Sclerae
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000592" target="_blank">
-                            Blue sclerae
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000592)</span>
-                        </span>
-                        
+                        Blue sclerae
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000592" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000592">HP:0000592</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6954526" target="_blank">PMID:6954526</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Type I osteogenesis imperfecta (OI) is a dominantly inherited disease characterized clinically by bone fractures during childhood, blue sclerae, and frequent hearing loss accompanied by a decreased content of type I collagen in bone and skin."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Landmark type I OI study identifying blue sclerae as part of the classic clinical phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
-            <details class="phenotype-category-group" id="pheno-cat-3">
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Dentinogenesis Imperfecta
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000703" target="_blank">
-                            Dentinogenesis imperfecta
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000703)</span>
-                        </span>
-                        
+                        Dentinogenesis imperfecta
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000703" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000703">HP:0000703</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20384825" target="_blank">PMID:20384825</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"RESULTS: A total of ten patients had abnormal discolourations referable to DI: four patients were affected by OI type I, three patients by OI type III, and three patients by OI type IV."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Pediatric cohort directly documenting dentinogenesis imperfecta in children with type I OI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Wormian Bones
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+                    <span class="phenotype-id">
+                        Wormian bones
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002645">HP:0002645</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:666" target="_blank">ORPHA:666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002645 | Wormian bones | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists Wormian bones as an occasional feature of the OI spectrum, consistent with their recognised occurrence across OI types including type I.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34688943" target="_blank">PMID:34688943</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"findings (presence of Wormian bones, platybasia, basilar impression (McGregor&#39;s"</div>
+
+
+                <div class="evidence-explanation">This NHS England specialist OI service study systematically recorded Wormian bones on skull radiographs across OI subtypes, confirming their role as a monitored cranial finding in OI including milder forms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
-            
-            <details class="phenotype-category-group" id="pheno-cat-4">
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Hyperhidrosis
+
+
+                    <span class="phenotype-id">
+                        Hyperhidrosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000975">HP:0000975</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:666" target="_blank">ORPHA:666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000975 | Hyperhidrosis | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hyperhidrosis as a frequent feature of the OI spectrum, supporting its occurrence in type I OI. No type I-specific frequency is asserted here because the Orphanet band reflects the whole OI spectrum rather than type I alone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Recurrent Fractures
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank">
-                            Recurrent fractures
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002757)</span>
-                        </span>
-                        
+                        Recurrent fractures
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002757">HP:0002757</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23529829" target="_blank">PMID:23529829</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The average rate of long-bone fracture (femur, tibia/fibula, humerus, radius/ulna) in pediatric patients was 0.62 fractures per year, one-half of which affected the tibia/fibula. Long-bone fracture rate was negatively associated with age and lumbar spine areal bone mineral density."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Quantifies fracture rate in COL1A1 haploinsufficiency patients and confirms that fracture frequency decreases with age.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Vertebral Compression Fractures
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002953" target="_blank">
-                            Vertebral compression fracture
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002953)</span>
-                        </span>
-                        
+                        Vertebral compression fracture
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002953" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002953">HP:0002953</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23529829" target="_blank">PMID:23529829</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vertebral compression fractures were observed in 71% of the 58 pediatric patients who had lateral spine radiographs."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This cohort shows that vertebral compression fractures are a frequent and clinically important component of the type I OI skeletal phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Scoliosis
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank">
-                            Scoliosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002650)</span>
-                        </span>
-                        
+                        Scoliosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23529829" target="_blank">PMID:23529829</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Scoliosis was present in about 30% of pediatric patients but the Cobb angle was &lt;30 degrees in all cases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports scoliosis as an occasional and usually mild spinal manifestation in pediatric type I OI.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Joint Hypermobility
+
+
+                    <span class="phenotype-id">
+                        Joint hypermobility
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301472" target="_blank">PMID:20301472</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mobility aids including orthotics to stabilize lax joints."</div>
+
+
+                <div class="evidence-explanation">GeneReviews management section references lax joints as a clinical feature in COL1A1/COL1A2-related OI requiring orthotic stabilization.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Osteoporosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-id">
+                        Osteoporosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000939">HP:0000939</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:666" target="_blank">ORPHA:666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000939 | Osteoporosis | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists osteoporosis as a frequent feature of the OI spectrum, consistent with the well-established low bone mass in type I.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23529829" target="_blank">PMID:23529829</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"year, one-half of which affected the tibia/fibula. Long-bone fracture rate was"</div>
+
+
+                <div class="evidence-explanation">The inverse relationship between fracture rate and lumbar spine BMD in this COL1A1 haploinsufficiency cohort directly reflects the low bone mass underlying the osteoporotic phenotype in OI type I.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
-            
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Bone Pain
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-id">
+                        Bone pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002653">HP:0002653</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:666" target="_blank">ORPHA:666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002653 | Bone pain | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists bone pain as a frequent feature of OI, consistent with its clinical prominence in adults with type I.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30191258" target="_blank">PMID:30191258</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other areas included pain, gastrointestinal problems,"</div>
+
+
+                <div class="evidence-explanation">This OI community stakeholder study identifies pain as a primary concern of adults with OI, emphasising that it is under-studied and undertreated across all OI types including type I.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Mild Short Stature
+
+
+                    <span class="phenotype-id">
+                        Mild short stature
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003502" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003502">HP:0003502</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23529829" target="_blank">PMID:23529829</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The average final height Z-score was -1.1, representing a deficit of 8 to 10 cm compared to the general population."</div>
+
+
+                <div class="evidence-explanation">COL1A1 haploinsufficiency cohort of 86 patients showing a modest but consistent height deficit, confirming mild rather than severe short stature in OI type I.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -3733,274 +4476,637 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     COL1A1 Null Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1353940" target="_blank">PMID:1353940</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In each case there was marked diminution in steady-state mRNA levels from one COL1A1 allele. Loss of an allele through deletion or rearrangement was not the cause of the diminished COL1A1 mRNA levels."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Study of 23 individuals from 21 families showed null allele-associated mRNA reduction, establishing the molecular basis of COL1A1 haploinsufficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9443882" target="_blank">PMID:9443882</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Analysis of the COL1A1 and COL1A2 genes by PCR amplification and scanning by conformation-sensitive gel electrophoresis identifies only COL1A1 mutations in 15 patients with osteogenesis imperfecta type I."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that OI type I is specifically associated with COL1A1 mutations, with common null-allele mutation sequences identified.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Bisphosphonate Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Bisphosphonate therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: bisphosphonate agent therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000954" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000954</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000954" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000954">MAXO:0000954</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                <div class="item-desc">Bisphosphonate therapy is used clinically in the management of skeletal fragility in osteogenesis imperfecta, particularly in children.
+
+
+
+
+
+                <div class="item-desc">Bisphosphonate therapy is used in OI type I primarily in those with vertebral fractures or frequent long-bone fractures; evidence for fracture reduction is less robust in mild OI than in severe forms. Benefit is most clearly established for improving bone mineral density in children.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301472" target="_blank">PMID:20301472</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bisphosphonates continue to be used most extensively in those with vertebral fractures, frequent long bone fractures, or more severe OI."</div>
+
+
+                <div class="evidence-explanation">GeneReviews notes bisphosphonate use is most strongly indicated for patients with vertebral or frequent fractures, applying a severity-based threshold rather than prescribing universally for mild OI.</div>
+
+
+
             </div>
-            
+
+
+        </div>
+    </details>
+
+
+            </div>
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Physical Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Physical therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: physical therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Exercise and physical therapy to strengthen muscles and improve mobility while protecting fragile bones.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Fracture Management
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Orthopedic surgery</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                <div class="item-desc">Standard orthopedic management of fractures with appropriate immobilization.
+
+
+
+
+
+                <div class="item-desc">Most fractures in OI type I are managed conservatively with casting, splinting, and brief immobilization. Intramedullary rodding is reserved for recurrent long-bone fractures causing deformity.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301472" target="_blank">PMID:20301472</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fractures are treated with as short a period of immobility as is practical, small and lightweight casts, and physical therapy as soon as casts are removed; intramedullary rodding when indicated to provide anatomic positioning of limbs; bracing of limbs depending on OI severity."</div>
+
+
+                <div class="evidence-explanation">GeneReviews describes the standard conservative fracture management approach and the criteria for intramedullary rodding in OI type I.</div>
+
+
+
             </div>
-            
+
+
         </div>
-        
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Genetic Counseling
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">Genetic counseling</span>
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: genetic counseling</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Genetic counseling is recommended given autosomal dominant inheritance. Approximately 60% of probands with mild OI have de novo mutations; each child of an affected individual has a 50% chance of inheriting the causative variant. Parental mosaicism occurs in up to 16% of apparently unaffected parents, influencing recurrence risk estimation.
+</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301472" target="_blank">PMID:20301472</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The overall rate of mosaicism is up to 16% in the parents of children with COL1A1/COL1A2-OI. Each child of an individual with COL1A1/COL1A2-OI has a 50% chance of inheriting the causative variant."</div>
+
+
+                <div class="evidence-explanation">GeneReviews quantifies key recurrence risk figures: up to 16% parental mosaicism rate and 50% transmission risk per child, supporting the counseling description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Audiological Surveillance and Management
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">Audiologist evaluation</span>
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: audiologist evaluation</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000734" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000734">MAXO:0000734</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Hearing evaluation every three years from age five until hearing loss is identified, then as indicated. Approximately 50% of adults with OI type I develop hearing impairment by age 50. Conductive hearing loss may improve with middle-ear surgery; sensorineural or mixed hearing loss is managed with standard audiological care and hearing aids.
+</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301472" target="_blank">PMID:20301472</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Conductive hearing loss may be improved with middle ear surgery; standard treatments for later-onset sensorineural hearing loss."</div>
+
+
+                <div class="evidence-explanation">GeneReviews specifies audiological management for progressive hearing loss affecting approximately 50% of OI type I patients by age 50.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11276328" target="_blank">PMID:11276328</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At the age of 50 approximately 50 per cent of the patients had symptoms of hearing impairment; over the next 20 years there was little further increase."</div>
+
+
+                <div class="evidence-explanation">Population study of 1,394 OI patients quantifying hearing impairment prevalence and onset, informing the audiological surveillance schedule.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Dental Management
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">Dental care</span>
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: dental and oral agent therapy</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000264" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000264">MAXO:0000264</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Dental examination every six months beginning in early childhood for those with or at risk for dentinogenesis imperfecta; annual exams for those without DI. Goals include maintaining dentition, functional occlusion, gingival health, and appearance.
+</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301472" target="_blank">PMID:20301472</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dental care to maintain both primary and permanent dentition, a functional bite or occlusion, optimal gingival health, and overall appearance."</div>
+
+
+                <div class="evidence-explanation">GeneReviews specifies dental care goals for COL1A1/COL1A2-related OI, with frequency based on dentinogenesis imperfecta status.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4255,6 +5361,215 @@ phenotypes:
     explanation: &gt;-
       Pediatric cohort directly documenting dentinogenesis imperfecta in
       children with type I OI.
+- name: Mild Short Stature
+  description: &gt;
+    Adults with OI type I have mildly reduced stature, averaging approximately
+    8–10 cm shorter than the general population (height Z-score approximately
+    −1.1), though near-normal stature is preserved relative to the more severe
+    OI types caused by structural collagen mutations.
+  phenotype_term:
+    preferred_term: Mild short stature
+    term:
+      id: HP:0003502
+      label: Mild short stature
+  evidence:
+  - reference: PMID:23529829
+    reference_title: &#34;Skeletal clinical characteristics of osteogenesis imperfecta caused by haploinsufficiency mutations in COL1A1.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The average final height Z-score was -1.1, representing a deficit of 8 to 10 cm compared to the general population.&#34;
+    explanation: &gt;-
+      COL1A1 haploinsufficiency cohort of 86 patients showing a modest but
+      consistent height deficit, confirming mild rather than severe short stature
+      in OI type I.
+- name: Joint Hypermobility
+  description: &gt;
+    Joint laxity is an extraskeletal feature of type I collagen deficiency,
+    arising from reduced collagen content in ligaments and joint capsules.
+    Symptomatic lax joints are managed with orthotics and mobility aids.
+  phenotype_term:
+    preferred_term: Joint hypermobility
+    term:
+      id: HP:0001382
+      label: Joint hypermobility
+  evidence:
+  - reference: PMID:20301472
+    reference_title: &#34;COL1A1- and COL1A2-Related Osteogenesis Imperfecta.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Mobility aids including orthotics to stabilize lax joints.&#34;
+    explanation: &gt;-
+      GeneReviews management section references lax joints as a clinical feature
+      in COL1A1/COL1A2-related OI requiring orthotic stabilization.
+- category: Skeletal
+  name: Wormian Bones
+  description: &gt;
+    Wormian (sutural) bones are accessory intrasutural ossification centres
+    visible on skull radiographs. They are a recognised radiographic finding in
+    the OI spectrum, including in milder type I cases.
+  phenotype_term:
+    preferred_term: Wormian bones
+    term:
+      id: HP:0002645
+      label: Wormian bones
+  frequency: OCCASIONAL
+  evidence:
+  - reference: ORPHA:666
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;HP:0002645 | Wormian bones | Occasional (29-5%)&#34;
+    explanation: &gt;-
+      Orphanet lists Wormian bones as an occasional feature of the OI spectrum,
+      consistent with their recognised occurrence across OI types including type I.
+  - reference: PMID:34688943
+    reference_title: &#34;Monitoring Skull Base Abnormalities in Children with Osteogenesis Imperfecta.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;findings (presence of Wormian bones, platybasia, basilar impression (McGregor&#39;s&#34;
+    explanation: &gt;-
+      This NHS England specialist OI service study systematically recorded Wormian
+      bones on skull radiographs across OI subtypes, confirming their role as a
+      monitored cranial finding in OI including milder forms.
+- category: Skeletal
+  name: Osteoporosis
+  description: &gt;
+    Reduced bone mass meeting the threshold for osteoporosis is documented in
+    adults with OI type I, reflecting the underlying 50% deficit in type I
+    collagen production.
+  phenotype_term:
+    preferred_term: Osteoporosis
+    term:
+      id: HP:0000939
+      label: Osteoporosis
+  frequency: FREQUENT
+  evidence:
+  - reference: ORPHA:666
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;HP:0000939 | Osteoporosis | Frequent (79-30%)&#34;
+    explanation: &gt;-
+      Orphanet lists osteoporosis as a frequent feature of the OI spectrum,
+      consistent with the well-established low bone mass in type I.
+  - reference: PMID:23529829
+    reference_title: &#34;Skeletal clinical characteristics of osteogenesis imperfecta caused by haploinsufficiency mutations in COL1A1.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;year, one-half of which affected the tibia/fibula. Long-bone fracture rate was&#34;
+    explanation: &gt;-
+      The inverse relationship between fracture rate and lumbar spine BMD in
+      this COL1A1 haploinsufficiency cohort directly reflects the low bone mass
+      underlying the osteoporotic phenotype in OI type I.
+- category: Skeletal
+  name: Bruising Susceptibility
+  description: &gt;
+    Easy bruising is a recognised extraskeletal feature of OI type I, more
+    prominent than in type IV. It reflects deficient type I collagen in skin and
+    subcutaneous connective tissue.
+  phenotype_term:
+    preferred_term: Bruising susceptibility
+    term:
+      id: HP:0000978
+      label: Bruising susceptibility
+  frequency: OCCASIONAL
+  evidence:
+  - reference: ORPHA:666
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;HP:0000978 | Bruising susceptibility | Occasional (29-5%)&#34;
+    explanation: &gt;-
+      Orphanet lists bruising susceptibility as an occasional feature across the
+      OI spectrum, consistent with its documented occurrence in type I.
+  - reference: PMID:6822598
+    reference_title: &#34;Osteogenesis imperfecta with dominant inheritance and normal sclerae.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In Type 4 the first fracture more commonly occurs at birth,
+      dentinogenesis imperfecta is more frequent than in Type 1 and bruising
+      and nose-bleeds are less common.
+    explanation: &gt;-
+      This type I versus type IV comparison explicitly states that bruising and
+      nose-bleeds are more common in type I than in type IV, confirming bruising
+      susceptibility as a feature of type I OI.
+- category: Skeletal
+  name: Bone Pain
+  description: &gt;
+    Chronic or recurrent bone pain is reported by adults with OI type I and is
+    among the most frequently cited unmet clinical concerns in this population.
+  phenotype_term:
+    preferred_term: Bone pain
+    term:
+      id: HP:0002653
+      label: Bone pain
+  frequency: FREQUENT
+  evidence:
+  - reference: ORPHA:666
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;HP:0002653 | Bone pain | Frequent (79-30%)&#34;
+    explanation: &gt;-
+      Orphanet lists bone pain as a frequent feature of OI, consistent with its
+      clinical prominence in adults with type I.
+  - reference: PMID:30191258
+    reference_title: &#34;Incorporating the patient perspective in the study of rare bone disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Other areas included pain, gastrointestinal problems,&#34;
+    explanation: &gt;-
+      This OI community stakeholder study identifies pain as a primary concern
+      of adults with OI, emphasising that it is under-studied and undertreated
+      across all OI types including type I.
+- category: Skin
+  name: Hyperhidrosis
+  description: &gt;
+    Increased sweating is reported in a substantial minority of OI patients.
+    It arises from altered connective-tissue and autonomic thermoregulatory
+    responses related to type I collagen deficiency.
+  phenotype_term:
+    preferred_term: Hyperhidrosis
+    term:
+      id: HP:0000975
+      label: Hyperhidrosis
+  evidence:
+  - reference: ORPHA:666
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;HP:0000975 | Hyperhidrosis | Frequent (79-30%)&#34;
+    explanation: &gt;-
+      Orphanet lists hyperhidrosis as a frequent feature of the OI spectrum, supporting its
+      occurrence in type I OI. No type I-specific frequency is asserted here because
+      the Orphanet band reflects the whole OI spectrum rather than type I alone.
+- category: Ear
+  name: Progressive Hearing Impairment
+  description: &gt;
+    Hearing loss in OI type I is typically progressive, beginning in the second
+    to fourth decade and advancing over subsequent decades.
+  phenotype_term:
+    preferred_term: Progressive hearing impairment
+    term:
+      id: HP:0001730
+      label: Progressive hearing impairment
+  frequency: FREQUENT
+  evidence:
+  - reference: ORPHA:666
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;HP:0001730 | Progressive hearing impairment | Frequent (79-30%)&#34;
+    explanation: &gt;-
+      Orphanet lists progressive hearing impairment as a frequent feature of OI,
+      consistent with its well-documented progressive course in type I.
+  - reference: PMID:11276328
+    reference_title: &#34;How common is hearing impairment in osteogenesis imperfecta?&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      It was found that the most common age of onset was in the second, third
+      and fourth decades of life. At the age of 50 approximately 50 per cent of
+      the patients had symptoms of hearing impairment; over the next 20 years
+      there was little further increase.
+    explanation: &gt;-
+      This large survey of 1,394 OI patients demonstrates the progressive
+      trajectory of hearing loss in type I OI, plateauing at about 50% by age 50.
 diagnosis:
 - name: Clinical and Molecular Diagnosis
   description: &gt;-
@@ -4303,13 +5618,25 @@ diagnosis:
 treatments:
 - name: Bisphosphonate Therapy
   description: &gt;
-    Bisphosphonate therapy is used clinically in the management of skeletal
-    fragility in osteogenesis imperfecta, particularly in children.
+    Bisphosphonate therapy is used in OI type I primarily in those with vertebral
+    fractures or frequent long-bone fractures; evidence for fracture reduction is
+    less robust in mild OI than in severe forms. Benefit is most clearly
+    established for improving bone mineral density in children.
   treatment_term:
     preferred_term: Bisphosphonate therapy
     term:
       id: MAXO:0000954
       label: bisphosphonate agent therapy
+  evidence:
+  - reference: PMID:20301472
+    reference_title: &#34;COL1A1- and COL1A2-Related Osteogenesis Imperfecta.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Bisphosphonates continue to be used most extensively in those with vertebral fractures, frequent long bone fractures, or more severe OI.&#34;
+    explanation: &gt;-
+      GeneReviews notes bisphosphonate use is most strongly indicated for patients
+      with vertebral or frequent fractures, applying a severity-based threshold
+      rather than prescribing universally for mild OI.
 - name: Physical Therapy
   description: &gt;
     Exercise and physical therapy to strengthen muscles and improve mobility
@@ -4321,12 +5648,94 @@ treatments:
       label: physical therapy
 - name: Fracture Management
   description: &gt;
-    Standard orthopedic management of fractures with appropriate immobilization.
+    Most fractures in OI type I are managed conservatively with casting,
+    splinting, and brief immobilization. Intramedullary rodding is reserved
+    for recurrent long-bone fractures causing deformity.
   treatment_term:
     preferred_term: Orthopedic surgery
     term:
       id: MAXO:0000004
       label: surgical procedure
+  evidence:
+  - reference: PMID:20301472
+    reference_title: &#34;COL1A1- and COL1A2-Related Osteogenesis Imperfecta.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Fractures are treated with as short a period of immobility as is practical, small and lightweight casts, and physical therapy as soon as casts are removed; intramedullary rodding when indicated to provide anatomic positioning of limbs; bracing of limbs depending on OI severity.&#34;
+    explanation: &gt;-
+      GeneReviews describes the standard conservative fracture management approach
+      and the criteria for intramedullary rodding in OI type I.
+- name: Genetic Counseling
+  description: &gt;
+    Genetic counseling is recommended given autosomal dominant inheritance.
+    Approximately 60% of probands with mild OI have de novo mutations; each
+    child of an affected individual has a 50% chance of inheriting the
+    causative variant. Parental mosaicism occurs in up to 16% of apparently
+    unaffected parents, influencing recurrence risk estimation.
+  treatment_term:
+    preferred_term: Genetic counseling
+    term:
+      id: MAXO:0000079
+      label: genetic counseling
+  evidence:
+  - reference: PMID:20301472
+    reference_title: &#34;COL1A1- and COL1A2-Related Osteogenesis Imperfecta.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The overall rate of mosaicism is up to 16% in the parents of children with COL1A1/COL1A2-OI. Each child of an individual with COL1A1/COL1A2-OI has a 50% chance of inheriting the causative variant.&#34;
+    explanation: &gt;-
+      GeneReviews quantifies key recurrence risk figures: up to 16% parental
+      mosaicism rate and 50% transmission risk per child, supporting the counseling
+      description.
+- name: Audiological Surveillance and Management
+  description: &gt;
+    Hearing evaluation every three years from age five until hearing loss is
+    identified, then as indicated. Approximately 50% of adults with OI type I
+    develop hearing impairment by age 50. Conductive hearing loss may improve
+    with middle-ear surgery; sensorineural or mixed hearing loss is managed
+    with standard audiological care and hearing aids.
+  treatment_term:
+    preferred_term: Audiologist evaluation
+    term:
+      id: MAXO:0000734
+      label: audiologist evaluation
+  evidence:
+  - reference: PMID:20301472
+    reference_title: &#34;COL1A1- and COL1A2-Related Osteogenesis Imperfecta.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Conductive hearing loss may be improved with middle ear surgery; standard treatments for later-onset sensorineural hearing loss.&#34;
+    explanation: &gt;-
+      GeneReviews specifies audiological management for progressive hearing loss
+      affecting approximately 50% of OI type I patients by age 50.
+  - reference: PMID:11276328
+    reference_title: &#34;How common is hearing impairment in osteogenesis imperfecta?&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;At the age of 50 approximately 50 per cent of the patients had symptoms of hearing impairment; over the next 20 years there was little further increase.&#34;
+    explanation: &gt;-
+      Population study of 1,394 OI patients quantifying hearing impairment
+      prevalence and onset, informing the audiological surveillance schedule.
+- name: Dental Management
+  description: &gt;
+    Dental examination every six months beginning in early childhood for those
+    with or at risk for dentinogenesis imperfecta; annual exams for those
+    without DI. Goals include maintaining dentition, functional occlusion,
+    gingival health, and appearance.
+  treatment_term:
+    preferred_term: Dental care
+    term:
+      id: MAXO:0000264
+      label: dental and oral agent therapy
+  evidence:
+  - reference: PMID:20301472
+    reference_title: &#34;COL1A1- and COL1A2-Related Osteogenesis Imperfecta.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Dental care to maintain both primary and permanent dentition, a functional bite or occlusion, optimal gingival health, and overall appearance.&#34;
+    explanation: &gt;-
+      GeneReviews specifies dental care goals for COL1A1/COL1A2-related OI,
+      with frequency based on dentinogenesis imperfecta status.
 datasets:
 references:
 - reference: PMID:20301472
@@ -4354,120 +5763,120 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">5</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301472" target="_blank">PMID:20301472</a>
                             </div>
-                            
+
                             <div class="reference-title">COL1A1- and COL1A2-Related Osteogenesis Imperfecta.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s00223-024-01266-5" target="_blank">DOI:10.1007/s00223-024-01266-5</a>
                             </div>
-                            
+
                             <div class="reference-title">Update on the Genetics of Osteogenesis Imperfecta</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1210/endrev/bnab017" target="_blank">DOI:10.1210/endrev/bnab017</a>
                             </div>
-                            
+
                             <div class="reference-title">Osteogenesis Imperfecta: Mechanisms and Signaling Pathways Connecting Classical and Rare OI Types</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0309801" target="_blank">DOI:10.1371/journal.pone.0309801</a>
                             </div>
-                            
+
                             <div class="reference-title">Pleiotropic effects of a recessive Col1a2 mutation occurring in a mouse model of severe osteogenesis imperfecta</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/jcm13123484" target="_blank">DOI:10.3390/jcm13123484</a>
                             </div>
-                            
+
                             <div class="reference-title">Unraveling the Link of Altered TGFβ Signaling with Scoliotic Vertebral Malformations in Osteogenesis Imperfecta: A Comprehensive Review</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Disorder</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h3>Disorder</h3>
 <ul>
@@ -4491,29 +5900,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Pathophysiology description</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-02-04T19:42:15.184055</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Pathophysiology description
 Osteogenesis imperfecta (OI) type I is the mild, dominantly inherited form of OI caused predominantly by COL1A1 haploinsufficiency. Premature termination codons in one COL1A1 allele trigger nonsense‑mediated mRNA decay (NMD), reducing pro‑α1(I) synthesis and yielding a quantitative type I collagen deficiency without a dominant‑negative effect. As a result, bone matrix is assembled from fewer but structurally normal type I collagen trimers, predisposing to high bone turnover, low bone mass, and impaired bone material quality (reduced cortical thickness, increased porosity, and brittle matrix) that together increase fracture risk (doi:10.1210/endrev/bnab017, May 2022; doi:10.1007/s00223-024-01266-5, Aug 2024). Mechanistically, osteoblast maturation and ER handling of procollagen are perturbed, osteocytes exhibit dysregulated perilacunar/canalicular remodeling and signaling (sclerostin, RANKL), and osteoclastogenesis is enhanced via RANKL, culminating in imbalanced remodeling and poor-quality matrix replacement (S Sithambaram 2024; doi:10.1371/journal.pone.0309801, Feb 2025; doi:10.1210/endrev/bnab017, May 2022). Upregulated TGF‑β signaling—documented across OI models and patient tissues—further skews osteoprogenitor differentiation, elevates turnover, and is being targeted clinically (doi:10.3390/jcm13123484, Jun 2024; NCT03064074, results posted Oct 2024).</p>
@@ -4679,11 +6088,11 @@ Osteogenesis imperfecta (OI) type I is the mild, dominantly inherited form of OI
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -4733,7 +6142,7 @@ Osteogenesis imperfecta (OI) type I is the mild, dominantly inherited form of OI
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Osteogenesis Imperfecta Type I", "mondoId": "MONDO:0008146", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Osteogenesis_Imperfecta_Type_I", "yamlRevision": "924f829f8bd4"};
+        const OS_CONFIG = {"diseaseName": "Osteogenesis Imperfecta Type I", "mondoId": "MONDO:0008146", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Osteogenesis_Imperfecta_Type_I", "yamlRevision": "1c8a42da2a87"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

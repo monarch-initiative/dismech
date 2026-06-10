@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,24 @@
         <header class="page-header">
             <h1>Fibromyalgia</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Complex</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0005546" target="_blank">
                         MONDO:0005546
                     </a>
                 </span>
-                
-                
-                
+
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Musculoskeletal Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Neurological Disease</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,7 +2991,7 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2989,35 +3061,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3025,9 +3097,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3035,11 +3107,27 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3047,8 +3135,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3056,14 +3144,22 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+            <a class="stat-link" href="#subtypes">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◆</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Subtypes</div>
+            </div>
+            </a>
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3071,8 +3167,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3080,1205 +3176,1504 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-box subtype-box">
+
+                    <div class="item-name">
+                        Central Sensitization Predominant
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Widespread pain driven primarily by central amplification without demonstrable small-fiber neuropathy. Encompasses approximately 50-60% of patients with normal intraepidermal nerve fiber density on skin biopsy.
+</div>
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box">
+
+                    <div class="item-name">
+                        Small Fiber Neuropathy Subtype
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Approximately 40-55% of FM patients have reduced intraepidermal nerve fiber density on skin biopsy. Peripheral nociceptive input from dysfunctional C- and Aδ-fibers may sustain or amplify central sensitization. Characterized by generalized reduction of skin innervation (proximal and distal) associated with higher symptom severity.
+</div>
+
+
+
+
+
+
+                </div>
+
+
+        </div>
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target">
+                <div class="item-name">Does small-fiber peripheral pathology cause central sensitization in fibromyalgia, or does primary central nervous system dysfunction lead to retrograde small-fiber degeneration — and can these be distinguished clinically?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_fm_peripheral_vs_central_causation</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-small-fiber-pathology">pathophysiology#Small Fiber Pathology</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-central-sensitization">pathophysiology#Central Sensitization</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-neuroinflammation">pathophysiology#Neuroinflammation</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Approximately 50% of FM patients have reduced intraepidermal nerve fiber density, but the causal direction between peripheral small-fiber loss and central sensitization remains unresolved (Sommer &amp; Üçeyler 2025). Three competing models exist: (A) peripheral-to-central, where tonic nociceptive input from damaged C-fibers drives central sensitization via wind-up; (B) central-to-peripheral, where HPA dysregulation and neuroinflammation cause retrograde small-fiber degeneration; and (C) shared upstream cause (immune insult, gut dysbiosis, low-grade inflammation) simultaneously driving both. Resolving this gap determines whether treating small-fiber pathology is disease-modifying or symptomatic, and whether the FM-SFN subtype requires distinct therapeutic targeting.</div>
+
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-sensitization">
                 <div class="item-name">Central Sensitization</div>
-                
+
                 <div class="item-desc">Augmented pain processing in the central nervous system leads to amplified pain perception. Increased excitatory neurotransmitters (glutamate, substance P) and decreased inhibitory modulation.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Pain Processing
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0048265" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048265" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048265">GO:0048265</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7526868" target="_blank">PMID:7526868</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CSF SP levels were 3-fold higher in FMS patients than in normal controls (P &lt; 0.001)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Elevated substance P in cerebrospinal fluid directly supports central sensitization mechanism with increased excitatory nociceptive signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21684692" target="_blank">PMID:21684692</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Glutamic acid decarboxylase (GAD) is the rate-limiting enzyme in the conversion of glutamate to GABA and decreased expression or activity of this enzyme could result in an imbalance of excitatory and inhibitory neurotransmission in the ascending and descending pain pathways."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Proposes mechanism for excitatory/inhibitory imbalance underlying central sensitization via altered GAD activity affecting glutamate-GABA balance.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33494476" target="_blank">PMID:33494476</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fibromyalgia is the most common of the central sensitivity syndromes affecting 2-5% of the adult population in the United States. This pain amplification syndrome has enormous societal impact"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes fibromyalgia as a prototypical central sensitivity syndrome with augmented pain processing.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-descending-pain-modulation-dysfunction">
                 <div class="item-name">Descending Pain Modulation Dysfunction</div>
-                
+
                 <div class="item-desc">Impaired descending inhibitory pathways that normally dampen pain signals. Reduced serotonin and norepinephrine in descending pathways contributes to pain amplification.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Neurotransmission
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21684692" target="_blank">PMID:21684692</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A number of neurotransmitters in the ascending and descending pain pathways have been implicated in FM including glutamate and GABA."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies neurotransmitter dysfunction in descending pain pathways as a key mechanism in fibromyalgia pathophysiology.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21684692" target="_blank">PMID:21684692</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"GAD65 knockout mice have been shown to exhibit supraspinal hyperalgesia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Animal model evidence supporting the role of impaired inhibitory neurotransmission in pain amplification.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammation">
                 <div class="item-name">Neuroinflammation</div>
-                
+
                 <div class="item-desc">Glial cell activation and elevated inflammatory mediators in the CNS may contribute to central sensitization and symptom persistence.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Microglia
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Central Sensitization</span>
+
+	                            <span class="crosslink-desc">Glial activation and elevated inflammatory mediators amplify nociceptive signaling in the CNS, contributing to the central sensitization phenotype.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22126705" target="_blank">PMID:22126705</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report elevated cerebrospinal fluid and serum concentrations of interleukin-8, but not interleukin-1beta, in FM patients. This profile is in accordance with FM symptoms being mediated by sympathetic activity rather than dependent on prostaglandin associated mechanisms and supports the..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Direct evidence of central inflammation in fibromyalgia via elevated CSF IL-8 levels, supporting glial cell activation hypothesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22126705" target="_blank">PMID:22126705</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Activation of glia cells resulting in intrathecal elevation of cytokines and chemokines has been hypothesized in chronic pain syndromes such as fibromyalgia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes theoretical framework linking glial activation to intrathecal cytokine elevation in fibromyalgia pathophysiology.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29684996" target="_blank">PMID:29684996</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mast cells are involved in FM by releasing proinflammatory cytokines, chemokines, chemical mediators, and PGD2. TNF is a cytokine generated by MCs and its level is higher in FM."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies mast cell-mediated inflammation as a contributor to low-grade chronic neuroinflammation in fibromyalgia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hpa-axis-dysregulation">
                 <div class="item-name">HPA Axis Dysregulation</div>
-                
+
                 <div class="item-desc">Blunted cortisol response to stress and altered diurnal cortisol rhythm may contribute to fatigue and pain sensitivity.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Stress Response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006950" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006950" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006950">GO:0006950</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7980669" target="_blank">PMID:7980669</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients with FM had low 24-hour urinary free cortisol, but normal peak and elevated trough plasma cortisol levels, compared with normal subjects."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Documents specific HPA axis abnormalities including low urinary cortisol and elevated trough levels supporting HPA dysregulation mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15157948" target="_blank">PMID:15157948</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"There was a significant delay in the rate of decline from acrophase to nadir for cortisol levels in patients with FMS (P &lt;.01)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates altered circadian cortisol rhythm with delayed decline indicating loss of HPA axis resiliency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7980669" target="_blank">PMID:7980669</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These data support the view that HPA axis function is perturbed in patients with FM."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Concludes that HPA axis perturbations are a characteristic feature of fibromyalgia pathophysiology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-small-fiber-pathology">
                 <div class="item-name">Small Fiber Pathology</div>
-                
-                <div class="item-desc">Structural and functional abnormalities of thinly myelinated Aδ and unmyelinated C-fibers affecting approximately 50% of patients. Reduced intraepidermal nerve fiber density (IENFD) with proximal predominant pattern contributes ongoing peripheral nociceptive input.
+
+                <div class="item-desc">Structural and functional abnormalities of thinly myelinated Aδ and unmyelinated C-fibers affecting approximately 50% of patients (FM-SFN subtype). Reduced intraepidermal nerve fiber density (IENFD) with proximal predominant pattern contributes ongoing peripheral nociceptive input.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Peripheral Sensory Neurons
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000101">CL:0000101</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Central Sensitization</span>
+
+	                            <span class="crosslink-desc">Peripheral nociceptive input from dysfunctional C- and Aδ-fibers may sustain or amplify central sensitization via wind-up and long-term potentiation-like synaptic strengthening.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39062116" target="_blank">PMID:39062116</a>
+                        <a href="https://bioregistry.io/DOI:10.1097/pr9.0000000000001220" target="_blank">DOI:10.1097/pr9.0000000000001220</a>
                     </span>
-                    
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-                    
-                    
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
                 </div>
-                
-                <div class="evidence-snippet">"These include central sensitization, associated with an increase in the release of both excitatory and inhibitory neurotransmitters; peripheral sensitization, involving alterations in peripheral nociceptor signaling; and inflammatory and immune mechanisms that develop concurrently with the..."</div>
-                
-                
-                <div class="evidence-explanation">Snippet supports peripheral sensitization broadly but does not directly provide evidence for small-fiber structural pathology or reduced IENFD.</div>
-                
-                
-                
+
+                <div class="evidence-snippet">"About 50% of women with fibromyalgia syndrome have reduced skin innervation."</div>
+
+
+                <div class="evidence-explanation">Systematic review documents reduced intraepidermal nerve fiber density in ~50% of FM patients across international cohorts, establishing small fiber pathology as a feature of a major patient subgroup.
+</div>
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genetic-susceptibility">
                 <div class="item-name">Genetic Susceptibility</div>
-                
+
                 <div class="item-desc">Multiple genetic variants affect neurotransmitter systems, pain processing, and sensory signaling. CNS-enriched heritability with neural gene prioritization establishes genetic predisposition to altered pain perception and modulation.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Pain Perception
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019233">GO:0019233</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21905019" target="_blank">PMID:21905019</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Evidence of association in the replication cohort was observed for TAAR1, RGS4, CNR1, and GRIA4."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Large-scale genetic study identifies TAAR1, RGS4, CNR1, and GRIA4 as genes with evidence of association with fibromyalgia in replication cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Fibromyalgia</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Central Sensitization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Augmented pain processing in the central nervous system leads to amplified pain perception. Increased excitatory neurotransmitters (glutamate, substance P) and decreased inhibitory modulation.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Pain Processing\"]}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glial cell activation and elevated inflammatory mediators in the CNS may contribute to central sensitization and symptom persistence.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Microglia\"]}}, {\"id\": \"Small Fiber Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural and functional abnormalities of thinly myelinated A\\u03b4 and unmyelinated C-fibers affecting approximately 50% of patients (FM-SFN subtype). Reduced intraepidermal nerve fiber density (IENFD) with proximal predominant pattern contributes ongoing peripheral nociceptive input.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Peripheral Sensory Neurons\"]}}], \"edges\": [{\"source\": \"Neuroinflammation\", \"target\": \"Central Sensitization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glial activation and elevated inflammatory mediators amplify nociceptive signaling in the CNS, contributing to the central sensitization phenotype.\\n\"}, {\"source\": \"Small Fiber Pathology\", \"target\": \"Central Sensitization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nociceptive input from dysfunctional C- and A\\u03b4-fibers may sustain or amplify central sensitization via wind-up and long-term potentiation-like synaptic strengthening.\\n\"}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">10</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(7)</span></button>
-                
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(6)</span></button>
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(2)</span></button>
-                
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Joint Stiffness
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank">
-                            Joint stiffness
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001387)</span>
-                        </span>
-                        
+                        Joint stiffness
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001387">HP:0001387</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29684996" target="_blank">PMID:29684996</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"FM is characterized by chronic widespread pain, fatigue, aching, joint stiffness, depression, cognitive dysfunction and non-restorative sleep."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies joint stiffness as one of the characteristic clinical manifestations of fibromyalgia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">6</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sleep Disturbance
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank">
-                            Sleep disturbance
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002360)</span>
-                        </span>
-                        
+                        Sleep disturbance
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Non-restorative sleep</div>
-                    
-                    
-                    
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29684996" target="_blank">PMID:29684996</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"FM is characterized by chronic widespread pain, fatigue, aching, joint stiffness, depression, cognitive dysfunction and non-restorative sleep."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Documents non-restorative sleep as a core feature of fibromyalgia clinical presentation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21684692" target="_blank">PMID:21684692</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"FM is associated with poor sleep, specifically disrupted non-rapid eye movement (NREM) sleep, and the pharmacological induction of NREM sleep is associated with the activation of GAD-containing neurons in the preoptic hypothalamus."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Links sleep disturbance in fibromyalgia to GABAergic neurotransmission dysfunction in sleep-regulating brain regions.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cognitive Dysfunction
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank">
-                            Cognitive impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0100543)</span>
-                        </span>
-                        
+                        Cognitive impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Fibro fog</div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Headaches
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank">
-                            Headache
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002315)</span>
-                        </span>
-                        
+                        Headache
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Depression
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank">
-                            Depression
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000716)</span>
-                        </span>
-                        
+                        Depression
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29684996" target="_blank">PMID:29684996</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"FM is characterized by chronic widespread pain, fatigue, aching, joint stiffness, depression, cognitive dysfunction and non-restorative sleep."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies depression as a characteristic psychiatric comorbidity in fibromyalgia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21684692" target="_blank">PMID:21684692</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Stress, depression, and anxiety, which are often comorbid with FM, decrease GAD activity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Links depression in fibromyalgia to decreased GAD enzyme activity affecting neurotransmitter balance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Anxiety
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank">
-                            Anxiety
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000739)</span>
-                        </span>
-                        
+                        Anxiety
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21684692" target="_blank">PMID:21684692</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Stress, depression, and anxiety, which are often comorbid with FM, decrease GAD activity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Documents anxiety as a common comorbidity in fibromyalgia associated with altered GABAergic function.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Hypersensitivity to Touch
-                        
-                        <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0007328" target="_blank">
-                            Impaired pain sensation
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0007328)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    <div class="item-desc">Allodynia and hyperalgesia</div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
-                </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Autonomic Dysfunction
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank">
-                            Abnormal autonomic nervous system physiology
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012332)</span>
-                        </span>
-                        
+                        Abnormal autonomic nervous system physiology
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012332">HP:0012332</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Including orthostatic intolerance, temperature dysregulation</div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Chronic Widespread Pain
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank">
-                            Chronic pain
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012532)</span>
-                        </span>
-                        
+                        Chronic pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012532">HP:0012532</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21684692" target="_blank">PMID:21684692</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fibromyalgia (FM) is a condition of chronic generalized musculoskeletal pain that is thought to be a disorder of central pain sensitization."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines chronic widespread pain as the cardinal feature of fibromyalgia and links it to central sensitization mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21684692" target="_blank">PMID:21684692</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The defining symptom of FM is pain and GAD65 knockout mice have been shown to exhibit supraspinal hyperalgesia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies pain as the defining symptom with supporting animal model evidence for hyperalgesia mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Fatigue
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank">
-                            Fatigue
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012378)</span>
-                        </span>
-                        
+                        Fatigue
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29684996" target="_blank">PMID:29684996</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"FM is characterized by chronic widespread pain, fatigue, aching, joint stiffness, depression, cognitive dysfunction and non-restorative sleep."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies fatigue as one of the core clinical manifestations of fibromyalgia alongside pain and other symptoms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Hypersensitivity to Touch
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-id">
+                        Allodynia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012533" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012533">HP:0012533</a>
+
+
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Allodynia and hyperalgesia</div>
+
+
+
+
+
+
+
+
+                </div>
+
+            </details>
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4303,884 +4698,968 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">9</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     COMT
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     SLC6A4
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     HTR2A
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     TAAR1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     RGS4
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CNR1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     GRIA4
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     TRPV2
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Protective Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     TRPV3
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">10</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Duloxetine
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         duloxetine
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_36796" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_36796" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:36796">CHEBI:36796</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">SNRI, FDA-approved for fibromyalgia. Modulates serotonin and norepinephrine for pain relief.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Milnacipran
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         milnacipran
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_135005" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_135005" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:135005">CHEBI:135005</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">SNRI, FDA-approved for fibromyalgia. Dual neurotransmitter modulation.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pregabalin
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         pregabalin
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_64356" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_64356" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:64356">CHEBI:64356</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Alpha-2-delta ligand, FDA-approved for fibromyalgia. Reduces abnormal neural excitability.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Gabapentin
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         gabapentin
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_42797" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_42797" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:42797">CHEBI:42797</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Alpha-2-delta ligand, used off-label for neuropathic pain component.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Amitriptyline
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Pharmacotherapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         amitriptyline
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_2666" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2666" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2666">CHEBI:2666</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Low-dose tricyclic antidepressant for pain modulation and sleep improvement.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Aerobic Exercise
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">physical therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Structured physical activity with strong evidence for pain reduction and functional improvement.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cognitive Behavioral Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">psychotherapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: behavioral counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000077" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000077</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000077" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000077">MAXO:0000077</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Psychological intervention addressing pain catastrophizing, coping strategies, and behavioral modification.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Sleep Hygiene Education
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">patient education</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: behavioral counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000077" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000077</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000077" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000077">MAXO:0000077</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Behavioral interventions to improve sleep quality and reduce non-restorative sleep patterns.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Mindfulness-Based Stress Reduction
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">behavioral intervention</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: cognitive and behavioral intervention</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000010" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000010</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000010" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000010">MAXO:0000010</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Meditation and mindfulness practices for pain management and stress reduction.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Aquatic Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">physical therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Water-based exercise therapy for low-impact conditioning and pain relief.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Physical Trauma</div>
-                
-                
+
+
                 <div class="item-desc">Can trigger onset</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Psychological Stress</div>
-                
-                
+
+
                 <div class="item-desc">Common precipitant</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Infections</div>
-                
-                
+
+
                 <div class="item-desc">May trigger in susceptible individuals</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Sleep Disorders</div>
-                
-                
+
+
                 <div class="item-desc">Bidirectional relationship</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Substance P
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: CSF levels increased</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7526868" target="_blank">PMID:7526868</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CSF SP levels were 3-fold higher in FMS patients than in normal controls (P &lt; 0.001)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Documents dramatic elevation of substance P in cerebrospinal fluid of fibromyalgia patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Glutamate
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Insula levels on MRS</div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21684692" target="_blank">PMID:21684692</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Glutamic acid decarboxylase (GAD) is the rate-limiting enzyme in the conversion of glutamate to GABA and decreased expression or activity of this enzyme could result in an imbalance of excitatory and inhibitory neurotransmission"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports mechanism for elevated glutamate through impaired conversion to GABA.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Serotonin
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Decreased)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Context: Reduced in descending inhibitory pathways</div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5299,6 +5778,21 @@ pathophysiology:
       and its level is higher in FM.&#34;
     explanation: Identifies mast cell-mediated inflammation as a contributor to
       low-grade chronic neuroinflammation in fibromyalgia.
+  - reference: PMID:39996743
+    reference_title: &#34;Fibromyalgia and Inflammation: Unrevealing the Connection.&#34;
+    supports: SUPPORT
+    snippet: &#34;Several studies highlight elevated concentrations of pro-inflammatory
+      cytokines, dysregulation of immune responses, and neuroinflammation in
+      fibromyalgia patients.&#34;
+    explanation: &gt;
+      2025 review confirms neuroinflammation and immune dysregulation as contributors
+      to fibromyalgia pathophysiology, supporting the role of glial activation and
+      peripheral/central inflammatory processes in symptom persistence.
+  downstream:
+  - target: Central Sensitization
+    description: &gt;
+      Glial activation and elevated inflammatory mediators amplify nociceptive
+      signaling in the CNS, contributing to the central sensitization phenotype.
 - name: HPA Axis Dysregulation
   description: &gt;
     Blunted cortisol response to stress and altered diurnal cortisol
@@ -5334,26 +5828,28 @@ pathophysiology:
 - name: Small Fiber Pathology
   description: &gt;
     Structural and functional abnormalities of thinly myelinated Aδ and
-    unmyelinated C-fibers affecting approximately 50% of patients.
-    Reduced intraepidermal nerve fiber density (IENFD) with proximal
-    predominant pattern contributes ongoing peripheral nociceptive input.
+    unmyelinated C-fibers affecting approximately 50% of patients (FM-SFN subtype).
+    Reduced intraepidermal nerve fiber density (IENFD) with proximal predominant
+    pattern contributes ongoing peripheral nociceptive input.
   cell_types:
   - preferred_term: Peripheral Sensory Neurons
     term:
       id: CL:0000101
       label: sensory neuron
   evidence:
-  - reference: PMID:39062116
-    reference_title: &#34;Fibromyalgia: A Review of the Pathophysiological Mechanisms and Multidisciplinary Treatment Strategies.&#34;
-    supports: NO_EVIDENCE
-    snippet: &#34;These include central sensitization, associated with an increase in
-      the release of both excitatory and inhibitory neurotransmitters; peripheral
-      sensitization, involving alterations in peripheral nociceptor signaling; and
-      inflammatory and immune mechanisms that develop concurrently with the aforementioned
-      processes.&#34;
-    explanation: Snippet supports peripheral sensitization broadly but does not
-      directly provide evidence for small-fiber structural pathology or reduced
-      IENFD.
+  - reference: DOI:10.1097/pr9.0000000000001220
+    supports: SUPPORT
+    snippet: &#34;About 50% of women with fibromyalgia syndrome have reduced skin innervation.&#34;
+    explanation: &gt;
+      Systematic review documents reduced intraepidermal nerve fiber density in ~50%
+      of FM patients across international cohorts, establishing small fiber pathology
+      as a feature of a major patient subgroup.
+  downstream:
+  - target: Central Sensitization
+    description: &gt;
+      Peripheral nociceptive input from dysfunctional C- and Aδ-fibers may sustain
+      or amplify central sensitization via wind-up and long-term potentiation-like
+      synaptic strengthening.
 - name: Genetic Susceptibility
   description: &gt;
     Multiple genetic variants affect neurotransmitter systems, pain processing,
@@ -5373,6 +5869,20 @@ pathophysiology:
     explanation: Large-scale genetic study identifies TAAR1, RGS4, CNR1, and
       GRIA4 as genes with evidence of association with fibromyalgia in
       replication cohort.
+has_subtypes:
+- name: FM-CS
+  display_name: Central Sensitization Predominant
+  description: &gt;
+    Widespread pain driven primarily by central amplification without demonstrable
+    small-fiber neuropathy. Encompasses approximately 50-60% of patients with normal
+    intraepidermal nerve fiber density on skin biopsy.
+- name: FM-SFN
+  display_name: Small Fiber Neuropathy Subtype
+  description: &gt;
+    Approximately 40-55% of FM patients have reduced intraepidermal nerve fiber density
+    on skin biopsy. Peripheral nociceptive input from dysfunctional C- and Aδ-fibers
+    may sustain or amplify central sensitization. Characterized by generalized reduction
+    of skin innervation (proximal and distal) associated with higher symptom severity.
 phenotypes:
 - name: Chronic Widespread Pain
   category: Musculoskeletal
@@ -5500,10 +6010,10 @@ phenotypes:
   frequency: FREQUENT
   notes: Allodynia and hyperalgesia
   phenotype_term:
-    preferred_term: Hyperesthesia
+    preferred_term: Allodynia
     term:
-      id: HP:0007328
-      label: Impaired pain sensation
+      id: HP:0012533
+      label: Allodynia
 - name: Joint Stiffness
   category: Musculoskeletal
   frequency: FREQUENT
@@ -5699,6 +6209,29 @@ treatments:
     term:
       id: MAXO:0000011
       label: physical therapy
+discussions:
+- discussion_id: gap_fm_peripheral_vs_central_causation
+  prompt: &gt;-
+    Does small-fiber peripheral pathology cause central sensitization in fibromyalgia,
+    or does primary central nervous system dysfunction lead to retrograde small-fiber
+    degeneration — and can these be distinguished clinically?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Small Fiber Pathology
+  - pathophysiology#Central Sensitization
+  - pathophysiology#Neuroinflammation
+  rationale: &gt;-
+    Approximately 50% of FM patients have reduced intraepidermal nerve fiber density,
+    but the causal direction between peripheral small-fiber loss and central sensitization
+    remains unresolved (Sommer &amp; Üçeyler 2025). Three competing models exist: (A)
+    peripheral-to-central, where tonic nociceptive input from damaged C-fibers drives
+    central sensitization via wind-up; (B) central-to-peripheral, where HPA dysregulation
+    and neuroinflammation cause retrograde small-fiber degeneration; and (C) shared
+    upstream cause (immune insult, gut dysbiosis, low-grade inflammation) simultaneously
+    driving both. Resolving this gap determines whether treating small-fiber pathology
+    is disease-modifying or symptomatic, and whether the FM-SFN subtype requires
+    distinct therapeutic targeting.
 datasets:
 references:
 - reference: DOI:10.1097/pr9.0000000000001220
@@ -5728,137 +6261,137 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">6</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1097/pr9.0000000000001220" target="_blank">DOI:10.1097/pr9.0000000000001220</a>
                             </div>
-                            
+
                             <div class="reference-title">Small fiber pathology in fibromyalgia syndrome</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1101/2024.09.13.24313599" target="_blank">DOI:10.1101/2024.09.13.24313599</a>
                             </div>
-                            
+
                             <div class="reference-title">A multi-omics bidirectional mendelian randomization study and meta-analysis on the causal relationship between gut microbiota, inflammatory proteins, and fibromyalgia.</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1101/2025.09.18.25335914" target="_blank">DOI:10.1101/2025.09.18.25335914</a>
                             </div>
-                            
+
                             <div class="reference-title">The genetic architecture of fibromyalgia across 2.5 million individuals</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/biomedicines11041119" target="_blank">DOI:10.3390/biomedicines11041119</a>
                             </div>
-                            
+
                             <div class="reference-title">A Comprehensive Review of the Genetic and Epigenetic Contributions to the Development of Fibromyalgia</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/biomedicines13020503" target="_blank">DOI:10.3390/biomedicines13020503</a>
                             </div>
-                            
+
                             <div class="reference-title">Fibromyalgia, Depression, and Autoimmune Disorders: An Interconnected Web of Inflammation</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/medicina60020272" target="_blank">DOI:10.3390/medicina60020272</a>
                             </div>
-                            
+
                             <div class="reference-title">Unraveling the Complex Web of Fibromyalgia: A Narrative Review</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Disorder</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h3>Disorder</h3>
 <ul>
@@ -5889,29 +6422,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Pathophysiology Research Report</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">22 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2025-12-17T23:36:48.246543</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Disease Pathophysiology Research Report</p>
 <p>Target Disease
@@ -6033,11 +6566,11 @@ Fibromyalgia is a prototypical nociplastic pain condition characterized by wides
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -6087,7 +6620,7 @@ Fibromyalgia is a prototypical nociplastic pain condition characterized by wides
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fibromyalgia", "mondoId": "MONDO:0005546", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibromyalgia", "yamlRevision": "969b041332c9"};
+        const OS_CONFIG = {"diseaseName": "Fibromyalgia", "mondoId": "MONDO:0005546", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibromyalgia", "yamlRevision": "a58c66119b9c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
