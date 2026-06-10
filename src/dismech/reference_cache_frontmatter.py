@@ -23,6 +23,7 @@ The heavier last line of defence remains the existing
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +34,10 @@ from ruamel.yaml import YAML
 
 _YAML = YAML(typ="safe")
 _YAML.allow_duplicate_keys = False
+_FRONTMATTER_RE = re.compile(
+    r"\A---[ \t]*\r?\n(?P<frontmatter>.*?)(?:\r?\n)---[ \t]*(?:\r?\n|\Z)",
+    re.DOTALL,
+)
 
 
 class SupplementaryFileFrontmatter(BaseModel):
@@ -92,12 +97,10 @@ class Finding:
 def _extract_frontmatter_text(path: Path) -> str | None:
     """Return the YAML frontmatter slice of a markdown file, or ``None``."""
     text = path.read_text(encoding="utf-8")
-    if not text.startswith("---"):
+    match = _FRONTMATTER_RE.match(text)
+    if match is None:
         return None
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return None
-    return parts[1]
+    return match.group("frontmatter")
 
 
 def _load_frontmatter(path: Path) -> dict[str, Any]:
