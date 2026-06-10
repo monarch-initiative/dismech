@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01721733
+reference_id: "clinicaltrials:NCT01721733"
 title: "A Phase 2B Randomized, Placebo Controlled, Double Blind Clinical Trial of EPI-743 in Children With Leigh Syndrome"
 content_type: summary
 ---
