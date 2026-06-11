@@ -36,6 +36,25 @@ def test_check_cache_file_accepts_valid_cache(tmp_path: Path):
     assert check_cache_file(good) is None
 
 
+def test_check_cache_file_allows_inline_triple_hyphen_sequence(tmp_path: Path):
+    """A title may contain ``---`` without closing the YAML frontmatter."""
+    good = tmp_path / "PMID_1899320.md"
+    good.write_text(
+        "---\n"
+        'reference_id: "PMID:1899320"\n'
+        "title: Rapid detection of the A----G(8344) mutation of mtDNA.\n"
+        "authors:\n"
+        "- Zeviani M\n"
+        "journal: Am J Hum Genet\n"
+        "year: '1991'\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Rapid detection of the A----G(8344) mutation of mtDNA.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
 def test_check_cache_file_reports_malformed_yaml(tmp_path: Path):
     broken = tmp_path / "PMID_88888888.md"
     broken.write_text(
