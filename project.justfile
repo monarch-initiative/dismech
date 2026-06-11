@@ -308,6 +308,13 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
+# Report phenotype causal-connectivity coverage (graph-derived QC metric):
+# fraction of phenotype nodes wired into the pathograph. Pass --list-unconnected
+# to see the floating phenotype names per file.
+[group('QC')]
+compliance-connectivity *ARGS:
+    uv run python -m dismech.qc_plugins {{kb_dir}} -c conf/qc_config.yaml {{ARGS}}
+
 # Validate dynamic enum membership caches against current schema definitions.
 [group('QC')]
 check-enum-cache:
