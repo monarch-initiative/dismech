@@ -13,6 +13,7 @@ import yaml
 from oaklib import get_adapter
 
 from dismech.graph import build_causal_graph
+from dismech.export.utils import discover_disorder_files
 
 # Direct children of HP:0000118 (Phenotypic abnormality) — the broad phenotype categories.
 # Keys match PhenotypeCategoryEnum permissible_value keys in the schema.
@@ -410,11 +411,7 @@ def main():
     input_dir = Path(args.input_dir)
     output_path = Path(args.output)
 
-    disorder_files = [
-        path
-        for path in sorted(input_dir.glob("*.yaml"))
-        if not path.name.endswith(".history.yaml")
-    ]
+    disorder_files = discover_disorder_files(input_dir)
 
     exporter = BrowserExporter()
     if args.format == "json":

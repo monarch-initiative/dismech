@@ -23,9 +23,11 @@ import argparse
 import csv
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import yaml
+
+from dismech.export.utils import discover_disorder_files
 
 INVENTORY_COLUMNS = [
     "name",
@@ -148,19 +150,11 @@ def build_inventory(disorder_files: list[Path]) -> list[dict[str, str]]:
     return rows
 
 
-def write_csv(rows: list[dict[str, str]], output) -> None:
+def write_csv(rows: list[dict[str, str]], output: TextIO) -> None:
     """Write inventory rows as CSV to an open text stream."""
     writer = csv.DictWriter(output, fieldnames=INVENTORY_COLUMNS)
     writer.writeheader()
     writer.writerows(rows)
-
-
-def _discover_disorder_files(input_dir: Path) -> list[Path]:
-    return [
-        path
-        for path in sorted(input_dir.glob("*.yaml"))
-        if not path.name.endswith(".history.yaml")
-    ]
 
 
 def main() -> None:
@@ -182,7 +176,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    disorder_files = _discover_disorder_files(Path(args.input_dir))
+    disorder_files = discover_disorder_files(Path(args.input_dir))
     rows = build_inventory(disorder_files)
 
     if args.output == "-":
