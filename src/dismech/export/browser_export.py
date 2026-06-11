@@ -330,9 +330,17 @@ class BrowserExporter:
         total_pathographs = sum(
             1 for disorder in disorders if disorder.get("pathophysiology")
         )
+        total_subtypes = sum(
+            1
+            for disorder in disorders
+            for subtype in (disorder.get("has_subtypes") or [])
+            if isinstance(subtype, dict) and subtype.get("name")
+        )
 
         return {
             "total_disorder_pages": len(disorders),
+            "total_subtypes": total_subtypes,
+            "total_disorders_and_subtypes": len(disorders) + total_subtypes,
             "total_unique_evidence_sources": len(evidence_references),
             "total_unique_disease_categories": len(categories),
             "total_unique_phenotype_categories": len(phenotype_categories),
