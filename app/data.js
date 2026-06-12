@@ -1447,17 +1447,18 @@ window.searchData = [
       "Loss of GPR56 Adhesion GPCR Function",
       "Disrupted GPR56-Collagen III Signaling",
       "Pial Basement Membrane Breach",
+      "Radial-Glial Basal Endfoot Detachment",
       "Neuronal Overmigration and Cortical Dyslamination",
       "Regional Cortical Patterning Dependence on GPR56 Expression"
     ],
     "cell_types": [
-      "cortical radial glial progenitor",
-      "overmigrating cortical neuron",
+      "cortical radial glial cell",
+      "cerebral cortex neuron",
       "cortical progenitor cell"
     ],
     "cell_type_ids": [
-      "CL:0000681",
-      "CL:0000540",
+      "CL:0013000",
+      "CL:0010012",
       "CL:0000047"
     ],
     "biological_processes": [
@@ -1465,7 +1466,9 @@ window.searchData = [
       "cell-matrix adhesion",
       "Rho protein signal transduction",
       "basement membrane organization",
+      "formation of radial glial scaffolds",
       "neuron migration",
+      "cerebral cortex radial glia-guided migration",
       "layer formation in cerebral cortex",
       "cerebral cortex regionalization"
     ],
@@ -1504,11 +1507,11 @@ window.searchData = [
     "source_file": "ADGRG1_Bilateral_Frontoparietal_Polymicrogyria.yaml",
     "page_url": "../pages/disorders/ADGRG1-related_Bilateral_Frontoparietal_Polymicrogyria.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "ADNP-Related Syndrome",
@@ -2609,6 +2612,100 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "ARX-Related Lissencephaly and Interneuronopathy",
+    "disease_id": "MONDO:0010268",
+    "category": "Mendelian",
+    "parents": [
+      "congenital nervous system disorder",
+      "disorder of development or morphogenesis",
+      "hereditary neurological disease",
+      "neuronal migration disorder"
+    ],
+    "creation_date": "2026-06-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ARX-related lissencephaly and interneuronopathy is an X-linked malformation of cortical development and developmental epilepsy spectrum caused by mutations in ARX, the aristaless-related homeobox gene, which encodes a paired-like homeodomain transcription factor that acts mainly as a transcriptional repressor in the ventral telencephalon. Unlike the radial-migration tubulinopathies and LIS1/DCX disorders, ARX disease is framed as an interneuronopathy: ARX governs subpallial patterning and the specification, differentiation, and tangential migration of GABAergic cortical interneurons from the ganglionic eminences into the developing neocortex. Loss of ARX function therefore depletes or mislocalizes cortical inhibitory interneurons, shifts cortical excitation-inhibition balance, and produces early, often intractable seizures. The most severe end of the spectrum is X-linked lissencephaly with abnormal genitalia (XLAG) in hemizygous males, with anterior pachygyria/posterior agyria, microcephaly, agenesis of the corpus callosum, dysmorphic basal ganglia, impaired thalamocortical wiring, ambiguous or hypoplastic genitalia, and intractable neonatal seizures. ARX mutations are strikingly pleiotropic, however, and the same gene produces a nearly continuous series of disorders ranging through hydranencephaly and lissencephaly to Proud syndrome (ACC with abnormal genitalia), X-linked infantile spasms/West syndrome, Partington syndrome, and nonsyndromic intellectual disability with structurally normal brains, with phenotype severity modulated by variant class (loss of function versus polyalanine expansion or homeodomain/nuclear-localization missense). The entry is modeled as a coherent ARX subpallial-patterning/interneuronopathy pathomechanism with XLAG as the prototype, and it conforms to the interneuron specification and tangential migration failure module.",
+    "pathophysiology": [
+      "ARX Loss of Function and Subpallial Patterning Disruption",
+      "Interneuron Progenitor Specification and Differentiation Failure",
+      "Tangential Migration Failure from Ganglionic Eminences",
+      "Cortical GABAergic Interneuron Deficit and Mislocalization",
+      "Excitation-Inhibition Imbalance and Developmental Epilepsy",
+      "Impaired Basal Ganglia Differentiation and Thalamocortical Wiring",
+      "Abnormal Forebrain and Genital Development"
+    ],
+    "cell_types": [
+      "GABAergic interneuron",
+      "cortical interneuron",
+      "cerebral cortex GABAergic interneuron",
+      "GABAergic neuron",
+      "cholinergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011005",
+      "CL:0008031",
+      "CL:0010011",
+      "CL:0000617",
+      "CL:0000108"
+    ],
+    "biological_processes": [
+      "telencephalon development",
+      "forebrain development",
+      "GABAergic neuron differentiation",
+      "neuron migration",
+      "gamma-aminobutyric acid signaling pathway",
+      "synaptic transmission, GABAergic",
+      "striatum development",
+      "male genitalia development"
+    ],
+    "phenotypes": [
+      "Lissencephaly",
+      "Agenesis of the Corpus Callosum",
+      "Dysmorphic Basal Ganglia",
+      "Microcephaly",
+      "Ambiguous Genitalia",
+      "Intractable Neonatal Seizures",
+      "Infantile Spasms",
+      "Intellectual Disability"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001339",
+      "HP:0001274",
+      "HP:0002134",
+      "HP:0000252",
+      "HP:0000062",
+      "HP:0032807",
+      "HP:0012469",
+      "HP:0001249"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ARX"
+    ],
+    "treatments": [
+      "Anti-Seizure Medication",
+      "Supportive and Rehabilitative Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ARX-Related_Lissencephaly_and_Interneuronopathy.yaml",
+    "page_url": "../pages/disorders/ARX-Related_Lissencephaly_and_Interneuronopathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Autosomal Recessive Cerebellar Ataxia-Saccadic Intrusion Syndrome",
@@ -4669,7 +4766,6 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "COMMON",
       "OCCASIONAL"
     ],
     "genes": [],
@@ -8342,7 +8438,7 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [
       "SERPINA1",
@@ -10758,7 +10854,7 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -16493,7 +16589,7 @@ window.searchData = [
       "Microcephaly"
     ],
     "creation_date": "2026-05-13T12:00:00Z",
-    "updated_date": "2026-05-13T20:00:00Z",
+    "updated_date": "2026-06-12T01:30:00Z",
     "subtypes": [
       "MCPH5",
       "MCPH1",
@@ -16505,6 +16601,7 @@ window.searchData = [
     "pathophysiology": [
       "DNA Damage Response and Premature Chromosome Condensation",
       "Centrosomal and Mitotic Spindle Dysfunction",
+      "Centrosomal Continuum with Broader Cortical Malformations",
       "Neural Progenitor Depletion"
     ],
     "cell_types": [
@@ -16566,10 +16663,10 @@ window.searchData = [
     "source_file": "Autosomal_Recessive_Primary_Microcephaly.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Primary_Microcephaly.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 5,
     "num_treatments": 2,
-    "causal_graph_edges": "2",
+    "causal_graph_edges": "3",
     "causal_graph_longest_path": "1"
   },
   {
@@ -17788,6 +17885,7 @@ window.searchData = [
     "pathophysiology": [
       "ACTB/ACTG1 Gain-of-Function Variants Alter Actin Dynamics",
       "Impaired Neuronal Radial Migration",
+      "Actin-Dependent Apical Progenitor Cleavage-Plane Defect",
       "Cortical Dyslamination Leading to Intellectual Disability and Epilepsy",
       "Disrupted Optic Fissure Closure Causing Coloboma",
       "Disrupted Neural Crest Cell Migration Producing Craniofacial Features"
@@ -17795,6 +17893,8 @@ window.searchData = [
     "cell_types": [
       "neural progenitor cell",
       "radial glial cell",
+      "ventricular-zone neural progenitor cell",
+      "radial glial progenitor",
       "migratory cranial neural crest cell"
     ],
     "cell_type_ids": [
@@ -17807,6 +17907,7 @@ window.searchData = [
       "actin filament polymerization",
       "neuron migration",
       "cytoskeleton organization",
+      "mitotic spindle organization",
       "neural crest cell migration"
     ],
     "phenotypes": [
@@ -17886,10 +17987,10 @@ window.searchData = [
     "source_file": "Baraitser-Winter_Cerebrofrontofacial_Syndrome.yaml",
     "page_url": "../pages/disorders/Baraitser-Winter_Cerebrofrontofacial_Syndrome.html",
     "num_phenotypes": 16,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
   },
   {
@@ -21711,7 +21812,7 @@ window.searchData = [
       "HP:0032408"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [
       "MED12"
@@ -22079,7 +22180,7 @@ window.searchData = [
       "HP:0002040"
     ],
     "frequencies": [
-      "COMMON",
+      "FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [
@@ -27497,7 +27598,6 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "COMMON",
       "OCCASIONAL"
     ],
     "genes": [],
@@ -28367,7 +28467,7 @@ window.searchData = [
       "HP:0002277"
     ],
     "frequencies": [
-      "COMMON",
+      "FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [],
@@ -28621,25 +28721,11 @@ window.searchData = [
       "CMT4",
       "HNPP"
     ],
-    "description": "Charcot-Marie-Tooth disease (CMT) is the most common inherited disorder of the peripheral nervous system, with a prevalence of roughly 1 in 2,500. CMT is genetically and pathologically heterogeneous, with over 100 causative genes identified. The disease is broadly classified by electrophysiology and pathology into demyelinating forms (CMT1, classic median nerve conduction velocity <38 m/s), axonal forms (CMT2, NCV >38 m/s with reduced amplitudes), and intermediate forms. Inheritance can be autosomal dominant (most CMT1, CMT2), autosomal recessive (CMT4), or X-linked (CMTX). The most common subtype is CMT1A, caused by a 1.4 Mb duplication on chromosome 17p11.2 containing the PMP22 gene. Clinically, CMT presents with slowly progressive distal limb weakness and atrophy, sensory loss, foot deformity (pes cavus, hammer toes), and depressed deep tendon reflexes.",
-    "pathophysiology": [
-      "PMP22 Overexpression in CMT1A",
-      "Axonal Degeneration in CMT2",
-      "MPZ-Related ER Stress in CMT1B"
-    ],
-    "cell_types": [
-      "Schwann cell",
-      "Sensory neuron of peripheral nervous system"
-    ],
-    "cell_type_ids": [
-      "CL:0002573",
-      "CL:0000101"
-    ],
-    "biological_processes": [
-      "Myelination in the peripheral nervous system",
-      "Axonal transport of mitochondrion",
-      "Endoplasmic reticulum unfolded protein response"
-    ],
+    "description": "Charcot-Marie-Tooth disease (CMT) is the most common inherited disorder of the peripheral nervous system, with a prevalence of roughly 1 in 2,500. CMT is genetically and pathologically heterogeneous, with over 100 causative genes identified. This is the umbrella classification entry for the CMT family; the detailed pathophysiology is curated in two mechanism-coherent compartment entries that cleave the CMT pathograph at its natural seam \u2014 the primary cellular lesion. The demyelinating / Schwann-cell compartment (Charcot-Marie-Tooth disease type 1; PMP22, MPZ, GJB1) and the axonal / neuronal compartment (Charcot-Marie-Tooth disease type 2; MFN2, RAB7A, NEFL, GARS1, SORD) each hold gene-level mechanisms that converge on a single shared terminal node \u2014 length-dependent distal axonal degeneration \u2014 which produces the uniform clinical phenotype of slowly progressive distal weakness and atrophy, sensory loss, foot deformity (pes cavus, hammer toes), and depressed deep tendon reflexes regardless of the upstream gene. Inheritance can be autosomal dominant (most CMT1, CMT2), autosomal recessive (CMT4), or X-linked (CMTX). The single most common subtype is CMT1A, a 1.4 Mb duplication of chromosome 17p11.2 containing PMP22. Hereditary neuropathy with liability to pressure palsies (HNPP), allelic to CMT1A but caused by the reciprocal PMP22 deletion, is curated separately because its terminal node differs (focal, reversible, compression-sensitive conduction block rather than dying-back degeneration).",
+    "pathophysiology": [],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
     "phenotypes": [
       "Distal Muscle Weakness",
       "Pes Cavus",
@@ -28679,11 +28765,93 @@ window.searchData = [
     "source_file": "Charcot-Marie-Tooth_Disease.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 0,
     "num_genes": 4,
     "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Charcot-Marie-Tooth Disease Type 1",
+    "disease_id": "MONDO:0019011",
+    "category": "Mendelian",
+    "parents": [
+      "Charcot-Marie-Tooth disease"
+    ],
+    "creation_date": "2026-06-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "CMT1A",
+      "CMT1B",
+      "CMTX1",
+      "CMT1D"
+    ],
+    "description": "Charcot-Marie-Tooth disease type 1 (CMT1) is the demyelinating compartment of Charcot-Marie-Tooth disease: a group of inherited peripheral neuropathies in which the primary lesion lies in the myelinating Schwann cell rather than the axon. Motor nerve conduction velocities are uniformly slowed (classically <38 m/s in the median nerve), reflecting dysmyelination and demyelination, and the characteristic clinical phenotype \u2014 slowly progressive distal weakness, sensory loss, pes cavus, and depressed reflexes \u2014 emerges from secondary, length-dependent axonal loss that follows the primary myelin defect. This entry collects the Schwann-cell / myelin mechanisms that converge on a single shared terminal node (demyelination with secondary axonal degeneration), distinct from the neuron-primary axonal mechanisms curated under Charcot-Marie-Tooth disease type 2. The dominant subtype is CMT1A, caused by a 1.4 Mb duplication on chromosome 17p11.2 containing PMP22; CMT1B is caused by MPZ mutations. The X-linked form CMTX1 (GJB1 / connexin-32) is electrophysiologically intermediate but is grouped here because its primary lesion is a Schwann-cell gap-junction defect; it forms the glia-axon bridge between the demyelinating and axonal compartments.",
+    "pathophysiology": [
+      "PMP22 Overexpression and Dysmyelination",
+      "MPZ Misfolding and Schwann Cell ER Stress",
+      "Connexin-32 Gap Junction Failure in CMTX1",
+      "Demyelination and Secondary Axonal Loss"
+    ],
+    "cell_types": [
+      "Schwann cell",
+      "Sensory neuron of peripheral nervous system"
+    ],
+    "cell_type_ids": [
+      "CL:0002573",
+      "CL:0000101"
+    ],
+    "biological_processes": [
+      "Myelination in the peripheral nervous system",
+      "Endoplasmic reticulum unfolded protein response",
+      "Gap junction assembly"
+    ],
+    "phenotypes": [
+      "Distal Muscle Weakness",
+      "Onion Bulb Formation",
+      "Pes Cavus",
+      "Decreased Tendon Reflexes",
+      "Distal Sensory Loss"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002460",
+      "HP:0003383",
+      "HP:0001761",
+      "HP:0001265",
+      "HP:0002936"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PMP22",
+      "MPZ",
+      "GJB1",
+      "EGR2"
+    ],
+    "treatments": [
+      "Physical and Occupational Therapy",
+      "Orthotic Bracing",
+      "Genetic Counseling",
+      "PXT3003"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Charcot-Marie-Tooth_Disease_Type_1.yaml",
+    "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_1.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 4,
+    "num_treatments": 4,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Charcot-Marie-Tooth Disease Type 2",
@@ -28700,7 +28868,11 @@ window.searchData = [
       "CMT2B",
       "CMT2D",
       "CMT2I/J",
-      "SORD-CMT2"
+      "SORD-CMT2",
+      "CMT2F",
+      "CMT2Z",
+      "CMT2K",
+      "CMT2CC"
     ],
     "description": "Charcot-Marie-Tooth disease type 2 (CMT2) is a group of inherited peripheral neuropathies characterized by axonal degeneration of peripheral nerves without primary demyelination. Unlike CMT1, which involves Schwann cell dysfunction and demyelination, CMT2 is primarily an axonopathy with normal or near-normal nerve conduction velocities (>38 m/s) but reduced compound muscle action potential amplitudes. CMT2 is genetically heterogeneous, with over 20 subtypes identified, the most common being CMT2A (MFN2 mutations) and CMT2E (NEFL mutations). Clinical features include progressive distal muscle weakness and atrophy, sensory loss, foot deformities, and areflexia, typically with onset in the first to second decade of life.\n",
     "pathophysiology": [
@@ -28767,7 +28939,11 @@ window.searchData = [
       "RAB7A",
       "GARS1",
       "MPZ",
-      "SORD"
+      "SORD",
+      "HSPB1",
+      "MORC2",
+      "GDAP1",
+      "NEFH"
     ],
     "treatments": [
       "Physical Therapy and Rehabilitation",
@@ -28776,7 +28952,9 @@ window.searchData = [
       "Avoidance of Neurotoxic Medications",
       "Genetic Counseling",
       "Epalrestat for SORD-CMT2",
-      "NMD670 for CMT1/CMT2"
+      "NMD670 for CMT1/CMT2",
+      "HDAC6 Inhibition (investigational)",
+      "NEFL-Targeting Antisense Oligonucleotide (investigational)"
     ],
     "environmental": [],
     "biochemical": [],
@@ -28784,9 +28962,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_2.html",
     "num_phenotypes": 7,
     "num_pathophysiology": 7,
-    "num_genes": 6,
-    "num_treatments": 7,
-    "causal_graph_edges": "16",
+    "num_genes": 10,
+    "num_treatments": 9,
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "3"
   },
   {
@@ -29466,7 +29644,7 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [],
     "treatments": [
@@ -29637,7 +29815,7 @@ window.searchData = [
       "HP:0031459"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -29979,7 +30157,7 @@ window.searchData = [
       "HP:0200035"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [],
@@ -30258,8 +30436,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 8,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Chronic Lymphocytic Leukemia",
@@ -32498,7 +32676,7 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [],
     "treatments": [
@@ -32666,7 +32844,7 @@ window.searchData = [
       "HP:0002027"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -34009,13 +34187,13 @@ window.searchData = [
     "creation_date": "2026-06-10T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Congenital Zika syndrome (CZS) is a non-genetic malformation of cortical development caused by intrauterine infection with Zika virus (ZIKV), a mosquito-borne flavivirus. After maternal infection \u2014 most consequentially during the first and second trimesters \u2014 ZIKV crosses the placenta and reaches the developing fetal central nervous system, where it is neurotropic for apical and outer radial glia and other neural progenitor cells of the cortical ventricular and subventricular zones. Productive infection of these founder progenitors dysregulates the cell cycle, triggers caspase-mediated apoptosis, and activates innate antiviral signalling (including the TLR3 pathway and type I interferon responses), collectively depleting the progenitor pool and abrogating neurogenesis during the peak neurogenic window. The resulting deficit of cortical neurons produces the recognizable CZS phenotype: severe (often congenital) microcephaly with a markedly disproportionate skull, agyria/lissencephaly-like smooth cortex, intracranial (cortical and subcortical) calcifications, ventriculomegaly/hydrocephalus, and cortical thinning, frequently accompanied by ocular abnormalities, arthrogryposis, sensorineural hearing loss, seizures, and global developmental delay. CZS is the exemplar infectious (non-Mendelian) cortical malformation mechanism: its proximal cause is a defined viral exposure rather than a germline variant, but it converges on the same progenitor-depletion endpoint as genetic primary microcephaly, distinguished pathologically by a more destructive process with prominent cell death, necrosis, and calcification.",
+    "description": "Congenital Zika syndrome (CZS) is a non-genetic malformation of cortical development caused by intrauterine infection with Zika virus (ZIKV), a mosquito-borne flavivirus. After maternal infection \u2014 most consequential for fetal neurodevelopment during the first and second trimesters \u2014 ZIKV crosses the placenta and reaches the developing fetal central nervous system, where it is neurotropic for apical and outer radial glia and other neural progenitor cells of the cortical ventricular and subventricular zones. Productive infection of these founder progenitors dysregulates the cell cycle, triggers caspase-mediated apoptosis, and activates innate antiviral signalling (including the TLR3 pathway and type I interferon responses), collectively depleting the progenitor pool and abrogating neurogenesis during the peak neurogenic window. The resulting deficit of cortical neurons produces the recognizable CZS phenotype: severe (often congenital) microcephaly with a markedly disproportionate skull, agyria/lissencephaly-like smooth cortex, intracranial (cortical and subcortical) calcifications, ventriculomegaly/hydrocephalus, and cortical thinning, frequently accompanied by ocular abnormalities, arthrogryposis, sensorineural hearing loss, seizures, and global developmental delay. CZS is the exemplar infectious (non-Mendelian) cortical malformation mechanism: its proximal cause is a defined viral exposure rather than a germline variant, but it converges on the same progenitor-depletion endpoint as genetic primary microcephaly, distinguished pathologically by a more destructive process with prominent cell death, necrosis, and calcification.",
     "pathophysiology": [
       "Maternal-Fetal Transmission and Neurotropic Viral Entry",
-      "Neural Progenitor Infection and Cell-Cycle Disruption",
-      "Progenitor Apoptosis and Innate Immune Activation",
-      "Progenitor Depletion and Impaired Neurogenesis",
-      "Cortical Malformation and Microcephaly"
+      "Antiviral Innate Immune Activation",
+      "Viral Mitotic and Centrosome Cytopathy",
+      "Neural Progenitor Apoptosis and Pool Depletion",
+      "Impaired Neurogenesis and Congenital Cortical Malformation"
     ],
     "cell_types": [
       "Radial glial cell",
@@ -34027,11 +34205,19 @@ window.searchData = [
     ],
     "biological_processes": [
       "Viral entry into host cell",
-      "Mitotic cell cycle",
-      "Apoptotic process",
+      "Viral genome replication",
+      "Innate immune response",
       "Toll-like receptor signaling pathway",
-      "Response to type I interferon",
-      "Neurogenesis"
+      "Type I interferon-mediated signaling pathway",
+      "Defense response to virus",
+      "Mitotic cell cycle",
+      "Cell cycle",
+      "Mitotic spindle organization",
+      "Centrosome cycle",
+      "Apoptotic process",
+      "Neurogenesis",
+      "Cell population proliferation",
+      "Cerebral cortex development"
     ],
     "phenotypes": [
       "Microcephaly",
@@ -34067,8 +34253,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Congestive Splenomegaly",
@@ -36310,8 +36496,8 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "COMMON",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -36461,7 +36647,7 @@ window.searchData = [
       "HP:0001407"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -40906,7 +41092,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "neuronal action potential",
-      "synaptic transmission, GABAergic"
+      "synaptic transmission, GABAergic",
+      "regulation of cytosolic calcium ion concentration"
     ],
     "phenotypes": [
       "Seizures",
@@ -41054,7 +41241,7 @@ window.searchData = [
       "Ketogenic Diet",
       "Supportive Therapies",
       "Vagus Nerve Stimulation (VNS)",
-      "Antisense Oligonucleotide Therapy (STK-001/Zorevunersen)",
+      "Antisense Oligonucleotide Therapy (Zorevunersen/STK-001)",
       "AAV Gene Therapy (ETX101)",
       "Cannabidiol",
       "Fenfluramine",
@@ -41071,8 +41258,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 11,
     "num_treatments": 9,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Drug- or Toxin-Induced Pulmonary Arterial Hypertension",
@@ -41758,27 +41945,44 @@ window.searchData = [
     "pathophysiology": [
       "Defective alpha-dystroglycan O-mannosyl glycosylation",
       "Sarcolemmal fragility and progressive muscle degeneration",
-      "Glial limitans disruption and neuronal overmigration",
+      "Pial Basement Membrane Assembly Failure",
+      "Pial Basement Membrane Breach",
+      "Radial-Glial Basal Endfoot Detachment",
+      "Cajal-Retzius Cell Mislocalization and Preplate Splitting Failure",
+      "Neuronal Overmigration Through Breached Glial Limitans",
+      "Cobblestone Cortical Malformation",
       "Inhibitory synapse dysfunction and seizure susceptibility",
       "Retinal basement membrane disruption and eye malformations",
       "Dystroglycan as signaling hub"
     ],
     "cell_types": [
       "skeletal muscle fiber",
+      "cortical radial glial cell",
       "radial glial cell",
+      "Cajal-Retzius cell",
+      "cerebral cortex neuron",
       "GABAergic interneuron",
       "Muller glia"
     ],
     "cell_type_ids": [
       "CL:0008002",
+      "CL:0013000",
       "CL:0000681",
+      "CL:0000695",
+      "CL:0010012",
       "CL:0011005",
       "CL:0000636"
     ],
     "biological_processes": [
       "protein O-linked mannosylation",
       "muscle contraction",
+      "basement membrane assembly",
+      "basement membrane organization",
+      "formation of radial glial scaffolds",
+      "Cajal-Retzius cell differentiation",
       "neuron migration",
+      "cerebral cortex radial glia-guided migration",
+      "cerebral cortex development",
       "synapse assembly",
       "retina morphogenesis in camera-type eye",
       "signal transduction"
@@ -41855,11 +42059,11 @@ window.searchData = [
     "source_file": "Dystroglycanopathy.yaml",
     "page_url": "../pages/disorders/Dystroglycanopathy.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 11,
     "num_genes": 17,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Dystrophic Epidermolysis Bullosa",
@@ -42640,6 +42844,96 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "EML1-related Ribbon-like Subcortical Heterotopia",
+    "disease_id": "MONDO:0020491",
+    "category": "Mendelian",
+    "parents": [
+      "congenital nervous system disorder",
+      "disorder of development or morphogenesis",
+      "hereditary neurological disease"
+    ],
+    "creation_date": "2026-06-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "EML1-related ribbon-like subcortical heterotopia (EML1-associated brain overgrowth syndrome) is a rare autosomal recessive malformation of cortical development caused by biallelic loss-of-function variants in EML1, which encodes Echinoderm microtubule-associated protein-like 1 (EMAP-1), a microtubule-associated protein of the EMAP family. EML1 is required in apical radial glia (aRG) for normal microtubule dynamics, centrosome and primary cilium integrity, and mitotic spindle length and orientation. Loss of EML1 function perturbs these progenitor microtubule mechanisms, causing apical radial glia to delaminate and become abnormally positioned away from the ventricular zone. These ectopic progenitors continue to proliferate within the cortical wall and generate neurons that are produced and retained ectopically, giving rise to a strikingly specific imaging signature of megalencephaly with bilateral giant ribbon-like subcortical heterotopia, partial or complete agenesis of the corpus callosum, and an overlying polymicrogyria-like cortical malformation. Affected individuals present with severe developmental delay, drug-resistant epilepsy and visual impairment, and hydrocephalus is seen in a substantial fraction. The mechanism is a primary progenitor (centrosome / spindle / cilium) defect rather than a postmitotic neuronal migration defect: neuronal migration speed per se is normal, and the migration disturbance is secondary to loss of the normal radial glial scaffold. This distinguishes the disorder mechanistically from the classical subcortical band heterotopia of DCX / PAFAH1B1 (a microtubule-dependent neuronal migration defect) and from FLNA periventricular nodular heterotopia (an apical-junction/actin defect), justifying a distinct entry built on the neural-progenitor centrosome/spindle skeleton.",
+    "pathophysiology": [
+      "EML1 Loss of Function and Microtubule Dysregulation",
+      "Centrosome, Cilium and Mitotic Spindle Perturbation in Apical Radial Glia",
+      "Apical Radial Glia Delamination and Ectopic Progenitors",
+      "Ectopic Neurogenesis and Cortical Neuron Misplacement",
+      "Ribbon-like Subcortical Heterotopia and Brain Overgrowth"
+    ],
+    "cell_types": [
+      "apical radial glial cell",
+      "neural progenitor cell",
+      "cortical neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000681",
+      "CL:0011020",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "microtubule cytoskeleton organization",
+      "mitotic spindle organization",
+      "centrosome cycle",
+      "cilium assembly",
+      "establishment of mitotic spindle orientation",
+      "neuroblast proliferation",
+      "neuron migration"
+    ],
+    "phenotypes": [
+      "Ribbon-like Subcortical Heterotopia",
+      "Megalencephaly",
+      "Macrocephaly",
+      "Agenesis of Corpus Callosum",
+      "Polymicrogyria-like Cortical Malformation",
+      "Severe Developmental Delay",
+      "Drug-resistant Seizures",
+      "Visual Impairment",
+      "Hydrocephalus"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002282",
+      "HP:0001355",
+      "HP:0000256",
+      "HP:0001274",
+      "HP:0002126",
+      "HP:0011344",
+      "HP:0001250",
+      "HP:0000505",
+      "HP:0000238"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "EML1"
+    ],
+    "treatments": [
+      "Anti-Seizure Medication",
+      "Supportive and Rehabilitative Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "EML1_Ribbon_Heterotopia.yaml",
+    "page_url": "../pages/disorders/EML1-related_Ribbon-like_Subcortical_Heterotopia.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "ER-Positive Breast Cancer",
     "disease_id": "MONDO:0021116",
     "category": "",
@@ -43061,7 +43355,7 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [
       "COL1A1",
@@ -54211,8 +54505,7 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL",
-      "RARE"
+      "OCCASIONAL"
     ],
     "genes": [
       "PTCH1",
@@ -59613,7 +59906,7 @@ window.searchData = [
       "HP:0000132"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -66781,8 +67074,7 @@ window.searchData = [
       "VERY_FREQUENT",
       "VERY_RARE",
       "FREQUENT",
-      "OCCASIONAL",
-      "RARE"
+      "OCCASIONAL"
     ],
     "genes": [
       "CPLANE1",
@@ -67494,6 +67786,98 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "KATNB1-related Cortical Malformation",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "Microcephaly",
+      "Lissencephaly",
+      "malformation of cortical development"
+    ],
+    "creation_date": "2026-06-12T03:31:46Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "KATNB1-related cortical malformation is an autosomal recessive microlissencephaly and complex malformation-of-cortical-development disorder caused by biallelic KATNB1 variants that impair the p80 regulatory subunit of katanin. The entry is not split by imaging labels such as pachygyria, polymicrogyria-like cortex, simplified gyration, or heterotopia because these findings can be organized under one shared mechanism: defective katanin microtubule remodeling disrupts centrosome, cilium, and mitotic-spindle function in neural progenitors, alters asymmetric progenitor division and cortical neuron output, and also impairs microtubule-dependent neurogenesis and neuronal migration. The clinical result is congenital or early-onset microcephaly with lissencephaly-spectrum cortical malformation, severe developmental impairment, callosal/ventricular abnormalities, and variable associated neurologic features.",
+    "pathophysiology": [
+      "Biallelic KATNB1 Loss and Katanin Microtubule-Severing Defect",
+      "Centrosome-Cilium and Mitotic-Spindle Dysregulation",
+      "Abnormal Asymmetric Neural Progenitor Division",
+      "Microtubule-Dependent Neurogenesis and Neuronal Migration Failure",
+      "Reduced Cortical Output and Microlissencephaly"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "radial glial cell",
+      "cortical neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000681",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "microtubule severing",
+      "microtubule cytoskeleton organization",
+      "microtubule-based process",
+      "mitotic spindle organization",
+      "cilium assembly",
+      "Hedgehog signaling",
+      "asymmetric cell division",
+      "neurogenesis",
+      "maintenance of cell number",
+      "neuron migration",
+      "microtubule-based movement",
+      "cerebral cortex development"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Lissencephaly / Simplified Gyral Pattern",
+      "Simplified Gyral Pattern",
+      "Ventriculomegaly",
+      "Abnormal Corpus Callosum Morphology",
+      "Gray Matter Heterotopia",
+      "Global Developmental Delay / Psychomotor Impairment",
+      "Hypertonia",
+      "Seizures / Epilepsy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0001339",
+      "HP:0009879",
+      "HP:0002119",
+      "HP:0001273",
+      "HP:0002282",
+      "HP:0001263",
+      "HP:0001276",
+      "HP:0001250"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KATNB1"
+    ],
+    "treatments": [
+      "Supportive and Rehabilitative Care",
+      "Anti-Seizure Medication",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "KATNB1-related_Cortical_Malformation.yaml",
+    "page_url": "../pages/disorders/KATNB1-related_Cortical_Malformation.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "KBG Syndrome",
@@ -70814,7 +71198,7 @@ window.searchData = [
     ],
     "frequencies": [
       "OCCASIONAL",
-      "RARE",
+      "VERY_RARE",
       "FREQUENT"
     ],
     "genes": [
@@ -71473,9 +71857,9 @@ window.searchData = [
       "HP:0000979"
     ],
     "frequencies": [
-      "COMMON",
+      "FREQUENT",
       "OCCASIONAL",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [],
     "treatments": [
@@ -71629,7 +72013,7 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [],
     "treatments": [
@@ -72612,21 +72996,30 @@ window.searchData = [
     "pathophysiology": [
       "Impaired Neuronal Migration",
       "Cytoskeletal and Microtubule Dysfunction",
+      "LIS1-NUDEL-Dynein Nucleokinesis Failure",
+      "DCX Microtubule Stabilization Failure",
+      "LIS1 Progenitor Spindle Orientation Defect",
       "Reelin Signaling Deficiency"
     ],
     "cell_types": [
       "migrating cortical neuron",
-      "radial glial progenitor"
+      "radial glial progenitor",
+      "neuroepithelial stem cell"
     ],
     "cell_type_ids": [
       "CL:0000540",
-      "CL:0000681"
+      "CL:0000681",
+      "CL:0011020"
     ],
     "biological_processes": [
       "radial neuronal migration in cerebral cortex",
       "neuron migration",
       "microtubule-based movement",
-      "nucleokinesis during radial migration"
+      "nucleokinesis during radial migration",
+      "microtubule cytoskeleton organization",
+      "cytoplasmic microtubule organization",
+      "mitotic spindle organization",
+      "cell division"
     ],
     "phenotypes": [
       "Lissencephaly",
@@ -72688,11 +73081,11 @@ window.searchData = [
     "source_file": "Lissencephaly_Spectrum_Disorders.yaml",
     "page_url": "../pages/disorders/Lissencephaly_Spectrum_Disorders.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 6,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Livedoid vasculopathy",
@@ -73604,7 +73997,7 @@ window.searchData = [
       "OCCASIONAL",
       "FREQUENT",
       "VERY_FREQUENT",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [],
     "treatments": [
@@ -73674,7 +74067,7 @@ window.searchData = [
       "HP:0100749"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -73788,7 +74181,7 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [
       "HLA-DRB1 Susceptibility Alleles"
@@ -73924,7 +74317,7 @@ window.searchData = [
       "HP:0001824"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -75833,6 +76226,7 @@ window.searchData = [
       "Neuron",
       "Microglia",
       "Oligodendrocyte",
+      "Oligodendrocyte Precursor Cell",
       "Astrocyte"
     ],
     "cell_type_ids": [
@@ -75843,6 +76237,7 @@ window.searchData = [
       "CL:0000540",
       "CL:0000129",
       "CL:0000128",
+      "CL:0002453",
       "CL:0000127"
     ],
     "biological_processes": [
@@ -75921,8 +76316,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Malan Syndrome",
@@ -78203,7 +78598,7 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [
       "TNF-\u03b1 pathway involvement",
@@ -82728,8 +83123,7 @@ window.searchData = [
     ],
     "frequencies": [
       "FREQUENT",
-      "VERY_FREQUENT",
-      "COMMON"
+      "VERY_FREQUENT"
     ],
     "genes": [
       "HLA-DRB1",
@@ -83858,7 +84252,7 @@ window.searchData = [
       "HP:0002797"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -84934,6 +85328,96 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "NDE1-related Microcephaly-Lissencephaly",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "Microcephaly",
+      "Lissencephaly",
+      "neuronal migration disorder"
+    ],
+    "creation_date": "2026-06-12T03:31:46Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "NDE1-related microcephaly-lissencephaly is a severe autosomal recessive malformation of cortical development caused by biallelic NDE1 loss of function. The coherent disease skeleton is not generic primary microcephaly: loss of the centrosomal and dynein-regulatory NDE1 protein disrupts radial-glial progenitor cell-cycle progression, apical interkinetic nuclear migration, G2-to-M transition, and cilia-linked G1-to-S control, reducing prenatal neuron production. A connected dynein/LIS1 microtubule branch also impairs postmitotic neuronal migration and cortical lamination. The clinical result is extreme congenital microcephaly with grossly simplified gyration (microlissencephaly/lissencephaly), severe developmental impairment, frequent callosal agenesis, and epilepsy in many reported patients. The entry is split from broad MCPH and generic lissencephaly entries because the same upstream NDE1-dynein-centrosome lesion explains both the progenitor-depletion and lamination branches.",
+    "pathophysiology": [
+      "Biallelic NDE1 Loss and Centrosome-Dynein Perturbation",
+      "Progenitor Cell-Cycle Arrest and Failed Neurogenesis",
+      "Progenitor Pool Depletion and Microlissencephaly",
+      "Dynein-Dependent Neuronal Migration Failure",
+      "Cortical Dyslamination and Lissencephaly"
+    ],
+    "cell_types": [
+      "radial glial cell",
+      "neural progenitor cell",
+      "cortical neuron",
+      "migrating cortical neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000681",
+      "CL:0011020",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "centrosome cycle",
+      "mitotic spindle organization",
+      "microtubule-based process",
+      "nuclear migration",
+      "mitotic cell cycle",
+      "cilium organization",
+      "neurogenesis",
+      "maintenance of cell number",
+      "neuron migration",
+      "microtubule-based movement",
+      "cerebral cortex development"
+    ],
+    "phenotypes": [
+      "Extreme Congenital Microcephaly",
+      "Lissencephaly / Microlissencephaly",
+      "Agenesis of Corpus Callosum",
+      "Cerebellar Hypoplasia",
+      "Ventriculomegaly",
+      "Global Developmental Delay / Intellectual Disability",
+      "Hypertonia",
+      "Seizures / Epilepsy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0001339",
+      "HP:0001274",
+      "HP:0001321",
+      "HP:0002119",
+      "HP:0001263",
+      "HP:0001276",
+      "HP:0001250"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NDE1"
+    ],
+    "treatments": [
+      "Supportive and Rehabilitative Care",
+      "Anti-Seizure Medication",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "NDE1-related_Microcephaly_Lissencephaly.yaml",
+    "page_url": "../pages/disorders/NDE1-related_Microcephaly-Lissencephaly.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Neonatal Severe Encephalopathy with Lactic Acidosis and Brain Abnormalities",
@@ -86387,8 +86871,8 @@ window.searchData = [
       "HP:0000716"
     ],
     "frequencies": [
-      "VERY_COMMON",
-      "COMMON",
+      "VERY_FREQUENT",
+      "FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [],
@@ -89489,7 +89973,6 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "COMMON",
       "OCCASIONAL"
     ],
     "genes": [],
@@ -91003,7 +91486,7 @@ window.searchData = [
       "HP:0100526"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [
       "TP53",
@@ -93748,7 +94231,7 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [
       "HLA-DR15",
@@ -93973,7 +94456,7 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [],
     "treatments": [
@@ -95153,28 +95636,37 @@ window.searchData = [
     "creation_date": "2026-04-04T00:00:00Z",
     "updated_date": "2026-04-07T02:27:09Z",
     "subtypes": [],
-    "description": "Periventricular nodular heterotopia (PVNH) is a neuronal migration disorder characterized by nodules of gray matter lining the lateral ventricles due to failure of neurons to migrate from the ventricular zone to the cortex during embryonic development. The X-linked dominant form, caused by loss-of-function variants in FLNA (filamin A), predominantly affects females, as hemizygous males typically die in utero. Clinical features include epilepsy (often the presenting symptom), normal to borderline intelligence, cardiovascular anomalies (patent ductus arteriosus, progressive valvular dystrophy, aortic dissection), chronic obstructive lung disease, gastrointestinal dysmotility, coagulopathy, and joint hypermobility. Seizures typically begin at variable age of onset and may be difficult to treat. A concerning median diagnostic latency of 17 to 20 years between seizure onset and genetic diagnosis has been reported.",
+    "description": "Periventricular nodular heterotopia (PVNH) is a neuronal migration disorder characterized by nodules of gray matter lining the lateral ventricles due to failure of neurons to migrate from the ventricular zone to the cortex during embryonic development. The X-linked dominant form, caused by loss-of-function variants in FLNA (filamin A), predominantly affects females, as hemizygous males typically die in utero. Clinical features include epilepsy (often the presenting symptom), normal to borderline intelligence, cardiovascular anomalies (patent ductus arteriosus, progressive valvular dystrophy, aortic dissection), chronic obstructive lung disease, gastrointestinal dysmotility, coagulopathy, and joint hypermobility. Seizures typically begin at variable age of onset and may be difficult to treat. A concerning median diagnostic latency of 17 to 20 years between seizure onset and genetic diagnosis has been reported. Although FLNA accounts for the classic X-linked dominant form, PVNH is genetically heterogeneous: autosomal recessive ARFGEF2 (typically with microcephaly) and FAT4/DCHS1, and autosomal dominant NEDD4L, converge on a shared failure of apical radial-glial / neuroependymal integrity at the ventricular surface rather than a purely cell-autonomous post-mitotic migration defect.",
     "pathophysiology": [
+      "Radial Glial Apical Attachment and Vesicle-Trafficking Failure",
+      "NEDD4L AKT-mTOR Dysregulation",
       "FLNA Loss of Function and Neuronal Migration Failure",
       "Epileptogenesis from Heterotopic Nodules",
       "Cardiovascular Connective Tissue Dysfunction",
       "Progressive Lung Disease"
     ],
     "cell_types": [
-      "Neuron",
       "Radial glial cell",
+      "Neural progenitor cell",
+      "Neuron",
       "Endothelial cell",
       "Smooth muscle cell",
       "Pulmonary alveolar type 2 cell"
     ],
     "cell_type_ids": [
-      "CL:0000540",
       "CL:0000681",
+      "CL:0011020",
+      "CL:0000540",
       "CL:0000115",
       "CL:0000192",
       "CL:0002063"
     ],
     "biological_processes": [
+      "Vesicle-mediated transport",
+      "Cell-cell adhesion",
+      "Adherens junction organization",
+      "PI3K-AKT-mTOR signaling",
+      "Neurogenesis",
       "Neuronal migration",
       "Actin cytoskeleton organization",
       "Cell-matrix adhesion",
@@ -95223,12 +95715,15 @@ window.searchData = [
     ],
     "frequencies": [
       "Very frequent",
-      "Rare",
+      "OCCASIONAL",
       "Frequent",
       "Occasional"
     ],
     "genes": [
-      "FLNA Loss-of-Function Variants"
+      "FLNA Loss-of-Function Variants",
+      "ARFGEF2 Loss-of-Function Variants",
+      "FAT4 and DCHS1 Variants",
+      "NEDD4L HECT-Domain Variants"
     ],
     "treatments": [
       "Antiepileptic Drug Therapy",
@@ -95241,11 +95736,11 @@ window.searchData = [
     "source_file": "Periventricular_Nodular_Heterotopia.yaml",
     "page_url": "../pages/disorders/Periventricular_Nodular_Heterotopia.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 4,
-    "num_genes": 1,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Peroxisomal Acyl-CoA Oxidase Deficiency",
@@ -96276,8 +96771,7 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL",
-      "RARE"
+      "OCCASIONAL"
     ],
     "genes": [
       "MAPT",
@@ -96576,7 +97070,7 @@ window.searchData = [
       "HP:0001000"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -97225,7 +97719,10 @@ window.searchData = [
       "Ferroptosis",
       "Inflammatory Response",
       "Response to Oxidative Stress",
-      "Response to Endoplasmic Reticulum Stress"
+      "Response to Endoplasmic Reticulum Stress",
+      "Lipid Metabolic Process",
+      "Signal Transduction",
+      "Apoptotic Process"
     ],
     "phenotypes": [
       "Irregular Menstruation",
@@ -99371,7 +99868,7 @@ window.searchData = [
       "HP:0002015"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -101386,7 +101883,7 @@ window.searchData = [
       "HP:0001803"
     ],
     "frequencies": [
-      "COMMON",
+      "FREQUENT",
       "VERY_FREQUENT",
       "OCCASIONAL"
     ],
@@ -102940,6 +103437,86 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Reelin Pathway Lissencephaly",
+    "disease_id": "MONDO:0019450",
+    "category": "Mendelian",
+    "parents": [
+      "Lissencephaly Spectrum Disorders"
+    ],
+    "creation_date": "2026-06-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "RELN-related",
+      "VLDLR-related"
+    ],
+    "description": "Reelin-pathway lissencephaly is an autosomal recessive malformation of cortical development whose coherent pathomechanism skeleton is failure of extracellular Reelin signaling rather than the microtubule/dynein-based neuronal-migration arrest of classical lissencephaly. Reelin is a large glycoprotein secreted by Cajal-Retzius cells in the cortical marginal zone; it binds the lipoprotein receptors VLDLR and ApoER2/LRP8 on migrating postmitotic neurons, activating the intracellular adaptor DAB1 and downstream adhesion/cytoskeletal effectors that drive glia-independent terminal somal translocation and inside-out cortical lamination. Biallelic loss of the ligand (RELN) or the receptor (VLDLR) collapses this signal, producing a cortex with simplified/thickened gyration together with the hallmark cerebellar hypoplasia, and\u2014because the same pathway organizes the hippocampus, cerebellum, and brainstem\u2014recurring hippocampal disorganization and pontine/brainstem hypoplasia. The two principal human lesions define the disease's subtype branches: RELN mutations (Hong et al. 2000) cause a more severe lissencephaly-with-cerebellar- hypoplasia phenotype with hippocampal and brainstem involvement, whereas VLDLR deletion (Boycott et al. 2005; the \"dysequilibrium syndrome\"/CAMRQ1 spectrum) causes nonprogressive cerebellar ataxia with milder cerebral gyral simplification. This is the exemplar Reelin-signaling cortical malformation and conforms to the reelin terminal-translocation lamination-failure module rather than to the tubulinopathy or generic migration-arrest modules.",
+    "pathophysiology": [
+      "Cajal-Retzius Reelin Ligand Deficiency",
+      "VLDLR-ApoER2-DAB1 Signal Transduction Failure",
+      "Terminal Somal Translocation Failure",
+      "Cortical Lamination and Gyral Simplification",
+      "Hippocampal and Cerebellar Organization Defect"
+    ],
+    "cell_types": [
+      "Cajal-Retzius cell",
+      "migrating cerebral cortex neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000695",
+      "CL:0010012"
+    ],
+    "biological_processes": [
+      "reelin-mediated signaling pathway",
+      "neuron migration",
+      "layer formation in cerebral cortex",
+      "cerebral cortex development",
+      "hippocampus development",
+      "cerebellum development"
+    ],
+    "phenotypes": [
+      "Lissencephaly",
+      "Cerebral gyral simplification",
+      "Nonprogressive cerebellar ataxia",
+      "Cerebellar hypoplasia",
+      "Hypoplasia of the pons",
+      "Abnormal hippocampus morphology",
+      "Intellectual disability"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001339",
+      "HP:0001302",
+      "HP:0001251",
+      "HP:0001321",
+      "HP:0012110",
+      "HP:0025100",
+      "HP:0001249"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antiseizure Pharmacotherapy",
+      "Physical and Developmental Therapy",
+      "Genetic Counseling",
+      "Supportive and Multidisciplinary Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Reelin_Pathway_Lissencephaly.yaml",
+    "page_url": "../pages/disorders/Reelin_Pathway_Lissencephaly.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Refeeding Syndrome",
     "disease_id": "MONDO:0400005",
     "category": "Nutritional",
@@ -103006,7 +103583,7 @@ window.searchData = [
     ],
     "frequencies": [
       "OCCASIONAL",
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -103268,7 +103845,8 @@ window.searchData = [
       "HP:0030157"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [],
     "treatments": [
@@ -103679,7 +104257,8 @@ window.searchData = [
       "HP:0002018"
     ],
     "frequencies": [
-      "Common"
+      "VERY_FREQUENT",
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -104508,7 +105087,7 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL",
-      "RARE"
+      "VERY_RARE"
     ],
     "genes": [
       "IRF1",
@@ -105303,6 +105882,87 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 0,
     "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "SRPX2-related Speech-Epilepsy-Polymicrogyria",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "Rolandic epilepsy",
+      "Polymicrogyria",
+      "speech disorder",
+      "malformation of cortical development"
+    ],
+    "creation_date": "2026-06-12T03:31:46Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SRPX2-related speech-epilepsy-polymicrogyria is an X-linked neurodevelopmental disorder boundary in which reported SRPX2 variants affect rolandic/sylvian speech-cortex function and development. The entry lumps rolandic epilepsy with oral/speech dyspraxia and the bilateral perisylvian polymicrogyria presentation because the shared skeleton is coherent: SRPX2-dependent protein processing and SRPX2/uPAR network function converge on neuronal migration, tubulin acetylation, perisylvian cortical organization, and later epileptiform activity. It should not be expanded to all rolandic epilepsy, all developmental speech disorder, or all polymicrogyria.",
+    "pathophysiology": [
+      "SRPX2 Missense Variation and Protein Processing Defect",
+      "FOXP2-SRPX2-uPAR Speech-Cortex Regulatory Network Perturbation",
+      "Tubulin Acetylation and Neuronal Migration Defect",
+      "Perisylvian Cortical Organization Failure",
+      "Speech and Oromotor Impairment",
+      "Postnatal Epileptiform Activity"
+    ],
+    "cell_types": [
+      "neuron",
+      "cortical neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "protein N-linked glycosylation",
+      "regulation of DNA-templated transcription",
+      "cell adhesion",
+      "neuron migration",
+      "microtubule cytoskeleton organization",
+      "protein acetylation",
+      "cerebral cortex development",
+      "nervous system development"
+    ],
+    "phenotypes": [
+      "Rolandic Seizures / Focal Epilepsy",
+      "EEG With Centrotemporal Epileptiform Discharges",
+      "Speech Apraxia",
+      "Oromotor Apraxia",
+      "Bilateral Perisylvian Polymicrogyria",
+      "Intellectual Disability"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0033721",
+      "HP:0011098",
+      "HP:0007301",
+      "HP:0032407",
+      "HP:0001249"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SRPX2"
+    ],
+    "treatments": [
+      "Anti-Seizure Medication",
+      "Speech Therapy",
+      "Occupational Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SRPX2-related_Speech_Epilepsy_Polymicrogyria.yaml",
+    "page_url": "../pages/disorders/SRPX2-related_Speech-Epilepsy-Polymicrogyria.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "5"
   },
   {
@@ -106651,7 +107311,7 @@ window.searchData = [
       "HP:0000988"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -106935,7 +107595,6 @@ window.searchData = [
     ],
     "frequencies": [
       "FREQUENT",
-      "COMMON",
       "OCCASIONAL"
     ],
     "genes": [
@@ -107963,7 +108622,8 @@ window.searchData = [
       "HP:0000708"
     ],
     "frequencies": [
-      "COMMON",
+      "VERY_FREQUENT",
+      "FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [],
@@ -109992,7 +110652,7 @@ window.searchData = [
       "HP:0001919"
     ],
     "frequencies": [
-      "COMMON",
+      "FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [],
@@ -113695,7 +114355,7 @@ window.searchData = [
     "frequencies": [
       "OBLIGATE",
       "FREQUENT",
-      "RARE",
+      "VERY_RARE",
       "VERY_FREQUENT"
     ],
     "genes": [
@@ -114016,7 +114676,9 @@ window.searchData = [
     "biological_processes": [
       "tubulin heterodimer assembly",
       "microtubule cytoskeleton organization",
+      "microtubule-based process",
       "neuron migration",
+      "microtubule-based movement",
       "cerebral cortex development"
     ],
     "phenotypes": [
@@ -114058,6 +114720,275 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "TUBB2A/TUBB2B-related Cortical Malformation",
+    "disease_id": "MONDO:0018763",
+    "category": "Mendelian",
+    "parents": [
+      "congenital nervous system disorder",
+      "disorder of development or morphogenesis",
+      "hereditary neurological disease",
+      "neuronal migration disorder"
+    ],
+    "creation_date": "2026-06-12T03:31:46Z",
+    "updated_date": null,
+    "subtypes": [
+      "TUBB2A",
+      "TUBB2B"
+    ],
+    "description": "TUBB2A/TUBB2B-related cortical malformation is modeled as a narrow beta-tubulin cortical malformation entry, not as a generic tubulinopathy lump. The shared pathograph is heterozygous pathogenic variation in beta-tubulin isotypes that participate in alpha/beta tubulin heterodimers, leading to disturbed microtubule apparatus function during corticogenesis, impaired microtubule-dependent neuronal migration and organization, and a malformation-of-cortical-development phenotype. TUBB2B is the better established arm and is characterized mainly by focal perisylvian or generalized polymicrogyria-like cortical dysplasia, often with basal-ganglia/internal capsule abnormalities, ventriculomegaly, corpus callosum anomalies, and cerebellar or brainstem involvement. TUBB2A evidence is thinner but fits the same beta-tubulin cortical malformation skeleton, with reported global developmental delay, seizures, cortical dysplasia, dysmorphic corpus callosum, hypotonia, and intellectual disability. The entry is separated from TUBA1A because TUBA1A has a more lissencephaly/microlissencephaly-centered alpha-tubulin pattern, and from TUBB3 because TUBB3 has a distinct kinesin/axon-guidance and cranial dysinnervation branch.",
+    "pathophysiology": [
+      "Altered Beta-Tubulin (TUBB2A/TUBB2B) Function",
+      "Impaired Microtubule-Dependent Neuronal Migration and Organization",
+      "Polymicrogyria-like Cortical Dysplasia and Extracortical Tubulinopathy Pattern"
+    ],
+    "cell_types": [
+      "cortical progenitor and migrating neuron",
+      "radial glial cell",
+      "migrating cortical neuron",
+      "cortical neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000681"
+    ],
+    "biological_processes": [
+      "tubulin heterodimer assembly",
+      "microtubule cytoskeleton organization",
+      "microtubule-based process",
+      "neuron migration",
+      "cerebral cortex development",
+      "microtubule-based movement"
+    ],
+    "phenotypes": [
+      "Polymicrogyria-like Cortical Dysplasia",
+      "Lissencephaly / Pachygyria Spectrum",
+      "Dysmorphic Basal Ganglia",
+      "Ventriculomegaly",
+      "Corpus Callosum Abnormality",
+      "Global Developmental Delay",
+      "Microcephaly",
+      "Gross Motor Impairment",
+      "Ocular Motility Abnormality",
+      "Epilepsy / Seizures"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002126",
+      "HP:0001339",
+      "HP:0002134",
+      "HP:0002119",
+      "HP:0001273",
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0007015",
+      "HP:0000496",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TUBB2A",
+      "TUBB2B"
+    ],
+    "treatments": [
+      "Anti-Seizure Medication",
+      "Supportive and Rehabilitative Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TUBB2A_TUBB2B-related_Cortical_Malformation.yaml",
+    "page_url": "../pages/disorders/TUBB2A_TUBB2B-related_Cortical_Malformation.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "TUBB3-related Tubulinopathy",
+    "disease_id": "MONDO:0100154",
+    "category": "Mendelian",
+    "parents": [
+      "congenital nervous system disorder",
+      "disorder of development or morphogenesis",
+      "hereditary neurological disease",
+      "neuronal migration disorder"
+    ],
+    "creation_date": "2026-06-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TUBB3-related tubulinopathy is a neurodevelopmental disorder caused by heterozygous missense mutations in TUBB3, which encodes the neuron-specific beta-tubulin isotype III. Beta-III tubulin pairs with alpha-tubulin to form the heterodimers that polymerize into the highly dynamic neuronal microtubules required for axon outgrowth, growth-cone guidance, and microtubule-based neuronal migration. Unlike the alpha-tubulin (TUBA1A) and beta-tubulin (TUBB2B) disorders, in which cortical migration failure is the dominant defect, TUBB3 disease is distinguished by two separable, mutation-class dependent mechanistic arms that share the same upstream tubulin lesion. In one arm, kinesin-interaction-deficient mutations impair the motility of kinesin motors on microtubules and produce axon guidance failure in cranial motor neurons, causing hypoplasia of the oculomotor and other cranial nerves with the ocular motility disorder congenital fibrosis of the extraocular muscles type 3 (CFEOM3), together with corpus callosum and commissural tract dysgenesis and, in some individuals, facial weakness and a later-onset axonal sensorimotor polyneuropathy. In the other arm, mutations that alter microtubule dynamics impair radial neuronal migration and produce malformations of cortical development \u2014 cortical disorganization, polymicrogyria-like cortical dysplasia, and pontocerebellar hypoplasia \u2014 often without ocular motility defects. Shared tubulinopathy imaging hallmarks include dysmorphic basal ganglia, midline commissural hypoplasia or agenesis, and cerebellar and brainstem hypoplasia. TUBB3 is modeled here as its own beta-III-tubulin pathomechanism entry rather than lumped under generic lissencephaly or polymicrogyria, because its central skeleton uniquely couples a kinesin-dependent axon guidance / cranial dysinnervation arm to the broader microtubule-dependent neuronal migration family that includes TUBA1A, TUBB2B, TUBB5, and TUBG1.",
+    "pathophysiology": [
+      "Altered Beta-III Tubulin (TUBB3) Function",
+      "Impaired Kinesin-Microtubule Interaction and Axon Guidance Failure",
+      "Cranial Motor Nerve Maldevelopment and Ocular Dysmotility",
+      "Impaired Microtubule-Dependent Neuronal Migration",
+      "Cortical Dyslamination and Pontocerebellar Malformation"
+    ],
+    "cell_types": [
+      "cortical progenitor and migrating neuron",
+      "developing neuron",
+      "cranial motor neuron",
+      "migrating cortical neuron",
+      "cortical neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000100"
+    ],
+    "biological_processes": [
+      "tubulin heterodimer assembly",
+      "microtubule cytoskeleton organization",
+      "microtubule-based movement",
+      "neuron projection guidance",
+      "neuron projection morphogenesis",
+      "neuron migration",
+      "cerebral cortex development"
+    ],
+    "phenotypes": [
+      "Congenital Fibrosis of Extraocular Muscles",
+      "Ocular Motility Disorder",
+      "Agenesis of the Corpus Callosum",
+      "Polymicrogyria",
+      "Cerebellar Hypoplasia",
+      "Dysmorphic Basal Ganglia",
+      "Brainstem Abnormalities",
+      "Intellectual Disability",
+      "Peripheral Neuropathy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001491",
+      "HP:0000496",
+      "HP:0001274",
+      "HP:0002126",
+      "HP:0001321",
+      "HP:0002134",
+      "HP:0002363",
+      "HP:0001249",
+      "HP:0009830"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TUBB3"
+    ],
+    "treatments": [
+      "Strabismus and Eyelid Surgery",
+      "Supportive and Rehabilitative Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TUBB3-related_Tubulinopathy.yaml",
+    "page_url": "../pages/disorders/TUBB3-related_Tubulinopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "TUBB/TUBB5-related Microcephaly",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "congenital nervous system disorder",
+      "disorder of development or morphogenesis",
+      "hereditary neurological disease",
+      "primary microcephaly"
+    ],
+    "creation_date": "2026-06-12T03:31:46Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TUBB/TUBB5-related microcephaly is a beta-tubulin neurodevelopmental disorder caused by heterozygous de novo missense variants in the gene historically reported as TUBB5 and currently represented by HGNC as TUBB. It is modeled as a distinct disease entry because its skeleton is centered on embryonic neurogenesis and cortical size: altered beta-tubulin folding, heterodimer assembly, and microtubule function perturb neural progenitor cell-cycle progression, spindle orientation, neurogenic division, and neuronal migration; in mouse models, the microcephaly mechanism includes p53-associated apoptosis and loss of upper-layer neurons. The human phenotype combines congenital or early microcephaly with structural brain abnormalities such as dysmorphic basal ganglia, corpus callosum abnormality, simplified or polymicrogyria-like cortical malformation, and variable brainstem/cerebellar involvement, together with developmental delay, intellectual disability, motor and speech delay, and occasional seizures. This is therefore split from TUBB2A/TUBB2B cortical malformation and TUBB3 disease, while sharing module-level microtubule apparatus biology with the broader tubulinopathy family.",
+    "pathophysiology": [
+      "Altered TUBB/TUBB5 Beta-Tubulin Function",
+      "Progenitor Cell-Cycle and Spindle Dysfunction",
+      "p53-Associated Apoptosis and Progenitor Pool Distortion",
+      "Impaired Neurogenic Division and Migration",
+      "Microcephaly and Structural Brain Abnormalities"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "migrating cortical neuron",
+      "radial glial cell",
+      "cortical neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000540",
+      "CL:0000681"
+    ],
+    "biological_processes": [
+      "tubulin heterodimer assembly",
+      "microtubule cytoskeleton organization",
+      "mitotic cell cycle",
+      "mitotic spindle organization",
+      "cell division",
+      "apoptotic process",
+      "maintenance of cell number",
+      "neurogenesis",
+      "neuron migration",
+      "cerebral cortex development"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Polymicrogyria-like Cortical Dysplasia / Simplified Gyral Pattern",
+      "Abnormal Basal Ganglia Morphology",
+      "Corpus Callosum Abnormality",
+      "Global Developmental Delay / Intellectual Disability"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0002126",
+      "HP:0002134",
+      "HP:0001273",
+      "HP:0001263"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TUBB"
+    ],
+    "treatments": [
+      "Supportive and Rehabilitative Care",
+      "Anti-Seizure Medication",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TUBB_TUBB5-related_Microcephaly.yaml",
+    "page_url": "../pages/disorders/TUBB_TUBB5-related_Microcephaly.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Taeniasis/cysticercosis",
@@ -116931,9 +117862,8 @@ window.searchData = [
       "HP:0004373"
     ],
     "frequencies": [
-      "COMMON",
-      "OCCASIONAL",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [],
     "treatments": [
@@ -123128,7 +124058,7 @@ window.searchData = [
       "HP:0200042"
     ],
     "frequencies": [
-      "COMMON"
+      "FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -124398,13 +125328,13 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1231,
-  "total_subtypes": 2016,
-  "total_disorders_and_subtypes": 3247,
-  "total_unique_evidence_sources": 22157,
+  "total_disorder_pages": 1241,
+  "total_subtypes": 2028,
+  "total_disorders_and_subtypes": 3269,
+  "total_unique_evidence_sources": 22228,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 207,
-  "total_pathographs": 1224,
-  "total_unique_pathological_events": 5970
+  "total_pathographs": 1233,
+  "total_unique_pathological_events": 6027
 };
 window.dispatchEvent(new Event('searchDataReady'));
