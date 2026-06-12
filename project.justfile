@@ -526,6 +526,13 @@ gen-priority-dashboard-all-mondo:
     echo "Local-only all-MONDO priority dashboard generated at $out_dir/priority.html"
     echo "Outputs are under tmp/ and are gitignored; do not commit them."
 
+# Reconcile Epic #1079 checkboxes against kb/disorders/ (root + has_subtypes + mondo_mappings).
+# Marks curated diseases as [x] and updates per-section counts.
+# Pass --dry-run to preview changes without writing to GitHub.
+[group('Dashboard')]
+sync-epic-checkboxes *args:
+    uv run python scripts/sync_epic_checkboxes.py --kb-dir {{kb_dir}} {{args}}
+
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
 # Note: First run fetches from PubMed and caches; subsequent runs use cache
 [group('QC')]
