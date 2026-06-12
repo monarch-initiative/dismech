@@ -3,13 +3,13 @@
 **Query:** # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Charcot-Marie-Tooth Disease Type 2
-- **MONDO ID:** MONDO:0018993 (if available)
-- **Category:** Genetic
+- **Disease Name:** Charcot-Marie-Tooth Disease Type 1
+- **MONDO ID:** MONDO:0019011 (if available)
+- **Category:** Mendelian
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Charcot-Marie-Tooth Disease Type 2** covering all of the
+Please provide a comprehensive research report on **Charcot-Marie-Tooth Disease Type 1** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -447,48 +447,38 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-06-11T23:06:28.452154
+**Generated:** 2026-06-11T23:04:21.124821
 
-1. medina2024customizedantisenseoligonucleotidebased pages 1-2
+1. dong2024currenttreatmentmethods pages 1-2
 2. record2024wholegenomesequencing pages 1-2
-3. okamoto2023thecurrentstate pages 1-2
-4. ma2023clinicalandmutational pages 2-3
-5. sun2024quantifiedfatfraction pages 1-2
-6. ma2023clinicalandmutational pages 1-2
-7. record2024wholegenomesequencing pages 3-5
-8. dong2024currenttreatmentmethods pages 2-4
-9. berth2023disruptionofaxonal pages 1-2
-10. sun2024quantifiedfatfraction pages 8-10
-11. abati2024invivoand pages 16-20
-12. abati2024invivoanda pages 111-114
-13. grado2024willnewinvestigational pages 1-3
-14. lent2024advancesandchallenges pages 4-5
-15. lent2024advancesandchallenges pages 6-7
-16. ma2023clinicalandmutational pages 3-4
-17. marina2024novelgeneticand pages 1-3
-18. abati2024invivoand pages 11-16
-19. sun2024quantifiedfatfraction pages 3-5
-20. abati2024invivoanda pages 27-31
-21. lent2024advancesandchallenges pages 13-14
-22. https://doi.org/10.3389/fneur.2023.1334976
-23. https://clinicaltrials.gov/study/NCT05777226
-24. https://clinicaltrials.gov/study/NCT05397665
-25. https://clinicaltrials.gov/study/NCT05152823
-26. https://clinicaltrials.gov/study/NCT06482437
-27. https://doi.org/10.1093/brain/awae064
-28. https://doi.org/10.1093/brain/awae225
-29. https://doi.org/10.1172/jci168554
-30. https://doi.org/10.3390/genes14071391
-31. https://doi.org/10.3389/fgene.2023.1188361
-32. https://doi.org/10.3390/biom14091138
-33. https://doi.org/10.3390/genes14071391,
-34. https://doi.org/10.1093/brain/awae225,
-35. https://doi.org/10.1093/brain/awae064,
-36. https://doi.org/10.3389/fneur.2023.1334976,
-37. https://doi.org/10.1080/13543784.2024.2352635,
-38. https://doi.org/10.3390/biom14091138,
-39. https://doi.org/10.1007/s10072-024-07747-7,
-40. https://doi.org/10.3389/fgene.2023.1188361,
-41. https://doi.org/10.3233/jnd-230230,
-42. https://doi.org/10.1172/jci168554,
-43. https://doi.org/10.1038/s12276-024-01250-x,
+3. estevezarias2022geneticapproachesand pages 3-5
+4. record2024wholegenomesequencing pages 3-5
+5. record2024wholegenomesequencing pages 2-3
+6. dong2024currenttreatmentmethods pages 2-4
+7. mandarakas2024multicentervalidationof pages 1-2
+8. estevezarias2022geneticapproachesand pages 1-3
+9. jacob2023mechanismsandtreatment pages 1-2
+10. bamaga2025abriefreview pages 2-4
+11. okamoto2023thecurrentstate pages 12-14
+12. yoshioka2023aavmediatededitingof pages 13-14
+13. okamoto2023thecurrentstate pages 1-2
+14. okamoto2023thecurrentstate pages 16-17
+15. https://doi.org/10.3390/genes14071391;
+16. https://doi.org/10.3390/biom14091138
+17. https://doi.org/10.20517/jtgg.2022.04
+18. https://doi.org/10.1093/brain/awae064
+19. https://doi.org/10.20517/jtgg.2022.04;
+20. https://doi.org/10.1212/wnl.0000000000207963
+21. https://clinicaltrials.gov/study/NCT02579759
+22. https://clinicaltrials.gov/study/NCT04762758
+23. https://clinicaltrials.gov/study/NCT05092841
+24. https://doi.org/10.3390/genes14071391,
+25. https://doi.org/10.3390/biom14091138,
+26. https://doi.org/10.20517/jtgg.2022.04,
+27. https://doi.org/10.1093/brain/awae064,
+28. https://doi.org/10.1212/wnl.0000000000207963,
+29. https://doi.org/10.4103/1673-5374.367834,
+30. https://doi.org/10.3390/genes16111279,
+31. https://doi.org/10.3390/brainsci15040403,
+32. https://doi.org/10.1038/s43856-023-00400-y,
+33. https://doi.org/10.1111/jns.12543,
