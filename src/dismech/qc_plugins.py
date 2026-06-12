@@ -219,6 +219,12 @@ def _main() -> None:
         if Path(args.config).exists()
         else QCConfig.default()
     )
+    # Effective threshold: explicit --fail-under wins, otherwise fall back to the
+    # min_compliance configured for the metric in qc_config.yaml (may be None).
+    plugin = PhenotypeConnectivityPlugin()
+    fail_under = args.fail_under
+    if fail_under is None:
+        fail_under = config.get_min_compliance(plugin.path, plugin.slot_name)
 
     files: list[Path] = []
     for raw in args.paths:
@@ -260,8 +266,8 @@ def _main() -> None:
             f"\nAggregate: {total_connected}/{total_phenotypes} phenotype nodes "
             f"causally connected ({agg:.1f}%); {files_with_gaps} file(s) with gaps."
         )
-        if args.fail_under is not None and agg < args.fail_under:
-            print(f"FAIL: below --fail-under {args.fail_under:.1f}%")
+        if fail_under is not None and agg < fail_under:
+            print(f"FAIL: below threshold {fail_under:.1f}%")
             raise SystemExit(1)
     else:
         print("No phenotype nodes found.")
