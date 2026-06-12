@@ -331,6 +331,14 @@ validate-groupings:
         exit 1
     fi
 
+# Lint and audit disease grouping membership criteria (structural + advisory).
+# Structural lint is enforced in pytest; this report also evaluates whether
+# listed members satisfy NECESSARY criteria (advisory — criteria may be
+# aspirational). Pass a file to scope to one grouping; --strict to gate.
+[group('QC')]
+check-groupings *args="":
+    uv run python -m dismech.groupings {{args}}
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
 validate-terms-schema:

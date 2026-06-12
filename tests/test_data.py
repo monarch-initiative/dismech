@@ -783,12 +783,12 @@ def test_grouping_module_references(filepath):
     module_stems = _module_stems()
     errors = []
 
-    # Module refs inside the structured membership criteria expression.
-    logic = (data.get("membership_criteria") or {}).get("logic")
-    for node in _iter_logic_nodes(logic):
-        ref = node.get("module")
-        if ref and _module_stem(ref) not in module_stems:
-            errors.append(f"membership_criteria.logic module={ref!r}")
+    # Module refs inside the structured membership criteria expressions.
+    for c, criteria in enumerate(data.get("membership_criteria", []) or []):
+        for node in _iter_logic_nodes(criteria.get("logic")):
+            ref = node.get("module")
+            if ref and _module_stem(ref) not in module_stems:
+                errors.append(f"membership_criteria[{c}].logic module={ref!r}")
 
     # Module refs inside per-member differentiating mechanisms.
     for i, member in enumerate(data.get("members", [])):
@@ -816,3 +816,130 @@ def test_grouping_unique_names():
             seen.setdefault(name, []).append(Path(fp).name)
     dupes = {k: v for k, v in seen.items() if len(v) > 1}
     assert not dupes, f"Duplicate grouping names: {dupes}"
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_criteria_well_formed(filepath):
+    """Structured membership-criteria expressions must be well-formed.
+
+    Each LogicalCriterion node must be either a BRANCH (operator + operands) or
+    a LEAF (criterion_predicate + matching payload), never both or neither.
+    """
+    from dismech.groupings import lint_criterion
+
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    errors = []
+    for c, criteria in enumerate(data.get("membership_criteria", []) or []):
+        errors.extend(
+            lint_criterion(
+                criteria.get("logic"), f"membership_criteria[{c}].logic"
+            )
+        )
+    assert not errors, (
+        f"Malformed criteria in {Path(filepath).name}: {errors}"
+    )
+
+
+def test_grouping_node_classification():
+    """classify_node distinguishes BRANCH, LEAF, and INVALID nodes."""
+    from dismech.groupings import NodeKind, classify_node
+
+    assert classify_node({"operator": "AND", "operands": []}) is NodeKind.BRANCH
+    assert (
+        classify_node({"criterion_predicate": "HAS_GENE"}) is NodeKind.LEAF
+    )
+    # Both operator and predicate -> invalid.
+    assert (
+        classify_node({"operator": "AND", "criterion_predicate": "HAS_GENE"})
+        is NodeKind.INVALID
+    )
+    # Neither -> invalid.
+    assert classify_node({"description": "x"}) is NodeKind.INVALID
+
+
+def test_grouping_lint_catches_bad_nodes():
+    """The structural linter flags malformed leaves and branches."""
+    from dismech.groupings import lint_criterion
+
+    # Leaf predicate missing its required payload.
+    assert lint_criterion({"criterion_predicate": "HAS_GENE"})
+    # Branch operator with no operands.
+    assert lint_criterion({"operator": "AND", "operands": []})
+    # A well-formed expression yields no errors.
+    good = {
+        "operator": "AND",
+        "operands": [
+            {
+                "criterion_predicate": "HAS_GENE",
+                "gene": {"term": {"id": "hgnc:5391"}},
+            }
+        ],
+    }
+    assert lint_criterion(good) == []
+
+
+def test_grouping_three_valued_logic():
+    """AND/OR/NOT combine SATISFIED/NOT_SATISFIED/UNKNOWN correctly."""
+    from dismech.groupings import (
+        DiseaseFacts,
+        Satisfaction,
+        _eval_node,
+    )
+
+    facts = DiseaseFacts(name="x", gene_ids={"hgnc:5391"}, go_ids={"GO:0006027"})
+
+    has_gene = {
+        "criterion_predicate": "HAS_GENE",
+        "gene": {"term": {"id": "hgnc:5391"}},
+    }
+    missing_gene = {
+        "criterion_predicate": "HAS_GENE",
+        "gene": {"term": {"id": "hgnc:9999"}},
+    }
+    unknown = {"criterion_predicate": "OTHER", "description": "unscored"}
+
+    assert _eval_node(has_gene, facts) is Satisfaction.SATISFIED
+    assert _eval_node(missing_gene, facts) is Satisfaction.NOT_SATISFIED
+    assert _eval_node(unknown, facts) is Satisfaction.UNKNOWN
+
+    # AND: a NOT_SATISFIED operand dominates.
+    assert (
+        _eval_node({"operator": "AND", "operands": [has_gene, missing_gene]}, facts)
+        is Satisfaction.NOT_SATISFIED
+    )
+    # OR: a SATISFIED operand dominates.
+    assert (
+        _eval_node({"operator": "OR", "operands": [has_gene, missing_gene]}, facts)
+        is Satisfaction.SATISFIED
+    )
+    # NOT flips.
+    assert (
+        _eval_node({"operator": "NOT", "operands": [missing_gene]}, facts)
+        is Satisfaction.SATISFIED
+    )
+    # negated leaf flips.
+    negated = dict(missing_gene, negated=True)
+    assert _eval_node(negated, facts) is Satisfaction.SATISFIED
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_evaluation_runs(filepath):
+    """The membership evaluator executes and returns structured results.
+
+    This is advisory (criteria may be aspirational), so it asserts the evaluator
+    runs and produces valid Satisfaction values, not that members satisfy.
+    """
+    from dismech.groupings import (
+        Satisfaction,
+        evaluate_grouping,
+        load_disease_index,
+    )
+
+    with open(filepath) as f:
+        grouping = yaml.safe_load(f)
+
+    index = load_disease_index()
+    for ev in evaluate_grouping(grouping, index):
+        assert isinstance(ev.result, Satisfaction)

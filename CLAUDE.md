@@ -206,8 +206,9 @@ Hurler / Hunter / Sanfilippo / Morquio entries. Groupings validate against the
 
 **Membership criteria — text plus structured boolean (OWL-lite):**
 
-`membership_criteria` pairs a required human-readable `description` with an optional
-nested boolean `logic` expression (`LogicalCriterion`). Branch nodes set `operator`
+`membership_criteria` is a multivalued list; each block pairs a required
+human-readable `description` with an optional nested boolean `logic` expression
+(`LogicalCriterion`) and a `criteria_semantics` marker. Branch nodes set `operator`
 (`AND`/`OR`/`NOT`) and combine child `operands`; leaf nodes set `criterion_predicate`
 and the payload for that predicate:
 - `HAS_PHENOTYPE` → `phenotype_term` + optional `min_frequency` (FrequencyEnum, "≥")
@@ -217,6 +218,31 @@ and the payload for that predicate:
 - `HAS_CLASSIFICATION` → `classification`; `HAS_INHERITANCE` / `HAS_MAPPING` / `OTHER`
   carry the value in `description`
 - `negated: true` negates a leaf (alternative to a `NOT` operator)
+
+**Criteria semantics (`=>` / `<=` / `<=>`):** `criteria_semantics` records the OWL-style
+direction relating a criteria block to membership, which determines what tooling may infer:
+- `NECESSARY` (member ⇒ criteria): every member satisfies the criteria; used to **audit**
+  listed members for violations. (MPS uses this — being an MPS entails GAG storage, but
+  GAG storage alone does not make a disease an MPS.)
+- `SUFFICIENT` (criteria ⇒ member): any disorder satisfying the criteria is a member; used
+  to **classify** non-members as candidate additions.
+- `NECESSARY_AND_SUFFICIENT` (member ⇔ criteria): the criteria *define* the grouping; both.
+
+Multiple blocks are allowed (several `NECESSARY` blocks plus an optional defining block),
+mirroring OWL subclass/equivalence axioms.
+
+**Checking/classifying (`src/dismech/groupings.py`):**
+```bash
+just check-groupings                                 # lint + audit all groupings
+just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
+just check-groupings --strict                        # gate on errors/violations
+```
+Two tiers: a **structural linter** (`lint_criterion`) classifies every node BRANCH vs LEAF
+and enforces well-formedness (gating, enforced in `tests/test_data.py`); and an **advisory
+membership evaluator** (`evaluate_grouping`) that three-valuedly checks each member's disease
+entry against `NECESSARY`/`N&S` criteria (`SATISFIED`/`NOT_SATISFIED`/`UNKNOWN`) and, for
+`SUFFICIENT`/`N&S` criteria, flags candidate non-members. The evaluator is advisory because
+criteria are often aspirational (a member may not yet declare a required `conforms_to` edge).
 
 **Per-member differentiating mechanisms:**
 
