@@ -10966,6 +10966,7 @@ window.searchData = [
     ],
     "description": "A systemic autoimmune disorder characterized by the presence of antiphospholipid antibodies that increase the risk of blood clots and other complications.",
     "pathophysiology": [
+      "CD4+ T cell dysregulation and autoreactive B cell licensing",
       "Autoantibody generation against beta2GPI and phospholipid complexes",
       "Cell-surface beta2GPI binding",
       "Innate receptor signaling",
@@ -10981,6 +10982,9 @@ window.searchData = [
       "Catastrophic microvascular thrombosis"
     ],
     "cell_types": [
+      "helper T cell",
+      "regulatory T cell",
+      "T follicular helper cell",
       "B cell",
       "T cell",
       "endothelial cell",
@@ -10989,6 +10993,9 @@ window.searchData = [
       "trophoblast cell"
     ],
     "cell_type_ids": [
+      "CL:0000912",
+      "CL:0000815",
+      "CL:0002038",
       "CL:0000236",
       "CL:0000084",
       "CL:0000115",
@@ -11109,11 +11116,11 @@ window.searchData = [
     "source_file": "Antiphospholipid_Syndrome.yaml",
     "page_url": "../pages/disorders/Antiphospholipid_Syndrome.html",
     "num_phenotypes": 26,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Aortic Valve Disease 2",
@@ -98441,7 +98448,8 @@ window.searchData = [
       "Autophagy-Ferroptosis Crosstalk in Granulosa Cell Death",
       "Gut Microbiome Dysregulation and Gut-Ovarian Axis Inflammation",
       "Chronic Low-Grade Inflammation",
-      "Granulosa Cell Ferroptosis-Autophagy Crosstalk"
+      "Granulosa Cell Ferroptosis-Autophagy Crosstalk",
+      "Granulosa Cell Apoptosis via PCSK9-Lipid Dysregulation"
     ],
     "cell_types": [
       "granulosa cell",
@@ -98464,7 +98472,10 @@ window.searchData = [
       "Response to Endoplasmic Reticulum Stress",
       "Lipid Metabolic Process",
       "Signal Transduction",
-      "Apoptotic Process"
+      "Apoptotic Process",
+      "Phosphorylation (AMPK and GSK-3\u03b2 Activation)",
+      "Apoptosis",
+      "Lipid Metabolism Abnormalities"
     ],
     "phenotypes": [
       "Irregular Menstruation",
@@ -98527,10 +98538,10 @@ window.searchData = [
     "source_file": "Polycystic_Ovary_Syndrome.yaml",
     "page_url": "../pages/disorders/Polycystic_Ovary_Syndrome.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "3"
   },
   {
@@ -105532,6 +105543,107 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Rhizomelic Chondrodysplasia Punctata, Plasmalogen-Synthesis Defect",
+    "disease_id": "MONDO:0015776",
+    "category": "Mendelian",
+    "parents": [
+      "peroxisomal single enzyme/protein defect",
+      "disorder of plasmalogens biosynthesis",
+      "inborn errors of metabolism"
+    ],
+    "creation_date": "2026-06-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "RCDP2",
+      "RCDP3",
+      "RCDP4"
+    ],
+    "description": "Rhizomelic chondrodysplasia punctata (RCDP) types 2-4 are autosomal recessive inborn errors of ether-phospholipid (plasmalogen) biosynthesis caused by biallelic loss-of-function variants in a single plasmalogen-synthesis enzyme rather than in a peroxisome import receptor. Three sequential enzymes feed the pathway: fatty acyl-CoA reductase 1 (FAR1; rate-limiting, supplies the fatty alcohol), glyceronephosphate O-acyltransferase (GNPAT/DHAPAT), and alkylglycerone-phosphate synthase (AGPS/alkyl-DHAP synthase; forms the ether bond). Loss of any one of these enzymes converges on the same lesion \u2014 cellular plasmalogen deficiency \u2014 producing a phenotype that overlaps classic RCDP1: rhizomelic limb shortening, chondrodysplasia punctata (stippled epiphyses), coronal vertebral clefts, congenital cataracts, severe growth and intellectual impairment, and seizures (FAR1 deficiency is distinguished by prominent microcephaly, epilepsy, and spasticity, often without rhizomelia). The critical biochemical discriminator from RCDP1 is that phytanic acid alpha-oxidation is preserved: RCDP1 (PEX7) and the PEX5 PTS2-binding-domain form (RCDP5) lose the PTS2 import receptor and therefore knock out both plasmalogen synthesis and phytanoyl-CoA hydroxylase, whereas these single-enzyme defects lie downstream of import and leave phytanic alpha-oxidation intact, so phytanic acid is normal. This entry models the single-enzyme plasmalogen-synthesis convergence (RCDP2 GNPAT, RCDP3 AGPS, RCDP4 FAR1 deficiency); the import-receptor forms RCDP1 (PEX7) and RCDP5 (PEX5), and the mechanistically inverse FAR1 gain-of-function disorder (plasmalogen elevation), are captured as differentials.",
+    "pathophysiology": [
+      "Plasmalogen-Synthesis Enzyme Deficiency",
+      "Plasmalogen (Ether Lipid) Deficiency",
+      "Preserved Phytanic Acid Alpha-Oxidation",
+      "Skeletal Dysplasia",
+      "Congenital Cataract",
+      "Neurological Impairment"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "lens fiber cell",
+      "neuron",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0011004",
+      "CL:0000540",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "ether lipid biosynthetic process",
+      "fatty acid alpha-oxidation"
+    ],
+    "phenotypes": [
+      "Rhizomelia",
+      "Chondrodysplasia Punctata",
+      "Coronal Cleft Vertebrae",
+      "Cataract",
+      "Postnatal Growth Deficiency",
+      "Intellectual Disability",
+      "Seizures",
+      "Microcephaly",
+      "Spasticity"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Visual",
+      "Growth",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008905",
+      "HP:0010655",
+      "HP:0003417",
+      "HP:0000518",
+      "HP:0008897",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0001257"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GNPAT",
+      "AGPS",
+      "FAR1"
+    ],
+    "treatments": [
+      "Supportive and Rehabilitative Care",
+      "Cataract Extraction"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasmalogens",
+      "Phytanic acid"
+    ],
+    "source_file": "Rhizomelic_Chondrodysplasia_Punctata_Plasmalogen_Synthesis_Defect.yaml",
+    "page_url": "../pages/disorders/Rhizomelic_Chondrodysplasia_Punctata,_Plasmalogen-Synthesis_Defect.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 3,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Rhizomelic Chondrodysplasia Punctata Type 1",
@@ -126278,13 +126390,13 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1253,
-  "total_subtypes": 2033,
-  "total_disorders_and_subtypes": 3286,
-  "total_unique_evidence_sources": 22288,
+  "total_disorder_pages": 1254,
+  "total_subtypes": 2036,
+  "total_disorders_and_subtypes": 3290,
+  "total_unique_evidence_sources": 22294,
   "total_unique_disease_categories": 46,
   "total_unique_phenotype_categories": 207,
-  "total_pathographs": 1245,
-  "total_unique_pathological_events": 6076
+  "total_pathographs": 1246,
+  "total_unique_pathological_events": 6080
 };
 window.dispatchEvent(new Event('searchDataReady'));
