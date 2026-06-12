@@ -675,7 +675,8 @@ deploy-browser: gen-browser-data
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
-    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, and $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
+    just gen-grouping-pages
+    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages, and $(ls -1 pages/groupings/*.html 2>/dev/null | wc -l | tr -d ' ') grouping pages"
 
 # Generate a single disorder page
 [group('Pages')]
@@ -687,6 +688,17 @@ gen-page file:
 gen-module-pages:
     uv run python -m dismech.render --module {{modules_dir}}
     @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
+
+# Generate a single disease grouping page
+[group('Pages')]
+gen-grouping-page file:
+    uv run python -m dismech.render --grouping {{file}}
+
+# Generate all disease grouping pages
+[group('Pages')]
+gen-grouping-pages:
+    uv run python -m dismech.render --grouping {{groupings_dir}}
+    @echo "Generated $(ls -1 pages/groupings/*.html 2>/dev/null | wc -l | tr -d ' ') grouping pages"
 
 # Generate deep-research index page
 [group('Pages')]

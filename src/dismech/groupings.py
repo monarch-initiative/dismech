@@ -31,6 +31,7 @@ import argparse
 import glob
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
@@ -202,39 +203,33 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
     """Extract genes, GO terms, module conformance, and phenotype frequencies."""
     facts = DiseaseFacts(name=name)
 
-    # conforms_to lives on pathophysiology nodes; collect the module stems.
     for node in _walk(data):
         if not isinstance(node, dict):
             continue
+
+        # conforms_to lives on pathophysiology nodes; collect the module stems.
         conforms = node.get("conforms_to")
         if isinstance(conforms, str) and conforms:
             facts.module_stems.add(conforms.split("#", 1)[0].strip())
 
-    # Any term with an id contributes to the appropriate id set.
-    for node in _walk(data):
-        term = node.get("term") if isinstance(node, dict) else None
-        if isinstance(term, dict):
-            tid = term.get("id")
-            if isinstance(tid, str):
-                low = tid.lower()
-                if low.startswith("hgnc:"):
-                    facts.gene_ids.add(low)
-                elif tid.startswith("GO:"):
-                    facts.go_ids.add(tid)
+        # Any term with an id contributes to the appropriate id set.
+        term = node.get("term")
+        if isinstance(term, dict) and isinstance(term.get("id"), str):
+            tid = term["id"]
+            if tid.lower().startswith("hgnc:"):
+                facts.gene_ids.add(tid.lower())
+            elif tid.startswith("GO:"):
+                facts.go_ids.add(tid)
 
-    # Phenotypes: capture HP id + frequency. A phenotype entry has a
-    # ``phenotype_term`` with an HP id and may carry a ``frequency``.
-    for node in _walk(data):
-        if not isinstance(node, dict):
-            continue
+        # Phenotypes: capture HP id + (strongest) frequency band.
         pt = node.get("phenotype_term")
         if isinstance(pt, dict):
-            term = pt.get("term") or {}
-            hp = term.get("id") if isinstance(term, dict) else None
+            pterm = pt.get("term") or {}
+            hp = pterm.get("id") if isinstance(pterm, dict) else None
             if isinstance(hp, str) and hp.startswith("HP:"):
-                freq = node.get("frequency")
-                prev = facts.phenotype_freq.get(hp)
-                facts.phenotype_freq[hp] = _stronger_freq(prev, freq)
+                facts.phenotype_freq[hp] = _stronger_freq(
+                    facts.phenotype_freq.get(hp), node.get("frequency")
+                )
     return facts
 
 
@@ -246,10 +241,11 @@ def _stronger_freq(a: Optional[str], b: Optional[str]) -> Optional[str]:
     return min(ranks, key=lambda f: FREQUENCY_RANK[f])
 
 
+@lru_cache(maxsize=None)
 def load_disease_index(
     disorders_dir: Path = DISORDERS_DIR,
 ) -> dict[str, DiseaseFacts]:
-    """Build a name -> DiseaseFacts index over kb/disorders/."""
+    """Build a name -> DiseaseFacts index over kb/disorders/ (cached)."""
     index: dict[str, DiseaseFacts] = {}
     for fp in glob.glob(str(disorders_dir / "*.yaml")):
         if fp.endswith(".history.yaml"):

@@ -265,7 +265,22 @@ just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml  # single file
 just validate-groupings                                         # all (also part of `just qc`)
 ```
 
-See `kb/groupings/Mucopolysaccharidoses.yaml` for a worked example.
+**Rendering (HTML):**
+```bash
+just gen-grouping-pages                                  # all groupings + index
+just gen-grouping-page kb/groupings/Mucopolysaccharidoses.yaml
+```
+Renders `pages/groupings/*.html` (derived — not committed). The detail page shows
+the `grouping_basis`/MONDO mapping, the rationale, the membership-criteria boolean
+tree, and per-member differentiating mechanisms with an advisory audit badge
+(SATISFIED/NOT_SATISFIED/UNKNOWN from `evaluate_grouping`) plus any candidate
+members from SUFFICIENT/N&S criteria.
+
+**Worked examples:** `Mucopolysaccharidoses` (NECESSARY, aspirational members),
+`Inherited_Arrhythmia_Syndromes` (NECESSARY_AND_SUFFICIENT with a NOT leaf +
+candidate discovery), `Heritable_Thoracic_Aortic_Disease` (NECESSARY with a
+nested AND/OR phenotype branch), and `Lysosomal_Storage_Disorders` (defining
+module criterion + a nested GROUPING member).
 
 ### Evidence Items
 All evidence must have PMID references and support classification:
