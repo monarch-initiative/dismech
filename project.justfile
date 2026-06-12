@@ -671,6 +671,11 @@ export-kgx:
 export-hpoa:
     uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
 
+# Export a flat CSV census of every disease + subtype and its MONDO mapping (or lack thereof).
+[group('Export')]
+export-disease-inventory output="output/disease_inventory.csv":
+    uv run dismech-disease-inventory -i {{kb_dir}} -o {{output}}
+
 # ============== CX2 Export ==============
 
 cx2_output_dir := "output/cx2"
