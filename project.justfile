@@ -308,6 +308,13 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
+# Report phenotype causal-connectivity coverage (graph-derived QC metric):
+# fraction of phenotype nodes wired into the pathograph. Pass --list-unconnected
+# to see the floating phenotype names per file.
+[group('QC')]
+compliance-connectivity *ARGS:
+    uv run python -m dismech.qc_plugins {{kb_dir}} -c conf/qc_config.yaml {{ARGS}}
+
 # Validate dynamic enum membership caches against current schema definitions.
 [group('QC')]
 check-enum-cache:
@@ -663,6 +670,11 @@ export-kgx:
 [group('Export')]
 export-hpoa:
     uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
+
+# Export a flat CSV census of every disease + subtype and its MONDO mapping (or lack thereof).
+[group('Export')]
+export-disease-inventory output="output/disease_inventory.csv":
+    uv run dismech-disease-inventory -i {{kb_dir}} -o {{output}}
 
 # ============== CX2 Export ==============
 
