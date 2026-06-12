@@ -6,6 +6,7 @@ from importlib import import_module
 
 __all__ = [
     "BrowserExporter",
+    "KnowledgeGapExporter",
     "build_inventory",
     "disorder_to_cx2",
     "dump_cx2",
@@ -21,6 +22,7 @@ __all__ = [
 
 _SYMBOL_TO_MODULE = {
     "BrowserExporter": "dismech.export.browser_export",
+    "KnowledgeGapExporter": "dismech.export.gaps_export",
     "build_inventory": "dismech.export.disease_inventory",
     "disorder_to_cx2": "dismech.export.cx2_export",
     "dump_cx2": "dismech.export.cx2_export",
