@@ -52,6 +52,36 @@ def _grouping_names():
     return names
 
 
+NON_THERAPEUTIC_ACTION_CATEGORIES = {
+    "DIAGNOSTIC",
+    "SCREENING",
+    "MONITORING",
+    "COUNSELING_INFORMATIONAL",
+}
+
+
+def _non_therapeutic_action_target_errors(data):
+    """Find annotated non-therapeutic medical actions that link to pathograph nodes."""
+    errors = []
+    for i, treatment in enumerate(data.get("treatments", []) or []):
+        category = treatment.get("action_category")
+        if category not in NON_THERAPEUTIC_ACTION_CATEGORIES:
+            continue
+        invalid_target_slots = [
+            slot
+            for slot in ("target_mechanisms", "target_phenotypes")
+            if treatment.get(slot)
+        ]
+        if invalid_target_slots:
+            slot_list = ", ".join(invalid_target_slots)
+            name = treatment.get("name", f"treatments[{i}]")
+            errors.append(
+                f"treatments[{i}] {name!r} has action_category={category!r} "
+                f"but also has treatment-style target slots: {slot_list}"
+            )
+    return errors
+
+
 @pytest.fixture(scope="module")
 def validator():
     """Create a validator instance for all tests."""
@@ -480,6 +510,97 @@ def test_treatment_dietary_modifications_accept_chebi_nutrient(validator):
     assert not errors, f"Validation errors: {[str(e) for e in errors]}"
 
 
+def test_treatment_action_category_validates(validator):
+    """Treatment entries may be categorized as broader medical actions."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Newborn screening",
+                "action_category": "SCREENING",
+                "treatment_term": {
+                    "preferred_term": "disease screening",
+                    "term": {"id": "MAXO:0000124", "label": "disease screening"},
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+def test_non_therapeutic_action_target_check_catches_counseling():
+    """Annotated non-therapeutic actions must not link as pathograph treatments."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Genetic counseling",
+                "action_category": "COUNSELING_INFORMATIONAL",
+                "target_mechanisms": [{"target": "Primary mechanism"}],
+            }
+        ],
+    }
+
+    errors = _non_therapeutic_action_target_errors(data)
+
+    assert errors
+    assert "Genetic counseling" in errors[0]
+    assert "target_mechanisms" in errors[0]
+
+
+def test_non_therapeutic_action_target_check_catches_screening_phenotypes():
+    """Non-therapeutic actions must not use phenotype targets that render as treats edges."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Newborn screening",
+                "action_category": "SCREENING",
+                "target_phenotypes": [{"preferred_term": "Screening marker"}],
+            }
+        ],
+    }
+
+    errors = _non_therapeutic_action_target_errors(data)
+
+    assert errors
+    assert "Newborn screening" in errors[0]
+    assert "target_phenotypes" in errors[0]
+
+
+def test_therapeutic_action_target_check_allows_mechanism_targets():
+    """Therapeutic actions may continue to target pathophysiology nodes."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Enzyme replacement",
+                "action_category": "THERAPEUTIC",
+                "target_mechanisms": [{"target": "Primary mechanism"}],
+            }
+        ],
+    }
+
+    assert not _non_therapeutic_action_target_errors(data)
+
+
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_non_therapeutic_actions_do_not_use_treatment_targets(filepath):
+    """Annotated non-therapeutic medical actions must not use treatment-style target links."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    errors = _non_therapeutic_action_target_errors(data)
+
+    assert not errors, (
+        f"Non-therapeutic action target links in {Path(filepath).name}: {errors}"
+    )
+
+
 def test_all_disorders_have_unique_names():
     """Test that all disorder names are unique."""
     names = []
@@ -833,13 +954,9 @@ def test_grouping_criteria_well_formed(filepath):
     errors = []
     for c, criteria in enumerate(data.get("membership_criteria", []) or []):
         errors.extend(
-            lint_criterion(
-                criteria.get("logic"), f"membership_criteria[{c}].logic"
-            )
+            lint_criterion(criteria.get("logic"), f"membership_criteria[{c}].logic")
         )
-    assert not errors, (
-        f"Malformed criteria in {Path(filepath).name}: {errors}"
-    )
+    assert not errors, f"Malformed criteria in {Path(filepath).name}: {errors}"
 
 
 def test_grouping_node_classification():
@@ -847,9 +964,7 @@ def test_grouping_node_classification():
     from dismech.groupings import NodeKind, classify_node
 
     assert classify_node({"operator": "AND", "operands": []}) is NodeKind.BRANCH
-    assert (
-        classify_node({"criterion_predicate": "HAS_GENE"}) is NodeKind.LEAF
-    )
+    assert classify_node({"criterion_predicate": "HAS_GENE"}) is NodeKind.LEAF
     # Both operator and predicate -> invalid.
     assert (
         classify_node({"operator": "AND", "criterion_predicate": "HAS_GENE"})
