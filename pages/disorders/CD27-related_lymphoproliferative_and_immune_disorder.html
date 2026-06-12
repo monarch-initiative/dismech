@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>CD27-related lymphoproliferative and immune disorder</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0014054" target="_blank">
                         MONDO:0014054
                     </a>
                 </span>
-                
-                
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
-                
-                
+
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Primary Immunodeficiency</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Combined immunodeficiency</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Lymphoproliferative Disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,11 +2993,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                CD27-related lymphoproliferative and immune disorder is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in TNFRSF7/CD27. The disease is characterized by defective CD27-CD70 costimulation, impaired control of Epstein-Barr virus, hypogammaglobulinemia, and a variable spectrum of EBV-driven immune dysregulation ranging from persistent viremia to hemophagocytic lymphohistiocytosis, lymphoproliferative disease, and lymphoma.
+                CD27-related lymphoproliferative and immune disorder is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in TNFRSF7/CD27. The disease is characterized by defective CD27-CD70 costimulation, impaired control of Epstein-Barr virus, hypogammaglobulinemia, and a variable spectrum of EBV-driven immune dysregulation ranging from persistent viremia to hemophagocytic lymphohistiocytosis, lymphoproliferative disease, and lymphoma. Most reported patients are EBV-positive at diagnosis, and lymphoproliferation, lymphoma, and autoinflammatory features dominate the clinical course.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2997,34 +3067,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3032,8 +3102,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3041,9 +3111,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3051,19 +3121,19 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">15</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3071,24 +3141,32 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+            <a class="stat-link" href="#differentials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔀</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Differentials</div>
+            </div>
+            </a>
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3096,1026 +3174,1141 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">CD27-related lymphoproliferative and immune disorder is caused by biallelic TNFRSF7/CD27 variants, most often homozygous loss-of-function alleles but also compound heterozygous variant combinations.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report the simultaneous confirmation of human CD27 deficiency in 3 independent families (8 patients) due to a homozygous mutation (p. Cys53Tyr) revealed by whole exome sequencing, leading to disruption of an evolutionarily conserved cystein knot motif of the transmembrane receptor."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Multiple unrelated families with homozygous CD27 variants support autosomal recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25843314" target="_blank">PMID:25843314</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"4 novel mutations were identified: homozygous missense c.G287A/p.C96Y"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The expanded mutational spectrum shows that disease results from biallelic CD27 loss-of-function genotypes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cd27-cd70-costimulation">
                 <div class="item-name">Loss of CD27-CD70 costimulation</div>
-                
+
                 <div class="item-desc">Biallelic CD27/TNFRSF7 variants reduce or abolish cell-surface CD27 and disrupt CD27-CD70 signaling. This removes a key TNF-receptor-family costimulatory input required for effective adaptive antiviral responses.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         CD8-positive alpha-beta T cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        CD27
-                        
-                        <a href="https://bioregistry.io/hgnc:11922" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CD27
+
+
+    <a href="https://bioregistry.io/hgnc:11922" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11922">hgnc:11922</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         T cell costimulation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0031295" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0031295" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031295">GO:0031295</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired EBV-specific cytotoxic T-cell immunity</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of CD27 costimulation weakens the antiviral CD8 T-cell response to EBV.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Reduced innate cytotoxic lymphocyte function</span>
-	                            
+
 	                            <span class="crosslink-desc">Loss of CD27 signaling also weakens NK and iNKT-cell mediated antiviral surveillance.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired T cell-dependent humoral immunity</span>
-	                            
+
 	                            <span class="crosslink-desc">CD27 loss also disrupts helper-dependent B-cell maturation and antibody generation.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25843314" target="_blank">PMID:25843314</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Expression of cell-surface and soluble CD27 was significantly reduced in patients and heterozygous family members."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human patient immunophenotyping shows that TNFRSF7 variants reduce CD27 expression, establishing the primary receptor-level defect.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33827115" target="_blank">PMID:33827115</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This suggests that CD27 is not required for all CD8+ T-cell expansions and cytotoxicity but is required for a subset of CD8+ T-cell responses that protect us from EBV pathology."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Humanized-mouse experiments directly support CD27 as a protective costimulatory signal for EBV-specific CD8 T-cell immunity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-innate-cytotoxic-lymphocyte-function">
                 <div class="item-name">Reduced innate cytotoxic lymphocyte function</div>
-                
+
                 <div class="item-desc">In severely affected CD27-deficient patients, innate cytotoxic lymphocyte compartments are also compromised, with reduced NK-cell function and fewer invariant NKT cells further weakening antiviral immune surveillance.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         natural killer cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000623">CL:0000623</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         natural killer cell mediated cytotoxicity
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042267" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042267" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042267">GO:0042267</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Persistent symptomatic EBV viremia</span>
-	                            
+
 	                            <span class="crosslink-desc">Reduced innate cytotoxic control contributes to incomplete containment of EBV infection.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">EBV-driven lymphoproliferation and hyperinflammation</span>
-	                            
+
 	                            <span class="crosslink-desc">Weakened NK and iNKT-cell surveillance further permits EBV-driven immune pathology.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In severely affected patients, numbers of iNKT cells and NK-cell function were reduced."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Human CD27 deficiency can impair innate cytotoxic lymphocyte function in addition to adaptive antiviral immunity, broadening the mechanistic basis of EBV susceptibility.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ebv-specific-cytotoxic-t-cell-immunity">
                 <div class="item-name">Impaired EBV-specific cytotoxic T-cell immunity</div>
-                
+
                 <div class="item-desc">CD27 deficiency compromises expansion and effector differentiation of protective EBV-specific CD8-positive T cells, especially lytic antigen responses, allowing persistent EBV infection and defective clearance of EBV-transformed B cells.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         CD8-positive alpha-beta T cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         T cell proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042098" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042098" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042098">GO:0042098</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         T cell activation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042110">GO:0042110</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Persistent symptomatic EBV viremia</span>
-	                            
+
 	                            <span class="crosslink-desc">Failure of EBV-specific cytotoxic immunity permits sustained viral replication.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">EBV-driven lymphoproliferation and hyperinflammation</span>
-	                            
+
 	                            <span class="crosslink-desc">Persistent viral burden promotes uncontrolled EBV-associated immune pathology.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Detailed immunological characterization revealed aberrant generation of memory B and T cells, including a paucity of EBV-specific T cells, and impaired effector function of CD8+ T cells, thereby providing mechanistic insight into cellular defects underpinning the clinical features of disrupted..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The multinational cohort directly links CD27 deficiency to deficient EBV-specific T-cell generation and impaired CD8 effector function.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33827115" target="_blank">PMID:33827115</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"While overall CD8+ T-cell expansion and composition are unaltered after antibody blocking of CD27, only some EBV-specific CD8+ T-cell responses, exemplified by early lytic EBV antigen BMLF1-specific CD8+ T cells, are inhibited in their proliferation and killing of EBV-transformed B cells."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This functional model shows that CD27 signaling is specifically required for the EBV-directed CD8 response that restrains transformed B cells.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-t-cell-dependent-humoral-immunity">
                 <div class="item-name">Impaired T cell-dependent humoral immunity</div>
-                
+
                 <div class="item-desc">CD27 deficiency impairs T cell-dependent B-cell responses, memory B-cell generation, and antibody production. This produces hypogammaglobulinemia and contributes to recurrent infection susceptibility.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         B cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         memory B cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000787">CL:0000787</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         B cell differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030183" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030183" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030183">GO:0030183</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         isotype switching
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0045190" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045190" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045190">GO:0045190</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypogammaglobulinemia</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired B-cell maturation lowers serum immunoglobulin levels.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Recurrent infections</span>
-	                            
+
 	                            <span class="crosslink-desc">Weak antibody-mediated immunity increases susceptibility to repeated infection.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22197273" target="_blank">PMID:22197273</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Immunologically, lack of CD27 expression was associated with impaired T cell-dependent B-cell responses and T-cell dysfunction."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The original CD27-deficient sibling pair establishes impaired helper dependent B-cell responses as a core immune mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Phenotypes varied from asymptomatic memory B-cell deficiency (n=3) to EBV-associated hemophagocytosis and lymphoproliferative disorder (LPD; n=3) and malignant lymphoma (n=2; +1 after LPD)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Some affected individuals initially present with isolated memory B-cell deficiency, showing that impaired post-germinal-center B-cell maturation is a core manifestation even before overt EBV-driven complications.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Following EBV infection, hypogammaglobulinemia developed in at least 3 of the affected individuals, while specific anti-viral and anti-polysaccharide antibodies and EBV-specific T-cell responses were detectable."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This cohort links CD27 deficiency to acquired humoral failure after EBV infection, including hypogammaglobulinemia and deficient immune memory.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ebv-driven-lymphoproliferation-and-hyperinflammation">
                 <div class="item-name">EBV-driven lymphoproliferation and hyperinflammation</div>
-                
+
                 <div class="item-desc">Loss of CD27-mediated immune surveillance leaves EBV insufficiently controlled, predisposing to lymphoproliferative disease, HLH-like hyperinflammation, and malignant lymphoma.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         B cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         lymphocyte proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0046651" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0046651" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046651">GO:0046651</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         inflammatory response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Lymphoproliferative disorder</span>
-	                            
+
 	                            <span class="crosslink-desc">Uncontrolled EBV-driven B-cell expansion manifests clinically as lymphoproliferative disorder.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hemophagocytosis</span>
-	                            
+
 	                            <span class="crosslink-desc">Hyperinflammatory immune activation can culminate in HLH-like hemophagocytosis.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Lymphoma</span>
-	                            
+
 	                            <span class="crosslink-desc">Chronic EBV-driven lymphoid proliferation increases risk of malignant lymphoma.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Since homozygosity mapping and exome sequencing did not reveal additional modifying factors, our findings suggest that lack of functional CD27 predisposes towards a combined immunodeficiency associated with potentially fatal EBV-driven hemo-phagocytosis, lymphoproliferation, and lymphoma development."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The early CD27-deficiency cohort directly ties the upstream signaling defect to EBV-driven lymphoproliferation, hyperinflammation, and lymphoma.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lymphoproliferation and lymphoma were the main clinical manifestations (70% and 43%, respectively), and 9 of the CD27-deficient patients developed HLH."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The largest CD27/CD70 cohort quantifies the major EBV-driven clinical outcomes and confirms HLH as a recurrent complication in CD27 deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4126,765 +4319,795 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT is the main potentially curative treatment for severe CD27-related disease, especially when lymphoma or refractory EBV-driven immune dysregulation develops.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CD27\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CD27\"], \"association\": \"CAUSATIVE\"}}, {\"id\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CD27-mediated immune surveillance leaves EBV insufficiently controlled, predisposing to lymphoproliferative disease, HLH-like hyperinflammation, and malignant lymphoma.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"lymphocyte proliferation\", \"inflammatory response\"]}}, {\"id\": \"Hemophagocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some patients develop HLH-like hemophagocytic hyperinflammation during uncontrolled EBV disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012156\"}}, {\"id\": \"Hypogammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced circulating immunoglobulin levels emerge in many affected individuals, often after EBV infection.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004313\"}}, {\"id\": \"Immunoglobulin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immunoglobulin replacement is supportive treatment for the antibody deficiency component of CD27 deficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired EBV-specific cytotoxic T-cell immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD27 deficiency compromises expansion and effector differentiation of protective EBV-specific CD8-positive T cells, especially lytic antigen responses, allowing persistent EBV infection and defective clearance of EBV-transformed B cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive alpha-beta T cell\"], \"biological_processes\": [\"T cell proliferation\", \"T cell activation\"]}}, {\"id\": \"Impaired T cell-dependent humoral immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD27 deficiency impairs T cell-dependent B-cell responses, memory B-cell generation, and antibody production. This produces hypogammaglobulinemia and contributes to recurrent infection susceptibility.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"B cell\", \"memory B cell\"], \"biological_processes\": [\"B cell differentiation\", \"isotype switching\"]}}, {\"id\": \"Loss of CD27-CD70 costimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic CD27/TNFRSF7 variants reduce or abolish cell-surface CD27 and disrupt CD27-CD70 signaling. This removes a key TNF-receptor-family costimulatory input required for effective adaptive antiviral responses.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive alpha-beta T cell\"], \"biological_processes\": [\"T cell costimulation\"], \"genes\": [\"CD27\"]}}, {\"id\": \"Lymphoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CD27 deficiency markedly predisposes to EBV-driven malignant lymphoma, including Hodgkin lymphoma.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002665\"}}, {\"id\": \"Lymphoproliferative disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"EBV-associated nonmalignant lymphoproliferation is a core manifestation of CD27 deficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005523\"}}, {\"id\": \"Persistent symptomatic EBV viremia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent or chronic active Epstein-Barr virus infection is one of the most characteristic manifestations of CD27 deficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032204\"}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repeated infections occur on the background of combined immunodeficiency and defective humoral immunity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002719\"}}, {\"id\": \"Reduced innate cytotoxic lymphocyte function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severely affected CD27-deficient patients, innate cytotoxic lymphocyte compartments are also compromised, with reduced NK-cell function and fewer invariant NKT cells further weakening antiviral immune surveillance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"natural killer cell mediated cytotoxicity\"]}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody therapy has been used as adjunctive treatment for severe EBV-driven B-cell lymphoproliferation in CD27 deficiency.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}], \"edges\": [{\"source\": \"Loss of CD27-CD70 costimulation\", \"target\": \"Impaired EBV-specific cytotoxic T-cell immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CD27 costimulation weakens the antiviral CD8 T-cell response to EBV.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of CD27-CD70 costimulation\", \"target\": \"Reduced innate cytotoxic lymphocyte function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CD27 signaling also weakens NK and iNKT-cell mediated antiviral surveillance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of CD27-CD70 costimulation\", \"target\": \"Impaired T cell-dependent humoral immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CD27 loss also disrupts helper-dependent B-cell maturation and antibody generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced innate cytotoxic lymphocyte function\", \"target\": \"Persistent symptomatic EBV viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced innate cytotoxic control contributes to incomplete containment of EBV infection.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced innate cytotoxic lymphocyte function\", \"target\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weakened NK and iNKT-cell surveillance further permits EBV-driven immune pathology.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired EBV-specific cytotoxic T-cell immunity\", \"target\": \"Persistent symptomatic EBV viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of EBV-specific cytotoxic immunity permits sustained viral replication.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired EBV-specific cytotoxic T-cell immunity\", \"target\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent viral burden promotes uncontrolled EBV-associated immune pathology.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired T cell-dependent humoral immunity\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired B-cell maturation lowers serum immunoglobulin levels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired T cell-dependent humoral immunity\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weak antibody-mediated immunity increases susceptibility to repeated infection.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"target\": \"Lymphoproliferative disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncontrolled EBV-driven B-cell expansion manifests clinically as lymphoproliferative disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"target\": \"Hemophagocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperinflammatory immune activation can culminate in HLH-like hemophagocytosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"target\": \"Lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic EBV-driven lymphoid proliferation increases risk of malignant lymphoma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Allogeneic hematopoietic stem cell transplantation\", \"target\": \"Lymphoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Lymphoproliferative disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Lymphoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CD27\", \"target\": \"Loss of CD27-CD70 costimulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT is the main potentially curative treatment for severe CD27-related disease, especially when lymphoma, HLH, or refractory EBV-driven immune dysregulation develops.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CD27\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CD27\"], \"gene_terms\": [{\"label\": \"CD27\", \"id\": \"hgnc:11922\"}], \"association\": \"CAUSATIVE\"}}, {\"id\": \"Combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CD27 deficiency presents as a combined immunodeficiency with both T-cell and B-cell dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005387\"}}, {\"id\": \"EBV and malignancy surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Longitudinal follow-up should monitor EBV burden, lymphadenopathy, cytopenias, systemic inflammatory features, and symptoms concerning for lymphoproliferative disease or lymphoma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CD27-mediated immune surveillance leaves EBV insufficiently controlled, predisposing to lymphoproliferative disease, HLH-like hyperinflammation, and malignant lymphoma.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"lymphocyte proliferation\", \"inflammatory response\"]}}, {\"id\": \"HLH- and lymphoma-directed acute management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Suspected HLH, EBV-driven lymphoproliferative disease, or lymphoma requires urgent hematology/oncology-directed treatment using disease-standard protocols, with infection support and consideration of HSCT once acute disease is controlled.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hemophagocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some patients develop HLH-like hemophagocytic hyperinflammation during uncontrolled EBV disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012156\"}}, {\"id\": \"Hypogammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced circulating immunoglobulin levels emerge in many affected individuals, often after EBV infection.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004313\"}}, {\"id\": \"Immunoglobulin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immunoglobulin replacement is supportive treatment for the antibody deficiency component of CD27 deficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired EBV-specific cytotoxic T-cell immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD27 deficiency compromises expansion and effector differentiation of protective EBV-specific CD8-positive T cells, especially lytic antigen responses, allowing persistent EBV infection and defective clearance of EBV-transformed B cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive alpha-beta T cell\"], \"biological_processes\": [\"T cell proliferation\", \"T cell activation\"]}}, {\"id\": \"Impaired T cell-dependent humoral immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD27 deficiency impairs T cell-dependent B-cell responses, memory B-cell generation, and antibody production. This produces hypogammaglobulinemia and contributes to recurrent infection susceptibility.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"B cell\", \"memory B cell\"], \"biological_processes\": [\"B cell differentiation\", \"isotype switching\"]}}, {\"id\": \"Loss of CD27-CD70 costimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic CD27/TNFRSF7 variants reduce or abolish cell-surface CD27 and disrupt CD27-CD70 signaling. This removes a key TNF-receptor-family costimulatory input required for effective adaptive antiviral responses.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive alpha-beta T cell\"], \"biological_processes\": [\"T cell costimulation\"], \"genes\": [\"CD27\"], \"gene_terms\": [{\"label\": \"CD27\", \"id\": \"hgnc:11922\"}]}}, {\"id\": \"Lymphoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CD27 deficiency markedly predisposes to EBV-driven malignant lymphoma, including Hodgkin lymphoma.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002665\"}}, {\"id\": \"Lymphoproliferative disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"EBV-associated nonmalignant lymphoproliferation is a core manifestation of CD27 deficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005523\"}}, {\"id\": \"Persistent symptomatic EBV viremia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent or chronic active Epstein-Barr virus infection is one of the most characteristic manifestations of CD27 deficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032204\"}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repeated infections occur on the background of combined immunodeficiency and defective humoral immunity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002719\"}}, {\"id\": \"Reduced innate cytotoxic lymphocyte function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severely affected CD27-deficient patients, innate cytotoxic lymphocyte compartments are also compromised, with reduced NK-cell function and fewer invariant NKT cells further weakening antiviral immune surveillance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"natural killer cell mediated cytotoxicity\"]}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody therapy has been used as adjunctive or bridge treatment for severe EBV-driven CD20-positive B-cell lymphoproliferation or lymphoma in CD27 deficiency.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Vaccine planning for combined immunodeficiency\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vaccination decisions should be individualized with immunology and infectious-disease input. Non-live vaccines may be indicated, whereas live-attenuated vaccines should be deferred or avoided when clinically significant cellular or combined immunodeficiency is present.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Loss of CD27-CD70 costimulation\", \"target\": \"Impaired EBV-specific cytotoxic T-cell immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CD27 costimulation weakens the antiviral CD8 T-cell response to EBV.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of CD27-CD70 costimulation\", \"target\": \"Reduced innate cytotoxic lymphocyte function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CD27 signaling also weakens NK and iNKT-cell mediated antiviral surveillance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of CD27-CD70 costimulation\", \"target\": \"Impaired T cell-dependent humoral immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CD27 loss also disrupts helper-dependent B-cell maturation and antibody generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced innate cytotoxic lymphocyte function\", \"target\": \"Persistent symptomatic EBV viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced innate cytotoxic control contributes to incomplete containment of EBV infection.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced innate cytotoxic lymphocyte function\", \"target\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weakened NK and iNKT-cell surveillance further permits EBV-driven immune pathology.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired EBV-specific cytotoxic T-cell immunity\", \"target\": \"Persistent symptomatic EBV viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of EBV-specific cytotoxic immunity permits sustained viral replication.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired EBV-specific cytotoxic T-cell immunity\", \"target\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent viral burden promotes uncontrolled EBV-associated immune pathology.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired T cell-dependent humoral immunity\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired B-cell maturation lowers serum immunoglobulin levels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired T cell-dependent humoral immunity\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weak antibody-mediated immunity increases susceptibility to repeated infection.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"target\": \"Lymphoproliferative disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncontrolled EBV-driven B-cell expansion manifests clinically as lymphoproliferative disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"target\": \"Hemophagocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperinflammatory immune activation can culminate in HLH-like hemophagocytosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"EBV-driven lymphoproliferation and hyperinflammation\", \"target\": \"Lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic EBV-driven lymphoid proliferation increases risk of malignant lymphoma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Allogeneic hematopoietic stem cell transplantation\", \"target\": \"Lymphoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Lymphoproliferative disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Lymphoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"EBV and malignancy surveillance\", \"target\": \"Persistent symptomatic EBV viremia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"EBV and malignancy surveillance\", \"target\": \"Lymphoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"HLH- and lymphoma-directed acute management\", \"target\": \"Hemophagocytosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"HLH- and lymphoma-directed acute management\", \"target\": \"Lymphoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vaccine planning for combined immunodeficiency\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CD27\", \"target\": \"Loss of CD27-CD70 costimulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">10</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypogammaglobulinemia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank">
-                            Decreased circulating immunoglobulin concentration
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004313)</span>
-                        </span>
-                        
+                        Decreased circulating immunoglobulin concentration
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004313">HP:0004313</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22197273" target="_blank">PMID:22197273</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The index patient was hypogammaglobulinemic, and immunoglobulin replacement therapy was initiated."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The original sibling pair directly documents clinically relevant hypogammaglobulinemia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Following EBV infection, hypogammaglobulinemia developed in at least 3 of the affected individuals, while specific anti-viral and anti-polysaccharide antibodies and EBV-specific T-cell responses were detectable."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Additional CD27-deficient patients developed hypogammaglobulinemia after EBV infection, showing this is a recurring humoral phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Lymphoproliferative disorder
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005523" target="_blank">
-                            Lymphoproliferative disorder
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005523)</span>
-                        </span>
-                        
+                        Lymphoproliferative disorder
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005523" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005523">HP:0005523</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Phenotypes varied from asymptomatic memory B-cell deficiency (n=3) to EBV-associated hemophagocytosis and lymphoproliferative disorder (LPD; n=3) and malignant lymphoma (n=2; +1 after LPD)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This case series explicitly documents EBV-associated lymphoproliferative disorder in multiple CD27-deficient patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lymphoproliferation and lymphoma were the main clinical manifestations (70% and 43%, respectively), and 9 of the CD27-deficient patients developed HLH."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The larger cohort confirms lymphoproliferation as the most frequent major disease manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Lymphoma
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank">
-                            Lymphoma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002665)</span>
-                        </span>
-                        
+                        Lymphoma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002665">HP:0002665</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25843314" target="_blank">PMID:25843314</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"EBV-associated lymphoproliferative disease/hemophagocytic lymphohistiocytosis, Hodgkin lymphoma, uveitis, and recurrent infections were the predominant clinical features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The expanded CD27-deficiency cohort identifies Hodgkin lymphoma as a predominant disease manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our data highlight the marked predisposition to lymphoma of both CD27- and CD70-deficient patients."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The largest natural-history series emphasizes lymphoma as a defining risk of disrupted CD27/CD70 signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Uveitis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank">
-                            Uveitis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000554)</span>
-                        </span>
-                        
+                        Uveitis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000554">HP:0000554</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25843314" target="_blank">PMID:25843314</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"EBV-associated lymphoproliferative disease/hemophagocytic lymphohistiocytosis, Hodgkin lymphoma, uveitis, and recurrent infections were the predominant clinical features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The expanded clinical cohort explicitly lists uveitis among the predominant features of CD27 deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Twenty-one patients (43%) developed autoinflammatory features including uveitis, arthritis, and periodic fever."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The multinational cohort confirms that uveitis is a common autoinflammatory manifestation in disrupted CD27/CD70 signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Combined immunodeficiency
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0005387" target="_blank">
-                            Combined immunodeficiency
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005387)</span>
-                        </span>
-                        
+                        Combined immunodeficiency
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005387" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005387">HP:0005387</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Since homozygosity mapping and exome sequencing did not reveal additional modifying factors, our findings suggest that lack of functional CD27 predisposes towards a combined immunodeficiency associated with potentially fatal EBV-driven hemo-phagocytosis, lymphoproliferation, and lymphoma development."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The defining syndrome is explicitly described as a combined immunodeficiency caused by lack of functional CD27.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Recurrent infections
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank">
-                            Recurrent infections
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002719)</span>
-                        </span>
-                        
+                        Recurrent infections
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002719">HP:0002719</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25843314" target="_blank">PMID:25843314</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"EBV-associated lymphoproliferative disease/hemophagocytic lymphohistiocytosis, Hodgkin lymphoma, uveitis, and recurrent infections were the predominant clinical features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Recurrent infections are explicitly listed among the predominant clinical features in the expanded CD27-deficiency cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Recurrent fever
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank">
-                            Recurrent fever
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001954)</span>
-                        </span>
-                        
+                        Recurrent fever
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001954">HP:0001954</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Twenty-one patients (43%) developed autoinflammatory features including uveitis, arthritis, and periodic fever."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This cohort shows that recurrent fever is a common autoinflammatory manifestation in disrupted CD27/CD70 signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Arthritis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank">
-                            Arthritis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001369)</span>
-                        </span>
-                        
+                        Arthritis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001369">HP:0001369</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Twenty-one patients (43%) developed autoinflammatory features including uveitis, arthritis, and periodic fever."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The multinational cohort directly documents arthritis as part of the autoinflammatory spectrum of CD27 deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Persistent symptomatic EBV viremia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0032204" target="_blank">
-                            Chronic active Epstein-Barr virus infection
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0032204)</span>
-                        </span>
-                        
+                        Chronic active Epstein-Barr virus infection
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032204" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032204">HP:0032204</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22197273" target="_blank">PMID:22197273</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Both patients had persistent symptomatic EBV viremia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The original affected siblings establish persistent symptomatic EBV viremia as a hallmark disease feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The majority of patients (90%) were EBV+ at diagnosis"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The multinational series shows that EBV infection is present in nearly all diagnosed patients even when the presentation is not classic mononucleosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hemophagocytosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank">
-                            Hemophagocytosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012156)</span>
-                        </span>
-                        
+                        Hemophagocytosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012156">HP:0012156</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Phenotypes varied from asymptomatic memory B-cell deficiency (n=3) to EBV-associated hemophagocytosis and lymphoproliferative disorder (LPD; n=3) and malignant lymphoma (n=2; +1 after LPD)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hemophagocytosis is explicitly reported as an EBV-associated complication in CD27 deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4909,464 +5132,1064 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CD27
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CAUSATIVE)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CD27
+
+
+    <a href="https://bioregistry.io/hgnc:11922" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11922">hgnc:11922</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25843314" target="_blank">PMID:25843314</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"4 novel mutations were identified: homozygous missense c.G287A/p.C96Y"</div>
-                
-                
+
+
                 <div class="evidence-explanation">This study expands the disease-causing TNFRSF7/CD27 variant spectrum and confirms CD27 as the causal gene.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report the simultaneous confirmation of human CD27 deficiency in 3 independent families (8 patients) due to a homozygous mutation (p. Cys53Tyr) revealed by whole exome sequencing, leading to disruption of an evolutionarily conserved cystein knot motif of the transmembrane receptor."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Independent families with the same homozygous missense variant confirm CD27 deficiency as a monogenic disorder.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Immunoglobulin replacement therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">immunoglobulin replacement therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: immunoglobulin infusion therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001480" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001480</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001480" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001480">MAXO:0001480</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Immunoglobulin replacement is supportive treatment for the antibody deficiency component of CD27 deficiency.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypogammaglobulinemia
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004313">HP:0004313</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22197273" target="_blank">PMID:22197273</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The index patient was hypogammaglobulinemic, and immunoglobulin replacement therapy was initiated."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This directly documents immunoglobulin replacement as supportive care for CD27-deficient hypogammaglobulinemia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25843314" target="_blank">PMID:25843314</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Immunoglobulin substitution therapy was administered in 5 of the newly diagnosed cases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The expanded cohort confirms that immunoglobulin replacement is a common supportive treatment in clinical practice.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Allogeneic hematopoietic stem cell transplantation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">allogeneic hematopoietic stem cell transplantation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001479" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001479</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001479" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001479">MAXO:0001479</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                <div class="item-desc">Allogeneic HSCT is the main potentially curative treatment for severe CD27-related disease, especially when lymphoma or refractory EBV-driven immune dysregulation develops.</div>
-                
-                
-                
+
+
+
+
+
+                <div class="item-desc">Allogeneic HSCT is the main potentially curative treatment for severe CD27-related disease, especially when lymphoma, HLH, or refractory EBV-driven immune dysregulation develops.</div>
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Lymphoma
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002665">HP:0002665</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Nineteen patients underwent allogeneic hematopoietic stem cell transplantation (HSCT) prior to adulthood predominantly because of lymphoma, with 95% survival without disease recurrence."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The multinational series shows excellent HSCT outcomes and supports early use for severe lymphoma-predominant disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Two of 8 patients died, 2 others underwent allogeneic hematopoietic stem cell transplantation successfully, and one received anti-CD20 (rituximab) therapy repeatedly."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Early case-series experience already showed successful allogeneic HSCT in severe CD27 deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Rituximab
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">rituximab therapy</span>
-                    
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         rituximab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-                <div class="item-desc">Anti-CD20 monoclonal antibody therapy has been used as adjunctive treatment for severe EBV-driven B-cell lymphoproliferation in CD27 deficiency.</div>
-                
-                
-                
+
+
+
+                <div class="item-desc">Anti-CD20 monoclonal antibody therapy has been used as adjunctive or bridge treatment for severe EBV-driven CD20-positive B-cell lymphoproliferation or lymphoma in CD27 deficiency.</div>
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         lymphoproliferative disorder
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0005523" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005523" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005523">HP:0005523</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Lymphoma
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002665">HP:0002665</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22801960" target="_blank">PMID:22801960</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Two of 8 patients died, 2 others underwent allogeneic hematopoietic stem cell transplantation successfully, and one received anti-CD20 (rituximab) therapy repeatedly."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The early CD27-deficiency case series documents repeated rituximab use as adjunct treatment for severe EBV-driven disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    EBV and malignancy surveillance
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">supportive care</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Longitudinal follow-up should monitor EBV burden, lymphadenopathy, cytopenias, systemic inflammatory features, and symptoms concerning for lymphoproliferative disease or lymphoma.</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        persistent symptomatic Epstein-Barr virus viremia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032204" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032204">HP:0032204</a>
+
+
+
+                    </span>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Lymphoma
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002665">HP:0002665</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The majority of patients (90%) were EBV+ at diagnosis, but only ∼30% presented with infectious mononucleosis. Lymphoproliferation and lymphoma were the main clinical manifestations (70% and 43%, respectively)"</div>
+
+
+                <div class="evidence-explanation">EBV positivity and frequent lymphoproliferation/lymphoma support ongoing viral and malignancy surveillance.</div>
+
+
+
+            </div>
+
+
         </div>
-        
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    HLH- and lymphoma-directed acute management
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000058">MAXO:0000058</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Suspected HLH, EBV-driven lymphoproliferative disease, or lymphoma requires urgent hematology/oncology-directed treatment using disease-standard protocols, with infection support and consideration of HSCT once acute disease is controlled.</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Hemophagocytosis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012156">HP:0012156</a>
+
+
+
+                    </span>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Lymphoma
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002665">HP:0002665</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lymphoproliferation and lymphoma were the main clinical manifestations (70% and 43%, respectively), and 9 of the CD27-deficient patients developed HLH."</div>
+
+
+                <div class="evidence-explanation">Frequent severe lymphoproliferative, malignant, and HLH complications support explicit acute specialty-directed management.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25843314" target="_blank">PMID:25843314</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EBV-associated lymphoproliferative disease/hemophagocytic lymphohistiocytosis, Hodgkin lymphoma, uveitis, and recurrent infections were the predominant clinical features."</div>
+
+
+                <div class="evidence-explanation">The clinical spectrum includes the acute complications that require disease-specific treatment rather than only immunoglobulin replacement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Vaccine planning for combined immunodeficiency
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">vaccination</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001017" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001017">MAXO:0001017</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Vaccination decisions should be individualized with immunology and infectious-disease input. Non-live vaccines may be indicated, whereas live-attenuated vaccines should be deferred or avoided when clinically significant cellular or combined immunodeficiency is present.</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Combined immunodeficiency
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005387" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005387">HP:0005387</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.cdc.gov/vaccines/hcp/imz-best-practices/altered-immunocompetence.html" target="_blank">url:https://www.cdc.gov/vaccines/hcp/imz-best-practices/altered-immunocompetence.html</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Administration of live vaccines might need to be deferred until immune function has improved."</div>
+
+
+                <div class="evidence-explanation">CDC altered-immunocompetence guidance supports live-vaccine caution in patients with significant immune dysfunction.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.cdc.gov/vaccines/hcp/imz-best-practices/altered-immunocompetence.html" target="_blank">url:https://www.cdc.gov/vaccines/hcp/imz-best-practices/altered-immunocompetence.html</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Persons with most forms of altered immunocompetence should not receive live vaccines (MMR, varicella, MMRV, LAIV, yellow fever, Ty21a oral typhoid, BCG, smallpox, and rotavirus)."</div>
+
+
+                <div class="evidence-explanation">This general vaccine guidance supports explicit live-attenuated vaccine caution for CD27-related combined immunodeficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">3</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from CD27-related lymphoproliferative and immune disorder:
+            </p>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    CD70 deficiency
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    CD70 deficiency phenocopies CD27 deficiency because both disrupt the same CD27/CD70 costimulatory axis. It is distinguished by TNFSF7/CD70 variants and abnormal CD70 expression rather than biallelic TNFRSF7/CD27 variants.
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biallelic mutations in the genes encoding CD27 or its ligand CD70 underlie inborn errors of immunity (IEIs) characterized predominantly by Epstein-Barr virus (EBV)-associated immune dysregulation"</div>
+
+
+                <div class="evidence-explanation">The shared cohort establishes CD70 deficiency as the closest mechanistic and clinical differential diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    X-linked lymphoproliferative disease
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    SH2D1A- and XIAP/BIRC4-related X-linked lymphoproliferative disorders can also present with severe EBV disease, HLH, and lymphoma, especially in male patients, but follow X-linked inheritance and have different causal genes.
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"inborn errors of immunity (IEIs) characterized predominantly by Epstein-Barr virus (EBV)-associated immune dysregulation, such as chronic viremia, severe infectious mononucleosis, hemophagocytic lymphohistiocytosis (HLH), lymphoproliferation, and malignancy."</div>
+
+
+                <div class="evidence-explanation">The overlapping EBV-HLH-lymphoma pattern supports considering other EBV-susceptibility inborn errors of immunity in the differential.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    ITK deficiency and MAGT1/XMEN disease
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    ITK deficiency and MAGT1/XMEN disease are additional EBV-susceptibility inborn errors of immunity that can overlap clinically with CD27 deficiency; gene-panel or exome testing distinguishes them from TNFRSF7/CD27 disease.
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32603431" target="_blank">PMID:32603431</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A comprehensive understanding of the natural history, immune characteristics, and transplant outcomes has remained elusive."</div>
+
+
+                <div class="evidence-explanation">The article frames CD27/CD70 deficiency within EBV-associated inborn errors of immunity, supporting broader gene-based differential testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5403,7 +6226,9 @@ description: &gt;-
   costimulation, impaired control of Epstein-Barr virus, hypogammaglobulinemia,
   and a variable spectrum of EBV-driven immune dysregulation ranging from
   persistent viremia to hemophagocytic lymphohistiocytosis, lymphoproliferative
-  disease, and lymphoma.
+  disease, and lymphoma. Most reported patients are EBV-positive at diagnosis,
+  and lymphoproliferation, lymphoma, and autoinflammatory features dominate the
+  clinical course.
 inheritance:
 - name: Autosomal recessive
   description: &gt;-
@@ -6169,6 +6994,250 @@ genetic:
     explanation: &gt;-
       Independent families with the same homozygous missense variant confirm
       CD27 deficiency as a monogenic disorder.
+diagnosis:
+- name: CD27 expression by flow cytometry
+  description: &gt;-
+    Flow-cytometric immunophenotyping for absent or markedly reduced CD27 on
+    lymphoid cells is a rapid screening test in patients with severe or
+    persistent EBV-associated disease.
+  diagnosis_term:
+    preferred_term: flow cytometry procedure
+    term:
+      id: MAXO:0035055
+      label: flow cytometry procedure
+  results: &gt;-
+    Absent or strongly reduced cell-surface CD27 expression supports CD27
+    deficiency and should prompt confirmatory TNFRSF7/CD27 sequencing.
+  evidence:
+  - reference: PMID:25843314
+    reference_title: &#34;Novel mutations in TNFRSF7/CD27: Clinical, immunologic, and genetic characterization of human CD27 deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Flow cytometric immunophenotyping offers a reliable initial test for CD27
+      deficiency.
+    explanation: &gt;-
+      This directly supports CD27 flow cytometry as an initial diagnostic test.
+  - reference: PMID:22801960
+    reference_title: &#34;Combined immunodeficiency with life-threatening EBV-associated lymphoproliferative disorder in patients lacking functional CD27.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Flow cytometric immunophenotyping including expression analysis of CD27 on
+      lymphoid cells was followed by capillary sequencing of CD27 in index
+      patients, their parents, and non-affected siblings.
+    explanation: &gt;-
+      The original multi-family series used CD27 expression analysis on lymphoid
+      cells before family sequencing, supporting flow cytometry as part of the
+      diagnostic workflow.
+- name: TNFRSF7/CD27 molecular genetic testing
+  description: &gt;-
+    Molecular testing confirms the diagnosis by identifying biallelic
+    pathogenic TNFRSF7/CD27 variants.
+  diagnosis_term:
+    preferred_term: molecular genetic testing
+    term:
+      id: MAXO:0000533
+      label: molecular genetic testing
+    qualifiers:
+    - predicate:
+        preferred_term: has participant
+        term:
+          id: RO:0000057
+          label: has participant
+      value:
+        preferred_term: CD27
+        term:
+          id: hgnc:11922
+          label: CD27
+  results: Biallelic pathogenic TNFRSF7/CD27 variants confirm the diagnosis.
+  evidence:
+  - reference: PMID:22801960
+    reference_title: &#34;Combined immunodeficiency with life-threatening EBV-associated lymphoproliferative disorder in patients lacking functional CD27.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We report the simultaneous confirmation of human CD27 deficiency in 3
+      independent families (8 patients) due to a homozygous mutation
+      (p. Cys53Tyr) revealed by whole exome sequencing, leading to disruption
+      of an evolutionarily conserved cystein knot motif of the transmembrane
+      receptor.
+    explanation: &gt;-
+      Exome sequencing identified the causal homozygous CD27 variant in
+      multiple independent families.
+  - reference: PMID:25843314
+    reference_title: &#34;Novel mutations in TNFRSF7/CD27: Clinical, immunologic, and genetic characterization of human CD27 deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      4 novel mutations were identified: homozygous missense c.G287A/p.C96Y
+    explanation: &gt;-
+      The expanded cohort confirms additional disease-causing TNFRSF7/CD27
+      genotypes.
+- name: EBV viral-load assessment
+  description: &gt;-
+    EBV DNA testing and EBV serology help establish the EBV-driven disease
+    context and provide a baseline for longitudinal monitoring.
+  results: &gt;-
+    Detectable or persistent EBV viremia supports the characteristic
+    EBV-associated immune dysregulation phenotype but is not by itself
+    diagnostic.
+  evidence:
+  - reference: PMID:32603431
+    reference_title: &#34;Extended clinical and immunological phenotype and transplant outcome in CD27 and CD70 deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The majority of patients (90%) were EBV+ at diagnosis, but only ∼30%
+      presented with infectious mononucleosis.
+    explanation: &gt;-
+      EBV positivity is common at diagnosis even without classic infectious
+      mononucleosis, supporting EBV testing in the diagnostic workup.
+- name: Humoral immune evaluation
+  description: &gt;-
+    Quantitative IgG, IgA, and IgM levels, vaccine antibody responses, and
+    memory B-cell phenotyping help identify the antibody-deficiency component.
+  results: &gt;-
+    Hypogammaglobulinemia, impaired specific antibody responses, or reduced
+    memory B cells support a combined immunodeficiency phenotype.
+  evidence:
+  - reference: PMID:22197273
+    reference_title: &#34;CD27 deficiency is associated with combined immunodeficiency and persistent symptomatic EBV viremia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The index patient was hypogammaglobulinemic, and immunoglobulin
+      replacement therapy was initiated.
+    explanation: &gt;-
+      The original sibling pair documents clinically relevant antibody
+      deficiency.
+  - reference: PMID:22801960
+    reference_title: &#34;Combined immunodeficiency with life-threatening EBV-associated lymphoproliferative disorder in patients lacking functional CD27.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Following EBV infection, hypogammaglobulinemia developed in at least 3 of
+      the affected individuals, while specific anti-viral and
+      anti-polysaccharide antibodies and EBV-specific T-cell responses were
+      detectable.
+    explanation: &gt;-
+      Recurrent hypogammaglobulinemia after EBV infection supports quantitative
+      immunoglobulin and antibody-response evaluation.
+- name: Lymphocyte subset and functional immunophenotyping
+  description: &gt;-
+    Lymphocyte subset analysis should assess memory B cells, T-cell memory
+    compartments, EBV-specific T-cell frequencies, and CD8 T-cell effector
+    function where available.
+  diagnosis_term:
+    preferred_term: flow cytometry procedure
+    term:
+      id: MAXO:0035055
+      label: flow cytometry procedure
+  results: &gt;-
+    Paucity of memory B/T cells, reduced EBV-specific T cells, or impaired CD8
+    effector function supports disrupted CD27/CD70 signaling.
+  evidence:
+  - reference: PMID:32603431
+    reference_title: &#34;Extended clinical and immunological phenotype and transplant outcome in CD27 and CD70 deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Detailed immunological characterization revealed aberrant generation of
+      memory B and T cells, including a paucity of EBV-specific T cells, and
+      impaired effector function of CD8+ T cells
+    explanation: &gt;-
+      The largest cohort identifies the key cellular immune abnormalities to
+      evaluate when CD27 deficiency is suspected.
+- name: HLH and lymphoma complication workup
+  description: &gt;-
+    Patients with fever, cytopenias, organomegaly, lymphadenopathy, or systemic
+    inflammation require evaluation for HLH and lymphoma, including ferritin,
+    triglycerides, fibrinogen, soluble IL-2 receptor when available, tissue
+    biopsy of suspicious nodes or masses, and staging imaging guided by
+    hematology/oncology.
+  diagnosis_term:
+    preferred_term: clinical assessment
+    term:
+      id: MAXO:0000487
+      label: clinical assessment
+  results: &gt;-
+    HLH features, EBV-associated lymphoproliferative disease, or malignant
+    lymphoma identify severe complications that change urgency and management.
+  evidence:
+  - reference: PMID:32603431
+    reference_title: &#34;Extended clinical and immunological phenotype and transplant outcome in CD27 and CD70 deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Lymphoproliferation and lymphoma were the main clinical manifestations
+      (70% and 43%, respectively), and 9 of the CD27-deficient patients
+      developed HLH.
+    explanation: &gt;-
+      The high frequency of lymphoproliferation, lymphoma, and HLH supports
+      directed complication workup at presentation and during flares.
+  - reference: PMID:25843314
+    reference_title: &#34;Novel mutations in TNFRSF7/CD27: Clinical, immunologic, and genetic characterization of human CD27 deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      EBV-associated lymphoproliferative disease/hemophagocytic
+      lymphohistiocytosis, Hodgkin lymphoma, uveitis, and recurrent infections
+      were the predominant clinical features.
+    explanation: &gt;-
+      This expanded cohort confirms that lymphoproliferative disease, HLH, and
+      Hodgkin lymphoma are predominant complications requiring active assessment.
+differential_diagnoses:
+- name: CD70 deficiency
+  description: &gt;-
+    CD70 deficiency phenocopies CD27 deficiency because both disrupt the same
+    CD27/CD70 costimulatory axis. It is distinguished by TNFSF7/CD70 variants
+    and abnormal CD70 expression rather than biallelic TNFRSF7/CD27 variants.
+  evidence:
+  - reference: PMID:32603431
+    reference_title: &#34;Extended clinical and immunological phenotype and transplant outcome in CD27 and CD70 deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Biallelic mutations in the genes encoding CD27 or its ligand CD70
+      underlie inborn errors of immunity (IEIs) characterized predominantly by
+      Epstein-Barr virus (EBV)-associated immune dysregulation
+    explanation: &gt;-
+      The shared cohort establishes CD70 deficiency as the closest mechanistic
+      and clinical differential diagnosis.
+- name: X-linked lymphoproliferative disease
+  description: &gt;-
+    SH2D1A- and XIAP/BIRC4-related X-linked lymphoproliferative disorders can
+    also present with severe EBV disease, HLH, and lymphoma, especially in male
+    patients, but follow X-linked inheritance and have different causal genes.
+  evidence:
+  - reference: PMID:32603431
+    reference_title: &#34;Extended clinical and immunological phenotype and transplant outcome in CD27 and CD70 deficiency.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      inborn errors of immunity (IEIs) characterized predominantly by
+      Epstein-Barr virus (EBV)-associated immune dysregulation, such as chronic
+      viremia, severe infectious mononucleosis, hemophagocytic
+      lymphohistiocytosis (HLH), lymphoproliferation, and malignancy.
+    explanation: &gt;-
+      The overlapping EBV-HLH-lymphoma pattern supports considering other
+      EBV-susceptibility inborn errors of immunity in the differential.
+- name: ITK deficiency and MAGT1/XMEN disease
+  description: &gt;-
+    ITK deficiency and MAGT1/XMEN disease are additional EBV-susceptibility
+    inborn errors of immunity that can overlap clinically with CD27 deficiency;
+    gene-panel or exome testing distinguishes them from TNFRSF7/CD27 disease.
+  evidence:
+  - reference: PMID:32603431
+    reference_title: &#34;Extended clinical and immunological phenotype and transplant outcome in CD27 and CD70 deficiency.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      A comprehensive understanding of the natural history, immune
+      characteristics, and transplant outcomes has remained elusive.
+    explanation: &gt;-
+      The article frames CD27/CD70 deficiency within EBV-associated inborn
+      errors of immunity, supporting broader gene-based differential testing.
 treatments:
 - name: Immunoglobulin replacement therapy
   description: &gt;-
@@ -6208,8 +7277,8 @@ treatments:
 - name: Allogeneic hematopoietic stem cell transplantation
   description: &gt;-
     Allogeneic HSCT is the main potentially curative treatment for severe
-    CD27-related disease, especially when lymphoma or refractory EBV-driven
-    immune dysregulation develops.
+    CD27-related disease, especially when lymphoma, HLH, or refractory
+    EBV-driven immune dysregulation develops.
   treatment_term:
     preferred_term: allogeneic hematopoietic stem cell transplantation
     term:
@@ -6245,13 +7314,14 @@ treatments:
       severe CD27 deficiency.
 - name: Rituximab
   description: &gt;-
-    Anti-CD20 monoclonal antibody therapy has been used as adjunctive treatment
-    for severe EBV-driven B-cell lymphoproliferation in CD27 deficiency.
+    Anti-CD20 monoclonal antibody therapy has been used as adjunctive or bridge
+    treatment for severe EBV-driven CD20-positive B-cell lymphoproliferation or
+    lymphoma in CD27 deficiency.
   treatment_term:
     preferred_term: rituximab therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: rituximab
       term:
@@ -6278,6 +7348,118 @@ treatments:
     explanation: &gt;-
       The early CD27-deficiency case series documents repeated rituximab use as
       adjunct treatment for severe EBV-driven disease.
+- name: EBV and malignancy surveillance
+  description: &gt;-
+    Longitudinal follow-up should monitor EBV burden, lymphadenopathy,
+    cytopenias, systemic inflammatory features, and symptoms concerning for
+    lymphoproliferative disease or lymphoma.
+  treatment_term:
+    preferred_term: supportive care
+    term:
+      id: MAXO:0000950
+      label: supportive care
+  target_phenotypes:
+  - preferred_term: persistent symptomatic Epstein-Barr virus viremia
+    term:
+      id: HP:0032204
+      label: Chronic active Epstein-Barr virus infection
+  - preferred_term: Lymphoma
+    term:
+      id: HP:0002665
+      label: Lymphoma
+  evidence:
+  - reference: PMID:32603431
+    reference_title: &#34;Extended clinical and immunological phenotype and transplant outcome in CD27 and CD70 deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The majority of patients (90%) were EBV+ at diagnosis, but only ∼30%
+      presented with infectious mononucleosis. Lymphoproliferation and lymphoma
+      were the main clinical manifestations (70% and 43%, respectively)
+    explanation: &gt;-
+      EBV positivity and frequent lymphoproliferation/lymphoma support ongoing
+      viral and malignancy surveillance.
+- name: HLH- and lymphoma-directed acute management
+  description: &gt;-
+    Suspected HLH, EBV-driven lymphoproliferative disease, or lymphoma requires
+    urgent hematology/oncology-directed treatment using disease-standard
+    protocols, with infection support and consideration of HSCT once acute
+    disease is controlled.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  target_phenotypes:
+  - preferred_term: Hemophagocytosis
+    term:
+      id: HP:0012156
+      label: Hemophagocytosis
+  - preferred_term: Lymphoma
+    term:
+      id: HP:0002665
+      label: Lymphoma
+  evidence:
+  - reference: PMID:32603431
+    reference_title: &#34;Extended clinical and immunological phenotype and transplant outcome in CD27 and CD70 deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Lymphoproliferation and lymphoma were the main clinical manifestations
+      (70% and 43%, respectively), and 9 of the CD27-deficient patients
+      developed HLH.
+    explanation: &gt;-
+      Frequent severe lymphoproliferative, malignant, and HLH complications
+      support explicit acute specialty-directed management.
+  - reference: PMID:25843314
+    reference_title: &#34;Novel mutations in TNFRSF7/CD27: Clinical, immunologic, and genetic characterization of human CD27 deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      EBV-associated lymphoproliferative disease/hemophagocytic
+      lymphohistiocytosis, Hodgkin lymphoma, uveitis, and recurrent infections
+      were the predominant clinical features.
+    explanation: &gt;-
+      The clinical spectrum includes the acute complications that require
+      disease-specific treatment rather than only immunoglobulin replacement.
+- name: Vaccine planning for combined immunodeficiency
+  description: &gt;-
+    Vaccination decisions should be individualized with immunology and
+    infectious-disease input. Non-live vaccines may be indicated, whereas
+    live-attenuated vaccines should be deferred or avoided when clinically
+    significant cellular or combined immunodeficiency is present.
+  treatment_term:
+    preferred_term: vaccination
+    term:
+      id: MAXO:0001017
+      label: vaccination
+  target_phenotypes:
+  - preferred_term: Combined immunodeficiency
+    term:
+      id: HP:0005387
+      label: Combined immunodeficiency
+  evidence:
+  - reference: url:https://www.cdc.gov/vaccines/hcp/imz-best-practices/altered-immunocompetence.html
+    reference_title: &#34;Altered Immunocompetence | Vaccines &amp;amp; Immunizations | CDC&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Administration of live vaccines might need to be deferred until immune
+      function has improved.
+    explanation: &gt;-
+      CDC altered-immunocompetence guidance supports live-vaccine caution in
+      patients with significant immune dysfunction.
+  - reference: url:https://www.cdc.gov/vaccines/hcp/imz-best-practices/altered-immunocompetence.html
+    reference_title: &#34;Altered Immunocompetence | Vaccines &amp;amp; Immunizations | CDC&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Persons with most forms of altered immunocompetence should not receive
+      live vaccines (MMR, varicella, MMRV, LAIV, yellow fever, Ty21a oral
+      typhoid, BCG, smallpox, and rotavirus).
+    explanation: &gt;-
+      This general vaccine guidance supports explicit live-attenuated vaccine
+      caution for CD27-related combined immunodeficiency.
 datasets: []
 notes: &gt;-
   MONDO currently labels MONDO:0014054 as &#34;lymphoproliferative syndrome 2&#34;. This
@@ -6290,42 +7472,42 @@ notes: &gt;-
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of CD27-related lymphoproliferative and immune disorder. Core disease mechani...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">20 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-19T15:03:53.923362</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of CD27-related lymphoproliferative and immune disorder. Core disease mechani...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -6658,29 +7840,29 @@ notes: &gt;-
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">1. Disease Information</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">29 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-20T14:16:11.418917</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h2>1. Disease Information</h2>
 <h3>1.1 Concise overview</h3>
@@ -7163,11 +8345,11 @@ notes: &gt;-
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -7217,7 +8399,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CD27-related lymphoproliferative and immune disorder", "mondoId": "MONDO:0014054", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CD27-related_lymphoproliferative_and_immune_disorder", "yamlRevision": "4d0f4c793d47"};
+        const OS_CONFIG = {"diseaseName": "CD27-related lymphoproliferative and immune disorder", "mondoId": "MONDO:0014054", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CD27-related_lymphoproliferative_and_immune_disorder", "yamlRevision": "5033cd1f6e64"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

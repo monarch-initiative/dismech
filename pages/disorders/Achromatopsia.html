@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>Achromatopsia</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0018852" target="_blank">
                         MONDO:0018852
                     </a>
                 </span>
-                
-                
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
-                
-                
+
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Cone dystrophy</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Color vision disorder</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Retinal disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,12 +2993,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Achromatopsia is an autosomal recessive cone photoreceptor disorder characterized by the absence or severe impairment of cone cell function from birth. Affected individuals have severely reduced visual acuity (typically 20/200 or worse), complete color blindness, photophobia, and nystagmus. The condition results from mutations in genes encoding components of the cone phototransduction cascade, most commonly CNGA3 and CNGB3 (encoding the alpha and beta subunits of the cone cyclic nucleotide-gated channel), and less frequently GNAT2 (cone transducin alpha), PDE6C (cone phosphodiesterase alpha), PDE6H (cone phosphodiesterase gamma), and ATF6 (activating transcription factor 6). The prevalence is approximately 1 in 30,000-50,000. Achromatopsia is a leading target for retinal gene therapy, with multiple clinical trials underway for CNGA3 and CNGB3 gene augmentation.
+                Achromatopsia is an autosomal recessive cone photoreceptor disorder characterized by the absence or severe impairment of cone cell function from birth. Most affected individuals have complete achromatopsia with total loss of cone function, severely reduced visual acuity, absent or markedly impaired color discrimination, photophobia, and nystagmus. Rare incomplete achromatopsia retains partial cone function and can have milder acuity loss. The condition results from mutations in genes encoding components of the cone phototransduction cascade, most commonly CNGA3 and CNGB3 (encoding the alpha and beta subunits of the cone cyclic nucleotide-gated channel), and less frequently GNAT2 (cone transducin alpha), PDE6C (cone phosphodiesterase alpha), PDE6H (cone phosphodiesterase gamma), and ATF6 (activating transcription factor 6). The prevalence is approximately 1 in 30,000-50,000. Achromatopsia is a leading target for investigational retinal gene therapy, with completed and active-not-recruiting clinical trials for CNGA3 and CNGB3 gene augmentation but no approved achromatopsia gene therapy represented here.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2998,34 +3068,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3033,8 +3103,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3042,29 +3112,29 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3072,17 +3142,17 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3090,14 +3160,38 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+            <a class="stat-link" href="#differentials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔀</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Differentials</div>
+            </div>
+            </a>
+
+
+
+            <a class="stat-link" href="#trials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Trials</div>
+            </div>
+            </a>
+
+
+
+
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3105,1055 +3199,1140 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal Recessive
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29257187" target="_blank">PMID:29257187</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is usually an autosomal-recessive disease and is characterized by pendular nystagmus, poor visual acuity, lack of color vision, and marked photophobia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms autosomal recessive inheritance pattern of achromatopsia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">6</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Achromatopsia 2 (CNGA3)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Caused by biallelic mutations in CNGA3, encoding the alpha subunit of the cone CNG channel. Accounts for approximately 25-28% of European/US cases.
 </div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Achromatopsia 3 (CNGB3)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
-                    <div class="item-desc">Caused by biallelic mutations in CNGB3, encoding the beta subunit of the cone CNG channel. The most common form, accounting for approximately 50% of cases. The c.1148delC founder mutation is frequent in European populations.
+
+                    <div class="item-desc">Caused by biallelic mutations in CNGB3, encoding the beta subunit of the cone CNG channel. The most common form, accounting for approximately 50% of cases. The c.1148delC founder mutation accounts for approximately 70% of CNGB3 disease-causing alleles and approximately 40% of all achromatopsia-associated alleles.
 </div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Achromatopsia 4 (GNAT2)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Caused by biallelic mutations in GNAT2, encoding the alpha subunit of cone transducin. A rare form accounting for less than 2% of cases.
 </div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Achromatopsia 5 (PDE6C)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Caused by biallelic mutations in PDE6C, encoding the alpha prime subunit of cone phosphodiesterase. Very rare.
 </div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Achromatopsia 6 (PDE6H)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
-                    <div class="item-desc">Caused by biallelic mutations in PDE6H, encoding the inhibitory gamma subunit of cone phosphodiesterase. Extremely rare.
+
+                    <div class="item-desc">Caused by biallelic mutations in PDE6H, encoding the inhibitory gamma subunit of cone phosphodiesterase. Extremely rare and associated with incomplete achromatopsia.
 </div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Achromatopsia 7 (ATF6)
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Caused by biallelic mutations in ATF6, encoding activating transcription factor 6 involved in the unfolded protein response. Distinct mechanism from the phototransduction cascade defects.
 </div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cone-cng-channel-dysfunction">
                 <div class="item-name">Cone CNG Channel Dysfunction</div>
-                
+
                 <div class="item-desc">The cone cyclic nucleotide-gated (CNG) channel is a heterotetrameric complex composed of CNGA3 and CNGB3 subunits. In darkness, high cGMP levels keep CNG channels open, maintaining a depolarizing dark current. Light-driven phototransduction reduces cGMP, closing channels and hyperpolarizing the cone. Loss-of-function mutations in CNGA3 or CNGB3 abolish the cone CNG channel, eliminating the dark current and rendering cones non-functional. This is the most common mechanism, with up to 90% of patients carrying mutations in CNGA3 or CNGB3.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal cone cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         phototransduction, visible light
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007603">GO:0007603</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ∅ ABSENT
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         retina
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-location">
                         fovea centralis
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001786">UBERON:0001786</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cone Photoreceptor Degeneration</span>
-	                            
+
 	                            <span class="crosslink-desc">Non-functional cone photoreceptors undergo progressive structural degeneration.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34860352" target="_blank">PMID:34860352</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Up to 90% of patients with ACHM carry mutations in CNGA3 or CNGB3, which are the genes encoding the alpha and beta subunits of the cone cyclic nucleotide-gated (CNG) channel, respectively."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms that CNG channel subunit mutations account for the vast majority of achromatopsia cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34860352" target="_blank">PMID:34860352</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These mutations result in a functional loss and a slow progressive degeneration of cone photoreceptors."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes that CNG channel mutations cause both functional loss and progressive structural degeneration.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cone-transducin-deficiency">
                 <div class="item-name">Cone Transducin Deficiency</div>
-                
+
                 <div class="item-desc">GNAT2 encodes the alpha subunit of cone transducin, a heterotrimeric G protein that couples activated cone opsin to phosphodiesterase activation. Loss of GNAT2 function prevents signal transduction from photoactivated cone opsin to PDE6C, blocking the phototransduction cascade at the G-protein coupling step. cGMP levels remain constitutively high, but without transducin signaling the cone cannot generate a light response.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal cone cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         phototransduction, visible light
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007603">GO:0007603</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ∅ ABSENT
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cone Photoreceptor Degeneration</span>
-	                            
+
 	                            <span class="crosslink-desc">Cones with non-functional transducin signaling undergo progressive structural degeneration.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29257187" target="_blank">PMID:29257187</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CNGA3, CNGB3, GNAT2, PDE6C, PDE6H, and ATF6 gene mutations have been identified as associated with this disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms GNAT2 as one of the six known achromatopsia genes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cone-phosphodiesterase-deficiency">
                 <div class="item-name">Cone Phosphodiesterase Deficiency</div>
-                
+
                 <div class="item-desc">PDE6C and PDE6H encode the alpha prime and inhibitory gamma subunits of cone cGMP phosphodiesterase (PDE6), respectively. In the phototransduction cascade, activated transducin stimulates PDE6 to hydrolyze cGMP, reducing its concentration and closing CNG channels. Loss of PDE6C or PDE6H function prevents cGMP hydrolysis, so cGMP remains constitutively high and CNG channels remain open regardless of light stimulation, eliminating the normal cone light response. These are very rare causes of achromatopsia.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal cone cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         phototransduction, visible light
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007603">GO:0007603</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ∅ ABSENT
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cone Photoreceptor Degeneration</span>
-	                            
+
 	                            <span class="crosslink-desc">Non-functional cones with constitutively open CNG channels undergo progressive degeneration.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35332618" target="_blank">PMID:35332618</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"To date, six genes have been associated with ACHM (CNGA3, CNGB3, GNAT2, PDE6C, PDE6H, and ATF6), the majority of these being implicated in the cone phototransduction cascade."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms PDE6C and PDE6H as established achromatopsia genes in the cone phototransduction cascade.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cone-photoreceptor-degeneration">
                 <div class="item-name">Cone Photoreceptor Degeneration</div>
-                
+
                 <div class="item-desc">Although achromatopsia is classically considered a stationary disorder, progressive foveal cone photoreceptor loss has been documented by optical coherence tomography (OCT). Disruption of the IS/OS junction, outer nuclear layer thinning, and hyporeflective zones in the fovea are frequently observed and are age-dependent, suggesting that non-functional cones undergo slow degeneration. This progressive structural deterioration has implications for the therapeutic window of gene therapy interventions.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal cone cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cone photoreceptor cell death
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008219">GO:0008219</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         fovea centralis
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001786">UBERON:0001786</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21211844" target="_blank">PMID:21211844</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The IS/OS junction and COST reflectivity disruption and presence of HRZ and ONL thinning are signs of cone photoreceptor degeneration. The latter 2 are age-dependent, which suggests that achromatopsia is a progressive disorder."</div>
-                
-                
+
+
                 <div class="evidence-explanation">OCT imaging demonstrates age-dependent progressive cone photoreceptor loss in achromatopsia patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21211844" target="_blank">PMID:21211844</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"There was significant (P = 1.1×10(-6)) ONL thinning in the achromats compared with controls, which was age-dependent (P = 0.0002)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Quantitative evidence of progressive outer nuclear layer thinning in achromatopsia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unfolded-protein-response-defect-atf6">
                 <div class="item-name">Unfolded Protein Response Defect (ATF6)</div>
-                
+
                 <div class="item-desc">ATF6 is a key ER stress sensor and transcription factor in the unfolded protein response (UPR). Biallelic ATF6 mutations cause achromatopsia through a mechanism distinct from phototransduction cascade defects. ATF6 is required for cone photoreceptor development and maintenance, and its loss leads to foveal hypoplasia and cone dysfunction. This subtype may present with foveal structural abnormalities visible on OCT.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         retinal cone cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         endoplasmic reticulum unfolded protein response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030968">GO:0030968</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ∅ ABSENT
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cone Photoreceptor Degeneration</span>
-	                            
+
 	                            <span class="crosslink-desc">Impaired UPR leads to ER stress-mediated cone photoreceptor dysfunction and foveal hypoplasia.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28795510" target="_blank">PMID:28795510</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The disease is caused by mutations in genes encoding crucial components of the cone phototransduction cascade (CNGA3, CNGB3, GNAT2, PDE6C, and PDE6H) or in ATF6, involved in the unfolded protein response."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Distinguishes ATF6 from the other five achromatopsia genes as having a distinct unfolded protein response mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31237654" target="_blank">PMID:31237654</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Foveal hypoplasia was observed in all subjects with ATF6 mutations."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms foveal hypoplasia as a consistent structural finding in ATF6-associated achromatopsia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31237654" target="_blank">PMID:31237654</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our data demonstrate a near absence of cone structure in subjects harboring ATF6 mutations. This implicates ATF6 as having a major role in cone development"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that ATF6 is essential for cone photoreceptor development and maintenance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4164,385 +4343,483 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cone CNG Channel Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cone cyclic nucleotide-gated (CNG) channel is a heterotetrameric complex composed of CNGA3 and CNGB3 subunits. In darkness, high cGMP levels keep CNG channels open, maintaining a depolarizing dark current. Light-driven phototransduction reduces cGMP, closing channels and hyperpolarizing the cone. Loss-of-function mutations in CNGA3 or CNGB3 abolish the cone CNG channel, eliminating the dark current and rendering cones non-functional. This is the most common mechanism, with up to 90% of patients carrying mutations in CNGA3 or CNGB3.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\"], \"biological_processes\": [\"phototransduction, visible light\"], \"locations\": [\"retina\", \"fovea centralis\"]}}, {\"id\": \"Cone Phosphodiesterase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDE6C and PDE6H encode the alpha prime and inhibitory gamma subunits of cone cGMP phosphodiesterase (PDE6), respectively. In the phototransduction cascade, activated transducin stimulates PDE6 to hydrolyze cGMP, reducing its concentration and closing CNG channels. Loss of PDE6C or PDE6H function prevents cGMP hydrolysis, so cGMP remains constitutively high and CNG channels remain open regardless of light stimulation, eliminating the normal cone light response. These are very rare causes of achromatopsia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal cone cell\"], \"biological_processes\": [\"phototransduction, visible light\"]}}, {\"id\": \"Cone Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Although achromatopsia is classically considered a stationary disorder, progressive foveal cone photoreceptor loss has been documented by optical coherence tomography (OCT). Disruption of the IS/OS junction, outer nuclear layer thinning, and hyporeflective zones in the fovea are frequently observed and are age-dependent, suggesting that non-functional cones undergo slow degeneration. This progressive structural deterioration has implications for the therapeutic window of gene therapy interventions.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\"], \"biological_processes\": [\"cone photoreceptor cell death\"], \"locations\": [\"fovea centralis\"]}}, {\"id\": \"Cone Transducin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GNAT2 encodes the alpha subunit of cone transducin, a heterotrimeric G protein that couples activated cone opsin to phosphodiesterase activation. Loss of GNAT2 function prevents signal transduction from photoactivated cone opsin to PDE6C, blocking the phototransduction cascade at the G-protein coupling step. cGMP levels remain constitutively high, but without transducin signaling the cone cannot generate a light response.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal cone cell\"], \"biological_processes\": [\"phototransduction, visible light\"]}}, {\"id\": \"Unfolded Protein Response Defect (ATF6)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATF6 is a key ER stress sensor and transcription factor in the unfolded protein response (UPR). Biallelic ATF6 mutations cause achromatopsia through a mechanism distinct from phototransduction cascade defects. ATF6 is required for cone photoreceptor development and maintenance, and its loss leads to foveal hypoplasia and cone dysfunction. This subtype may present with foveal structural abnormalities visible on OCT.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal cone cell\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\"]}}], \"edges\": [{\"source\": \"Cone CNG Channel Dysfunction\", \"target\": \"Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-functional cone photoreceptors undergo progressive structural degeneration.\"}, {\"source\": \"Cone Transducin Deficiency\", \"target\": \"Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cones with non-functional transducin signaling undergo progressive structural degeneration.\"}, {\"source\": \"Cone Phosphodiesterase Deficiency\", \"target\": \"Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-functional cones with constitutively open CNG channels undergo progressive degeneration.\"}, {\"source\": \"Unfolded Protein Response Defect (ATF6)\", \"target\": \"Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired UPR leads to ER stress-mediated cone photoreceptor dysfunction and foveal hypoplasia.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cone CNG Channel Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cone cyclic nucleotide-gated (CNG) channel is a heterotetrameric complex composed of CNGA3 and CNGB3 subunits. In darkness, high cGMP levels keep CNG channels open, maintaining a depolarizing dark current. Light-driven phototransduction reduces cGMP, closing channels and hyperpolarizing the cone. Loss-of-function mutations in CNGA3 or CNGB3 abolish the cone CNG channel, eliminating the dark current and rendering cones non-functional. This is the most common mechanism, with up to 90% of patients carrying mutations in CNGA3 or CNGB3.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\"], \"biological_processes\": [\"phototransduction, visible light\"], \"locations\": [\"retina\", \"fovea centralis\"]}}, {\"id\": \"Cone Phosphodiesterase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDE6C and PDE6H encode the alpha prime and inhibitory gamma subunits of cone cGMP phosphodiesterase (PDE6), respectively. In the phototransduction cascade, activated transducin stimulates PDE6 to hydrolyze cGMP, reducing its concentration and closing CNG channels. Loss of PDE6C or PDE6H function prevents cGMP hydrolysis, so cGMP remains constitutively high and CNG channels remain open regardless of light stimulation, eliminating the normal cone light response. These are very rare causes of achromatopsia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal cone cell\"], \"biological_processes\": [\"phototransduction, visible light\"]}}, {\"id\": \"Cone Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Although achromatopsia is classically considered a stationary disorder, progressive foveal cone photoreceptor loss has been documented by optical coherence tomography (OCT). Disruption of the IS/OS junction, outer nuclear layer thinning, and hyporeflective zones in the fovea are frequently observed and are age-dependent, suggesting that non-functional cones undergo slow degeneration. This progressive structural deterioration has implications for the therapeutic window of gene therapy interventions.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\"], \"biological_processes\": [\"cone photoreceptor cell death\"], \"locations\": [\"fovea centralis\"]}}, {\"id\": \"Cone Transducin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GNAT2 encodes the alpha subunit of cone transducin, a heterotrimeric G protein that couples activated cone opsin to phosphodiesterase activation. Loss of GNAT2 function prevents signal transduction from photoactivated cone opsin to PDE6C, blocking the phototransduction cascade at the G-protein coupling step. cGMP levels remain constitutively high, but without transducin signaling the cone cannot generate a light response.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal cone cell\"], \"biological_processes\": [\"phototransduction, visible light\"]}}, {\"id\": \"Low Vision Aids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Magnification devices, high-contrast displays, preferential classroom seating, adaptive educational or occupational technologies, and other low-vision accommodations help patients manage reduced visual acuity in school, work, and daily activities.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked light sensitivity and photoaversion. In photopic conditions, dysfunctional cones cannot modulate signaling appropriately, and excessive rod stimulation causes glare and discomfort. Patients often squint or use tinted lenses.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000613\"}}, {\"id\": \"Severely Reduced Visual Acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual acuity is often 20/200 or worse in complete achromatopsia, as central vision depends primarily on cone-rich foveal photoreceptors. Incomplete achromatopsia can be milder, with residual cone function and acuity as good as 20/80 in some individuals. Rod-mediated vision provides only peripheral and low-resolution input.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001141\"}}, {\"id\": \"Tinted Contact Lenses and Filters\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dark glasses, special filter glasses, red or magenta-tinted contact lenses, and sun-protection strategies reduce photophobia and may improve visual comfort and contrast sensitivity by limiting glare and rod saturation in photopic conditions.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Unfolded Protein Response Defect (ATF6)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATF6 is a key ER stress sensor and transcription factor in the unfolded protein response (UPR). Biallelic ATF6 mutations cause achromatopsia through a mechanism distinct from phototransduction cascade defects. ATF6 is required for cone photoreceptor development and maintenance, and its loss leads to foveal hypoplasia and cone dysfunction. This subtype may present with foveal structural abnormalities visible on OCT.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal cone cell\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\"]}}], \"edges\": [{\"source\": \"Cone CNG Channel Dysfunction\", \"target\": \"Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-functional cone photoreceptors undergo progressive structural degeneration.\"}, {\"source\": \"Cone Transducin Deficiency\", \"target\": \"Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cones with non-functional transducin signaling undergo progressive structural degeneration.\"}, {\"source\": \"Cone Phosphodiesterase Deficiency\", \"target\": \"Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-functional cones with constitutively open CNG channels undergo progressive degeneration.\"}, {\"source\": \"Unfolded Protein Response Defect (ATF6)\", \"target\": \"Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired UPR leads to ER stress-mediated cone photoreceptor dysfunction and foveal hypoplasia.\"}, {\"source\": \"Tinted Contact Lenses and Filters\", \"target\": \"Photophobia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low Vision Aids\", \"target\": \"Severely Reduced Visual Acuity\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
-                
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(4)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Photophobia
-                        
-                        <span class="phenotype-freq">OBLIGATE</span>
-                        
-                    
+                        Hyperopia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank">
-                            Photophobia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000613)</span>
-                        </span>
-                        
+                        Hypermetropia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000540">HP:0000540</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hyperopia is common in achromatopsia."</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies hyperopia as a common associated refractive finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Photophobia
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+                    <span class="phenotype-id">
+                        Photophobia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000613">HP:0000613</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25616768" target="_blank">PMID:25616768</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Achromatopsia (ACHM) is a congenital, autosomal recessive retinal disease that manifests cone dysfunction, reduced visual acuity and color vision, nystagmus, and photoaversion."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Photoaversion is listed as a cardinal feature of achromatopsia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">4</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Achromatopsia
-                        
+
                         <span class="phenotype-freq">OBLIGATE</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank">
-                            Achromatopsia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011516)</span>
-                        </span>
-                        
+                        Achromatopsia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011516">HP:0011516</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34860352" target="_blank">PMID:34860352</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The loss of cone photoreceptor function manifests at birth or early in childhood and results in decreased visual acuity, lack of color discrimination, abnormal intolerance to light (photophobia), and rapid involuntary eye movement (nystagmus)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Comprehensive description of the cardinal features including absent color discrimination.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Severely Reduced Visual Acuity
-                        
+
                         <span class="phenotype-freq">OBLIGATE</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001141" target="_blank">
-                            Severely reduced visual acuity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001141)</span>
-                        </span>
-                        
+                        Severely reduced visual acuity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001141" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001141">HP:0001141</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352493" target="_blank">PMID:32352493</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Baseline visual acuity letter score (approximate Snellen equivalent) ranged from 34 (20/200) to 49 (20/100)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Clinical trial baseline data confirms severely reduced visual acuity in CNGA3-achromatopsia patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Best visual acuity varies with severity of the disease"</div>
+
+
+                <div class="evidence-explanation">GeneReviews distinguishes severe complete achromatopsia from milder incomplete achromatopsia with residual cone function.</div>
+
+
+
+            </div>
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Congenital Nystagmus
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0006934" target="_blank">
-                            Congenital nystagmus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0006934)</span>
-                        </span>
-                        
+                        Congenital nystagmus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006934" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006934">HP:0006934</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29257187" target="_blank">PMID:29257187</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"It is usually an autosomal-recessive disease and is characterized by pendular nystagmus, poor visual acuity, lack of color vision, and marked photophobia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Pendular nystagmus is identified as a characteristic feature of achromatopsia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Abnormal Foveal Morphology
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000493" target="_blank">
-                            Abnormal foveal morphology
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000493)</span>
-                        </span>
-                        
+                        Abnormal foveal morphology
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000493" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000493">HP:0000493</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21211844" target="_blank">PMID:21211844</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A characteristic so-called punched out hyporeflective zone (HRZ) was noted in 7 of 13 patients; this was age-dependent (P = 0.001)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">OCT demonstrates characteristic foveal structural abnormalities in achromatopsia patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21211844" target="_blank">PMID:21211844</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Foveal maldevelopment was seen in 9 of 13 patients."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Foveal maldevelopment is a common structural finding in achromatopsia.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25616768" target="_blank">PMID:25616768</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Retinal structure in CNGA3 ACHM patients revealed persistent but abnormal foveal cones."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms the presence of structurally abnormal but persistent foveal cones in CNGA3-achromatopsia.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4567,693 +4844,1540 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CNGA3 Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CNGA3
+
+
+    <a href="https://bioregistry.io/hgnc:2150" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2150">hgnc:2150</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35332618" target="_blank">PMID:35332618</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we provide a comprehensive overview of the CNGA3 variant spectrum in a cohort of 1060 genetically confirmed ACHM patients, 385 (36.3%) of these carrying &#34;likely disease-causing&#34; variants in CNGA3."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Largest CNGA3 variant spectrum study documenting 385 patients with CNGA3 mutations out of 1060 ACHM cases.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35332618" target="_blank">PMID:35332618</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we further extend the CNGA3 variant spectrum to a total of 316 variants, 244 of which we interpreted as &#34;likely disease-causing&#34; according to ACMG/AMP criteria."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Comprehensive cataloging of 244 likely pathogenic CNGA3 variants.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CNGB3 Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CNGB3
+
+
+    <a href="https://bioregistry.io/hgnc:2153" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2153">hgnc:2153</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28795510" target="_blank">PMID:28795510</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CNGB3 encoding the beta subunit of the cyclic nucleotide-gated ion channel in cone photoreceptors is the major achromatopsia gene. Here, we present a comprehensive spectrum of CNGB3 mutations and their prevalence in a cohort of 1074 independent families clinically diagnosed with achromatopsia...."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Largest CNGB3 mutation study confirming it as the most common achromatopsia gene.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28795510" target="_blank">PMID:28795510</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We identified a total of 98 different potentially disease-causing CNGB3 variants, 58 of which are novel."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Comprehensive cataloging of 98 different CNGB3 variants including copy number variations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     GNAT2 Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GNAT2
+
+
+    <a href="https://bioregistry.io/hgnc:4394" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4394">hgnc:4394</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35332618" target="_blank">PMID:35332618</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"To date, six genes have been associated with ACHM (CNGA3, CNGB3, GNAT2, PDE6C, PDE6H, and ATF6), the majority of these being implicated in the cone phototransduction cascade."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms GNAT2 as one of the six established achromatopsia genes involved in the cone phototransduction cascade.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     PDE6C Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PDE6C
+
+
+    <a href="https://bioregistry.io/hgnc:8787" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8787">hgnc:8787</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35332618" target="_blank">PMID:35332618</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"To date, six genes have been associated with ACHM (CNGA3, CNGB3, GNAT2, PDE6C, PDE6H, and ATF6), the majority of these being implicated in the cone phototransduction cascade."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms PDE6C as one of the six established achromatopsia genes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     PDE6H Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PDE6H
+
+
+    <a href="https://bioregistry.io/hgnc:8790" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8790">hgnc:8790</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35332618" target="_blank">PMID:35332618</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"To date, six genes have been associated with ACHM (CNGA3, CNGB3, GNAT2, PDE6C, PDE6H, and ATF6), the majority of these being implicated in the cone phototransduction cascade."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms PDE6H as one of the six established achromatopsia genes.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     ATF6 Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ATF6
+
+
+    <a href="https://bioregistry.io/hgnc:791" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:791">hgnc:791</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28795510" target="_blank">PMID:28795510</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The disease is caused by mutations in genes encoding crucial components of the cone phototransduction cascade (CNGA3, CNGB3, GNAT2, PDE6C, and PDE6H) or in ATF6, involved in the unfolded protein response."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Distinguishes ATF6 from phototransduction cascade genes as having a distinct UPR-related mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Gene Augmentation Therapy (CNGA3)
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">gene therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001001" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001001</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001001" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001001">MAXO:0001001</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                <div class="item-desc">Subretinal delivery of AAV8 vectors carrying wild-type CNGA3 cDNA under a cone-specific promoter (human cone arrestin ARR3 promoter). Phase I clinical trial (NCT02610582) demonstrated safety and preliminary evidence of improved cone function including visual acuity gains and improved contrast sensitivity at 1-year and sustained at 3-year follow-up.
+
+
+
+
+
+                <div class="item-desc">Subretinal delivery of AAV8 vectors carrying wild-type CNGA3 cDNA under a cone-specific promoter (human cone arrestin ARR3 promoter). Published phase I data and an active-not-recruiting phase 1/2 trial support continued clinical study of CNGA3 gene augmentation, but this remains investigational rather than an approved achromatopsia therapy.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352493" target="_blank">PMID:32352493</a>
                     </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"all 9 treated eyes demonstrated some level of improvement in secondary end points regarding cone function, including mean change in visual acuity of 2.9 letters (95% CI, 1.65-4.13; P = .006, 2-sided t test paired samples). Contrast sensitivity improved by a mean of 0.33 log (95% CI, 0.14-0.51..."</div>
-                
-                
-                <div class="evidence-explanation">Phase I trial of AAV8.CNGA3 in 9 adult patients with CNGA3-achromatopsia showed statistically significant improvements in visual acuity and contrast sensitivity at 1 year.</div>
-                
-                
-                
+
+
+                <div class="evidence-explanation">Phase I trial of AAV8.CNGA3 in nine adults showed safety and secondary outcome signals, but the nonrandomized early-phase design keeps this treatment investigational.</div>
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34006508" target="_blank">PMID:34006508</a>
                     </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The functional benefits that were noted in the treated eye at year 1 were persistent throughout the following visits at years 2 and 3."</div>
-                
-                
-                <div class="evidence-explanation">Three-year follow-up confirms sustained functional benefits and continued safety of AAV8.CNGA3 gene therapy.</div>
-                
-                
-                
+
+
+                <div class="evidence-explanation">Three-year follow-up supports durable outcome signals after phase I treatment, while remaining early-phase investigational evidence.</div>
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34006508" target="_blank">PMID:34006508</a>
                     </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"No adverse or serious adverse events deemed related to the study drug occurred after year 1. Safety of the therapy, as the primary endpoint of this trial, can, therefore, be confirmed."</div>
-                
-                
-                <div class="evidence-explanation">Long-term safety of CNGA3 gene therapy confirmed at 3 years.</div>
-                
-                
-                
+
+
+                <div class="evidence-explanation">Supports longer-term safety within a phase I cohort but does not establish approval-level efficacy.</div>
+
+
+
             </div>
-            
-            
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Gene Augmentation Therapy (CNGB3)
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">gene therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0001001" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001001</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001001" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001001">MAXO:0001001</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                <div class="item-desc">Subretinal AAV5-mediated delivery of CNGB3 to restore cone CNG channel function. Preclinical studies in CNGB3-mutant dogs demonstrated stable restoration of cone function for at least 33 months. Clinical trials (NCT02599922, NCT03001310) are evaluating safety and efficacy in CNGB3-achromatopsia patients.
+
+
+
+
+
+                <div class="item-desc">Subretinal AAV-mediated delivery of CNGB3 aims to restore cone CNG channel function. Preclinical studies in CNGB3-mutant dogs demonstrated stable restoration of cone function for at least 33 months. Human phase 1/2 trials NCT02599922 and NCT03001310 document active-not-recruiting and completed investigational programs, respectively; efficacy remains under evaluation.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20378608" target="_blank">PMID:20378608</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"rAAV-mediated gene replacement therapy with different forms of the human red cone opsin promoter led to the restoration of cone function and day vision in two canine models of CNGB3 achromatopsia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates successful restoration of cone function through CNGB3 gene therapy in the naturally occurring dog model.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20378608" target="_blank">PMID:20378608</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Subretinal administration of rAAV5-hCNGB3 with a long version of the red cone opsin promoter in younger animals led to a stable therapeutic effect for at least 33 months."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates long-term durability of CNGB3 gene therapy effect in dogs.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT02599922" target="_blank">clinicaltrials:NCT02599922</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This will be a non-randomized, open-label, Phase 1/2 study of the safety and efficacy of AGTC-401 administered to one eye by subretinal injection in individuals with achromatopsia caused by mutations in the CNGB3 gene."</div>
+
+
+                <div class="evidence-explanation">Supports investigational human evaluation of CNGB3 gene augmentation, with a primary safety endpoint and secondary efficacy endpoint.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Tinted Contact Lenses and Filters
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                <div class="item-desc">Red or magenta-tinted contact lenses or filter glasses reduce photophobia and may improve visual comfort and contrast sensitivity by reducing rod saturation in photopic conditions.
+
+
+
+
+
+                <div class="item-desc">Dark glasses, special filter glasses, red or magenta-tinted contact lenses, and sun-protection strategies reduce photophobia and may improve visual comfort and contrast sensitivity by limiting glare and rod saturation in photopic conditions.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Photophobia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000613">HP:0000613</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dark or special filter glasses or red-tinted contact lenses"</div>
+
+
+                <div class="evidence-explanation">GeneReviews recommends tinted lenses or filter glasses to reduce photophobia and improve functional comfort.</div>
+
+
+
             </div>
-            
+
+
+        </div>
+    </details>
+
+
+            </div>
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Low Vision Aids
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-                <div class="item-desc">Magnification devices, high-contrast displays, and adaptive technologies help patients manage reduced visual acuity in daily activities.
+
+
+
+
+
+                <div class="item-desc">Magnification devices, high-contrast displays, preferential classroom seating, adaptive educational or occupational technologies, and other low-vision accommodations help patients manage reduced visual acuity in school, work, and daily activities.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Severely reduced visual acuity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001141" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001141">HP:0001141</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"low vision aids; preferential classroom seating for children; occupational aids"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports low-vision, classroom, and occupational accommodations as practical management.</div>
+
+
+
             </div>
-            
+
+
         </div>
-        
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Ophthalmologic Surveillance
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">eye examination</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0001155" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0001155">MAXO:0001155</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Regular ophthalmologic follow-up monitors acuity, refractive error, fundus and OCT changes, photophobia management, and low-vision needs. Children should be followed more frequently because visual development, refractive correction, and educational accommodations change rapidly.
+</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ophthalmologic examination every six to 12 months for children"</div>
+
+
+                <div class="evidence-explanation">GeneReviews recommends ophthalmologic surveillance every six to 12 months for children and every two to three years for adults.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Genetic Counseling
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Genetic counseling explains autosomal recessive inheritance, carrier testing for at-risk relatives, recurrence risk, and reproductive options once the familial pathogenic variants are known.
+</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"each sib of an affected individual has a 25% chance of being affected"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports counseling around autosomal recessive recurrence risk and available carrier, prenatal, and preimplantation testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">3</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from Achromatopsia:
+            </p>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    Blue-cone monochromatism
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Blue-cone monochromatism overlaps through congenital severe visual acuity reduction, infantile nystagmus, photophobia, normal-appearing fundus, and poor color discrimination.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>X-linked inheritance and predominant male affection favor blue-cone monochromatism over autosomal recessive achromatopsia.</li>
+
+                        <li>Blue-cone monochromatism preserves S-cone function, so blue flashes on a yellow background can elicit cone ERG responses.</li>
+
+                        <li>Special four-color plate or two-color filter testing can distinguish blue-cone monochromats from rod monochromats.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Blue-cone monochromatism"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists blue-cone monochromatism among inherited retinal dystrophies to consider in the differential diagnosis of achromatopsia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    Cone and cone-rod dystrophies
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Cone and cone-rod dystrophies overlap with achromatopsia through reduced visual acuity, photophobia, glare sensitivity, and abnormal color vision.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Disease progression over time favors cone or cone-rod dystrophy, whereas achromatopsia is typically congenital and relatively stable.</li>
+
+                        <li>Later onset and elevated dark-adapted rod thresholds support cone-rod dystrophy rather than isolated congenital cone dysfunction.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Best clinical discriminator is disease progression."</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies progression as a key discriminator between achromatopsia and cone/cone-rod dystrophies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    Cerebral achromatopsia or dyschromatopsia
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Acquired cortical color vision disorders can mimic severe color discrimination loss but reflect post-chiasmal brain injury rather than congenital cone photoreceptor dysfunction.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Acute or acquired onset after cortical trauma, cerebral infarction, or other neurologic injury favors cerebral achromatopsia or dyschromatopsia.</li>
+
+                        <li>Normal retinal structure and retinal ERG responses favor cerebral rather than retinal achromatopsia.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cerebral achromatopsia or dyschromatopsia"</div>
+
+
+                <div class="evidence-explanation">GeneReviews includes acquired cerebral color-vision disorders in the differential diagnosis of achromatopsia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
+        <div class="card" id="trials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
+                <h2 class="card-title">Clinical Trials</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT02610582
+
+                    <span class="tag tag-phase">PHASE_I</span>
+
+
+                    <span class="tag tag-status">ACTIVE_NOT_RECRUITING</span>
+
+                </div>
+
+                <div class="item-desc">Combined phase 1/2 rAAV.hCNGA3 subretinal gene-augmentation trial for adult and minor patients with CNGA3-linked achromatopsia, listed as active but not recruiting by ClinicalTrials.gov.</div>
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Achromatopsia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011516">HP:0011516</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT02610582" target="_blank">clinicaltrials:NCT02610582</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The purpose of this study is to proof the safety and efficacy of a single bilateral subretinal injection of rAAV.hCNGA3 in adult and minor patients with CNGA3-linked achromatopsia."</div>
+
+
+                <div class="evidence-explanation">ClinicalTrials.gov documents the CNGA3-linked achromatopsia gene-therapy trial and its safety/efficacy purpose.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT02599922
+
+                    <span class="tag tag-phase">PHASE_I</span>
+
+
+                    <span class="tag tag-status">ACTIVE_NOT_RECRUITING</span>
+
+                </div>
+
+                <div class="item-desc">Combined phase 1/2 AGTC-401 AAV-CNGB3 trial administering subretinal gene therapy to one eye in individuals with CNGB3-related achromatopsia, listed as active but not recruiting by ClinicalTrials.gov.</div>
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Achromatopsia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011516">HP:0011516</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT02599922" target="_blank">clinicaltrials:NCT02599922</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This will be a non-randomized, open-label, Phase 1/2 study of the safety and efficacy of AGTC-401 administered to one eye by subretinal injection in individuals with achromatopsia caused by mutations in the CNGB3 gene."</div>
+
+
+                <div class="evidence-explanation">ClinicalTrials.gov documents the AGTC-401 CNGB3 trial design and endpoints.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT03001310
+
+                    <span class="tag tag-phase">PHASE_I</span>
+
+
+                    <span class="tag tag-status">COMPLETED</span>
+
+                </div>
+
+                <div class="item-desc">Completed phase 1/2 open-label dose-escalation AAV2/8-CNGB3 trial for adults and children with CNGB3-related achromatopsia.</div>
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Achromatopsia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011516">HP:0011516</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT03001310" target="_blank">clinicaltrials:NCT03001310</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A clinical trial of AAV - CNGB3 retinal gene therapy for patients with achromatopsia"</div>
+
+
+                <div class="evidence-explanation">ClinicalTrials.gov documents a completed CNGB3 retinal gene-therapy trial.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5275,16 +6399,19 @@ synonyms:
 description: &gt;
   Achromatopsia is an autosomal recessive cone photoreceptor disorder
   characterized by the absence or severe impairment of cone cell function from
-  birth. Affected individuals have severely reduced visual acuity (typically
-  20/200 or worse), complete color blindness, photophobia, and nystagmus. The
-  condition results from mutations in genes encoding components of the cone
+  birth. Most affected individuals have complete achromatopsia with total loss
+  of cone function, severely reduced visual acuity, absent or markedly impaired
+  color discrimination, photophobia, and nystagmus. Rare incomplete
+  achromatopsia retains partial cone function and can have milder acuity loss.
+  The condition results from mutations in genes encoding components of the cone
   phototransduction cascade, most commonly CNGA3 and CNGB3 (encoding the alpha
   and beta subunits of the cone cyclic nucleotide-gated channel), and less
   frequently GNAT2 (cone transducin alpha), PDE6C (cone phosphodiesterase
   alpha), PDE6H (cone phosphodiesterase gamma), and ATF6 (activating
   transcription factor 6). The prevalence is approximately 1 in 30,000-50,000.
-  Achromatopsia is a leading target for retinal gene therapy, with multiple
-  clinical trials underway for CNGA3 and CNGB3 gene augmentation.
+  Achromatopsia is a leading target for investigational retinal gene therapy,
+  with completed and active-not-recruiting clinical trials for CNGA3 and CNGB3
+  gene augmentation but no approved achromatopsia gene therapy represented here.
 disease_term:
   preferred_term: achromatopsia
   term:
@@ -5319,7 +6446,9 @@ has_subtypes:
   description: &gt;
     Caused by biallelic mutations in CNGB3, encoding the beta subunit of the
     cone CNG channel. The most common form, accounting for approximately 50%
-    of cases. The c.1148delC founder mutation is frequent in European populations.
+    of cases. The c.1148delC founder mutation accounts for approximately 70%
+    of CNGB3 disease-causing alleles and approximately 40% of all
+    achromatopsia-associated alleles.
 - name: ACHM4
   display_name: Achromatopsia 4 (GNAT2)
   description: &gt;
@@ -5334,7 +6463,8 @@ has_subtypes:
   display_name: Achromatopsia 6 (PDE6H)
   description: &gt;
     Caused by biallelic mutations in PDE6H, encoding the inhibitory gamma
-    subunit of cone phosphodiesterase. Extremely rare.
+    subunit of cone phosphodiesterase. Extremely rare and associated with
+    incomplete achromatopsia.
 - name: ACHM7
   display_name: Achromatopsia 7 (ATF6)
   description: &gt;
@@ -5354,7 +6484,7 @@ prevalence:
     reference_title: &#34;Genetics and Disease Expression in the CNGA3 Form of Achromatopsia: Steps on the Path to Gene Therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;These mutations lead to a high ACHM prevalence of \u223C1:5000 among Arab-Muslims residing in Jerusalem.&#34;
+    snippet: &#34;These mutations lead to a high ACHM prevalence of ∼1:5000 among Arab-Muslims residing in Jerusalem.&#34;
     explanation: Documents high prevalence of CNGA3-achromatopsia in a consanguineous population.
 pathophysiology:
 - name: Cone CNG Channel Dysfunction
@@ -5492,13 +6622,13 @@ pathophysiology:
     reference_title: &#34;High-resolution in vivo imaging in achromatopsia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The IS/OS junction and COST reflectivity disruption and presence of HRZ and ONL thinning are signs of cone photoreceptor degeneration. The latter 2 are age-dependent, which suggests that achromatopsia is a progressive disorder.&#34;
+    snippet: &#34;The IS/OS junction and COST reflectivity disruption and presence of HRZ and ONL thinning are signs of cone photoreceptor degeneration. The latter 2 are age-dependent, which suggests that achromatopsia is a progressive disorder.&#34;  # codespell:ignore-line
     explanation: OCT imaging demonstrates age-dependent progressive cone photoreceptor loss in achromatopsia patients.
   - reference: PMID:21211844
     reference_title: &#34;High-resolution in vivo imaging in achromatopsia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;There was significant (P = 1.1\u00D710(-6)) ONL thinning in the achromats compared with controls, which was age-dependent (P = 0.0002).&#34;
+    snippet: &#34;There was significant (P = 1.1×10(-6)) ONL thinning in the achromats compared with controls, which was age-dependent (P = 0.0002).&#34;  # codespell:ignore-line
     explanation: Quantitative evidence of progressive outer nuclear layer thinning in achromatopsia.
 - name: Unfolded Protein Response Defect (ATF6)
   description: &gt;
@@ -5565,10 +6695,11 @@ phenotypes:
 - category: Ophthalmologic
   name: Severely Reduced Visual Acuity
   description: &gt;
-    Visual acuity typically 20/200 or worse, as central vision depends primarily
-    on cone-rich foveal photoreceptors. Rod-mediated vision provides only
-    peripheral and low-resolution input. Baseline visual acuity in clinical
-    trials ranged from 20/200 to 20/100.
+    Visual acuity is often 20/200 or worse in complete achromatopsia, as central
+    vision depends primarily on cone-rich foveal photoreceptors. Incomplete
+    achromatopsia can be milder, with residual cone function and acuity as good
+    as 20/80 in some individuals. Rod-mediated vision provides only peripheral
+    and low-resolution input.
   frequency: OBLIGATE
   phenotype_term:
     preferred_term: Severely reduced visual acuity
@@ -5582,6 +6713,35 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Baseline visual acuity letter score (approximate Snellen equivalent) ranged from 34 (20/200) to 49 (20/100)&#34;
     explanation: Clinical trial baseline data confirms severely reduced visual acuity in CNGA3-achromatopsia patients.
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Best visual acuity varies with severity of the disease
+    explanation: &gt;-
+      GeneReviews distinguishes severe complete achromatopsia from milder
+      incomplete achromatopsia with residual cone function.
+- category: Ophthalmologic
+  name: Hyperopia
+  description: &gt;
+    Hyperopic refractive error is common and should be assessed during
+    ophthalmologic evaluation because refractive correction can improve
+    functional vision even though it does not restore cone photoreceptor
+    function.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Hypermetropia
+    term:
+      id: HP:0000540
+      label: Hypermetropia
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Hyperopia is common in achromatopsia.&#34;
+    explanation: GeneReviews identifies hyperopia as a common associated refractive finding.
 - category: Ophthalmologic
   name: Photophobia
   description: &gt;
@@ -5785,8 +6945,10 @@ diagnosis:
   description: &gt;
     Full-field electroretinography is the cornerstone diagnostic test for
     achromatopsia. Cone-mediated (photopic) ERG responses are absent or
-    severely reduced, while rod-mediated (scotopic) responses are preserved.
-    This pattern is pathognomonic for cone system dysfunction.
+    severely reduced, including absent or markedly diminished 30-Hz flicker
+    responses, while rod-mediated (scotopic) responses are preserved or only
+    mildly abnormal. A 15-Hz flicker ERG can demonstrate absence of the
+    cone-driven fast pathway at high flash intensities.
   diagnosis_term:
     preferred_term: electroretinogram procedure
     term:
@@ -5799,6 +6961,85 @@ diagnosis:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Rod ERG abnormalities (in addition to cone dysfunction) were detected in 59% of patients.&#34;
     explanation: ERG-based phenotyping in CNGA3-achromatopsia patients, with cone dysfunction universally detected and unexpected rod abnormalities in a subset.
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The photopic response (including the 30-Hz flicker response) is absent or markedly diminished
+    explanation: &gt;-
+      GeneReviews defines the characteristic ERG pattern used to support the
+      clinical diagnosis of achromatopsia.
+- name: Ophthalmologic Examination and Retinal Imaging
+  description: &gt;
+    Clinical diagnosis includes visual acuity, nystagmus assessment,
+    fundoscopic examination, and multimodal retinal imaging. Optical coherence
+    tomography may show foveal hypoplasia, inner/outer segment junction
+    disruption, attenuation of the retinal pigment epithelium in the macula, or
+    other macular changes; fundus autofluorescence and visual fields can further
+    characterize the phenotype and help distinguish progressive retinal
+    dystrophies.
+  diagnosis_term:
+    preferred_term: ophthalmologist evaluation
+    term:
+      id: MAXO:0000703
+      label: ophthalmologist evaluation
+  results: Visual acuity, nystagmus, fundus findings, OCT, fundus autofluorescence, and visual field results.
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      additional testing may include optical coherence tomography, fundus autofluorescence, visual fields, and electroretinogram
+    explanation: &gt;-
+      GeneReviews supports adding OCT, fundus autofluorescence, visual fields,
+      and fundus examination to the diagnostic workup.
+- name: Optical Coherence Tomography
+  description: &gt;
+    OCT specifically documents foveal hypoplasia, disruption or loss of the
+    photoreceptor inner/outer segment junction, foveal hyporeflective zones,
+    outer nuclear layer thinning, and macular retinal pigment epithelium
+    attenuation. These findings support diagnosis and help stage the residual
+    retinal structure relevant to gene-therapy trial eligibility.
+  diagnosis_term:
+    preferred_term: optical coherence tomography
+    term:
+      id: MAXO:0000969
+      label: optical coherence tomography
+  results: Foveal hypoplasia, photoreceptor junction disruption, foveal hyporeflective zones, outer nuclear layer thinning, and RPE attenuation.
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      A variable degree of foveal hypoplasia
+    explanation: &gt;-
+      GeneReviews describes OCT-visible foveal and outer retinal abnormalities
+      as early structural findings in achromatopsia.
+- name: Color Vision Assessment
+  description: &gt;
+    Formal color vision testing is part of the diagnostic assessment. Testing
+    should evaluate red-green and broader chromatic discrimination because
+    achromatopsia impairs color discrimination along all three cone axes, while
+    differential diagnoses can have restricted color-axis defects.
+  diagnosis_term:
+    preferred_term: ophthalmologist evaluation
+    term:
+      id: MAXO:0000703
+      label: ophthalmologist evaluation
+  results: Abnormal color discrimination along protan, deutan, and tritan axes supports achromatopsia.
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      all achromats have anomalous (impaired) color discrimination along all three axes
+    explanation: &gt;-
+      GeneReviews supports formal color vision testing as a core diagnostic
+      feature and differential-diagnosis tool.
 - name: Genetic Testing
   description: &gt;
     Molecular genetic testing by targeted gene panel or whole-exome sequencing
@@ -5817,14 +7058,92 @@ diagnosis:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we provide a comprehensive overview of the CNGA3 variant spectrum in a cohort of 1060 genetically confirmed ACHM patients&#34;
     explanation: Demonstrates the role of genetic testing in confirming achromatopsia diagnosis across a large patient cohort.
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      establishes the molecular diagnosis
+    explanation: &gt;-
+      GeneReviews confirms that biallelic pathogenic or likely pathogenic
+      variants in ATF6, CNGA3, CNGB3, GNAT2, PDE6C, or PDE6H establish the
+      molecular diagnosis.
+differential_diagnoses:
+- name: Blue-cone monochromatism
+  description: &gt;-
+    Blue-cone monochromatism overlaps through congenital severe visual acuity
+    reduction, infantile nystagmus, photophobia, normal-appearing fundus, and
+    poor color discrimination.
+  distinguishing_features:
+  - &gt;-
+    X-linked inheritance and predominant male affection favor blue-cone
+    monochromatism over autosomal recessive achromatopsia.
+  - &gt;-
+    Blue-cone monochromatism preserves S-cone function, so blue flashes on a
+    yellow background can elicit cone ERG responses.
+  - &gt;-
+    Special four-color plate or two-color filter testing can distinguish
+    blue-cone monochromats from rod monochromats.
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Blue-cone monochromatism
+    explanation: &gt;-
+      GeneReviews lists blue-cone monochromatism among inherited retinal
+      dystrophies to consider in the differential diagnosis of achromatopsia.
+- name: Cone and cone-rod dystrophies
+  description: &gt;-
+    Cone and cone-rod dystrophies overlap with achromatopsia through reduced
+    visual acuity, photophobia, glare sensitivity, and abnormal color vision.
+  distinguishing_features:
+  - &gt;-
+    Disease progression over time favors cone or cone-rod dystrophy, whereas
+    achromatopsia is typically congenital and relatively stable.
+  - &gt;-
+    Later onset and elevated dark-adapted rod thresholds support cone-rod
+    dystrophy rather than isolated congenital cone dysfunction.
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Best clinical discriminator is disease progression.&#34;
+    explanation: &gt;-
+      GeneReviews identifies progression as a key discriminator between
+      achromatopsia and cone/cone-rod dystrophies.
+- name: Cerebral achromatopsia or dyschromatopsia
+  description: &gt;-
+    Acquired cortical color vision disorders can mimic severe color
+    discrimination loss but reflect post-chiasmal brain injury rather than
+    congenital cone photoreceptor dysfunction.
+  distinguishing_features:
+  - &gt;-
+    Acute or acquired onset after cortical trauma, cerebral infarction, or other
+    neurologic injury favors cerebral achromatopsia or dyschromatopsia.
+  - &gt;-
+    Normal retinal structure and retinal ERG responses favor cerebral rather
+    than retinal achromatopsia.
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      cerebral achromatopsia or dyschromatopsia
+    explanation: &gt;-
+      GeneReviews includes acquired cerebral color-vision disorders in the
+      differential diagnosis of achromatopsia.
 treatments:
 - name: Gene Augmentation Therapy (CNGA3)
   description: &gt;
     Subretinal delivery of AAV8 vectors carrying wild-type CNGA3 cDNA under
-    a cone-specific promoter (human cone arrestin ARR3 promoter). Phase I
-    clinical trial (NCT02610582) demonstrated safety and preliminary evidence
-    of improved cone function including visual acuity gains and improved
-    contrast sensitivity at 1-year and sustained at 3-year follow-up.
+    a cone-specific promoter (human cone arrestin ARR3 promoter). Published
+    phase I data and an active-not-recruiting phase 1/2 trial support continued
+    clinical study of CNGA3 gene augmentation, but this remains investigational
+    rather than an approved achromatopsia therapy.
   treatment_term:
     preferred_term: gene therapy
     term:
@@ -5833,29 +7152,50 @@ treatments:
   evidence:
   - reference: PMID:32352493
     reference_title: &#34;Safety and Vision Outcomes of Subretinal Gene Therapy Targeting Cone Photoreceptors in Achromatopsia: A Nonrandomized Controlled Trial.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;all 9 treated eyes demonstrated some level of improvement in secondary end points regarding cone function, including mean change in visual acuity of 2.9 letters (95% CI, 1.65-4.13; P = .006, 2-sided t test paired samples). Contrast sensitivity improved by a mean of 0.33 log (95% CI, 0.14-0.51 log; P = .003, 2-sided t test paired samples).&#34;
-    explanation: Phase I trial of AAV8.CNGA3 in 9 adult patients with CNGA3-achromatopsia showed statistically significant improvements in visual acuity and contrast sensitivity at 1 year.
+    explanation: &gt;-
+      Phase I trial of AAV8.CNGA3 in nine adults showed safety and secondary
+      outcome signals, but the nonrandomized early-phase design keeps this
+      treatment investigational.
   - reference: PMID:34006508
     reference_title: &#34;Three-year results of phase I retinal gene therapy trial for CNGA3-mutated achromatopsia.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The functional benefits that were noted in the treated eye at year 1 were persistent throughout the following visits at years 2 and 3.&#34;
-    explanation: Three-year follow-up confirms sustained functional benefits and continued safety of AAV8.CNGA3 gene therapy.
+    explanation: &gt;-
+      Three-year follow-up supports durable outcome signals after phase I
+      treatment, while remaining early-phase investigational evidence.
   - reference: PMID:34006508
     reference_title: &#34;Three-year results of phase I retinal gene therapy trial for CNGA3-mutated achromatopsia.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;No adverse or serious adverse events deemed related to the study drug occurred after year 1. Safety of the therapy, as the primary endpoint of this trial, can, therefore, be confirmed.&#34;
-    explanation: Long-term safety of CNGA3 gene therapy confirmed at 3 years.
+    explanation: &gt;-
+      Supports longer-term safety within a phase I cohort but does not establish
+      approval-level efficacy.
+  - reference: clinicaltrials:NCT02610582
+    reference_title: &gt;-
+      Safety and Efficacy of a Bilateral Single Subretinal Injection of
+      rAAV.hCNGA3 in Adult and Minor Patients With CNGA3-linked Achromatopsia
+      Investigated in a Randomized, Wait List Controlled, Observer-masked Trial
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The purpose of this study is to proof the safety and efficacy of a single
+      bilateral subretinal injection of rAAV.hCNGA3 in adult and minor patients
+      with CNGA3-linked achromatopsia.
+    explanation: &gt;-
+      ClinicalTrials.gov documents a phase 1/2 rAAV.hCNGA3 trial; this supports
+      investigational clinical evaluation rather than approved use.
 - name: Gene Augmentation Therapy (CNGB3)
   description: &gt;
-    Subretinal AAV5-mediated delivery of CNGB3 to restore cone CNG channel
+    Subretinal AAV-mediated delivery of CNGB3 aims to restore cone CNG channel
     function. Preclinical studies in CNGB3-mutant dogs demonstrated stable
-    restoration of cone function for at least 33 months. Clinical trials
-    (NCT02599922, NCT03001310) are evaluating safety and efficacy in
-    CNGB3-achromatopsia patients.
+    restoration of cone function for at least 33 months. Human phase 1/2 trials
+    NCT02599922 and NCT03001310 document active-not-recruiting and completed
+    investigational programs, respectively; efficacy remains under evaluation.
   treatment_term:
     preferred_term: gene therapy
     term:
@@ -5874,25 +7214,215 @@ treatments:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Subretinal administration of rAAV5-hCNGB3 with a long version of the red cone opsin promoter in younger animals led to a stable therapeutic effect for at least 33 months.&#34;
     explanation: Demonstrates long-term durability of CNGB3 gene therapy effect in dogs.
+  - reference: clinicaltrials:NCT02599922
+    reference_title: &gt;-
+      A Multiple-Site, Phase 1/2, Safety and Efficacy Trial of a Recombinant
+      Adeno-associated Virus Vector Expressing CNGB3 in Patients With
+      Congenital Achromatopsia Caused by Mutations in the CNGB3 Gene
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This will be a non-randomized, open-label, Phase 1/2 study of the safety
+      and efficacy of AGTC-401 administered to one eye by subretinal injection
+      in individuals with achromatopsia caused by mutations in the CNGB3 gene.
+    explanation: &gt;-
+      Supports investigational human evaluation of CNGB3 gene augmentation, with
+      a primary safety endpoint and secondary efficacy endpoint.
+  - reference: clinicaltrials:NCT03001310
+    reference_title: &gt;-
+      An Open Label, Multi-centre, Phase I/II Dose Escalation Trial of a
+      Recombinant Adeno-associated Virus Vector (AAV2/8-hCARp.hCNGB3) for Gene
+      Therapy of Adults and Children With Achromatopsia Owing to Defects in
+      CNGB3
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A clinical trial of AAV - CNGB3 retinal gene therapy for patients with achromatopsia&#34;
+    explanation: &gt;-
+      Documents a completed CNGB3 AAV trial, supporting trial activity without
+      implying established clinical efficacy.
 - name: Tinted Contact Lenses and Filters
   description: &gt;
-    Red or magenta-tinted contact lenses or filter glasses reduce photophobia
-    and may improve visual comfort and contrast sensitivity by reducing rod
-    saturation in photopic conditions.
+    Dark glasses, special filter glasses, red or magenta-tinted contact lenses,
+    and sun-protection strategies reduce photophobia and may improve visual
+    comfort and contrast sensitivity by limiting glare and rod saturation in
+    photopic conditions.
   treatment_term:
     preferred_term: supportive care
     term:
       id: MAXO:0000950
       label: supportive care
+  target_phenotypes:
+  - preferred_term: Photophobia
+    term:
+      id: HP:0000613
+      label: Photophobia
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Dark or special filter glasses or red-tinted contact lenses
+    explanation: &gt;-
+      GeneReviews recommends tinted lenses or filter glasses to reduce
+      photophobia and improve functional comfort.
 - name: Low Vision Aids
   description: &gt;
-    Magnification devices, high-contrast displays, and adaptive technologies
-    help patients manage reduced visual acuity in daily activities.
+    Magnification devices, high-contrast displays, preferential classroom
+    seating, adaptive educational or occupational technologies, and other
+    low-vision accommodations help patients manage reduced visual acuity in
+    school, work, and daily activities.
   treatment_term:
     preferred_term: supportive care
     term:
       id: MAXO:0000950
       label: supportive care
+  target_phenotypes:
+  - preferred_term: Severely reduced visual acuity
+    term:
+      id: HP:0001141
+      label: Severely reduced visual acuity
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      low vision aids; preferential classroom seating for children; occupational aids
+    explanation: &gt;-
+      GeneReviews supports low-vision, classroom, and occupational
+      accommodations as practical management.
+- name: Ophthalmologic Surveillance
+  description: &gt;
+    Regular ophthalmologic follow-up monitors acuity, refractive error, fundus
+    and OCT changes, photophobia management, and low-vision needs. Children
+    should be followed more frequently because visual development, refractive
+    correction, and educational accommodations change rapidly.
+  treatment_term:
+    preferred_term: eye examination
+    term:
+      id: MAXO:0001155
+      label: eye examination
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Ophthalmologic examination every six to 12 months for children
+    explanation: &gt;-
+      GeneReviews recommends ophthalmologic surveillance every six to 12 months
+      for children and every two to three years for adults.
+- name: Genetic Counseling
+  description: &gt;
+    Genetic counseling explains autosomal recessive inheritance, carrier testing
+    for at-risk relatives, recurrence risk, and reproductive options once the
+    familial pathogenic variants are known.
+  treatment_term:
+    preferred_term: genetic counseling
+    term:
+      id: MAXO:0000079
+      label: genetic counseling
+  evidence:
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+    reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      each sib of an affected individual has a 25% chance of being affected
+    explanation: &gt;-
+      GeneReviews supports counseling around autosomal recessive recurrence risk
+      and available carrier, prenatal, and preimplantation testing.
+clinical_trials:
+- name: NCT02610582
+  phase: PHASE_I
+  status: ACTIVE_NOT_RECRUITING
+  description: &gt;-
+    Combined phase 1/2 rAAV.hCNGA3 subretinal gene-augmentation trial for adult
+    and minor patients with CNGA3-linked achromatopsia, listed as active but
+    not recruiting by ClinicalTrials.gov.
+  target_phenotypes:
+  - preferred_term: Achromatopsia
+    term:
+      id: HP:0011516
+      label: Achromatopsia
+  evidence:
+  - reference: clinicaltrials:NCT02610582
+    reference_title: &gt;-
+      Safety and Efficacy of a Bilateral Single Subretinal Injection of
+      rAAV.hCNGA3 in Adult and Minor Patients With CNGA3-linked Achromatopsia
+      Investigated in a Randomized, Wait List Controlled, Observer-masked Trial
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The purpose of this study is to proof the safety and efficacy of a single
+      bilateral subretinal injection of rAAV.hCNGA3 in adult and minor patients
+      with CNGA3-linked achromatopsia.
+    explanation: &gt;-
+      ClinicalTrials.gov documents the CNGA3-linked achromatopsia gene-therapy
+      trial and its safety/efficacy purpose.
+  notes: &gt;-
+    ClinicalTrials.gov lists phases PHASE1 and PHASE2; this schema stores
+    PHASE_I as the nearest single early-phase value. Status checked against the
+    ClinicalTrials.gov API on 2026-05-31.
+- name: NCT02599922
+  phase: PHASE_I
+  status: ACTIVE_NOT_RECRUITING
+  description: &gt;-
+    Combined phase 1/2 AGTC-401 AAV-CNGB3 trial administering subretinal gene
+    therapy to one eye in individuals with CNGB3-related achromatopsia, listed
+    as active but not recruiting by ClinicalTrials.gov.
+  target_phenotypes:
+  - preferred_term: Achromatopsia
+    term:
+      id: HP:0011516
+      label: Achromatopsia
+  evidence:
+  - reference: clinicaltrials:NCT02599922
+    reference_title: &gt;-
+      A Multiple-Site, Phase 1/2, Safety and Efficacy Trial of a Recombinant
+      Adeno-associated Virus Vector Expressing CNGB3 in Patients With
+      Congenital Achromatopsia Caused by Mutations in the CNGB3 Gene
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This will be a non-randomized, open-label, Phase 1/2 study of the safety
+      and efficacy of AGTC-401 administered to one eye by subretinal injection
+      in individuals with achromatopsia caused by mutations in the CNGB3 gene.
+    explanation: &gt;-
+      ClinicalTrials.gov documents the AGTC-401 CNGB3 trial design and
+      endpoints.
+  notes: &gt;-
+    ClinicalTrials.gov lists phases PHASE1 and PHASE2; this schema stores
+    PHASE_I as the nearest single early-phase value. Status checked against the
+    ClinicalTrials.gov API on 2026-05-31.
+- name: NCT03001310
+  phase: PHASE_I
+  status: COMPLETED
+  description: &gt;-
+    Completed phase 1/2 open-label dose-escalation AAV2/8-CNGB3 trial for
+    adults and children with CNGB3-related achromatopsia.
+  target_phenotypes:
+  - preferred_term: Achromatopsia
+    term:
+      id: HP:0011516
+      label: Achromatopsia
+  evidence:
+  - reference: clinicaltrials:NCT03001310
+    reference_title: &gt;-
+      An Open Label, Multi-centre, Phase I/II Dose Escalation Trial of a
+      Recombinant Adeno-associated Virus Vector (AAV2/8-hCARp.hCNGB3) for Gene
+      Therapy of Adults and Children With Achromatopsia Owing to Defects in
+      CNGB3
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A clinical trial of AAV - CNGB3 retinal gene therapy for patients with achromatopsia&#34;
+    explanation: &gt;-
+      ClinicalTrials.gov documents a completed CNGB3 retinal gene-therapy trial.
+  notes: &gt;-
+    ClinicalTrials.gov lists phases PHASE1 and PHASE2; this schema stores
+    PHASE_I as the nearest single early-phase value. Status checked against the
+    ClinicalTrials.gov API on 2026-05-31.
 animal_models:
 - species: Mouse
   genotype: Cnga3 knockout (Cnga3-/-)
@@ -5952,48 +7482,149 @@ animal_models:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;These encouraging preclinical data helped advance multiple gene therapy programs for CNGA3- and CNGB3-linked ACHM into the clinical phase.&#34;
     explanation: Confirms the role of CNGA3-mutant dogs in advancing gene therapy programs to clinical trials.
-datasets:
+datasets: []
+references:
+- reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+  title: Achromatopsia - GeneReviews - NCBI Bookshelf
+  tags:
+  - GeneReviews
+  findings:
+  - statement: &gt;-
+      GeneReviews provides baseline diagnosis, subtype scope, management,
+      surveillance, genetic counseling, and differential diagnosis for
+      achromatopsia.
+    supporting_text: &gt;-
+      The diagnosis of achromatopsia is established in a proband through
+      clinical and family history, examination for nystagmus, visual acuity
+      testing, color vision assessment, and fundoscopic examination.
+    evidence:
+    - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1418/
+      reference_title: Achromatopsia - GeneReviews - NCBI Bookshelf
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        visual acuity testing, color vision assessment, and fundoscopic examination
+      explanation: &gt;-
+        GeneReviews anchors the diagnostic and management updates added for the
+        review issue.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">1</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                            </div>
+
+                            <div class="reference-title">Achromatopsia - GeneReviews - NCBI Bookshelf</div>
+
+                        </div>
+
+                        <span class="reference-summary">1 finding</span>
+
+                    </div>
+
+
+
+    <div class="reference-findings">
+
+        <div class="reference-finding">
+
+            <div class="reference-finding-statement">GeneReviews provides baseline diagnosis, subtype scope, management, surveillance, genetic counseling, and differential diagnosis for achromatopsia.</div>
+
+
+            <div class="reference-finding-supporting">"The diagnosis of achromatopsia is established in a proband through clinical and family history, examination for nystagmus, visual acuity testing, color vision assessment, and fundoscopic examination."</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1418/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1418/</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"visual acuity testing, color vision assessment, and fundoscopic examination"</div>
+
+
+                <div class="evidence-explanation">GeneReviews anchors the diagnostic and management updates added for the review issue.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </div>
+
+
+
+                </div>
+
+            </div>
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Asta</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Achromatopsia. Core disease mechanisms, molecular and cellular pathways, i...</div>
-                            
-                            
+
+
                             <span class="report-badge">Asta Scientific Corpus Retrieval</span>
-                            
-                            
+
+
                             <span class="report-badge">19 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-22T22:55:14.652499</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Achromatopsia. Core disease mechanisms, molecular and cellular pathways, i...</h1>
 <p>This report is retrieval-only and is generated directly from Asta results.</p>
@@ -6324,29 +7955,29 @@ datasets:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Characteristics Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">38 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-12T14:20:19.317651</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -7385,11 +9016,11 @@ For each section, provide:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -7439,7 +9070,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Achromatopsia", "mondoId": "MONDO:0018852", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Achromatopsia", "yamlRevision": "230bcc3b288e"};
+        const OS_CONFIG = {"diseaseName": "Achromatopsia", "mondoId": "MONDO:0018852", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Achromatopsia", "yamlRevision": "e4452a4a93ce"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

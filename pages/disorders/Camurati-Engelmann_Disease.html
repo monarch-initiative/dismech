@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,22 @@
         <header class="page-header">
             <h1>Camurati-Engelmann Disease</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0007542" target="_blank">
                         MONDO:0007542
                     </a>
                 </span>
-                
-                
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
-                
-                
+
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Sclerosing Bone Dysplasias</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,12 +2989,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Camurati-Engelmann disease (CED), also known as progressive diaphyseal dysplasia, is an autosomal dominant sclerosing bone disorder caused by mutations in TGFB1 encoding transforming growth factor beta 1. It is characterized by progressive cortical thickening (hyperostosis) of the diaphyses of long bones, leading to limb pain, muscle weakness, waddling gait, and easy fatigability. Skull involvement can cause cranial nerve palsies, particularly facial nerve paralysis and hearing loss. The disease typically presents in childhood and shows variable expressivity.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2994,34 +3064,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3029,38 +3099,38 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">25</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3068,32 +3138,32 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3101,405 +3171,886 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal Dominant
-                    
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
+                            HP:0000006
+                        </a>
+                    </span>
+
                 </div>
-                
+
                 <div class="item-desc">Autosomal dominant inheritance with variable expressivity and incomplete penetrance. Some mutation carriers remain asymptomatic.
 </div>
-                
-                
-    
-    
-    
-    
-                
-    
+
+
+
+
+    <div class="item-meta">
+
+        <span class="tag tag-classification">
+            Autosomal dominant inheritance
+        </span>
+
+
+        <span class="tag tag-classification">Penetrance: INCOMPLETE</span>
+
+
+
+        <span class="tag tag-classification">Expressivity: VARIABLE</span>
+
+
+    </div>
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15326622" target="_blank">PMID:15326622</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This pedigree demonstrates the autosomal dominant inheritance pattern, remarkable variation in expressivity, and reduced penetrance."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Four-generation pedigree showing variable expressivity, with an asymptomatic obligate carrier into his ninth decade.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15894597" target="_blank">PMID:15894597</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Radiological symptoms were not fully penetrant, with 94% of the patients showing the typical long bone involvement."</div>
-                
-                
+
+
                 <div class="evidence-explanation">In 100 molecularly confirmed cases, radiological features were not fully penetrant, demonstrating variable expressivity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-tgf-beta-1-activation">
                 <div class="item-name">Constitutive TGF-beta 1 Activation</div>
-                
+
                 <div class="item-desc">Mutations in TGFB1 affect the latency-associated peptide (LAP) region, disrupting the non-covalent association between LAP and mature TGF-beta 1. This leads to premature or excessive release of active TGF-beta 1 from its latent complex, resulting in increased osteoblast activity and cortical bone thickening in the diaphyses.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Osteoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         Osteoclast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         TGF-beta Signaling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Bone Remodeling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Osteoblast Differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001649">GO:0001649</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Rho GTPase-Mediated Osteoclast Activation</span>
+
+	                            <span class="crosslink-desc">Excess active TGF-beta 1 engages non-canonical Rho GTPase signaling that increases osteoclast formation, migration, and resorptive activity.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired Bone Remodeling Balance</span>
+
+	                            <span class="crosslink-desc">Overactive TGF-beta signaling disrupts coordinated bone formation and resorption, producing high-turnover cortical sclerosis.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11278244" target="_blank">PMID:11278244</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"these mutations disrupt the association of beta1-LAP and TGF-beta1 and the subsequent release of the mature TGF-beta1"</div>
+
+
+                <div class="evidence-explanation">Functional studies showed CED-causing LAP mutations (R218H, R218C, C225R) disrupt LAP-TGF-beta1 association, leading to constitutive activation of TGF-beta 1.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11278244" target="_blank">PMID:11278244</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the proliferation of human osteoblastic MG-63 cells was accelerated by coculture with CED fibroblasts"</div>
+
+
+                <div class="evidence-explanation">Demonstrates increased osteoblast activity driven by excess TGF-beta 1 release from CED patient fibroblasts.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30721323" target="_blank">PMID:30721323</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"disease-causing mutations are located within the TGFβ-1 gene and expected to or thought to disrupt the binding between TGFβ1 and its latency-associated peptide resulting in an increased signaling of the pathway and subsequently accelerated bone turnover."</div>
+
+
+                <div class="evidence-explanation">A contemporary review summarizes the TGFB1 LAP-restraint mechanism and links increased signaling to accelerated bone turnover.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rho-gtpase-mediated-osteoclast-activation">
+                <div class="item-name">Rho GTPase-Mediated Osteoclast Activation</div>
+
+                <div class="item-desc">Aberrant TGF-beta 1 signaling activates non-canonical Rho GTPase pathways in osteoclast-lineage cells. This increases osteoclastogenesis, migration, bone resorption, and cytoskeletal remodeling, providing a disease-specific branch from TGFB1 activation to high-turnover cortical sclerosis.
+</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        Osteoclast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        Rho protein signal transduction
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007266" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007266">GO:0007266</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        osteoclast differentiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030316">GO:0030316</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        bone resorption
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045453">GO:0045453</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired Bone Remodeling Balance</span>
+
+	                            <span class="crosslink-desc">Increased osteoclast formation and resorption contribute to uncoupled high-turnover bone remodeling.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11278244" target="_blank">PMID:11278244</a>
+                        <a href="https://bioregistry.io/DOI:10.3389/fendo.2022.913979" target="_blank">DOI:10.3389/fendo.2022.913979</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                </div>
-                
-                <div class="evidence-snippet">"these mutations disrupt the association of beta1-LAP and TGF-beta1 and the subsequent release of the mature TGF-beta1"</div>
-                
-                
-                <div class="evidence-explanation">Functional studies showed CED-causing LAP mutations (R218H, R218C, C225R) disrupt LAP-TGF-beta1 association, leading to constitutive activation of TGF-beta 1.</div>
-                
-                
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11278244" target="_blank">PMID:11278244</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
-                <div class="evidence-snippet">"the proliferation of human osteoblastic MG-63 cells was accelerated by coculture with CED fibroblasts"</div>
-                
-                
-                <div class="evidence-explanation">Demonstrates increased osteoblast activity driven by excess TGF-beta 1 release from CED patient fibroblasts.</div>
-                
-                
-                
+
+                <div class="evidence-snippet">"activation of Rho by TGF-β1 increased osteoclast formation and bone resorption, with increased migration of pre-osteoclasts, as well as cytoskeletal remodeling of pre-osteoclasts and mature osteoclasts."</div>
+
+
+                <div class="evidence-explanation">Cell-based functional evidence supports a non-canonical TGF-beta/Rho osteoclast branch that promotes high-turnover remodeling in CED.</div>
+
+
+
             </div>
-            
-            
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fendo.2022.913979" target="_blank">DOI:10.3389/fendo.2022.913979</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pharmacological inhibition of Rho GTPases effectively rescued hyperactive TGF-β1-induced osteoclastogenesis in vitro."</div>
+
+
+                <div class="evidence-explanation">Rescue with Rho inhibition supports Rho GTPase signaling as a causal modifier of TGF-beta-driven osteoclastogenesis.</div>
+
+
+
+            </div>
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-bone-remodeling-balance">
                 <div class="item-name">Impaired Bone Remodeling Balance</div>
-                
+
                 <div class="item-desc">Excessive TGF-beta 1 signaling shifts the balance between bone formation and resorption toward increased periosteal and endosteal new bone formation. The resulting cortical thickening narrows the medullary cavity of long bones, contributing to marrow failure and pain.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
+                    <span class="tag tag-cell">
+                        Osteoblast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        Osteoclast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
                     <span class="tag tag-bio">
                         Ossification
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001503">GO:0001503</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Bone remodeling
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         Diaphysis
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0004769" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004769" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004769">UBERON:0004769</a>
+
+
+
                     </span>
-                    
+
+                    <span class="tag tag-location">
+                        Medullary cavity of long bone
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0016413" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0016413">UBERON:0016413</a>
+
+
+
+                    </span>
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Diaphyseal Dysplasia</span>
+
+	                            <span class="crosslink-desc">Periosteal and endosteal new bone formation produces progressive diaphyseal hyperostosis and sclerosis.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Stenosis of the Medullary Cavity</span>
+
+	                            <span class="crosslink-desc">Endosteal cortical thickening narrows the medullary cavity of long bones.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Limb Pain</span>
+
+	                            <span class="crosslink-desc">High-turnover cortical remodeling and narrowed marrow spaces contribute to bone pain.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Skull Involvement</span>
+
+	                            <span class="crosslink-desc">The same hyperostotic remodeling can involve the skull and skull base.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cranial Nerve Palsy</span>
+
+	                            <span class="crosslink-desc">Skull-base hyperostosis can narrow foramina and compress cranial nerves.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Increased Intracranial Pressure</span>
+
+	                            <span class="crosslink-desc">Severe cranial involvement can cause intracranial-pressure complications.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10973241" target="_blank">PMID:10973241</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Camurati-Engelmann disease (CED, MIM 131300) is an autosomal dominant, progressive diaphyseal dysplasia characterized by hyperosteosis and sclerosis of the diaphyses of long bones."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Landmark paper identifying TGFB1 as the CED gene and describing the characteristic diaphyseal hyperostosis and sclerosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000479859" target="_blank">DOI:10.1159/000479859</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cortical thickening of the diaphyses of the long bones with narrowing of the medullary cavity are associated with bone pain, waddling gait, muscular weakness, easy fatigability, and a marfanoid body habitus."</div>
+
+
+                <div class="evidence-explanation">Clinical treatment-report background links diaphyseal cortical thickening and medullary narrowing to the core CED clinical phenotype.</div>
+
+
+
+            </div>
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3510,583 +4061,803 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"C225R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LAP domain mutation causing premature TGF-beta 1 activation.\\n\"}, {\"id\": \"R218C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LAP domain mutation disrupting beta1-LAP and TGF-beta1 association.\\n\"}, {\"id\": \"R218H\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common mutation, located in the LAP domain.\\n\"}, {\"id\": \"TGFB1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"association\": \"Causative\", \"variant_count\": 3}}], \"edges\": [{\"source\": \"R218H\", \"target\": \"TGFB1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"R218C\", \"target\": \"TGFB1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"C225R\", \"target\": \"TGFB1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Analgesic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pain management with NSAIDs and analgesics for symptomatic relief.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Audiology and Otolaryngology Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual audiology and otolaryngology care monitor and manage hearing loss; myringotomy may help conductive hearing loss from serous otitis.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Bone Density, Blood Count, and Disease Activity Monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Monitor musculoskeletal disease activity, corticosteroid-related bone density risk, blood pressure during targeted therapy, and annual CBC for marrow consequences of medullary-cavity narrowing.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"C225R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LAP domain mutation causing premature TGF-beta 1 activation.\\n\"}, {\"id\": \"Constitutive TGF-beta 1 Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in TGFB1 affect the latency-associated peptide (LAP) region, disrupting the non-covalent association between LAP and mature TGF-beta 1. This leads to premature or excessive release of active TGF-beta 1 from its latent complex, resulting in increased osteoblast activity and cortical bone thickening in the diaphyses.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteoblast\", \"Osteoclast\"], \"biological_processes\": [\"TGF-beta Signaling\", \"Bone Remodeling\", \"Osteoblast Differentiation\"]}}, {\"id\": \"Corticosteroid Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-dose corticosteroids (deflazacort or prednisone) are the mainstay of treatment. They reduce bone pain and improve muscle weakness, likely through anti-inflammatory effects and suppression of TGF-beta 1 signaling.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Cranial Nerve Palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cranial nerve compression due to skull base hyperostosis, occurring in patients with cranial involvement. Can lead to facial paralysis, hearing loss, and increased intracranial pressure.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001293\"}}, {\"id\": \"Diaphyseal Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cortical thickening (hyperostosis and sclerosis) of the diaphyses of long bones, typically the femora and tibiae. The hallmark radiographic finding, present in 94% of molecularly confirmed cases.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100252\"}}, {\"id\": \"Exophthalmos\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proptosis from narrowing of the optic foramina due to skull hyperostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000520\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural or conductive hearing loss from involvement of the temporal bone and compression of the vestibulocochlear nerve.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Impaired Bone Remodeling Balance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excessive TGF-beta 1 signaling shifts the balance between bone formation and resorption toward increased periosteal and endosteal new bone formation. The resulting cortical thickening narrows the medullary cavity of long bones, contributing to marrow failure and pain.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteoblast\", \"Osteoclast\"], \"biological_processes\": [\"Ossification\", \"Bone remodeling\"], \"locations\": [\"Diaphysis\", \"Medullary cavity of long bone\"]}}, {\"id\": \"Increased Intracranial Pressure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe cranial and skull-base hyperostosis can cause increased intracranial pressure, requiring neurologic monitoring and sometimes decompressive surgery.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002516\"}}, {\"id\": \"Limb Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic limb pain, the most common clinical symptom, present in 68% of patients. Often the presenting complaint in childhood. Pain is typically in the lower extremities and may be debilitating.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0009763\"}}, {\"id\": \"Losartan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Angiotensin receptor blockers have been investigated as TGF-beta pathway modulators. Losartan has shown clinical benefit in eliminating pain and improving exercise capacity and body composition.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"losartan\"]}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal muscle weakness and easy fatigability, present in 39% and 44% of patients respectively. Contributes to reduced exercise tolerance.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Ophthalmology and Intracranial Pressure Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ophthalmic subspecialty care, low vision services, and neurosurgical decompression when needed address ocular manifestations and raised intracranial pressure from severe cranial sclerosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Physical Therapy and Mobility Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical medicine, physical therapy, adaptive devices, and fall precautions address weakness, gait impairment, contractures, and functional mobility.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"R218C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LAP domain mutation disrupting beta1-LAP and TGF-beta1 association.\\n\"}, {\"id\": \"R218H\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common mutation, located in the LAP domain.\\n\"}, {\"id\": \"Rho GTPase-Mediated Osteoclast Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant TGF-beta 1 signaling activates non-canonical Rho GTPase pathways in osteoclast-lineage cells. This increases osteoclastogenesis, migration, bone resorption, and cytoskeletal remodeling, providing a disease-specific branch from TGFB1 activation to high-turnover cortical sclerosis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteoclast\"], \"biological_processes\": [\"Rho protein signal transduction\", \"osteoclast differentiation\", \"bone resorption\"]}}, {\"id\": \"Skull Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperostosis and sclerosis of the skull, occurring in 54% of patients. May lead to cranial nerve compression, increased intracranial pressure, and cosmetic changes.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004437\"}}, {\"id\": \"Stenosis of the Medullary Cavity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Endosteal cortical thickening can narrow the medullary cavity of long bones, linking the radiographic bone phenotype to pain, gait impairment, weakness, and possible hematologic complications.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100254\"}}, {\"id\": \"TGFB1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"Waddling Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Waddling gait due to proximal muscle weakness and lower limb involvement, present in 48% of patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002515\"}}, {\"id\": \"Zoledronic Acid for Severe CED\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bisphosphonate therapy with zoledronic acid is not established first-line CED care, but severe case reports describe improvement in pain, ambulation, bone lesions, body habitus, and bone-turnover markers.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Constitutive TGF-beta 1 Activation\", \"target\": \"Rho GTPase-Mediated Osteoclast Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess active TGF-beta 1 engages non-canonical Rho GTPase signaling that increases osteoclast formation, migration, and resorptive activity.\"}, {\"source\": \"Constitutive TGF-beta 1 Activation\", \"target\": \"Impaired Bone Remodeling Balance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Overactive TGF-beta signaling disrupts coordinated bone formation and resorption, producing high-turnover cortical sclerosis.\"}, {\"source\": \"Rho GTPase-Mediated Osteoclast Activation\", \"target\": \"Impaired Bone Remodeling Balance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased osteoclast formation and resorption contribute to uncoupled high-turnover bone remodeling.\"}, {\"source\": \"Impaired Bone Remodeling Balance\", \"target\": \"Diaphyseal Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Periosteal and endosteal new bone formation produces progressive diaphyseal hyperostosis and sclerosis.\"}, {\"source\": \"Impaired Bone Remodeling Balance\", \"target\": \"Stenosis of the Medullary Cavity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endosteal cortical thickening narrows the medullary cavity of long bones.\"}, {\"source\": \"Impaired Bone Remodeling Balance\", \"target\": \"Limb Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High-turnover cortical remodeling and narrowed marrow spaces contribute to bone pain.\"}, {\"source\": \"Impaired Bone Remodeling Balance\", \"target\": \"Skull Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same hyperostotic remodeling can involve the skull and skull base.\"}, {\"source\": \"Impaired Bone Remodeling Balance\", \"target\": \"Cranial Nerve Palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base hyperostosis can narrow foramina and compress cranial nerves.\"}, {\"source\": \"Impaired Bone Remodeling Balance\", \"target\": \"Increased Intracranial Pressure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe cranial involvement can cause intracranial-pressure complications.\"}, {\"source\": \"Corticosteroid Therapy\", \"target\": \"Limb Pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Corticosteroid Therapy\", \"target\": \"Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Losartan\", \"target\": \"Limb Pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Zoledronic Acid for Severe CED\", \"target\": \"Limb Pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Zoledronic Acid for Severe CED\", \"target\": \"Stenosis of the Medullary Cavity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Analgesic Therapy\", \"target\": \"Limb Pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Mobility Support\", \"target\": \"Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Mobility Support\", \"target\": \"Waddling Gait\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Audiology and Otolaryngology Care\", \"target\": \"Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmology and Intracranial Pressure Management\", \"target\": \"Exophthalmos\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmology and Intracranial Pressure Management\", \"target\": \"Increased Intracranial Pressure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bone Density, Blood Count, and Disease Activity Monitoring\", \"target\": \"Stenosis of the Medullary Cavity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"R218H\", \"target\": \"TGFB1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"R218C\", \"target\": \"TGFB1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"C225R\", \"target\": \"TGFB1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">9</span>
+                <span class="card-count">11</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
-                
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(3)</span></button>
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
-                
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hearing Loss
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank">
-                            Hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000365)</span>
-                        </span>
-                        
+                        Hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
-                
+
+                <div class="evidence-snippet">"Management of hearing loss per otolaryngologist; bilateral myringotomy can improve conductive hearing loss resulting from serous otitis."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports hearing loss as a managed manifestation of CED and notes conductive hearing loss in some individuals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Exophthalmos
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank">
-                            Proptosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000520)</span>
-                        </span>
-                        
+                        Proptosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000520">HP:0000520</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
-                
+
+                <div class="evidence-snippet">"Facial features such as macrocephaly, frontal bossing, enlargement of the mandible, proptosis, and cranial nerve impingement resulting in facial palsy are seen in severely affected individuals later in life."</div>
+
+
+                <div class="evidence-explanation">GeneReviews directly includes proptosis among severe CED manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Skull Involvement
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0004437" target="_blank">
-                            Cranial hyperostosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004437)</span>
-                        </span>
-                        
+                        Cranial hyperostosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004437" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004437">HP:0004437</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15894597" target="_blank">PMID:15894597</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A large percentage of the patients also showed involvement of the skull (54%) and pelvis (63%)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Skull involvement documented in 54% of 100 molecularly confirmed CED patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Reduced Subcutaneous Fat
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003717" target="_blank">
-                            Minimal subcutaneous fat
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003717)</span>
-                        </span>
-                        
+                        Minimal subcutaneous fat
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003717" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003717">HP:0003717</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25140400" target="_blank">PMID:25140400</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"There was also a considerable improvement in body composition with increased lean and adipose tissue. Notably, the improvement in fat deposition had not been previously observed with other treatments in CED."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Losartan treatment improved fat deposition, confirming that reduced subcutaneous fat is a recognized feature of CED.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Diaphyseal Dysplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0100252" target="_blank">
-                            Diaphyseal dysplasia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0100252)</span>
-                        </span>
-                        
+                        Diaphyseal dysplasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100252">HP:0100252</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15894597" target="_blank">PMID:15894597</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Radiological symptoms were not fully penetrant, with 94% of the patients showing the typical long bone involvement."</div>
-                
-                
+
+
                 <div class="evidence-explanation">In 100 molecularly confirmed CED patients from 24 families, 94% showed characteristic long bone diaphyseal involvement.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Muscle Weakness
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank">
-                            Muscle weakness
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001324)</span>
-                        </span>
-                        
+                        Muscle weakness
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15894597" target="_blank">PMID:15894597</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"easy fatigability (44%), and muscle weakness (39%) were other important features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Muscle weakness (39%) and easy fatigability (44%) were documented as prominent clinical features in 100 CED patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Waddling Gait
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank">
-                            Waddling gait
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002515)</span>
-                        </span>
-                        
+                        Waddling gait
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002515">HP:0002515</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15894597" target="_blank">PMID:15894597</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A waddling gait (48%), easy fatigability (44%), and muscle weakness (39%) were other important features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Waddling gait was present in 48% of molecularly confirmed CED patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cranial Nerve Palsy
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001293" target="_blank">
-                            Cranial nerve compression
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001293)</span>
-                        </span>
-                        
+                        Cranial nerve compression
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001293" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001293">HP:0001293</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15326622" target="_blank">PMID:15326622</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Cranial involvement, which occurs in 61% of patients, can be severe, entrapping cranial nerves or causing increased intracranial pressure."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Literature review found cranial involvement in 61% of CED patients, with potential for cranial nerve entrapment.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15326622" target="_blank">PMID:15326622</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The most severely affected individual had progression of mild skull hyperostosis to severe skull thickening and cranial nerve compression over 30 years."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Documents progressive cranial nerve compression from skull hyperostosis over decades.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Increased Intracranial Pressure
+
+
+                    <span class="phenotype-id">
+                        Increased intracranial pressure
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002516">HP:0002516</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15326622" target="_blank">PMID:15326622</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cranial involvement, which occurs in 61% of patients, can be severe, entrapping cranial nerves or causing increased intracranial pressure."</div>
+
+
+                <div class="evidence-explanation">The review directly supports intracranial-pressure complications in severe cranial CED.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Limb Pain
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank">
-                            Limb pain
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0009763)</span>
-                        </span>
-                        
+                        Limb pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009763">HP:0009763</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15894597" target="_blank">PMID:15894597</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pain in the extremities was the most common clinical symptom, present in 68% of the patients."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Limb pain was the most frequent symptom in a large review of 100 molecularly confirmed CED patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15326622" target="_blank">PMID:15326622</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Symptomatic relatives presented with lower limb pain and weakness."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Four-generation pedigree confirms lower limb pain as a presenting feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Stenosis of the Medullary Cavity
+
+
+                    <span class="phenotype-id">
+                        Stenosis of the medullary cavity of the long bones
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100254" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100254">HP:0100254</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000479859" target="_blank">DOI:10.1159/000479859</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cortical thickening of the diaphyses of the long bones with narrowing of the medullary cavity are associated with bone pain, waddling gait, muscular weakness, easy fatigability, and a marfanoid body habitus."</div>
+
+
+                <div class="evidence-explanation">The abstract directly supports medullary-cavity narrowing as part of the CED long-bone phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4111,324 +4882,1174 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     TGFB1 Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10973241" target="_blank">PMID:10973241</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"As the human transforming growth factor-1 gene (TGFB1) is located within this interval, we considered it a candidate gene for CED."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Landmark paper identifying TGFB1 as the causative gene for CED, with mutations in the 19q13 region.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11062463" target="_blank">PMID:11062463</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"this region contains the gene encoding transforming growth factor-beta 1 (TGFB1), an important mediator of bone remodelling, we evaluated TGFB1 as a candidate gene for causing CED."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Independent identification of TGFB1 LAP domain mutations as the cause of CED.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11278244" target="_blank">PMID:11278244</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"three different missense mutations (R218H, R218C, and C225R) of beta1-LAP cause the Camurati-Engelmann disease (CED)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Functional characterization of the three most common LAP mutations, confirming they cause constitutive TGF-beta1 activation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
             <div class="evidence-more">+ 1 more reference</div>
-            
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">8</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Corticosteroid Therapy
                 </div>
-                
-                
-                
-                
-                
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000058">MAXO:0000058</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
                 <div class="item-desc">Low-dose corticosteroids (deflazacort or prednisone) are the mainstay of treatment. They reduce bone pain and improve muscle weakness, likely through anti-inflammatory effects and suppression of TGF-beta 1 signaling.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Limb pain
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009763">HP:0009763</a>
+
+
+
+                    </span>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Muscle weakness
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Corticosteroid therapy as needed to control symptoms; losartan may be a helpful adjuvant therapy to minimize the need for steroids to control pain."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports corticosteroids as targeted symptomatic therapy and frames losartan as an adjuvant pain-control option.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11278244" target="_blank">PMID:11278244</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The growth suppression observed was attenuated by neutralizing antibody to TGF-beta1 or by treatment of dexamethasone."</div>
+
+
+                <div class="evidence-explanation">In vitro evidence that dexamethasone attenuates TGF-beta1-mediated growth effects, providing a mechanistic rationale for corticosteroid therapy in CED.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15326622" target="_blank">PMID:15326622</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Two of the symptomatic individuals were treated successfully with prednisone."</div>
+
+
+                <div class="evidence-explanation">Clinical report of successful prednisone treatment in CED patients.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Losartan
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000058">MAXO:0000058</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+                    <span class="tag tag-treatment">
+                        losartan
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6541" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6541">CHEBI:6541</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Angiotensin receptor blockers have been investigated as TGF-beta pathway modulators. Losartan has shown clinical benefit in eliminating pain and improving exercise capacity and body composition.
+</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Limb pain
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009763">HP:0009763</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11278244" target="_blank">PMID:11278244</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
-                
-                <div class="evidence-snippet">"The growth suppression observed was attenuated by neutralizing antibody to TGF-beta1 or by treatment of dexamethasone."</div>
-                
-                
-                <div class="evidence-explanation">In vitro evidence that dexamethasone attenuates TGF-beta1-mediated growth effects, providing a mechanistic rationale for corticosteroid therapy in CED.</div>
-                
-                
-                
+
+                <div class="evidence-snippet">"losartan may be a helpful adjuvant therapy to minimize the need for steroids to control pain."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports losartan as an adjuvant targeted therapy for pain control in CED.</div>
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15326622" target="_blank">PMID:15326622</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25140400" target="_blank">PMID:25140400</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
-                <div class="evidence-snippet">"Two of the symptomatic individuals were treated successfully with prednisone."</div>
-                
-                
-                <div class="evidence-explanation">Clinical report of successful prednisone treatment in CED patients.</div>
-                
-                
-                
+
+                <div class="evidence-snippet">"losartan treatment led to the complete elimination of the previously severe and incapacitating pain, with an increased ability to walk and perform physical activities."</div>
+
+
+                <div class="evidence-explanation">Case report showing losartan completely eliminated pain and improved exercise capacity in a 9-year-old CED patient.</div>
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15326622" target="_blank">PMID:15326622</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25140400" target="_blank">PMID:25140400</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
-                <div class="evidence-snippet">"Therapy with corticosteroids should be attempted in all symptomatic patients."</div>
-                
-                
-                <div class="evidence-explanation">Literature review recommends corticosteroid therapy for all symptomatic CED patients.</div>
-                
-                
-                
+
+                <div class="evidence-snippet">"In light of our findings, losartan may be a useful option in CED management."</div>
+
+
+                <div class="evidence-explanation">Authors conclude losartan is a promising treatment option for CED.</div>
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
-                    Losartan
+                    Zoledronic Acid for Severe CED
                 </div>
-                
-                
-                
-                
-                
-                <div class="item-desc">Angiotensin receptor blockers have been investigated as TGF-beta pathway modulators. Losartan has shown clinical benefit in eliminating pain and improving exercise capacity and body composition.
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000058">MAXO:0000058</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Bisphosphonate therapy with zoledronic acid is not established first-line CED care, but severe case reports describe improvement in pain, ambulation, bone lesions, body habitus, and bone-turnover markers.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Limb pain
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009763">HP:0009763</a>
+
+
+
+                    </span>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Stenosis of the medullary cavity of the long bones
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100254" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100254">HP:0100254</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25140400" target="_blank">PMID:25140400</a>
+                        <a href="https://bioregistry.io/DOI:10.1159/000479859" target="_blank">DOI:10.1159/000479859</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
-                
-                <div class="evidence-snippet">"losartan treatment led to the complete elimination of the previously severe and incapacitating pain, with an increased ability to walk and perform physical activities."</div>
-                
-                
-                <div class="evidence-explanation">Case report showing losartan completely eliminated pain and improved exercise capacity in a 9-year-old CED patient.</div>
-                
-                
-                
+
+                <div class="evidence-snippet">"In both probands, zoledronic acid treatment significantly improved the clinical symptoms, bone lesions, ambulation, and body habitus."</div>
+
+
+                <div class="evidence-explanation">Case-based clinical evidence supports zoledronic acid as a lower-evidence severe-CED therapeutic option.</div>
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25140400" target="_blank">PMID:25140400</a>
+                        <a href="https://bioregistry.io/DOI:10.1159/000479859" target="_blank">DOI:10.1159/000479859</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
-                
-                <div class="evidence-snippet">"In light of our findings, losartan may be a useful option in CED management."</div>
-                
-                
-                <div class="evidence-explanation">Authors conclude losartan is a promising treatment option for CED.</div>
-                
-                
-                
+
+                <div class="evidence-snippet">"Zoledronic acid treatment may be an important therapeutic option in patients with severe CED."</div>
+
+
+                <div class="evidence-explanation">The authors explicitly frame zoledronic acid as a potential option for severe disease rather than a general standard of care.</div>
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Analgesic Therapy
                 </div>
-                
-                
-                
-                
-                
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">supportive care</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
                 <div class="item-desc">Pain management with NSAIDs and analgesics for symptomatic relief.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Limb pain
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009763">HP:0009763</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pain is also managed with analgesics, non-pharmacologic methods, and on occasion surgical treatment."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports analgesic and non-pharmacologic pain management.</div>
+
+
+
             </div>
-            
+
+
         </div>
-        
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Physical Therapy and Mobility Support
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">physical therapy</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Physical medicine, physical therapy, adaptive devices, and fall precautions address weakness, gait impairment, contractures, and functional mobility.
+</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Muscle weakness
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+
+
+                    </span>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Waddling gait
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002515">HP:0002515</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Management of muscle weakness and gait issues per physical medicine and rehabilitation specialists and physical therapist."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports physical medicine and physical therapy for weakness and gait issues.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Audiology and Otolaryngology Care
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">audiologist evaluation</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000734" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000734">MAXO:0000734</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Annual audiology and otolaryngology care monitor and manage hearing loss; myringotomy may help conductive hearing loss from serous otitis.
+</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Hearing impairment
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Management of hearing loss per otolaryngologist; bilateral myringotomy can improve conductive hearing loss resulting from serous otitis."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports specialty hearing management and a conductive-hearing intervention when serous otitis is present.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"annual audiology evaluation with BAER and inner ear CT as needed;"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports annual audiology surveillance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Ophthalmology and Intracranial Pressure Management
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">ophthalmologist evaluation</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000703" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000703">MAXO:0000703</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Ophthalmic subspecialty care, low vision services, and neurosurgical decompression when needed address ocular manifestations and raised intracranial pressure from severe cranial sclerosis.
+</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Proptosis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000520">HP:0000520</a>
+
+
+
+                    </span>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Increased intracranial pressure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002516">HP:0002516</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment of ocular manifestations per ophthalmic subspecialist with low vision services as needed; craniectomy may be needed to reduce intracranial pressure"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports ophthalmology care and decompressive surgery for pressure complications in severe cranial disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Bone Density, Blood Count, and Disease Activity Monitoring
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">supportive care</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Monitor musculoskeletal disease activity, corticosteroid-related bone density risk, blood pressure during targeted therapy, and annual CBC for marrow consequences of medullary-cavity narrowing.
+</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Stenosis of the medullary cavity of the long bones
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100254" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100254">HP:0100254</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"serum ESR and bone scan as needed in those with acute bone pain to assess disease activity; evaluation of bone mineral density annually in those treated with corticosteroids;"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports disease-activity and bone-density monitoring.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"assess blood pressure at each visit; annual CBC."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports blood-pressure and blood-count surveillance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4440,7 +6061,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Camurati-Engelmann Disease
 creation_date: &#39;2026-02-13T00:31:42Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 category: Mendelian
 description: &gt;
   Camurati-Engelmann disease (CED), also known as progressive diaphyseal dysplasia,
@@ -4459,6 +6079,13 @@ parents:
 - Sclerosing Bone Dysplasias
 inheritance:
 - name: Autosomal Dominant
+  inheritance_term:
+    preferred_term: Autosomal dominant inheritance
+    term:
+      id: HP:0000006
+      label: Autosomal dominant inheritance
+  penetrance: INCOMPLETE
+  expressivity: VARIABLE
   description: &gt;
     Autosomal dominant inheritance with variable expressivity and
     incomplete penetrance. Some mutation carriers remain asymptomatic.
@@ -4548,22 +6175,105 @@ pathophysiology:
       Demonstrates increased osteoblast activity driven by excess
       TGF-beta 1 release from CED patient fibroblasts.
     evidence_source: IN_VITRO
+  - reference: PMID:30721323
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      disease-causing mutations are located within the TGFβ-1 gene and expected to or thought to disrupt the binding between TGFβ1 and its latency-associated peptide resulting in an increased signaling of the pathway and subsequently accelerated bone turnover.
+    explanation: &gt;-
+      A contemporary review summarizes the TGFB1 LAP-restraint mechanism and
+      links increased signaling to accelerated bone turnover.
+  downstream:
+  - target: Rho GTPase-Mediated Osteoclast Activation
+    description: &gt;-
+      Excess active TGF-beta 1 engages non-canonical Rho GTPase signaling that
+      increases osteoclast formation, migration, and resorptive activity.
+  - target: Impaired Bone Remodeling Balance
+    description: &gt;-
+      Overactive TGF-beta signaling disrupts coordinated bone formation and
+      resorption, producing high-turnover cortical sclerosis.
+- name: Rho GTPase-Mediated Osteoclast Activation
+  description: &gt;
+    Aberrant TGF-beta 1 signaling activates non-canonical Rho GTPase pathways in
+    osteoclast-lineage cells. This increases osteoclastogenesis, migration, bone
+    resorption, and cytoskeletal remodeling, providing a disease-specific branch
+    from TGFB1 activation to high-turnover cortical sclerosis.
+  cell_types:
+  - preferred_term: Osteoclast
+    term:
+      id: CL:0000092
+      label: osteoclast
+  biological_processes:
+  - preferred_term: Rho protein signal transduction
+    term:
+      id: GO:0007266
+      label: Rho protein signal transduction
+  - preferred_term: osteoclast differentiation
+    term:
+      id: GO:0030316
+      label: osteoclast differentiation
+  - preferred_term: bone resorption
+    term:
+      id: GO:0045453
+      label: bone resorption
+  evidence:
+  - reference: DOI:10.3389/fendo.2022.913979
+    reference_title: &#34;Aberrant activation of TGF-β1 induces high bone turnover via Rho GTPases-mediated cytoskeletal remodeling in Camurati-Engelmann disease&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      activation of Rho by TGF-β1 increased osteoclast formation and bone resorption, with increased migration of pre-osteoclasts, as well as cytoskeletal remodeling of pre-osteoclasts and mature osteoclasts.
+    explanation: &gt;-
+      Cell-based functional evidence supports a non-canonical TGF-beta/Rho
+      osteoclast branch that promotes high-turnover remodeling in CED.
+  - reference: DOI:10.3389/fendo.2022.913979
+    reference_title: &#34;Aberrant activation of TGF-β1 induces high bone turnover via Rho GTPases-mediated cytoskeletal remodeling in Camurati-Engelmann disease&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      pharmacological inhibition of Rho GTPases effectively rescued hyperactive TGF-β1-induced osteoclastogenesis in vitro.
+    explanation: &gt;-
+      Rescue with Rho inhibition supports Rho GTPase signaling as a causal
+      modifier of TGF-beta-driven osteoclastogenesis.
+  downstream:
+  - target: Impaired Bone Remodeling Balance
+    description: &gt;-
+      Increased osteoclast formation and resorption contribute to uncoupled
+      high-turnover bone remodeling.
 - name: Impaired Bone Remodeling Balance
   description: &gt;
     Excessive TGF-beta 1 signaling shifts the balance between bone formation
     and resorption toward increased periosteal and endosteal new bone formation.
     The resulting cortical thickening narrows the medullary cavity of long bones,
     contributing to marrow failure and pain.
+  cell_types:
+  - preferred_term: Osteoblast
+    term:
+      id: CL:0000062
+      label: osteoblast
+  - preferred_term: Osteoclast
+    term:
+      id: CL:0000092
+      label: osteoclast
   biological_processes:
   - preferred_term: Ossification
     term:
       id: GO:0001503
       label: ossification
+  - preferred_term: Bone remodeling
+    term:
+      id: GO:0046849
+      label: bone remodeling
   locations:
   - preferred_term: Diaphysis
     term:
       id: UBERON:0004769
       label: diaphysis
+  - preferred_term: Medullary cavity of long bone
+    term:
+      id: UBERON:0016413
+      label: medullary cavity of long bone
   evidence:
   - reference: PMID:10973241
     reference_title: &#34;Domain-specific mutations in TGFB1 result in Camurati-Engelmann disease.&#34;
@@ -4575,6 +6285,36 @@ pathophysiology:
     explanation: &gt;-
       Landmark paper identifying TGFB1 as the CED gene and describing
       the characteristic diaphyseal hyperostosis and sclerosis.
+  - reference: DOI:10.1159/000479859
+    reference_title: &#34;Significant Improvement of Clinical Symptoms, Bone Lesions, and Bone Turnover after Long-Term Zoledronic Acid Treatment in Patients with a Severe Form of Camurati-Engelmann Disease&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Cortical thickening of the diaphyses of the long bones with narrowing of the medullary cavity are associated with bone pain, waddling gait, muscular weakness, easy fatigability, and a marfanoid body habitus.
+    explanation: &gt;-
+      Clinical treatment-report background links diaphyseal cortical thickening
+      and medullary narrowing to the core CED clinical phenotype.
+  downstream:
+  - target: Diaphyseal Dysplasia
+    description: &gt;-
+      Periosteal and endosteal new bone formation produces progressive
+      diaphyseal hyperostosis and sclerosis.
+  - target: Stenosis of the Medullary Cavity
+    description: &gt;-
+      Endosteal cortical thickening narrows the medullary cavity of long bones.
+  - target: Limb Pain
+    description: &gt;-
+      High-turnover cortical remodeling and narrowed marrow spaces contribute to
+      bone pain.
+  - target: Skull Involvement
+    description: &gt;-
+      The same hyperostotic remodeling can involve the skull and skull base.
+  - target: Cranial Nerve Palsy
+    description: &gt;-
+      Skull-base hyperostosis can narrow foramina and compress cranial nerves.
+  - target: Increased Intracranial Pressure
+    description: &gt;-
+      Severe cranial involvement can cause intracranial-pressure complications.
 phenotypes:
 - name: Diaphyseal Dysplasia
   description: &gt;
@@ -4693,6 +6433,26 @@ phenotypes:
     explanation: &gt;-
       Documents progressive cranial nerve compression from skull
       hyperostosis over decades.
+- name: Increased Intracranial Pressure
+  description: &gt;
+    Severe cranial and skull-base hyperostosis can cause increased intracranial
+    pressure, requiring neurologic monitoring and sometimes decompressive
+    surgery.
+  phenotype_term:
+    preferred_term: Increased intracranial pressure
+    term:
+      id: HP:0002516
+      label: Increased intracranial pressure
+  evidence:
+  - reference: PMID:15326622
+    reference_title: &#34;Marked phenotypic variability in progressive diaphyseal dysplasia (Camurati-Engelmann disease): report of a four-generation pedigree, identification of a mutation in TGFB1, and review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Cranial involvement, which occurs in 61% of patients, can be severe, entrapping cranial nerves or causing increased intracranial pressure.
+    explanation: &gt;-
+      The review directly supports intracranial-pressure complications in severe
+      cranial CED.
 - name: Skull Involvement
   description: &gt;
     Hyperostosis and sclerosis of the skull, occurring in 54% of patients.
@@ -4713,6 +6473,26 @@ phenotypes:
     explanation: &gt;-
       Skull involvement documented in 54% of 100 molecularly confirmed
       CED patients.
+- name: Stenosis of the Medullary Cavity
+  description: &gt;
+    Endosteal cortical thickening can narrow the medullary cavity of long bones,
+    linking the radiographic bone phenotype to pain, gait impairment, weakness,
+    and possible hematologic complications.
+  phenotype_term:
+    preferred_term: Stenosis of the medullary cavity of the long bones
+    term:
+      id: HP:0100254
+      label: Stenosis of the medullary cavity of the long bones
+  evidence:
+  - reference: DOI:10.1159/000479859
+    reference_title: &#34;Significant Improvement of Clinical Symptoms, Bone Lesions, and Bone Turnover after Long-Term Zoledronic Acid Treatment in Patients with a Severe Form of Camurati-Engelmann Disease&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Cortical thickening of the diaphyses of the long bones with narrowing of the medullary cavity are associated with bone pain, waddling gait, muscular weakness, easy fatigability, and a marfanoid body habitus.
+    explanation: &gt;-
+      The abstract directly supports medullary-cavity narrowing as part of the
+      CED long-bone phenotype.
 - name: Hearing Loss
   description: &gt;
     Sensorineural or conductive hearing loss from involvement of the
@@ -4722,6 +6502,16 @@ phenotypes:
     term:
       id: HP:0000365
       label: Hearing impairment
+  evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Management of hearing loss per otolaryngologist; bilateral myringotomy can improve conductive hearing loss resulting from serous otitis.
+    explanation: &gt;-
+      GeneReviews supports hearing loss as a managed manifestation of CED and
+      notes conductive hearing loss in some individuals.
 - name: Exophthalmos
   description: &gt;
     Proptosis from narrowing of the optic foramina due to skull hyperostosis.
@@ -4730,6 +6520,15 @@ phenotypes:
     term:
       id: HP:0000520
       label: Proptosis
+  evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Facial features such as macrocephaly, frontal bossing, enlargement of the mandible, proptosis, and cranial nerve impingement resulting in facial palsy are seen in severely affected individuals later in life.
+    explanation: &gt;-
+      GeneReviews directly includes proptosis among severe CED manifestations.
 - name: Reduced Subcutaneous Fat
   description: &gt;
     Decreased subcutaneous fat and thin body habitus, contributing to
@@ -4806,13 +6605,81 @@ genetic:
       mutation resulting in an R218H substitution in the affected individuals
     explanation: &gt;-
       Confirms R218H as a recurrent TGFB1 mutation in CED pedigrees.
+diagnosis:
+- name: Clinical, Radiographic, and Molecular Diagnosis
+  description: &gt;-
+    Camurati-Engelmann disease is diagnosed from progressive bilateral
+    diaphyseal cortical thickening and sclerosis of the long bones and skull
+    base on radiographs, with limb pain and waddling gait, and is confirmed
+    (when radiographic findings are inconclusive) by identification of a
+    heterozygous TGFB1 pathogenic variant. Skull-base involvement warrants
+    surveillance for cranial nerve compression and raised intracranial
+    pressure.
+  diagnosis_term:
+    preferred_term: molecular genetic testing
+    term:
+      id: MAXO:0000533
+      label: molecular genetic testing
+  evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The diagnosis of CED is established in a proband with the characteristic radiographic findings or (if radiographic findings are inconclusive) a heterozygous pathogenic variant in TGFB1 identified by molecular genetic testing.&#34;
+    explanation: &gt;-
+      GeneReviews defines the combined radiographic and TGFB1 molecular diagnostic criteria for Camurati-Engelmann disease.
+- name: Skull-Base and Neurologic Surveillance
+  description: &gt;-
+    Individuals with skull-base sclerosis or neurologic symptoms should be
+    monitored for cranial nerve deficits, headaches, and increased intracranial
+    pressure; head and neck CT can define skull-base disease and guide surgical
+    planning when symptoms emerge.
+  diagnosis_term:
+    preferred_term: computed tomography procedure
+    term:
+      id: MAXO:0000571
+      label: computed tomography procedure
+  evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      annual neurologic examination to assess for cranial nerve deficits and headaches; monitor for signs and symptoms of increased intracranial pressure at each visit; head and neck CT as needed in those with sclerosis of the skull base and neurologic symptoms
+    explanation: &gt;-
+      GeneReviews supports neurologic surveillance and skull-base CT when
+      sclerosis is accompanied by neurologic symptoms.
 treatments:
 - name: Corticosteroid Therapy
   description: &gt;
     Low-dose corticosteroids (deflazacort or prednisone) are the mainstay
     of treatment. They reduce bone pain and improve muscle weakness, likely
     through anti-inflammatory effects and suppression of TGF-beta 1 signaling.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  therapeutic_modality: SMALL_MOLECULE
+  target_phenotypes:
+  - preferred_term: Limb pain
+    term:
+      id: HP:0009763
+      label: Limb pain
+  - preferred_term: Muscle weakness
+    term:
+      id: HP:0001324
+      label: Muscle weakness
   evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Corticosteroid therapy as needed to control symptoms; losartan may be a helpful adjuvant therapy to minimize the need for steroids to control pain.
+    explanation: &gt;-
+      GeneReviews supports corticosteroids as targeted symptomatic therapy and
+      frames losartan as an adjuvant pain-control option.
   - reference: PMID:11278244
     reference_title: &#34;Domain-specific mutations of a transforming growth factor (TGF)-beta 1 latency-associated peptide cause Camurati-Engelmann disease because of the formation of a constitutively active form of TGF-beta 1.&#34;
     supports: SUPPORT
@@ -4846,7 +6713,32 @@ treatments:
     Angiotensin receptor blockers have been investigated as TGF-beta
     pathway modulators. Losartan has shown clinical benefit in eliminating
     pain and improving exercise capacity and body composition.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: losartan
+      term:
+        id: CHEBI:6541
+        label: losartan
+  therapeutic_modality: SMALL_MOLECULE
+  target_phenotypes:
+  - preferred_term: Limb pain
+    term:
+      id: HP:0009763
+      label: Limb pain
   evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      losartan may be a helpful adjuvant therapy to minimize the need for steroids to control pain.
+    explanation: &gt;-
+      GeneReviews supports losartan as an adjuvant targeted therapy for pain
+      control in CED.
   - reference: PMID:25140400
     reference_title: &#34;Elimination of pain and improvement of exercise capacity in Camurati-Engelmann disease with losartan.&#34;
     supports: SUPPORT
@@ -4865,21 +6757,203 @@ treatments:
       management.
     explanation: &gt;-
       Authors conclude losartan is a promising treatment option for CED.
+- name: Zoledronic Acid for Severe CED
+  description: &gt;
+    Bisphosphonate therapy with zoledronic acid is not established first-line
+    CED care, but severe case reports describe improvement in pain, ambulation,
+    bone lesions, body habitus, and bone-turnover markers.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  therapeutic_modality: SMALL_MOLECULE
+  target_phenotypes:
+  - preferred_term: Limb pain
+    term:
+      id: HP:0009763
+      label: Limb pain
+  - preferred_term: Stenosis of the medullary cavity of the long bones
+    term:
+      id: HP:0100254
+      label: Stenosis of the medullary cavity of the long bones
+  evidence:
+  - reference: DOI:10.1159/000479859
+    reference_title: &#34;Significant Improvement of Clinical Symptoms, Bone Lesions, and Bone Turnover after Long-Term Zoledronic Acid Treatment in Patients with a Severe Form of Camurati-Engelmann Disease&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In both probands, zoledronic acid treatment significantly improved the clinical symptoms, bone lesions, ambulation, and body habitus.
+    explanation: &gt;-
+      Case-based clinical evidence supports zoledronic acid as a lower-evidence
+      severe-CED therapeutic option.
+  - reference: DOI:10.1159/000479859
+    reference_title: &#34;Significant Improvement of Clinical Symptoms, Bone Lesions, and Bone Turnover after Long-Term Zoledronic Acid Treatment in Patients with a Severe Form of Camurati-Engelmann Disease&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Zoledronic acid treatment may be an important therapeutic option in patients with severe CED.
+    explanation: &gt;-
+      The authors explicitly frame zoledronic acid as a potential option for
+      severe disease rather than a general standard of care.
 - name: Analgesic Therapy
   description: &gt;
     Pain management with NSAIDs and analgesics for symptomatic relief.
+  treatment_term:
+    preferred_term: supportive care
+    term:
+      id: MAXO:0000950
+      label: supportive care
+  target_phenotypes:
+  - preferred_term: Limb pain
+    term:
+      id: HP:0009763
+      label: Limb pain
+  evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      pain is also managed with analgesics, non-pharmacologic methods, and on occasion surgical treatment.
+    explanation: &gt;-
+      GeneReviews supports analgesic and non-pharmacologic pain management.
+- name: Physical Therapy and Mobility Support
+  description: &gt;
+    Physical medicine, physical therapy, adaptive devices, and fall precautions
+    address weakness, gait impairment, contractures, and functional mobility.
+  treatment_term:
+    preferred_term: physical therapy
+    term:
+      id: MAXO:0000011
+      label: physical therapy
+  target_phenotypes:
+  - preferred_term: Muscle weakness
+    term:
+      id: HP:0001324
+      label: Muscle weakness
+  - preferred_term: Waddling gait
+    term:
+      id: HP:0002515
+      label: Waddling gait
+  evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Management of muscle weakness and gait issues per physical medicine and rehabilitation specialists and physical therapist.
+    explanation: &gt;-
+      GeneReviews supports physical medicine and physical therapy for weakness
+      and gait issues.
+- name: Audiology and Otolaryngology Care
+  description: &gt;
+    Annual audiology and otolaryngology care monitor and manage hearing loss;
+    myringotomy may help conductive hearing loss from serous otitis.
+  treatment_term:
+    preferred_term: audiologist evaluation
+    term:
+      id: MAXO:0000734
+      label: audiologist evaluation
+  target_phenotypes:
+  - preferred_term: Hearing impairment
+    term:
+      id: HP:0000365
+      label: Hearing impairment
+  evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Management of hearing loss per otolaryngologist; bilateral myringotomy can improve conductive hearing loss resulting from serous otitis.
+    explanation: &gt;-
+      GeneReviews supports specialty hearing management and a conductive-hearing
+      intervention when serous otitis is present.
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      annual audiology evaluation with BAER and inner ear CT as needed;
+    explanation: &gt;-
+      GeneReviews supports annual audiology surveillance.
+- name: Ophthalmology and Intracranial Pressure Management
+  description: &gt;
+    Ophthalmic subspecialty care, low vision services, and neurosurgical
+    decompression when needed address ocular manifestations and raised
+    intracranial pressure from severe cranial sclerosis.
+  treatment_term:
+    preferred_term: ophthalmologist evaluation
+    term:
+      id: MAXO:0000703
+      label: ophthalmologist evaluation
+  target_phenotypes:
+  - preferred_term: Proptosis
+    term:
+      id: HP:0000520
+      label: Proptosis
+  - preferred_term: Increased intracranial pressure
+    term:
+      id: HP:0002516
+      label: Increased intracranial pressure
+  evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Treatment of ocular manifestations per ophthalmic subspecialist with low vision services as needed; craniectomy may be needed to reduce intracranial pressure
+    explanation: &gt;-
+      GeneReviews supports ophthalmology care and decompressive surgery for
+      pressure complications in severe cranial disease.
+- name: Bone Density, Blood Count, and Disease Activity Monitoring
+  description: &gt;
+    Monitor musculoskeletal disease activity, corticosteroid-related bone
+    density risk, blood pressure during targeted therapy, and annual CBC for
+    marrow consequences of medullary-cavity narrowing.
+  treatment_term:
+    preferred_term: supportive care
+    term:
+      id: MAXO:0000950
+      label: supportive care
+  target_phenotypes:
+  - preferred_term: Stenosis of the medullary cavity of the long bones
+    term:
+      id: HP:0100254
+      label: Stenosis of the medullary cavity of the long bones
+  evidence:
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      serum ESR and bone scan as needed in those with acute bone pain to assess disease activity; evaluation of bone mineral density annually in those treated with corticosteroids;
+    explanation: &gt;-
+      GeneReviews supports disease-activity and bone-density monitoring.
+  - reference: PMID:20301335
+    reference_title: &#34;Camurati-Engelmann Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      assess blood pressure at each visit; annual CBC.
+    explanation: &gt;-
+      GeneReviews supports blood-pressure and blood-count surveillance.
 datasets: []
 references:
-- reference: DOI:10.1007/s00223-019-00532-1
-  title: Camurati–Engelmann Disease
+- reference: PMID:20301335
+  title: &#34;Camurati-Engelmann Disease.&#34;
+  tags:
+  - GeneReviews
+  findings: []
+- reference: PMID:30721323
+  title: &#34;Camurati-Engelmann Disease.&#34;
   findings: []
 - reference: DOI:10.1016/j.beem.2018.06.003
   title: Sclerosing bone dysplasias
   findings: []
 - reference: DOI:10.1159/000479859
-  title: Significant Improvement of Clinical Symptoms, Bone Lesions, and Bone
-    Turnover after Long-Term Zoledronic Acid Treatment in Patients with a Severe
-    Form of Camurati-Engelmann Disease
+  title: Significant Improvement of Clinical Symptoms, Bone Lesions, and Bone Turnover after Long-Term Zoledronic Acid Treatment in Patients with a Severe Form of Camurati-Engelmann Disease
   findings: []
 - reference: DOI:10.1186/1687-9856-2013-s1-o42
   title: Losartan improves clinical outcome in Camurati Engelmann Disease
@@ -4888,207 +6962,221 @@ references:
   title: Looking for new anabolic treatment from rare diseases of bone formation
   findings: []
 - reference: DOI:10.3389/fendo.2022.1041061
-  title: Clinical characteristics and the influence of rs1800470 in patients
-    with Camurati-Engelmann disease
+  title: Clinical characteristics and the influence of rs1800470 in patients with Camurati-Engelmann disease
   findings: []
 - reference: DOI:10.3389/fendo.2022.913979
-  title: Aberrant activation of TGF-β1 induces high bone turnover via Rho
-    GTPases-mediated cytoskeletal remodeling in Camurati-Engelmann disease
+  title: Aberrant activation of TGF-β1 induces high bone turnover via Rho GTPases-mediated cytoskeletal remodeling in Camurati-Engelmann disease
   findings: []
 - reference: DOI:10.4055/cios.2017.9.1.109
   title: Orthopedic Manifestations of Type I Camurati-Engelmann Disease
   findings: []
 - reference: DOI:10.5152/eurjrheum.2023.21115
-  title: &#39;Camurati–Engelmann Disease: A Case-Based Review About an Ultrarare Bone
-    Dysplasia&#39;
+  title: &#39;Camurati–Engelmann Disease: A Case-Based Review About an Ultrarare Bone Dysplasia&#39;
   findings: []
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">9</span>
+                    <span class="card-count">10</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1007/s00223-019-00532-1" target="_blank">DOI:10.1007/s00223-019-00532-1</a>
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301335" target="_blank">PMID:20301335</a>
                             </div>
-                            
-                            <div class="reference-title">Camurati–Engelmann Disease</div>
-                            
+
+                            <div class="reference-title">Camurati-Engelmann Disease.</div>
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/30721323" target="_blank">PMID:30721323</a>
+                            </div>
+
+                            <div class="reference-title">Camurati-Engelmann Disease.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1016/j.beem.2018.06.003" target="_blank">DOI:10.1016/j.beem.2018.06.003</a>
                             </div>
-                            
+
                             <div class="reference-title">Sclerosing bone dysplasias</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1159/000479859" target="_blank">DOI:10.1159/000479859</a>
                             </div>
-                            
+
                             <div class="reference-title">Significant Improvement of Clinical Symptoms, Bone Lesions, and Bone Turnover after Long-Term Zoledronic Acid Treatment in Patients with a Severe Form of Camurati-Engelmann Disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/1687-9856-2013-s1-o42" target="_blank">DOI:10.1186/1687-9856-2013-s1-o42</a>
                             </div>
-                            
+
                             <div class="reference-title">Losartan improves clinical outcome in Camurati Engelmann Disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1530/joe-20-0285" target="_blank">DOI:10.1530/joe-20-0285</a>
                             </div>
-                            
+
                             <div class="reference-title">Looking for new anabolic treatment from rare diseases of bone formation</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fendo.2022.1041061" target="_blank">DOI:10.3389/fendo.2022.1041061</a>
                             </div>
-                            
+
                             <div class="reference-title">Clinical characteristics and the influence of rs1800470 in patients with Camurati-Engelmann disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fendo.2022.913979" target="_blank">DOI:10.3389/fendo.2022.913979</a>
                             </div>
-                            
+
                             <div class="reference-title">Aberrant activation of TGF-β1 induces high bone turnover via Rho GTPases-mediated cytoskeletal remodeling in Camurati-Engelmann disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.4055/cios.2017.9.1.109" target="_blank">DOI:10.4055/cios.2017.9.1.109</a>
                             </div>
-                            
+
                             <div class="reference-title">Orthopedic Manifestations of Type I Camurati-Engelmann Disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.5152/eurjrheum.2023.21115" target="_blank">DOI:10.5152/eurjrheum.2023.21115</a>
                             </div>
-                            
+
                             <div class="reference-title">Camurati–Engelmann Disease: A Case-Based Review About an Ultrarare Bone Dysplasia</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Disorder</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h3>Disorder</h3>
 <ul>
@@ -5118,29 +7206,29 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Pathophysiology Research Report</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">18 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-02-09T23:33:03.828617</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Disease Pathophysiology Research Report</p>
 <p>Target Disease
@@ -5294,11 +7382,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -5348,7 +7436,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Camurati-Engelmann Disease", "mondoId": "MONDO:0007542", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Camurati-Engelmann_Disease", "yamlRevision": "740c42778c57"};
+        const OS_CONFIG = {"diseaseName": "Camurati-Engelmann Disease", "mondoId": "MONDO:0007542", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Camurati-Engelmann_Disease", "yamlRevision": "1f0f9dd964e7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,22 @@
         <header class="page-header">
             <h1>Crouzon Syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0007405" target="_blank">
                         MONDO:0007405
                     </a>
                 </span>
-                
-                
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
-                
-                
+
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">FGFR2-related craniosynostosis</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,12 +2989,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Crouzon syndrome is a craniosynostosis syndrome caused by heterozygous mutations in FGFR2, characterized by premature fusion of multiple cranial sutures, midface hypoplasia, proptosis, and hypertelorism. Unlike Apert syndrome, Crouzon syndrome does not involve limb abnormalities. It is the most common FGFR2-related craniosynostosis syndrome and shows significant phenotypic variability, even within families with the same mutation.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2994,34 +3064,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3029,18 +3099,18 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3048,19 +3118,19 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3068,8 +3138,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3077,15 +3147,15 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3093,384 +3163,954 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal Dominant
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Autosomal dominant inheritance with high penetrance but variable expressivity. Approximately 50-60% of cases are inherited; the remainder arise de novo.
 </div>
-                
-                
-    
-    
-    
-    
-                
-    
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8528214" target="_blank">PMID:8528214</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These results underscore the allelic heterogeneity of these conditions and the complexity of the phenotypic consequences of FGFR2 mutations"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that FGFR2 mutations in Crouzon syndrome lead to complex phenotypic variability, supporting the concept of variable expressivity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgfr2-gain-of-function-signaling">
                 <div class="item-name">FGFR2 Gain-of-Function Signaling</div>
-                
+
                 <div class="item-desc">Mutations in FGFR2, predominantly in the third immunoglobulin-like domain (Ig-III) and linker regions, cause constitutive receptor activation or altered ligand binding. This leads to premature osteogenic differentiation in cranial suture mesenchyme and suture fusion.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Osteoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         FGFR Signaling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008543">GO:0008543</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Cranial Suture Morphogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060363">GO:0060363</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sustained MAPK/ERK signaling in suture osteoblasts</span>
+
+	                            <span class="crosslink-desc">Constitutively active FGFR2 sustains downstream MAPK/ERK signaling.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"we have identified 10 different mutations in the FGFR2 extracellular immunoglobulin III (IgIII) domain in 50% (16/32) of our Crouzon syndrome patients"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms that FGFR2 mutations in the Ig-III domain are found in a substantial proportion of Crouzon syndrome patients, supporting the pathophysiology centered on FGFR2 dysfunction.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shared-isoform-fgfr2-signaling-perturbation">
                 <div class="item-name">Shared-Isoform FGFR2 Signaling Perturbation</div>
-                
+
                 <div class="item-desc">Some Crouzon alleles affect exon IIIa, a segment shared by the IIIb and IIIc FGFR2 isoforms. These variants may perturb signaling in both splice forms, helping explain why a subset of Crouzon mutations extends beyond a purely cranial phenotype to include epithelial-derived anomalies.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Osteoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         Epithelial Cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000066">CL:0000066</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         FGFR Signaling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008543">GO:0008543</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8528214" target="_blank">PMID:8528214</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The W290G mutation was found in exon IIIa which is common to both alternatively spliced forms of FGFR2, BEK (expressed predominantly in primordial bones) and KGFR (expressed preferentially in epithelia). Atypical Crouzon syndrome features of epithelial-derived anal and/or external ear anomalies..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This links an exon IIIa Crouzon allele to simultaneous perturbation of both FGFR2 splice forms and a broader epithelial phenotype than classic cranial-only disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/dvdy.22314" target="_blank">DOI:10.1002/dvdy.22314</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The defects in W290R mutants are suggestive of disruption of signalling in both IIIb and IIIc isoforms of the Fgfr2 gene."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The codon-290 mouse model independently supports the idea that shared-isoform alleles can disrupt both FGFR2 splice forms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-mapk-erk-signaling-in-suture-osteoblasts">
+                <div class="item-name">Sustained MAPK/ERK signaling in suture osteoblasts</div>
+
+                <div class="item-desc">Constitutively active FGFR2 sustains MAPK/ERK signaling in osteoblast-lineage cells of the cranial suture. This is the conserved effector branch shared across the FGFR craniosynostoses, coupling the activated receptor to the suture osteogenic program.
+</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        Osteoblast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        ERK1 and ERK2 cascade
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070371">GO:0070371</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        MAPK cascade
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Accelerated cranial suture osteogenesis</span>
+
+	                            <span class="crosslink-desc">ERK/MAPK signaling drives the suture osteogenic program.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19117954" target="_blank">PMID:19117954</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"WT and MT FGFR2 induced ERK1/2 but not JNK or PI3K/AKT phosphorylation."</div>
+
+
+                <div class="evidence-explanation">Activated FGFR2 selectively engages the ERK1/2 MAPK cascade in osteoblast-lineage cells, the conserved effector branch of the FGFR craniosynostosis module.</div>
+
+
+
+            </div>
+
+
         </div>
-        
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-cranial-suture-osteogenesis">
+                <div class="item-name">Accelerated cranial suture osteogenesis</div>
+
+                <div class="item-desc">ERK1/2-driven FGFR2 signaling accelerates osteoblast differentiation and matrix mineralization within cranial suture mesenchyme, producing excess osteogenic activity across the suture.
+</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        Osteoblast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        osteoblast differentiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001649">GO:0001649</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        ERK1 and ERK2 cascade
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070371">GO:0070371</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-location">
+                        cranial suture
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003685">UBERON:0003685</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Premature cranial suture fusion</span>
+
+	                            <span class="crosslink-desc">Excess suture osteogenesis precipitates premature suture fusion.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19117954" target="_blank">PMID:19117954</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both WT and MT FGFR2 increased early and late osteoblast gene expression and matrix mineralization."</div>
+
+
+                <div class="evidence-explanation">FGFR2 activation accelerates osteoblast differentiation and matrix mineralization in suture-relevant mesenchyme.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19117954" target="_blank">PMID:19117954</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using dominant-negative ERK and PKCalpha vectors, we demonstrated that WT and MT FGFR2 promoted osteoblast gene expression through ERK1/2 and PKCalpha signaling, respectively."</div>
+
+
+                <div class="evidence-explanation">Establishes ERK1/2 as a route by which activated FGFR2 drives the suture osteogenic program.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-cranial-suture-fusion">
+                <div class="item-name">Premature cranial suture fusion</div>
+
+                <div class="item-desc">Excess osteogenic activity prematurely fuses multiple cranial sutures, producing the craniosynostosis, ocular proptosis, and midface hypoplasia that define Crouzon syndrome.
+</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        cranial suture morphogenesis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060363">GO:0060363</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↕ DYSREGULATED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        osteoblast differentiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001649">GO:0001649</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-location">
+                        cranial suture
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003685">UBERON:0003685</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Multiple Suture Craniosynostosis</span>
+
+	                            <span class="crosslink-desc">Premature multi-suture fusion manifests clinically as craniosynostosis.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Crouzon syndrome, an autosomal dominant condition characterized by craniosynostosis, ocular proptosis and midface hypoplasia"</div>
+
+
+                <div class="evidence-explanation">Establishes premature suture fusion (craniosynostosis) as the defining clinical outcome of the FGFR2 signaling cascade in Crouzon syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+        </div>
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3481,302 +4121,320 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"FGFR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR2\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"p.Cys342Trp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Crouzon-associated FGFR2 Ig-III domain missense variant illustrating the allelic heterogeneity of non-Apert FGFR2 craniosynostosis.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR2\"], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Trp290Gly\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Crouzon-associated FGFR2 missense variant in exon IIIa, a region shared by the IIIb and IIIc isoforms, associated with atypical epithelial-derived anomalies in addition to craniosynostosis.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR2\"], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"p.Trp290Gly\", \"target\": \"FGFR2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Cys342Trp\", \"target\": \"FGFR2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated cranial suture osteogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ERK1/2-driven FGFR2 signaling accelerates osteoblast differentiation and matrix mineralization within cranial suture mesenchyme, producing excess osteogenic activity across the suture.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"osteoblast differentiation\", \"ERK1 and ERK2 cascade\"], \"locations\": [\"cranial suture\"]}}, {\"id\": \"FGFR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FGFR2 Gain-of-Function Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in FGFR2, predominantly in the third immunoglobulin-like domain (Ig-III) and linker regions, cause constitutive receptor activation or altered ligand binding. This leads to premature osteogenic differentiation in cranial suture mesenchyme and suture fusion.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"FGFR Signaling\", \"Cranial Suture Morphogenesis\"]}}, {\"id\": \"Multiple Suture Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature fusion of multiple sutures including coronal, sagittal, and lambdoid, causing variable skull shape abnormalities.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011324\"}}, {\"id\": \"Premature cranial suture fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess osteogenic activity prematurely fuses multiple cranial sutures, producing the craniosynostosis, ocular proptosis, and midface hypoplasia that define Crouzon syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cranial suture morphogenesis\", \"osteoblast differentiation\"], \"locations\": [\"cranial suture\"]}}, {\"id\": \"Sustained MAPK/ERK signaling in suture osteoblasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutively active FGFR2 sustains MAPK/ERK signaling in osteoblast-lineage cells of the cranial suture. This is the conserved effector branch shared across the FGFR craniosynostoses, coupling the activated receptor to the suture osteogenic program.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"ERK1 and ERK2 cascade\", \"MAPK cascade\"]}}, {\"id\": \"p.Cys342Trp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Crouzon-associated FGFR2 Ig-III domain missense variant illustrating the allelic heterogeneity of non-Apert FGFR2 craniosynostosis.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Trp290Gly\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Crouzon-associated FGFR2 missense variant in exon IIIa, a region shared by the IIIb and IIIc isoforms, associated with atypical epithelial-derived anomalies in addition to craniosynostosis.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"FGFR2 Gain-of-Function Signaling\", \"target\": \"Sustained MAPK/ERK signaling in suture osteoblasts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutively active FGFR2 sustains downstream MAPK/ERK signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sustained MAPK/ERK signaling in suture osteoblasts\", \"target\": \"Accelerated cranial suture osteogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ERK/MAPK signaling drives the suture osteogenic program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated cranial suture osteogenesis\", \"target\": \"Premature cranial suture fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess suture osteogenesis precipitates premature suture fusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature cranial suture fusion\", \"target\": \"Multiple Suture Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature multi-suture fusion manifests clinically as craniosynostosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"p.Trp290Gly\", \"target\": \"FGFR2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Cys342Trp\", \"target\": \"FGFR2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">6</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         External Ear Abnormality
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000377" target="_blank">
-                            Abnormal pinna morphology
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000377)</span>
-                        </span>
-                        
+                        Abnormal pinna morphology
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000377" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000377">HP:0000377</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hearing Loss
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank">
-                            Conductive hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000405)</span>
-                        </span>
-                        
+                        Conductive hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Proptosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank">
-                            Proptosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000520)</span>
-                        </span>
-                        
+                        Proptosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000520">HP:0000520</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Crouzon syndrome, an autosomal dominant condition characterized by craniosynostosis, ocular proptosis and midface hypoplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly identifies ocular proptosis as one of the defining features of Crouzon syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypertelorism
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank">
-                            Hypertelorism
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000316)</span>
-                        </span>
-                        
+                        Hypertelorism
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Multiple Suture Craniosynostosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011324" target="_blank">
-                            Multiple suture craniosynostosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011324)</span>
-                        </span>
-                        
+                        Multiple suture craniosynostosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011324">HP:0011324</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Crouzon syndrome, an autosomal dominant condition characterized by craniosynostosis, ocular proptosis and midface hypoplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms craniosynostosis as a defining characteristic of Crouzon syndrome, occurring without the limb anomalies seen in related FGFR2 syndromes like Apert or Pfeiffer.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Midface Retrusion
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank">
-                            Midface retrusion
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011800)</span>
-                        </span>
-                        
+                        Midface retrusion
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011800">HP:0011800</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Crouzon syndrome, an autosomal dominant condition characterized by craniosynostosis, ocular proptosis and midface hypoplasia"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly identifies midface hypoplasia as one of the three cardinal features characterizing Crouzon syndrome.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -3801,269 +4459,298 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     FGFR2 Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8528214" target="_blank">PMID:8528214</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Five different mutations were found including two novel (W290G, C342W) and two previously reported, recurrent mutations for Crouzon syndrome (A344A, S354C), and one new mutation for Jackson-Weiss syndrome (C342R)"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates allelic heterogeneity with multiple different FGFR2 mutations causing Crouzon syndrome, including mutations in exon IIIa and IIIc.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All mutations described so far for other craniosynostotic syndromes with associated limb anomalies--Jackson-Weiss, Pfeiffer, and Apert--also occur in the extracellular domain of FGFR2"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms that Crouzon syndrome FGFR2 mutations occur in the extracellular domain, similar to other craniosynostosis syndromes but distinguishing it from those with limb involvement.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     FGFR2
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FGFR2
+
+
+    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3689">hgnc:3689</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_c2cfa70a-750f-4357-98b9-f5c30ca4dc26-2021-12-23T165345.170Z" target="_blank">CGGV:assertion_c2cfa70a-750f-4357-98b9-f5c30ca4dc26-2021-12-23T165345.170Z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"FGFR2 | HGNC:3689 | Crouzon syndrome | MONDO:0007405 | AD | Definitive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinGen classifies the FGFR2-Crouzon syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cranial Vault Remodeling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Craniofacial surgery</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Surgical expansion and reshaping of the skull to manage intracranial pressure and improve head shape. Timing depends on severity.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Midface Advancement
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Midface surgery</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Le Fort III osteotomy or distraction osteogenesis to advance the hypoplastic midface, improving airway, appearance, and occlusion.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4127,6 +4814,7 @@ inheritance:
       phenotypic variability, supporting the concept of variable expressivity.
 pathophysiology:
 - name: FGFR2 Gain-of-Function Signaling
+  conforms_to: &#34;fgfr_gain_of_function_skeletal_dysplasia#Constitutive FGFR Activation&#34;
   description: &gt;
     Mutations in FGFR2, predominantly in the third immunoglobulin-like domain
     (Ig-III) and linker regions, cause constitutive receptor activation or
@@ -4159,6 +4847,10 @@ pathophysiology:
       Confirms that FGFR2 mutations in the Ig-III domain are found in a substantial
       proportion of Crouzon syndrome patients, supporting the pathophysiology
       centered on FGFR2 dysfunction.
+  downstream:
+  - target: Sustained MAPK/ERK signaling in suture osteoblasts
+    description: Constitutively active FGFR2 sustains downstream MAPK/ERK signaling.
+    causal_link_type: DIRECT
 - name: Shared-Isoform FGFR2 Signaling Perturbation
   description: &gt;
     Some Crouzon alleles affect exon IIIa, a segment shared by the IIIb and IIIc
@@ -4201,6 +4893,133 @@ pathophysiology:
     explanation: &gt;-
       The codon-290 mouse model independently supports the idea that shared-isoform
       alleles can disrupt both FGFR2 splice forms.
+- name: Sustained MAPK/ERK signaling in suture osteoblasts
+  conforms_to: &#34;fgfr_gain_of_function_skeletal_dysplasia#Sustained MAPK/STAT Signaling&#34;
+  description: &gt;
+    Constitutively active FGFR2 sustains MAPK/ERK signaling in osteoblast-lineage
+    cells of the cranial suture. This is the conserved effector branch shared
+    across the FGFR craniosynostoses, coupling the activated receptor to the
+    suture osteogenic program.
+  cell_types:
+  - preferred_term: Osteoblast
+    term:
+      id: CL:0000062
+      label: osteoblast
+  biological_processes:
+  - preferred_term: ERK1 and ERK2 cascade
+    term:
+      id: GO:0070371
+      label: ERK1 and ERK2 cascade
+    modifier: INCREASED
+  - preferred_term: MAPK cascade
+    term:
+      id: GO:0000165
+      label: MAPK cascade
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:19117954
+    reference_title: &#34;Fibroblast growth factor receptor 2 promotes osteogenic differentiation in mesenchymal cells via ERK1/2 and protein kinase C signaling.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      WT and MT FGFR2 induced ERK1/2 but not JNK or PI3K/AKT phosphorylation.
+    explanation: &gt;-
+      Activated FGFR2 selectively engages the ERK1/2 MAPK cascade in
+      osteoblast-lineage cells, the conserved effector branch of the FGFR
+      craniosynostosis module.
+  downstream:
+  - target: Accelerated cranial suture osteogenesis
+    description: ERK/MAPK signaling drives the suture osteogenic program.
+    causal_link_type: DIRECT
+- name: Accelerated cranial suture osteogenesis
+  conforms_to: &#34;fgfr_gain_of_function_skeletal_dysplasia#Cranial Suture Osteogenic Acceleration&#34;
+  description: &gt;
+    ERK1/2-driven FGFR2 signaling accelerates osteoblast differentiation and
+    matrix mineralization within cranial suture mesenchyme, producing excess
+    osteogenic activity across the suture.
+  cell_types:
+  - preferred_term: Osteoblast
+    term:
+      id: CL:0000062
+      label: osteoblast
+  locations:
+  - preferred_term: cranial suture
+    term:
+      id: UBERON:0003685
+      label: cranial suture
+  biological_processes:
+  - preferred_term: osteoblast differentiation
+    term:
+      id: GO:0001649
+      label: osteoblast differentiation
+    modifier: INCREASED
+  - preferred_term: ERK1 and ERK2 cascade
+    term:
+      id: GO:0070371
+      label: ERK1 and ERK2 cascade
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:19117954
+    reference_title: &#34;Fibroblast growth factor receptor 2 promotes osteogenic differentiation in mesenchymal cells via ERK1/2 and protein kinase C signaling.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Both WT and MT FGFR2 increased early and late osteoblast gene expression and matrix mineralization.
+    explanation: &gt;-
+      FGFR2 activation accelerates osteoblast differentiation and matrix
+      mineralization in suture-relevant mesenchyme.
+  - reference: PMID:19117954
+    reference_title: &#34;Fibroblast growth factor receptor 2 promotes osteogenic differentiation in mesenchymal cells via ERK1/2 and protein kinase C signaling.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Using dominant-negative ERK and PKCalpha vectors, we demonstrated that WT and
+      MT FGFR2 promoted osteoblast gene expression through ERK1/2 and PKCalpha
+      signaling, respectively.
+    explanation: &gt;-
+      Establishes ERK1/2 as a route by which activated FGFR2 drives the suture
+      osteogenic program.
+  downstream:
+  - target: Premature cranial suture fusion
+    description: Excess suture osteogenesis precipitates premature suture fusion.
+    causal_link_type: DIRECT
+- name: Premature cranial suture fusion
+  conforms_to: &#34;fgfr_gain_of_function_skeletal_dysplasia#Premature Suture Fusion and Craniosynostosis&#34;
+  description: &gt;
+    Excess osteogenic activity prematurely fuses multiple cranial sutures,
+    producing the craniosynostosis, ocular proptosis, and midface hypoplasia
+    that define Crouzon syndrome.
+  locations:
+  - preferred_term: cranial suture
+    term:
+      id: UBERON:0003685
+      label: cranial suture
+  biological_processes:
+  - preferred_term: cranial suture morphogenesis
+    term:
+      id: GO:0060363
+      label: cranial suture morphogenesis
+    modifier: DYSREGULATED
+  - preferred_term: osteoblast differentiation
+    term:
+      id: GO:0001649
+      label: osteoblast differentiation
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:7493034
+    reference_title: &#34;Fibroblast growth factor receptor 3 (FGFR3) transmembrane mutation in Crouzon syndrome with acanthosis nigricans.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Crouzon syndrome, an autosomal dominant condition characterized by
+      craniosynostosis, ocular proptosis and midface hypoplasia
+    explanation: &gt;-
+      Establishes premature suture fusion (craniosynostosis) as the defining
+      clinical outcome of the FGFR2 signaling cascade in Crouzon syndrome.
+  downstream:
+  - target: Multiple Suture Craniosynostosis
+    description: Premature multi-suture fusion manifests clinically as craniosynostosis.
+    causal_link_type: DIRECT
 genetic:
 - name: FGFR2 Mutations
   association: Causative
@@ -4417,27 +5236,27 @@ datasets:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Disorder</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-content">
                             <h3>Disorder</h3>
 <ul>
@@ -4469,29 +5288,29 @@ datasets:
                         </div>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Perplexity</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Crouzon Syndrome: Comprehensive Analysis of Pathophysiology, Molecular Mechanisms, and Cellular Dysfunction</div>
-                            
-                            
+
+
                             <span class="report-badge">sonar-deep-research</span>
-                            
-                            
+
+
                             <span class="report-badge">54 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-02-04T19:03:26.575823</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h1>Crouzon Syndrome: Comprehensive Analysis of Pathophysiology, Molecular Mechanisms, and Cellular Dysfunction</h1>
 <p>Crouzon syndrome is a rare autosomal dominant genetic disorder caused by heterozygous gain-of-function mutations in the <strong>fibroblast growth factor receptor 2 (FGFR2)</strong> gene located on chromosome 10q26[3]. The syndrome is characterized by the premature fusion of cranial sutures, a condition known as craniosynostosis, which occurs in approximately 1 in 25,000 births worldwide and comprises approximately 4.8% of all craniosynostosis cases[16]. The hallmark features include distinctive craniofacial dysmorphology with characteristic maxillary hypoplasia, ocular proptosis due to orbital hypoplasia, hypertelorism, midface underdevelopment, and a parrot-beaked nose[3][16]. Although Crouzon syndrome was first described by French neurologist Octave Crouzon in 1912, our understanding of its molecular pathophysiology has advanced dramatically since the identification of FGFR2 mutations as the causative agent, revealing a complex interplay between receptor signaling dysregulation and altered bone development. This comprehensive report examines the pathophysiological mechanisms underlying Crouzon syndrome, integrating molecular, cellular, and tissue-level processes that lead to the characteristic skeletal and craniofacial abnormalities observed in affected individuals.</p>
@@ -4567,11 +5386,11 @@ datasets:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -4621,7 +5440,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Crouzon Syndrome", "mondoId": "MONDO:0007405", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Crouzon_Syndrome", "yamlRevision": "b2cc92cdec02"};
+        const OS_CONFIG = {"diseaseName": "Crouzon Syndrome", "mondoId": "MONDO:0007405", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Crouzon_Syndrome", "yamlRevision": "d8e04bcd4715"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Vogt-Koyanagi-Harada Disease</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Autoimmune</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0018092" target="_blank">
                         MONDO:0018092
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Autoimmune Disease</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Ophthalmic Disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,11 +2991,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Vogt-Koyanagi-Harada disease is a multisystem autoimmune inflammatory disease targeting melanin-containing tissues, especially the uvea and choroid, with neurologic, auditory, skin, and hair involvement. Disease expression reflects immune susceptibility and inflammatory triggers, and early systemic immunosuppression is used to prevent chronic recurrent ocular disease.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2995,35 +3065,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3031,9 +3101,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3041,10 +3111,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3052,8 +3122,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3061,8 +3131,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3070,11 +3140,11 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
+
+
+
+
+
             <a class="stat-link" href="#trials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
@@ -3082,10 +3152,10 @@
                 <div class="stat-label">Trials</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3093,8 +3163,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3102,783 +3172,878 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-melanocyte-directed-autoimmune-inflammation">
                 <div class="item-name">Melanocyte-Directed Autoimmune Inflammation</div>
-                
+
                 <div class="item-desc">Autoreactive immune responses against melanin-containing tissues drive VKH disease. The model links HLA-associated susceptibility and immune activation to inflammation of the uvea, meninges, ear, skin, and hair.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         helper T cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000912" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000912" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000912">CL:0000912</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         melanocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         adaptive immune response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002250">GO:0002250</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         T cell activation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042110">GO:0042110</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Bilateral Granulomatous Panuveitis</span>
-	                            
+
 	                            <span class="crosslink-desc">Autoimmune inflammation in melanocyte-rich uveal and choroidal tissues produces bilateral granulomatous ocular inflammation.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Extraocular Melanocyte-Containing Tissue Involvement</span>
-	                            
+
 	                            <span class="crosslink-desc">The same autoimmune process affects meninges, inner ear, skin, and hair.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vogt–Koyanagi–Harada (VKH) is a rare multisystem inflammatory disease affecting the eyes, ears, brain, skin, and hair."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review-level clinical synthesis supports the multisystem autoimmune disease model and the affected melanin-containing tissue distribution.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bilateral-granulomatous-panuveitis">
                 <div class="item-name">Bilateral Granulomatous Panuveitis</div>
-                
+
                 <div class="item-desc">Ocular inflammation in VKH typically includes bilateral uveitis with diffuse choroidal thickening, subretinal fluid, and possible optic nerve involvement, which can progress to chronic recurrent inflammation and sunset glow fundus.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         T cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         macrophage
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         inflammatory response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         leukocyte migration
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050900">GO:0050900</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Visual Impairment</span>
-	                            
+
 	                            <span class="crosslink-desc">Ocular inflammation, subretinal fluid, and chronic recurrent complications can reduce visual acuity.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12348-023-00333-6" target="_blank">DOI:10.1186/s12348-023-00333-6</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This typically presents in the eye with acute findings of granulomatous anterior uveitis, diffuse choroidal thickening, multiple focal areas of sub-retinal fluid and, in severe cases, optic nerve involvement with bullous serous retinal detachment can occur."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The retrospective clinical series and review directly describes the ocular inflammatory features represented in this pathophysiology node.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-amplified-chronic-recurrent-inflammation">
                 <div class="item-name">Cytokine-Amplified Chronic Recurrent Inflammation</div>
-                
+
                 <div class="item-desc">Immune risk loci and inflammatory cytokine production contribute to ongoing inflammatory activity. Chronic recurrent disease is associated with worse initial visual acuity, sunset glow fundus, ocular complications, and recurrent inflammation.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         T cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         macrophage
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cytokine production
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001816">GO:0001816</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         tumor necrosis factor production
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0032640" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0032640" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032640">GO:0032640</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Bilateral Granulomatous Panuveitis</span>
-	                            
+
 	                            <span class="crosslink-desc">Persistent cytokine production sustains ocular inflammatory activity.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s40246-023-00459-7" target="_blank">DOI:10.1186/s40246-023-00459-7</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Functional studies on rs3812555 genotyped individuals revealed that CC carriers had significantly higher CARD9 mRNA expression and tumour necrosis factor-α production than TC/TT carriers (P = 1.00 × 10–4; P = 2.00 × 10–3, respectively)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This human genetic association study links a VKH susceptibility genotype with higher CARD9 expression and TNF-alpha production.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extraocular-melanocyte-containing-tissue-involvement">
                 <div class="item-name">Extraocular Melanocyte-Containing Tissue Involvement</div>
-                
+
                 <div class="item-desc">VKH extends beyond ocular inflammation to melanocyte-containing tissues in the ears, brain or meninges, skin, and hair.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         melanocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         inflammatory response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Meningeal Irritation</span>
-	                            
+
 	                            <span class="crosslink-desc">Extraocular inflammation can involve the meninges.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Sensorineural Hearing Loss</span>
-	                            
+
 	                            <span class="crosslink-desc">Extraocular inflammation can involve the auditory system.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Vitiligo</span>
-	                            
+
 	                            <span class="crosslink-desc">Melanocyte-directed inflammation can involve the skin.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Alopecia</span>
-	                            
+
 	                            <span class="crosslink-desc">Melanocyte-directed inflammation can involve hair.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vogt–Koyanagi–Harada (VKH) is a rare multisystem inflammatory disease affecting the eyes, ears, brain, skin, and hair."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This review supports extraocular involvement across the auditory, neurologic, skin, and hair systems.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-visual-impairment">
                 <div class="item-name">Visual Impairment</div>
-                
+
                 <div class="item-desc">Acute and chronic recurrent ocular inflammation can reduce best-corrected visual acuity and contribute to persistent visual impairment.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         inflammatory response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12886-024-03511-9" target="_blank">DOI:10.1186/s12886-024-03511-9</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Initial best-corrected visual acuity (BCVA) examination at the first visit showed an average BCVA of 0.64 ± 0.29 logMAR in the acute-resolved group and 1.38 ± 0.54 logMAR in the chronic-recurrent group (p = 0.002)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This retrospective VKH cohort links chronic recurrent disease with worse measured visual acuity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3894,639 +4059,669 @@
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">10</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(5)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Tinnitus
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank">
-                            Tinnitus
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000360)</span>
-                        </span>
-                        
+                        Tinnitus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000360">HP:0000360</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vogt–Koyanagi–Harada (VKH) is a rare multisystem inflammatory disease affecting the eyes, ears, brain, skin, and hair."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Ear involvement directly supports auditory manifestations such as tinnitus without relying on uncached full-text frequency data.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sensorineural Hearing Loss
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank">
-                            Sensorineural hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000407)</span>
-                        </span>
-                        
+                        Sensorineural hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vogt–Koyanagi–Harada (VKH) is a rare multisystem inflammatory disease affecting the eyes, ears, brain, skin, and hair."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review supports auditory system involvement; the broader HPO hearing impairment term is used because the abstract does not distinguish tinnitus from hearing loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Bilateral Panuveitis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank">
-                            Panuveitis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012121)</span>
-                        </span>
-                        
+                        Panuveitis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012121">HP:0012121</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12348-023-00333-6" target="_blank">DOI:10.1186/s12348-023-00333-6</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vogt-Koyanagi-Harada (VKH) disease is an idiopathic autoimmune disease which targets melanin-containing tissues such as the uvea, meninges, ear and skin."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The abstract identifies the uvea as a target tissue, supporting uveitis as a core ocular phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Alopecia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank">
-                            Alopecia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001596)</span>
-                        </span>
-                        
+                        Alopecia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001596">HP:0001596</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vogt–Koyanagi–Harada (VKH) is a rare multisystem inflammatory disease affecting the eyes, ears, brain, skin, and hair."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hair involvement directly supports alopecia as an integumentary VKH manifestation without relying on uncached full-text frequency data.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Headache
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank">
-                            Headache
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002315)</span>
-                        </span>
-                        
+                        Headache
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vogt–Koyanagi–Harada (VKH) is a rare multisystem inflammatory disease affecting the eyes, ears, brain, skin, and hair."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Brain involvement in this multisystem inflammatory disease supports headache as a neurologic manifestation without relying on uncached full-text frequency data.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">5</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Serous Retinal Detachment
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012231" target="_blank">
-                            Serous retinal detachment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012231)</span>
-                        </span>
-                        
+                        Serous retinal detachment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012231" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012231">HP:0012231</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12348-023-00333-6" target="_blank">DOI:10.1186/s12348-023-00333-6</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"optic nerve involvement with bullous serous retinal detachment can occur."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The clinical review explicitly describes serous retinal detachment as an ocular finding in severe VKH.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Sunset Glow Fundus
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0007894" target="_blank">
-                            Fundus hypopigmentation
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0007894)</span>
-                        </span>
-                        
+                        Fundus hypopigmentation
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007894" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007894">HP:0007894</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12886-024-03511-9" target="_blank">DOI:10.1186/s12886-024-03511-9</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"“Sunset glow fundus” was observed in 23.5% of the acute-resolved group and 64.3% of the chronic-recurrent group patients (P = 0.001)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This VKH cohort directly documents sunset glow fundus and its enrichment in chronic recurrent disease. Fundus hypopigmentation is used as the closest validated local HPO binding for the depigmented fundus finding.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Meningeal Irritation
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0033430" target="_blank">
-                            Non-infectious meningitis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0033430)</span>
-                        </span>
-                        
+                        Non-infectious meningitis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033430" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033430">HP:0033430</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12348-023-00333-6" target="_blank">DOI:10.1186/s12348-023-00333-6</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vogt-Koyanagi-Harada (VKH) disease is an idiopathic autoimmune disease which targets melanin-containing tissues such as the uvea, meninges, ear and skin."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Meningeal involvement supports the non-infectious meningitis or meningeal irritation component of VKH.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Vitiligo
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001045" target="_blank">
-                            Vitiligo
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001045)</span>
-                        </span>
-                        
+                        Vitiligo
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001045" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001045">HP:0001045</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12348-023-00333-6" target="_blank">DOI:10.1186/s12348-023-00333-6</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vogt-Koyanagi-Harada (VKH) disease is an idiopathic autoimmune disease which targets melanin-containing tissues such as the uvea, meninges, ear and skin."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Skin involvement in a melanocyte-targeting disease supports vitiligo as an integumentary VKH phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Poliosis
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002290" target="_blank">
-                            Poliosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002290)</span>
-                        </span>
-                        
+                        Poliosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002290">HP:0002290</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Vogt–Koyanagi–Harada (VKH) is a rare multisystem inflammatory disease affecting the eyes, ears, brain, skin, and hair."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hair involvement in VKH supports poliosis as a hair depigmentation manifestation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4551,912 +4746,1058 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     HLA-DRB1*04:05 susceptibility
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(HLA-DRB1*04:05 is associated with susceptibility to VKH and VKH-like immune-related uveitis.)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HLA-DRB1
+
+
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4948">hgnc:4948</a>
+
+
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: RISK_FACTOR</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Different possible pathogenetic mechanisms underlying the onset of VKH after COVID-19 vaccination are discussed, while the presence of the HLA DR4 antigen as a genetic predisposition for the onset of the disease after COVID-19 infection and vaccination is proposed."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review supports HLA-DR4/HLA-DRB1-related genetic predisposition in triggered VKH contexts.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     PRKCD susceptibility locus
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(PRKCD rs74437127 alleles are associated with altered VKH susceptibility in a Chinese Han case-control cohort.)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PRKCD
+
+
+    <a href="https://bioregistry.io/hgnc:9399" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9399">hgnc:9399</a>
+
+
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SUSCEPTIBILITY</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s40246-023-00459-7" target="_blank">DOI:10.1186/s40246-023-00459-7</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We found that rs74437127 C allele of PRKCD, rs3812555 CC genotype, and C allele of CARD9 were associated with increased susceptibility of VKH (Pc = 0.020, OR = 1.624; Pc = 2.04 × 10–5, OR = 1.810; Pc = 2.76 × 10–5, OR = 1.698, respectively)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This human case-control study directly supports PRKCD as a susceptibility locus.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CARD9 susceptibility locus
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(CARD9 rs3812555 is associated with VKH susceptibility and increased inflammatory cytokine production.)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CARD9
+
+
+    <a href="https://bioregistry.io/hgnc:16391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16391">hgnc:16391</a>
+
+
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SUSCEPTIBILITY</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s40246-023-00459-7" target="_blank">DOI:10.1186/s40246-023-00459-7</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We found an association between PRKCD rs74437127 and CARD9 rs3812555 polymorphisms and VKH susceptibility and revealed that the increased susceptibility of rs3812555 for VKH may be mediated by regulating CARD9 gene expression and the production of pro-inflammatory cytokines, such as TNF-α."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This conclusion supports CARD9 as a susceptibility locus with a plausible cytokine-mediated functional correlate.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Early Systemic Corticosteroids
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         corticosteroid
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50858">CHEBI:50858</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">High-dose systemic corticosteroids are used early to suppress acute ocular and systemic inflammation, commonly followed by early immunomodulatory therapy to reduce chronic progression risk.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Panuveitis
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012121">HP:0012121</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12348-023-00333-6" target="_blank">DOI:10.1186/s12348-023-00333-6</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Treatment is usually initiated with corticosteroids followed by an early introduction of immunosuppressive treatment (IMT) to achieve immediate response after disease presentation, although the choice of IMT for VKH can vary."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This clinical review supports systemic corticosteroids as the initial VKH treatment backbone.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Combined Immunomodulatory Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         mycophenolate mofetil
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8764">CHEBI:8764</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         cyclosporin A
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4031">CHEBI:4031</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Conventional steroid-sparing immunomodulatory therapy, including agents such as mycophenolate mofetil or cyclosporine, is used with low-dose steroids to stabilize disease and preserve vision.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Panuveitis
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012121">HP:0012121</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12348-023-00333-6" target="_blank">DOI:10.1186/s12348-023-00333-6</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"81% (21 of 26 patients) of our patients treated with combined IMT/steroid were able to achieve disease stability with significant good visual outcome at 24 months (Median VApre-IMT = 0.3 Logmar vs VApost-IMT = 0.0 Logmar, p = 0.0001)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This retrospective clinical series supports combined immunomodulatory therapy and low-dose steroid treatment for VKH disease stability.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-023-39483-5" target="_blank">DOI:10.1038/s41467-023-39483-5</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Here, we report that combined with a non-standard corticosteroid regimen, cyclosporine-based immunosuppressant strategy is non-inferior to adalimumab-based biologic strategy by 26 weeks for visual improvement in a cohort of patients with Vogt-Koyanagi-Harada disease, 75% of whom have a..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The randomized non-inferiority trial supports cyclosporine-based conventional immunosuppression as an evidence-backed therapeutic strategy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Adalimumab Biologic Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         adalimumab
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C65216" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C65216" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C65216">NCIT:C65216</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Adalimumab, an anti-TNF monoclonal antibody, is used for refractory or chronic recurrent VKH and is under study for acute VKH in combination with glucocorticoids.</div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-                    
+
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
                         <strong style="color: #5b21b6;">Cytokine-Amplified Chronic Recurrent Inflammation</strong>
-                        
+
                         <span style="color: #7c3aed;"> &mdash; Anti-TNF biologic therapy is represented as reducing cytokine-amplified chronic recurrent ocular inflammation.</span>
-                        
-                        
-    
-    
+
+
+
+
                     </div>
-                    
+
                 </div>
-                
-                
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Panuveitis
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012121">HP:0012121</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12886-024-03511-9" target="_blank">DOI:10.1186/s12886-024-03511-9</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"ADA significantly reduced anterior chamber inflammatory cells (P = 0.000) and vitreous cavity inflammatory cells (P = 0.001) in the chronic-recurrent group, and markedly decreased the recurrence rate in VKH patients (P = 0.009)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This retrospective cohort directly supports adalimumab efficacy in chronic recurrent VKH.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Janus Kinase Inhibitor Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         baricitinib
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_95341" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_95341" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:95341">CHEBI:95341</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         tofacitinib
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_71200" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71200" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:71200">CHEBI:71200</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">JAK inhibitors are an emerging option for refractory non-infectious ocular inflammatory disease; available evidence includes a prospective registry cohort with one VKH patient, so this is promising but not VKH-specific definitive evidence.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Panuveitis
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012121">HP:0012121</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
-    
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fmed.2024.1439338" target="_blank">DOI:10.3389/fmed.2024.1439338</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Ocular inflammation was related to a systemic disease in 8 (66.7%) patients as follows: spondyloarthritis (n = 3), peripheral psoriatic arthritis (n = 1), rheumatoid arthritis (n = 1), antinuclear antibodies (ANA) positive juvenile idiopathic arthritis (n = 1), Behçet’s syndrome (n = 1),..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The prospective registry includes a VKH case among non-infectious ocular inflammatory diseases, so it partially supports JAK inhibitor relevance without establishing VKH-specific efficacy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">SARS-CoV-2 infection or vaccination</div>
-                
-                
-                
+
+
+
                 <div class="item-desc">COVID-19 infection and SARS-CoV-2 vaccination have been reported before VKH onset or relapse. The association is treated as a trigger context rather than proof of a necessary cause.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The Coronavirus Disease 2019 (COVID-19) is a new contagious infection that might trigger the onset of VKH disease, as previously proposed for other viruses."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review supports SARS-CoV-2 infection as a reported possible trigger.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Moreover, after the mass vaccination against SARS-CoV-2 worldwide, cases of VKH disease associated with COVID-19 vaccination have been reported."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review supports COVID-19 vaccination as a reported onset or relapse context.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Immune checkpoint inhibitor therapy</div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Immune checkpoint inhibitor therapy can be associated with VKH-like immune-related uveitis, especially in HLA-DRB1*04:05-positive patients.</div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-023-40565-z" target="_blank">DOI:10.1038/s41598-023-40565-z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Statistical analysis showed that HLA-DRB1*04:05 was significantly associated with developing VKH-like ICIU (P = 0.029)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">This case-series abstract supports the reported HLA-DRB1*04:05-associated VKH-like immune checkpoint inhibitor uveitis context.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
         <div class="card" id="trials">
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
                 <h2 class="card-title">Clinical Trials</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT03399175
-                    
+
                     <span class="tag tag-phase">NOT_APPLICABLE</span>
-                    
-                    
+
+
                     <span class="tag tag-status">RECRUITING</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Prospective study of early systemic high-dose corticosteroid and immunosuppressive therapy from VKH disease onset with multimodal clinical follow-up.</div>
-                
-                
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Panuveitis
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012121">HP:0012121</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03399175" target="_blank">clinicaltrials:NCT03399175</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This prospective study will include patients with Vogt-Koyanagi-Harada disease from disease onset, treated with early systemic high-dose corticosteroid and immunosuppressive therapy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov identifies this VKH study of early systemic corticosteroid plus immunosuppressive therapy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box clinical-trial-box">
                 <div class="item-name">
                     NCT05590416
-                    
+
                     <span class="tag tag-phase">NOT_APPLICABLE</span>
-                    
-                    
+
+
                     <span class="tag tag-status">RECRUITING</span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Observational study of adalimumab treatment in acute Vogt-Koyanagi-Harada disease.</div>
-                
-                
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-                    
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Panuveitis
-                        
-                        <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012121" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012121">HP:0012121</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05590416" target="_blank">clinicaltrials:NCT05590416</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This project is designed to test the hypothesis that adalimumab is clinically useful for patients with acuta Vogt-Koyanagi-Harada disease"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinicalTrials.gov identifies an acute VKH observational study of adalimumab.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -6076,10 +6417,10 @@ treatments:
     and systemic inflammation, commonly followed by early immunomodulatory
     therapy to reduce chronic progression risk.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: corticosteroid
       term:
@@ -6109,10 +6450,10 @@ treatments:
     as mycophenolate mofetil or cyclosporine, is used with low-dose steroids to
     stabilize disease and preserve vision.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: mycophenolate mofetil
       term:
@@ -6159,10 +6500,10 @@ treatments:
     chronic recurrent VKH and is under study for acute VKH in combination with
     glucocorticoids.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: adalimumab
       term:
@@ -6198,10 +6539,10 @@ treatments:
     cohort with one VKH patient, so this is promising but not VKH-specific
     definitive evidence.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: baricitinib
       term:
@@ -6311,203 +6652,203 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">9</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/jcm12196242" target="_blank">DOI:10.3390/jcm12196242</a>
                             </div>
-                            
+
                             <div class="reference-title">Vogt-Koyanagi-Harada Disease and COVID</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s12348-023-00333-6" target="_blank">DOI:10.1186/s12348-023-00333-6</a>
                             </div>
-                            
+
                             <div class="reference-title">Immunosuppressive therapy for Vogt-Koyanagi-Harada disease: a retrospective study and review of literature</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s40246-023-00459-7" target="_blank">DOI:10.1186/s40246-023-00459-7</a>
                             </div>
-                            
+
                             <div class="reference-title">Genetic association of PRKCD and CARD9 polymorphisms with Vogt-Koyanagi-Harada disease in the Chinese Han population</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41598-023-40565-z" target="_blank">DOI:10.1038/s41598-023-40565-z</a>
                             </div>
-                            
+
                             <div class="reference-title">HLA-DRB1*04:05 is involved in the development of Vogt-Koyanagi-Harada disease-like immune-related adverse events in patients receiving immune checkpoint inhibitors</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41467-023-39483-5" target="_blank">DOI:10.1038/s41467-023-39483-5</a>
                             </div>
-                            
+
                             <div class="reference-title">A randomized non-inferiority trial of therapeutic strategy with immunosuppressants versus biologics for Vogt-Koyanagi-Harada disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s12886-024-03511-9" target="_blank">DOI:10.1186/s12886-024-03511-9</a>
                             </div>
-                            
+
                             <div class="reference-title">Predictive factors and adalimumab efficacy in managing chronic recurrence Vogt-Koyanagi-Harada disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3389/fmed.2024.1439338" target="_blank">DOI:10.3389/fmed.2024.1439338</a>
                             </div>
-                            
+
                             <div class="reference-title">Efficacy and safety of Janus kinase inhibitors in non-infectious inflammatory ocular diseases: a prospective cohort study from the international AIDA network registries</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://clinicaltrials.gov/study/NCT03399175" target="_blank">clinicaltrials:NCT03399175</a>
                             </div>
-                            
+
                             <div class="reference-title">Influência de imunomodulação Precoce Influence of Early Immunosuppressive Therapy on the Course of Vogt-Koyanagi-Harada Disease: a Prospective Study</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://clinicaltrials.gov/study/NCT05590416" target="_blank">clinicaltrials:NCT05590416</a>
                             </div>
-                            
+
                             <div class="reference-title">An Observational Study of Adalimumab in the Treatment of Acute Vogt-Koyanagi-Harada Disease</div>
-                            
+
                         </div>
-                        
+
                     </div>
-                    
+
                     <div class="reference-empty">No top-level findings curated for this source.</div>
-                    
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Characteristics Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">47 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-11T09:24:35.162671</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -7079,10 +7420,10 @@ For each section, provide:
 <hr />
 <h2>3. Phenotypes (clinical spectrum)</h2>
 <h3>3.1 Clinical stages / temporal development</h3>
-<p>Four phases are classically described: 
-1) <strong>Prodromal</strong> (neurologic/auditory symptoms; CSF pleocytosis), 
-2) <strong>Acute uveitic</strong> (diffuse choroiditis → papilledema/exudative detachments; may evolve to panuveitis), 
-3) <strong>Convalescent</strong> (depigmentation; vitiligo/poliosis/alopecia), 
+<p>Four phases are classically described:
+1) <strong>Prodromal</strong> (neurologic/auditory symptoms; CSF pleocytosis),
+2) <strong>Acute uveitic</strong> (diffuse choroiditis → papilledema/exudative detachments; may evolve to panuveitis),
+3) <strong>Convalescent</strong> (depigmentation; vitiligo/poliosis/alopecia),
 4) <strong>Chronic recurrent</strong> (chronic recurrent granulomatous anterior uveitis; less commonly recurrent exudative detachments). (tugaltutkun2024vogtkoyanagiharadadisease pages 1-3)</p>
 <p>A COVID-era review notes the prodromal phase is often ~3–5 days and the acute uveitic stage lasts weeks with bilateral posterior uveitis and choroidal thickening/serous detachments. (manni2023vogtkoyanagiharadadiseaseand pages 2-4)</p>
 <h3>3.2 Phenotype frequencies from a large cohort (recent primary data)</h3>
@@ -7124,10 +7465,10 @@ For each section, provide:
 <li><strong>CARD9 rs3812555</strong>: CC genotype risk (OR 1.810), C allele risk (OR 1.698), with functional association to higher CARD9 mRNA and TNF‑α. (zhou2023geneticassociationof pages 1-2)</li>
 </ul>
 <h3>4.3 Molecular pathophysiology (causal chain)</h3>
-<p>1) <strong>Predisposition</strong> (e.g., HLA‑DRB1<em>04:05 and other genetic factors) → 
-2) </em><em>Trigger</em><em> (viral infection/vaccination or iatrogenic immune disinhibition with ICIs) → 
-3) </em><em>Antigen presentation and loss of tolerance</em><em> to melanocyte antigens (e.g., tyrosinase/gp100) → 
-4) </em><em>Effector inflammation in choroid/uvea</em><em> with cytokine production (TNF‑α, IFN‑γ; Th1/Th17 signatures) → 
+<p>1) <strong>Predisposition</strong> (e.g., HLA‑DRB1<em>04:05 and other genetic factors) →
+2) </em><em>Trigger</em><em> (viral infection/vaccination or iatrogenic immune disinhibition with ICIs) →
+3) </em><em>Antigen presentation and loss of tolerance</em><em> to melanocyte antigens (e.g., tyrosinase/gp100) →
+4) </em><em>Effector inflammation in choroid/uvea</em><em> with cytokine production (TNF‑α, IFN‑γ; Th1/Th17 signatures) →
 5) </em><em>Tissue damage and melanocyte loss</em>* leading to ocular exudation/detachments acutely and depigmentation (sunset glow fundus; vitiligo/poliosis/alopecia) chronically. (tugaltutkun2024vogtkoyanagiharadadisease pages 1-3, sugita2006ocularinfiltratingcd4+ pages 1-2, zhou2023geneticassociationof pages 1-2, manni2023vogtkoyanagiharadadiseaseand pages 1-2)</p>
 <h3>4.4 GO biological process suggestions</h3>
 <ul>
@@ -7512,11 +7853,11 @@ Key quantitative outcomes:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -7566,7 +7907,7 @@ Key quantitative outcomes:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Vogt-Koyanagi-Harada Disease", "mondoId": "MONDO:0018092", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vogt-Koyanagi-Harada_Disease", "yamlRevision": "124ecb3e7ff5"};
+        const OS_CONFIG = {"diseaseName": "Vogt-Koyanagi-Harada Disease", "mondoId": "MONDO:0018092", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vogt-Koyanagi-Harada_Disease", "yamlRevision": "8b7039d7828c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

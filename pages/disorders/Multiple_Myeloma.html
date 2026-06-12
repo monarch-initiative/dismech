@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,22 @@
         <header class="page-header">
             <h1>Multiple Myeloma</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Complex</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0009693" target="_blank">
                         MONDO:0009693
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">plasma cell neoplasm</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,11 +2989,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Multiple myeloma is a hematologic malignancy characterized by clonal proliferation of malignant plasma cells in the bone marrow, leading to production of monoclonal immunoglobulin (M protein). The disease causes osteolytic bone lesions, renal impairment, hypercalcemia, and anemia. Key cytogenetic abnormalities include t(4;14), t(14;16), del(17p), and hyperdiploidy. Treatment includes proteasome inhibitors, immunomodulatory drugs, anti-CD38 monoclonal antibodies, and autologous stem cell transplantation.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2993,35 +3063,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3029,9 +3099,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3039,10 +3109,18 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3050,8 +3128,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3059,8 +3137,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3068,15 +3146,15 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3084,765 +3162,1376 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target">
+                <div class="item-name">Severe obesity is epidemiologically associated with increased multiple myeloma risk and mortality, yet the mechanisms by which obesity accelerates myeloma progression are unknown. Which obesity-driven factors — adipokine dysregulation (leptin, adiponectin, IL-6, TNF-alpha), altered marrow lipid and metabolic flux, and immune disruption — causally promote clonal plasma cell expansion and impair anti-tumor immunity, and do these mechanisms operate universally or only in specific genetic and immune-competent backgrounds?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_mm_obesity_accelerated_progression</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-clonal-plasma-cell-proliferation">pathophysiology#Clonal Plasma Cell Proliferation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-immune-dysregulation">pathophysiology#Immune Dysregulation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-bone-marrow-failure">pathophysiology#Bone Marrow Failure</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Epidemiologic data robustly link severe obesity to higher multiple myeloma incidence and mortality, and Fairfield et al. (2026) confirmed in CoMMpass clinical data that moderate-to-severe obesity at diagnosis associates with increased patient mortality and distinct myeloma-cell gene-expression and pathway signatures. They further showed that high-fat-diet obesity accelerated myeloma only in the immune-competent C57BL/6J 5TGM1 semisyngeneic model — not in the SCID-beige xenograft or the Vk*MYC model — implicating the host immune system rather than a tumor-intrinsic effect alone. However, the underlying mechanisms remain unknown: it is unresolved which specific immune populations (T cells, NK cells, macrophages, neutrophils, regulatory T cells) are disrupted, and how obesity-associated adipokines and altered marrow lipid/metabolic flux mechanistically drive plasma-cell survival and proliferation. It is also unclear whether the obesity-altered myeloma-cell gene signatures activate stemness, drug-resistance, or immune-evasion programs. Resolving whether obesity acts primarily through impaired anti-tumor immunity, a permissive adipocyte-rich marrow niche, or tumor-intrinsic reprogramming would clarify whether obesity is a modifiable target for myeloma prevention and which interventions to prioritize.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Immune and metabolic dissection of obesity-accelerated myeloma in the 5TGM1 model</div>
+
+                <div class="item-meta">
+
+
+
+
+    <span class="tag tag-discussion-kind">
+
+        integrated in vivo immunophenotyping and transcriptomic perturbation study
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_mm_obesity_immune_niche_dissection</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Use the immune-competent HFD-fed C57BL/6J 5TGM1-TKGFP+/Luc+ semisyngeneic model with bioluminescent tumor tracking to compare obese versus lean mice. Profile bone-marrow and tumor-infiltrating immune populations by flow cytometry and single-cell RNA-seq, quantify circulating and marrow adipokines and lipid metabolites, and perform selective immune-cell depletion or adipokine blockade to test causal contributions. In parallel, mine MMRF CoMMpass obese-versus-normal myeloma-cell transcriptomes to nominate driver pathways for functional testing.</div>
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Tumor burden and engraftment in obese vs lean hosts</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-clonal-plasma-cell-proliferation">pathophysiology#Clonal Plasma Cell Proliferation</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Quantify myeloma engraftment, growth kinetics, and serum IgG/M-protein in HFD-obese versus lean mice using noninvasive bioluminescent imaging and serum immunoglobulin measurement, with and without adipokine blockade.
+</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        bioluminescent tumor imaging
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        serum immunoglobulin quantification
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: POSITIVE</div>
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Tumor-infiltrating and marrow immune-cell composition</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-immune-dysregulation">pathophysiology#Immune Dysregulation</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Characterize T-cell, NK-cell, macrophage, neutrophil, and regulatory T-cell frequencies and functional/exhaustion states in obese versus lean marrow, and test causality by selective immune-cell depletion.
+</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        multiparameter flow cytometry
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        single-cell RNA sequencing
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: NEGATIVE</div>
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Marrow adipokine and lipid-metabolic environment</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-bone-marrow-failure">pathophysiology#Bone Marrow Failure</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Measure marrow and circulating leptin, adiponectin, IL-6, TNF-alpha, and lipid metabolites in obese versus lean hosts to link adipocyte-rich niche remodeling to plasma-cell support and suppressed hematopoiesis.
+</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        adipokine immunoassay
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        marrow lipidomic profiling
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: POSITIVE</div>
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">An obesity-driven immune/niche mechanism is supported if HFD-obese hosts show significantly higher myeloma engraftment than lean controls, if depletion of a specific immune population or blockade of a specific adipokine reverses the obesity-accelerated phenotype, and if the responsible pathway is concordantly enriched in obese-patient CoMMpass myeloma-cell transcriptomes.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-clonal-plasma-cell-proliferation">pathophysiology#Clonal Plasma Cell Proliferation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-immune-dysregulation">pathophysiology#Immune Dysregulation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-bone-marrow-failure">pathophysiology#Bone Marrow Failure</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41834458" target="_blank">PMID:41834458</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Obesity is associated with an increased risk of developing multiple myeloma; however, the underlying mechanisms are unknown."</div>
+
+
+                <div class="evidence-explanation">Fairfield et al. explicitly state that obesity raises myeloma risk while its mechanisms remain unknown, directly establishing this knowledge gap.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41834458" target="_blank">PMID:41834458</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"obesity-accelerated multiple myeloma is coupled with immune disruptions in mice"</div>
+
+
+                <div class="evidence-explanation">Links obesity-accelerated myeloma to immune disruption in an immune-competent mouse model, motivating the proposed immune-mechanism work.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41834458" target="_blank">PMID:41834458</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"gene expression is altered in myeloma cells from patients with obesity, further implicating obesity as a critical modifier for prevention"</div>
+
+
+                <div class="evidence-explanation">Reports altered myeloma-cell gene expression in obese patients (CoMMpass), the human arm motivating the proposed metabolic/transcriptomic mechanism work.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-plasma-cell-proliferation">
                 <div class="item-name">Clonal Plasma Cell Proliferation</div>
-                
+
                 <div class="item-desc">Malignant plasma cells undergo clonal expansion in the bone marrow, driven by genetic alterations including immunoglobulin heavy chain translocations and hyperdiploidy. These transformed cells accumulate in the bone marrow, displacing normal hematopoiesis and producing monoclonal immunoglobulin.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         malignant plasma cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000786">CL:0000786</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cell proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         bone marrow
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Monoclonal Immunoglobulin Production</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Bone Marrow Failure</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Osteolytic Bone Disease</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34201396" target="_blank">PMID:34201396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Multiple myeloma (MM) is a neoplastic clonal proliferation of plasma cells in the bone marrow microenvironment, characterized by overproduction of heavy- and light-chain monoclonal proteins (M-protein)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Mukkamalla et al. review confirms MM as a neoplastic clonal proliferation of plasma cells producing monoclonal proteins.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monoclonal-immunoglobulin-production">
                 <div class="item-name">Monoclonal Immunoglobulin Production</div>
-                
+
                 <div class="item-desc">Malignant plasma cells secrete large quantities of monoclonal immunoglobulin (M protein) or free light chains. These abnormal proteins can deposit in tissues, particularly the kidneys, causing cast nephropathy and renal impairment. Serum and urine protein electrophoresis detect the monoclonal spike.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         malignant plasma cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000786">CL:0000786</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         immunoglobulin production
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002377">GO:0002377</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Renal Impairment</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25439696" target="_blank">PMID:25439696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This International Myeloma Working Group consensus updates the disease definition of multiple myeloma to include validated biomarkers in addition to existing requirements of attributable CRAB features (hypercalcaemia, renal failure, anaemia, and bone lesions)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The IMWG diagnostic criteria define myeloma partly through detection of monoclonal protein, confirming its central role in pathophysiology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteolytic-bone-disease">
                 <div class="item-name">Osteolytic Bone Disease</div>
-                
+
                 <div class="item-desc">Myeloma cells activate osteoclasts and suppress osteoblasts through secretion of RANKL, MIP-1alpha, and DKK1. This uncoupled bone remodeling leads to lytic bone lesions, pathologic fractures, hypercalcemia, and bone pain. The RANK/RANKL/OPG axis is central to myeloma bone disease.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         osteoclast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         osteoblast
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         osteoclast differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030316">GO:0030316</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         bone resorption
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045453">GO:0045453</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypercalcemia</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34201396" target="_blank">PMID:34201396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Elevated levels of osteoclast activating factors such as RANK/RANKL/OPG, MIP-1-α., TNF-α, IL-3, IL-6, and IL-11 increase bone resorption by osteoclast stimulation, differentiation, and maturation, whereas osteoblast inhibitory factors such as the Wnt/DKK1 pathway, secreted frizzle related..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Comprehensive review details the molecular mechanisms of myeloma bone disease including RANKL/OPG imbalance and DKK1-mediated osteoblast inhibition.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-failure">
                 <div class="item-name">Bone Marrow Failure</div>
-                
+
                 <div class="item-desc">Progressive infiltration of bone marrow by malignant plasma cells displaces normal hematopoietic progenitors, leading to anemia, neutropenia, and thrombocytopenia. Anemia is the most common cytopenia and is often the presenting feature.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         hematopoiesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030097" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030097" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030097">GO:0030097</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         bone marrow
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25439696" target="_blank">PMID:25439696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"existing requirements of attributable CRAB features (hypercalcaemia, renal failure, anaemia, and bone lesions)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Anemia is a defining CRAB feature of myeloma, resulting from bone marrow failure due to plasma cell infiltration.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-dysregulation">
                 <div class="item-name">Immune Dysregulation</div>
-                
+
                 <div class="item-desc">Myeloma causes profound immunodeficiency through suppression of normal immunoglobulin production (immunoparesis), impaired T cell and NK cell function, and alterations in the bone marrow microenvironment. This leads to increased susceptibility to infections, which remain a major cause of morbidity and mortality.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         immune response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006955">GO:0006955</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34201396" target="_blank">PMID:34201396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Reduction in normal gammaglobulins (immunoparesis) leads to an increased risk of infection."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The review confirms immunoparesis as a key feature of myeloma leading to increased infection risk.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-impairment">
                 <div class="item-name">Renal Impairment</div>
-                
+
                 <div class="item-desc">Renal dysfunction in myeloma results primarily from cast nephropathy, where monoclonal free light chains precipitate in renal tubules forming obstructing casts. Additional mechanisms include hypercalcemia-induced nephrocalcinosis, light chain amyloidosis, and light chain deposition disease.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         kidney
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25439696" target="_blank">PMID:25439696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"attributable CRAB features (hypercalcaemia, renal failure, anaemia, and bone lesions)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Renal failure is a defining CRAB feature of myeloma in the IMWG diagnostic criteria.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypercalcemia">
                 <div class="item-name">Hypercalcemia</div>
-                
+
                 <div class="item-desc">Excessive osteoclast-mediated bone resorption releases calcium into the bloodstream, leading to hypercalcemia. This is exacerbated by impaired renal calcium excretion and contributes to renal dysfunction, confusion, constipation, and cardiac arrhythmias.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25439696" target="_blank">PMID:25439696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"attributable CRAB features (hypercalcaemia, renal failure, anaemia, and bone lesions)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hypercalcemia is one of the CRAB features that define symptomatic myeloma per IMWG criteria.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3858,623 +4547,650 @@
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">9</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Anemia
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank">
-                            Anemia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001903)</span>
-                        </span>
-                        
+                        Anemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34201396" target="_blank">PMID:34201396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients with MM usually present with hypercalcemia, anemia, renal damage, increased risk for infections, and pathological fracture secondary to osteolytic bone destruction"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Anemia is listed as a common presenting feature of multiple myeloma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Renal Insufficiency
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank">
-                            Renal insufficiency
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000083)</span>
-                        </span>
-                        
+                        Renal insufficiency
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000083">HP:0000083</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25439696" target="_blank">PMID:25439696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"existing requirements of attributable CRAB features (hypercalcaemia, renal failure, anaemia, and bone lesions)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Renal failure is a defining CRAB feature per IMWG diagnostic criteria.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Recurrent Infections
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank">
-                            Recurrent infections
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002719)</span>
-                        </span>
-                        
+                        Recurrent infections
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002719">HP:0002719</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34201396" target="_blank">PMID:34201396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Reduction in normal gammaglobulins (immunoparesis) leads to an increased risk of infection."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Immunoparesis directly leads to increased infection risk in myeloma patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Hypercalcemia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank">
-                            Hypercalcemia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003072)</span>
-                        </span>
-                        
+                        Hypercalcemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003072">HP:0003072</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25439696" target="_blank">PMID:25439696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"existing requirements of attributable CRAB features (hypercalcaemia, renal failure, anaemia, and bone lesions)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Hypercalcemia is a defining CRAB feature per IMWG diagnostic criteria.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Osteolytic Bone Lesions
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002797" target="_blank">
-                            Osteolysis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002797)</span>
-                        </span>
-                        
+                        Osteolysis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002797" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002797">HP:0002797</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34201396" target="_blank">PMID:34201396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Osteolytic lesions are seen in 80% of patients with MM"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Osteolytic lesions are present in 80% of myeloma patients at diagnosis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pathologic Fractures
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002756" target="_blank">
-                            Pathologic fracture
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002756)</span>
-                        </span>
-                        
+                        Pathologic fracture
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002756">HP:0002756</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34201396" target="_blank">PMID:34201396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Osteolytic lesions are seen in 80% of patients with MM which are complicated frequently by skeletal-related events (SRE) such as hypercalcemia, bone pain, pathological fractures, vertebral collapse, and spinal cord compression."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Pathological fractures are a frequent complication of myeloma bone disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Peripheral Neuropathy
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank">
-                            Peripheral neuropathy
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0009830)</span>
-                        </span>
-                        
+                        Peripheral neuropathy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18753647" target="_blank">PMID:18753647</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Adverse events were consistent with established profiles of toxic events associated with bortezomib and melphalan-prednisone."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The VISTA trial documents peripheral neuropathy as a known adverse event of bortezomib-based treatment in myeloma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Bone Pain
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank">
-                            Bone pain
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002653)</span>
-                        </span>
-                        
+                        Bone pain
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002653">HP:0002653</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34201396" target="_blank">PMID:34201396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Osteolytic lesions are seen in 80% of patients with MM which are complicated frequently by skeletal-related events (SRE) such as hypercalcemia, bone pain, pathological fractures, vertebral collapse, and spinal cord compression."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Bone pain is listed as a frequent skeletal-related event complicating osteolytic lesions in 80% of myeloma patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Fatigue
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank">
-                            Fatigue
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012378)</span>
-                        </span>
-                        
+                        Fatigue
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34201396" target="_blank">PMID:34201396</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients with MM usually present with hypercalcemia, anemia, renal damage, increased risk for infections, and pathological fracture secondary to osteolytic bone destruction"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Anemia and renal damage, both presenting features of myeloma, are primary contributors to fatigue in myeloma patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4499,614 +5215,681 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">3</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     IGH Translocations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic)</span>
-                    
+
                 </div>
-                
-                
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IGH
+
+
+    <a href="https://bioregistry.io/hgnc:5477" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5477">hgnc:5477</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25439696" target="_blank">PMID:25439696</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These changes are based on the identification of biomarkers associated with near inevitable development of CRAB features in patients who would otherwise be regarded as having smouldering multiple myeloma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The IMWG criteria include cytogenetic abnormalities such as t(4;14) and t(14;16) as myeloma-defining events, reflecting the central role of IGH translocations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     TP53 Deletion
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     Hyperdiploidy
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic)</span>
-                    
+
                 </div>
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Proteasome Inhibitor Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">proteasome inhibitor therapy</span>
-                    
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Bortezomib, carfilzomib, and ixazomib target the ubiquitin-proteasome pathway. Myeloma cells are particularly sensitive due to high protein production load. Proteasome inhibitors are backbone agents in most treatment regimens.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18753647" target="_blank">PMID:18753647</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Bortezomib plus melphalan-prednisone was superior to melphalan-prednisone alone in patients with newly diagnosed myeloma who were ineligible for high-dose therapy."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The VISTA trial demonstrated superiority of bortezomib-based therapy in newly diagnosed myeloma, establishing proteasome inhibitors as backbone agents.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Immunomodulatory Drug Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">immunomodulatory drug therapy</span>
-                    
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Lenalidomide, pomalidomide, and thalidomide exert anti-myeloma effects through cereblon-mediated degradation of IKZF1/IKZF3 transcription factors, direct anti-proliferative effects, immune modulation, and anti-angiogenic activity.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18032763" target="_blank">PMID:18032763</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Lenalidomide plus dexamethasone is superior to placebo plus dexamethasone in patients with relapsed or refractory multiple myeloma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The MM-009 trial demonstrated superiority of lenalidomide plus dexamethasone over dexamethasone alone in relapsed myeloma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Anti-CD38 Monoclonal Antibody Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">anti-CD38 monoclonal antibody therapy</span>
-                    
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Daratumumab and isatuximab target CD38, which is highly expressed on myeloma cells. These antibodies exert anti-myeloma effects through multiple mechanisms including ADCC, CDC, ADCP, and direct apoptosis induction.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31141632" target="_blank">PMID:31141632</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"the risk of disease progression or death was significantly lower among those who received daratumumab plus lenalidomide and dexamethasone than among those who received lenalidomide and dexamethasone alone."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The MAIA trial demonstrated that adding daratumumab to lenalidomide-dexamethasone significantly reduced disease progression or death in newly diagnosed myeloma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Autologous Stem Cell Transplantation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">autologous stem cell transplantation</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: organ transplantation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0010039</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0010039">MAXO:0010039</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">High-dose melphalan followed by autologous stem cell transplant remains standard of care for transplant-eligible patients. It deepens treatment response and improves progression-free survival.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12736280" target="_blank">PMID:12736280</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"High-dose therapy with autologous stem-cell rescue is an effective first-line treatment for patients with multiple myeloma who are younger than 65 years of age."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The MRC Myeloma VII trial established high-dose therapy with autologous stem-cell rescue as an effective first-line treatment for transplant-eligible myeloma patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     CAR-T Cell Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">CAR-T cell therapy</span>
-                    
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">BCMA-directed CAR-T cell therapies (idecabtagene vicleucel, ciltacabtagene autoleucel) are approved for relapsed/refractory myeloma. They target B cell maturation antigen expressed on myeloma cells.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33626253" target="_blank">PMID:33626253</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Ide-cel induced responses in a majority of heavily pretreated patients with refractory and relapsed myeloma; MRD-negative status was achieved in 26% of treated patients."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The KarMMa trial demonstrated that idecabtagene vicleucel induced responses in 73% of heavily pretreated relapsed/refractory myeloma patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Bispecific Antibody Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">bispecific antibody therapy</span>
-                    
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Bispecific antibodies (teclistamab, elranatamab, talquetamab) redirect T cells to myeloma cells by simultaneously binding tumor antigens (BCMA, GPRC5D) and CD3 on T cells. Approved for relapsed/refractory disease.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35661166" target="_blank">PMID:35661166</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Teclistamab resulted in a high rate of deep and durable response in patients with triple-class-exposed relapsed or refractory multiple myeloma."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The MajesTEC-1 trial demonstrated a 63% overall response rate with teclistamab in triple-class-exposed relapsed/refractory myeloma.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5659,8 +6442,8 @@ treatments:
   treatment_term:
     preferred_term: proteasome inhibitor therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
 - name: Immunomodulatory Drug Therapy
   description: &gt;-
     Lenalidomide, pomalidomide, and thalidomide exert anti-myeloma effects through
@@ -5680,8 +6463,8 @@ treatments:
   treatment_term:
     preferred_term: immunomodulatory drug therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
 - name: Anti-CD38 Monoclonal Antibody Therapy
   description: &gt;-
     Daratumumab and isatuximab target CD38, which is highly expressed on myeloma
@@ -5702,8 +6485,8 @@ treatments:
   treatment_term:
     preferred_term: anti-CD38 monoclonal antibody therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
 - name: Autologous Stem Cell Transplantation
   description: &gt;-
     High-dose melphalan followed by autologous stem cell transplant remains standard
@@ -5746,8 +6529,8 @@ treatments:
   treatment_term:
     preferred_term: CAR-T cell therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
 - name: Bispecific Antibody Therapy
   description: &gt;-
     Bispecific antibodies (teclistamab, elranatamab, talquetamab) redirect T cells
@@ -5767,50 +6550,170 @@ treatments:
   treatment_term:
     preferred_term: bispecific antibody therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
 datasets:
+discussions:
+- discussion_id: gap_mm_obesity_accelerated_progression
+  prompt: &gt;-
+    Severe obesity is epidemiologically associated with increased multiple myeloma
+    risk and mortality, yet the mechanisms by which obesity accelerates myeloma
+    progression are unknown. Which obesity-driven factors — adipokine dysregulation
+    (leptin, adiponectin, IL-6, TNF-alpha), altered marrow lipid and metabolic flux,
+    and immune disruption — causally promote clonal plasma cell expansion and
+    impair anti-tumor immunity, and do these mechanisms operate universally or only
+    in specific genetic and immune-competent backgrounds?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Clonal Plasma Cell Proliferation
+  - pathophysiology#Immune Dysregulation
+  - pathophysiology#Bone Marrow Failure
+  rationale: &gt;-
+    Epidemiologic data robustly link severe obesity to higher multiple myeloma
+    incidence and mortality, and Fairfield et al. (2026) confirmed in CoMMpass
+    clinical data that moderate-to-severe obesity at diagnosis associates with
+    increased patient mortality and distinct myeloma-cell gene-expression and
+    pathway signatures. They further showed that high-fat-diet obesity accelerated
+    myeloma only in the immune-competent C57BL/6J 5TGM1 semisyngeneic model — not in
+    the SCID-beige xenograft or the Vk*MYC model — implicating the host immune system
+    rather than a tumor-intrinsic effect alone. However, the underlying mechanisms
+    remain unknown: it is unresolved which specific immune populations (T cells,
+    NK cells, macrophages, neutrophils, regulatory T cells) are disrupted, and how
+    obesity-associated adipokines and altered marrow lipid/metabolic flux
+    mechanistically drive plasma-cell survival and proliferation. It is also unclear
+    whether the obesity-altered myeloma-cell gene signatures activate stemness,
+    drug-resistance, or immune-evasion programs. Resolving whether obesity acts
+    primarily through impaired anti-tumor immunity, a permissive adipocyte-rich
+    marrow niche, or tumor-intrinsic reprogramming would clarify whether obesity is
+    a modifiable target for myeloma prevention and which interventions to prioritize.
+  proposed_experiments:
+  - experiment_id: exp_mm_obesity_immune_niche_dissection
+    name: Immune and metabolic dissection of obesity-accelerated myeloma in the 5TGM1 model
+    description: &gt;-
+      Use the immune-competent HFD-fed C57BL/6J 5TGM1-TKGFP+/Luc+ semisyngeneic
+      model with bioluminescent tumor tracking to compare obese versus lean mice.
+      Profile bone-marrow and tumor-infiltrating immune populations by flow
+      cytometry and single-cell RNA-seq, quantify circulating and marrow adipokines
+      and lipid metabolites, and perform selective immune-cell depletion or adipokine
+      blockade to test causal contributions. In parallel, mine MMRF CoMMpass
+      obese-versus-normal myeloma-cell transcriptomes to nominate driver pathways
+      for functional testing.
+    experiment_type:
+      preferred_term: integrated in vivo immunophenotyping and transcriptomic perturbation study
+    readouts:
+    - name: Tumor burden and engraftment in obese vs lean hosts
+      target: pathophysiology#Clonal Plasma Cell Proliferation
+      description: &gt;
+        Quantify myeloma engraftment, growth kinetics, and serum IgG/M-protein in
+        HFD-obese versus lean mice using noninvasive bioluminescent imaging and
+        serum immunoglobulin measurement, with and without adipokine blockade.
+      assays:
+      - preferred_term: bioluminescent tumor imaging
+      - preferred_term: serum immunoglobulin quantification
+      direction: POSITIVE
+    - name: Tumor-infiltrating and marrow immune-cell composition
+      target: pathophysiology#Immune Dysregulation
+      description: &gt;
+        Characterize T-cell, NK-cell, macrophage, neutrophil, and regulatory T-cell
+        frequencies and functional/exhaustion states in obese versus lean marrow,
+        and test causality by selective immune-cell depletion.
+      assays:
+      - preferred_term: multiparameter flow cytometry
+      - preferred_term: single-cell RNA sequencing
+      direction: NEGATIVE
+    - name: Marrow adipokine and lipid-metabolic environment
+      target: pathophysiology#Bone Marrow Failure
+      description: &gt;
+        Measure marrow and circulating leptin, adiponectin, IL-6, TNF-alpha, and
+        lipid metabolites in obese versus lean hosts to link adipocyte-rich niche
+        remodeling to plasma-cell support and suppressed hematopoiesis.
+      assays:
+      - preferred_term: adipokine immunoassay
+      - preferred_term: marrow lipidomic profiling
+      direction: POSITIVE
+    decision_criterion: &gt;-
+      An obesity-driven immune/niche mechanism is supported if HFD-obese hosts show
+      significantly higher myeloma engraftment than lean controls, if depletion of a
+      specific immune population or blockade of a specific adipokine reverses the
+      obesity-accelerated phenotype, and if the responsible pathway is concordantly
+      enriched in obese-patient CoMMpass myeloma-cell transcriptomes.
+    would_support:
+    - pathophysiology#Clonal Plasma Cell Proliferation
+    - pathophysiology#Immune Dysregulation
+    - pathophysiology#Bone Marrow Failure
+  evidence:
+  - reference: PMID:41834458
+    reference_title: &#34;Obesity Accelerates Multiple Myeloma Progression in Certain Mouse Models and in Humans.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Obesity is associated with an increased risk of developing multiple myeloma;
+      however, the underlying mechanisms are unknown.
+    explanation: &gt;-
+      Fairfield et al. explicitly state that obesity raises myeloma risk while its
+      mechanisms remain unknown, directly establishing this knowledge gap.
+  - reference: PMID:41834458
+    reference_title: &#34;Obesity Accelerates Multiple Myeloma Progression in Certain Mouse Models and in Humans.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      obesity-accelerated multiple myeloma is coupled with immune disruptions in
+      mice
+    explanation: &gt;-
+      Links obesity-accelerated myeloma to immune disruption in an
+      immune-competent mouse model, motivating the proposed immune-mechanism work.
+  - reference: PMID:41834458
+    reference_title: &#34;Obesity Accelerates Multiple Myeloma Progression in Certain Mouse Models and in Humans.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      gene expression is altered in myeloma cells from patients with obesity,
+      further implicating obesity as a critical modifier for prevention
+    explanation: &gt;-
+      Reports altered myeloma-cell gene expression in obese patients (CoMMpass),
+      the human arm motivating the proposed metabolic/transcriptomic mechanism work.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Pathophysiology Research Template</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">55 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-03-06T04:10:12.680494</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -6319,11 +7222,11 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -6373,7 +7276,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Multiple Myeloma", "mondoId": "MONDO:0009693", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Myeloma", "yamlRevision": "e05cbcee0aa3"};
+        const OS_CONFIG = {"diseaseName": "Multiple Myeloma", "mondoId": "MONDO:0009693", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Myeloma", "yamlRevision": "cdf23a59f0f1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

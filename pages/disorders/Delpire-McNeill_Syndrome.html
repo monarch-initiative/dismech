@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,24 +2961,24 @@
         <header class="page-header">
             <h1>Delpire-McNeill Syndrome</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0033667" target="_blank">
                         MONDO:0033667
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Neurodevelopmental Disorders</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Ion Channel Disorders</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2921,7 +2991,7 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2991,34 +3061,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3026,8 +3096,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3035,9 +3105,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3045,10 +3115,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3056,8 +3126,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3065,24 +3135,32 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+            <a class="stat-link" href="#differentials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔀</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Differentials</div>
+            </div>
+            </a>
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3090,763 +3168,834 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal dominant
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
                             HP:0000006
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Delpire-McNeill syndrome follows autosomal dominant inheritance through de novo mutations. All well-characterized cases result from de novo mutations. Some family members carrying identical mutations show no clinical phenotype, demonstrating incomplete penetrance.
 </div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal dominant inheritance
         </span>
-        
-        
+
+
         <span class="tag tag-classification">Penetrance: INCOMPLETE</span>
-        
-        
-        
-        
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Through trio exome sequencing we identified de novo mutations in SLC12A2 in six children with neurodevelopmental disorders."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Trio exome sequencing established de novo origin of SLC12A2 mutations.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37399495" target="_blank">PMID:37399495</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Overall, the preponderance of evidence suggests that the SLC12A2 gene is a human disease-causing and likely haploinsufficient gene that requires further investigation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Review confirming SLC12A2 haploinsufficiency with variable penetrance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc12a2-nkcc1-loss-of-function">
                 <div class="item-name">SLC12A2 (NKCC1) Loss of Function</div>
-                
+
                 <div class="item-desc">Delpire-McNeill syndrome is caused by de novo heterozygous mutations in the SLC12A2 gene, which encodes the Na-K-2Cl cotransporter 1 (NKCC1). NKCC1 is a widely expressed electroneutral cation-chloride cotransporter that mediates coupled transport of sodium, potassium, and chloride ions across cell membranes. Loss-of-function mutations disrupt intracellular chloride homeostasis, affecting neuronal development, auditory function, and multiple organ systems. All tested variants reduce cotransporter function in Xenopus laevis oocytes.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         monoatomic ion transmembrane transport
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0034220" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0034220" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034220">GO:0034220</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         chloride transmembrane transport
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_1902476" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_1902476" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1902476">GO:1902476</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Neurogenesis via GABAergic Signaling Disruption</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Inner Ear Endolymph Dysfunction</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Secretory Epithelial Dysfunction</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Through trio exome sequencing we identified de novo mutations in SLC12A2 in six children with neurodevelopmental disorders. All had developmental delay or intellectual disability ranging from mild to severe."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Landmark study identifying de novo SLC12A2 mutations as causal in neurodevelopmental disorders.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37399495" target="_blank">PMID:37399495</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in the SLC12A2 gene, which encodes the Na-K-2Cl cotransporter-1 (NKCC1), are linked to various conditions such as neurodevelopmental deficits, deafness, and fluid secretion in different epithelia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Comprehensive review establishing SLC12A2 as a haploinsufficient human disease gene.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurogenesis-via-gabaergic-signaling-disruption">
                 <div class="item-name">Impaired Neurogenesis via GABAergic Signaling Disruption</div>
-                
+
                 <div class="item-desc">NKCC1 plays a critical role in establishing intracellular chloride concentration in developing neurons. In radial glial cells during fetal corticogenesis (16-18 weeks post-conception), NKCC1 maintains elevated intracellular chloride, making GABA depolarizing and excitatory, which supports neuronal migration, differentiation, and synaptogenesis. Mutations disrupting NKCC1 function prematurely shift the developmental GABA excitatory-inhibitory switch, impairing neural progenitor expansion and cortical development.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         radial glial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000681">CL:0000681</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         GABAergic neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000617">CL:0000617</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         gamma-aminobutyric acid signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007214">GO:0007214</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         neurogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022008">GO:0022008</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Analysis of SLC12A2 expression in foetal brain at 16-18 weeks post-conception revealed high expression in radial glial cells, compatible with a role in neurogenesis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that SLC12A2 is highly expressed in radial glial cells during critical neurogenic period.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Gene co-expression analysis in cells robustly expressing SLC12A2 at 16-18 weeks post-conception identified a transcriptomic programme associated with active neurogenesis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Shows SLC12A2-expressing cells have a transcriptomic program reflecting active neurogenesis.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11027211" target="_blank">PMID:11027211</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In contrast to control neurons, little or no net current was observed at the resting membrane potential in homozygote NKCC1 mutant DRG neurons. E(GABA) was significantly more negative, demonstrating the absence of Cl(-) accumulation in these cells."</div>
-                
-                
+
+
                 <div class="evidence-explanation">NKCC1 knockout mice show loss of chloride accumulation and absence of GABA-mediated depolarization.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inner-ear-endolymph-dysfunction">
                 <div class="item-name">Inner Ear Endolymph Dysfunction</div>
-                
+
                 <div class="item-desc">NKCC1 is essential for endolymph production in the inner ear. It is expressed in the strial marginal cells of the cochlea and vestibular dark cells, where it drives potassium and chloride transport into the endolymph. Loss of NKCC1 function leads to reduced endolymph volume, decreased endocochlear potential, hair cell degeneration, and bilateral sensorineural deafness with vestibular areflexia.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         strial marginal cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0002492" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002492" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002492">CL:0002492</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         potassium ion transport
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006813" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006813" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006813">GO:0006813</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19633174" target="_blank">PMID:19633174</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We show here that lte mutations correspond to lesions in nkcc1."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Zebrafish model demonstrates NKCC1 is required for regulation of endolymph volume.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40503591" target="_blank">PMID:40503591</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In the inner ear, K+ transport is required for the mechano-transduction of auditory stimuli. SLC12A2 functions as a dimer and has several isoforms; only one isoform contains exon 21, and this isoform is almost exclusively expressed in the inner ear/cochlea."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms cochlear-specific expression of NKCC1 exon 21 isoform essential for endolymph homeostasis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secretory-epithelial-dysfunction">
                 <div class="item-name">Secretory Epithelial Dysfunction</div>
-                
+
                 <div class="item-desc">NKCC1 is expressed on basolateral membranes of secretory epithelia including salivary glands, pancreas, trachea, intestine, and sweat glands, where it supports transepithelial fluid secretion. Severe NKCC1 deficiency causes absent or reduced salivation, tear production, and sweat production, as well as respiratory complications from dry mucosa and mucus plugging.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         epithelial cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000066">CL:0000066</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         fluid transport
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042044" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042044" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042044">GO:0042044</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27900370" target="_blank">PMID:27900370</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This study describes a 13-yr-old girl with orthostatic intolerance, respiratory weakness, multiple endocrine abnormalities, pancreatic insufficiency, and multiorgan failure involving the gut and bladder."</div>
-                
-                
+
+
                 <div class="evidence-explanation">First human case demonstrating multisystem secretory dysfunction from heterozygous SLC12A2 truncation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Herein we describe a child admitted to the NIH Undiagnosed Diseases Program with global developmental delay, sensorineural hearing loss, gastrointestinal abnormalities, and absent salivation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Kilquist syndrome case showing severe secretory epithelial dysfunction from homozygous SLC12A2 deletion.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3857,596 +4006,629 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Impaired Neurogenesis via GABAergic Signaling Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NKCC1 plays a critical role in establishing intracellular chloride concentration in developing neurons. In radial glial cells during fetal corticogenesis (16-18 weeks post-conception), NKCC1 maintains elevated intracellular chloride, making GABA depolarizing and excitatory, which supports neuronal migration, differentiation, and synaptogenesis. Mutations disrupting NKCC1 function prematurely shift the developmental GABA excitatory-inhibitory switch, impairing neural progenitor expansion and cortical development.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"radial glial cell\", \"GABAergic neuron\"], \"biological_processes\": [\"gamma-aminobutyric acid signaling pathway\", \"neurogenesis\"]}}, {\"id\": \"Inner Ear Endolymph Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NKCC1 is essential for endolymph production in the inner ear. It is expressed in the strial marginal cells of the cochlea and vestibular dark cells, where it drives potassium and chloride transport into the endolymph. Loss of NKCC1 function leads to reduced endolymph volume, decreased endocochlear potential, hair cell degeneration, and bilateral sensorineural deafness with vestibular areflexia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"strial marginal cell\"], \"biological_processes\": [\"potassium ion transport\"]}}, {\"id\": \"Missense variants in transmembrane domains\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense mutations affecting evolutionarily conserved residues including p.(Ala327Val), p.(Arg410Gln), p.(Asn376Ile), p.(Ala379Pro), and p.(Glu980Lys).\\n\"}, {\"id\": \"Protein-truncating variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift and nonsense variants including p.(Val1026Phefs*2) from an 11-bp deletion in exon 22. GnomAD shows strong constraint (pLI = 0.96).\\n\"}, {\"id\": \"SLC12A2 (NKCC1) Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delpire-McNeill syndrome is caused by de novo heterozygous mutations in the SLC12A2 gene, which encodes the Na-K-2Cl cotransporter 1 (NKCC1). NKCC1 is a widely expressed electroneutral cation-chloride cotransporter that mediates coupled transport of sodium, potassium, and chloride ions across cell membranes. Loss-of-function mutations disrupt intracellular chloride homeostasis, affecting neuronal development, auditory function, and multiple organ systems. All tested variants reduce cotransporter function in Xenopus laevis oocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"monoatomic ion transmembrane transport\", \"chloride transmembrane transport\"]}}, {\"id\": \"SLC12A2 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SLC12A2\"], \"association\": \"Causative\", \"variant_count\": 2}}, {\"id\": \"Secretory Epithelial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NKCC1 is expressed on basolateral membranes of secretory epithelia including salivary glands, pancreas, trachea, intestine, and sweat glands, where it supports transepithelial fluid secretion. Severe NKCC1 deficiency causes absent or reduced salivation, tear production, and sweat production, as well as respiratory complications from dry mucosa and mucus plugging.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell\"], \"biological_processes\": [\"fluid transport\"]}}], \"edges\": [{\"source\": \"SLC12A2 (NKCC1) Loss of Function\", \"target\": \"Impaired Neurogenesis via GABAergic Signaling Disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SLC12A2 (NKCC1) Loss of Function\", \"target\": \"Inner Ear Endolymph Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SLC12A2 (NKCC1) Loss of Function\", \"target\": \"Secretory Epithelial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Missense variants in transmembrane domains\", \"target\": \"SLC12A2 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Protein-truncating variants\", \"target\": \"SLC12A2 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Impaired Neurogenesis via GABAergic Signaling Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NKCC1 plays a critical role in establishing intracellular chloride concentration in developing neurons. In radial glial cells during fetal corticogenesis (16-18 weeks post-conception), NKCC1 maintains elevated intracellular chloride, making GABA depolarizing and excitatory, which supports neuronal migration, differentiation, and synaptogenesis. Mutations disrupting NKCC1 function prematurely shift the developmental GABA excitatory-inhibitory switch, impairing neural progenitor expansion and cortical development.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"radial glial cell\", \"GABAergic neuron\"], \"biological_processes\": [\"gamma-aminobutyric acid signaling pathway\", \"neurogenesis\"]}}, {\"id\": \"Inner Ear Endolymph Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NKCC1 is essential for endolymph production in the inner ear. It is expressed in the strial marginal cells of the cochlea and vestibular dark cells, where it drives potassium and chloride transport into the endolymph. Loss of NKCC1 function leads to reduced endolymph volume, decreased endocochlear potential, hair cell degeneration, and bilateral sensorineural deafness with vestibular areflexia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"strial marginal cell\"], \"biological_processes\": [\"potassium ion transport\"]}}, {\"id\": \"Missense variants in transmembrane domains\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense mutations affecting evolutionarily conserved residues including p.(Ala327Val), p.(Arg410Gln), p.(Asn376Ile), p.(Ala379Pro), and p.(Glu980Lys).\\n\"}, {\"id\": \"Protein-truncating variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift and nonsense variants including p.(Val1026Phefs*2) from an 11-bp deletion in exon 22. GnomAD shows strong constraint (pLI = 0.96).\\n\"}, {\"id\": \"SLC12A2 (NKCC1) Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delpire-McNeill syndrome is caused by de novo heterozygous mutations in the SLC12A2 gene, which encodes the Na-K-2Cl cotransporter 1 (NKCC1). NKCC1 is a widely expressed electroneutral cation-chloride cotransporter that mediates coupled transport of sodium, potassium, and chloride ions across cell membranes. Loss-of-function mutations disrupt intracellular chloride homeostasis, affecting neuronal development, auditory function, and multiple organ systems. All tested variants reduce cotransporter function in Xenopus laevis oocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"monoatomic ion transmembrane transport\", \"chloride transmembrane transport\"]}}, {\"id\": \"SLC12A2 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SLC12A2\"], \"gene_terms\": [{\"label\": \"SLC12A2\", \"id\": \"hgnc:10911\"}], \"association\": \"Causative\", \"variant_count\": 2}}, {\"id\": \"Secretory Epithelial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NKCC1 is expressed on basolateral membranes of secretory epithelia including salivary glands, pancreas, trachea, intestine, and sweat glands, where it supports transepithelial fluid secretion. Severe NKCC1 deficiency causes absent or reduced salivation, tear production, and sweat production, as well as respiratory complications from dry mucosa and mucus plugging.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell\"], \"biological_processes\": [\"fluid transport\"]}}], \"edges\": [{\"source\": \"SLC12A2 (NKCC1) Loss of Function\", \"target\": \"Impaired Neurogenesis via GABAergic Signaling Disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SLC12A2 (NKCC1) Loss of Function\", \"target\": \"Inner Ear Endolymph Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SLC12A2 (NKCC1) Loss of Function\", \"target\": \"Secretory Epithelial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Missense variants in transmembrane domains\", \"target\": \"SLC12A2 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Protein-truncating variants\", \"target\": \"SLC12A2 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">11</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(5)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(3)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Feeding Difficulties
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank">
-                            Feeding difficulties
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011968)</span>
-                        </span>
-                        
+                        Feeding difficulties
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Feeding difficulties may occur as part of multisystem dysfunction observed in severe cases of SLC12A2 mutations.
 </div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Muscular Hypotonia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank">
-                            Hypotonia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001252)</span>
-                        </span>
-                        
+                        Hypotonia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Hypotonia is listed as a variable feature in OMIM 619083 and observed in some patients with heterozygous SLC12A2 mutations.
 </div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Spasticity
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank">
-                            Spasticity
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001257)</span>
-                        </span>
-                        
+                        Spasticity
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Spasticity is listed as a variable feature in OMIM 619083.
 </div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">5</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Global Developmental Delay
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank">
-                            Global developmental delay
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001263)</span>
-                        </span>
-                        
+                        Global developmental delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All had developmental delay or intellectual disability ranging from mild to severe."</div>
-                
-                
+
+
                 <div class="evidence-explanation">All six children with de novo SLC12A2 mutations had developmental delay.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intellectual Disability
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
-                            Intellectual disability
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001249)</span>
-                        </span>
-                        
+                        Intellectual disability
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All had developmental delay or intellectual disability ranging from mild to severe."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Intellectual disability across the spectrum was documented in the McNeill cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Delayed or Absent Speech
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank">
-                            Delayed speech and language development
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000750)</span>
-                        </span>
-                        
+                        Delayed speech and language development
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All had developmental delay or intellectual disability ranging from mild to severe."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Speech and language delay is part of the global developmental delay phenotype described in SLC12A2 patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Autistic Features
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank">
-                            Autistic behavior
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000729)</span>
-                        </span>
-                        
+                        Autistic behavior
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40503591" target="_blank">PMID:40503591</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"de novo heterozygous SLC12A2 variants have also been implicated in developmental delay with autistic features."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms autistic features are part of the SLC12A2-associated neurodevelopmental phenotype.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Seizures
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank">
-                            Seizure
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001250)</span>
-                        </span>
-                        
+                        Seizure
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Seizures are listed as a variable feature in OMIM 619083 and Orphanet 633024.
 </div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">3</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Bilateral Sensorineural Hearing Loss
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008619" target="_blank">
-                            Bilateral sensorineural hearing impairment
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008619)</span>
-                        </span>
-                        
+                        Bilateral sensorineural hearing impairment
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008619" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008619">HP:0008619</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Two had sensorineural deafness. We also identified SLC12A2 variants in three individuals with non-syndromic bilateral sensorineural hearing loss and vestibular areflexia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Two of six neurodevelopmental patients plus three DFNA78 patients had sensorineural hearing loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40503591" target="_blank">PMID:40503591</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report a patient with profound congenital hearing loss and vestibular areflexia with a de novo variant in SLC12A2 located in the splice donor site: NM_001046.2: c.2977+4_2977+7del causing an in-frame skip of exon 21"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Additional case confirming exon 21 variants cause cochlear-restricted hearing loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Vestibular Areflexia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008568" target="_blank">
-                            Vestibular areflexia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008568)</span>
-                        </span>
-                        
+                        Vestibular areflexia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008568">HP:0008568</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We also identified SLC12A2 variants in three individuals with non-syndromic bilateral sensorineural hearing loss and vestibular areflexia."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Vestibular areflexia documented alongside hearing loss in SLC12A2-associated disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40503591" target="_blank">PMID:40503591</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We report a patient with profound congenital hearing loss and vestibular areflexia with a de novo variant in SLC12A2"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Additional case confirming vestibular areflexia in SLC12A2 mutations.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cortical Dysplasia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002539" target="_blank">
-                            Cortical dysplasia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002539)</span>
-                        </span>
-                        
+                        Cortical dysplasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002539" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002539">HP:0002539</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
+
+
                     <div class="item-desc">Cortical dysplasia and agenesis of the corpus callosum listed as variable features in OMIM 619083.
 </div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4471,440 +4653,676 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     SLC12A2 Mutations
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SLC12A2
+
+
+    <a href="https://bioregistry.io/hgnc:10911" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10911">hgnc:10911</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The SLC12A2 de novo mutation rate was demonstrated to be significantly elevated in the deciphering developmental disorders cohort."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates elevated de novo mutation rate in the DDD cohort.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"All tested variants were shown to reduce co-transporter function in Xenopus laevis oocytes."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Functional validation showing all tested variants reduce cotransporter activity.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27900370" target="_blank">PMID:27900370</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Exome sequencing revealed a de novo, loss-of-function allele in SLC12A2, the gene encoding the Na-K-2Cl cotransporter-1. The 11-bp deletion in exon 22 results in frameshift (p.Val1026Phefs*2) and truncation of the carboxy-terminal tail of the cotransporter."</div>
-                
-                
+
+
                 <div class="evidence-explanation">First characterization of a truncating SLC12A2 variant causing multisystem dysfunction.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Speech and Language Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">speech therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000930" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000930</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000930" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000930">MAXO:0000930</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Targets communication deficits through speech, sign language, or augmentative alternative communication devices.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Physical Therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">physical therapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Stretching, strengthening, and mobility training to address gross motor delay and spasticity.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cochlear Implantation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">cochlear device implantation</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0009025" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0009025</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0009025" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0009025">MAXO:0009025</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Direct stimulation of the auditory nerve for patients with sensorineural hearing loss.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Hearing Aid Usage
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">hearing aid usage</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0009030" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0009030</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0009030" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0009030">MAXO:0009030</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Acoustic amplification for patients with mild to moderate sensorineural hearing loss.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Risk assessment and family planning. Recurrence risk is extremely low (&lt;1/200) as cases arise from de novo mutations.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Supportive Care
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary management including feeding support, respiratory management, and seizure control. No disease-modifying therapies are currently available.
 </div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Antiseizure Pharmacotherapy
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Antiseizure medications should be selected based on seizure type and individualized for each patient. Caution is warranted with GABAergic agents (e.g., benzodiazepines, barbiturates), as disruption of the normal GABA excitatory-to-inhibitory developmental switch by NKCC1 haploinsufficiency may alter the pharmacodynamics of drugs that rely on chloride-mediated GABA inhibition.</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Vestibular Rehabilitation
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">physical therapy</span>
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000011">MAXO:0000011</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-desc">Vestibular rehabilitation therapy, a specialized form of physical therapy, can help patients with vestibular areflexia compensate for balance deficits through central adaptation and gaze-stabilization exercises. Referral is recommended for patients with documented vestibular dysfunction.</div>
+
+
+
+
+
+
+
+            </div>
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">1</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from Delpire-McNeill Syndrome:
+            </p>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Kilquist_syndrome.html">Kilquist syndrome</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0033664" target="_blank">
+                            MONDO:0033664
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Kilquist syndrome (autosomal recessive, biallelic SLC12A2 loss of function) overlaps with Delpire-McNeill syndrome but results from complete NKCC1 deficiency rather than haploinsufficiency. Kilquist syndrome presents with a more severe phenotype including profound global developmental delay, sensorineural hearing loss, absent salivation and tear production, and gastrointestinal dysmotility. Distinguishing the two disorders requires SLC12A2 molecular testing to determine zygosity.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>De novo heterozygous SLC12A2 variant with variable severity and incomplete penetrance favors Delpire-McNeill syndrome.</li>
+
+                        <li>Biallelic SLC12A2 loss of function with absent epithelial secretions and more severe gastrointestinal dysfunction favors Kilquist syndrome.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40503591" target="_blank">PMID:40503591</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Subsequently, several patients with severe developmental delay, sensorineural hearing loss, and bi-allelic loss of function variants were reported; this condition is known as Kilquist syndrome."</div>
+
+
+                <div class="evidence-explanation">Confirms Kilquist syndrome as the biallelic SLC12A2 disorder, distinct from the heterozygous Delpire-McNeill syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5384,48 +5802,189 @@ treatments:
         id: MAXO:0000950
         label: supportive care
     evidence: []
+  - name: Antiseizure Pharmacotherapy
+    description: &gt;-
+      Antiseizure medications should be selected based on seizure type and
+      individualized for each patient. Caution is warranted with GABAergic
+      agents (e.g., benzodiazepines, barbiturates), as disruption of the
+      normal GABA excitatory-to-inhibitory developmental switch by NKCC1
+      haploinsufficiency may alter the pharmacodynamics of drugs that rely
+      on chloride-mediated GABA inhibition.
+    treatment_term:
+      preferred_term: Pharmacotherapy
+      term:
+        id: NCIT:C15986
+        label: Pharmacotherapy
+    evidence: []
+  - name: Vestibular Rehabilitation
+    description: &gt;-
+      Vestibular rehabilitation therapy, a specialized form of physical
+      therapy, can help patients with vestibular areflexia compensate for
+      balance deficits through central adaptation and gaze-stabilization
+      exercises. Referral is recommended for patients with documented
+      vestibular dysfunction.
+    treatment_term:
+      preferred_term: physical therapy
+      term:
+        id: MAXO:0000011
+        label: physical therapy
+    evidence: []
+diagnosis:
+- name: SLC12A2 Molecular Genetic Testing
+  description: &gt;-
+    Diagnosis is confirmed by identification of a de novo heterozygous
+    pathogenic or likely pathogenic variant in SLC12A2 via trio exome or
+    genome sequencing. For patients presenting with non-syndromic
+    sensorineural hearing loss and vestibular areflexia, a broad sequencing
+    approach that includes SLC12A2 is recommended.
+  diagnosis_term:
+    preferred_term: genetic testing
+    term:
+      id: MAXO:0000127
+      label: genetic testing
+  evidence:
+  - reference: PMID:32658972
+    reference_title: &#34;SLC12A2 variants cause a neurodevelopmental disorder or cochleovestibular defect.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Through trio exome sequencing we identified de novo mutations in SLC12A2 in six children with neurodevelopmental disorders.&#34;
+    explanation: &gt;-
+      Trio exome sequencing was the discovery strategy for the founding
+      SLC12A2 neurodevelopmental disorder cohort, supporting it as the
+      primary diagnostic approach.
+  - reference: PMID:40503591
+    reference_title: &#34;De Novo SLC12A2 Variant Presenting as Congenital Hearing Loss With Vestibular Areflexia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;This underscores the need for a broad sequencing approach when faced with this clinical scenario.&#34;
+    explanation: &gt;-
+      Supports broad/panel sequencing as the diagnostic strategy when
+      sensorineural hearing loss with vestibular areflexia is the presenting
+      phenotype.
+- name: Audiological Evaluation
+  description: &gt;-
+    Systematic audiological assessment including auditory brainstem response
+    (ABR), pure-tone audiometry, otoacoustic emissions, and tympanometry
+    should be performed in all patients to characterize the presence, degree,
+    and type of hearing loss. Hearing loss is variable, ranging from absent
+    to profound and congenital.
+  evidence:
+  - reference: PMID:32658972
+    reference_title: &#34;SLC12A2 variants cause a neurodevelopmental disorder or cochleovestibular defect.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We also identified SLC12A2 variants in three individuals with non-syndromic bilateral sensorineural hearing loss and vestibular areflexia.&#34;
+    explanation: &gt;-
+      Audiological evaluation identified bilateral sensorineural hearing
+      loss in a subset of SLC12A2 patients, supporting systematic hearing
+      assessment.
+- name: Vestibular Function Testing
+  description: &gt;-
+    Caloric testing, video head impulse test (vHIT), and vestibular evoked
+    myogenic potentials (VEMPs) should be performed to evaluate for
+    vestibular areflexia, particularly in patients with hearing loss or
+    unexplained motor delay and balance difficulties.
+  evidence:
+  - reference: PMID:40503591
+    reference_title: &#34;De Novo SLC12A2 Variant Presenting as Congenital Hearing Loss With Vestibular Areflexia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We report a patient with profound congenital hearing loss and vestibular areflexia with a de novo variant in SLC12A2&#34;
+    explanation: &gt;-
+      Vestibular areflexia is a cardinal feature in some SLC12A2 cases,
+      supporting systematic vestibular function evaluation.
+- name: Neurodevelopmental Assessment
+  description: &gt;-
+    Formal developmental evaluation including cognitive testing,
+    speech-language assessment, and neuropsychological testing should be
+    performed at diagnosis and at regular intervals to guide therapeutic
+    intervention and educational planning.
+  evidence:
+  - reference: PMID:32658972
+    reference_title: &#34;SLC12A2 variants cause a neurodevelopmental disorder or cochleovestibular defect.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All had developmental delay or intellectual disability ranging from mild to severe.&#34;
+    explanation: &gt;-
+      Developmental delay and intellectual disability are present in all
+      patients in the founding SLC12A2 NDD cohort, supporting systematic
+      neurodevelopmental evaluation at diagnosis.
+- name: Brain MRI
+  description: &gt;-
+    Brain MRI should be considered to evaluate for structural cortical
+    malformations including cortical dysplasia and agenesis of the corpus
+    callosum, which have been reported as variable findings in patients with
+    SLC12A2 neurodevelopmental disorder (OMIM 619083).
+  evidence: []
+differential_diagnoses:
+- name: Kilquist syndrome
+  disease_term:
+    preferred_term: Kilquist syndrome
+    term:
+      id: MONDO:0033664
+      label: Kilquist syndrome
+  description: &gt;-
+    Kilquist syndrome (autosomal recessive, biallelic SLC12A2 loss of
+    function) overlaps with Delpire-McNeill syndrome but results from
+    complete NKCC1 deficiency rather than haploinsufficiency. Kilquist
+    syndrome presents with a more severe phenotype including profound global
+    developmental delay, sensorineural hearing loss, absent salivation and
+    tear production, and gastrointestinal dysmotility. Distinguishing the
+    two disorders requires SLC12A2 molecular testing to determine zygosity.
+  distinguishing_features:
+  - De novo heterozygous SLC12A2 variant with variable severity and incomplete penetrance favors Delpire-McNeill syndrome.
+  - Biallelic SLC12A2 loss of function with absent epithelial secretions and more severe gastrointestinal dysfunction favors Kilquist syndrome.
+  evidence:
+  - reference: PMID:40503591
+    reference_title: &#34;De Novo SLC12A2 Variant Presenting as Congenital Hearing Loss With Vestibular Areflexia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Subsequently, several patients with severe developmental delay, sensorineural hearing loss, and bi-allelic loss of function variants were reported; this condition is known as Kilquist syndrome.&#34;
+    explanation: &gt;-
+      Confirms Kilquist syndrome as the biallelic SLC12A2 disorder, distinct
+      from the heterozygous Delpire-McNeill syndrome.
 datasets: []
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Perplexity</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Disease Information and Nomenclature</div>
-                            
-                            
+
+
                             <span class="report-badge">sonar-deep-research</span>
-                            
-                            
+
+
                             <span class="report-badge">36 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-14T17:11:01.207944</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h2>Disease Information and Nomenclature</h2>
 <p>Delpire-McNeill Syndrome represents a recently characterized neurodevelopmental disorder that was formally identified and named following the landmark 2020 publication by McNeill and colleagues describing de novo mutations in SLC12A2 in six children with developmental disorders[2][4][4]. The condition has been assigned multiple standardized identifiers reflecting its recognition in international disease classification systems and medical databases: OMIM entry 619083, Orphanet disease code ORPHA:633024, ICD-11 code LD90.Y, and MeSH classification entry C5436771[10][17]. The syndrome exists within a complex landscape of SLC12A2-related disorders, each with distinct inheritance patterns and clinical presentations despite sharing mutations in the same gene. The designation "Delpire-McNeill syndrome" honors Eric Delpire, whose foundational work in the 1990s established the critical role of NKCC1 in murine auditory and neurological systems, and Andrew McNeill, whose team provided the first clear human disease-disease association[2][8].</p>
@@ -5582,11 +6141,11 @@ datasets: []
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -5636,7 +6195,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Delpire-McNeill Syndrome", "mondoId": "MONDO:0033667", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Delpire-McNeill_Syndrome", "yamlRevision": "508b52f6de85"};
+        const OS_CONFIG = {"diseaseName": "Delpire-McNeill Syndrome", "mondoId": "MONDO:0033667", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Delpire-McNeill_Syndrome", "yamlRevision": "f35111af15bc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

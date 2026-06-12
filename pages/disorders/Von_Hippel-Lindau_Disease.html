@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,20 +2961,20 @@
         <header class="page-header">
             <h1>Von Hippel-Lindau Disease</h1>
             <div class="header-meta">
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0008667" target="_blank">
                         MONDO:0008667
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hereditary cancer-predisposing syndrome</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2917,11 +2987,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Von Hippel-Lindau (VHL) disease is an autosomal dominant hereditary cancer syndrome caused by germline pathogenic variants in the VHL tumor suppressor gene. It is characterized by the development of highly vascularized tumors including clear cell renal cell carcinoma, hemangioblastomas of the CNS and retina, pheochromocytomas, and pancreatic neuroendocrine tumors. VHL disease exemplifies the two-hit hypothesis for tumor suppressor genes and the role of hypoxia signaling dysregulation in tumorigenesis through constitutive HIF activation.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2991,35 +3061,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3027,9 +3097,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3037,10 +3107,18 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◈</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Hypotheses</div>
+            </div>
+            </a>
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3048,8 +3126,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3057,8 +3135,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3066,8 +3144,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3075,13 +3153,13 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
@@ -3089,8 +3167,8 @@
                 <div class="stat-label">References</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3098,840 +3176,993 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◈</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Hyp. Reports</div>
+            </div>
+            </a>
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">4</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         VHL Type 1
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Characterized by low risk of pheochromocytoma but high risk of renal cell carcinoma, hemangioblastomas, and pancreatic tumors. Associated with truncating mutations, large deletions, and missense mutations affecting HIF binding.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         VHL Type 2A
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Characterized by pheochromocytoma and hemangioblastomas but low risk of renal cell carcinoma. Associated with specific missense mutations.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         VHL Type 2B
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">High risk of all VHL-associated tumors including pheochromocytoma, renal cell carcinoma, and hemangioblastomas. Associated with specific missense mutations.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         VHL Type 2C
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Pheochromocytoma only, without other VHL manifestations. Associated with specific missense mutations that retain some HIF regulatory function.</div>
-                    
-                    
-                    
-                    
-    
-    
+
+
+
+
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
+        <div class="card" id="mechanistic-hypotheses">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
+                <h2 class="card-title">Mechanistic Hypotheses</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box hypothesis-box anchor-target" id="hypothesis-canonical-vhl-hif-pseudohypoxia-tumor-model">
+                <div class="item-name">Canonical VHL Loss / HIF Pseudohypoxia / Vascular Tumor Predisposition Model</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-parent">canonical_vhl_hif_pseudohypoxia_tumor_model</span>
+
+
+                    <span class="tag tag-mechanistic">CANONICAL</span>
+
+
+                </div>
+
+                <div class="item-desc" style="margin-top: 8px;">Von Hippel-Lindau (VHL) disease is caused by germline heterozygous loss-of-function variants in VHL on 3p25.3. The VHL protein is the substrate recognition subunit of an E3 ubiquitin ligase complex that targets prolyl-hydroxylated HIF-1α/2α for degradation under normoxic conditions. Biallelic VHL inactivation (&#39;second hit&#39;) in susceptible tissues stabilizes HIF-α despite normal oxygen levels — a &#39;pseudohypoxic&#39; state — and drives constitutive transcription of VEGF, PDGF, EPO, TGF-α, and other pro-angiogenic and growth-promoting factors. This produces the canonical VHL tumor spectrum: retinal and CNS hemangioblastomas, clear-cell renal cell carcinoma, pheochromocytoma/paraganglioma, pancreatic neuroendocrine tumors, and endolymphatic sac tumors. The HIF-2α-selective inhibitor belzutifan (FDA-approved 2021) shrinks VHL-associated tumors, providing direct pharmacologic validation of the HIF-pseudohypoxia axis as the canonical pathogenic mechanism.</div>
+
+
+                <div class="mapping-notes">Retained as CANONICAL with four mandatory qualifier annotations. The 2026 openscientist hypothesis- search report (kb/hypotheses/Von_Hippel-Lindau_Disease/canonical_vhl_hif_pseudohypoxia_tumor_model) finds STRONGLY SUPPORTED across five convergent evidence layers: (1) Mendelian genetics with ~95% penetrance by age 60; (2) atomic-resolution VHL-hydroxyproline crystal structures defining the oxygen-sensing mechanism; (3) FDA-approved belzutifan (HIF-2α inhibitor) demonstrating durable tumor shrinkage across all VHL-associated tumor types; (4) acquired on-target resistance mutations in the HIF-2α gatekeeper pocket confirming core HIF-2 dependency; (5) GWAS identification of EPAS1/HIF-2α as a sporadic RCC susceptibility locus, linking hereditary and sporadic pathogenesis. Four mandatory qualifications: (1) HIF-2α (NOT HIF-1α) is the specific oncogenic isoform in ccRCC, while HIF-1α functions as a bona fide tumor suppressor on chromosome 14q; (2) type 2C VHL mutations cause pheochromocytoma DESPITE retaining normal HIF-α ubiquitylation, proving the existence of HIF-INDEPENDENT tumor-suppressor functions of pVHL; (3) VHL loss alone is necessary but INSUFFICIENT for ccRCC — cooperating mutations in 3p chromatin remodeling genes (PBRM1, BAP1, SETD2) are required co-drivers that define distinct molecular and prognostic subtypes; (4) the tissue specificity of VHL disease — why only certain organs develop tumors despite ubiquitous VHL expression — remains mechanistically unexplained. Belzutifan FDA approval (2021) provides the strongest pharmacologic validation of the HIF-pseudohypoxia axis.</div>
+
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Deep research</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Von_Hippel-Lindau_Disease/canonical_vhl_hif_pseudohypoxia_tumor_model/openscientist.md" target="_blank">OpenScientist</a>
+
+                            <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/Von_Hippel-Lindau_Disease/canonical_vhl_hif_pseudohypoxia_tumor_model/openscientist.md.citations.md" target="_blank" style="margin-left: 8px;">citations</a>
+
+
+                            <span class="reference-summary">41 citations</span>
+
+
+                            <span class="report-meta-text">2026-05-25T12:59:48.899496</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37980175" target="_blank">PMID:37980175</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"von Hippel-Lindau (VHL) disease is characterized by biallelic inactivation of the VHL gene leading to abnormal or absent VHL protein function, and constitutive activation of hypoxia-inducible factors (HIF) that leads to pro-tumorigenic sign"</div>
+
+
+                <div class="evidence-explanation">Existing canonical mechanism citation in the dismech knowledge base, used as the seed for the hypothesis-search deep-research run.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vhl-tumor-suppressor-loss">
                 <div class="item-name">VHL Tumor Suppressor Loss</div>
-                
+
                 <div class="item-desc">Germline heterozygous VHL mutations result in one functional allele. Somatic loss or mutation of the remaining wild-type allele (second hit) eliminates VHL function, initiating tumorigenesis. This follows Knudson&#39;s two-hit hypothesis for tumor suppressor gene inactivation.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cellular response to hypoxia
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071456">GO:0071456</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Loss of HIF Degradation</span>
-	                            
+
 	                            <span class="crosslink-desc">VHL loss prevents ubiquitination of HIF-alpha subunits</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37980175" target="_blank">PMID:37980175</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"von Hippel-Lindau (VHL) disease is characterized by biallelic inactivation of the VHL gene leading to abnormal or absent VHL protein function, and constitutive activation of hypoxia-inducible factors (HIF) that leads to pro-tumorigenic signaling."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms that biallelic VHL inactivation (consistent with two-hit hypothesis) leads to constitutive HIF activation and pro-tumorigenic signaling.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-hif-degradation">
                 <div class="item-name">Loss of HIF Degradation</div>
-                
+
                 <div class="item-desc">VHL protein (pVHL) functions as the substrate recognition component of an E3 ubiquitin ligase complex that targets hydroxylated HIF-alpha subunits for proteasomal degradation under normoxic conditions. Loss of VHL function prevents HIF-alpha degradation, allowing HIF accumulation even in the presence of oxygen.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         proteasome-mediated ubiquitin-dependent protein catabolic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043161">GO:0043161</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Constitutive HIF Activation</span>
-	                            
+
 	                            <span class="crosslink-desc">Stabilized HIF-alpha accumulates and activates target genes</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19671042" target="_blank">PMID:19671042</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The von-Hippel Lindau tumor suppressor (pVHL) is the substrate recognition component of an E3 ubiquitin ligase and functions as a master regulator of HIF activity by targeting the hydroxylated HIF-alpha subunit for ubiquitylation and rapid proteasomal degradation under normoxic conditions."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines pVHL as the substrate recognition component of an E3 ubiquitin ligase that targets hydroxylated HIF-alpha for proteasomal degradation.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15162797" target="_blank">PMID:15162797</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"VHL tumor suppressor is a specific substrate-recognition component of the E3 ubiquitin complex, which regulates proteasomal degradation of the subunit of the hypoxia inducible transcription factor (HIF). Impaired VHL complex function leads to accumulation of HIF, overexpression of various..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms that impaired VHL function leads to HIF accumulation due to loss of proteasomal degradation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-hif-activation">
                 <div class="item-name">Constitutive HIF Activation</div>
-                
+
                 <div class="item-desc">Stabilized HIF-alpha (primarily HIF-2alpha in RCC) dimerizes with HIF-1beta (ARNT) and translocates to the nucleus where it activates transcription of hypoxia-responsive genes. This occurs constitutively regardless of oxygen levels, creating a pseudo-hypoxic state.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         response to hypoxia
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">VEGF Overexpression and Angiogenesis</span>
-	                            
+
 	                            <span class="crosslink-desc">HIF activates VEGF transcription driving neovascularization</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Growth Factor and Metabolic Reprogramming</span>
-	                            
+
 	                            <span class="crosslink-desc">HIF activates genes promoting proliferation and altered metabolism</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11114720" target="_blank">PMID:11114720</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"in VHL deficient cell lines, both HIF-alpha subunits are constitutively expressed, whereas re-introduction of a functional VHL gene restores the instability of HIF-1alpha and HIF-2alpha proteins under normoxic conditions."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates that VHL deficiency leads to constitutive HIF-alpha expression even under normoxic conditions, and that VHL restoration can reverse this effect.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vegf-overexpression-and-angiogenesis">
                 <div class="item-name">VEGF Overexpression and Angiogenesis</div>
-                
+
                 <div class="item-desc">VEGF (vascular endothelial growth factor) is a direct HIF target gene. Constitutive HIF activation leads to chronic VEGF overexpression, driving extensive tumor angiogenesis. This explains the highly vascular nature of VHL-associated tumors, particularly hemangioblastomas and clear cell RCC.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         vascular endothelial growth factor signaling pathway
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0038084" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0038084" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0038084">GO:0038084</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         angiogenesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Tumor Development</span>
-	                            
+
 	                            <span class="crosslink-desc">Neovascularization supports tumor growth and progression</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11114720" target="_blank">PMID:11114720</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In a previous study of hemangioblastomas, the most frequent manifestation of hereditary von Hippel-Lindau disease (VHL), we found elevated levels of vascular endothelial growth factor and HIF-2alpha mRNA in stromal cells of the tumors."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Demonstrates elevated VEGF levels in VHL-associated hemangioblastomas, linking HIF activation to VEGF overexpression.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11114720" target="_blank">PMID:11114720</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The data presented here provide evidence for a role of the VHL protein in regulation of angiogenesis and erythropoiesis mediated by the HIF-1alpha and HIF-2alpha proteins."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms VHL protein regulates angiogenesis through HIF-mediated mechanisms.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-factor-and-metabolic-reprogramming">
                 <div class="item-name">Growth Factor and Metabolic Reprogramming</div>
-                
+
                 <div class="item-desc">HIF activates transcription of genes including PDGF, TGF-alpha, EGFR, GLUT1, and glycolytic enzymes. This promotes cell proliferation, survival, and a shift toward glycolytic metabolism (Warburg effect) that supports tumor growth.</div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         cellular glucose homeostasis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001678" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001678" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001678">GO:0001678</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Tumor Development</span>
-	                            
+
 	                            <span class="crosslink-desc">Growth factors and metabolic changes drive tumorigenesis</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37980175" target="_blank">PMID:37980175</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"immunohistochemical studies for markers such as paired box 8 (PAX-8), carbonic anhydrase 9 (CA9), and glucose transporter 1 (GLUT-1) have an important role in routine clinical practice and represent cost-effective diagnostic tools."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The use of GLUT-1 as a diagnostic marker for VHL-associated tumors reflects HIF-induced metabolic reprogramming with increased glucose uptake.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-development">
                 <div class="item-name">Tumor Development</div>
-                
+
                 <div class="item-desc">The combination of increased angiogenesis, growth factor signaling, and metabolic reprogramming creates a permissive environment for tumor development. Different tissues show variable susceptibility, explaining the characteristic tumor spectrum of VHL disease including RCC, hemangioblastomas, and pheochromocytomas.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19671042" target="_blank">PMID:19671042</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Mutations in pVHL can be found in familial and sporadic hemangioblastomas, clear cell carcinomas of the kidney, pheochromocytomas and inherited forms of erythrocytosis, illustrating the importance of disrupted molecular oxygen sensing in the pathogenesis of these diseases."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Documents the characteristic tumor spectrum of VHL disease and links it to disrupted oxygen sensing.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15162797" target="_blank">PMID:15162797</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Loss of von Hippel-Lindau (VHL) protein function results in an autosomal-dominant cancer syndrome known as VHL disease, which manifests as angiomas of the retina, hemangioblastomas of the central nervous system, renal clear-cell carcinomas and pheochromocytomas."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms the characteristic tumor spectrum associated with VHL protein loss.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3947,291 +4178,312 @@
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">7</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Neoplasm<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Retinal Hemangioblastoma
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0009711" target="_blank">
-                            Retinal capillary hemangioma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0009711)</span>
-                        </span>
-                        
+                        Retinal capillary hemangioma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009711" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009711">HP:0009711</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pancreatic Cysts
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001737" target="_blank">
-                            Pancreatic cysts
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001737)</span>
-                        </span>
-                        
+                        Pancreatic cysts
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001737" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001737">HP:0001737</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pheochromocytoma
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0002666" target="_blank">
-                            Pheochromocytoma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002666)</span>
-                        </span>
-                        
+                        Pheochromocytoma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002666" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002666">HP:0002666</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Pancreatic Neuroendocrine Tumor
-                        
+
                         <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0100634" target="_blank">
-                            Neuroendocrine neoplasm
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0100634)</span>
-                        </span>
-                        
+                        Neuroendocrine neoplasm
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100634" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100634">HP:0100634</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Clear Cell Renal Cell Carcinoma
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0006770" target="_blank">
-                            Clear cell renal cell carcinoma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0006770)</span>
-                        </span>
-                        
+                        Clear cell renal cell carcinoma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006770" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006770">HP:0006770</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34818478" target="_blank">PMID:34818478</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Patients with von Hippel-Lindau (VHL) disease have a high incidence of renal cell carcinoma owing to VHL gene inactivation and constitutive activation of the transcription factor hypoxia-inducible factor 2α (HIF-2α)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Confirms high incidence of RCC in VHL disease due to VHL gene inactivation and constitutive HIF-2α activation.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Renal Cysts
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank">
-                            Renal cyst
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000107)</span>
-                        </span>
-                        
+                        Renal cyst
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000107">HP:0000107</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Neoplasm
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Cerebellar Hemangioblastoma
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0010797" target="_blank">
-                            Hemangioblastoma
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0010797)</span>
-                        </span>
-                        
+                        Hemangioblastoma
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010797" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010797">HP:0010797</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
-    
+
+
+
+
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4256,373 +4508,399 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     VHL
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Germline Loss-of-Function Mutations)</span>
-                    
+
                 </div>
-                
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
-                    
+
                 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_30c04ced-b74d-465a-8d7d-eb822109b7f1-2020-05-14T004116.004Z" target="_blank">CGGV:assertion_30c04ced-b74d-465a-8d7d-eb822109b7f1-2020-05-14T004116.004Z</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"VHL | HGNC:12687 | von Hippel-Lindau disease | MONDO:0008667 | AD | Definitive"</div>
-                
-                
+
+
                 <div class="evidence-explanation">ClinGen classifies the VHL-von Hippel-Lindau disease gene-disease relationship as definitive with autosomal dominant inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surveillance Protocol
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">cancer screening</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000126" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000126</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000126" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000126">MAXO:0000126</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Comprehensive surveillance beginning in childhood includes annual ophthalmologic examination (from age 1), annual plasma metanephrines (from age 5), annual abdominal ultrasound (from age 8), and MRI brain/spine every 2 years (from age 11). Earlier imaging if symptoms occur.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Nephron-Sparing Surgery
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Partial nephrectomy is the preferred approach for renal tumors to preserve renal function given the high likelihood of bilateral/multifocal disease. Surgery is typically recommended when tumors reach 3 cm to balance cancer risk with nephron preservation.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Belzutifan
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">targeted therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C93352</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         belzutifan
-                        
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C135627" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C135627" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C135627">NCIT:C135627</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">HIF-2alpha inhibitor FDA-approved for VHL-associated RCC, hemangioblastomas, and pancreatic neuroendocrine tumors not requiring immediate surgery. First targeted therapy directly addressing the molecular defect in VHL disease. Objective response rates of 49% in RCC and 30-77% across tumor types.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34818478" target="_blank">PMID:34818478</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Belzutifan was associated with predominantly grade 1 and 2 adverse events and showed activity in patients with renal cell carcinomas and non-renal cell carcinoma neoplasms associated with VHL disease."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Phase 2 clinical trial demonstrates belzutifan efficacy and tolerability across VHL-associated tumor types.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling and testing for at-risk family members. Children of affected parents have 50% risk. Predictive testing allows targeted surveillance in mutation carriers and can reassure non-carriers. Prenatal and preimplantation genetic testing are options.</div>
-                
-                
-                
-                
-                
-    
-    
+
+
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     VHL Genetic Testing
-                    
+
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Plasma Metanephrines
-                    
+
                 </div>
-                
-                
-                
-    
-    
+
+
+
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -4666,6 +4944,61 @@ has_subtypes:
   description: &gt;-
     Pheochromocytoma only, without other VHL manifestations. Associated with specific
     missense mutations that retain some HIF regulatory function.
+mechanistic_hypotheses:
+- hypothesis_group_id: canonical_vhl_hif_pseudohypoxia_tumor_model
+  hypothesis_label: Canonical VHL Loss / HIF Pseudohypoxia / Vascular Tumor Predisposition Model
+  status: CANONICAL
+  description: &gt;-
+    Von Hippel-Lindau (VHL) disease is caused by germline heterozygous loss-of-function variants in VHL
+    on 3p25.3. The VHL protein is the substrate recognition subunit of an E3 ubiquitin ligase complex
+    that targets prolyl-hydroxylated HIF-1α/2α for degradation under normoxic conditions. Biallelic VHL
+    inactivation (&#39;second hit&#39;) in susceptible tissues stabilizes HIF-α despite normal oxygen levels — a
+    &#39;pseudohypoxic&#39; state — and drives constitutive transcription of VEGF, PDGF, EPO, TGF-α, and other
+    pro-angiogenic and growth-promoting factors. This produces the canonical VHL tumor spectrum: retinal
+    and CNS hemangioblastomas, clear-cell renal cell carcinoma, pheochromocytoma/paraganglioma,
+    pancreatic neuroendocrine tumors, and endolymphatic sac tumors. The HIF-2α-selective inhibitor
+    belzutifan (FDA-approved 2021) shrinks VHL-associated tumors, providing direct pharmacologic
+    validation of the HIF-pseudohypoxia axis as the canonical pathogenic mechanism.
+  notes: &gt;-
+    Retained as CANONICAL with four mandatory
+    qualifier annotations. The 2026 openscientist hypothesis-
+    search report
+    (kb/hypotheses/Von_Hippel-Lindau_Disease/canonical_vhl_hif_pseudohypoxia_tumor_model)
+    finds STRONGLY SUPPORTED across five convergent evidence
+    layers: (1) Mendelian genetics with ~95% penetrance by age 60;
+    (2) atomic-resolution VHL-hydroxyproline crystal structures
+    defining the oxygen-sensing mechanism; (3) FDA-approved
+    belzutifan (HIF-2α inhibitor) demonstrating durable tumor
+    shrinkage across all VHL-associated tumor types;
+    (4) acquired on-target resistance mutations in the HIF-2α
+    gatekeeper pocket confirming core HIF-2 dependency;
+    (5) GWAS identification of EPAS1/HIF-2α as a sporadic RCC
+    susceptibility locus, linking hereditary and sporadic
+    pathogenesis. Four mandatory qualifications: (1) HIF-2α (NOT
+    HIF-1α) is the specific oncogenic isoform in ccRCC, while
+    HIF-1α functions as a bona fide tumor suppressor on
+    chromosome 14q; (2) type 2C VHL mutations cause
+    pheochromocytoma DESPITE retaining normal HIF-α
+    ubiquitylation, proving the existence of HIF-INDEPENDENT
+    tumor-suppressor functions of pVHL; (3) VHL loss alone is
+    necessary but INSUFFICIENT for ccRCC — cooperating mutations
+    in 3p chromatin remodeling genes (PBRM1, BAP1, SETD2) are
+    required co-drivers that define distinct molecular and
+    prognostic subtypes; (4) the tissue specificity of VHL disease
+    — why only certain organs develop tumors despite ubiquitous
+    VHL expression — remains mechanistically unexplained.
+    Belzutifan FDA approval (2021) provides the strongest
+    pharmacologic validation of the HIF-pseudohypoxia axis.
+  evidence:
+  - reference: PMID:37980175
+    reference_title: &#34;Von Hippel-Lindau disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;von Hippel-Lindau (VHL) disease is characterized by biallelic inactivation of the VHL gene leading to abnormal or absent VHL protein function, and constitutive activation of hypoxia-inducible factors (HIF) that leads to pro-tumorigenic sign&#34;
+    explanation: &gt;
+      Existing canonical mechanism citation in the dismech
+      knowledge base, used as the seed for the hypothesis-search
+      deep-research run.
 pathophysiology:
 - name: VHL Tumor Suppressor Loss
   description: &gt;-
@@ -5179,883 +5512,883 @@ references:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
+
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
                     <span class="card-count">13</span>
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1007/s11060-024-04676-5" target="_blank">DOI:10.1007/s11060-024-04676-5</a>
                             </div>
-                            
+
                             <div class="reference-title">Screening and surveillance recommendations for central nervous system hemangioblastomas in pediatric patients with Von Hippel-Lindau disease</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Von Hippel-Lindau (VHL) disease is an autosomal-dominantly inherited tumor predisposition syndrome.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Von Hippel-Lindau (VHL) disease is an autosomal-dominantly inherited tumor predisposition syndrome."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11060-024-04676-5" target="_blank">DOI:10.1007/s11060-024-04676-5</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Von Hippel-Lindau (VHL) disease is an autosomal-dominantly inherited tumor predisposition syndrome."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1038/s41598-021-94132-5" target="_blank">DOI:10.1038/s41598-021-94132-5</a>
                             </div>
-                            
+
                             <div class="reference-title">VHL suppresses RAPTOR and inhibits mTORC1 signaling in clear cell renal cell carcinoma</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Inactivation of the tumor suppressor von Hippel–Lindau (VHL) gene is a key event in hereditary and sporadic clear cell renal cell carcinomas (ccRCC).</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Inactivation of the tumor suppressor von Hippel–Lindau (VHL) gene is a key event in hereditary and sporadic clear cell renal cell carcinomas (ccRCC)."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-021-94132-5" target="_blank">DOI:10.1038/s41598-021-94132-5</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Inactivation of the tumor suppressor von Hippel–Lindau (VHL) gene is a key event in hereditary and sporadic clear cell renal cell carcinomas (ccRCC)."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-23-2592" target="_blank">DOI:10.1158/1078-0432.ccr-23-2592</a>
                             </div>
-                            
+
                             <div class="reference-title">Belzutifan for von Hippel–Lindau Disease: Pancreatic Lesion Population of the Phase 2 LITESPARK-004 Study</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Belzutifan for von Hippel–Lindau Disease: Pancreatic Lesion Population of the Phase 2 LITESPARK-004 Study</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Primary analysis of the ongoing, single-arm, phase 2 LITESPARK-004 study (NCT03401788) showed clinically meaningful antitumor activity in von Hippel–Lindau (VHL) disease–associated renal cell carcinoma (RCC) and other neoplasms with belzutifan treatment."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-23-2592" target="_blank">DOI:10.1158/1078-0432.ccr-23-2592</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Primary analysis of the ongoing, single-arm, phase 2 LITESPARK-004 study (NCT03401788) showed clinically meaningful antitumor activity in von Hippel–Lindau (VHL) disease–associated renal cell carcinoma (RCC) and other neoplasms with belzutifan treatment."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-24-3525" target="_blank">DOI:10.1158/1078-0432.ccr-24-3525</a>
                             </div>
-                            
+
                             <div class="reference-title">Update on Surveillance in Von Hippel–Lindau Disease</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Von Hippel–Lindau disease (VHL) is a genetic condition characterized by a high lifetime risk for tumors and cysts throughout the body, including the central nervous system, visual–auditory systems, and intra-abdominal organs.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Von Hippel–Lindau disease (VHL) is a genetic condition characterized by a high lifetime risk for tumors and cysts throughout the body, including the central nervous system, visual–auditory systems, and intra-abdominal organs."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-24-3525" target="_blank">DOI:10.1158/1078-0432.ccr-24-3525</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Von Hippel–Lindau disease (VHL) is a genetic condition characterized by a high lifetime risk for tumors and cysts throughout the body, including the central nervous system, visual–auditory systems, and intra-abdominal organs."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1172/jci162480" target="_blank">DOI:10.1172/jci162480</a>
                             </div>
-                            
+
                             <div class="reference-title">Von Hippel–Lindau disease: insights into oxygen sensing, protein degradation, and cancer</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Von Hippel–Lindau disease: insights into oxygen sensing, protein degradation, and cancer</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Von Hippel–Lindau disease: insights into oxygen sensing, protein degradation, and cancer"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1172/jci175703" target="_blank">DOI:10.1172/jci175703</a>
                             </div>
-                            
+
                             <div class="reference-title">Von Hippel Lindau tumor suppressor controls m6A-dependent gene expression in renal tumorigenesis</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Von Hippel Lindau tumor suppressor controls m6A-dependent gene expression in renal tumorigenesis</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Von Hippel Lindau tumor suppressor controls m6A-dependent gene expression in renal tumorigenesis"</div>
-            
-            
-    
-    
+
+
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03060-w" target="_blank">DOI:10.1186/s13023-024-03060-w</a>
                             </div>
-                            
+
                             <div class="reference-title">Epidemiology and economic burden of Von Hippel-Lindau Disease-associated central nervous system hemangioblastomas and pancreatic neuroendocrine tumors in the United States</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">To date, real-world evidence around the clinical and economic burden related to von Hippel-Lindau (VHL) disease is limited.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"To date, real-world evidence around the clinical and economic burden related to von Hippel-Lindau (VHL) disease is limited."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s13023-024-03060-w" target="_blank">DOI:10.1186/s13023-024-03060-w</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"To date, real-world evidence around the clinical and economic burden related to von Hippel-Lindau (VHL) disease is limited."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.1186/s43042-024-00506-5" target="_blank">DOI:10.1186/s43042-024-00506-5</a>
                             </div>
-                            
+
                             <div class="reference-title">Germline variants in the Von Hippel-Lindau tumor suppressor gene in Cuban patients</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Von Hippel-Lindau (VHL) syndrome is an autosomal dominantly inherited disorder that predisposes to multiple neoplasms.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Von Hippel-Lindau (VHL) syndrome is an autosomal dominantly inherited disorder that predisposes to multiple neoplasms."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s43042-024-00506-5" target="_blank">DOI:10.1186/s43042-024-00506-5</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Von Hippel-Lindau (VHL) syndrome is an autosomal dominantly inherited disorder that predisposes to multiple neoplasms."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.15586/jkcvhl.v11i4.324" target="_blank">DOI:10.15586/jkcvhl.v11i4.324</a>
                             </div>
-                            
+
                             <div class="reference-title">Is the TriNetX Database a Good Tool for Investigation of Real-World Management of Von Hippel–Lindau?</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Von Hippel–Lindau (vHL) is a hereditary disease characterized by the development of benign and malignant tumors across multiple organ systems.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Von Hippel–Lindau (vHL) is a hereditary disease characterized by the development of benign and malignant tumors across multiple organ systems."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.15586/jkcvhl.v11i4.324" target="_blank">DOI:10.15586/jkcvhl.v11i4.324</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Von Hippel–Lindau (vHL) is a hereditary disease characterized by the development of benign and malignant tumors across multiple organ systems."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.15586/jkcvhl.v11i4.362" target="_blank">DOI:10.15586/jkcvhl.v11i4.362</a>
                             </div>
-                            
+
                             <div class="reference-title">Surveillance in Children and Adolescents with von Hippel-Lindau (VHL)-Related Pheochromocytomas and Paragangliomas: A Survey of MET and Freiburg-VHL Registries in Germany</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Early identification of patients at risk with von Hippel-Lindau (VHL) syndrome-related pheochromocytoma and paraganglioma (PPGL) is crucial to prevent morbidity.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Early identification of patients at risk with von Hippel-Lindau (VHL) syndrome-related pheochromocytoma and paraganglioma (PPGL) is crucial to prevent morbidity."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.15586/jkcvhl.v11i4.362" target="_blank">DOI:10.15586/jkcvhl.v11i4.362</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Early identification of patients at risk with von Hippel-Lindau (VHL) syndrome-related pheochromocytoma and paraganglioma (PPGL) is crucial to prevent morbidity."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/cancers15061657" target="_blank">DOI:10.3390/cancers15061657</a>
                             </div>
-                            
+
                             <div class="reference-title">Unique Characteristics of Patients with Von Hippel–Lindau Disease Defined by Various Diagnostic Criteria</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Unique Characteristics of Patients with Von Hippel–Lindau Disease Defined by Various Diagnostic Criteria</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"Von Hippel–Lindau (VHL) disease diagnosis is based on two criteria sets: International criteria (IC, two hemangioblastomas, one hemangioblastoma plus one visceral lesion, or VHL family history/pathogenic variant plus hemangioblastoma/visceral lesion); or Danish criteria (DC, two clinical..."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15061657" target="_blank">DOI:10.3390/cancers15061657</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Von Hippel–Lindau (VHL) disease diagnosis is based on two criteria sets: International criteria (IC, two hemangioblastomas, one hemangioblastoma plus one visceral lesion, or VHL family history/pathogenic variant plus hemangioblastoma/visceral lesion); or Danish criteria (DC, two clinical..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.3390/diagnostics14171909" target="_blank">DOI:10.3390/diagnostics14171909</a>
                             </div>
-                            
+
                             <div class="reference-title">Genetics, Pathophysiology, and Current Challenges in Von Hippel–Lindau Disease Therapeutics</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">This review article focuses on von Hippel–Lindau (VHL) disease, a rare genetic disorder characterized by the development of tumors and cysts throughout the body.</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"This review article focuses on von Hippel–Lindau (VHL) disease, a rare genetic disorder characterized by the development of tumors and cysts throughout the body."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/diagnostics14171909" target="_blank">DOI:10.3390/diagnostics14171909</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-OTHER">Other</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"This review article focuses on von Hippel–Lindau (VHL) disease, a rare genetic disorder characterized by the development of tumors and cysts throughout the body."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
                 <div class="reference-entry">
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
                                 <a href="https://bioregistry.io/DOI:10.7554/elife.80774" target="_blank">DOI:10.7554/elife.80774</a>
                             </div>
-                            
+
                             <div class="reference-title">Hypoxia-inducible factor underlies von Hippel-Lindau disease stigmata</div>
-                            
+
                         </div>
-                        
+
                         <span class="reference-summary">1 finding</span>
-                        
+
                     </div>
-                    
-                    
-    
+
+
+
     <div class="reference-findings">
-        
+
         <div class="reference-finding">
-            
+
             <div class="reference-finding-statement">Hypoxia-inducible factor underlies von Hippel-Lindau disease stigmata</div>
-            
-            
+
+
             <div class="reference-finding-supporting">"von Hippel-Lindau (VHL) disease is a rare hereditary cancer syndrome that causes a predisposition to renal clear-cell carcinoma, hemangioblastoma, pheochromocytoma, and autosomal-recessive familial polycythemia. pVHL is the substrate conferring subunit of an E3 ubiquitin ligase complex that..."</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.7554/elife.80774" target="_blank">DOI:10.7554/elife.80774</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"von Hippel-Lindau (VHL) disease is a rare hereditary cancer syndrome that causes a predisposition to renal clear-cell carcinoma, hemangioblastoma, pheochromocytoma, and autosomal-recessive familial polycythemia. pVHL is the substrate conferring subunit of an E3 ubiquitin ligase complex that..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for Von Hippel-Lindau Disease.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </div>
-    
-    
-                    
+
+
+
                 </div>
-                
+
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">1. Disease Information</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">36 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-04-05T23:24:59.252007</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <h2>1. Disease Information</h2>
 <h3>1.1 Definition/overview</h3>
@@ -6428,11 +6761,11 @@ references:
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -6482,7 +6815,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Von Hippel-Lindau Disease", "mondoId": "MONDO:0008667", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Von_Hippel-Lindau_Disease", "yamlRevision": "85ddf8e492e6"};
+        const OS_CONFIG = {"diseaseName": "Von Hippel-Lindau Disease", "mondoId": "MONDO:0008667", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Von_Hippel-Lindau_Disease", "yamlRevision": "be6859af7ec4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

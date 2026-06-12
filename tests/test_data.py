@@ -14,12 +14,43 @@ ROOT_DIR = Path(__file__).parent.parent
 SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "dismech.yaml"
 KB_DIR = ROOT_DIR / "kb" / "disorders"
 COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
+MODULES_DIR = ROOT_DIR / "kb" / "modules"
+GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
 
 # Get all disorder YAML files (exclude history snapshots)
 DISORDER_FILES = [
     f for f in glob.glob(str(KB_DIR / "*.yaml")) if not f.endswith(".history.yaml")
 ]
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
+GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
+
+
+def _disease_names():
+    """Set of all Disease `name` values across kb/disorders/."""
+    names = set()
+    for fp in DISORDER_FILES:
+        with open(fp) as f:
+            data = yaml.safe_load(f)
+        if isinstance(data, dict) and data.get("name"):
+            names.add(data["name"])
+    return names
+
+
+def _module_stems():
+    """Set of mechanism module filename stems (without .yaml) in kb/modules/."""
+    return {Path(f).stem for f in glob.glob(str(MODULES_DIR / "*.yaml"))}
+
+
+def _grouping_names():
+    """Set of Grouping `name` values across kb/groupings/."""
+    names = set()
+    for fp in GROUPING_FILES:
+        with open(fp) as f:
+            data = yaml.safe_load(f)
+        if isinstance(data, dict) and data.get("name"):
+            names.add(data["name"])
+    return names
+
 
 NON_THERAPEUTIC_ACTION_CATEGORIES = {
     "DIAGNOSTIC",
@@ -801,3 +832,229 @@ def test_disorder_count():
     assert len(DISORDER_FILES) >= 50, (
         f"Expected at least 50 disorders, got {len(DISORDER_FILES)}"
     )
+
+
+# --- Disease grouping tests ---
+
+
+def _iter_logic_nodes(node):
+    """Yield every LogicalCriterion node in a (possibly nested) expression."""
+    if not isinstance(node, dict):
+        return
+    yield node
+    for child in node.get("operands", []) or []:
+        yield from _iter_logic_nodes(child)
+
+
+def _module_stem(ref):
+    """Strip an optional '#Node Name' anchor from a module reference."""
+    return ref.split("#", 1)[0].strip() if ref else ref
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_valid_grouping_files(filepath, validator):
+    """All grouping files validate against the Grouping class."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    report = validator.validate(data, target_class="Grouping")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_member_foreign_keys(filepath):
+    """Each grouping member must resolve to a real Disease, module, or grouping."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    disease_names = _disease_names()
+    module_stems = _module_stems()
+    grouping_names = _grouping_names()
+
+    errors = []
+    for i, member in enumerate(data.get("members", [])):
+        ref = member.get("member")
+        mtype = member.get("member_type", "DISEASE")
+        if not ref:
+            continue
+        if mtype in ("DISEASE", "SUBTYPE"):
+            # SUBTYPE members still name their parent Disease entry.
+            if ref not in disease_names:
+                errors.append(f"members[{i}].member={ref!r} (type {mtype})")
+        elif mtype == "MODULE":
+            if _module_stem(ref) not in module_stems:
+                errors.append(f"members[{i}].member={ref!r} (type MODULE)")
+        elif mtype == "GROUPING":
+            if ref not in grouping_names:
+                errors.append(f"members[{i}].member={ref!r} (type GROUPING)")
+
+    assert not errors, (
+        f"Grouping member FK mismatches in {Path(filepath).name}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_module_references(filepath):
+    """Every `module` reference in a grouping must resolve to a module file."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    module_stems = _module_stems()
+    errors = []
+
+    # Module refs inside the structured membership criteria expressions.
+    for c, criteria in enumerate(data.get("membership_criteria", []) or []):
+        for node in _iter_logic_nodes(criteria.get("logic")):
+            ref = node.get("module")
+            if ref and _module_stem(ref) not in module_stems:
+                errors.append(f"membership_criteria[{c}].logic module={ref!r}")
+
+    # Module refs inside per-member differentiating mechanisms.
+    for i, member in enumerate(data.get("members", [])):
+        for j, mech in enumerate(member.get("differentiating_mechanisms", []) or []):
+            ref = mech.get("module")
+            if ref and _module_stem(ref) not in module_stems:
+                errors.append(
+                    f"members[{i}].differentiating_mechanisms[{j}].module={ref!r}"
+                )
+
+    assert not errors, (
+        f"Grouping module reference mismatches in {Path(filepath).name}. "
+        f"Bad refs: {errors}"
+    )
+
+
+def test_grouping_unique_names():
+    """Grouping `name` values must be unique across kb/groupings/."""
+    seen = {}
+    for fp in GROUPING_FILES:
+        with open(fp) as f:
+            data = yaml.safe_load(f)
+        name = data.get("name") if isinstance(data, dict) else None
+        if name:
+            seen.setdefault(name, []).append(Path(fp).name)
+    dupes = {k: v for k, v in seen.items() if len(v) > 1}
+    assert not dupes, f"Duplicate grouping names: {dupes}"
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_criteria_well_formed(filepath):
+    """Structured membership-criteria expressions must be well-formed.
+
+    Each LogicalCriterion node must be either a BRANCH (operator + operands) or
+    a LEAF (criterion_predicate + matching payload), never both or neither.
+    """
+    from dismech.groupings import lint_criterion
+
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    errors = []
+    for c, criteria in enumerate(data.get("membership_criteria", []) or []):
+        errors.extend(
+            lint_criterion(criteria.get("logic"), f"membership_criteria[{c}].logic")
+        )
+    assert not errors, f"Malformed criteria in {Path(filepath).name}: {errors}"
+
+
+def test_grouping_node_classification():
+    """classify_node distinguishes BRANCH, LEAF, and INVALID nodes."""
+    from dismech.groupings import NodeKind, classify_node
+
+    assert classify_node({"operator": "AND", "operands": []}) is NodeKind.BRANCH
+    assert classify_node({"criterion_predicate": "HAS_GENE"}) is NodeKind.LEAF
+    # Both operator and predicate -> invalid.
+    assert (
+        classify_node({"operator": "AND", "criterion_predicate": "HAS_GENE"})
+        is NodeKind.INVALID
+    )
+    # Neither -> invalid.
+    assert classify_node({"description": "x"}) is NodeKind.INVALID
+
+
+def test_grouping_lint_catches_bad_nodes():
+    """The structural linter flags malformed leaves and branches."""
+    from dismech.groupings import lint_criterion
+
+    # Leaf predicate missing its required payload.
+    assert lint_criterion({"criterion_predicate": "HAS_GENE"})
+    # Branch operator with no operands.
+    assert lint_criterion({"operator": "AND", "operands": []})
+    # A well-formed expression yields no errors.
+    good = {
+        "operator": "AND",
+        "operands": [
+            {
+                "criterion_predicate": "HAS_GENE",
+                "gene": {"term": {"id": "hgnc:5391"}},
+            }
+        ],
+    }
+    assert lint_criterion(good) == []
+
+
+def test_grouping_three_valued_logic():
+    """AND/OR/NOT combine SATISFIED/NOT_SATISFIED/UNKNOWN correctly."""
+    from dismech.groupings import (
+        DiseaseFacts,
+        Satisfaction,
+        _eval_node,
+    )
+
+    facts = DiseaseFacts(name="x", gene_ids={"hgnc:5391"}, go_ids={"GO:0006027"})
+
+    has_gene = {
+        "criterion_predicate": "HAS_GENE",
+        "gene": {"term": {"id": "hgnc:5391"}},
+    }
+    missing_gene = {
+        "criterion_predicate": "HAS_GENE",
+        "gene": {"term": {"id": "hgnc:9999"}},
+    }
+    unknown = {"criterion_predicate": "OTHER", "description": "unscored"}
+
+    assert _eval_node(has_gene, facts) is Satisfaction.SATISFIED
+    assert _eval_node(missing_gene, facts) is Satisfaction.NOT_SATISFIED
+    assert _eval_node(unknown, facts) is Satisfaction.UNKNOWN
+
+    # AND: a NOT_SATISFIED operand dominates.
+    assert (
+        _eval_node({"operator": "AND", "operands": [has_gene, missing_gene]}, facts)
+        is Satisfaction.NOT_SATISFIED
+    )
+    # OR: a SATISFIED operand dominates.
+    assert (
+        _eval_node({"operator": "OR", "operands": [has_gene, missing_gene]}, facts)
+        is Satisfaction.SATISFIED
+    )
+    # NOT flips.
+    assert (
+        _eval_node({"operator": "NOT", "operands": [missing_gene]}, facts)
+        is Satisfaction.SATISFIED
+    )
+    # negated leaf flips.
+    negated = dict(missing_gene, negated=True)
+    assert _eval_node(negated, facts) is Satisfaction.SATISFIED
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_evaluation_runs(filepath):
+    """The membership evaluator executes and returns structured results.
+
+    This is advisory (criteria may be aspirational), so it asserts the evaluator
+    runs and produces valid Satisfaction values, not that members satisfy.
+    """
+    from dismech.groupings import (
+        Satisfaction,
+        evaluate_grouping,
+        load_disease_index,
+    )
+
+    with open(filepath) as f:
+        grouping = yaml.safe_load(f)
+
+    index = load_disease_index()
+    for ev in evaluate_grouping(grouping, index):
+        assert isinstance(ev.result, Satisfaction)

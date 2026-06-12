@@ -5,6 +5,7 @@ schema_path := "src/dismech/schema/dismech.yaml"
 kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
+groupings_dir := "kb/groupings"
 ref_validator_config := "conf/reference_validator_config.yaml"
 mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db')
 # Wrapper script that patches linkml-reference-validator for network resilience
@@ -265,6 +266,79 @@ validate-module file:
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
+# Validate a single disease grouping file (schema + terms + references)
+[group('QC')]
+validate-grouping file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Grouping {{file}}
+    echo "Term validation..."
+    just check-enum-cache
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Grouping --labels -c {{oak_config}}
+    echo "Reference validation..."
+    just fix-references-cache
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Grouping --config {{ref_validator_config}}
+    echo "✓ All validations passed for {{file}}"
+
+# Validate all disease grouping files (schema + terms + references)
+[group('QC')]
+validate-groupings:
+    #!/usr/bin/env bash
+    shopt -s nullglob
+    files=({{groupings_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No grouping files found in {{groupings_dir}}"
+        exit 0
+    fi
+    just fix-references-cache
+    just check-enum-cache
+    failed_files=()
+    echo "Validating all disease grouping files..."
+    for f in "${files[@]}"; do
+        echo "=== $(basename $f) ==="
+        errors=""
+        # Schema validation (groupings use the Grouping class)
+        if ! uv run linkml-validate --schema {{schema_path}} --target-class Grouping "$f" 2>&1 | grep -q "No issues found"; then
+            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Grouping "$f" 2>&1 | grep -v "^$")\n"
+        fi
+        # Term validation
+        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t Grouping --labels -c {{oak_config}} 2>&1)
+        if ! echo "$term_output" | grep -q "Validation passed"; then
+            errors+="  [TERMS] $term_output\n"
+        fi
+        # Reference validation
+        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Grouping --config {{ref_validator_config}} 2>&1)
+        if echo "$ref_output" | grep -q "\[ERROR\]"; then
+            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
+        fi
+        if [ -n "$errors" ]; then
+            failed_files+=("$f")
+            echo -e "$errors"
+        else
+            echo "  ✓ OK"
+        fi
+    done
+    echo ""
+    echo "================================"
+    if [ ${#failed_files[@]} -eq 0 ]; then
+        echo "✓ All grouping files validated successfully!"
+    else
+        echo "✗ ${#failed_files[@]} grouping file(s) with errors:"
+        for f in "${failed_files[@]}"; do
+            echo "  - $f"
+        done
+        exit 1
+    fi
+
+# Lint and audit disease grouping membership criteria (structural + advisory).
+# Structural lint is enforced in pytest; this report also evaluates whether
+# listed members satisfy NECESSARY criteria (advisory — criteria may be
+# aspirational). Pass a file to scope to one grouping; --strict to gate.
+[group('QC')]
+check-groupings *args="":
+    uv run python -m dismech.groupings {{args}}
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
 validate-terms-schema:
@@ -308,6 +382,13 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
+# Report phenotype causal-connectivity coverage (graph-derived QC metric):
+# fraction of phenotype nodes wired into the pathograph. Pass --list-unconnected
+# to see the floating phenotype names per file.
+[group('QC')]
+compliance-connectivity *ARGS:
+    uv run python -m dismech.qc_plugins {{kb_dir}} -c conf/qc_config.yaml {{ARGS}}
+
 # Validate dynamic enum membership caches against current schema definitions.
 [group('QC')]
 check-enum-cache:
@@ -315,7 +396,7 @@ check-enum-cache:
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter validate-all validate-modules qc-deep-research
+qc: check-reference-cache-frontmatter validate-all validate-modules validate-groupings qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -601,7 +682,8 @@ deploy-browser: gen-browser-data
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
-    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, and $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
+    just gen-grouping-pages
+    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages, and $(ls -1 pages/groupings/*.html 2>/dev/null | wc -l | tr -d ' ') grouping pages"
 
 # Generate a single disorder page
 [group('Pages')]
@@ -613,6 +695,17 @@ gen-page file:
 gen-module-pages:
     uv run python -m dismech.render --module {{modules_dir}}
     @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
+
+# Generate a single disease grouping page
+[group('Pages')]
+gen-grouping-page file:
+    uv run python -m dismech.render --grouping {{file}}
+
+# Generate all disease grouping pages
+[group('Pages')]
+gen-grouping-pages:
+    uv run python -m dismech.render --grouping {{groupings_dir}}
+    @echo "Generated $(ls -1 pages/groupings/*.html 2>/dev/null | wc -l | tr -d ' ') grouping pages"
 
 # Generate deep-research index page
 [group('Pages')]
@@ -658,6 +751,16 @@ export-context-scores output_dir="output/context_scores":
 export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
+
+# Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
+[group('Export')]
+export-hpoa:
+    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
+
+# Export a flat CSV census of every disease + subtype and its MONDO mapping (or lack thereof).
+[group('Export')]
+export-disease-inventory output="output/disease_inventory.csv":
+    uv run dismech-disease-inventory -i {{kb_dir}} -o {{output}}
 
 # ============== CX2 Export ==============
 
@@ -1630,6 +1733,16 @@ list-research:
 [group('Research')]
 literature-scan days='7' max_records='100':
     uv run python scripts/literature_scan.py --days {{days}} --max-records {{max_records}}
+
+# Generate a deterministic Europe PMC mechanistic knowledge-gap scan packet
+[group('Research')]
+knowledge-gap-scan days='7' max_records='200':
+    uv run python scripts/knowledge_gap_scan.py --days {{days}} --max-records {{max_records}}
+
+# Generate a mechanistic knowledge-gap scan packet for an explicit publication-date range
+[group('Research')]
+knowledge-gap-scan-range date_from date_to max_records='200':
+    uv run python scripts/knowledge_gap_scan.py --date-from {{date_from}} --date-to {{date_to}} --max-records {{max_records}}
 
 # Generate a disorder review report (markdown + PDF) for expert review
 # Example: just disorder-report kb/disorders/Kleefstra_Syndrome.yaml

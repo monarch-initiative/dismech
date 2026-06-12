@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,22 +2961,22 @@
         <header class="page-header">
             <h1>Raynaud Disease</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Complex</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0008364" target="_blank">
                         MONDO:0008364
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Vascular Disorder</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2919,12 +2989,12 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Raynaud disease (primary Raynaud phenomenon) is a vasospastic disorder characterized by episodic, excessive vasoconstriction of digital arteries and arterioles triggered by cold exposure or emotional stress. It manifests as triphasic color changes of the fingers and toes (pallor, cyanosis, erythema) reflecting vasospasm, deoxygenation, and reperfusion hyperemia. Primary Raynaud disease occurs without an underlying connective tissue disease and involves primarily functional vascular abnormalities. Secondary Raynaud phenomenon is associated with autoimmune conditions such as systemic sclerosis and involves both functional and structural vascular changes. The pathogenesis involves dysregulated neurovascular control, endothelial dysfunction, alpha-2C adrenoceptor-mediated vasoconstriction amplified by RhoA/ROCK signaling, and impaired nitric oxide-soluble guanylate cyclase-cGMP vasodilatory pathways.
 
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2994,35 +3064,35 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3030,9 +3100,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3040,10 +3110,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3051,9 +3121,9 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3061,8 +3131,8 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
@@ -3070,14 +3140,14 @@
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3085,942 +3155,1074 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
 
         <!-- Subtypes -->
-        
+
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">2</span>
             </div>
-            
-            
-            
-                
-                
-                    
-                
-                
-            
-                
-                
-                
-            
-            
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Primary Raynaud Phenomenon
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Idiopathic vasospastic episodes without underlying connective tissue disease. Primarily functional vascular abnormalities with symmetric involvement, younger age of onset, and milder course. Digital tissue damage is uncommon.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"In primary RP, the vascular abnormalities are primarily functional."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Distinguishes primary RP as functional versus structural in secondary RP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-box subtype-box">
-                    
+
                     <div class="item-name">
                         Secondary Raynaud Phenomenon
-                        
-                        
-                        
+
+
+
                     </div>
                     <div class="subtype-meta">
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                     </div>
-                    
+
                     <div class="item-desc">Raynaud phenomenon occurring in the context of an underlying disease, most commonly systemic sclerosis, systemic lupus erythematosus, or mixed connective tissue disease. Associated with both functional and structural vascular changes and higher risk of digital ulceration and tissue loss.
 </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"in secondary RP, both functional and structural components occur in blood vessels. This explains why digital tissue damage frequently occurs in secondary RP but not primary RP."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Structural vascular changes explain complications in secondary RP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
                 </div>
-                
-            
+
+
         </div>
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">7</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-2c-adrenoceptor-cold-induced-vasoconstriction">
                 <div class="item-name">Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction</div>
-                
+
                 <div class="item-desc">Cold triggers alpha-2C adrenoceptor (ADRA2C) activation in microvascular smooth muscle cells, mediating local cooling-induced vasoconstriction of digital arteries and arterioles. Alpha-2C-AR is the sole mediator of cold-induced vasoconstriction in the peripheral vasculature.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Vascular Smooth Muscle Cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
                 <div class="item-meta">
-                    
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ADRA2C
+
+
+    <a href="https://bioregistry.io/hgnc:283" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:283">hgnc:283</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-meta">
+
                     <span class="tag tag-bio">
                         Vasoconstriction
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042310">GO:0042310</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Cellular Response to Cold
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0070417" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0070417" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070417">GO:0070417</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         Digital Artery
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0004552" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004552" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004552">UBERON:0004552</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">RhoA/ROCK Potentiation of Vasospasm</span>
-	                            
+
 	                            <span class="crosslink-desc">Alpha-2C-AR activation is potentiated by RhoA/ROCK signaling.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25770637" target="_blank">PMID:25770637</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"alterations in activity of the peripheral adrenoceptor have been implicated, specifically an enhanced smooth muscle contraction due to overexpression or hyperactivity of postsynaptic alpha 2 receptors"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Alpha-2 adrenoceptor hyperactivity drives the exaggerated smooth muscle contraction.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40506673" target="_blank">PMID:40506673</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"estrogen plays a fundamental role in potentiating the expression and function of α2C adrenoceptor (α2C-AR), the sole mediator of local cooling-induced vasoconstriction"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identifies alpha-2C-AR as the sole mediator of cold-induced vasospasm.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rhoa-rock-potentiation-of-vasospasm">
                 <div class="item-name">RhoA/ROCK Potentiation of Vasospasm</div>
-                
+
                 <div class="item-desc">RhoA/ROCK signaling potentiates alpha-2C adrenoceptor-mediated vasoconstriction and reactive oxygen species generation in vascular smooth muscle cells, amplifying the vasospastic response to cold.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Vascular Smooth Muscle Contraction
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0014829" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0014829" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014829">GO:0014829</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Raynaud&#39;s phenomenon (RP) is a condition characterized by episodic, excessive vasoconstriction in the fingers and toes, triggered by cold or stress."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes the core vasospastic mechanism that RhoA/ROCK potentiates.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-estrogen-potentiation-of-alpha-2c-ar">
                 <div class="item-name">Estrogen Potentiation of Alpha-2C-AR</div>
-                
+
                 <div class="item-desc">Estrogen potentiates alpha-2C adrenoceptor expression and function, contributing to the significantly higher incidence of Raynaud phenomenon in premenopausal females compared to age-matched males.
 </div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40506673" target="_blank">PMID:40506673</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Raynaud&#39;s phenomenon incidence is significantly higher in premenopausal females compared to age-matched males, highlighting a role of the female hormone, estrogen, in Raynaud&#39;s phenomenon pathogenesis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Estrogen potentiates alpha-2C-AR, explaining sex-based differences in RP incidence.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction">
                 <div class="item-name">Endothelial Dysfunction</div>
-                
+
                 <div class="item-desc">Impaired endothelium-dependent vasodilation with reduced nitric oxide (NO) and prostacyclin bioavailability and increased production of endothelin-1 (ET-1). The imbalance between vasoconstrictors and vasodilators favors persistent vasoconstriction, platelet activation, and intimal proliferation. In secondary RP associated with systemic sclerosis, endothelial damage leads to defective angiogenesis, endothelial-to-mesenchymal transition, and progressive capillary loss.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Endothelial Cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Vasodilation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0042311" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042311" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042311">GO:0042311</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Nitric Oxide Biosynthesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006809">GO:0006809</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/ijms241814385" target="_blank">DOI:10.3390/ijms241814385</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Endothelial damage and activation occur early, possibly triggered by various infectious agents and autoantibodies. Endothelial dysfunction, along with defects in endothelial progenitor cells, leads to defective angiogenesis and vasculogenesis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Endothelial dysfunction is an early event driving vascular pathology.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biomedicines12061331" target="_blank">DOI:10.3390/biomedicines12061331</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"once damaged, endothelial cells can be dysfunctionally activated, thus becoming unable to undergo angiogenesis and promoting perivascular inflammation. They can also undergo apoptosis, transdifferentiate into profibrotic myofibroblasts"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Describes mechanisms of endothelial dysfunction including EndoMT and failed angiogenesis in SSc-associated RP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sympathetic-nervous-system-dysregulation">
                 <div class="item-name">Sympathetic Nervous System Dysregulation</div>
-                
+
                 <div class="item-desc">Increased sympathetic adrenergic control of digital resistance vessels contributes to exaggerated cold-induced vasoconstriction. The pathogenesis involves a complex interaction between the vascular wall, nerves, hormones, and humoral factors disrupting the balance between vasoconstriction and vasodilation.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Sympathetic Neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0011103" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0011103" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011103">CL:0011103</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Temperature Homeostasis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001659" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001659" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001659">GO:0001659</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-location">
                         Manual Digit
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002389" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002389" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002389">UBERON:0002389</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"The pathogenesis of RP involves a complex interaction between the vascular wall, nerves, hormones, and humoral factors, disrupting the balance between vasoconstriction and vasodilation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Neurovascular dysregulation as a central mechanism.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intravascular-and-platelet-abnormalities">
                 <div class="item-name">Intravascular and Platelet Abnormalities</div>
-                
+
                 <div class="item-desc">Platelet activation and release of thromboxane A2 and serotonin contribute to vasospasm. Altered coagulation and fibrinolysis pathways and increased blood viscosity further impair microvascular flow during episodes. Gene ontology analysis identifies enrichment in negative regulation of fibrinolysis and complement/coagulation cascades among RP-associated genes.
 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         Platelet
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Platelet Activation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030168">GO:0030168</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1515/tjb-2023-0197" target="_blank">DOI:10.1515/tjb-2023-0197</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A significant enrichment by gene ontology enrichment analysis was detected in a subset of genes involved in biological processes including cellular response to luteinizing hormone stimulus, negative regulation of fibrinolysis, negative regulation of smooth muscle cell apoptotic process,..."</div>
-                
-                
+
+
                 <div class="evidence-explanation">GO analysis of RP-associated genes shows enrichment in coagulation/fibrinolysis pathways relevant to intravascular abnormalities.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1515/tjb-2023-0197" target="_blank">DOI:10.1515/tjb-2023-0197</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Through the use of KEGG pathways, we were able to identify many molecular processes that contribute to RP, including the AGE-RAGE signaling pathway in diabetic complications, complement and coagulation cascades, fluid shear stress, atherosclerosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">KEGG analysis confirms complement/coagulation cascade involvement in RP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-ischemia-reperfusion-injury">
                 <div class="item-name">Oxidative Stress and Ischemia-Reperfusion Injury</div>
-                
+
                 <div class="item-desc">Recurrent vasospastic episodes cause ischemia-reperfusion injury with generation of reactive oxygen species (ROS) and endothelial damage. ROS-dependent signaling also regulates alpha-2C-AR expression and translocation in vascular smooth muscle cells, creating a feed-forward loop of vascular dysfunction.
 </div>
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         Response to Oxidative Stress
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
-	                
-    
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418302" target="_blank">PMID:24418302</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"recent advances in our understanding of the pathophysiology have highlighted novel potential therapeutic targets"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Prete et al. review discusses pathogenic mechanisms including oxidative stress in RP pathophysiology.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4031,382 +4233,397 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cold triggers alpha-2C adrenoceptor (ADRA2C) activation in microvascular smooth muscle cells, mediating local cooling-induced vasoconstriction of digital arteries and arterioles. Alpha-2C-AR is the sole mediator of cold-induced vasoconstriction in the peripheral vasculature.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular Smooth Muscle Cell\"], \"biological_processes\": [\"Vasoconstriction\", \"Cellular Response to Cold\"], \"genes\": [\"ADRA2C\"], \"locations\": [\"Digital Artery\"]}}, {\"id\": \"RhoA/ROCK Potentiation of Vasospasm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RhoA/ROCK signaling potentiates alpha-2C adrenoceptor-mediated vasoconstriction and reactive oxygen species generation in vascular smooth muscle cells, amplifying the vasospastic response to cold.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Vascular Smooth Muscle Contraction\"]}}], \"edges\": [{\"source\": \"Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction\", \"target\": \"RhoA/ROCK Potentiation of Vasospasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-2C-AR activation is potentiated by RhoA/ROCK signaling.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cold triggers alpha-2C adrenoceptor (ADRA2C) activation in microvascular smooth muscle cells, mediating local cooling-induced vasoconstriction of digital arteries and arterioles. Alpha-2C-AR is the sole mediator of cold-induced vasoconstriction in the peripheral vasculature.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular Smooth Muscle Cell\"], \"biological_processes\": [\"Vasoconstriction\", \"Cellular Response to Cold\"], \"genes\": [\"ADRA2C\"], \"gene_terms\": [{\"label\": \"ADRA2C\", \"id\": \"hgnc:283\"}], \"locations\": [\"Digital Artery\"]}}, {\"id\": \"RhoA/ROCK Potentiation of Vasospasm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RhoA/ROCK signaling potentiates alpha-2C adrenoceptor-mediated vasoconstriction and reactive oxygen species generation in vascular smooth muscle cells, amplifying the vasospastic response to cold.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Vascular Smooth Muscle Contraction\"]}}], \"edges\": [{\"source\": \"Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction\", \"target\": \"RhoA/ROCK Potentiation of Vasospasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-2C-AR activation is potentiated by RhoA/ROCK signaling.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">5</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Raynaud Phenomenon
-                        
+
                         <span class="phenotype-freq">OBLIGATE</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0030880" target="_blank">
-                            Raynaud phenomenon
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0030880)</span>
-                        </span>
-                        
+                        Raynaud phenomenon
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030880">HP:0030880</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25770637" target="_blank">PMID:25770637</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Raynaud syndrome (RS) was first described by the French physician Maurice Raynaud in 1862 with the characteristic tricolor change featuring pallor (ischemic phase), cyanosis (deoxygenation phase), and erythema (reperfusion phase) induced by cold or stress."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Classic triphasic color change as the hallmark clinical feature.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418302" target="_blank">PMID:24418302</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Raynaud&#39;s phenomenon (RP) is a well defined clinical syndrome characterized by recurrent episodes of digital vasospasm triggered by exposure to physical/chemical or emotional stress."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Defines RP as a clinical syndrome of recurrent digital vasospasm.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Digital Ischemia
-                        
+
                         <span class="phenotype-freq">FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0033402" target="_blank">
-                            Digital ischemia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0033402)</span>
-                        </span>
-                        
+                        Digital ischemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033402" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033402">HP:0033402</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pallor indicates reduced blood flow due to oxygen deprivation"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Digital pallor reflects ischemia from vasospasm-induced blood flow reduction.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Acrocyanosis
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0001063" target="_blank">
-                            Acrocyanosis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001063)</span>
-                        </span>
-                        
+                        Acrocyanosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001063" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001063">HP:0001063</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Pallor indicates reduced blood flow due to oxygen deprivation, while erythema appears as reperfusion."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Describes the color change phases including cyanosis between pallor and erythema.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Digital Ulceration
-                        
+
                         <span class="phenotype-freq">VERY_RARE</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0031917" target="_blank">
-                            Digital ulcer
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0031917)</span>
-                        </span>
-                        
+                        Digital ulcer
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031917" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031917">HP:0031917</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"digital tissue damage frequently occurs in secondary RP but not primary RP"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Digital ulceration is characteristic of secondary rather than primary RP.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418302" target="_blank">PMID:24418302</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"sRP can evolve and be complicated by acral digital ulcers and gangrene, which may require surgical treatment"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Secondary RP can progress to digital ulcers and gangrene.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Digital Pain and Paresthesia
-                        
+
                         <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank">
-                            Paresthesia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003401)</span>
-                        </span>
-                        
+                        Paresthesia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003401">HP:0003401</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29237099" target="_blank">PMID:29237099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Raynaud&#39;s phenomenon is a vasospastic disease characterized by digital pallor, cyanosis, and extremity pain."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Pain is a core characteristic feature of Raynaud phenomenon.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
-    
+
+
+
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4431,752 +4648,817 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">6</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Calcium Channel Blockers
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         nifedipine
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_7565" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7565" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:7565">CHEBI:7565</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         amlodipine
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_2668" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2668" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2668">CHEBI:2668</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Dihydropyridine calcium channel blockers (e.g., nifedipine, amlodipine) are first-line pharmacotherapy. They reduce frequency and severity of vasospastic attacks by inhibiting calcium influx into vascular smooth muscle cells.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Dihydropyridine calcium channel blockers (CCBs), such as nifedipine, are commonly used for vasodilation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">CCBs are established first-line pharmacotherapy for RP.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29237099" target="_blank">PMID:29237099</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"CCBs (especially the dihydropyridine class) may be useful in reducing the frequency, duration, severity of attacks, pain and disability associated with Raynaud&#39;s phenomenon."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cochrane systematic review of 38 RCTs demonstrating CCBs reduce attack frequency and severity.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cold Avoidance and Protective Measures
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Behavioral modification including wearing warm gloves, avoiding cold exposure, and using hand warmers. First-line non-pharmacological management for all patients with Raynaud phenomenon.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25770637" target="_blank">PMID:25770637</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Most patients with RS can be managed conservatively, with avoidance of cold exposure or hand warming."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Conservative management with cold avoidance is first-line for most patients.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Phosphodiesterase-5 Inhibitors
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         sildenafil
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_9139" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9139" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9139">CHEBI:9139</a>
+
+
+
                     </span>
-                    
+
                     <span class="tag tag-treatment">
                         tadalafil
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_71940" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71940" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:71940">CHEBI:71940</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Sildenafil and tadalafil improve digital blood flow by inhibiting PDE5, increasing cGMP levels, and enhancing nitric oxide-mediated vasodilation. Used as second-line therapy for refractory cases or when CCBs are insufficient.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Phosphodiesterase-5 inhibitors and prostaglandin analogs are alternative options for patients who do not respond to CCBs or have ischemic tissue damage."</div>
-                
-                
+
+
                 <div class="evidence-explanation">PDE5 inhibitors are second-line options for refractory RP.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28281457" target="_blank">PMID:28281457</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Sildenafil improved digital blood flow and RP symptoms in SSc patients after 8 weeks of treatment, and might be a good therapeutic option for secondary RP."</div>
-                
-                
+
+
                 <div class="evidence-explanation">RCT demonstrating sildenafil improves microvascular blood flow in SSc-associated RP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Prostacyclin Analogues
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         iloprost
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_63916" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63916" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63916">CHEBI:63916</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Intravenous iloprost is used for severe Raynaud phenomenon with digital ischemia or ulceration. Provides potent vasodilation and antiplatelet effects.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Phosphodiesterase-5 inhibitors and prostaglandin analogs are alternative options for patients who do not respond to CCBs or have ischemic tissue damage."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Prostacyclin analogs are alternative options for severe/refractory RP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Endothelin Receptor Antagonists
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">targeted therapy</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C93352</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         bosentan
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_51450" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_51450" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:51450">CHEBI:51450</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Bosentan blocks endothelin-1 receptor signaling and has shown effectiveness in treating and preventing digital ulcers, especially in patients with systemic sclerosis-associated Raynaud phenomenon with multiple ulcers.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Bosentan, an endothelin-1 receptor antagonist, has shown effectiveness in treating and preventing digital ulcers, especially in patients with multiple ulcers."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Bosentan is effective for digital ulcer prevention in SSc-associated RP.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Sympathectomy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">surgical procedure</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000004">MAXO:0000004</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Surgical sympathectomy can be used for severe, refractory Raynaud phenomenon to reduce sympathetic vasoconstriction. Long-term effectiveness is uncertain.
 </div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"sympathectomy surgery can be used to control RP symptoms. However, botulinum toxin injections require repeated administration, and sympathectomy&#39;s long-term effectiveness is uncertain."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Sympathectomy is an option for severe cases but has uncertain long-term efficacy.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">2</span>
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Cold Exposure</div>
-                
+
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
-                    
+
                     <span class="tag tag-env">
                         exposure to decreased temperature
-                        
-                        <a href="http://purl.obolibrary.org/obo/ECTO_0001057" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001057" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0001057">ECTO:0001057</a>
+
+
+
                     </span>
-                    
-                    
-                    
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Cold ambient temperature or direct contact with cold objects is the primary trigger for vasospastic episodes. Cold triggers alpha-2C adrenoceptor-mediated vasoconstriction in digital smooth muscle cells.
 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40506673" target="_blank">PMID:40506673</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Raynaud&#39;s phenomenon is a peripheral vascular disorder characterized by exaggerated vasoconstrictive response to certain stimuli, most typically cold exposure and emotional stress."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cold exposure is the primary trigger for RP attacks.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40506673" target="_blank">PMID:40506673</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"estrogen plays a fundamental role in potentiating the expression and function of α2C adrenoceptor (α2C-AR), the sole mediator of local cooling-induced vasoconstriction"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Cold exposure activates alpha-2C-AR-mediated vasoconstriction.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box environmental-box">
                 <div class="item-name">Emotional Stress</div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Psychological stress and emotional disturbance can trigger vasospastic episodes through sympathetic nervous system activation, independent of cold exposure.
 </div>
-                
-                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418302" target="_blank">PMID:24418302</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                 </div>
-                
+
                 <div class="evidence-snippet">"recurrent episodes of digital vasospasm triggered by exposure to physical/chemical or emotional stress"</div>
-                
-                
+
+
                 <div class="evidence-explanation">Emotional stress is a recognized trigger alongside physical stimuli.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5557,10 +5839,10 @@ treatments:
     first-line pharmacotherapy. They reduce frequency and severity of vasospastic
     attacks by inhibiting calcium influx into vascular smooth muscle cells.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: nifedipine
       term:
@@ -5604,10 +5886,10 @@ treatments:
     cGMP levels, and enhancing nitric oxide-mediated vasodilation. Used as second-line
     therapy for refractory cases or when CCBs are insufficient.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: sildenafil
       term:
@@ -5634,10 +5916,10 @@ treatments:
     Intravenous iloprost is used for severe Raynaud phenomenon with digital ischemia
     or ulceration. Provides potent vasodilation and antiplatelet effects.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: Pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: iloprost
       term:
@@ -5702,42 +5984,42 @@ updated_date: &#39;2026-04-22T20:53:03Z&#39;
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Pathophysiology description</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">24 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-02-13T14:40:10.326372</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Pathophysiology description
 Raynaud disease is characterized by episodic, exaggerated vasoconstriction of the digital microvasculature triggered by cold or emotional stress, producing the classic triphasic color change (pallor → cyanosis → rubor) and ischemic pain. A contemporary model integrates dysregulated neurovascular control and endothelial dysfunction with humoral mediators and redox injury: cold/stress triggers α-adrenergic vasoconstriction in digital arterioles, which is amplified by microvascular smooth muscle cell (VSMC) α2C‑adrenoceptor signaling and RhoA/ROCK pathways; concomitantly, impaired endothelial nitric oxide (NO)–soluble guanylate cyclase (sGC)–cGMP signaling and increased endothelin‑1 (ET‑1) drive a persistent vasoconstrictive, pro‑proliferative state. Recurrent vasospasm provokes ischemia–reperfusion injury, reactive oxygen species (ROS) generation, and endothelial damage. In secondary Raynaud associated with systemic sclerosis (SSc), defective angiogenesis, endothelial-to-mesenchymal transition (EndoMT), and microvascular rarefaction underlie progression to digital ulcers and tissue loss. “Primary” RP is largely functional (thermoregulatory arteriovenous anastomosis dysfunction), whereas “secondary” RP shows structural microangiopathy at nailfold capillaries that correlates with severity and complications. Management targets these mechanisms with calcium-channel blockers (first‑line), PDE5 inhibitors, prostacyclin analogs, endothelin receptor antagonists, focal botulinum toxin, and experimental ROCK inhibition. (ture2024raynaud’sphenomenona pages 1-2, romano2024recentinsightsinto pages 2-4, patnaik2023endothelialdysfunctionin pages 7-8)</p>
@@ -5918,11 +6200,11 @@ Some mechanistic facets, such as specific risk loci from recent GWAS and the mag
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -5972,7 +6254,7 @@ Some mechanistic facets, such as specific risk loci from recent GWAS and the mag
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Raynaud Disease", "mondoId": "MONDO:0008364", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Raynaud_Disease", "yamlRevision": "5e318fe26389"};
+        const OS_CONFIG = {"diseaseName": "Raynaud Disease", "mondoId": "MONDO:0008364", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Raynaud_Disease", "yamlRevision": "ff0ee90a3f9c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

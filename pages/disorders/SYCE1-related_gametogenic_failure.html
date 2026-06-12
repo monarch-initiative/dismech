@@ -481,13 +481,44 @@
             color: #1e40af;
         }
 
+        .curie-chip,
         .linkout {
-            color: inherit;
+            display: inline-flex;
+            align-items: center;
             margin-left: 6px;
-            font-size: 0.75rem;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
             text-decoration: none;
-            border-bottom: 1px dotted rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            vertical-align: 0.08em;
         }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
 
         .classification-category {
             font-size: 0.75rem;
@@ -1207,13 +1238,13 @@
             color: #4ade80;
         }
 
-        .phenotype-id a {
+        .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
             text-decoration: none;
         }
 
-        .phenotype-id a:hover {
+        .phenotype-id a:not(.curie-chip):hover {
             text-decoration: underline;
         }
 
@@ -2587,6 +2618,37 @@
                 return display;
             }
 
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2602,10 +2664,14 @@
             if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
-            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2816,49 +2882,53 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
-    
 
-    
 
-    
-    
 
-    
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
 
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -2891,26 +2961,26 @@
         <header class="page-header">
             <h1>SYCE1-related gametogenic failure</h1>
             <div class="header-meta">
-                
+
                 <span class="badge badge-category">Mendelian</span>
-                
-                
+
+
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_1060214" target="_blank">
                         MONDO:1060214
                     </a>
                 </span>
-                
-                
+
+
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
-                
-                
+
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Infertility disorder</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Primary ovarian insufficiency</span>
-                
+
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Male infertility</span>
-                
+
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
@@ -2923,11 +2993,11 @@
                     Ask OpenScientist
                 </button>
             </div>
-            
+
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 SYCE1-related gametogenic failure is an autosomal recessive meiotic disorder caused by biallelic loss-of-function variants in SYCE1, which encodes a central element component of the synaptonemal complex. Because SYCE1 is essential for synapsis of homologous chromosomes during meiotic prophase I, biallelic loss produces a sex-dimorphic gametogenic phenotype with the same underlying lesion: primary ovarian insufficiency in 46,XX individuals and non-obstructive azoospermia from pachytene-stage meiotic arrest in 46,XY individuals. The shared mechanistic theme is failure of synaptonemal complex assembly, leading to meiotic arrest and germ-cell depletion in both sexes.
             </p>
-            
+
         </header>
 
         <!-- OpenScientist panel -->
@@ -2997,34 +3067,34 @@
         </div>
 
         <!-- Stats bar -->
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
-            
-            
-            
+
+
+
             <a class="stat-link" href="#inheritance">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">👪</div>
@@ -3032,8 +3102,8 @@
                 <div class="stat-label">Inheritance</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
@@ -3041,9 +3111,9 @@
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
-            
-            
-            
+
+
+
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
@@ -3051,10 +3121,10 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-            
-            
-            
-            
+
+
+
+
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
@@ -3062,8 +3132,8 @@
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
@@ -3071,8 +3141,8 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-            
-            
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3080,15 +3150,15 @@
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
@@ -3096,690 +3166,776 @@
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
-            
-            
+
+
         </div>
 
         <!-- Classifications -->
-        
+
 
         <!-- Mappings -->
-        
+
 
         <!-- Definitions -->
-        
+
 
         <!-- Inheritance -->
-        
+
         <div class="card" id="inheritance">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box inheritance-box">
                 <div class="item-name">
                     Autosomal recessive inheritance
-                    
+
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
                             HP:0000007
                         </a>
                     </span>
-                    
+
                 </div>
-                
+
                 <div class="item-desc">Affected individuals carry biallelic (homozygous or compound heterozygous) loss-of-function SYCE1 variants, with carrier parents and recessive segregation in reported families.</div>
-                
-                
-    
-    
+
+
+
+
     <div class="item-meta">
-        
+
         <span class="tag tag-classification">
             Autosomal recessive inheritance
         </span>
-        
-        
-        
-        
-        
+
+
+
+
+
     </div>
-    
-    
-    
-                
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25062452" target="_blank">PMID:25062452</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"A nonsense homozygous mutation (c.613C&gt;T) was identified in the SYCE1 gene in both affected sisters. The parents and three brothers were heterozygous for the mutation, and an unaffected sister did not carry the mutation."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Homozygosity in affected sisters with heterozygous unaffected carriers directly supports autosomal recessive inheritance.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Subtypes -->
-        
+
 
         <!-- Comorbidities -->
-        
+
 
         <!-- Mechanistic Hypotheses -->
-        
+
 
         <!-- Discussions / Knowledge Gaps -->
-        
+
 
         <!-- Pathophysiology -->
-        
+
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptonemal-complex-assembly-failure">
                 <div class="item-name">Synaptonemal complex assembly failure</div>
-                
+
                 <div class="item-desc">SYCE1 encodes a central element protein of the synaptonemal complex (SC). Biallelic loss-of-function abolishes SYCE1 protein and disrupts its interactions with the transverse-filament protein SYCP1 and the central element partner SIX6OS1/C14ORF39, so the SC central element cannot assemble and homologous chromosomes fail to synapse during meiotic prophase I.</div>
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-meta">
-                    
-                    <span class="tag tag-gene">
-                        SYCE1
-                        
-                        <a href="https://bioregistry.io/hgnc:28852" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SYCE1
+
+
+    <a href="https://bioregistry.io/hgnc:28852" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28852">hgnc:28852</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         synaptonemal complex assembly
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007130" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007130" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007130">GO:0007130</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Homologous chromosome synapsis failure</span>
-	                            
+
 	                            <span class="crosslink-desc">Without an assembled central element, homologous chromosomes cannot synapse during meiotic prophase I.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34718620" target="_blank">PMID:34718620</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"the variations in SYCE1 disrupted its interaction with SYCP1 or C14ORF39, both of which affected SC assembly and meiosis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Functional assays show SYCE1 variants disrupt the protein interactions required for synaptonemal complex assembly.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32402064" target="_blank">PMID:32402064</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"No SYCE1 protein was detected in homozygous mutants and Syce1 transcript level was highly diminished, suggesting transcript degradation as the basis of the infertility mechanism."</div>
-                
-                
+
+
                 <div class="evidence-explanation">A humanized mouse model of the human mutation shows loss of SYCE1 protein, establishing loss of function as the molecular basis of the defect.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homologous-chromosome-synapsis-failure">
                 <div class="item-name">Homologous chromosome synapsis failure</div>
-                
+
                 <div class="item-desc">SYCE1 forms the central element of the synaptonemal complex and is required for physical synapsis of homologous chromosomes during meiotic prophase I. Its loss prevents stable synapsis of homologous chromosome pairs, leaving them unsynapsed at the pachytene stage.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         primary oocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000654" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000654" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000654">CL:0000654</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         primary spermatocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000656" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000656" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000656">CL:0000656</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         homologous chromosome pairing at meiosis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007129" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007129" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007129">GO:0007129</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Meiotic prophase I pachytene checkpoint activation</span>
-	                            
+
 	                            <span class="crosslink-desc">Unsynapsed chromosomes trigger the pachytene checkpoint, arresting germ-cell meiotic progression.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32402064" target="_blank">PMID:32402064</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our results strongly support a causative role of this mutation for the POI phenotype in human patients, and the mechanisms involved would relate to defects in homologous chromosome synapsis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The mouse model directly attributes the reproductive phenotype to failure of homologous chromosome synapsis.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-meiotic-prophase-i-pachytene-checkpoint-activation">
                 <div class="item-name">Meiotic prophase I pachytene checkpoint activation</div>
-                
+
                 <div class="item-desc">Unsynapsed chromosomes or persistent recombination intermediates from failed synapsis activate the meiotic pachytene checkpoint, which surveys for completion of synapsis and crossover formation. Checkpoint activation arrests germ cells at the pachytene stage of prophase I; persistently arrested cells are eliminated by apoptosis, depleting the germ-cell pool.</div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-cell">
                         primary oocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000654" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000654" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000654">CL:0000654</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-cell">
                         primary spermatocyte
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000656" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000656" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000656">CL:0000656</a>
+
+
+
                     </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
+
+
+
+
+
+
+
+
                 <div class="item-meta">
-                    
+
                     <span class="tag tag-bio">
                         meiosis I
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007127" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007127" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007127">GO:0007127</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         meiotic recombination checkpoint signaling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0051598" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0051598" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051598">GO:0051598</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         apoptotic process
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="linkout">link</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+
+
+
                     </span>
-                    
-    
-    
-    
+
+
+
+
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Germ-cell depletion and sex-dimorphic gonadal failure</span>
-	                            
+
 	                            <span class="crosslink-desc">Pachytene-arrested germ cells are eliminated, depleting the ovarian follicle pool in 46,XX individuals and the spermatogenic lineage in 46,XY individuals.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35718780" target="_blank">PMID:35718780</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"H&amp;E and IF staining demonstrated that the spermatogenesis was arrested at pachytene stage in the two patients with NOA, suggesting these two novel CNVs within SYCE1 could lead to meiotic defect and NOA."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Testicular histology directly documents pachytene-stage meiotic arrest in SYCE1 variant carriers.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germ-cell-depletion-and-sex-dimorphic-gonadal-failure">
                 <div class="item-name">Germ-cell depletion and sex-dimorphic gonadal failure</div>
-                
+
                 <div class="item-desc">The meiotic block depletes germ cells in both sexes, producing ovarian follicle depletion with primary ovarian insufficiency in 46,XX individuals and germ-cell-depleted testes with non-obstructive azoospermia in 46,XY individuals. The same molecular lesion thus yields a sex-dimorphic clinical presentation.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-	                
-	                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Premature ovarian insufficiency</span>
-	                            
+
 	                            <span class="crosslink-desc">In 46,XX individuals follicle depletion presents clinically as primary ovarian insufficiency.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Non-obstructive azoospermia</span>
-	                            
+
 	                            <span class="crosslink-desc">In 46,XY individuals germ-cell depletion presents clinically as non-obstructive azoospermia.</span>
-	                            
-                                
+
+
 	                        </div>
-	                        
+
 	                    </div>
 	                </div>
-	                
-	                
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34718620" target="_blank">PMID:34718620</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our study identified novel pathogenic variations of C14ORF39 and SYCE1 in sporadic patients with POI or NOA, highlighting the essential role of SC genes in the maintenance of ovarian and testicular function."</div>
-                
-                
+
+
                 <div class="evidence-explanation">The same SC-gene defect is reported in both POI (female) and NOA (male) patients, supporting a single mechanism with sex-dimorphic gonadal output.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25062452" target="_blank">PMID:25062452</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These results highlight the importance of the synaptonemal complex and meiosis in ovarian function."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Links the synaptonemal complex defect to loss of ovarian function in affected women.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
 	            </div>
-	            
+
         </div>
-        
+
 
         <!-- Histopathology -->
-        
+
 
         <!-- Causal Graph (Pathograph) -->
-        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-            
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3790,447 +3946,459 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Germ-cell depletion and sex-dimorphic gonadal failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The meiotic block depletes germ cells in both sexes, producing ovarian follicle depletion with primary ovarian insufficiency in 46,XX individuals and germ-cell-depleted testes with non-obstructive azoospermia in 46,XY individuals. The same molecular lesion thus yields a sex-dimorphic clinical presentation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Homologous chromosome synapsis failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SYCE1 forms the central element of the synaptonemal complex and is required for physical synapsis of homologous chromosomes during meiotic prophase I. Its loss prevents stable synapsis of homologous chromosome pairs, leaving them unsynapsed at the pachytene stage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"primary oocyte\", \"primary spermatocyte\"], \"biological_processes\": [\"homologous chromosome pairing at meiosis\"]}}, {\"id\": \"Meiotic prophase I pachytene checkpoint activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unsynapsed chromosomes or persistent recombination intermediates from failed synapsis activate the meiotic pachytene checkpoint, which surveys for completion of synapsis and crossover formation. Checkpoint activation arrests germ cells at the pachytene stage of prophase I; persistently arrested cells are eliminated by apoptosis, depleting the germ-cell pool.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"primary oocyte\", \"primary spermatocyte\"], \"biological_processes\": [\"meiosis I\", \"meiotic recombination checkpoint signaling\", \"apoptotic process\"]}}, {\"id\": \"Non-obstructive azoospermia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In 46,XY individuals SYCE1 deficiency causes non-obstructive azoospermia due to pachytene-stage meiotic arrest of spermatogenesis.\", \"meta\": {\"term_id\": \"HP:0011961\"}}, {\"id\": \"Premature ovarian insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported 46,XX individuals present with primary ovarian insufficiency, ranging from absent pubertal maturation to early ovarian failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008209\"}}, {\"id\": \"SYCE1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SYCE1\"], \"association\": \"Causative (Primary)\"}}, {\"id\": \"Synaptonemal complex assembly failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SYCE1 encodes a central element protein of the synaptonemal complex (SC). Biallelic loss-of-function abolishes SYCE1 protein and disrupts its interactions with the transverse-filament protein SYCP1 and the central element partner SIX6OS1/C14ORF39, so the SC central element cannot assemble and homologous chromosomes fail to synapse during meiotic prophase I.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"synaptonemal complex assembly\"], \"genes\": [\"SYCE1\"]}}], \"edges\": [{\"source\": \"Synaptonemal complex assembly failure\", \"target\": \"Homologous chromosome synapsis failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without an assembled central element, homologous chromosomes cannot synapse during meiotic prophase I.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homologous chromosome synapsis failure\", \"target\": \"Meiotic prophase I pachytene checkpoint activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unsynapsed chromosomes trigger the pachytene checkpoint, arresting germ-cell meiotic progression.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Meiotic prophase I pachytene checkpoint activation\", \"target\": \"Germ-cell depletion and sex-dimorphic gonadal failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pachytene-arrested germ cells are eliminated, depleting the ovarian follicle pool in 46,XX individuals and the spermatogenic lineage in 46,XY individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germ-cell depletion and sex-dimorphic gonadal failure\", \"target\": \"Premature ovarian insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In 46,XX individuals follicle depletion presents clinically as primary ovarian insufficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germ-cell depletion and sex-dimorphic gonadal failure\", \"target\": \"Non-obstructive azoospermia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In 46,XY individuals germ-cell depletion presents clinically as non-obstructive azoospermia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SYCE1\", \"target\": \"Synaptonemal complex assembly failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Germ-cell depletion and sex-dimorphic gonadal failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The meiotic block depletes germ cells in both sexes, producing ovarian follicle depletion with primary ovarian insufficiency in 46,XX individuals and germ-cell-depleted testes with non-obstructive azoospermia in 46,XY individuals. The same molecular lesion thus yields a sex-dimorphic clinical presentation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Homologous chromosome synapsis failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SYCE1 forms the central element of the synaptonemal complex and is required for physical synapsis of homologous chromosomes during meiotic prophase I. Its loss prevents stable synapsis of homologous chromosome pairs, leaving them unsynapsed at the pachytene stage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"primary oocyte\", \"primary spermatocyte\"], \"biological_processes\": [\"homologous chromosome pairing at meiosis\"]}}, {\"id\": \"Meiotic prophase I pachytene checkpoint activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unsynapsed chromosomes or persistent recombination intermediates from failed synapsis activate the meiotic pachytene checkpoint, which surveys for completion of synapsis and crossover formation. Checkpoint activation arrests germ cells at the pachytene stage of prophase I; persistently arrested cells are eliminated by apoptosis, depleting the germ-cell pool.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"primary oocyte\", \"primary spermatocyte\"], \"biological_processes\": [\"meiosis I\", \"meiotic recombination checkpoint signaling\", \"apoptotic process\"]}}, {\"id\": \"Non-obstructive azoospermia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In 46,XY individuals SYCE1 deficiency causes non-obstructive azoospermia due to pachytene-stage meiotic arrest of spermatogenesis.\", \"meta\": {\"term_id\": \"HP:0011961\"}}, {\"id\": \"Premature ovarian insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported 46,XX individuals present with primary ovarian insufficiency, ranging from absent pubertal maturation to early ovarian failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008209\"}}, {\"id\": \"SYCE1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SYCE1\"], \"gene_terms\": [{\"label\": \"SYCE1\", \"id\": \"hgnc:28852\"}], \"association\": \"Causative (Primary)\"}}, {\"id\": \"Synaptonemal complex assembly failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SYCE1 encodes a central element protein of the synaptonemal complex (SC). Biallelic loss-of-function abolishes SYCE1 protein and disrupts its interactions with the transverse-filament protein SYCP1 and the central element partner SIX6OS1/C14ORF39, so the SC central element cannot assemble and homologous chromosomes fail to synapse during meiotic prophase I.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"synaptonemal complex assembly\"], \"genes\": [\"SYCE1\"], \"gene_terms\": [{\"label\": \"SYCE1\", \"id\": \"hgnc:28852\"}]}}], \"edges\": [{\"source\": \"Synaptonemal complex assembly failure\", \"target\": \"Homologous chromosome synapsis failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without an assembled central element, homologous chromosomes cannot synapse during meiotic prophase I.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Homologous chromosome synapsis failure\", \"target\": \"Meiotic prophase I pachytene checkpoint activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unsynapsed chromosomes trigger the pachytene checkpoint, arresting germ-cell meiotic progression.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Meiotic prophase I pachytene checkpoint activation\", \"target\": \"Germ-cell depletion and sex-dimorphic gonadal failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pachytene-arrested germ cells are eliminated, depleting the ovarian follicle pool in 46,XX individuals and the spermatogenic lineage in 46,XY individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germ-cell depletion and sex-dimorphic gonadal failure\", \"target\": \"Premature ovarian insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In 46,XX individuals follicle depletion presents clinically as primary ovarian insufficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germ-cell depletion and sex-dimorphic gonadal failure\", \"target\": \"Non-obstructive azoospermia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In 46,XY individuals germ-cell depletion presents clinically as non-obstructive azoospermia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SYCE1\", \"target\": \"Synaptonemal complex assembly failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-        
+
 
         <!-- Phenotypes -->
-        
+
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">4</span>
             </div>
-            
-            
+
+
             <div class="pheno-toc">
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(2)</span></button>
-                
+
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-                
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-            
-            
+
+
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Premature ovarian insufficiency
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008209" target="_blank">
-                            Premature ovarian insufficiency
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008209)</span>
-                        </span>
-                        
+                        Premature ovarian insufficiency
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008209" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008209">HP:0008209</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32402064" target="_blank">PMID:32402064</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our results strongly support a causative role of this mutation for the POI phenotype in human patients, and the mechanisms involved would relate to defects in homologous chromosome synapsis."</div>
-                
-                
+
+
                 <div class="evidence-explanation">A humanized mouse model recapitulates the POI phenotype, supporting causality alongside the human clinical reports.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
-                    
-    
+
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
         </summary>
-        
+
         <div class="context-card">
             <div class="context-header">
-                
-                
-                
-                
+
+
+
+
                 <span class="context-label context-label-sex">FEMALE</span>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
             </div>
-            
-            
+
+
             <div class="context-notes">Reported in 46,XX individuals with biallelic SYCE1 variants.</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25062452" target="_blank">PMID:25062452</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Two daughters of consanguineous parents (first cousins) from a 13-member family were diagnosed with POI."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly documents primary ovarian insufficiency as the female presentation of biallelic SYCE1 deficiency.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </details>
-    
-    
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Primary amenorrhea
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank">
-                            Primary amenorrhea
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000786)</span>
-                        </span>
-                        
+                        Primary amenorrhea
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000786">HP:0000786</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
+
+
+
+
+
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
         </summary>
-        
+
         <div class="context-card">
             <div class="context-header">
-                
-                
-                
-                
+
+
+
+
                 <span class="context-label context-label-sex">FEMALE</span>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
             </div>
-            
-            
+
+
             <div class="context-notes">Reported in the index family (two sisters with primary amenorrhea).</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32402064" target="_blank">PMID:32402064</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"a familial mutation reported in two sisters with primary amenorrhea"</div>
-                
-                
+
+
                 <div class="evidence-explanation">The first reported human SYCE1 mutation (c.721C&gt;T) presented as primary amenorrhea in two affected sisters, making this a canonical pre-pubertal clinical presentation in 46,XX individuals.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </details>
-    
-    
+
+
                 </div>
-                
+
             </details>
-            
+
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">2</span>
                 </summary>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Non-obstructive azoospermia
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0011961" target="_blank">
-                            Non-obstructive azoospermia
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011961)</span>
-                        </span>
-                        
+                        Non-obstructive azoospermia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011961" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011961">HP:0011961</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
+
+
+
+
+
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
         </summary>
-        
+
         <div class="context-card">
             <div class="context-header">
-                
-                
-                
-                
+
+
+
+
                 <span class="context-label context-label-sex">MALE</span>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
             </div>
-            
-            
+
+
             <div class="context-notes">Reported in 46,XY individuals with biallelic/recessive SYCE1 variants.</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35718780" target="_blank">PMID:35718780</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We identified that two novel CNVs within SYCE1 are associated with meiotic arrest and male infertility."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Directly documents non-obstructive azoospermia/male infertility from SYCE1 variants.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </details>
-    
-    
+
+
                 </div>
-                
+
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Spermatogenic arrest
-                        
-                    
+
+
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/HP_0008669" target="_blank">
-                            Abnormal spermatogenesis
-                        </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008669)</span>
-                        </span>
-                        
+                        Abnormal spermatogenesis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008669" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008669">HP:0008669</a>
+
+
+                    </span>
+
                     </div>
-                    
-                    
-                    
-                    
-    
-    
-                    
-    
+
+
+
+
+
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
         </summary>
-        
+
         <div class="context-card">
             <div class="context-header">
-                
-                
-                
-                
+
+
+
+
                 <span class="context-label context-label-sex">MALE</span>
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+
+
+
+
+
+
+
+
+
+
+
             </div>
-            
-            
+
+
             <div class="context-notes">Local HPO does not expose a specific pachytene-arrest term, so this entry is anchored to the closest available abnormal-spermatogenesis ancestor while keeping the histopathologic preferred term explicit.</div>
-            
-            
-    
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35718780" target="_blank">PMID:35718780</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"H&amp;E and IF staining demonstrated that the spermatogenesis was arrested at pachytene stage in the two patients with NOA, suggesting these two novel CNVs within SYCE1 could lead to meiotic defect and NOA."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Histology demonstrates pachytene-stage spermatogenic arrest in affected men.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
         </div>
-        
+
     </details>
-    
-    
+
+
                 </div>
-                
+
             </details>
-            
+
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -4255,464 +4423,507 @@
                 }
             })();
             </script>
-            
+
         </div>
-        
+
 
         <!-- Genetic Associations -->
-        
+
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">1</span>
             </div>
-            
+
             <div class="item-box genetic-box">
                 <div class="item-name">
                     SYCE1
-                    
+
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative (Primary))</span>
-                    
+
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
-                    
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SYCE1
+
+
+    <a href="https://bioregistry.io/hgnc:28852" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28852">hgnc:28852</a>
+
+
+                    </span>
+
+
+
                 </div>
-                
-                
-    
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
+
+                </div>
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25062452" target="_blank">PMID:25062452</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We describe for the first time a homozygous mutation in SYCE1 in humans."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes SYCE1 as the causal gene in human gametogenic failure.</div>
-                
-                
-                
+
+
+
             </div>
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35718780" target="_blank">PMID:35718780</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"We identified that two novel CNVs within SYCE1 are associated with meiotic arrest and male infertility."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Extends the causal role of SYCE1 variants to the male non-obstructive azoospermia branch.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Treatments -->
-        
+
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">4</span>
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Hormone replacement therapy
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">hormone replacement therapy</span>
-                    
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: pharmacotherapy</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-                    
+
                     <span class="tag tag-treatment">
                         estradiol
-                        
-                        <a href="http://purl.obolibrary.org/obo/CHEBI_23965" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-                        
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_23965" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:23965">CHEBI:23965</a>
+
+
+
                     </span>
-                    
+
                 </div>
-                
-                
-                
+
+
+
                 <div class="item-desc">Estrogen-based hormone replacement is used in the ovarian-failure branch to treat hypoestrogenism, support pubertal development, and reduce long-term bone and cardiovascular risk.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25062452" target="_blank">PMID:25062452</a>
                     </span>
-                    
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Two daughters of consanguineous parents (first cousins) from a 13-member family were diagnosed with POI."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Anchors the ovarian-insufficiency branch for which hormone replacement is standard management.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">genetic counseling</span>
-                    
-                    
-                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000079">MAXO:0000079</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is appropriate because the condition is recessive and causes infertility, with implications for at-risk relatives and reproductive planning.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34718620" target="_blank">PMID:34718620</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Our study identified novel pathogenic variations of C14ORF39 and SYCE1 in sporadic patients with POI or NOA, highlighting the essential role of SC genes in the maintenance of ovarian and testicular function."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Identification of causal recessive variants underpins genetic counseling and molecular diagnosis for affected families.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Microdissection testicular sperm extraction (micro-TESE)
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">sperm retrieval</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Sperm Retrieval</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C94427" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C94427</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C94427" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C94427">NCIT:C94427</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">For 46,XY individuals with non-obstructive azoospermia due to meiotic arrest, microsurgical testicular sperm extraction (micro-TESE) is the primary fertility intervention. By directly examining individual seminiferous tubules under optical magnification, micro-TESE identifies focal regions of residual spermatogenesis with higher yield and less tissue damage than conventional biopsy approaches, enabling ICSI in a subset of affected men.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10374109" target="_blank">PMID:10374109</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"These findings suggest that microdissection TESE can improve sperm retrieval for men with non-obstructive azoospermia over that achieved with previously described biopsy techniques."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Establishes micro-TESE as the procedure of choice for sperm retrieval in non-obstructive azoospermia, applicable to the meiotic-arrest presentation of SYCE1-related gametogenic failure.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Fertility preservation and oocyte cryopreservation
                 </div>
-                
+
                 <div class="item-meta">
-                    
-                    
-                    
-                    
+
+
+
+
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">fertility preservation</span>
-                    
+
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Fertility Preservation</span>
-                    
-                    
-                    <a href="http://purl.obolibrary.org/obo/NCIT_C71326" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C71326</a>
-                    
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C71326" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C71326">NCIT:C71326</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
-                
-                
-                
-                
-                
+
+
+
+
+
                 <div class="item-desc">For 46,XX individuals who receive a molecular diagnosis before complete ovarian failure, oocyte or embryo cryopreservation can preserve fertility potential. Early diagnosis is critical, as the window for successful ovarian stimulation narrows with progression of follicle depletion. Ovarian tissue cryopreservation may be an option for pre-pubertal patients or those with severely diminished ovarian reserve.</div>
-                
-                
-                
-                
-                
-    
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
+
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33495935" target="_blank">PMID:33495935</a>
                     </span>
-                    
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
+
                 </div>
-                
+
                 <div class="evidence-snippet">"Fertility preservation techniques represent a crucial opportunity for patients with genetic risk of POI."</div>
-                
-                
+
+
                 <div class="evidence-explanation">Supports early fertility preservation counseling and oocyte cryopreservation as the indicated approach for women with genetic risk of POI, including meiotic-defect syndromes such as SYCE1-related gametogenic failure.</div>
-                
-                
-                
+
+
+
             </div>
-            
-            
+
+
         </div>
     </details>
-    
-    
+
+
             </div>
-            
+
         </div>
-        
+
 
         <!-- Environmental Factors -->
-        
+
 
         <!-- Biochemical Markers -->
-        
+
 
         <!-- Differential Diagnoses -->
-        
+
 
         <!-- Datasets -->
-        
+
 
         <!-- Clinical Trials -->
-        
+
 
         <!-- Experimental Models -->
-        
+
 
         <!-- Computational Models -->
-        
+
 
         <!-- Reports -->
-        
+
 
         <!-- YAML Source -->
         <div class="card">
@@ -5149,8 +5360,8 @@ treatments:
   treatment_term:
     preferred_term: hormone replacement therapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: estradiol
       term:
@@ -5265,42 +5476,42 @@ diagnosis:
         </div>
 
         <!-- References & Deep Research -->
-        
+
         <div class="card reference-card" id="references-deep-research">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
-            
-            
+
+
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
-                
+
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                         <span>Falcon</span>
                         <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                     </div>
                     <div class="report-body">
-                        
+
                         <div class="report-meta">
-                            
+
                             <div class="report-subtitle">Mechanistic Hypothesis Search</div>
-                            
-                            
+
+
                             <span class="report-badge">Edison Scientific Literature</span>
-                            
-                            
+
+
                             <span class="report-badge">4 citations</span>
-                            
-                            
+
+
                             <span class="report-meta-text">2026-05-28T23:59:49.099085</span>
-                            
+
                         </div>
-                        
+
                         <div class="report-content">
                             <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
 <p>Provide detailed information focusing on:
@@ -5413,11 +5624,11 @@ Always prioritize recent, authoritative sources and provide specific citations f
                         </div>
                     </div>
                 </div>
-                
+
             </div>
-            
+
         </div>
-        
+
 
         <footer class="page-footer">
             <p>
@@ -5467,7 +5678,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "SYCE1-related gametogenic failure", "mondoId": "MONDO:1060214", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SYCE1-related_gametogenic_failure", "yamlRevision": "3ec96644fd7c"};
+        const OS_CONFIG = {"diseaseName": "SYCE1-related gametogenic failure", "mondoId": "MONDO:1060214", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SYCE1-related_gametogenic_failure", "yamlRevision": "6b9c08fbac42"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
