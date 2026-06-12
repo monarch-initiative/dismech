@@ -1630,6 +1630,110 @@ enums:
         title: Provisional
         description: Provisional mechanism under active investigation with emerging but incomplete evidence
 
+  GroupingBasisEnum:
+    description: >-
+      The axis (or axes) on which a disease Grouping is drawn. A grouping
+      assembles already-distinct Disease entries into an explicit union; this
+      enum records WHY they belong together, supporting an audit of the
+      grouping boundary. Multivalued — a grouping may rest on more than one
+      basis (e.g., the mucopolysaccharidoses are grouped on both a shared
+      mechanism and a shared gene/enzyme family).
+    permissible_values:
+      SHARED_MECHANISM:
+        title: Shared mechanism
+        description: >-
+          Members converge on a common pathophysiological mechanism or
+          final-common-pathway (often a shared mechanism module).
+      SHARED_GENE_FAMILY:
+        title: Shared gene family
+        description: >-
+          Members are caused by variants in the same gene, gene family, or
+          functionally related set of genes/enzymes.
+      SHARED_PATHWAY:
+        title: Shared pathway
+        description: Members perturb the same biological pathway or process.
+      SHARED_PHENOTYPE:
+        title: Shared phenotype
+        description: >-
+          Members share a defining clinical phenotype or phenotypic spectrum.
+      SHARED_TREATMENT_RESPONSE:
+        title: Shared treatment response
+        description: >-
+          Members are grouped by a shared therapeutic vulnerability or response
+          to a common class of treatment.
+      CLINICAL_CONVENTION:
+        title: Clinical convention
+        description: >-
+          Members are grouped by established clinical or nosological convention
+          rather than a single mechanistic axis.
+      OTHER:
+        title: Other
+        description: A grouping basis that does not fit the categories above.
+
+  LogicalOperatorEnum:
+    description: >-
+      Boolean operator for a branch node in a nested membership-criteria
+      expression (LogicalCriterion). Branch nodes set an operator and combine
+      child operands; leaf nodes set a criterion_predicate instead.
+    permissible_values:
+      AND:
+        description: All operands must hold (conjunction).
+      OR:
+        description: At least one operand must hold (disjunction).
+      NOT:
+        description: >-
+          Negation. Conventionally applied to a single operand (or to the
+          conjunction of its operands).
+
+  CriterionPredicateEnum:
+    description: >-
+      The kind of constraint expressed by a leaf node in a membership-criteria
+      expression (LogicalCriterion). The leaf's payload slots are interpreted
+      according to this predicate (e.g., HAS_PHENOTYPE uses phenotype_term and
+      optional min_frequency; HAS_GENE uses gene; CONFORMS_TO_MODULE uses
+      module).
+    permissible_values:
+      HAS_PHENOTYPE:
+        description: >-
+          Members present a given phenotype (phenotype_term), optionally at or
+          above a frequency threshold (min_frequency).
+      HAS_GENE:
+        description: Members carry causal variants in a given gene (gene).
+      CONFORMS_TO_MODULE:
+        description: >-
+          Members have a pathophysiology node conforming to a given mechanism
+          module (module).
+      HAS_BIOLOGICAL_PROCESS:
+        description: >-
+          Members involve a given biological process (biological_processes),
+          optionally with a directional modifier.
+      HAS_CLASSIFICATION:
+        description: >-
+          Members carry a given nosology/classification assignment
+          (classification).
+      HAS_INHERITANCE:
+        description: Members share a mode of inheritance (description carries the value).
+      HAS_MAPPING:
+        description: >-
+          Members map to a given external term or code namespace (description
+          carries the value).
+      OTHER:
+        description: >-
+          A membership constraint that does not fit the categories above;
+          described in free text via the description slot.
+
+  GroupingMemberTypeEnum:
+    description: The kind of entity referenced by a GroupingMember.
+    permissible_values:
+      DISEASE:
+        description: A Disease entry in kb/disorders/.
+      SUBTYPE:
+        description: A named subtype within a Disease entry.
+      MODULE:
+        description: A mechanism module in kb/modules/.
+      GROUPING:
+        description: Another Grouping (nested grouping).
+
   ReferenceTagEnum:
     description: >-
       Controlled vocabulary for tagging top-level references by authoritative source type.
@@ -3352,6 +3456,88 @@ slots:
       - value: OPEN
       - value: CLOSED
     range: string
+
+  # --- Disease grouping slots ---
+  grouping_basis:
+    description: >-
+      The axis or axes on which this grouping is drawn (records why the members
+      belong together).
+    multivalued: true
+    range: GroupingBasisEnum
+  grouping_rationale:
+    description: >-
+      Free-text justification for the grouping boundary: why these members are
+      grouped together and, where relevant, why they are deliberately kept as
+      separate Disease entries rather than merged.
+    range: string
+  membership_criteria:
+    description: >-
+      The shared criteria a Disease must satisfy to belong to this grouping,
+      expressed as human-readable prose plus an optional structured boolean
+      expression.
+    range: GroupingCriteria
+    inlined: true
+  logic:
+    description: >-
+      Root of the structured (boolean/nested) membership-criteria expression
+      for this grouping.
+    range: LogicalCriterion
+    inlined: true
+  operator:
+    description: >-
+      Boolean operator for a branch node in a membership-criteria expression.
+      Present on branch nodes; absent on leaf nodes.
+    range: LogicalOperatorEnum
+  operands:
+    description: Child criteria combined by this branch node's operator.
+    multivalued: true
+    range: LogicalCriterion
+    inlined_as_list: true
+  criterion_predicate:
+    description: >-
+      The constraint kind for a leaf node in a membership-criteria expression.
+      Present on leaf nodes; absent on branch nodes.
+    range: CriterionPredicateEnum
+  min_frequency:
+    description: >-
+      Minimum phenotype frequency threshold for a HAS_PHENOTYPE criterion;
+      members must exhibit the phenotype at this frequency band or higher.
+    range: FrequencyEnum
+  module:
+    description: >-
+      Reference to a mechanism module in kb/modules/ (filename stem, without
+      .yaml, optionally with a "#Node Name" anchor). Used by CONFORMS_TO_MODULE
+      criteria and by differentiating mechanisms.
+    range: string
+  negated:
+    description: >-
+      If true, this leaf criterion is negated (the constraint must NOT hold).
+      An alternative to wrapping the node in a NOT operator.
+    range: boolean
+  members:
+    description: >-
+      The explicit members of this grouping (the union it groups; points down
+      to individual entries).
+    multivalued: true
+    range: GroupingMember
+    inlined_as_list: true
+  member:
+    description: >-
+      Foreign key to the grouped entity. For member_type DISEASE this is the
+      Disease entry's `name`; for MODULE it is the module filename stem; for
+      GROUPING it is another grouping's `name`.
+    range: string
+    required: true
+  member_type:
+    description: The kind of entity referenced by this member.
+    range: GroupingMemberTypeEnum
+  differentiating_mechanisms:
+    description: >-
+      Mechanisms or features that distinguish this member from its siblings in
+      the grouping, as prose plus optional structured descriptors.
+    multivalued: true
+    range: DifferentiatingMechanism
+    inlined_as_list: true
 
 classes:
   Any:
@@ -5265,3 +5451,112 @@ classes:
   FDASurrogateEndpointCollection:
     is_a: SurrogateEndpointCollection
     description: FDA surrogate endpoint table import preserving row-level source provenance
+
+  # --- Disease groupings ---
+  Grouping:
+    description: >-
+      An explicit, curated union of distinct Disease entries assembled below the
+      level of the formal classification taxonomies. A Grouping points DOWN: it
+      lists its members rather than being inferred from them, and it does not
+      recapitulate MONDO (an optional `mappings` block may cross-reference an
+      external grouping term). Its purpose is to make the grouping boundary
+      auditable — recording WHY these conditions are grouped (`grouping_basis`,
+      `grouping_rationale`), the shared `membership_criteria` (prose plus an
+      optional boolean expression), and, per member, the mechanisms that
+      differentiate it from its siblings.
+    slots:
+      - name
+      - display_name
+      - creation_date
+      - description
+      - grouping_basis
+      - grouping_rationale
+      - membership_criteria
+      - members
+      - mappings
+      - references
+      - discussions
+      - curation_history
+      - notes
+    slot_usage:
+      name:
+        description: Preferred name for the grouping (unique; serves as FK target)
+        required: true
+      creation_date:
+        description: >-
+          Timestamp for initial creation of this grouping entry. Keep this
+          stable after first set.
+        recommended: true
+      members:
+        required: true
+
+  GroupingCriteria:
+    description: >-
+      The shared membership criteria for a grouping, pairing a human-readable
+      description with an optional structured boolean expression.
+    slots:
+      - description
+      - logic
+      - evidence
+      - notes
+    slot_usage:
+      description:
+        description: Human-readable statement of the membership criteria.
+        required: true
+
+  LogicalCriterion:
+    description: >-
+      A node in a nested boolean membership-criteria expression. A branch node
+      sets `operator` and combines child `operands`; a leaf node sets
+      `criterion_predicate` and the payload slots relevant to that predicate.
+      This is a deliberately lightweight, OWL-inspired representation, not a
+      full logical formalism.
+    slots:
+      - operator
+      - operands
+      - criterion_predicate
+      - description
+      - negated
+      - phenotype_term
+      - min_frequency
+      - gene
+      - biological_processes
+      - module
+      - classification
+
+  GroupingMember:
+    description: >-
+      One member of a grouping, referenced by foreign key, together with the
+      mechanisms that differentiate it from its siblings.
+    slots:
+      - member
+      - member_type
+      - display_name
+      - disease_term
+      - differentiating_mechanisms
+      - evidence
+      - notes
+    slot_usage:
+      member:
+        required: true
+      member_type:
+        description: The kind of entity referenced (defaults conceptually to DISEASE).
+
+  DifferentiatingMechanism:
+    description: >-
+      A mechanism or feature that distinguishes a grouping member from its
+      siblings, as prose plus optional structured descriptors (gene, phenotype,
+      biological process, module).
+    slots:
+      - description
+      - gene
+      - phenotype_term
+      - biological_processes
+      - module
+      - modifier
+      - evidence
+      - notes
+    slot_usage:
+      description:
+        description: Human-readable statement of the differentiating mechanism.
+        required: true

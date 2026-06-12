@@ -182,6 +182,65 @@ The following modules capture conserved final-common-pathway mechanisms of **"di
 - Knowledge gaps should currently use `discussions` with `kind: KNOWLEDGE_GAP`, `attaches_to`, and optional `proposed_experiments`. A separate structural `knowledge_gaps:` slot is still a schema follow-up; do not invent it in YAML entries yet.
 - For the specific case where model-system evidence exists but its fidelity to human biology is uncertain (e.g., mouse knockout does not reproduce the human phenotype, lissencephalic models lack human-specific outer radial glia/OSVZ biology, organoid data are not confirmed in human tissue), use `kind: HUMAN_MODEL_MISMATCH` instead of the generic `KNOWLEDGE_GAP`. Key distinction: `KNOWLEDGE_GAP` means evidence is absent; `HUMAN_MODEL_MISMATCH` means evidence exists in a model but translational validity to human disease is the open question. Include a `prompt` that states the mismatch explicitly as a question, a `rationale` explaining why the mismatch is mechanistically meaningful, and `proposed_experiments` mapping to the experiments needed to resolve it. See the Autosomal_Recessive_Primary_Microcephaly entry for a worked example.
 
+### Disease Groupings
+
+Disease groupings (`kb/groupings/`) are explicit, curated **unions** of distinct
+`Disease` entries, assembled *below* the level of the `classifications` taxonomies.
+The canonical example is the mucopolysaccharidoses (MPS), which group the separate
+Hurler / Hunter / Sanfilippo / Morquio entries. Groupings validate against the
+**`Grouping`** class (not `Disease`).
+
+**Design principles:**
+- **Point down, not up.** A grouping explicitly *lists its members* (`members:`)
+  rather than being inferred from them. It is a union model.
+- **Not a re-implementation of MONDO.** An optional `mappings:` block may
+  cross-reference a MONDO grouping term, but the grouping stands on its own curated
+  rationale — do not try to recapitulate the ontology hierarchy.
+- **The boundary is auditable.** `grouping_basis` (multivalued enum: `SHARED_MECHANISM`,
+  `SHARED_GENE_FAMILY`, `SHARED_PATHWAY`, `SHARED_PHENOTYPE`, `SHARED_TREATMENT_RESPONSE`,
+  `CLINICAL_CONVENTION`, `OTHER`) records *why* the members belong together, and
+  `grouping_rationale` (free text) explains the lump/keep-split decision. Note: "lump
+  vs split" is a statement about the *entities* and lives in the individual `Disease`
+  entries; a grouping sits *over* already-distinct entries, so it carries a
+  `grouping_rationale`, not a `LUMP` flag.
+
+**Membership criteria — text plus structured boolean (OWL-lite):**
+
+`membership_criteria` pairs a required human-readable `description` with an optional
+nested boolean `logic` expression (`LogicalCriterion`). Branch nodes set `operator`
+(`AND`/`OR`/`NOT`) and combine child `operands`; leaf nodes set `criterion_predicate`
+and the payload for that predicate:
+- `HAS_PHENOTYPE` → `phenotype_term` + optional `min_frequency` (FrequencyEnum, "≥")
+- `HAS_GENE` → `gene`
+- `CONFORMS_TO_MODULE` → `module` (a `kb/modules/` stem, optionally with `#Node Name`)
+- `HAS_BIOLOGICAL_PROCESS` → `biological_processes`
+- `HAS_CLASSIFICATION` → `classification`; `HAS_INHERITANCE` / `HAS_MAPPING` / `OTHER`
+  carry the value in `description`
+- `negated: true` negates a leaf (alternative to a `NOT` operator)
+
+**Per-member differentiating mechanisms:**
+
+Each `members[]` entry references a `Disease` by name (`member`, with `member_type`
+defaulting conceptually to `DISEASE`; `MODULE` and `GROUPING` members are also allowed)
+and carries `differentiating_mechanisms` — prose plus optional structured descriptors
+(`gene`, `phenotype_term`, `biological_processes`, `module`, `modifier`) capturing what
+distinguishes that member from its siblings.
+
+**Foreign keys (enforced by `tests/test_data.py`):**
+- `members[].member` must resolve to a real `Disease.name` (DISEASE/SUBTYPE), module
+  stem (MODULE), or grouping name (GROUPING).
+- Every `module` reference (in criteria leaves and differentiating mechanisms) must
+  resolve to a file in `kb/modules/`.
+- Grouping `name` values must be unique.
+
+**Validation:**
+```bash
+just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml  # single file
+just validate-groupings                                         # all (also part of `just qc`)
+```
+
+See `kb/groupings/Mucopolysaccharidoses.yaml` for a worked example.
+
 ### Evidence Items
 All evidence must have PMID references and support classification:
 ```yaml

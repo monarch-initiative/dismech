@@ -14,12 +14,42 @@ ROOT_DIR = Path(__file__).parent.parent
 SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "dismech.yaml"
 KB_DIR = ROOT_DIR / "kb" / "disorders"
 COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
+MODULES_DIR = ROOT_DIR / "kb" / "modules"
+GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
 
 # Get all disorder YAML files (exclude history snapshots)
 DISORDER_FILES = [
     f for f in glob.glob(str(KB_DIR / "*.yaml")) if not f.endswith(".history.yaml")
 ]
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
+GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
+
+
+def _disease_names():
+    """Set of all Disease `name` values across kb/disorders/."""
+    names = set()
+    for fp in DISORDER_FILES:
+        with open(fp) as f:
+            data = yaml.safe_load(f)
+        if isinstance(data, dict) and data.get("name"):
+            names.add(data["name"])
+    return names
+
+
+def _module_stems():
+    """Set of mechanism module filename stems (without .yaml) in kb/modules/."""
+    return {Path(f).stem for f in glob.glob(str(MODULES_DIR / "*.yaml"))}
+
+
+def _grouping_names():
+    """Set of Grouping `name` values across kb/groupings/."""
+    names = set()
+    for fp in GROUPING_FILES:
+        with open(fp) as f:
+            data = yaml.safe_load(f)
+        if isinstance(data, dict) and data.get("name"):
+            names.add(data["name"])
+    return names
 
 
 @pytest.fixture(scope="module")
@@ -681,3 +711,108 @@ def test_disorder_count():
     assert len(DISORDER_FILES) >= 50, (
         f"Expected at least 50 disorders, got {len(DISORDER_FILES)}"
     )
+
+
+# --- Disease grouping tests ---
+
+
+def _iter_logic_nodes(node):
+    """Yield every LogicalCriterion node in a (possibly nested) expression."""
+    if not isinstance(node, dict):
+        return
+    yield node
+    for child in node.get("operands", []) or []:
+        yield from _iter_logic_nodes(child)
+
+
+def _module_stem(ref):
+    """Strip an optional '#Node Name' anchor from a module reference."""
+    return ref.split("#", 1)[0].strip() if ref else ref
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_valid_grouping_files(filepath, validator):
+    """All grouping files validate against the Grouping class."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    report = validator.validate(data, target_class="Grouping")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_member_foreign_keys(filepath):
+    """Each grouping member must resolve to a real Disease, module, or grouping."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    disease_names = _disease_names()
+    module_stems = _module_stems()
+    grouping_names = _grouping_names()
+
+    errors = []
+    for i, member in enumerate(data.get("members", [])):
+        ref = member.get("member")
+        mtype = member.get("member_type", "DISEASE")
+        if not ref:
+            continue
+        if mtype in ("DISEASE", "SUBTYPE"):
+            # SUBTYPE members still name their parent Disease entry.
+            if ref not in disease_names:
+                errors.append(f"members[{i}].member={ref!r} (type {mtype})")
+        elif mtype == "MODULE":
+            if _module_stem(ref) not in module_stems:
+                errors.append(f"members[{i}].member={ref!r} (type MODULE)")
+        elif mtype == "GROUPING":
+            if ref not in grouping_names:
+                errors.append(f"members[{i}].member={ref!r} (type GROUPING)")
+
+    assert not errors, (
+        f"Grouping member FK mismatches in {Path(filepath).name}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_module_references(filepath):
+    """Every `module` reference in a grouping must resolve to a module file."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    module_stems = _module_stems()
+    errors = []
+
+    # Module refs inside the structured membership criteria expression.
+    logic = (data.get("membership_criteria") or {}).get("logic")
+    for node in _iter_logic_nodes(logic):
+        ref = node.get("module")
+        if ref and _module_stem(ref) not in module_stems:
+            errors.append(f"membership_criteria.logic module={ref!r}")
+
+    # Module refs inside per-member differentiating mechanisms.
+    for i, member in enumerate(data.get("members", [])):
+        for j, mech in enumerate(member.get("differentiating_mechanisms", []) or []):
+            ref = mech.get("module")
+            if ref and _module_stem(ref) not in module_stems:
+                errors.append(
+                    f"members[{i}].differentiating_mechanisms[{j}].module={ref!r}"
+                )
+
+    assert not errors, (
+        f"Grouping module reference mismatches in {Path(filepath).name}. "
+        f"Bad refs: {errors}"
+    )
+
+
+def test_grouping_unique_names():
+    """Grouping `name` values must be unique across kb/groupings/."""
+    seen = {}
+    for fp in GROUPING_FILES:
+        with open(fp) as f:
+            data = yaml.safe_load(f)
+        name = data.get("name") if isinstance(data, dict) else None
+        if name:
+            seen.setdefault(name, []).append(Path(fp).name)
+    dupes = {k: v for k, v in seen.items() if len(v) > 1}
+    assert not dupes, f"Duplicate grouping names: {dupes}"
