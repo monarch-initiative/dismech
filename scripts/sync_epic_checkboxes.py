@@ -26,13 +26,13 @@ Environment:
 from __future__ import annotations
 
 import argparse
-import glob
-import json
 import re
 import subprocess
 import sys
-import yaml
 from pathlib import Path
+
+from dismech.compare.mondo_priority import iter_covered_mondo_ids
+from dismech.compare.support import iter_disease_files, load_yaml_object
 
 
 _CHECKBOX_PATTERN = re.compile(
@@ -53,39 +53,10 @@ def build_covered_ids(kb_dir: Path) -> dict[str, str]:
     identified as curated.
     """
     covered: dict[str, str] = {}
-
-    for path in sorted(kb_dir.glob("*.yaml")):
-        if path.name.endswith(".history.yaml"):
-            continue
-        try:
-            with open(path, encoding="utf-8") as fh:
-                data = yaml.safe_load(fh)
-        except Exception:
-            continue
-        if not isinstance(data, dict):
-            continue
-
-        fname = path.name
-
-        root_id = (((data.get("disease_term") or {}).get("term") or {}).get("id"))
-        if root_id:
-            covered.setdefault(str(root_id), fname)
-
-        for sub in data.get("has_subtypes") or []:
-            if not isinstance(sub, dict):
-                continue
-            # Subtype entries use `subtype_term` (not `disease_term`)
-            sub_id = (((sub.get("subtype_term") or {}).get("term") or {}).get("id"))
-            if sub_id:
-                covered.setdefault(str(sub_id), fname)
-
-        for m in ((data.get("mappings") or {}).get("mondo_mappings") or []):
-            if not isinstance(m, dict):
-                continue
-            map_id = ((m.get("term") or {}).get("id"))
-            if map_id:
-                covered.setdefault(str(map_id), fname)
-
+    for path in iter_disease_files(kb_dir):
+        data = load_yaml_object(path)
+        for mondo_id, fname in iter_covered_mondo_ids(data, path.name):
+            covered.setdefault(mondo_id, fname)
     return covered
 
 
@@ -94,7 +65,7 @@ def fetch_issue_body(repo: str, issue: int) -> str:
         ["gh", "issue", "view", str(issue), "--repo", repo, "--json", "body", "-q", ".body"],
         capture_output=True, text=True, check=True,
     )
-    return result.stdout
+    return result.stdout.rstrip("\n")
 
 
 def update_issue_body(repo: str, issue: int, body: str, dry_run: bool) -> None:

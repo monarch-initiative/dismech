@@ -222,7 +222,7 @@ def load_candidates(path: Path) -> list[CandidateTerm]:
 
 
 def iter_covered_mondo_ids(data: dict[str, Any], filename: str) -> list[tuple[str, str]]:
-    """Yield (mondo_id, filename) pairs for a disease entry.
+    """Return (mondo_id, filename) pairs for a disease entry.
 
     Covers the root entry, has_subtypes entries, and mondo_mappings so that
     LUMP_INTO_PARENT diseases whose parent has been curated (with them listed
