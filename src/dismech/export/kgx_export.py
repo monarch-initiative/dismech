@@ -136,10 +136,17 @@ def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPh
         phenotype: A phenotype dict from phenotypes[]
 
     Returns:
-        DiseaseToPhenotypicFeatureAssociation or None if phenotype_term.term.id is missing
+        DiseaseToPhenotypicFeatureAssociation, or None if phenotype_term.term.id
+        is missing or refers to a MONDO concept (which is routed through
+        disease_comorbidity_to_edge instead).
     """
     term_id = _get_term_id(phenotype, ["phenotype_term", "term", "id"])
     if not term_id:
+        return None
+    # MONDO-typed objects describe a comorbid disease, not a phenotypic feature.
+    # Asserting object_category=biolink:PhenotypicFeature on a Disease would be a
+    # category lie; route to disease_comorbidity_to_edge instead.
+    if term_id.startswith("MONDO:"):
         return None
 
     # Map frequency enum to HP term for qualifier
@@ -158,6 +165,47 @@ def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPh
         subject_category="biolink:Disease",
         object_category="biolink:PhenotypicFeature",
         frequency_qualifier=frequency_qualifier,
+        publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
+        primary_knowledge_source=KNOWLEDGE_SOURCE,
+        knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+        agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+    )
+
+
+def disease_comorbidity_to_edge(disease_id: str, phenotype: dict[str, Any]) -> Association | None:
+    """
+    Convert a phenotype entry whose object is a MONDO concept into a
+    disease-to-disease association.
+
+    Some dismech entries encode comorbidities, sequelae, or risk relationships as
+    items in `phenotypes[]` but bind them to a MONDO disease term rather than a
+    phenotypic-feature term (e.g., campylobacteriosis -> Guillain-Barre syndrome,
+    Lynch syndrome -> colorectal cancer). Biolink models these as a disease-to-disease
+    association rather than DiseaseToPhenotypicFeature, so we emit a generic
+    Association with `biolink:associated_with` and Disease categories on both ends.
+
+    Args:
+        disease_id: The subject disease term ID
+        phenotype: A phenotype dict from phenotypes[] whose phenotype_term.term.id
+            starts with "MONDO:"
+
+    Returns:
+        Association or None if phenotype_term.term.id is missing or not MONDO-typed
+    """
+    term_id = _get_term_id(phenotype, ["phenotype_term", "term", "id"])
+    if not term_id or not term_id.startswith("MONDO:"):
+        return None
+
+    publications, supporting_text = _format_evidence(phenotype.get("evidence"), indirect=False)
+
+    return Association(
+        id=_make_edge_id(),
+        subject=disease_id,
+        predicate="biolink:associated_with",
+        object=term_id,
+        subject_category="biolink:Disease",
+        object_category="biolink:Disease",
         publications=publications if publications else None,
         supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
@@ -935,11 +983,17 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
     if node:
         yield node
 
-    # Phenotype nodes
+    # Phenotype nodes. MONDO-typed entries describe a comorbid disease and
+    # must be emitted with category biolink:Disease, not biolink:PhenotypicFeature.
     for phenotype in record.get("phenotypes") or []:
         term_id = _get_term_id(phenotype, ["phenotype_term", "term", "id"])
         label = _get_term_id(phenotype, ["phenotype_term", "term", "label"])
-        node = _emit(term_id, phenotype.get("name") or label, "biolink:PhenotypicFeature")
+        category = (
+            "biolink:Disease"
+            if term_id and term_id.startswith("MONDO:")
+            else "biolink:PhenotypicFeature"
+        )
+        node = _emit(term_id, phenotype.get("name") or label, category)
         if node:
             yield node
 
@@ -1103,9 +1157,12 @@ def transform(record: dict[str, Any]) -> Iterator[Association]:
     if not disease_id:
         return
 
-    # Extract phenotype edges
+    # Extract phenotype edges. MONDO-typed "phenotypes" are actually comorbid
+    # diseases and produce a disease-to-disease association instead.
     for phenotype in record.get("phenotypes") or []:
-        edge = phenotype_to_edge(disease_id, phenotype)
+        edge = phenotype_to_edge(disease_id, phenotype) or disease_comorbidity_to_edge(
+            disease_id, phenotype
+        )
         if edge:
             yield edge
 

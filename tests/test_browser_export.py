@@ -143,6 +143,11 @@ def test_build_summary_metrics():
                 {"reference": "PMID:1"},
                 {"reference": "DOI:10.1/test"},
             ],
+            "has_subtypes": [
+                {"name": "Type 1"},
+                {"name": "Type 2"},
+                {"description": "unnamed subtype is ignored"},
+            ],
         },
         {
             "category": "Genetic",
@@ -151,6 +156,7 @@ def test_build_summary_metrics():
             "treatments": [
                 {"name": "Treatment", "evidence": [{"reference": "PMID:2"}]},
             ],
+            "has_subtypes": [{"name": "Sole subtype"}],
         },
         {
             "category": "Inflammatory",
@@ -163,6 +169,8 @@ def test_build_summary_metrics():
 
     assert metrics == {
         "total_disorder_pages": 3,
+        "total_subtypes": 3,
+        "total_disorders_and_subtypes": 6,
         "total_unique_evidence_sources": 3,
         "total_unique_disease_categories": 2,
         "total_unique_phenotype_categories": 2,
