@@ -10966,6 +10966,7 @@ window.searchData = [
     ],
     "description": "A systemic autoimmune disorder characterized by the presence of antiphospholipid antibodies that increase the risk of blood clots and other complications.",
     "pathophysiology": [
+      "CD4+ T cell dysregulation and autoreactive B cell licensing",
       "Autoantibody generation against beta2GPI and phospholipid complexes",
       "Cell-surface beta2GPI binding",
       "Innate receptor signaling",
@@ -10981,6 +10982,9 @@ window.searchData = [
       "Catastrophic microvascular thrombosis"
     ],
     "cell_types": [
+      "helper T cell",
+      "regulatory T cell",
+      "T follicular helper cell",
       "B cell",
       "T cell",
       "endothelial cell",
@@ -10989,6 +10993,9 @@ window.searchData = [
       "trophoblast cell"
     ],
     "cell_type_ids": [
+      "CL:0000912",
+      "CL:0000815",
+      "CL:0002038",
       "CL:0000236",
       "CL:0000084",
       "CL:0000115",
@@ -11109,11 +11116,11 @@ window.searchData = [
     "source_file": "Antiphospholipid_Syndrome.yaml",
     "page_url": "../pages/disorders/Antiphospholipid_Syndrome.html",
     "num_phenotypes": 26,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Aortic Valve Disease 2",
@@ -13499,6 +13506,7 @@ window.searchData = [
     "pathophysiology": [
       "Epidermal Barrier Dysfunction",
       "Type 2 Immune Response",
+      "TOPK-STAT3 Signaling Axis",
       "Th17/Th22 Inflammation",
       "Pruritogen-Induced Neuronal Activation",
       "Scratching-Induced Barrier Injury",
@@ -13528,6 +13536,9 @@ window.searchData = [
       "T-helper 2 cell differentiation",
       "Interleukin-4-mediated signaling pathway",
       "IgE isotype switching",
+      "Protein phosphorylation",
+      "Interleukin-6 production",
+      "Interleukin-8 production",
       "T-helper 17 type immune response",
       "Inflammatory response"
     ],
@@ -13613,10 +13624,10 @@ window.searchData = [
     "source_file": "Atopic_Dermatitis.yaml",
     "page_url": "../pages/disorders/Atopic_Dermatitis.html",
     "num_phenotypes": 13,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 13,
     "num_treatments": 5,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "4"
   },
   {
@@ -22078,8 +22089,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 2,
     "num_treatments": 8,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Brucellosis",
@@ -30577,8 +30588,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 8,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Chronic Lymphocytic Leukemia",
@@ -34150,7 +34161,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "2"
   },
   {
@@ -71599,6 +71610,123 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Lathyrism",
+    "disease_id": "MONDO:0043339",
+    "category": "Environmental",
+    "parents": [
+      "poisoning"
+    ],
+    "creation_date": "2026-06-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Neurolathyrism",
+      "Connective Tissue Lathyrism"
+    ],
+    "description": "Lathyrism is a toxin-mediated environmental disorder caused by excessive consumption of, or exposure to, Lathyrus legumes and the toxins they contain. The dominant human form, neurolathyrism, is an irreversible upper motor neuron disease producing spastic paraparesis of the legs, caused by the excitatory amino acid neurotoxin beta-N-oxalyl- L-alpha,beta-diaminopropionic acid (beta-ODAP, also called BOAA), a glutamate analog found in grass pea (Lathyrus sativus). The toxic beta-isomer accounts for the bulk of ODAP and acts as an agonist at AMPA-type ionotropic glutamate receptors, additionally driving voltage-independent calcium entry through TRP channels and group I metabotropic glutamate receptors; the resulting motor-neuron calcium overload, mitochondrial dysfunction and oxidative stress degenerate upper motor neurons and the corticospinal tracts. Neurolathyrism characteristically spares sensory and sphincter function and emerges in epidemic form during droughts and famines, when grass pea becomes a dietary staple, disproportionately affecting young adult males. A second group of forms, osteolathyrism (skeletal) and angiolathyrism (vascular), is produced by the nitrile toxin beta-aminopropionitrile (BAPN) from sweet pea (Lathyrus odoratus); BAPN irreversibly inhibits the copper-dependent enzyme lysyl oxidase, impairing collagen and elastin cross-linking and causing connective-tissue fragility, skeletal deformity, and aortic aneurysm/dissection. These connective-tissue forms are documented chiefly in animal models and are widely used experimentally. There is no cure for established neurolathyrism; management is preventive (detoxification of grass pea, dietary diversification, low-ODAP cultivars) and supportive (antispasticity therapy, physiotherapy, assistive devices).",
+    "pathophysiology": [
+      "Beta-ODAP Excitatory Amino Acid Receptor Agonism",
+      "TRP Channel and Group I mGluR Calcium Entry",
+      "Motor Neuron Calcium Overload",
+      "Mitochondrial Dysfunction and Oxidative Stress",
+      "Upper Motor Neuron and Corticospinal Tract Degeneration",
+      "BAPN Inhibition of Lysyl Oxidase",
+      "Collagen and Elastin Cross-link Failure",
+      "Skeletal Connective Tissue Weakening (Osteolathyrism)",
+      "Aortic Wall Disruption with TGF-beta and MMP Upregulation (Angiolathyrism)"
+    ],
+    "cell_types": [
+      "upper motor neuron",
+      "motor neuron",
+      "Betz cell",
+      "pyramidal neuron",
+      "fibroblast",
+      "osteoblast",
+      "vascular smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008048",
+      "CL:0000100",
+      "CL:0008049",
+      "CL:0000598",
+      "CL:0000057",
+      "CL:0000062",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "glutamate receptor signaling pathway",
+      "calcium ion import",
+      "cytosolic calcium ion homeostasis",
+      "response to oxidative stress",
+      "neuron apoptotic process",
+      "peptidyl-lysine oxidation",
+      "collagen fibril organization",
+      "extracellular matrix organization",
+      "transforming growth factor beta receptor signaling pathway",
+      "extracellular matrix disassembly"
+    ],
+    "phenotypes": [
+      "Spastic paraplegia",
+      "Lower limb spasticity",
+      "Lower limb hyperreflexia",
+      "Babinski sign",
+      "Clonus",
+      "Spastic gait",
+      "Lower limb muscle weakness",
+      "Depression",
+      "Aortic aneurysm",
+      "Aortic dissection",
+      "Skeletal dysplasia",
+      "Exostoses"
+    ],
+    "phenotype_categories": [
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001258",
+      "HP:0002061",
+      "HP:0002395",
+      "HP:0003487",
+      "HP:0002169",
+      "HP:0002064",
+      "HP:0007340",
+      "HP:0000716",
+      "HP:0004942",
+      "HP:0002647",
+      "HP:0002652",
+      "HP:0100777"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Toxin Reduction by Food Processing",
+      "Dietary Diversification and Low-ODAP Cultivars",
+      "Antispasticity Pharmacotherapy",
+      "Physical Therapy and Rehabilitation",
+      "Supportive Care"
+    ],
+    "environmental": [
+      "Grass pea (Lathyrus sativus) overconsumption"
+    ],
+    "biochemical": [],
+    "source_file": "Lathyrism.yaml",
+    "page_url": "../pages/disorders/Lathyrism.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Lead Poisoning",
     "disease_id": "MONDO:0018019",
     "category": "Environmental",
@@ -98441,7 +98569,8 @@ window.searchData = [
       "Autophagy-Ferroptosis Crosstalk in Granulosa Cell Death",
       "Gut Microbiome Dysregulation and Gut-Ovarian Axis Inflammation",
       "Chronic Low-Grade Inflammation",
-      "Granulosa Cell Ferroptosis-Autophagy Crosstalk"
+      "Granulosa Cell Ferroptosis-Autophagy Crosstalk",
+      "Granulosa Cell Apoptosis via PCSK9-Lipid Dysregulation"
     ],
     "cell_types": [
       "granulosa cell",
@@ -98464,7 +98593,10 @@ window.searchData = [
       "Response to Endoplasmic Reticulum Stress",
       "Lipid Metabolic Process",
       "Signal Transduction",
-      "Apoptotic Process"
+      "Apoptotic Process",
+      "Phosphorylation (AMPK and GSK-3\u03b2 Activation)",
+      "Apoptosis",
+      "Lipid Metabolism Abnormalities"
     ],
     "phenotypes": [
       "Irregular Menstruation",
@@ -98527,10 +98659,10 @@ window.searchData = [
     "source_file": "Polycystic_Ovary_Syndrome.yaml",
     "page_url": "../pages/disorders/Polycystic_Ovary_Syndrome.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "3"
   },
   {
@@ -105534,6 +105666,107 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Rhizomelic Chondrodysplasia Punctata, Plasmalogen-Synthesis Defect",
+    "disease_id": "MONDO:0015776",
+    "category": "Mendelian",
+    "parents": [
+      "peroxisomal single enzyme/protein defect",
+      "disorder of plasmalogens biosynthesis",
+      "inborn errors of metabolism"
+    ],
+    "creation_date": "2026-06-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "RCDP2",
+      "RCDP3",
+      "RCDP4"
+    ],
+    "description": "Rhizomelic chondrodysplasia punctata (RCDP) types 2-4 are autosomal recessive inborn errors of ether-phospholipid (plasmalogen) biosynthesis caused by biallelic loss-of-function variants in a single plasmalogen-synthesis enzyme rather than in a peroxisome import receptor. Three sequential enzymes feed the pathway: fatty acyl-CoA reductase 1 (FAR1; rate-limiting, supplies the fatty alcohol), glyceronephosphate O-acyltransferase (GNPAT/DHAPAT), and alkylglycerone-phosphate synthase (AGPS/alkyl-DHAP synthase; forms the ether bond). Loss of any one of these enzymes converges on the same lesion \u2014 cellular plasmalogen deficiency \u2014 producing a phenotype that overlaps classic RCDP1: rhizomelic limb shortening, chondrodysplasia punctata (stippled epiphyses), coronal vertebral clefts, congenital cataracts, severe growth and intellectual impairment, and seizures (FAR1 deficiency is distinguished by prominent microcephaly, epilepsy, and spasticity, often without rhizomelia). The critical biochemical discriminator from RCDP1 is that phytanic acid alpha-oxidation is preserved: RCDP1 (PEX7) and the PEX5 PTS2-binding-domain form (RCDP5) lose the PTS2 import receptor and therefore knock out both plasmalogen synthesis and phytanoyl-CoA hydroxylase, whereas these single-enzyme defects lie downstream of import and leave phytanic alpha-oxidation intact, so phytanic acid is normal. This entry models the single-enzyme plasmalogen-synthesis convergence (RCDP2 GNPAT, RCDP3 AGPS, RCDP4 FAR1 deficiency); the import-receptor forms RCDP1 (PEX7) and RCDP5 (PEX5), and the mechanistically inverse FAR1 gain-of-function disorder (plasmalogen elevation), are captured as differentials.",
+    "pathophysiology": [
+      "Plasmalogen-Synthesis Enzyme Deficiency",
+      "Plasmalogen (Ether Lipid) Deficiency",
+      "Preserved Phytanic Acid Alpha-Oxidation",
+      "Skeletal Dysplasia",
+      "Congenital Cataract",
+      "Neurological Impairment"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "lens fiber cell",
+      "neuron",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0011004",
+      "CL:0000540",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "ether lipid biosynthetic process",
+      "fatty acid alpha-oxidation"
+    ],
+    "phenotypes": [
+      "Rhizomelia",
+      "Chondrodysplasia Punctata",
+      "Coronal Cleft Vertebrae",
+      "Cataract",
+      "Postnatal Growth Deficiency",
+      "Intellectual Disability",
+      "Seizures",
+      "Microcephaly",
+      "Spasticity"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Visual",
+      "Growth",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008905",
+      "HP:0010655",
+      "HP:0003417",
+      "HP:0000518",
+      "HP:0008897",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0001257"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GNPAT",
+      "AGPS",
+      "FAR1"
+    ],
+    "treatments": [
+      "Supportive and Rehabilitative Care",
+      "Cataract Extraction"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasmalogens",
+      "Phytanic acid"
+    ],
+    "source_file": "Rhizomelic_Chondrodysplasia_Punctata_Plasmalogen_Synthesis_Defect.yaml",
+    "page_url": "../pages/disorders/Rhizomelic_Chondrodysplasia_Punctata,_Plasmalogen-Synthesis_Defect.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 3,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Rhizomelic Chondrodysplasia Punctata Type 1",
     "disease_id": "MONDO:0008972",
     "category": "Mendelian",
@@ -112514,9 +112747,11 @@ window.searchData = [
       "Weakness of Facial Musculature",
       "Difficulty Running",
       "Triceps Weakness",
+      "Global Developmental Delay",
       "Neurodevelopmental Vulnerability",
       "Expressive Language Delay",
-      "Impaired Executive Functioning",
+      "Executive Dysfunction",
+      "Autism Spectrum Manifestations",
       "Social Communication Vulnerability"
     ],
     "phenotype_categories": [
@@ -112524,7 +112759,8 @@ window.searchData = [
       "Musculoskeletal",
       "Respiratory",
       "Gastrointestinal",
-      "General"
+      "General",
+      "Behavioral"
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
@@ -112566,9 +112802,11 @@ window.searchData = [
       "HP:0030319",
       "HP:0009046",
       "HP:0031108",
+      "HP:0001263",
       "HP:0012759",
       "HP:0002474",
       "HP:0033051",
+      "HP:0000729",
       "HP:0012433"
     ],
     "frequencies": [
@@ -112592,7 +112830,7 @@ window.searchData = [
     ],
     "source_file": "Spinal_Muscular_Atrophy.yaml",
     "page_url": "../pages/disorders/Spinal_Muscular_Atrophy.html",
-    "num_phenotypes": 33,
+    "num_phenotypes": 35,
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 4,
@@ -126278,13 +126516,13 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1253,
-  "total_subtypes": 2033,
-  "total_disorders_and_subtypes": 3286,
-  "total_unique_evidence_sources": 22288,
+  "total_disorder_pages": 1255,
+  "total_subtypes": 2038,
+  "total_disorders_and_subtypes": 3293,
+  "total_unique_evidence_sources": 22310,
   "total_unique_disease_categories": 46,
   "total_unique_phenotype_categories": 207,
-  "total_pathographs": 1245,
-  "total_unique_pathological_events": 6076
+  "total_pathographs": 1247,
+  "total_unique_pathological_events": 6089
 };
 window.dispatchEvent(new Event('searchDataReady'));
