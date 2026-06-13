@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04051242
+reference_id: "clinicaltrials:NCT04051242"
 title: XENMATRIX™ AB Surgical Graft for the Repair of Severe Musculotendinous Tissue Damaged by Soft Tissue Trauma
 content_type: summary
 ---

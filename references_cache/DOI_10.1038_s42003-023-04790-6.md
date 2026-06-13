@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s42003-023-04790-6
+reference_id: "DOI:10.1038/s42003-023-04790-6"
 title: Identifying dysregulated immune cell subsets following volumetric muscle loss with pseudo-time trajectories
 authors:
 - Lauren A. Hymel

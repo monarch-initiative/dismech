@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7554/eLife.86437
+reference_id: "DOI:10.7554/eLife.86437"
 title: Maresin 1 repletion improves muscle regeneration after volumetric muscle loss
 authors:
 - Jesus A Castor-Macias
