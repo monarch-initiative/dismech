@@ -7,6 +7,8 @@ thin wrappers validated only at the spec-resolution level.
 
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 import pytest
 
@@ -96,8 +98,9 @@ class _HashEmbedder:
     def embed(self, texts):
         out = np.zeros((len(texts), self.dim), dtype=np.float32)
         for i, t in enumerate(texts):
-            rng = np.random.default_rng(abs(hash(t)) % (2**32))
-            out[i] = rng.standard_normal(self.dim)
+            # deterministic across runs (hash() is salted by PYTHONHASHSEED)
+            seed = int.from_bytes(hashlib.md5(t.encode()).digest()[:4], "little")
+            out[i] = np.random.default_rng(seed).standard_normal(self.dim)
         return out
 
 

@@ -24,6 +24,7 @@ from dismech.node_embeddings.similarity import (
     cosine_matrix,
     embed_nodes,
     group_cosine_summary,
+    l2_normalize,
     precision_at_k,
 )
 
@@ -89,10 +90,8 @@ def suggest(
     unlabelled = [n for n in nodes if not n.conforms_to]
     embedder = get_embedder(backend)
 
-    lab_emb = embed_nodes(labelled, embedder)
-    unl_emb = embed_nodes(unlabelled, embedder)
-    lab_u = lab_emb / (np.linalg.norm(lab_emb, axis=1, keepdims=True) + 1e-9)
-    unl_u = unl_emb / (np.linalg.norm(unl_emb, axis=1, keepdims=True) + 1e-9)
+    lab_u = l2_normalize(embed_nodes(labelled, embedder))
+    unl_u = l2_normalize(embed_nodes(unlabelled, embedder))
     sims = unl_u @ lab_u.T
     best = sims.argmax(axis=1)
     best_sim = sims[np.arange(len(unlabelled)), best]

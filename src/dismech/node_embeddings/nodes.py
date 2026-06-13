@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import glob
+import logging
 import os
 from dataclasses import dataclass
 from typing import Iterator
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 def _term_labels(obj, out: list[str]) -> None:
@@ -57,8 +60,10 @@ def iter_nodes(kb_dir: str = "kb/disorders") -> Iterator[PathoNode]:
         if path.endswith(".history.yaml"):
             continue
         try:
-            doc = yaml.safe_load(open(path))
-        except Exception:
+            with open(path) as f:
+                doc = yaml.safe_load(f)
+        except Exception as exc:
+            logger.warning("skipping %s: %s", path, exc)
             continue
         if not isinstance(doc, dict):
             continue
