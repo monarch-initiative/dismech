@@ -673,14 +673,14 @@ schema-doc:
 gen-browser-data:
     uv run python -c "from pathlib import Path; from dismech.export import BrowserExporter; files=[p for p in sorted(Path('kb/disorders').glob('*.yaml')) if not p.name.endswith('.history.yaml')]; BrowserExporter().export_to_js(files, Path('app/data.js'))"
 
-# Generate knowledge-gap browser data.js from disorder + module discussions
+# Generate discussions browser data.js from disorder + module discussions
 [group('Browser')]
-gen-gaps-data:
-    uv run python -m dismech.export.gaps_export
+gen-discussions-data:
+    uv run python -m dismech.export.discussions_export
 
 # Serve the browser app locally
 [group('Browser')]
-serve-browser: gen-browser-data gen-gaps-data
+serve-browser: gen-browser-data gen-discussions-data
     @echo "Starting local server at http://localhost:8000/app/"
     uv run python -m http.server 8000
 
@@ -747,7 +747,7 @@ gen-schema-docs:
 
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-gaps-data gen-pages gen-schema-docs
+gen-all: gen-browser-data gen-discussions-data gen-pages gen-schema-docs
     @echo "Generated browser data, disorder/comorbidity pages, and schema docs"
 
 # ============== KGX Export ==============

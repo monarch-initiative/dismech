@@ -1,9 +1,46 @@
 window.searchData = [
   {
-    "gap_id": "gap_aip_ahr_branch_tumor_growth_causality",
+    "discussion_id": "interpretation_hibch_variant_location_survival",
+    "name": "How should HIBCH variant location be used when estimating prognosis for affected individuals?",
+    "prompt": "How should HIBCH variant location be used when estimating prognosis for affected individuals?",
+    "kind": "INTERPRETATION",
+    "is_gap": "Other discussion",
+    "status": "OPEN",
+    "source_type": "Disorder",
+    "source_name": "3-hydroxyisobutyryl-CoA hydrolase deficiency",
+    "disease_id": "MONDO:0009603",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "inborn error of metabolism"
+    ],
+    "attaches_to": [
+      "genetic#HIBCH",
+      "progression#Severe persistent disability or early mortality in some patients"
+    ],
+    "attached_nodes": [
+      "HIBCH",
+      "Severe persistent disability or early mortality in some patients"
+    ],
+    "rationale": "Multi-center natural-history evidence suggests longer survival for HIBCH patients with homozygous surface variants than for those with variants inside or near the catalytic region. The signal is clinically useful but still derives from small ultra-rare disease cohorts, so the entry treats it as an interpretation note rather than a deterministic genotype-phenotype rule.",
+    "experiment_names": [],
+    "num_experiments": 0,
+    "num_evidence": 1,
+    "evidence_refs": [
+      "DOI:10.1002/jimd.12288"
+    ],
+    "has_experiments": "No proposed experiments",
+    "posed_by": "",
+    "creation_date": "2026-04-15T00:00:00Z",
+    "page_url": "../../pages/disorders/3-hydroxyisobutyryl-CoA_hydrolase_deficiency.html#interpretation_hibch_variant_location_survival",
+    "source_file": "kb/disorders/3-Hydroxyisobutyryl-CoA_Hydrolase_Deficiency.yaml"
+  },
+  {
+    "discussion_id": "gap_aip_ahr_branch_tumor_growth_causality",
     "name": "Does altered AIP-AHR transcriptional signaling directly promote somatotroph tumor growth or invasiveness in human AIP-mutant pituitary adenomas, beyond the demonstrated cell-model effects on AHR target genes and ligand-dependent growth hormone secretion?",
     "prompt": "Does altered AIP-AHR transcriptional signaling directly promote somatotroph tumor growth or invasiveness in human AIP-mutant pituitary adenomas, beyond the demonstrated cell-model effects on AHR target genes and ligand-dependent growth hormone secretion?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "AIP-related pituitary adenoma predisposition",
@@ -38,10 +75,11 @@ window.searchData = [
     "source_file": "kb/disorders/AIP-related_pituitary_adenoma_predisposition.yaml"
   },
   {
-    "gap_id": "gap_atrx_osteosarcoma_tumor_predisposition",
+    "discussion_id": "gap_atrx_osteosarcoma_tumor_predisposition",
     "name": "Does germline ATRX loss-of-function confer a clinically meaningful tumor predisposition (e.g., osteosarcoma) in ATR-X syndrome, and if so, through which mechanism (ALT/telomere instability, heterochromatin/genome-integrity failure, or a sporadic association)?",
     "prompt": "Does germline ATRX loss-of-function confer a clinically meaningful tumor predisposition (e.g., osteosarcoma) in ATR-X syndrome, and if so, through which mechanism (ALT/telomere instability, heterochromatin/genome-integrity failure, or a sporadic association)?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Alpha-thalassemia X-linked intellectual disability syndrome",
@@ -71,10 +109,11 @@ window.searchData = [
     "source_file": "kb/disorders/ATR-X_Syndrome.yaml"
   },
   {
-    "gap_id": "disc_hsv1_causality",
+    "discussion_id": "disc_hsv1_causality",
     "name": "Is HSV-1 reactivation in RORB+ glutamatergic neurons CAUSAL for their selective loss in Alzheimer's disease, or a marker of cells already destined to die?",
     "prompt": "Is HSV-1 reactivation in RORB+ glutamatergic neurons CAUSAL for their selective loss in Alzheimer's disease, or a marker of cells already destined to die?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Alzheimer Disease",
@@ -106,10 +145,11 @@ window.searchData = [
     "source_file": "kb/disorders/Alzheimer_Disease.yaml"
   },
   {
-    "gap_id": "gap_ad_amyloid_tau_glia_mitochondria_ordering_resilience",
+    "discussion_id": "gap_ad_amyloid_tau_glia_mitochondria_ordering_resilience",
     "name": "Which temporal causal ordering among amyloid-beta accumulation, tau spread, microglial/astrocytic activation, mitochondrial quality-control failure, and synaptic/cognitive decline best explains stage-specific Alzheimer disease progression and cognitive resilience?",
     "prompt": "Which temporal causal ordering among amyloid-beta accumulation, tau spread, microglial/astrocytic activation, mitochondrial quality-control failure, and synaptic/cognitive decline best explains stage-specific Alzheimer disease progression and cognitive resilience?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Alzheimer Disease",
@@ -152,10 +192,11 @@ window.searchData = [
     "source_file": "kb/disorders/Alzheimer_Disease.yaml"
   },
   {
-    "gap_id": "gap_als_ptdp43_propagation_mechanism",
+    "discussion_id": "gap_als_ptdp43_propagation_mechanism",
     "name": "Does phosphorylated TDP-43 pathology spread through the ALS motor system by prion-like protein seeding, by trans-synaptic or retrograde axonal signaling, or by secondary neuroinflammatory relay \u2014 and can these mechanisms be distinguished experimentally?",
     "prompt": "Does phosphorylated TDP-43 pathology spread through the ALS motor system by prion-like protein seeding, by trans-synaptic or retrograde axonal signaling, or by secondary neuroinflammatory relay \u2014 and can these mechanisms be distinguished experimentally?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Amyotrophic Lateral Sclerosis",
@@ -190,10 +231,11 @@ window.searchData = [
     "source_file": "kb/disorders/Amyotrophic_Lateral_Sclerosis.yaml"
   },
   {
-    "gap_id": "gap_als_tdp43_mislocalization_upstream_trigger",
+    "discussion_id": "gap_als_tdp43_mislocalization_upstream_trigger",
     "name": "What upstream cellular event triggers preferential TDP-43 nuclear clearance and cytoplasmic mislocalization in motor neurons compared with other cell types that also express TDP-43?",
     "prompt": "What upstream cellular event triggers preferential TDP-43 nuclear clearance and cytoplasmic mislocalization in motor neurons compared with other cell types that also express TDP-43?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Amyotrophic Lateral Sclerosis",
@@ -226,10 +268,11 @@ window.searchData = [
     "source_file": "kb/disorders/Amyotrophic_Lateral_Sclerosis.yaml"
   },
   {
-    "gap_id": "gap_als_tdp43_selective_vulnerability_and_spread",
+    "discussion_id": "gap_als_tdp43_selective_vulnerability_and_spread",
     "name": "Which TDP-43-dependent RNA-processing defect, cytoplasmic aggregate species, or non-cell-autonomous signal explains why upper and lower motor neurons are selectively vulnerable in ALS, and how does this mechanism relate to clinical propagation across neuroanatomical regions?",
     "prompt": "Which TDP-43-dependent RNA-processing defect, cytoplasmic aggregate species, or non-cell-autonomous signal explains why upper and lower motor neurons are selectively vulnerable in ALS, and how does this mechanism relate to clinical propagation across neuroanatomical regions?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Amyotrophic Lateral Sclerosis",
@@ -268,10 +311,11 @@ window.searchData = [
     "source_file": "kb/disorders/Amyotrophic_Lateral_Sclerosis.yaml"
   },
   {
-    "gap_id": "gap_alspdc_bmaa_human_model_mismatch",
+    "discussion_id": "gap_alspdc_bmaa_human_model_mismatch",
     "name": "Do the primate (vervet) and rodent BMAA models, which reproduce ALS-PDC-like neurofibrillary tau, beta-amyloid, and TDP-43 pathology after dietary or parenteral BMAA, faithfully establish BMAA as a cause of human Guam ALS-PDC \u2014 or does the unresolved analytical detection of BMAA in human brain and the failure of some laboratories to replicate it mean that translational validity to the human Chamorro disease remains the open question?",
     "prompt": "Do the primate (vervet) and rodent BMAA models, which reproduce ALS-PDC-like neurofibrillary tau, beta-amyloid, and TDP-43 pathology after dietary or parenteral BMAA, faithfully establish BMAA as a cause of human Guam ALS-PDC \u2014 or does the unresolved analytical detection of BMAA in human brain and the failure of some laboratories to replicate it mean that translational validity to the human Chamorro disease remains the open question?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Amyotrophic Lateral Sclerosis-Parkinsonism-Dementia Complex",
@@ -306,10 +350,11 @@ window.searchData = [
     "source_file": "kb/disorders/Amyotrophic_Lateral_Sclerosis-Parkinsonism-Dementia_Complex.yaml"
   },
   {
-    "gap_id": "gap_aps_apl_production_cd4_dysregulation",
+    "discussion_id": "gap_aps_apl_production_cd4_dysregulation",
     "name": "The antiphospholipid antibodies that define APS are pathogenic, yet the immune mechanisms that initiate and sustain their production remain poorly understood. Which upstream antigenic, environmental, or genetic trigger activates autoreactive aPL-specific CD4+ T cells, and is the observed CD4+ T cell dysregulation (Th1/Th17 skewing, diminished Treg, a disturbed Tfh/Tfr axis) a primary driver of aPL production or a secondary consequence of established autoimmunity? Do the contradictory subset findings across cohorts reflect true APS phenotypic heterogeneity or unresolved methodological confounding?",
     "prompt": "The antiphospholipid antibodies that define APS are pathogenic, yet the immune mechanisms that initiate and sustain their production remain poorly understood. Which upstream antigenic, environmental, or genetic trigger activates autoreactive aPL-specific CD4+ T cells, and is the observed CD4+ T cell dysregulation (Th1/Th17 skewing, diminished Treg, a disturbed Tfh/Tfr axis) a primary driver of aPL production or a secondary consequence of established autoimmunity? Do the contradictory subset findings across cohorts reflect true APS phenotypic heterogeneity or unresolved methodological confounding?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Antiphospholipid Syndrome",
@@ -345,10 +390,11 @@ window.searchData = [
     "source_file": "kb/disorders/Antiphospholipid_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_apical_neuroependyma_human_model_translatability",
+    "discussion_id": "gap_apical_neuroependyma_human_model_translatability",
     "name": "Which apical-neuroependyma defects are conserved in rodent knockdown or knockout models, and which require human iPSC-derived neuroepithelial rosettes, cortical organoids, fetal tissue, or gyrencephalic models to capture human ventricular-zone and OSVZ biology?",
     "prompt": "Which apical-neuroependyma defects are conserved in rodent knockdown or knockout models, and which require human iPSC-derived neuroepithelial rosettes, cortical organoids, fetal tissue, or gyrencephalic models to capture human ventricular-zone and OSVZ biology?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Apical Neuroependyma Integrity Failure Module",
@@ -380,10 +426,11 @@ window.searchData = [
     "source_file": "kb/modules/apical_neuroependyma_integrity_failure.yaml"
   },
   {
-    "gap_id": "gap_asthma_sirt1_celltype_specificity",
+    "discussion_id": "gap_asthma_sirt1_celltype_specificity",
     "name": "In which airway cell types does NAD+-dependent SIRT1 deacetylase activity causally restrain type 2 inflammation, mucus hypersecretion, and airway smooth muscle proliferation in asthma, and can SIRT1 activators reach those cells at therapeutic exposures to translate this protection into a biomarker-guided therapy?",
     "prompt": "In which airway cell types does NAD+-dependent SIRT1 deacetylase activity causally restrain type 2 inflammation, mucus hypersecretion, and airway smooth muscle proliferation in asthma, and can SIRT1 activators reach those cells at therapeutic exposures to translate this protection into a biomarker-guided therapy?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Asthma",
@@ -420,10 +467,11 @@ window.searchData = [
     "source_file": "kb/disorders/Asthma.yaml"
   },
   {
-    "gap_id": "gap_asthma_epithelial_mucous_substates_resolution",
+    "discussion_id": "gap_asthma_epithelial_mucous_substates_resolution",
     "name": "Which airway epithelial and goblet-cell states causally maintain mucus overproduction and airway remodeling in asthma, and which states are reversible downstream consequences of type 2 inflammation?",
     "prompt": "Which airway epithelial and goblet-cell states causally maintain mucus overproduction and airway remodeling in asthma, and which states are reversible downstream consequences of type 2 inflammation?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Asthma",
@@ -457,10 +505,11 @@ window.searchData = [
     "source_file": "kb/disorders/Asthma.yaml"
   },
   {
-    "gap_id": "gap_ad_topk_stat3_axis",
+    "discussion_id": "gap_ad_topk_stat3_axis",
     "name": "TOPK (PBK) is upregulated in atopic dermatitis and its inhibition attenuates AD-like inflammation via STAT3 Ser727 phosphorylation in keratinocytes and mast cells, but is TOPK-STAT3 signaling a primary causal driver of AD pathogenesis or a downstream amplifier of the established type 2 / barrier circuit, what is its dominant in vivo cellular source, and does the axis translate from cell and mouse models to human disease?",
     "prompt": "TOPK (PBK) is upregulated in atopic dermatitis and its inhibition attenuates AD-like inflammation via STAT3 Ser727 phosphorylation in keratinocytes and mast cells, but is TOPK-STAT3 signaling a primary causal driver of AD pathogenesis or a downstream amplifier of the established type 2 / barrier circuit, what is its dominant in vivo cellular source, and does the axis translate from cell and mouse models to human disease?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Atopic Dermatitis",
@@ -498,10 +547,11 @@ window.searchData = [
     "source_file": "kb/disorders/Atopic_Dermatitis.yaml"
   },
   {
-    "gap_id": "gap_scasi_prevalence_epidemiology",
+    "discussion_id": "gap_scasi_prevalence_epidemiology",
     "name": "What are the true prevalence and incidence of VPS13D-related cerebellar ataxia-saccadic intrusion syndrome (SCASI/SCAR4), and what are its authoritative cross-references (Orphanet, ICD, MeSH)?",
     "prompt": "What are the true prevalence and incidence of VPS13D-related cerebellar ataxia-saccadic intrusion syndrome (SCASI/SCAR4), and what are its authoritative cross-references (Orphanet, ICD, MeSH)?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Autosomal Recessive Cerebellar Ataxia-Saccadic Intrusion Syndrome",
@@ -528,10 +578,11 @@ window.searchData = [
     "source_file": "kb/disorders/AR_Cerebellar_Ataxia-Saccadic_Intrusion_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_scasi_genotype_phenotype_correlation",
+    "discussion_id": "gap_scasi_genotype_phenotype_correlation",
     "name": "What explains the wide phenotypic variability of biallelic VPS13D variants (infantile to adult onset; ataxia- vs spasticity-predominant), and what is the penetrance/expressivity and contribution of modifier genes or environmental factors?",
     "prompt": "What explains the wide phenotypic variability of biallelic VPS13D variants (infantile to adult onset; ataxia- vs spasticity-predominant), and what is the penetrance/expressivity and contribution of modifier genes or environmental factors?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Autosomal Recessive Cerebellar Ataxia-Saccadic Intrusion Syndrome",
@@ -560,10 +611,11 @@ window.searchData = [
     "source_file": "kb/disorders/AR_Cerebellar_Ataxia-Saccadic_Intrusion_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_mcph_mouse_model_progenitor_mismatch",
+    "discussion_id": "gap_mcph_mouse_model_progenitor_mismatch",
     "name": "Do mouse MCPH models (e.g., Aspm-/- or Cenpj-deficient mice) faithfully recapitulate the human neural progenitor depletion mechanism, or does the inherently lissencephalic rodent cortex \u2014 which lacks the abundant outer radial glia (oRG) and outer subventricular zone (OSVZ) biology present in the human developing cortex \u2014 mean that mouse models only partially reproduce the human pathomechanism? Specifically, Aspm-/- mice show approximately 10% brain volume reduction, far milder than the 30-70% reduction in human MCPH5, raising the question of whether the difference reflects a species difference in oRG/OSVZ biology rather than, or in addition to, a quantitative difference in symmetric vs. asymmetric progenitor divisions.",
     "prompt": "Do mouse MCPH models (e.g., Aspm-/- or Cenpj-deficient mice) faithfully recapitulate the human neural progenitor depletion mechanism, or does the inherently lissencephalic rodent cortex \u2014 which lacks the abundant outer radial glia (oRG) and outer subventricular zone (OSVZ) biology present in the human developing cortex \u2014 mean that mouse models only partially reproduce the human pathomechanism? Specifically, Aspm-/- mice show approximately 10% brain volume reduction, far milder than the 30-70% reduction in human MCPH5, raising the question of whether the difference reflects a species difference in oRG/OSVZ biology rather than, or in addition to, a quantitative difference in symmetric vs. asymmetric progenitor divisions.",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Autosomal Recessive Primary Microcephaly",
@@ -595,10 +647,11 @@ window.searchData = [
     "source_file": "kb/disorders/Autosomal_Recessive_Primary_Microcephaly.yaml"
   },
   {
-    "gap_id": "gap_mcph_boundary_genes_lumping_splitting",
+    "discussion_id": "gap_mcph_boundary_genes_lumping_splitting",
     "name": "Should the centrosome/spindle/centriole genes that blur the boundary between primary microcephaly and broader malformations of cortical development \u2014 NDE1 (microlissencephaly), KATNB1 (complex cerebral malformations), and RTTN (bilateral polymicrogyria and microcephaly with primordial dwarfism) \u2014 be modeled within this MCPH entry as additional subtypes, as related entries that conform to a shared neural-progenitor centrosome/spindle module, or as separate disease entries? Each gene converges on the same apical-progenitor centrosomal machinery as the classic MCPH loci (ASPM, WDR62, CDK5RAP2, CENPJ), yet each produces a phenotype that extends beyond isolated microcephaly with a simplified gyral pattern.",
     "prompt": "Should the centrosome/spindle/centriole genes that blur the boundary between primary microcephaly and broader malformations of cortical development \u2014 NDE1 (microlissencephaly), KATNB1 (complex cerebral malformations), and RTTN (bilateral polymicrogyria and microcephaly with primordial dwarfism) \u2014 be modeled within this MCPH entry as additional subtypes, as related entries that conform to a shared neural-progenitor centrosome/spindle module, or as separate disease entries? Each gene converges on the same apical-progenitor centrosomal machinery as the classic MCPH loci (ASPM, WDR62, CDK5RAP2, CENPJ), yet each produces a phenotype that extends beyond isolated microcephaly with a simplified gyral pattern.",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Autosomal Recessive Primary Microcephaly",
@@ -627,10 +680,11 @@ window.searchData = [
     "source_file": "kb/disorders/Autosomal_Recessive_Primary_Microcephaly.yaml"
   },
   {
-    "gap_id": "gap_bwcff_organoid_to_human_cortical_malformation_fidelity",
+    "discussion_id": "gap_bwcff_organoid_to_human_cortical_malformation_fidelity",
     "name": "How faithfully do human iPSC-derived ACTB/ACTG1 cerebral organoids explain the full in vivo Baraitser-Winter cortical malformation spectrum, including pachygyria/lissencephaly, anterior-predominant gradients and genotype-specific ACTB versus ACTG1 severity?",
     "prompt": "How faithfully do human iPSC-derived ACTB/ACTG1 cerebral organoids explain the full in vivo Baraitser-Winter cortical malformation spectrum, including pachygyria/lissencephaly, anterior-predominant gradients and genotype-specific ACTB versus ACTG1 severity?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Baraitser-Winter Cerebrofrontofacial Syndrome",
@@ -669,10 +723,11 @@ window.searchData = [
     "source_file": "kb/disorders/Baraitser-Winter_Cerebrofrontofacial_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_repolarization_vs_depolarization_substrate",
+    "discussion_id": "gap_repolarization_vs_depolarization_substrate",
     "name": "For phenotypes such as Brugada syndrome, is the arrhythmogenic substrate driven primarily by abnormal repolarization (transmural dispersion from heterogeneous transient-outward current) or by depolarization/conduction slowing in the right ventricular outflow tract, and how do these models apply across the channelopathy spectrum?",
     "prompt": "For phenotypes such as Brugada syndrome, is the arrhythmogenic substrate driven primarily by abnormal repolarization (transmural dispersion from heterogeneous transient-outward current) or by depolarization/conduction slowing in the right ventricular outflow tract, and how do these models apply across the channelopathy spectrum?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Cardiac Ion-Channel Repolarization and Arrhythmogenesis Module",
@@ -697,10 +752,11 @@ window.searchData = [
     "source_file": "kb/modules/cardiac_ion_channel_repolarization.yaml"
   },
   {
-    "gap_id": "gap_cdh23_pituitary_adenoma_mechanism",
+    "discussion_id": "gap_cdh23_pituitary_adenoma_mechanism",
     "name": "What is the causal mechanism linking germline CDH23 variants to pituitary adenoma formation, and which pituitary cell lineage or signaling pathway is affected?",
     "prompt": "What is the causal mechanism linking germline CDH23 variants to pituitary adenoma formation, and which pituitary cell lineage or signaling pathway is affected?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "CDH23-associated pituitary adenoma 5",
@@ -733,10 +789,11 @@ window.searchData = [
     "source_file": "kb/disorders/CDH23-associated_pituitary_adenoma_5.yaml"
   },
   {
-    "gap_id": "gap_copd_sirt1_senescence_neutrophilic_translation",
+    "discussion_id": "gap_copd_sirt1_senescence_neutrophilic_translation",
     "name": "Does restoring NAD+-dependent SIRT1 deacetylase activity causally reduce neutrophilic airway inflammation and alveolar epithelial senescence in COPD, and can SIRT1 activators overcome their pharmacokinetic limitations and be paired with biomarker-guided patient stratification to translate this protection into therapy?",
     "prompt": "Does restoring NAD+-dependent SIRT1 deacetylase activity causally reduce neutrophilic airway inflammation and alveolar epithelial senescence in COPD, and can SIRT1 activators overcome their pharmacokinetic limitations and be paired with biomarker-guided patient stratification to translate this protection into therapy?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Chronic_Obstructive_Pulmonary_Disease",
@@ -766,10 +823,11 @@ window.searchData = [
     "source_file": "kb/disorders/Chronic_Obstructive_Pulmonary_Disease.yaml"
   },
   {
-    "gap_id": "gap_ciliopathy_genotype_phenotype_pleiotropy",
+    "discussion_id": "gap_ciliopathy_genotype_phenotype_pleiotropy",
     "name": "Why do mutations in the same ciliary gene produce such divergent organ involvement across ciliopathy patients, and what determines which tissues (retina, kidney, skeleton, brain) decompensate first?",
     "prompt": "Why do mutations in the same ciliary gene produce such divergent organ involvement across ciliopathy patients, and what determines which tissues (retina, kidney, skeleton, brain) decompensate first?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Ciliopathy Cilium Dysfunction Module",
@@ -796,10 +854,11 @@ window.searchData = [
     "source_file": "kb/modules/ciliopathy_dysfunction.yaml"
   },
   {
-    "gap_id": "gap_czs_specific_therapy",
+    "discussion_id": "gap_czs_specific_therapy",
     "name": "No approved antiviral or disease-modifying therapy exists for congenital Zika syndrome; candidate small molecules (e.g., nucleoside analogues) and TLR3-pathway modulation have shown effects only in experimental models. Which interventions, if any, can interrupt the progenitor-cytopathy cascade within the narrow prenatal therapeutic window?",
     "prompt": "No approved antiviral or disease-modifying therapy exists for congenital Zika syndrome; candidate small molecules (e.g., nucleoside analogues) and TLR3-pathway modulation have shown effects only in experimental models. Which interventions, if any, can interrupt the progenitor-cytopathy cascade within the narrow prenatal therapeutic window?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Congenital Zika Syndrome",
@@ -828,10 +887,11 @@ window.searchData = [
     "source_file": "kb/disorders/Congenital_Zika_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_czs_human_model_translatability",
+    "discussion_id": "gap_czs_human_model_translatability",
     "name": "Which parts of the congenital Zika syndrome mechanism are directly supported in human fetal disease, and which remain model-dependent findings from human iPSC-derived neural progenitors, cerebral organoids, mouse embryos, non-human-primate organoids, or organotypic fetal systems?",
     "prompt": "Which parts of the congenital Zika syndrome mechanism are directly supported in human fetal disease, and which remain model-dependent findings from human iPSC-derived neural progenitors, cerebral organoids, mouse embryos, non-human-primate organoids, or organotypic fetal systems?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Congenital Zika Syndrome",
@@ -871,10 +931,11 @@ window.searchData = [
     "source_file": "kb/disorders/Congenital_Zika_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_covid_macrodomain_allosteric_pivot",
+    "discussion_id": "gap_covid_macrodomain_allosteric_pivot",
     "name": "Can the SARS-CoV-2 Nsp3 Mac1 macrodomain be controlled as a thermodynamic pivot point \u2014 by allosteric stabilization of distinct conformational states or by PROTAC-based physical degradation \u2014 to restore host PARP9/DTX3L-dependent antiviral ADP-ribosylation and arrest viral replication, and is this strategy broadly active across coronaviruses?",
     "prompt": "Can the SARS-CoV-2 Nsp3 Mac1 macrodomain be controlled as a thermodynamic pivot point \u2014 by allosteric stabilization of distinct conformational states or by PROTAC-based physical degradation \u2014 to restore host PARP9/DTX3L-dependent antiviral ADP-ribosylation and arrest viral replication, and is this strategy broadly active across coronaviruses?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "COVID-19",
@@ -905,10 +966,11 @@ window.searchData = [
     "source_file": "kb/disorders/COVID-19.yaml"
   },
   {
-    "gap_id": "gap_cradd_mouse_model_lamination_mismatch",
+    "discussion_id": "gap_cradd_mouse_model_lamination_mismatch",
     "name": "Does the Cradd-null mouse faithfully model the human CRADD-TLIS cortical malformation, or does the absence of a cortical lamination/gyration defect in the mouse \u2014 which has megalencephaly and seizures but cytoarchitecturally normal cortex \u2014 indicate that caspase-2-dependent developmental apoptosis is more critical for human than for mouse neocortical sculpting?",
     "prompt": "Does the Cradd-null mouse faithfully model the human CRADD-TLIS cortical malformation, or does the absence of a cortical lamination/gyration defect in the mouse \u2014 which has megalencephaly and seizures but cytoarchitecturally normal cortex \u2014 indicate that caspase-2-dependent developmental apoptosis is more critical for human than for mouse neocortical sculpting?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "CRADD-Related Thin Lissencephaly",
@@ -940,10 +1002,11 @@ window.searchData = [
     "source_file": "kb/disorders/CRADD-Related_Thin_Lissencephaly.yaml"
   },
   {
-    "gap_id": "gap_crohn_creeping_fat_stricture_causality",
+    "discussion_id": "gap_crohn_creeping_fat_stricture_causality",
     "name": "Are creeping fat-derived CTHRC1-positive mechanosensitive fibroblasts a necessary and targetable driver of Crohn strictures, or are they a downstream marker of bowel-wall inflammation and established fibrosis?",
     "prompt": "Are creeping fat-derived CTHRC1-positive mechanosensitive fibroblasts a necessary and targetable driver of Crohn strictures, or are they a downstream marker of bowel-wall inflammation and established fibrosis?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Crohn Disease",
@@ -977,10 +1040,11 @@ window.searchData = [
     "source_file": "kb/disorders/Crohn_Disease.yaml"
   },
   {
-    "gap_id": "gap_csan_cutaneous_fgfr3_branch",
+    "discussion_id": "gap_csan_cutaneous_fgfr3_branch",
     "name": "What is the cell-specific mechanism by which FGFR3 A391E produces flexural acanthosis nigricans, and is keratinocyte-autonomous FGFR3 signaling sufficient to explain the cutaneous phenotype?",
     "prompt": "What is the cell-specific mechanism by which FGFR3 A391E produces flexural acanthosis nigricans, and is keratinocyte-autonomous FGFR3 signaling sufficient to explain the cutaneous phenotype?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Crouzon Syndrome with Acanthosis Nigricans",
@@ -1012,10 +1076,11 @@ window.searchData = [
     "source_file": "kb/disorders/Crouzon_Syndrome_with_Acanthosis_Nigricans.yaml"
   },
   {
-    "gap_id": "gap_ctcf_pcdh_tad_human_npc",
+    "discussion_id": "gap_ctcf_pcdh_tad_human_npc",
     "name": "Does CTCF haploinsufficiency caused by diverse pathogenic variants\u2014not just the R567W zinc-finger missense\u2014uniformly disrupt TAD boundary integrity and stochastic enhancer-promoter looping at the protocadherin (PCDH) cluster in human cortical neural progenitor cells derived from patient iPSCs?",
     "prompt": "Does CTCF haploinsufficiency caused by diverse pathogenic variants\u2014not just the R567W zinc-finger missense\u2014uniformly disrupt TAD boundary integrity and stochastic enhancer-promoter looping at the protocadherin (PCDH) cluster in human cortical neural progenitor cells derived from patient iPSCs?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "CTCF-related Neurodevelopmental Disorder",
@@ -1047,10 +1112,11 @@ window.searchData = [
     "source_file": "kb/disorders/CTCF-related_Neurodevelopmental_Disorder.yaml"
   },
   {
-    "gap_id": "gap_dmd_microdystrophin_fibrosis_reversal",
+    "discussion_id": "gap_dmd_microdystrophin_fibrosis_reversal",
     "name": "Does restored dystrophin or microdystrophin expression reverse established skeletal-muscle and myocardial fibrosis in DMD, or does it mainly stabilize sarcolemmal injury before fibrotic remodeling becomes self-sustaining?",
     "prompt": "Does restored dystrophin or microdystrophin expression reverse established skeletal-muscle and myocardial fibrosis in DMD, or does it mainly stabilize sarcolemmal injury before fibrotic remodeling becomes self-sustaining?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Duchenne Muscular Dystrophy",
@@ -1086,10 +1152,42 @@ window.searchData = [
     "source_file": "kb/disorders/Duchenne_Muscular_Dystrophy.yaml"
   },
   {
-    "gap_id": "disc_dyrk1a_population_prevalence",
+    "discussion_id": "disc_dyrk1a_lithium_therapeutic_lead",
+    "name": "Can lithium or downstream-substrate-targeting strategies (e.g., enhancing residual DYRK1A function) be translated into disease-modifying therapy for human DYRK1A syndrome?",
+    "prompt": "Can lithium or downstream-substrate-targeting strategies (e.g., enhancing residual DYRK1A function) be translated into disease-modifying therapy for human DYRK1A syndrome?",
+    "kind": "EMERGING HYPOTHESIS",
+    "is_gap": "Other discussion",
+    "status": "OPEN",
+    "source_type": "Disorder",
+    "source_name": "DYRK1A-related intellectual disability syndrome",
+    "disease_id": "MONDO:0013578",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "attaches_to": [],
+    "attached_nodes": [],
+    "rationale": "Because the syndrome is a haploinsufficiency disorder, DYRK1A-inhibitor strategies developed for Down syndrome (gene-dosage increase) are mechanistically inappropriate. Instead, preclinical work suggests restoring DYRK1A function or compensating downstream circuitry: early lithium rescued multiple phenotypes in a patient-mutation knock-in mouse, and enhancing a DYRK1A-dependent inhibitory circuit reversed social-recognition deficits in Dyrk1a+/- mice. Neither approach has been tested clinically in MRD7.",
+    "experiment_names": [
+      "Cross-model validation and biomarker-guided trial design for DYRK1A restorative therapy"
+    ],
+    "num_experiments": 1,
+    "num_evidence": 1,
+    "evidence_refs": [
+      "PMID:37797581"
+    ],
+    "has_experiments": "With proposed experiments",
+    "posed_by": "",
+    "creation_date": "2026-06-03T00:00:00Z",
+    "page_url": "../../pages/disorders/DYRK1A-related_intellectual_disability_syndrome.html#disc_dyrk1a_lithium_therapeutic_lead",
+    "source_file": "kb/disorders/DYRK1A_Syndrome.yaml"
+  },
+  {
+    "discussion_id": "disc_dyrk1a_population_prevalence",
     "name": "What is the true population-level prevalence and incidence of DYRK1A-related intellectual disability syndrome in the general population, as opposed to its enrichment within ASD cohorts?",
     "prompt": "What is the true population-level prevalence and incidence of DYRK1A-related intellectual disability syndrome in the general population, as opposed to its enrichment within ASD cohorts?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "DYRK1A-related intellectual disability syndrome",
@@ -1114,10 +1212,11 @@ window.searchData = [
     "source_file": "kb/disorders/DYRK1A_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_dc_unexplained_genetic_cause",
+    "discussion_id": "gap_dc_unexplained_genetic_cause",
     "name": "What accounts for the roughly 20% of clinically diagnosed dyskeratosis congenita / telomere biology disorder cases in which no pathogenic variant is identified in any of the 16 known DC/TBD genes?",
     "prompt": "What accounts for the roughly 20% of clinically diagnosed dyskeratosis congenita / telomere biology disorder cases in which no pathogenic variant is identified in any of the 16 known DC/TBD genes?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Dyskeratosis Congenita",
@@ -1148,10 +1247,11 @@ window.searchData = [
     "source_file": "kb/disorders/Dyskeratosis_Congenita.yaml"
   },
   {
-    "gap_id": "gap_eml1_mouse_organoid_translatability",
+    "discussion_id": "gap_eml1_mouse_organoid_translatability",
     "name": "Which EML1 progenitor defects are conserved between mouse cortical heterotopia models and human iPSC-derived cerebral organoids, and which disease branches depend on human-specific basal radial glia, extracellular matrix, or OSVZ-like biology?",
     "prompt": "Which EML1 progenitor defects are conserved between mouse cortical heterotopia models and human iPSC-derived cerebral organoids, and which disease branches depend on human-specific basal radial glia, extracellular matrix, or OSVZ-like biology?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "EML1-related Ribbon-like Subcortical Heterotopia",
@@ -1191,10 +1291,11 @@ window.searchData = [
     "source_file": "kb/disorders/EML1_Ribbon_Heterotopia.yaml"
   },
   {
-    "gap_id": "gap_endometriosis_pain_lesion_burden_discordance",
+    "discussion_id": "gap_endometriosis_pain_lesion_burden_discordance",
     "name": "Which combination of lesion neuroangiogenesis, inflammatory mediators, prolactin/prolactin-receptor signaling, peripheral nociceptor sensitization, and central sensitization best explains why endometriosis pain often does not scale with visible lesion burden?",
     "prompt": "Which combination of lesion neuroangiogenesis, inflammatory mediators, prolactin/prolactin-receptor signaling, peripheral nociceptor sensitization, and central sensitization best explains why endometriosis pain often does not scale with visible lesion burden?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Endometriosis",
@@ -1234,10 +1335,11 @@ window.searchData = [
     "source_file": "kb/disorders/Endometriosis.yaml"
   },
   {
-    "gap_id": "gap_eoe_detergent_human_causality",
+    "discussion_id": "gap_eoe_detergent_human_causality",
     "name": "Is environmental detergent exposure a genuine upstream human causal trigger of EoE, or only a mechanistically plausible model-system association?",
     "prompt": "Is environmental detergent exposure a genuine upstream human causal trigger of EoE, or only a mechanistically plausible model-system association?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Eosinophilic Esophagitis",
@@ -1266,10 +1368,11 @@ window.searchData = [
     "source_file": "kb/disorders/Eosinophilic_Esophagitis.yaml"
   },
   {
-    "gap_id": "gap_eoe_eosinophil_symptom_causality",
+    "discussion_id": "gap_eoe_eosinophil_symptom_causality",
     "name": "Which eosinophil-dependent versus eosinophil-independent effector mechanisms drive dysphagia and fibrostenotic symptoms in EoE?",
     "prompt": "Which eosinophil-dependent versus eosinophil-independent effector mechanisms drive dysphagia and fibrostenotic symptoms in EoE?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Eosinophilic Esophagitis",
@@ -1304,10 +1407,11 @@ window.searchData = [
     "source_file": "kb/disorders/Eosinophilic_Esophagitis.yaml"
   },
   {
-    "gap_id": "gap_eoe_food_antigen_specificity",
+    "discussion_id": "gap_eoe_food_antigen_specificity",
     "name": "Why do individual EoE patients react to different specific food antigens despite sharing a common esophageal epithelial barrier defect and type 2 inflammatory program?",
     "prompt": "Why do individual EoE patients react to different specific food antigens despite sharing a common esophageal epithelial barrier defect and type 2 inflammatory program?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Eosinophilic Esophagitis",
@@ -1342,10 +1446,11 @@ window.searchData = [
     "source_file": "kb/disorders/Eosinophilic_Esophagitis.yaml"
   },
   {
-    "gap_id": "gap_ewing_stag2_cohesin_high_risk_mechanism",
+    "discussion_id": "gap_ewing_stag2_cohesin_high_risk_mechanism",
     "name": "In STAG2-altered Ewing sarcoma, which causal arm best explains high-risk disease: multimeric GGAA enhancer amplification, PRC2/CTCF chromatin rewiring, replication-fork repair vulnerability, or a context-specific combination of these mechanisms?",
     "prompt": "In STAG2-altered Ewing sarcoma, which causal arm best explains high-risk disease: multimeric GGAA enhancer amplification, PRC2/CTCF chromatin rewiring, replication-fork repair vulnerability, or a context-specific combination of these mechanisms?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Ewing Sarcoma",
@@ -1386,10 +1491,11 @@ window.searchData = [
     "source_file": "kb/disorders/Ewing_Sarcoma.yaml"
   },
   {
-    "gap_id": "gap_ewing_ggaa_enhancer_grammar",
+    "discussion_id": "gap_ewing_ggaa_enhancer_grammar",
     "name": "What GGAA microsatellite grammar and cofactor context make EWS-FLI1 binding oncogenic, and why do ETV6, BAF, and STAG2/cohesin perturbations produce different enhancer and differentiation outcomes?",
     "prompt": "What GGAA microsatellite grammar and cofactor context make EWS-FLI1 binding oncogenic, and why do ETV6, BAF, and STAG2/cohesin perturbations produce different enhancer and differentiation outcomes?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Ewing Sarcoma",
@@ -1433,10 +1539,11 @@ window.searchData = [
     "source_file": "kb/disorders/Ewing_Sarcoma.yaml"
   },
   {
-    "gap_id": "gap_ewing_chromatin_reversal_screen",
+    "discussion_id": "gap_ewing_chromatin_reversal_screen",
     "name": "Which EWS-FLI1-dependent chromatin-accessibility states are causal tumor dependencies rather than passenger signatures, and can an automated high-throughput chromatin assay distinguish therapeutically useful chromatin reversal from nonspecific cytotoxicity?",
     "prompt": "Which EWS-FLI1-dependent chromatin-accessibility states are causal tumor dependencies rather than passenger signatures, and can an automated high-throughput chromatin assay distinguish therapeutically useful chromatin reversal from nonspecific cytotoxicity?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Ewing Sarcoma",
@@ -1478,10 +1585,11 @@ window.searchData = [
     "source_file": "kb/disorders/Ewing_Sarcoma.yaml"
   },
   {
-    "gap_id": "gap_ewing_replication_stress_response",
+    "discussion_id": "gap_ewing_replication_stress_response",
     "name": "Which EWS-FLI1-induced DHX9/R-loop, SLFN11 fork-blocking, BRCA1, STAG2, and USP1-survivin states determine whether replication stress causes chemosensitivity, PARP/USP1/ATR inhibitor vulnerability, or survival and relapse?",
     "prompt": "Which EWS-FLI1-induced DHX9/R-loop, SLFN11 fork-blocking, BRCA1, STAG2, and USP1-survivin states determine whether replication stress causes chemosensitivity, PARP/USP1/ATR inhibitor vulnerability, or survival and relapse?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Ewing Sarcoma",
@@ -1521,10 +1629,11 @@ window.searchData = [
     "source_file": "kb/disorders/Ewing_Sarcoma.yaml"
   },
   {
-    "gap_id": "gap_ewing_cell_of_origin_context",
+    "discussion_id": "gap_ewing_cell_of_origin_context",
     "name": "Which human progenitor state is truly permissive for EWS-FLI1 transformation, and what chromatin or differentiation-state features distinguish transforming early mesenchymal or neural crest-like cells from non-transforming MSC states?",
     "prompt": "Which human progenitor state is truly permissive for EWS-FLI1 transformation, and what chromatin or differentiation-state features distinguish transforming early mesenchymal or neural crest-like cells from non-transforming MSC states?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Ewing Sarcoma",
@@ -1565,10 +1674,11 @@ window.searchData = [
     "source_file": "kb/disorders/Ewing_Sarcoma.yaml"
   },
   {
-    "gap_id": "gap_scaffold_phenotype_divergence",
+    "discussion_id": "gap_scaffold_phenotype_divergence",
     "name": "Disruption of distinct postsynaptic-density scaffold proteins (e.g. SHANK3, SYNGAP1) converges on a shared excitatory postsynaptic structural deficit and altered excitatory/inhibitory balance, yet the resulting clinical phenotype differs in emphasis (autism- and intellectual-disability-predominant for SHANK3 versus epilepsy-predominant for SYNGAP1). Which neuronal populations, cortical or cortico-striatal circuits, and developmental-timing windows determine whether a shared excitatory-scaffold lesion manifests primarily as autism/intellectual disability versus epilepsy?",
     "prompt": "Disruption of distinct postsynaptic-density scaffold proteins (e.g. SHANK3, SYNGAP1) converges on a shared excitatory postsynaptic structural deficit and altered excitatory/inhibitory balance, yet the resulting clinical phenotype differs in emphasis (autism- and intellectual-disability-predominant for SHANK3 versus epilepsy-predominant for SYNGAP1). Which neuronal populations, cortical or cortico-striatal circuits, and developmental-timing windows determine whether a shared excitatory-scaffold lesion manifests primarily as autism/intellectual disability versus epilepsy?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Excitatory Synapse Scaffold Disruption Module",
@@ -1595,10 +1705,11 @@ window.searchData = [
     "source_file": "kb/modules/excitatory_synapse_scaffold_disruption.yaml"
   },
   {
-    "gap_id": "gap_ftbn_population_incidence_and_subtype_denominators",
+    "discussion_id": "gap_ftbn_population_incidence_and_subtype_denominators",
     "name": "What are the population-level incidence and subtype distributions for benign fallopian tube neoplasms when contemporary pathology classification is applied across multicenter cohorts?",
     "prompt": "What are the population-level incidence and subtype distributions for benign fallopian tube neoplasms when contemporary pathology classification is applied across multicenter cohorts?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Fallopian tube benign neoplasm",
@@ -1628,10 +1739,11 @@ window.searchData = [
     "source_file": "kb/disorders/Fallopian_Tube_Benign_Neoplasm.yaml"
   },
   {
-    "gap_id": "gap_ftbn_molecular_drivers_and_recurrence_predictors",
+    "discussion_id": "gap_ftbn_molecular_drivers_and_recurrence_predictors",
     "name": "Which molecular alterations define biologically distinct benign tubal neoplasm subtypes and predict recurrence risk after fertility-sparing versus definitive surgery?",
     "prompt": "Which molecular alterations define biologically distinct benign tubal neoplasm subtypes and predict recurrence risk after fertility-sparing versus definitive surgery?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Fallopian tube benign neoplasm",
@@ -1661,10 +1773,47 @@ window.searchData = [
     "source_file": "kb/disorders/Fallopian_Tube_Benign_Neoplasm.yaml"
   },
   {
-    "gap_id": "gap_fgfr_compartment_branch_dominance",
+    "discussion_id": "gap_ftbn_preop_discrimination_from_malignant_adnexal_masses",
+    "name": "Which multimodal imaging and biomarker combinations best distinguish benign tubal/paratubal neoplasms from ovarian or fallopian tube malignancy before surgery?",
+    "prompt": "Which multimodal imaging and biomarker combinations best distinguish benign tubal/paratubal neoplasms from ovarian or fallopian tube malignancy before surgery?",
+    "kind": "OPEN QUESTION",
+    "is_gap": "Other discussion",
+    "status": "OPEN",
+    "source_type": "Disorder",
+    "source_name": "Fallopian tube benign neoplasm",
+    "disease_id": "MONDO:0000645",
+    "category": "Gynecologic Neoplasm",
+    "parents": [
+      "benign female reproductive system neoplasm",
+      "fallopian tube neoplasm"
+    ],
+    "attaches_to": [
+      "diagnosis#Imaging-first adnexal mass evaluation",
+      "differential_diagnoses#Fallopian tube cancer"
+    ],
+    "attached_nodes": [
+      "Fallopian tube cancer",
+      "Imaging-first adnexal mass evaluation"
+    ],
+    "rationale": "Benign lesions can appear radiologically malignant, and robust prospective triage criteria are not yet standardized for rare tubal neoplasms.",
+    "experiment_names": [],
+    "num_experiments": 0,
+    "num_evidence": 1,
+    "evidence_refs": [
+      "PMID:41594193"
+    ],
+    "has_experiments": "No proposed experiments",
+    "posed_by": "",
+    "creation_date": "2026-05-27T00:00:00Z",
+    "page_url": "../../pages/disorders/Fallopian_tube_benign_neoplasm.html#gap_ftbn_preop_discrimination_from_malignant_adnexal_masses",
+    "source_file": "kb/disorders/Fallopian_Tube_Benign_Neoplasm.yaml"
+  },
+  {
+    "discussion_id": "gap_fgfr_compartment_branch_dominance",
     "name": "Why do some activating FGFR alleles predominantly cause chondrodysplasia (growth-plate phenotype) while homologous alleles in a different receptor predominantly cause craniosynostosis (cranial-suture phenotype), and does the relative dominance of the MAPK versus STAT branch differ between these two skeletogenic compartments?",
     "prompt": "Why do some activating FGFR alleles predominantly cause chondrodysplasia (growth-plate phenotype) while homologous alleles in a different receptor predominantly cause craniosynostosis (cranial-suture phenotype), and does the relative dominance of the MAPK versus STAT branch differ between these two skeletogenic compartments?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "FGFR Gain-of-Function Skeletal Dysplasia Module",
@@ -1691,10 +1840,11 @@ window.searchData = [
     "source_file": "kb/modules/fgfr_gain_of_function_skeletal_dysplasia.yaml"
   },
   {
-    "gap_id": "gap_fm_peripheral_vs_central_causation",
+    "discussion_id": "gap_fm_peripheral_vs_central_causation",
     "name": "Does small-fiber peripheral pathology cause central sensitization in fibromyalgia, or does primary central nervous system dysfunction lead to retrograde small-fiber degeneration \u2014 and can these be distinguished clinically?",
     "prompt": "Does small-fiber peripheral pathology cause central sensitization in fibromyalgia, or does primary central nervous system dysfunction lead to retrograde small-fiber degeneration \u2014 and can these be distinguished clinically?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Fibromyalgia",
@@ -1726,10 +1876,11 @@ window.searchData = [
     "source_file": "kb/disorders/Fibromyalgia.yaml"
   },
   {
-    "gap_id": "gap_gnas_srl_response_prediction",
+    "discussion_id": "gap_gnas_srl_response_prediction",
     "name": "Does somatic GNAS/gsp status predict somatostatin receptor ligand response in clinically useful subsets of acromegaly?",
     "prompt": "Does somatic GNAS/gsp status predict somatostatin receptor ligand response in clinically useful subsets of acromegaly?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "GNAS-related pituitary adenoma 3",
@@ -1760,10 +1911,46 @@ window.searchData = [
     "source_file": "kb/disorders/GNAS-related_pituitary_adenoma_3.yaml"
   },
   {
-    "gap_id": "gap_gli_directed_therapy_resistance",
+    "discussion_id": "context_gnas_mccune_albright_mosaicism",
+    "name": "How should McCune-Albright syndrome be distinguished from sporadic GNAS-mutant somatotroph tumors?",
+    "prompt": "How should McCune-Albright syndrome be distinguished from sporadic GNAS-mutant somatotroph tumors?",
+    "kind": "INTERPRETATION",
+    "is_gap": "Other discussion",
+    "status": "OPEN",
+    "source_type": "Disorder",
+    "source_name": "GNAS-related pituitary adenoma 3",
+    "disease_id": null,
+    "category": "Neoplastic",
+    "parents": [
+      "pituitary gland adenoma"
+    ],
+    "attaches_to": [
+      "pathophysiology#Somatic activating GNAS mutation"
+    ],
+    "attached_nodes": [
+      "Somatic activating GNAS mutation"
+    ],
+    "rationale": "This entry models GNAS-related pituitary adenoma primarily as a sporadic tumor-somatic hotspot mechanism. McCune-Albright syndrome is related biology because it is also caused by somatic activating GNAS mutations and can include growth hormone excess, but it is a broader mosaic multisystem disorder rather than the usual isolated somatotroph tumor context.",
+    "experiment_names": [],
+    "num_experiments": 0,
+    "num_evidence": 3,
+    "evidence_refs": [
+      "PMID:31673695",
+      "PMID:31673695",
+      "PMID:18489744"
+    ],
+    "has_experiments": "No proposed experiments",
+    "posed_by": "",
+    "creation_date": "2026-06-03T00:00:00Z",
+    "page_url": "../../pages/disorders/GNAS-related_pituitary_adenoma_3.html#context_gnas_mccune_albright_mosaicism",
+    "source_file": "kb/disorders/GNAS-related_pituitary_adenoma_3.yaml"
+  },
+  {
+    "discussion_id": "gap_gli_directed_therapy_resistance",
     "name": "Can GLI-directed agents control SMO-inhibitor-resistant or SUFU-driven Gorlin tumors, given that the durable therapeutic bottleneck lies at the convergent GLI node rather than at SMO?",
     "prompt": "Can GLI-directed agents control SMO-inhibitor-resistant or SUFU-driven Gorlin tumors, given that the durable therapeutic bottleneck lies at the convergent GLI node rather than at SMO?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Gorlin Syndrome",
@@ -1797,10 +1984,11 @@ window.searchData = [
     "source_file": "kb/disorders/Gorlin_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_durable_low_toxicity_chemoprevention",
+    "discussion_id": "gap_durable_low_toxicity_chemoprevention",
     "name": "Is there a durable, low-toxicity field therapy that prevents new BCC formation in Gorlin syndrome without the systemic adverse effects and rebound regrowth that limit oral Hedgehog inhibitors?",
     "prompt": "Is there a durable, low-toxicity field therapy that prevents new BCC formation in Gorlin syndrome without the systemic adverse effects and rebound regrowth that limit oral Hedgehog inhibitors?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Gorlin Syndrome",
@@ -1835,10 +2023,11 @@ window.searchData = [
     "source_file": "kb/disorders/Gorlin_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_genotype_tissue_specificity",
+    "discussion_id": "gap_genotype_tissue_specificity",
     "name": "Why does PTCH1 loss preferentially drive BCC, jaw cysts, and skeletal anomalies while SUFU loss preferentially drives early-childhood medulloblastoma, meningioma, and gonadal tumors, despite both converging on GLI activation?",
     "prompt": "Why does PTCH1 loss preferentially drive BCC, jaw cysts, and skeletal anomalies while SUFU loss preferentially drives early-childhood medulloblastoma, meningioma, and gonadal tumors, despite both converging on GLI activation?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Gorlin Syndrome",
@@ -1872,10 +2061,11 @@ window.searchData = [
     "source_file": "kb/disorders/Gorlin_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_gpr101_pE308D_causality",
+    "discussion_id": "gap_gpr101_pE308D_causality",
     "name": "Does the reported GPR101 p.E308D missense variant causally drive acromegaly in any patient subset, or was the original enrichment not reproducible?",
     "prompt": "Does the reported GPR101 p.E308D missense variant causally drive acromegaly in any patient subset, or was the original enrichment not reproducible?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "GPR101-related pituitary adenoma 2",
@@ -1906,10 +2096,11 @@ window.searchData = [
     "source_file": "kb/disorders/GPR101-related_pituitary_adenoma_2.yaml"
   },
   {
-    "gap_id": "seronegative_bbe_mechanisms",
+    "discussion_id": "seronegative_bbe_mechanisms",
     "name": "Bickerstaff Brainstem Encephalitis (BBE) is a central nervous system variant of the anti-GQ1b antibody syndrome spectrum, presenting with ophthalmoplegia, ataxia, and altered consciousness. However, approximately one-third of clinically defined BBE cases are seronegative for anti-GQ1b antibodies, suggesting alternative immune mechanisms beyond anti-GQ1b pathogenic cascades. What mechanisms drive seronegative BBE? How do alternative immune pathways (beyond anti-GQ1b) drive complement-mediated neural damage in the brainstem?",
     "prompt": "Bickerstaff Brainstem Encephalitis (BBE) is a central nervous system variant of the anti-GQ1b antibody syndrome spectrum, presenting with ophthalmoplegia, ataxia, and altered consciousness. However, approximately one-third of clinically defined BBE cases are seronegative for anti-GQ1b antibodies, suggesting alternative immune mechanisms beyond anti-GQ1b pathogenic cascades. What mechanisms drive seronegative BBE? How do alternative immune pathways (beyond anti-GQ1b) drive complement-mediated neural damage in the brainstem?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Guillain-Barre Syndrome",
@@ -1942,10 +2133,11 @@ window.searchData = [
     "source_file": "kb/disorders/Guillain_Barre_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_lpa_microvascular_vs_macrovascular_mechanism",
+    "discussion_id": "gap_lpa_microvascular_vs_macrovascular_mechanism",
     "name": "What are the distinct mechanistic pathways by which lipoprotein(a) drives coronary microvascular dysfunction (CMD) as opposed to its well-characterized role in epicardial macrovascular atherosclerosis, and what are the biomarker and disease-modifying therapeutic implications for heart failure (especially HFpEF)?",
     "prompt": "What are the distinct mechanistic pathways by which lipoprotein(a) drives coronary microvascular dysfunction (CMD) as opposed to its well-characterized role in epicardial macrovascular atherosclerosis, and what are the biomarker and disease-modifying therapeutic implications for heart failure (especially HFpEF)?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Heart Failure",
@@ -1972,10 +2164,11 @@ window.searchData = [
     "source_file": "kb/disorders/Heart_Failure.yaml"
   },
   {
-    "gap_id": "gap_her2_grb2_adaptor_pivot",
+    "discussion_id": "gap_her2_grb2_adaptor_pivot",
     "name": "Is the GRB2 adaptor hub a tractable allosteric pivot point for rebalancing the HER2+ breast cancer interactome under HER2-targeted therapy resistance, and does conformational control of GRB2 (versus its degradation) change which adaptive bypass routes the tumor recruits?",
     "prompt": "Is the GRB2 adaptor hub a tractable allosteric pivot point for rebalancing the HER2+ breast cancer interactome under HER2-targeted therapy resistance, and does conformational control of GRB2 (versus its degradation) change which adaptive bypass routes the tumor recruits?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "HER2-Positive Breast Cancer",
@@ -2006,10 +2199,11 @@ window.searchData = [
     "source_file": "kb/disorders/HER2_Positive_Breast_Cancer.yaml"
   },
   {
-    "gap_id": "gap_hpah_penetrance_sex_modifier_stratification",
+    "discussion_id": "gap_hpah_penetrance_sex_modifier_stratification",
     "name": "Which genetic, hormonal, and vascular-state modifiers determine whether an HPAH risk-variant carrier converts from an asymptomatic carrier state to manifest disease, and why is lifetime penetrance substantially higher in females than in males?",
     "prompt": "Which genetic, hormonal, and vascular-state modifiers determine whether an HPAH risk-variant carrier converts from an asymptomatic carrier state to manifest disease, and why is lifetime penetrance substantially higher in females than in males?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Heritable Pulmonary Arterial Hypertension",
@@ -2048,10 +2242,11 @@ window.searchData = [
     "source_file": "kb/disorders/Heritable_Pulmonary_Arterial_Hypertension.yaml"
   },
   {
-    "gap_id": "gap_hpah_genotype_specific_bmp_restoration_response",
+    "discussion_id": "gap_hpah_genotype_specific_bmp_restoration_response",
     "name": "Which HPAH genotypes and pathway states predict differential response to sotatercept or other BMP-restoring therapies, and can treatment be individualized by causal gene rather than applied uniformly across PAH?",
     "prompt": "Which HPAH genotypes and pathway states predict differential response to sotatercept or other BMP-restoring therapies, and can treatment be individualized by causal gene rather than applied uniformly across PAH?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Heritable Pulmonary Arterial Hypertension",
@@ -2092,10 +2287,11 @@ window.searchData = [
     "source_file": "kb/disorders/Heritable_Pulmonary_Arterial_Hypertension.yaml"
   },
   {
-    "gap_id": "gap_hs_follicular_immune_microbiome_ordering",
+    "discussion_id": "gap_hs_follicular_immune_microbiome_ordering",
     "name": "What is the causal ordering among follicular hyperkeratosis/rupture, epithelial-intrinsic inflammatory reprogramming, IL-1/TNF/IL-17/IFN-gamma cytokine circuits, B-cell/TLS formation, and microbiome/biofilm change in chronic HS?",
     "prompt": "What is the causal ordering among follicular hyperkeratosis/rupture, epithelial-intrinsic inflammatory reprogramming, IL-1/TNF/IL-17/IFN-gamma cytokine circuits, B-cell/TLS formation, and microbiome/biofilm change in chronic HS?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Hidradenitis Suppurativa",
@@ -2140,10 +2336,11 @@ window.searchData = [
     "source_file": "kb/disorders/Hidradenitis_Suppurativa.yaml"
   },
   {
-    "gap_id": "gap_hd_somatic_expansion_threshold_rescue",
+    "discussion_id": "gap_hd_somatic_expansion_threshold_rescue",
     "name": "Is somatic HTT CAG expansion past a repeat-length threshold a causal, cell-autonomous trigger for medium spiny neuron degeneration, and can MSH3/FAN1-pathway modulation shift neurons below that threshold without unacceptable DNA-repair toxicity?",
     "prompt": "Is somatic HTT CAG expansion past a repeat-length threshold a causal, cell-autonomous trigger for medium spiny neuron degeneration, and can MSH3/FAN1-pathway modulation shift neurons below that threshold without unacceptable DNA-repair toxicity?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Huntington Disease",
@@ -2177,10 +2374,11 @@ window.searchData = [
     "source_file": "kb/disorders/Huntington_Disease.yaml"
   },
   {
-    "gap_id": "gap_hypochondrogenesis_er_stress_directness",
+    "discussion_id": "gap_hypochondrogenesis_er_stress_directness",
     "name": "Is canonical cytotoxic UPR activation a direct cause of chondrocyte death in hypochondrogenesis specifically, and what distinguishes ER stress-mediated apoptosis from reduced proliferation as the primary driver of growth plate failure?",
     "prompt": "Is canonical cytotoxic UPR activation a direct cause of chondrocyte death in hypochondrogenesis specifically, and what distinguishes ER stress-mediated apoptosis from reduced proliferation as the primary driver of growth plate failure?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Hypochondrogenesis",
@@ -2210,10 +2408,11 @@ window.searchData = [
     "source_file": "kb/disorders/Hypochondrogenesis.yaml"
   },
   {
-    "gap_id": "gap_hypochondrogenesis_spectrum_boundary",
+    "discussion_id": "gap_hypochondrogenesis_spectrum_boundary",
     "name": "What distinguishes hypochondrogenesis from achondrogenesis type II and spondyloepiphyseal dysplasia congenita (SEDC) at the molecular and histopathological level, and should these be modeled as a spectrum or as diagnostically distinct entities?",
     "prompt": "What distinguishes hypochondrogenesis from achondrogenesis type II and spondyloepiphyseal dysplasia congenita (SEDC) at the molecular and histopathological level, and should these be modeled as a spectrum or as diagnostically distinct entities?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Hypochondrogenesis",
@@ -2241,10 +2440,11 @@ window.searchData = [
     "source_file": "kb/disorders/Hypochondrogenesis.yaml"
   },
   {
-    "gap_id": "disc_ipf_injury_vs_senescence_ordering",
+    "discussion_id": "disc_ipf_injury_vs_senescence_ordering",
     "name": "Is repetitive alveolar epithelial injury the primary upstream driver of IPF, or does age-related AT2 cell senescence and telomere attrition precede and predispose to fibrosis independently of ongoing injury?",
     "prompt": "Is repetitive alveolar epithelial injury the primary upstream driver of IPF, or does age-related AT2 cell senescence and telomere attrition precede and predispose to fibrosis independently of ongoing injury?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Idiopathic Pulmonary Fibrosis",
@@ -2272,10 +2472,11 @@ window.searchData = [
     "source_file": "kb/disorders/Idiopathic_Pulmonary_Fibrosis.yaml"
   },
   {
-    "gap_id": "disc_ipf_ecm_feedback_irreversibility",
+    "discussion_id": "disc_ipf_ecm_feedback_irreversibility",
     "name": "What are the critical feedback loops \u2014 autocrine AT2 SASP, matrix stiffness mechano-transduction, and aberrant basaloid cell accumulation \u2014 that make IPF fibrosis self-sustaining and progressive after the initiating injury resolves, and which of these is most therapeutically tractable?",
     "prompt": "What are the critical feedback loops \u2014 autocrine AT2 SASP, matrix stiffness mechano-transduction, and aberrant basaloid cell accumulation \u2014 that make IPF fibrosis self-sustaining and progressive after the initiating injury resolves, and which of these is most therapeutically tractable?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Idiopathic Pulmonary Fibrosis",
@@ -2305,10 +2506,11 @@ window.searchData = [
     "source_file": "kb/disorders/Idiopathic_Pulmonary_Fibrosis.yaml"
   },
   {
-    "gap_id": "gap_igg4rd_dominant_autoantigen_identity",
+    "discussion_id": "gap_igg4rd_dominant_autoantigen_identity",
     "name": "What dominant autoantigen, antigen family, or antigen-presenting context initiates the coupled plasmablast and CD4-positive T-cell response in IgG4-RD?",
     "prompt": "What dominant autoantigen, antigen family, or antigen-presenting context initiates the coupled plasmablast and CD4-positive T-cell response in IgG4-RD?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "IgG4-Related Disease",
@@ -2345,10 +2547,11 @@ window.searchData = [
     "source_file": "kb/disorders/IgG4-Related_Disease.yaml"
   },
   {
-    "gap_id": "gap_igg4rd_organ_tropism_and_fibroinflammation",
+    "discussion_id": "gap_igg4rd_organ_tropism_and_fibroinflammation",
     "name": "Why do shared plasmablast, IgG4 class-switching, and CD4-positive cytotoxic-T-cell programs produce different organ manifestations such as pancreatitis, cholangitis, retroperitoneal fibrosis, kidney disease, and salivary/lacrimal gland enlargement?",
     "prompt": "Why do shared plasmablast, IgG4 class-switching, and CD4-positive cytotoxic-T-cell programs produce different organ manifestations such as pancreatitis, cholangitis, retroperitoneal fibrosis, kidney disease, and salivary/lacrimal gland enlargement?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "IgG4-Related Disease",
@@ -2383,10 +2586,11 @@ window.searchData = [
     "source_file": "kb/disorders/IgG4-Related_Disease.yaml"
   },
   {
-    "gap_id": "gap_arx_variant_to_interneuron_branch",
+    "discussion_id": "gap_arx_variant_to_interneuron_branch",
     "name": "Which ARX variant classes produce the severe malformation/interneuronopathy branch, and which produce developmental epilepsy or intellectual disability through a different or partial ARX mechanism?",
     "prompt": "Which ARX variant classes produce the severe malformation/interneuronopathy branch, and which produce developmental epilepsy or intellectual disability through a different or partial ARX mechanism?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Interneuron Specification and Tangential Migration Failure Module",
@@ -2417,10 +2621,11 @@ window.searchData = [
     "source_file": "kb/modules/interneuron_specification_tangential_migration_failure.yaml"
   },
   {
-    "gap_id": "gap_interneuronopathy_lumping_boundaries",
+    "discussion_id": "gap_interneuronopathy_lumping_boundaries",
     "name": "Which cortical malformation disease entries should conform to this module, and which should instead keep interneuron observations as secondary or disease-specific branches?",
     "prompt": "Which cortical malformation disease entries should conform to this module, and which should instead keep interneuron observations as secondary or disease-specific branches?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Interneuron Specification and Tangential Migration Failure Module",
@@ -2450,10 +2655,11 @@ window.searchData = [
     "source_file": "kb/modules/interneuron_specification_tangential_migration_failure.yaml"
   },
   {
-    "gap_id": "gap_interneuron_migration_human_model_translatability",
+    "discussion_id": "gap_interneuron_migration_human_model_translatability",
     "name": "Which parts of ARX/interneuronopathy biology are faithfully captured by mouse ganglionic eminence models, and which require human iPSC-derived ventral forebrain, dorsal cortical, organoid, assembloid, fetal-tissue, or spatial single-cell systems?",
     "prompt": "Which parts of ARX/interneuronopathy biology are faithfully captured by mouse ganglionic eminence models, and which require human iPSC-derived ventral forebrain, dorsal cortical, organoid, assembloid, fetal-tissue, or spatial single-cell systems?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Interneuron Specification and Tangential Migration Failure Module",
@@ -2488,10 +2694,11 @@ window.searchData = [
     "source_file": "kb/modules/interneuron_specification_tangential_migration_failure.yaml"
   },
   {
-    "gap_id": "gap_katnb1_cilia_spindle_migration_branch_weights",
+    "discussion_id": "gap_katnb1_cilia_spindle_migration_branch_weights",
     "name": "How much of KATNB1-related cortical malformation is caused by cilium/Hedgehog dysregulation, mitotic-spindle/asymmetric-division failure, reduced progenitor survival, and postmitotic neuronal migration failure?",
     "prompt": "How much of KATNB1-related cortical malformation is caused by cilium/Hedgehog dysregulation, mitotic-spindle/asymmetric-division failure, reduced progenitor survival, and postmitotic neuronal migration failure?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "KATNB1-related Cortical Malformation",
@@ -2529,10 +2736,11 @@ window.searchData = [
     "source_file": "kb/disorders/KATNB1-related_Cortical_Malformation.yaml"
   },
   {
-    "gap_id": "gap_katnb1_organoid_branch_scope",
+    "discussion_id": "gap_katnb1_organoid_branch_scope",
     "name": "Which KATNB1 phenotypes observed in patient-derived iPSCs, brain organoids, mouse embryos, zebrafish, and fly neuroblasts correspond to the same human cortical pathograph, and which require a distinct human progenitor or migration branch?",
     "prompt": "Which KATNB1 phenotypes observed in patient-derived iPSCs, brain organoids, mouse embryos, zebrafish, and fly neuroblasts correspond to the same human cortical pathograph, and which require a distinct human progenitor or migration branch?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "KATNB1-related Cortical Malformation",
@@ -2570,10 +2778,11 @@ window.searchData = [
     "source_file": "kb/disorders/KATNB1-related_Cortical_Malformation.yaml"
   },
   {
-    "gap_id": "gap_kawasaki_ivig_mechanism_treg_tolerance",
+    "discussion_id": "gap_kawasaki_ivig_mechanism_treg_tolerance",
     "name": "By what molecular mechanisms does IVIG induce immune tolerance in responders, and why do IVIG-resistant patients (Th17 dominated) escape this effect despite having defective regulatory T-cell (Treg) responses?",
     "prompt": "By what molecular mechanisms does IVIG induce immune tolerance in responders, and why do IVIG-resistant patients (Th17 dominated) escape this effect despite having defective regulatory T-cell (Treg) responses?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Kawasaki Disease",
@@ -2600,10 +2809,11 @@ window.searchData = [
     "source_file": "kb/disorders/Kawasaki_Disease.yaml"
   },
   {
-    "gap_id": "gap_kawasaki_coronary_stenosis_chronicity",
+    "discussion_id": "gap_kawasaki_coronary_stenosis_chronicity",
     "name": "How do transient inflammatory mediators (IL-1, TNF-\u03b1, neutrophil NETs) trigger sustained coronary remodeling via TGF-\u03b2-driven endothelial-to-mesenchymal transition and matrix deposition, even after acute vasculitis resolves?",
     "prompt": "How do transient inflammatory mediators (IL-1, TNF-\u03b1, neutrophil NETs) trigger sustained coronary remodeling via TGF-\u03b2-driven endothelial-to-mesenchymal transition and matrix deposition, even after acute vasculitis resolves?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Kawasaki Disease",
@@ -2632,10 +2842,11 @@ window.searchData = [
     "source_file": "kb/disorders/Kawasaki_Disease.yaml"
   },
   {
-    "gap_id": "kd_unknown_trigger_immune_endothelial_link",
+    "discussion_id": "kd_unknown_trigger_immune_endothelial_link",
     "name": "What is the upstream trigger(s) of Kawasaki disease, and what are the complete causal mechanisms linking systemic immune dysregulation (IL-1/IL-6/ neutrophil/Th17 activation) to endothelial dysfunction and coronary artery wall remodeling in coronary lesion and aneurysm formation?",
     "prompt": "What is the upstream trigger(s) of Kawasaki disease, and what are the complete causal mechanisms linking systemic immune dysregulation (IL-1/IL-6/ neutrophil/Th17 activation) to endothelial dysfunction and coronary artery wall remodeling in coronary lesion and aneurysm formation?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Kawasaki Disease",
@@ -2669,10 +2880,11 @@ window.searchData = [
     "source_file": "kb/disorders/Kawasaki_Disease.yaml"
   },
   {
-    "gap_id": "gap_kawasaki_inflammation_to_coronary_lesions",
+    "discussion_id": "gap_kawasaki_inflammation_to_coronary_lesions",
     "name": "Why does Kawasaki disease selectively target coronary arteries over other medium-vessel beds, and what anatomical, hemodynamic, or tissue-specific molecular features confer preferential susceptibility of coronary endothelium to KD-associated inflammation?",
     "prompt": "Why does Kawasaki disease selectively target coronary arteries over other medium-vessel beds, and what anatomical, hemodynamic, or tissue-specific molecular features confer preferential susceptibility of coronary endothelium to KD-associated inflammation?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Kawasaki Disease",
@@ -2699,10 +2911,11 @@ window.searchData = [
     "source_file": "kb/disorders/Kawasaki_Disease.yaml"
   },
   {
-    "gap_id": "gap_pafah1b1_dcx_gradient_and_cellular_emphasis",
+    "discussion_id": "gap_pafah1b1_dcx_gradient_and_cellular_emphasis",
     "name": "What explains the opposite anterior-posterior severity gradients and cellular emphasis between PAFAH1B1/LIS1 and DCX disease when both converge on microtubule-dependent neuronal migration failure?",
     "prompt": "What explains the opposite anterior-posterior severity gradients and cellular emphasis between PAFAH1B1/LIS1 and DCX disease when both converge on microtubule-dependent neuronal migration failure?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Lissencephaly Spectrum Disorders",
@@ -2741,10 +2954,11 @@ window.searchData = [
     "source_file": "kb/disorders/Lissencephaly_Spectrum_Disorders.yaml"
   },
   {
-    "gap_id": "gap_long_covid_mast_cell_bbb_causality",
+    "discussion_id": "gap_long_covid_mast_cell_bbb_causality",
     "name": "Are mast cells a causal upstream driver of blood-brain-barrier disruption and microglial neuroinflammation in Long COVID brain fog, or are mast-cell signatures a downstream marker of broader immune activation?",
     "prompt": "Are mast cells a causal upstream driver of blood-brain-barrier disruption and microglial neuroinflammation in Long COVID brain fog, or are mast-cell signatures a downstream marker of broader immune activation?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Long COVID",
@@ -2778,10 +2992,11 @@ window.searchData = [
     "source_file": "kb/disorders/Long_COVID.yaml"
   },
   {
-    "gap_id": "gap_long_covid_subtype_mechanism_mapping",
+    "discussion_id": "gap_long_covid_subtype_mechanism_mapping",
     "name": "Do the current pain-dominant, cardiopulmonary-dominant, and oligosymptomatic Long COVID symptom clusters map to distinct upstream mechanisms, or do they reflect overlapping downstream physiology shared across multiple hypotheses?",
     "prompt": "Do the current pain-dominant, cardiopulmonary-dominant, and oligosymptomatic Long COVID symptom clusters map to distinct upstream mechanisms, or do they reflect overlapping downstream physiology shared across multiple hypotheses?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Long COVID",
@@ -2828,10 +3043,11 @@ window.searchData = [
     "source_file": "kb/disorders/Long_COVID.yaml"
   },
   {
-    "gap_id": "gap_long_covid_upstream_downstream_hierarchy",
+    "discussion_id": "gap_long_covid_upstream_downstream_hierarchy",
     "name": "Which Long COVID mechanisms are persistent upstream drivers versus self-sustaining downstream consequences after SARS-CoV-2 viral clearance?",
     "prompt": "Which Long COVID mechanisms are persistent upstream drivers versus self-sustaining downstream consequences after SARS-CoV-2 viral clearance?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Long COVID",
@@ -2869,10 +3085,11 @@ window.searchData = [
     "source_file": "kb/disorders/Long_COVID.yaml"
   },
   {
-    "gap_id": "gap_mdd_oligodendrocyte_dysfunction",
+    "discussion_id": "gap_mdd_oligodendrocyte_dysfunction",
     "name": "Emerging evidence implicates oligodendrocyte (OL) dysfunction and myelin abnormalities in major depressive disorder, extending beyond classical myelination to neural plasticity, neuronal metabolic support, and circuit regulation. Is OL/white-matter pathology a primary driver of MDD, or a secondary consequence of neuroinflammation, chronic stress, and HPA-axis hyperactivity? Which OL subsets and brain regions are most mechanistically relevant, and how does OL-astrocyte-microglia crosstalk causally link to depressive symptoms?",
     "prompt": "Emerging evidence implicates oligodendrocyte (OL) dysfunction and myelin abnormalities in major depressive disorder, extending beyond classical myelination to neural plasticity, neuronal metabolic support, and circuit regulation. Is OL/white-matter pathology a primary driver of MDD, or a secondary consequence of neuroinflammation, chronic stress, and HPA-axis hyperactivity? Which OL subsets and brain regions are most mechanistically relevant, and how does OL-astrocyte-microglia crosstalk causally link to depressive symptoms?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Major Depressive Disorder",
@@ -2911,10 +3128,11 @@ window.searchData = [
     "source_file": "kb/disorders/Major_Depressive_Disorder.yaml"
   },
   {
-    "gap_id": "gap_microtubule_human_model_translatability",
+    "discussion_id": "gap_microtubule_human_model_translatability",
     "name": "Which microtubule-dependent migration defects are conserved across mouse in utero perturbation/knockout models, biochemical or cultured-cell assays, and human iPSC-derived cortical organoids, and which require human-specific progenitors such as outer radial glia?",
     "prompt": "Which microtubule-dependent migration defects are conserved across mouse in utero perturbation/knockout models, biochemical or cultured-cell assays, and human iPSC-derived cortical organoids, and which require human-specific progenitors such as outer radial glia?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Microtubule-Dependent Neuronal Migration Failure Module",
@@ -2946,10 +3164,11 @@ window.searchData = [
     "source_file": "kb/modules/microtubule_dependent_neuronal_migration_failure.yaml"
   },
   {
-    "gap_id": "gap_migraine_mwoa_premonitory_initiation",
+    "discussion_id": "gap_migraine_mwoa_premonitory_initiation",
     "name": "In migraine without aura, does premonitory hypothalamic/brainstem activation directly gate the trigeminovascular pathway without cortical spreading depression, and which neuroimaging markers can distinguish this brainstem- initiated pathway from the CSD-initiated aura pathway?",
     "prompt": "In migraine without aura, does premonitory hypothalamic/brainstem activation directly gate the trigeminovascular pathway without cortical spreading depression, and which neuroimaging markers can distinguish this brainstem- initiated pathway from the CSD-initiated aura pathway?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Migraine",
@@ -2978,10 +3197,11 @@ window.searchData = [
     "source_file": "kb/disorders/Migraine.yaml"
   },
   {
-    "gap_id": "gap_migraine_episodic_to_chronic_chronification",
+    "discussion_id": "gap_migraine_episodic_to_chronic_chronification",
     "name": "What molecular and circuit-level mechanisms drive the transition from episodic migraine (fewer than 15 headache days/month) to chronic migraine (15 or more days/month), and does the CGRP-driven shift from activity-dependent to activity-independent central sensitization account for chronification?",
     "prompt": "What molecular and circuit-level mechanisms drive the transition from episodic migraine (fewer than 15 headache days/month) to chronic migraine (15 or more days/month), and does the CGRP-driven shift from activity-dependent to activity-independent central sensitization account for chronification?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Migraine",
@@ -3010,10 +3230,11 @@ window.searchData = [
     "source_file": "kb/disorders/Migraine.yaml"
   },
   {
-    "gap_id": "gap_moyamoya_rnf213_nfkb",
+    "discussion_id": "gap_moyamoya_rnf213_nfkb",
     "name": "Does RNF213-mediated NF-\u03baB activation and IL-6 amplification constitute a central inflammatory driver of moyamoya disease pathogenesis, and how does the MMD-associated RNF213 p.R4810K variant convert genetic susceptibility into the progressive steno-occlusive arteriopathy that defines the disease?",
     "prompt": "Does RNF213-mediated NF-\u03baB activation and IL-6 amplification constitute a central inflammatory driver of moyamoya disease pathogenesis, and how does the MMD-associated RNF213 p.R4810K variant convert genetic susceptibility into the progressive steno-occlusive arteriopathy that defines the disease?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Moyamoya Disease",
@@ -3049,10 +3270,11 @@ window.searchData = [
     "source_file": "kb/disorders/Moyamoya_Disease.yaml"
   },
   {
-    "gap_id": "gap_moyamoya_rnf213_traf2_triggers_outcomes",
+    "discussion_id": "gap_moyamoya_rnf213_traf2_triggers_outcomes",
     "name": "What are the precise upstream triggers that induce RNF213-TRAF2-mediated NF-\u03baB activation and IL-6 amplification in cerebral vessels, and what are the downstream consequences of this inflammatory cascade for the characteristic progressive intracranial arterial stenosis and moyamoya collateral vessel formation that define moyamoya disease?",
     "prompt": "What are the precise upstream triggers that induce RNF213-TRAF2-mediated NF-\u03baB activation and IL-6 amplification in cerebral vessels, and what are the downstream consequences of this inflammatory cascade for the characteristic progressive intracranial arterial stenosis and moyamoya collateral vessel formation that define moyamoya disease?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Moyamoya Disease",
@@ -3081,10 +3303,11 @@ window.searchData = [
     "source_file": "kb/disorders/Moyamoya_Disease.yaml"
   },
   {
-    "gap_id": "gap_mm_obesity_mouse_model_fidelity",
+    "discussion_id": "gap_mm_obesity_mouse_model_fidelity",
     "name": "Only one of three high-fat-diet mouse myeloma models \u2014 the immune-competent C57BL/6J 5TGM1 semisyngeneic model \u2014 recapitulated the obesity-accelerated progression seen in humans, whereas the SCID-beige xenograft and the Vk*MYC models did not. Does the obesity-accelerated phenotype observed in this single model faithfully reflect the human mechanism of obesity-driven myeloma progression, or is it model-specific and dependent on a particular genetic background or immune context that does not generalize across myeloma subtypes?",
     "prompt": "Only one of three high-fat-diet mouse myeloma models \u2014 the immune-competent C57BL/6J 5TGM1 semisyngeneic model \u2014 recapitulated the obesity-accelerated progression seen in humans, whereas the SCID-beige xenograft and the Vk*MYC models did not. Does the obesity-accelerated phenotype observed in this single model faithfully reflect the human mechanism of obesity-driven myeloma progression, or is it model-specific and dependent on a particular genetic background or immune context that does not generalize across myeloma subtypes?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Multiple Myeloma",
@@ -3115,10 +3338,11 @@ window.searchData = [
     "source_file": "kb/disorders/Multiple_Myeloma.yaml"
   },
   {
-    "gap_id": "gap_mm_obesity_accelerated_progression",
+    "discussion_id": "gap_mm_obesity_accelerated_progression",
     "name": "Severe obesity is epidemiologically associated with increased multiple myeloma risk and mortality, yet the mechanisms by which obesity accelerates myeloma progression are unknown. Which obesity-driven factors \u2014 adipokine dysregulation (leptin, adiponectin, IL-6, TNF-alpha), altered marrow lipid and metabolic flux, and immune disruption \u2014 causally promote clonal plasma cell expansion and impair anti-tumor immunity, and do these mechanisms operate universally or only in specific genetic and immune-competent backgrounds?",
     "prompt": "Severe obesity is epidemiologically associated with increased multiple myeloma risk and mortality, yet the mechanisms by which obesity accelerates myeloma progression are unknown. Which obesity-driven factors \u2014 adipokine dysregulation (leptin, adiponectin, IL-6, TNF-alpha), altered marrow lipid and metabolic flux, and immune disruption \u2014 causally promote clonal plasma cell expansion and impair anti-tumor immunity, and do these mechanisms operate universally or only in specific genetic and immune-competent backgrounds?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Multiple Myeloma",
@@ -3155,10 +3379,11 @@ window.searchData = [
     "source_file": "kb/disorders/Multiple_Myeloma.yaml"
   },
   {
-    "gap_id": "gap_mecfs_pem_causal_ordering",
+    "discussion_id": "gap_mecfs_pem_causal_ordering",
     "name": "Which causal edge best connects exertion to delayed multi-system symptom worsening in ME/CFS: impaired microvascular oxygen delivery/extraction, skeletal muscle ionic and mitochondrial disturbance, immune-metabolic signaling, autonomic dysfunction, central nervous system amplification, or a subtype-specific combination?\n",
     "prompt": "Which causal edge best connects exertion to delayed multi-system symptom worsening in ME/CFS: impaired microvascular oxygen delivery/extraction, skeletal muscle ionic and mitochondrial disturbance, immune-metabolic signaling, autonomic dysfunction, central nervous system amplification, or a subtype-specific combination?\n",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Myalgic Encephalomyelitis/Chronic Fatigue Syndrome",
@@ -3194,10 +3419,11 @@ window.searchData = [
     "source_file": "kb/disorders/Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_nde1_paralog_and_cnv_diagnostics",
+    "discussion_id": "gap_nde1_paralog_and_cnv_diagnostics",
     "name": "How should NDE1/NDEL1 paralog compensation and 16p13.11 CNV-plus-sequence variant unmasking be incorporated into diagnosis and mechanism-specific curation?",
     "prompt": "How should NDE1/NDEL1 paralog compensation and 16p13.11 CNV-plus-sequence variant unmasking be incorporated into diagnosis and mechanism-specific curation?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "NDE1-related Microcephaly-Lissencephaly",
@@ -3233,10 +3459,11 @@ window.searchData = [
     "source_file": "kb/disorders/NDE1-related_Microcephaly_Lissencephaly.yaml"
   },
   {
-    "gap_id": "gap_nde1_human_organoid_translatability",
+    "discussion_id": "gap_nde1_human_organoid_translatability",
     "name": "Which NDE1-dependent radial-glial progenitor, outer-radial-glial, and neuronal-migration defects seen in rodent and biochemical systems are conserved in human iPSC-derived cortical organoids or fetal cortical tissue?",
     "prompt": "Which NDE1-dependent radial-glial progenitor, outer-radial-glial, and neuronal-migration defects seen in rodent and biochemical systems are conserved in human iPSC-derived cortical organoids or fetal cortical tissue?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "NDE1-related Microcephaly-Lissencephaly",
@@ -3275,10 +3502,11 @@ window.searchData = [
     "source_file": "kb/disorders/NDE1-related_Microcephaly_Lissencephaly.yaml"
   },
   {
-    "gap_id": "gap_progenitor_human_model_translatability",
+    "discussion_id": "gap_progenitor_human_model_translatability",
     "name": "Which progenitor defects detected in mouse or invertebrate models are conserved in human radial-glial, outer-radial-glial, and organoid systems, and which require human-specific OSVZ or oRG biology?",
     "prompt": "Which progenitor defects detected in mouse or invertebrate models are conserved in human radial-glial, outer-radial-glial, and organoid systems, and which require human-specific OSVZ or oRG biology?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Neural Progenitor Centrosome-Spindle Dysfunction Module",
@@ -3310,10 +3538,11 @@ window.searchData = [
     "source_file": "kb/modules/neural_progenitor_centrosome_spindle_dysfunction.yaml"
   },
   {
-    "gap_id": "gap_oa_egfr_allosteric_pathway_targeting",
+    "discussion_id": "gap_oa_egfr_allosteric_pathway_targeting",
     "name": "EGFR (an ErbB-family receptor tyrosine kinase) drives chondrocyte and cartilage catabolism through MAPK/ERK, PI3K/Akt, and NF-kB branches, but it is unresolved how allosteric modulation of EGFR governs which of these downstream pathways is selected in cartilage, and how pathological EGFR output in chondrocytes could be inhibited tissue-selectively without the off-target toxicity of pan-EGFR oncology inhibitors.",
     "prompt": "EGFR (an ErbB-family receptor tyrosine kinase) drives chondrocyte and cartilage catabolism through MAPK/ERK, PI3K/Akt, and NF-kB branches, but it is unresolved how allosteric modulation of EGFR governs which of these downstream pathways is selected in cartilage, and how pathological EGFR output in chondrocytes could be inhibited tissue-selectively without the off-target toxicity of pan-EGFR oncology inhibitors.",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Osteoarthritis",
@@ -3344,10 +3573,11 @@ window.searchData = [
     "source_file": "kb/disorders/Osteoarthritis.yaml"
   },
   {
-    "gap_id": "gap_oa_egfr_celltype_specificity",
+    "discussion_id": "gap_oa_egfr_celltype_specificity",
     "name": "EGFR signaling exerts opposing, cell-type-specific effects across the osteoarthritic joint, yet the spatiotemporal map of where and when EGFR activation is protective versus pathological remains undefined. Which skeletal cell populations (superficial vs. deep-zone chondrocytes, synovial macrophages and fibroblasts, subchondral osteoblasts and osteoclasts) drive chondroprotective versus catabolic EGFR outputs, and how should this inform allosteric, tissue-targeted EGFR modulation that spares homeostatic signaling?",
     "prompt": "EGFR signaling exerts opposing, cell-type-specific effects across the osteoarthritic joint, yet the spatiotemporal map of where and when EGFR activation is protective versus pathological remains undefined. Which skeletal cell populations (superficial vs. deep-zone chondrocytes, synovial macrophages and fibroblasts, subchondral osteoblasts and osteoclasts) drive chondroprotective versus catabolic EGFR outputs, and how should this inform allosteric, tissue-targeted EGFR modulation that spares homeostatic signaling?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Osteoarthritis",
@@ -3387,10 +3617,11 @@ window.searchData = [
     "source_file": "kb/disorders/Osteoarthritis.yaml"
   },
   {
-    "gap_id": "gap_op_egfr_allosteric_pathway_targeting",
+    "discussion_id": "gap_op_egfr_allosteric_pathway_targeting",
     "name": "EGFR (an ErbB-family receptor tyrosine kinase) regulates the bone-remodeling unit through MAPK/ERK, PI3K/Akt, and NF-kB branches, but it remains unresolved how allosteric modulation of EGFR governs which pathway is selected in osteoblasts, osteoclasts, and osteocytes, and how pathological EGFR output could be inhibited in bone tissue-selectively without the off-target toxicity of pan-EGFR oncology inhibitors.",
     "prompt": "EGFR (an ErbB-family receptor tyrosine kinase) regulates the bone-remodeling unit through MAPK/ERK, PI3K/Akt, and NF-kB branches, but it remains unresolved how allosteric modulation of EGFR governs which pathway is selected in osteoblasts, osteoclasts, and osteocytes, and how pathological EGFR output could be inhibited in bone tissue-selectively without the off-target toxicity of pan-EGFR oncology inhibitors.",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Osteoporosis",
@@ -3421,10 +3652,11 @@ window.searchData = [
     "source_file": "kb/disorders/Osteoporosis.yaml"
   },
   {
-    "gap_id": "gap_op_egfr_celltype_specificity",
+    "discussion_id": "gap_op_egfr_celltype_specificity",
     "name": "EGFR signaling regulates the bone-remodeling unit, but its net effect is cell-type-specific and incompletely mapped: EGFR is anabolic via osteoprogenitor/osteoblast lineage support yet can also promote osteoclastogenesis. Which skeletal cell populations (mesenchymal progenitors, osteoblasts, osteocytes, osteoclasts) drive physiological versus pathological EGFR output during bone loss, when does activation occur across the remodeling cycle, and how could allosteric or bone-targeted EGFR modulation be tuned to preserve formation while limiting resorption?",
     "prompt": "EGFR signaling regulates the bone-remodeling unit, but its net effect is cell-type-specific and incompletely mapped: EGFR is anabolic via osteoprogenitor/osteoblast lineage support yet can also promote osteoclastogenesis. Which skeletal cell populations (mesenchymal progenitors, osteoblasts, osteocytes, osteoclasts) drive physiological versus pathological EGFR output during bone loss, when does activation occur across the remodeling cycle, and how could allosteric or bone-targeted EGFR modulation be tuned to preserve formation while limiting resorption?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Osteoporosis",
@@ -3462,10 +3694,11 @@ window.searchData = [
     "source_file": "kb/disorders/Osteoporosis.yaml"
   },
   {
-    "gap_id": "gap_hgsoc_polq_resistance_pivot",
+    "discussion_id": "gap_hgsoc_polq_resistance_pivot",
     "name": "Can POLQ (DNA polymerase theta) be exploited as a second pivot point in HRD HGSOC by combining PARP inhibition with allosteric POLQ inhibitors or POLQ-directed PROTAC degraders, and does this prevent the microhomology-mediated BRCA reversion path that drives clinical resistance?",
     "prompt": "Can POLQ (DNA polymerase theta) be exploited as a second pivot point in HRD HGSOC by combining PARP inhibition with allosteric POLQ inhibitors or POLQ-directed PROTAC degraders, and does this prevent the microhomology-mediated BRCA reversion path that drives clinical resistance?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Ovarian High-Grade Serous Carcinoma",
@@ -3498,10 +3731,11 @@ window.searchData = [
     "source_file": "kb/disorders/Ovarian_High-Grade_Serous_Carcinoma.yaml"
   },
   {
-    "gap_id": "gap_pdac_caf_program_t_cell_exclusion",
+    "discussion_id": "gap_pdac_caf_program_t_cell_exclusion",
     "name": "Which cancer-associated fibroblast programs actively cause T-cell exclusion and checkpoint resistance in PDAC, and which stromal programs are tumor-restraining or merely correlative with desmoplastic burden?",
     "prompt": "Which cancer-associated fibroblast programs actively cause T-cell exclusion and checkpoint resistance in PDAC, and which stromal programs are tumor-restraining or merely correlative with desmoplastic burden?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Pancreatic Ductal Adenocarcinoma",
@@ -3534,10 +3768,11 @@ window.searchData = [
     "source_file": "kb/disorders/Pancreatic_Ductal_Adenocarcinoma.yaml"
   },
   {
-    "gap_id": "gap_pd_microbiome_causal_direction_body_first",
+    "discussion_id": "gap_pd_microbiome_causal_direction_body_first",
     "name": "In body-first Parkinson disease, are gut microbiome dysbiosis and intestinal barrier/inflammatory changes causal triggers for enteric alpha-synuclein seeding, modifiers that amplify an already initiated synucleinopathy, or secondary consequences of autonomic gut dysfunction?",
     "prompt": "In body-first Parkinson disease, are gut microbiome dysbiosis and intestinal barrier/inflammatory changes causal triggers for enteric alpha-synuclein seeding, modifiers that amplify an already initiated synucleinopathy, or secondary consequences of autonomic gut dysfunction?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Parkinson's Disease",
@@ -3576,10 +3811,11 @@ window.searchData = [
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
-    "gap_id": "gap_pd_weight_loss_multifactorial_mechanisms",
+    "discussion_id": "gap_pd_weight_loss_multifactorial_mechanisms",
     "name": "Weight loss is a long-observed non-motor symptom of Parkinson disease, yet its mechanisms remain incompletely understood. Which of the proposed pathways \u2014 metabolic dysregulation, neuroendocrine disruption, gastrointestinal dysfunction, cognitive decline, and pharmacologic effects \u2014 are primary drivers versus secondary consequences, and how do they interact across the disease course?",
     "prompt": "Weight loss is a long-observed non-motor symptom of Parkinson disease, yet its mechanisms remain incompletely understood. Which of the proposed pathways \u2014 metabolic dysregulation, neuroendocrine disruption, gastrointestinal dysfunction, cognitive decline, and pharmacologic effects \u2014 are primary drivers versus secondary consequences, and how do they interact across the disease course?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Parkinson's Disease",
@@ -3616,10 +3852,11 @@ window.searchData = [
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
-    "gap_id": "gap_pd_variant_specific_isogenic_hpsc_mechanisms",
+    "discussion_id": "gap_pd_variant_specific_isogenic_hpsc_mechanisms",
     "name": "Which Parkinson disease risk and causal variants produce convergent dopaminergic-neuron mechanisms in a controlled human genetic background, and which phenotypes are variant-specific, modifier-dependent, or culture artifacts?",
     "prompt": "Which Parkinson disease risk and causal variants produce convergent dopaminergic-neuron mechanisms in a controlled human genetic background, and which phenotypes are variant-specific, modifier-dependent, or culture artifacts?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Parkinson's Disease",
@@ -3657,10 +3894,11 @@ window.searchData = [
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
-    "gap_id": "gap_adp_ribosylome_targets_in_viral_evasion",
+    "discussion_id": "gap_adp_ribosylome_targets_in_viral_evasion",
     "name": "Which ADP-ribosylated host or viral target proteins determine whether the PARP/PARG/macrodomain axis primarily controls viral RNA synthesis, stress-granule persistence, interferon output, or inflammatory pathology?",
     "prompt": "Which ADP-ribosylated host or viral target proteins determine whether the PARP/PARG/macrodomain axis primarily controls viral RNA synthesis, stress-granule persistence, interferon output, or inflammatory pathology?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "PARP PARG Macrodomain Viral Evasion Module",
@@ -3691,10 +3929,11 @@ window.searchData = [
     "source_file": "kb/modules/parp_parg_macrodomain_viral_evasion.yaml"
   },
   {
-    "gap_id": "kgap_fame_nova2_evidence_scope",
+    "discussion_id": "kgap_fame_nova2_evidence_scope",
     "name": "Does UUUCA repeat RNA sequestration of NOVA2 represent a shared mechanism across all FAME loci, or is it specific to the SAMD12/FCMTE1 model system in which it was discovered?",
     "prompt": "Does UUUCA repeat RNA sequestration of NOVA2 represent a shared mechanism across all FAME loci, or is it specific to the SAMD12/FCMTE1 model system in which it was discovered?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Pentanucleotide Repeat Familial Adult Myoclonus Epilepsy",
@@ -3727,10 +3966,11 @@ window.searchData = [
     "source_file": "kb/disorders/Pentanucleotide_Repeat_Familial_Adult_Myoclonus_Epilepsy.yaml"
   },
   {
-    "gap_id": "gap_neuronal_migration_vs_neuroependymal_integrity",
+    "discussion_id": "gap_neuronal_migration_vs_neuroependymal_integrity",
     "name": "Is human periventricular nodular heterotopia primarily a post-mitotic neuronal-migration defect (the classical FLNA framing in which neurons fail to leave the ventricular zone), or is it primarily an apical radial-glial / neuroependymal-integrity defect in which progenitors and the ventricular lining fail to organize, with breaks in the neuroependyma? And how do the genetically heterogeneous non-FLNA causes converge on a shared neuroependymal-attachment skeleton versus acting through distinct mechanisms?",
     "prompt": "Is human periventricular nodular heterotopia primarily a post-mitotic neuronal-migration defect (the classical FLNA framing in which neurons fail to leave the ventricular zone), or is it primarily an apical radial-glial / neuroependymal-integrity defect in which progenitors and the ventricular lining fail to organize, with breaks in the neuroependyma? And how do the genetically heterogeneous non-FLNA causes converge on a shared neuroependymal-attachment skeleton versus acting through distinct mechanisms?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Periventricular Nodular Heterotopia",
@@ -3758,10 +3998,11 @@ window.searchData = [
     "source_file": "kb/disorders/Periventricular_Nodular_Heterotopia.yaml"
   },
   {
-    "gap_id": "gap_pial_boundary_human_model_translatability",
+    "discussion_id": "gap_pial_boundary_human_model_translatability",
     "name": "Which aspects of pial basement membrane and radial-glial basal endfoot failure in mouse or other models faithfully map to human cobblestone-like cortical malformations, PMG overlap, epilepsy risk, and regional gyral patterning?",
     "prompt": "Which aspects of pial basement membrane and radial-glial basal endfoot failure in mouse or other models faithfully map to human cobblestone-like cortical malformations, PMG overlap, epilepsy risk, and regional gyral patterning?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Pial Basement Membrane and Radial-Glial Endfoot Failure Module",
@@ -3797,10 +4038,11 @@ window.searchData = [
     "source_file": "kb/modules/pial_basement_membrane_radial_glial_endfoot_failure.yaml"
   },
   {
-    "gap_id": "disc_pid_tcell_cause_or_consequence",
+    "discussion_id": "disc_pid_tcell_cause_or_consequence",
     "name": "Is the chemokine-driven CD4+/CD8+ T cell infiltration in Pick disease a driver of neurodegeneration, or a downstream marker of accumulating phosphorylated tau?",
     "prompt": "Is the chemokine-driven CD4+/CD8+ T cell infiltration in Pick disease a driver of neurodegeneration, or a downstream marker of accumulating phosphorylated tau?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Pick Disease",
@@ -3830,10 +4072,11 @@ window.searchData = [
     "source_file": "kb/disorders/Pick_Disease.yaml"
   },
   {
-    "gap_id": "disc_pid_population_prevalence",
+    "discussion_id": "disc_pid_population_prevalence",
     "name": "What is the true population-level prevalence and incidence of Pick disease, as distinct from clinical frontotemporal dementia and from other FTLD-tau subtypes?",
     "prompt": "What is the true population-level prevalence and incidence of Pick disease, as distinct from clinical frontotemporal dementia and from other FTLD-tau subtypes?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Pick Disease",
@@ -3863,10 +4106,11 @@ window.searchData = [
     "source_file": "kb/disorders/Pick_Disease.yaml"
   },
   {
-    "gap_id": "disc_pid_hippocampal_dg_vulnerability",
+    "discussion_id": "disc_pid_hippocampal_dg_vulnerability",
     "name": "Why is the hippocampal dentate gyrus disproportionately burdened with Pick bodies in both behavioral and aphasic Pick disease, despite neocortical pathology being clinicopathologically concordant with phenotype?",
     "prompt": "Why is the hippocampal dentate gyrus disproportionately burdened with Pick bodies in both behavioral and aphasic Pick disease, despite neocortical pathology being clinicopathologically concordant with phenotype?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Pick Disease",
@@ -3896,10 +4140,11 @@ window.searchData = [
     "source_file": "kb/disorders/Pick_Disease.yaml"
   },
   {
-    "gap_id": "gap_pcos_granulosa_apoptosis_pcsk9",
+    "discussion_id": "gap_pcos_granulosa_apoptosis_pcsk9",
     "name": "Granulosa cell apoptosis is a primary driver of follicular arrest and impaired oocyte maturation in PCOS, but the upstream triggers of that apoptosis remain unclear. Is a PCSK9 -> lipid metabolism abnormality -> AMPK/GSK-3beta -> apoptosis cascade a primary, translatable mechanism in human PCOS, and how does it relate to the parallel ferroptosis-autophagy and ER/oxidative-stress death programs already described in granulosa cells?",
     "prompt": "Granulosa cell apoptosis is a primary driver of follicular arrest and impaired oocyte maturation in PCOS, but the upstream triggers of that apoptosis remain unclear. Is a PCSK9 -> lipid metabolism abnormality -> AMPK/GSK-3beta -> apoptosis cascade a primary, translatable mechanism in human PCOS, and how does it relate to the parallel ferroptosis-autophagy and ER/oxidative-stress death programs already described in granulosa cells?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Polycystic Ovary Syndrome",
@@ -3936,10 +4181,11 @@ window.searchData = [
     "source_file": "kb/disorders/Polycystic_Ovary_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_pcos_causal_hierarchy_by_adiposity",
+    "discussion_id": "gap_pcos_causal_hierarchy_by_adiposity",
     "name": "In which PCOS patient strata is androgen excess, insulin resistance or hyperinsulinemia, adiposity, or hypothalamic-pituitary dysregulation the initiating event rather than an amplifier of an already established endocrine-metabolic cycle?\n",
     "prompt": "In which PCOS patient strata is androgen excess, insulin resistance or hyperinsulinemia, adiposity, or hypothalamic-pituitary dysregulation the initiating event rather than an amplifier of an already established endocrine-metabolic cycle?\n",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Polycystic Ovary Syndrome",
@@ -3976,10 +4222,11 @@ window.searchData = [
     "source_file": "kb/disorders/Polycystic_Ovary_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_pcos_pcsk9_granulosa_mouse_model_mismatch",
+    "discussion_id": "gap_pcos_pcsk9_granulosa_mouse_model_mismatch",
     "name": "The PCSK9 -> lipid metabolism abnormality -> AMPK/GSK-3beta -> granulosa cell apoptosis cascade was established in PCOS model mice and primary mouse follicles. Is elevated PCSK9 a primary driver of granulosa cell apoptosis in human PCOS, or is its causal, apoptosis-initiating role a species- or model-specific finding that does not translate to human follicular biology?",
     "prompt": "The PCSK9 -> lipid metabolism abnormality -> AMPK/GSK-3beta -> granulosa cell apoptosis cascade was established in PCOS model mice and primary mouse follicles. Is elevated PCSK9 a primary driver of granulosa cell apoptosis in human PCOS, or is its causal, apoptosis-initiating role a species- or model-specific finding that does not translate to human follicular biology?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Polycystic Ovary Syndrome",
@@ -4012,10 +4259,11 @@ window.searchData = [
     "source_file": "kb/disorders/Polycystic_Ovary_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_pots_receptor_autoantibody_causality",
+    "discussion_id": "gap_pots_receptor_autoantibody_causality",
     "name": "Are receptor autoantibodies causal drivers of POTS autonomic dysfunction, biomarkers of systemic immune activation, or epiphenomena that vary by cohort and assay?",
     "prompt": "Are receptor autoantibodies causal drivers of POTS autonomic dysfunction, biomarkers of systemic immune activation, or epiphenomena that vary by cohort and assay?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Postural Orthostatic Tachycardia Syndrome",
@@ -4057,10 +4305,11 @@ window.searchData = [
     "source_file": "kb/disorders/Postural_Orthostatic_Tachycardia_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_pots_mcas_etiologic_heterogeneity",
+    "discussion_id": "gap_pots_mcas_etiologic_heterogeneity",
     "name": "Does mast cell activation syndrome identify a mechanistic POTS subset, a comorbidity that amplifies orthostatic symptoms, or a marker of broader etiological heterogeneity?",
     "prompt": "Does mast cell activation syndrome identify a mechanistic POTS subset, a comorbidity that amplifies orthostatic symptoms, or a marker of broader etiological heterogeneity?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Postural Orthostatic Tachycardia Syndrome",
@@ -4097,10 +4346,11 @@ window.searchData = [
     "source_file": "kb/disorders/Postural_Orthostatic_Tachycardia_Syndrome.yaml"
   },
   {
-    "gap_id": "preeclampsia_upstream_trigger_heterogeneity",
+    "discussion_id": "preeclampsia_upstream_trigger_heterogeneity",
     "name": "Which upstream trigger best explains each presentation of preeclampsia: decidual immune maladaptation, abnormal placentation, placental stress, complement/inflammatory injury, or maternal vascular susceptibility?\n",
     "prompt": "Which upstream trigger best explains each presentation of preeclampsia: decidual immune maladaptation, abnormal placentation, placental stress, complement/inflammatory injury, or maternal vascular susceptibility?\n",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Preeclampsia",
@@ -4134,10 +4384,11 @@ window.searchData = [
     "source_file": "kb/disorders/Preeclampsia.yaml"
   },
   {
-    "gap_id": "gap_iih_obesity_venous_csf_hierarchy",
+    "discussion_id": "gap_iih_obesity_venous_csf_hierarchy",
     "name": "How do obesity/metabolic-hormonal drivers, venous sinus pressure and stenosis, and CSF production/absorption interact causally in IIH, and which of these is the initiating event versus an amplifying feedback consequence?",
     "prompt": "How do obesity/metabolic-hormonal drivers, venous sinus pressure and stenosis, and CSF production/absorption interact causally in IIH, and which of these is the initiating event versus an amplifying feedback consequence?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "pseudotumor cerebri",
@@ -4176,10 +4427,11 @@ window.searchData = [
     "source_file": "kb/disorders/pseudotumor_cerebri.yaml"
   },
   {
-    "gap_id": "gap_iih_venous_stenosis_cause_or_consequence",
+    "discussion_id": "gap_iih_venous_stenosis_cause_or_consequence",
     "name": "Is transverse venous sinus stenosis a primary initiating lesion or a pressure-dependent feedback consequence in IIH?",
     "prompt": "Is transverse venous sinus stenosis a primary initiating lesion or a pressure-dependent feedback consequence in IIH?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "pseudotumor cerebri",
@@ -4211,10 +4463,11 @@ window.searchData = [
     "source_file": "kb/disorders/pseudotumor_cerebri.yaml"
   },
   {
-    "gap_id": "gap_iih_headache_mechanism",
+    "discussion_id": "gap_iih_headache_mechanism",
     "name": "What is the proximate mechanism of headache in IIH, and why is it imperfectly coupled to the degree of intracranial pressure elevation?",
     "prompt": "What is the proximate mechanism of headache in IIH, and why is it imperfectly coupled to the degree of intracranial pressure elevation?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "pseudotumor cerebri",
@@ -4244,10 +4497,11 @@ window.searchData = [
     "source_file": "kb/disorders/pseudotumor_cerebri.yaml"
   },
   {
-    "gap_id": "gap_iih_sex_and_nonobese_predilection",
+    "discussion_id": "gap_iih_sex_and_nonobese_predilection",
     "name": "Why does IIH predominantly affect obese women of reproductive age, and what distinguishes the mechanism in non-obese or atypical cases?",
     "prompt": "Why does IIH predominantly affect obese women of reproductive age, and what distinguishes the mechanism in non-obese or atypical cases?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "pseudotumor cerebri",
@@ -4277,10 +4531,11 @@ window.searchData = [
     "source_file": "kb/disorders/pseudotumor_cerebri.yaml"
   },
   {
-    "gap_id": "gap_reelin_human_model_translatability",
+    "discussion_id": "gap_reelin_human_model_translatability",
     "name": "Which parts of the RELN/VLDLR/LRP8/DAB1 terminal-translocation mechanism are adequately captured by mouse reeler and pathway-mutant models, and which require human iPSC-derived cortical organoids or organotypic human cortical assays to resolve human-specific progenitor, lamination, seizure, hippocampal, or cerebellar branches?",
     "prompt": "Which parts of the RELN/VLDLR/LRP8/DAB1 terminal-translocation mechanism are adequately captured by mouse reeler and pathway-mutant models, and which require human iPSC-derived cortical organoids or organotypic human cortical assays to resolve human-specific progenitor, lamination, seizure, hippocampal, or cerebellar branches?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Reelin Terminal Translocation and Cortical Lamination Failure Module",
@@ -4317,10 +4572,11 @@ window.searchData = [
     "source_file": "kb/modules/reelin_terminal_translocation_lamination_failure.yaml"
   },
   {
-    "gap_id": "prr15_therapy_resistance",
+    "discussion_id": "prr15_therapy_resistance",
     "name": "Does PRR15-mediated cuproptosis suppression contribute to resistance against conventional and targeted RCC therapies?",
     "prompt": "Does PRR15-mediated cuproptosis suppression contribute to resistance against conventional and targeted RCC therapies?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Renal Cell Carcinoma",
@@ -4349,10 +4605,11 @@ window.searchData = [
     "source_file": "kb/disorders/Renal_Cell_Carcinoma.yaml"
   },
   {
-    "gap_id": "prr15_nfkb_direct_indirect",
+    "discussion_id": "prr15_nfkb_direct_indirect",
     "name": "Is PRR15 a direct NF-\u03baB inhibitor or does it regulate NF-\u03baB signaling through intermediate mechanisms?",
     "prompt": "Is PRR15 a direct NF-\u03baB inhibitor or does it regulate NF-\u03baB signaling through intermediate mechanisms?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Renal Cell Carcinoma",
@@ -4381,10 +4638,11 @@ window.searchData = [
     "source_file": "kb/disorders/Renal_Cell_Carcinoma.yaml"
   },
   {
-    "gap_id": "gap_rcc_prr15_cuproptosis",
+    "discussion_id": "gap_rcc_prr15_cuproptosis",
     "name": "PRR15 (Proline-rich 15) was recently reported to suppress renal cell carcinoma progression by promoting cuproptosis via an NF-\u03baB/FDX1 axis, yet the upstream signals that silence PRR15 during tumorigenesis, the functional hierarchy of the PRR15/NF-\u03baB/FDX1 axis, and the relevance of impaired cuproptosis to therapy resistance remain unknown. Which signals trigger PRR15 loss, is PRR15 a direct or indirect regulator of NF-\u03baB, and is PRR15 loss a driver or passenger event in RCC?",
     "prompt": "PRR15 (Proline-rich 15) was recently reported to suppress renal cell carcinoma progression by promoting cuproptosis via an NF-\u03baB/FDX1 axis, yet the upstream signals that silence PRR15 during tumorigenesis, the functional hierarchy of the PRR15/NF-\u03baB/FDX1 axis, and the relevance of impaired cuproptosis to therapy resistance remain unknown. Which signals trigger PRR15 loss, is PRR15 a direct or indirect regulator of NF-\u03baB, and is PRR15 loss a driver or passenger event in RCC?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Renal Cell Carcinoma",
@@ -4419,10 +4677,11 @@ window.searchData = [
     "source_file": "kb/disorders/Renal_Cell_Carcinoma.yaml"
   },
   {
-    "gap_id": "prr15_upstream_triggers",
+    "discussion_id": "prr15_upstream_triggers",
     "name": "What upstream signals or mutations trigger PRR15 silencing during RCC development and progression?",
     "prompt": "What upstream signals or mutations trigger PRR15 silencing during RCC development and progression?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Renal Cell Carcinoma",
@@ -4451,10 +4710,11 @@ window.searchData = [
     "source_file": "kb/disorders/Renal_Cell_Carcinoma.yaml"
   },
   {
-    "gap_id": "gap_ra_synovial_lining_quiescence_induction",
+    "discussion_id": "gap_ra_synovial_lining_quiescence_induction",
     "name": "Can the quiescent synovial lining program seen in RA remission be actively induced to suppress pathogenic fibroblast-myeloid niches, or is it only a marker that appears after inflammation has already resolved?",
     "prompt": "Can the quiescent synovial lining program seen in RA remission be actively induced to suppress pathogenic fibroblast-myeloid niches, or is it only a marker that appears after inflammation has already resolved?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Rheumatoid Arthritis",
@@ -4488,10 +4748,11 @@ window.searchData = [
     "source_file": "kb/disorders/Rheumatoid_Arthritis.yaml"
   },
   {
-    "gap_id": "gap_grb2_cytoplasmic_nuclear_switch",
+    "discussion_id": "gap_grb2_cytoplasmic_nuclear_switch",
     "name": "Which tumor states switch GRB2 from a cytoplasmic RTK adaptor role into a nuclear RAD51 replication-fork protection role, and does that switch predict combined PARP-inhibitor and immunotherapy response?",
     "prompt": "Which tumor states switch GRB2 from a cytoplasmic RTK adaptor role into a nuclear RAD51 replication-fork protection role, and does that switch predict combined PARP-inhibitor and immunotherapy response?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "RTK GRB2 Signaling Adaptation Module",
@@ -4520,10 +4781,11 @@ window.searchData = [
     "source_file": "kb/modules/rtk_grb2_signaling_adaptation.yaml"
   },
   {
-    "gap_id": "gap_sarcoidosis_antigen_persistence_resolution",
+    "discussion_id": "gap_sarcoidosis_antigen_persistence_resolution",
     "name": "Which antigenic triggers and host immune-cell circuits determine whether a sarcoidosis granuloma resolves, persists as chronic inflammatory disease, or transitions to fibrotic organ damage?",
     "prompt": "Which antigenic triggers and host immune-cell circuits determine whether a sarcoidosis granuloma resolves, persists as chronic inflammatory disease, or transitions to fibrotic organ damage?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Sarcoidosis",
@@ -4565,10 +4827,11 @@ window.searchData = [
     "source_file": "kb/disorders/Sarcoidosis.yaml"
   },
   {
-    "gap_id": "gap_schizophrenia_complement_pruning_human_causal_chain",
+    "discussion_id": "gap_schizophrenia_complement_pruning_human_causal_chain",
     "name": "How do schizophrenia-associated complement C4A activity, microglial synapse engulfment, adolescent cortical synapse loss, dopamine dysregulation, and positive, negative, or cognitive symptom domains connect causally in living human patients?",
     "prompt": "How do schizophrenia-associated complement C4A activity, microglial synapse engulfment, adolescent cortical synapse loss, dopamine dysregulation, and positive, negative, or cognitive symptom domains connect causally in living human patients?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Schizophrenia",
@@ -4600,10 +4863,11 @@ window.searchData = [
     "source_file": "kb/disorders/Schizophrenia.yaml"
   },
   {
-    "gap_id": "gap_shw_genotype_phenotype_correlation",
+    "discussion_id": "gap_shw_genotype_phenotype_correlation",
     "name": "Are there genotype-phenotype correlations in Sifrim-Hitz-Weiss syndrome based on the type or location of CHD4 variants, and do the variant-specific differences in CHD4 ATP hydrolysis and chromatin remodeling activity translate into distinct clinical subphenotypes?",
     "prompt": "Are there genotype-phenotype correlations in Sifrim-Hitz-Weiss syndrome based on the type or location of CHD4 variants, and do the variant-specific differences in CHD4 ATP hydrolysis and chromatin remodeling activity translate into distinct clinical subphenotypes?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Sifrim-Hitz-Weiss syndrome",
@@ -4635,10 +4899,50 @@ window.searchData = [
     "source_file": "kb/disorders/Sifrim-Hitz-Weiss_Syndrome.yaml"
   },
   {
-    "gap_id": "gap_srpx2_human_model_translatability",
+    "discussion_id": "disc_smdk_trpv4_spectrum_lof_boundary",
+    "name": "How should SMDK be bounded within the overlapping TRPV4 skeletal dysplasia continuum when most cases show gain-of-function channel activation but a single recent case supports loss-of-function TRPV4 activity?",
+    "prompt": "How should SMDK be bounded within the overlapping TRPV4 skeletal dysplasia continuum when most cases show gain-of-function channel activation but a single recent case supports loss-of-function TRPV4 activity?",
+    "kind": "INTERPRETATION",
+    "is_gap": "Other discussion",
+    "status": "OPEN",
+    "source_type": "Disorder",
+    "source_name": "Spondylometaphyseal Dysplasia Kozlowski Type",
+    "disease_id": "MONDO:0008477",
+    "category": "Mendelian",
+    "parents": [
+      "Spondylometaphyseal Dysplasia",
+      "TRPV4-Related Skeletal Dysplasia"
+    ],
+    "attaches_to": [
+      "pathophysiology#TRPV4 Gain-of-Function Channel Activation",
+      "pathophysiology#TRPV4 Loss-of-Function Channel Impairment",
+      "diagnosis#TRPV4 Spectrum Differential Diagnosis"
+    ],
+    "attached_nodes": [
+      "TRPV4 Gain-of-Function Channel Activation",
+      "TRPV4 Loss-of-Function Channel Impairment",
+      "TRPV4 Spectrum Differential Diagnosis"
+    ],
+    "rationale": "SMDK overlaps clinically and radiographically with brachyolmia and metatropic dysplasia, and the p.W785S report shows that a loss-of-function mechanism can produce an SMDK diagnosis. The single-case LOF evidence should therefore be modeled as an alternative mechanism requiring cautious interpretation, not as replacement of the usual gain-of-function model.",
+    "experiment_names": [],
+    "num_experiments": 0,
+    "num_evidence": 2,
+    "evidence_refs": [
+      "PMID:21658220",
+      "PMID:41225599"
+    ],
+    "has_experiments": "No proposed experiments",
+    "posed_by": "",
+    "creation_date": "2026-04-03T00:00:00Z",
+    "page_url": "../../pages/disorders/Spondylometaphyseal_Dysplasia_Kozlowski_Type.html#disc_smdk_trpv4_spectrum_lof_boundary",
+    "source_file": "kb/disorders/Spondylometaphyseal_Dysplasia_Kozlowski_Type.yaml"
+  },
+  {
+    "discussion_id": "gap_srpx2_human_model_translatability",
     "name": "Do SRPX2 migration, tubulin-acetylation, and epileptiform phenotypes observed in rat in utero silencing translate to human perisylvian cortical development and patient-relevant speech-cortex biology?",
     "prompt": "Do SRPX2 migration, tubulin-acetylation, and epileptiform phenotypes observed in rat in utero silencing translate to human perisylvian cortical development and patient-relevant speech-cortex biology?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "SRPX2-related Speech-Epilepsy-Polymicrogyria",
@@ -4677,10 +4981,11 @@ window.searchData = [
     "source_file": "kb/disorders/SRPX2-related_Speech_Epilepsy_Polymicrogyria.yaml"
   },
   {
-    "gap_id": "gap_srpx2_tubacin_preclinical_translation",
+    "discussion_id": "gap_srpx2_tubacin_preclinical_translation",
     "name": "Does tubacin prevention of rat Srpx2-silencing phenotypes identify a realistic therapeutic mechanism for human SRPX2 disease, or only a developmental proof of principle?",
     "prompt": "Does tubacin prevention of rat Srpx2-silencing phenotypes identify a realistic therapeutic mechanism for human SRPX2 disease, or only a developmental proof of principle?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "SRPX2-related Speech-Epilepsy-Polymicrogyria",
@@ -4716,10 +5021,11 @@ window.searchData = [
     "source_file": "kb/disorders/SRPX2-related_Speech_Epilepsy_Polymicrogyria.yaml"
   },
   {
-    "gap_id": "gap_srpx2_variant_causality_and_lumping",
+    "discussion_id": "gap_srpx2_variant_causality_and_lumping",
     "name": "Which SRPX2 variants have sufficient modern segregation, population, functional, and replication evidence to support a single disease entry with speech-epilepsy and bilateral perisylvian PMG branches?",
     "prompt": "Which SRPX2 variants have sufficient modern segregation, population, functional, and replication evidence to support a single disease entry with speech-epilepsy and bilateral perisylvian PMG branches?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "SRPX2-related Speech-Epilepsy-Polymicrogyria",
@@ -4756,10 +5062,11 @@ window.searchData = [
     "source_file": "kb/disorders/SRPX2-related_Speech_Epilepsy_Polymicrogyria.yaml"
   },
   {
-    "gap_id": "gap_sle_interferon_trigger_persistence_tissue_specificity",
+    "discussion_id": "gap_sle_interferon_trigger_persistence_tissue_specificity",
     "name": "Which upstream nucleic-acid trigger first ignites type I interferon in SLE, which immune-complex, pDC, B-cell, NET, cGAS-STING, and complement loops maintain it, and which tissue-local variables determine nephritis versus cutaneous, CNS, hematologic, vascular, or serosal injury?",
     "prompt": "Which upstream nucleic-acid trigger first ignites type I interferon in SLE, which immune-complex, pDC, B-cell, NET, cGAS-STING, and complement loops maintain it, and which tissue-local variables determine nephritis versus cutaneous, CNS, hematologic, vascular, or serosal injury?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Systemic Lupus Erythematosus",
@@ -4808,10 +5115,11 @@ window.searchData = [
     "source_file": "kb/disorders/Systemic_Lupus_Erythematosus.yaml"
   },
   {
-    "gap_id": "disc_ttnsv_gdf11_therapeutic_target",
+    "discussion_id": "disc_ttnsv_gdf11_therapeutic_target",
     "name": "Is GDF11 upregulation in dominant TTN skeletal muscle disease a maladaptive driver that can be therapeutically targeted, or a compensatory marker of diseased tissue?",
     "prompt": "Is GDF11 upregulation in dominant TTN skeletal muscle disease a maladaptive driver that can be therapeutically targeted, or a compensatory marker of diseased tissue?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "TTN-Related Myopathy, Dominant-Negative TTNsv",
@@ -4843,10 +5151,11 @@ window.searchData = [
     "source_file": "kb/disorders/TTN_Related_Myopathy_Dominant_Negative_TTNsv.yaml"
   },
   {
-    "gap_id": "gap_tuba1a_human_organoid_translatability",
+    "discussion_id": "gap_tuba1a_human_organoid_translatability",
     "name": "Which TUBA1A variant effects on microtubule heterodimer formation, neuronal migration, and progenitor behavior are conserved across biochemical or mouse systems, and which require human iPSC-derived cortical organoids or fetal tissue benchmarks to resolve?",
     "prompt": "Which TUBA1A variant effects on microtubule heterodimer formation, neuronal migration, and progenitor behavior are conserved across biochemical or mouse systems, and which require human iPSC-derived cortical organoids or fetal tissue benchmarks to resolve?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "TUBA1A-related Tubulinopathy",
@@ -4886,10 +5195,11 @@ window.searchData = [
     "source_file": "kb/disorders/TUBA1A-related_Tubulinopathy.yaml"
   },
   {
-    "gap_id": "gap_tubb_tubb5_human_organoid_translatability",
+    "discussion_id": "gap_tubb_tubb5_human_organoid_translatability",
     "name": "Are the progenitor cell-cycle, spindle-orientation, apoptosis, and migration defects observed in mouse Tubb5 models conserved in human radial glia, outer-radial-glia-like cells, and cortical organoids carrying pathogenic TUBB/TUBB5 variants?",
     "prompt": "Are the progenitor cell-cycle, spindle-orientation, apoptosis, and migration defects observed in mouse Tubb5 models conserved in human radial glia, outer-radial-glia-like cells, and cortical organoids carrying pathogenic TUBB/TUBB5 variants?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "TUBB/TUBB5-related Microcephaly",
@@ -4928,10 +5238,11 @@ window.searchData = [
     "source_file": "kb/disorders/TUBB_TUBB5-related_Microcephaly.yaml"
   },
   {
-    "gap_id": "gap_tubb_tubb5_natural_history_and_phenotype_breadth",
+    "discussion_id": "gap_tubb_tubb5_natural_history_and_phenotype_breadth",
     "name": "What is the full natural-history and phenotype range for TUBB/TUBB5-related microcephaly beyond the three original cases and small tubulinopathy cohort counts?",
     "prompt": "What is the full natural-history and phenotype range for TUBB/TUBB5-related microcephaly beyond the three original cases and small tubulinopathy cohort counts?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "TUBB/TUBB5-related Microcephaly",
@@ -4963,10 +5274,11 @@ window.searchData = [
     "source_file": "kb/disorders/TUBB_TUBB5-related_Microcephaly.yaml"
   },
   {
-    "gap_id": "gap_tubb2ab_human_organoid_translatability",
+    "discussion_id": "gap_tubb2ab_human_organoid_translatability",
     "name": "Do human iPSC-derived cortical organoids reveal TUBB2A/TUBB2B-specific progenitor, outer-radial-glia, or migration defects that are not captured by clinical imaging, biochemical inference, or rodent/tubulinopathy models?",
     "prompt": "Do human iPSC-derived cortical organoids reveal TUBB2A/TUBB2B-specific progenitor, outer-radial-glia, or migration defects that are not captured by clinical imaging, biochemical inference, or rodent/tubulinopathy models?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "TUBB2A/TUBB2B-related Cortical Malformation",
@@ -5003,10 +5315,11 @@ window.searchData = [
     "source_file": "kb/disorders/TUBB2A_TUBB2B-related_Cortical_Malformation.yaml"
   },
   {
-    "gap_id": "gap_tubb2ab_lumping_boundary",
+    "discussion_id": "gap_tubb2ab_lumping_boundary",
     "name": "Should TUBB2A and TUBB2B remain a shared beta-tubulin cortical malformation entry, or should additional TUBB2A cases split out a distinct disease skeleton?",
     "prompt": "Should TUBB2A and TUBB2B remain a shared beta-tubulin cortical malformation entry, or should additional TUBB2A cases split out a distinct disease skeleton?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "TUBB2A/TUBB2B-related Cortical Malformation",
@@ -5040,10 +5353,11 @@ window.searchData = [
     "source_file": "kb/disorders/TUBB2A_TUBB2B-related_Cortical_Malformation.yaml"
   },
   {
-    "gap_id": "gap_tubb3_kinesin_causality_for_cfeom",
+    "discussion_id": "gap_tubb3_kinesin_causality_for_cfeom",
     "name": "Is disruption of the kinesin-microtubule interaction sufficient and necessary to cause CFEOM3, or is altered microtubule dynamic instability alone able to produce the axon guidance defect?",
     "prompt": "Is disruption of the kinesin-microtubule interaction sufficient and necessary to cause CFEOM3, or is altered microtubule dynamic instability alone able to produce the axon guidance defect?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "TUBB3-related Tubulinopathy",
@@ -5073,10 +5387,11 @@ window.searchData = [
     "source_file": "kb/disorders/TUBB3-related_Tubulinopathy.yaml"
   },
   {
-    "gap_id": "gap_tubb3_arm_genotype_phenotype_divergence",
+    "discussion_id": "gap_tubb3_arm_genotype_phenotype_divergence",
     "name": "Why do different TUBB3 missense mutations preferentially produce the kinesin-dependent axon guidance / CFEOM3 arm versus the microtubule-dynamics cortical migration arm, and what is the structural basis for this phenotypic divergence from a shared tubulin lesion?",
     "prompt": "Why do different TUBB3 missense mutations preferentially produce the kinesin-dependent axon guidance / CFEOM3 arm versus the microtubule-dynamics cortical migration arm, and what is the structural basis for this phenotypic divergence from a shared tubulin lesion?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "TUBB3-related Tubulinopathy",
@@ -5108,10 +5423,11 @@ window.searchData = [
     "source_file": "kb/disorders/TUBB3-related_Tubulinopathy.yaml"
   },
   {
-    "gap_id": "gap_t2d_beta_cell_dedifferentiation_reversibility",
+    "discussion_id": "gap_t2d_beta_cell_dedifferentiation_reversibility",
     "name": "Is beta-cell dedifferentiation and beta-to-alpha-like trajectory switching in type 2 diabetes a reversible driver of beta-cell failure, or mostly a late marker of intrapancreatic adiposity, inflammation, and metabolic stress?",
     "prompt": "Is beta-cell dedifferentiation and beta-to-alpha-like trajectory switching in type 2 diabetes a reversible driver of beta-cell failure, or mostly a late marker of intrapancreatic adiposity, inflammation, and metabolic stress?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Type 2 Diabetes Mellitus",
@@ -5145,10 +5461,11 @@ window.searchData = [
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
   },
   {
-    "gap_id": "gap_t1d_viral_interferon_autoimmunity_bridge",
+    "discussion_id": "gap_t1d_viral_interferon_autoimmunity_bridge",
     "name": "Which viral-exposure context converts transient islet interferon signaling and gut-pancreas lymph-node inflammatory crosstalk into durable beta-cell autoimmunity in HLA-risk individuals?",
     "prompt": "Which viral-exposure context converts transient islet interferon signaling and gut-pancreas lymph-node inflammatory crosstalk into durable beta-cell autoimmunity in HLA-risk individuals?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Type I Diabetes",
@@ -5184,10 +5501,11 @@ window.searchData = [
     "source_file": "kb/disorders/Type_I_Diabetes.yaml"
   },
   {
-    "gap_id": "gap_viral_mcd_human_model_translatability",
+    "discussion_id": "gap_viral_mcd_human_model_translatability",
     "name": "Which congenital viral cortical-malformation mechanisms are faithfully captured by mouse, non-human primate organoid, human organoid, fetal slice, and postmortem human tissue systems, and which are model- or strain-specific?",
     "prompt": "Which congenital viral cortical-malformation mechanisms are faithfully captured by mouse, non-human primate organoid, human organoid, fetal slice, and postmortem human tissue systems, and which are model- or strain-specific?",
     "kind": "HUMAN MODEL MISMATCH",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Viral Neural Progenitor Cytopathy Module",
@@ -5219,10 +5537,11 @@ window.searchData = [
     "source_file": "kb/modules/viral_neural_progenitor_cytopathy.yaml"
   },
   {
-    "gap_id": "gap_viral_entry_receptor_tropism",
+    "discussion_id": "gap_viral_entry_receptor_tropism",
     "name": "Which viral entry receptors or attachment factors determine susceptibility of human radial glia, outer radial glia, neural progenitors, endothelium, and fetal barrier tissues to congenital viral infection?",
     "prompt": "Which viral entry receptors or attachment factors determine susceptibility of human radial glia, outer radial glia, neural progenitors, endothelium, and fetal barrier tissues to congenital viral infection?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Module",
     "source_name": "Viral Neural Progenitor Cytopathy Module",
@@ -5252,10 +5571,11 @@ window.searchData = [
     "source_file": "kb/modules/viral_neural_progenitor_cytopathy.yaml"
   },
   {
-    "gap_id": "gap_wilson_cuproptosis_human_validation",
+    "discussion_id": "gap_wilson_cuproptosis_human_validation",
     "name": "Does cuproptosis occur as a copper-driven hepatocyte death program in human Wilson disease liver, or are the current cuproptosis signals primarily model-system proxies for broader copper toxicity?",
     "prompt": "Does cuproptosis occur as a copper-driven hepatocyte death program in human Wilson disease liver, or are the current cuproptosis signals primarily model-system proxies for broader copper toxicity?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Wilson Disease",
@@ -5290,10 +5610,11 @@ window.searchData = [
     "source_file": "kb/disorders/Wilsons_Disease.yaml"
   },
   {
-    "gap_id": "gap_wilson_brain_copper_vs_liver_inflammation",
+    "discussion_id": "gap_wilson_brain_copper_vs_liver_inflammation",
     "name": "In neurological Wilson disease, how much of the neuronal injury is driven by direct brain copper deposition versus liver-derived inflammatory signaling transmitted through a liver-brain axis, and does this balance shift across ATP7B genotypes and disease stages?",
     "prompt": "In neurological Wilson disease, how much of the neuronal injury is driven by direct brain copper deposition versus liver-derived inflammatory signaling transmitted through a liver-brain axis, and does this balance shift across ATP7B genotypes and disease stages?",
     "kind": "KNOWLEDGE GAP",
+    "is_gap": "Knowledge gap",
     "status": "OPEN",
     "source_type": "Disorder",
     "source_name": "Wilson Disease",
@@ -5328,9 +5649,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_gaps": 144,
-  "total_source_entries": 90,
-  "total_with_experiments": 85,
-  "total_gap_kinds": 2
+  "total_discussions": 149,
+  "total_knowledge_gaps": 144,
+  "total_source_entries": 92,
+  "total_with_experiments": 86,
+  "total_discussion_kinds": 5
 };
 window.dispatchEvent(new Event('searchDataReady'));

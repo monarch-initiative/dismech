@@ -1,8 +1,8 @@
 window.searchSchema = {
-  "title": "Knowledge Gaps Browser",
-  "description": "Browse open knowledge gaps and human/model mismatches across the dismech knowledge base",
-  "searchPlaceholder": "Search knowledge gaps...",
-  "recordIdField": "gap_id",
+  "title": "Discussions Browser",
+  "description": "Browse open questions, knowledge gaps, controversies, and other curation discussions across the dismech knowledge base",
+  "searchPlaceholder": "Search discussions...",
+  "recordIdField": "discussion_id",
   "searchableFields": [
     "name",
     "prompt",
@@ -25,7 +25,12 @@ window.searchSchema = {
   "facets": [
     {
       "field": "kind",
-      "label": "Gap Type",
+      "label": "Discussion Type",
+      "type": "string"
+    },
+    {
+      "field": "is_gap",
+      "label": "Knowledge Gap?",
       "type": "string"
     },
     {

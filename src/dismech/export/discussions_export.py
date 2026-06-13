@@ -1,13 +1,15 @@
 """
-Knowledge-gap browser data exporter for dismech.
+Discussions browser data exporter for dismech.
 
 Flattens the ``discussions`` blocks of disorder and module YAML files into one
-searchable record per knowledge gap, for the faceted knowledge-gap browser
-(``app/gaps/``). Only gap-flavoured discussions are exported — those whose
-``kind`` is ``KNOWLEDGE_GAP`` or ``HUMAN_MODEL_MISMATCH``.
+searchable record per discussion, for the faceted discussions browser
+(``app/discussions/``). All discussion kinds are exported — open questions,
+controversies, curation TODOs, emerging hypotheses, interpretations, and the
+two knowledge-gap kinds (``KNOWLEDGE_GAP`` and ``HUMAN_MODEL_MISMATCH``) — and
+the ``kind`` facet lets users narrow to a particular kind.
 
-Each record links back to the disorder/module page that owns the gap, anchored
-on the discussion's ``discussion_id``.
+Each record links back to the disorder/module page that owns the discussion,
+anchored on the discussion's ``discussion_id``.
 """
 
 import json
@@ -16,7 +18,7 @@ from typing import Any
 
 import yaml
 
-# Discussion kinds that count as "knowledge gaps" for the browser.
+# Discussion kinds that count as "knowledge gaps" (used for the Gap? facet).
 GAP_KINDS = {"KNOWLEDGE_GAP", "HUMAN_MODEL_MISMATCH"}
 
 
@@ -47,14 +49,14 @@ def _collect_reference_ids(evidence: Any) -> list[str]:
     return refs
 
 
-class KnowledgeGapExporter:
-    """Export knowledge-gap discussions to browser-friendly JSON/JS records."""
+class DiscussionsExporter:
+    """Export discussion threads to browser-friendly JSON/JS records."""
 
     def load_entry(self, file_path: Path) -> dict[str, Any]:
         with open(file_path) as f:
             return yaml.safe_load(f) or {}
 
-    def extract_gaps(
+    def extract_discussions(
         self,
         entry: dict[str, Any],
         *,
@@ -62,7 +64,7 @@ class KnowledgeGapExporter:
         source_file: str,
         page_url: str,
     ) -> list[dict[str, Any]]:
-        """Extract one record per gap-flavoured discussion in ``entry``."""
+        """Extract one record per discussion in ``entry``."""
         records: list[dict[str, Any]] = []
         source_name = entry.get("name", "Unknown")
         creation_date = entry.get("creation_date")
@@ -80,10 +82,11 @@ class KnowledgeGapExporter:
             if not isinstance(discussion, dict):
                 continue
             kind = discussion.get("kind")
-            if kind not in GAP_KINDS:
-                continue
 
-            gap_id = discussion.get("discussion_id") or f"{slugify(source_name)}-gap-{idx}"
+            discussion_id = (
+                discussion.get("discussion_id")
+                or f"{slugify(source_name)}-discussion-{idx}"
+            )
             attaches_to = [
                 str(ref) for ref in (discussion.get("attaches_to") or []) if ref
             ]
@@ -98,11 +101,12 @@ class KnowledgeGapExporter:
 
             records.append(
                 {
-                    "gap_id": gap_id,
+                    "discussion_id": discussion_id,
                     # ``name`` drives MiniSearch boosting and the card title.
                     "name": discussion.get("prompt", source_name),
                     "prompt": discussion.get("prompt", ""),
                     "kind": (kind or "").replace("_", " "),
+                    "is_gap": "Knowledge gap" if kind in GAP_KINDS else "Other discussion",
                     "status": (discussion.get("status") or "").replace("_", " "),
                     "source_type": source_type,
                     "source_name": source_name,
@@ -123,7 +127,7 @@ class KnowledgeGapExporter:
                     ),
                     "posed_by": discussion.get("posed_by", ""),
                     "creation_date": creation_date,
-                    "page_url": f"{page_url}#{gap_id}",
+                    "page_url": f"{page_url}#{discussion_id}",
                     "source_file": source_file,
                 }
             )
@@ -143,7 +147,7 @@ class KnowledgeGapExporter:
                 entry = self.load_entry(file_path)
                 slug = slugify(entry.get("name", file_path.stem))
                 records.extend(
-                    self.extract_gaps(
+                    self.extract_discussions(
                         entry,
                         source_type="Disorder",
                         source_file=f"kb/disorders/{file_path.name}",
@@ -157,7 +161,7 @@ class KnowledgeGapExporter:
                     continue
                 entry = self.load_entry(file_path)
                 records.extend(
-                    self.extract_gaps(
+                    self.extract_discussions(
                         entry,
                         source_type="Module",
                         source_file=f"kb/modules/{file_path.name}",
@@ -176,11 +180,13 @@ class KnowledgeGapExporter:
         sources = {r["source_name"] for r in records}
         with_experiments = sum(1 for r in records if r["num_experiments"] > 0)
         kinds = {r["kind"] for r in records}
+        gaps = sum(1 for r in records if r["is_gap"] == "Knowledge gap")
         return {
-            "total_gaps": len(records),
+            "total_discussions": len(records),
+            "total_knowledge_gaps": gaps,
             "total_source_entries": len(sources),
             "total_with_experiments": with_experiments,
-            "total_gap_kinds": len(kinds),
+            "total_discussion_kinds": len(kinds),
         }
 
     def export_to_js(
@@ -200,21 +206,21 @@ class KnowledgeGapExporter:
         with open(output_path, "w") as f:
             f.write(js_content)
 
-        print(f"Exported {len(records)} knowledge gaps to {output_path}")
+        print(f"Exported {len(records)} discussions to {output_path}")
 
 
 def main():
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Export knowledge-gap data for browser")
+    parser = argparse.ArgumentParser(description="Export discussion data for browser")
     parser.add_argument("--disorders-dir", default="kb/disorders", help="Disorder YAML directory")
     parser.add_argument("--modules-dir", default="kb/modules", help="Module YAML directory")
-    parser.add_argument("--output", "-o", default="app/gaps/data.js", help="Output file path")
+    parser.add_argument("--output", "-o", default="app/discussions/data.js", help="Output file path")
 
     args = parser.parse_args()
 
-    KnowledgeGapExporter().export_to_js(
+    DiscussionsExporter().export_to_js(
         Path(args.output),
         disorders_dir=Path(args.disorders_dir),
         modules_dir=Path(args.modules_dir),
