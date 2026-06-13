@@ -192,11 +192,65 @@ def render(reports: list[GroupingReport], markdown: bool) -> str:
     return "\n".join(lines)
 
 
+def audit_consistency(only: str | None = None) -> str:
+    """For each grouping MONDO mapping, report whether the term is-a-subsumes the
+    members' primary MONDO ids, and recommend a SKOS predicate.
+
+    A grouping whose members all fall under the MONDO term but which is one of
+    many such MONDO descendants is a curated (often partial) union of that class
+    -> skos:closeMatch. A grouping with members outside the MONDO term's is-a
+    subtree is broader than the MONDO class -> skos:broadMatch. This produces the
+    provenance recorded in each grouping's mapping `consistency`/`mapping_justification`.
+    """
+    adapter = get_adapter("sqlite:obo:mondo")
+    # disorder name -> primary MONDO (disease_term)
+    prim: dict[str, str] = {}
+    for path in sorted(glob.glob(os.path.join(DISORDERS_DIR, "*.yaml"))):
+        data = yaml.safe_load(open(path))
+        if isinstance(data, dict):
+            ids = list(_mondo_ids(data.get("disease_term")))
+            if ids:
+                prim[data.get("name")] = ids[0]
+    lines: list[str] = []
+    for path in sorted(glob.glob(os.path.join(GROUPINGS_DIR, "*.yaml"))):
+        g = yaml.safe_load(open(path))
+        if not isinstance(g, dict):
+            continue
+        if only and only.lower() not in (g.get("name", "")).lower():
+            continue
+        maps = (g.get("mappings") or {}).get("mondo_mappings") or []
+        gm = maps[0]["term"]["id"] if maps else None
+        members = [m.get("member") for m in (g.get("members") or [])]
+        desc = (
+            {x for x in adapter.descendants([gm], predicates=[IS_A]) if x.startswith("MONDO:")}
+            if gm
+            else set()
+        )
+        sub = [m for m in members if prim.get(m) in desc]
+        out = [m for m in members if prim.get(m) and prim.get(m) not in desc]
+        nomondo = [m for m in members if not prim.get(m)]
+        rec = "(no mapping)" if not gm else (
+            "skos:closeMatch" if not out else "skos:broadMatch (grouping broader than MONDO class)"
+        )
+        lines.append(f"## {g.get('name')}  mapping={gm or '(none)'}  recommend={rec}")
+        lines.append(f"   subsumed {len(sub)}/{len(members)}; outside-subtree {len(out)}; no-mondo {len(nomondo)}")
+        for m in out:
+            lines.append(f"   - OUTSIDE: {m} -> {prim.get(m)}")
+        for m in nomondo:
+            lines.append(f"   - NO MONDO IN ENTRY: {m}")
+    return "\n".join(lines)
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--grouping", help="Only analyze groupings whose name contains this substring.")
     p.add_argument("--markdown", action="store_true", help="Emit markdown.")
+    p.add_argument("--audit", action="store_true", help="Audit MONDO mapping consistency (subsumption of members) and recommend a SKOS predicate.")
     args = p.parse_args(argv)
+
+    if args.audit:
+        print(audit_consistency(args.grouping))
+        return 0
     reports = build_reports(args.grouping)
     if not reports:
         print("No groupings with MONDO mappings matched.")
