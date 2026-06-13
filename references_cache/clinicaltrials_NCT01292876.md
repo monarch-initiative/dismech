@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01292876
+reference_id: "clinicaltrials:NCT01292876"
 title: Musculotendinous Tissue Unit Repair and Reinforcement (MTURR) With the Use of Biologic Scaffolds for Patients Suffering From Severe Skeletal Muscle Injury
 content_type: summary
 ---

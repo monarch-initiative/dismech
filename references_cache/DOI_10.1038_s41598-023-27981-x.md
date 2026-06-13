@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-023-27981-x
+reference_id: "DOI:10.1038/s41598-023-27981-x"
 title: Local IL-10 delivery modulates the immune response and enhances repair of volumetric muscle loss muscle injury
 authors:
 - Tai Huynh
