@@ -99,7 +99,8 @@ def weighted_overlap(a, b, w, min_shared=2):
     inter = a & b
     if len(inter) < min_shared:
         return 0.0
-    sw = lambda s: sum(w[t] for t in s)
+    def sw(s):
+        return sum(w[t] for t in s)
     union = sw(a | b)
     return sw(inter) / union if union else 0.0
 
