@@ -10838,8 +10838,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Anti-NMDA Receptor Encephalitis",
@@ -10966,6 +10966,7 @@ window.searchData = [
     ],
     "description": "A systemic autoimmune disorder characterized by the presence of antiphospholipid antibodies that increase the risk of blood clots and other complications.",
     "pathophysiology": [
+      "CD4+ T cell dysregulation and autoreactive B cell licensing",
       "Autoantibody generation against beta2GPI and phospholipid complexes",
       "Cell-surface beta2GPI binding",
       "Innate receptor signaling",
@@ -10981,6 +10982,9 @@ window.searchData = [
       "Catastrophic microvascular thrombosis"
     ],
     "cell_types": [
+      "helper T cell",
+      "regulatory T cell",
+      "T follicular helper cell",
       "B cell",
       "T cell",
       "endothelial cell",
@@ -10989,6 +10993,9 @@ window.searchData = [
       "trophoblast cell"
     ],
     "cell_type_ids": [
+      "CL:0000912",
+      "CL:0000815",
+      "CL:0002038",
       "CL:0000236",
       "CL:0000084",
       "CL:0000115",
@@ -11109,11 +11116,11 @@ window.searchData = [
     "source_file": "Antiphospholipid_Syndrome.yaml",
     "page_url": "../pages/disorders/Antiphospholipid_Syndrome.html",
     "num_phenotypes": 26,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Aortic Valve Disease 2",
@@ -13499,7 +13506,9 @@ window.searchData = [
     "pathophysiology": [
       "Epidermal Barrier Dysfunction",
       "Type 2 Immune Response",
+      "TOPK-STAT3 Signaling Axis",
       "Th17/Th22 Inflammation",
+      "TOPK-STAT3 Signaling Axis",
       "Pruritogen-Induced Neuronal Activation",
       "Scratching-Induced Barrier Injury",
       "Secondary Inflammatory Amplification"
@@ -13528,7 +13537,12 @@ window.searchData = [
       "T-helper 2 cell differentiation",
       "Interleukin-4-mediated signaling pathway",
       "IgE isotype switching",
+      "Protein phosphorylation",
+      "Interleukin-6 production",
+      "Interleukin-8 production",
       "T-helper 17 type immune response",
+      "Cytokine production",
+      "Signal transduction",
       "Inflammatory response"
     ],
     "phenotypes": [
@@ -13602,7 +13616,8 @@ window.searchData = [
       "Topical Corticosteroids",
       "Dupilumab",
       "JAK Inhibitors",
-      "Phototherapy"
+      "Phototherapy",
+      "TOPK Inhibitors"
     ],
     "environmental": [
       "Allergen Exposure",
@@ -13613,11 +13628,11 @@ window.searchData = [
     "source_file": "Atopic_Dermatitis.yaml",
     "page_url": "../pages/disorders/Atopic_Dermatitis.html",
     "num_phenotypes": 13,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 8,
     "num_genes": 13,
-    "num_treatments": 5,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 6,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Atrial Fibrillation",
@@ -22078,8 +22093,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 2,
     "num_treatments": 8,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Brucellosis",
@@ -24697,8 +24712,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "COX10-Related COX Deficiency",
@@ -30577,8 +30592,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 8,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Chronic Lymphocytic Leukemia",
@@ -34150,7 +34165,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "2"
   },
   {
@@ -48391,7 +48406,9 @@ window.searchData = [
     "subtypes": [
       "ACTA2-related",
       "MYH11-related",
-      "MYLK-related"
+      "MYLK-related",
+      "PRKG1-related",
+      "LOX-related"
     ],
     "description": "Familial thoracic aortic aneurysm and aortic dissection is a heritable thoracic aortic disease in which thoracic aortic dilatation, aneurysm, or dissection clusters in families without being fully explained by another syndromic diagnosis. Disease risk reflects inherited disruption of aortic wall extracellular matrix integrity, smooth-muscle contractility, or growth-factor signaling, and the main prevention strategy is early family identification, aortic surveillance, and prophylactic repair when indicated.",
     "pathophysiology": [
@@ -67670,15 +67687,18 @@ window.searchData = [
     "cell_types": [
       "T cell",
       "macrophage",
+      "B cell",
       "synovial cell"
     ],
     "cell_type_ids": [
       "CL:0000084",
       "CL:0000235",
+      "CL:0000236",
       "CL:0000214"
     ],
     "biological_processes": [
       "immune response",
+      "lymphocyte activation",
       "cytokine production",
       "interleukin-1 mediated signaling pathway",
       "interleukin-6 mediated signaling pathway"
@@ -67789,7 +67809,8 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "HLA-DRB1"
+      "HLA-DRB1",
+      "Non-HLA immune-susceptibility genes (lymphocyte activation, cytokine signaling, immune regulation)"
     ],
     "treatments": [
       "NSAIDs",
@@ -67803,7 +67824,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Juvenile_Idiopathic_Arthritis.html",
     "num_phenotypes": 35,
     "num_pathophysiology": 4,
-    "num_genes": 1,
+    "num_genes": 2,
     "num_treatments": 4,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
@@ -71599,6 +71620,123 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Lathyrism",
+    "disease_id": "MONDO:0043339",
+    "category": "Environmental",
+    "parents": [
+      "poisoning"
+    ],
+    "creation_date": "2026-06-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Neurolathyrism",
+      "Connective Tissue Lathyrism"
+    ],
+    "description": "Lathyrism is a toxin-mediated environmental disorder caused by excessive consumption of, or exposure to, Lathyrus legumes and the toxins they contain. The dominant human form, neurolathyrism, is an irreversible upper motor neuron disease producing spastic paraparesis of the legs, caused by the excitatory amino acid neurotoxin beta-N-oxalyl- L-alpha,beta-diaminopropionic acid (beta-ODAP, also called BOAA), a glutamate analog found in grass pea (Lathyrus sativus). The toxic beta-isomer accounts for the bulk of ODAP and acts as an agonist at AMPA-type ionotropic glutamate receptors, additionally driving voltage-independent calcium entry through TRP channels and group I metabotropic glutamate receptors; the resulting motor-neuron calcium overload, mitochondrial dysfunction and oxidative stress degenerate upper motor neurons and the corticospinal tracts. Neurolathyrism characteristically spares sensory and sphincter function and emerges in epidemic form during droughts and famines, when grass pea becomes a dietary staple, disproportionately affecting young adult males. A second group of forms, osteolathyrism (skeletal) and angiolathyrism (vascular), is produced by the nitrile toxin beta-aminopropionitrile (BAPN) from sweet pea (Lathyrus odoratus); BAPN irreversibly inhibits the copper-dependent enzyme lysyl oxidase, impairing collagen and elastin cross-linking and causing connective-tissue fragility, skeletal deformity, and aortic aneurysm/dissection. These connective-tissue forms are documented chiefly in animal models and are widely used experimentally. There is no cure for established neurolathyrism; management is preventive (detoxification of grass pea, dietary diversification, low-ODAP cultivars) and supportive (antispasticity therapy, physiotherapy, assistive devices).",
+    "pathophysiology": [
+      "Beta-ODAP Excitatory Amino Acid Receptor Agonism",
+      "TRP Channel and Group I mGluR Calcium Entry",
+      "Motor Neuron Calcium Overload",
+      "Mitochondrial Dysfunction and Oxidative Stress",
+      "Upper Motor Neuron and Corticospinal Tract Degeneration",
+      "BAPN Inhibition of Lysyl Oxidase",
+      "Collagen and Elastin Cross-link Failure",
+      "Skeletal Connective Tissue Weakening (Osteolathyrism)",
+      "Aortic Wall Disruption with TGF-beta and MMP Upregulation (Angiolathyrism)"
+    ],
+    "cell_types": [
+      "upper motor neuron",
+      "motor neuron",
+      "Betz cell",
+      "pyramidal neuron",
+      "fibroblast",
+      "osteoblast",
+      "vascular smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008048",
+      "CL:0000100",
+      "CL:0008049",
+      "CL:0000598",
+      "CL:0000057",
+      "CL:0000062",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "glutamate receptor signaling pathway",
+      "calcium ion import",
+      "cytosolic calcium ion homeostasis",
+      "response to oxidative stress",
+      "neuron apoptotic process",
+      "peptidyl-lysine oxidation",
+      "collagen fibril organization",
+      "extracellular matrix organization",
+      "transforming growth factor beta receptor signaling pathway",
+      "extracellular matrix disassembly"
+    ],
+    "phenotypes": [
+      "Spastic paraplegia",
+      "Lower limb spasticity",
+      "Lower limb hyperreflexia",
+      "Babinski sign",
+      "Clonus",
+      "Spastic gait",
+      "Lower limb muscle weakness",
+      "Depression",
+      "Aortic aneurysm",
+      "Aortic dissection",
+      "Skeletal dysplasia",
+      "Exostoses"
+    ],
+    "phenotype_categories": [
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001258",
+      "HP:0002061",
+      "HP:0002395",
+      "HP:0003487",
+      "HP:0002169",
+      "HP:0002064",
+      "HP:0007340",
+      "HP:0000716",
+      "HP:0004942",
+      "HP:0002647",
+      "HP:0002652",
+      "HP:0100777"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Toxin Reduction by Food Processing",
+      "Dietary Diversification and Low-ODAP Cultivars",
+      "Antispasticity Pharmacotherapy",
+      "Physical Therapy and Rehabilitation",
+      "Supportive Care"
+    ],
+    "environmental": [
+      "Grass pea (Lathyrus sativus) overconsumption"
+    ],
+    "biochemical": [],
+    "source_file": "Lathyrism.yaml",
+    "page_url": "../pages/disorders/Lathyrism.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Lead Poisoning",
     "disease_id": "MONDO:0018019",
     "category": "Environmental",
@@ -74997,6 +75135,96 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "39",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "MCM8-related gametogenic failure",
+    "disease_id": "MONDO:0044776",
+    "category": "Mendelian",
+    "parents": [
+      "Primary ovarian insufficiency",
+      "Ovarian dysgenesis",
+      "Male infertility",
+      "Disorder of sex development"
+    ],
+    "creation_date": "2026-06-07T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MCM8-related gametogenic failure is a recessive meiotic DNA-repair disorder caused by biallelic loss-of-function variants in MCM8. MCM8 partners with MCM9 (and the loader HROB/MCM8IP) as a helicase that promotes RAD51-dependent homologous-recombination repair of DNA double-strand breaks, including the programmed breaks of meiotic prophase I. The reported human spectrum is bisexual: 46,XX individuals present with primary ovarian insufficiency / ovarian dysgenesis, primary amenorrhea, and hypergonadotropic hypogonadism (premature ovarian failure 10, OMIM:612885), while 46,XY individuals present with small testes, non-obstructive azoospermia, and Sertoli cell-only histology. A chromosomal-instability state is demonstrable as impaired repair of induced chromosome breaks, and biallelic carriers show an emerging predisposition to early-onset germ cell tumors. The shared mechanistic theme is failed MCM8-MCM9-dependent homologous recombination during meiosis with germ-cell loss, paralleling the related MCM9- and HROB-related disorders.",
+    "pathophysiology": [
+      "Impaired homologous recombination",
+      "Meiotic arrest and germ cell depletion",
+      "Ovarian follicle depletion and primary ovarian insufficiency",
+      "Spermatogenic arrest and non-obstructive azoospermia",
+      "Somatic genome instability and germ cell tumor predisposition"
+    ],
+    "cell_types": [
+      "germ cell",
+      "oocyte",
+      "spermatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000586",
+      "CL:0000023",
+      "CL:0000017"
+    ],
+    "biological_processes": [
+      "double-strand break repair via homologous recombination",
+      "apoptotic process",
+      "female gamete generation",
+      "male gamete generation"
+    ],
+    "phenotypes": [
+      "Premature ovarian insufficiency",
+      "Primary amenorrhea",
+      "Hypergonadotropic hypogonadism",
+      "Hypothyroidism",
+      "Chromosome breakage",
+      "Azoospermia",
+      "Sertoli cell-only syndrome",
+      "Germ cell tumor"
+    ],
+    "phenotype_categories": [
+      "Reproductive",
+      "Endocrine",
+      "Laboratory",
+      "Oncology"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Endocrine",
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0008209",
+      "HP:0000786",
+      "HP:0000815",
+      "HP:0000821",
+      "HP:0040012",
+      "HP:0000027",
+      "HP:0003251",
+      "HP:0100728"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MCM8"
+    ],
+    "treatments": [
+      "Hormone replacement therapy",
+      "Germ cell tumor and cancer surveillance",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MCM8-related_gametogenic_failure.yaml",
+    "page_url": "../pages/disorders/MCM8-related_gametogenic_failure.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "MCM9-related gametogenic failure",
@@ -88328,6 +88556,74 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Niemann-Pick Disease Type A",
+    "disease_id": "MONDO:0009756",
+    "category": "Mendelian",
+    "parents": [
+      "sphingolipidosis"
+    ],
+    "creation_date": "2026-06-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Niemann-Pick disease type A (NPD-A) is the severe, infantile-onset neuronopathic end of the acid sphingomyelinase deficiency (ASMD) spectrum, caused by biallelic loss-of-function variants in SMPD1 encoding acid sphingomyelinase. Profound enzyme deficiency leads to lysosomal accumulation of sphingomyelin (with secondary cholesterol) in macrophages and neurons, producing early hepatosplenomegaly, failure to thrive, a macular cherry-red spot, and rapidly progressive neurodegeneration, with death typically by 2-3 years of age. Enzyme replacement therapy (olipudase alfa) addresses visceral disease in ASMD but does not cross the blood-brain barrier, so management of NPD-A remains supportive.",
+    "pathophysiology": [
+      "SMPD1 Loss of Function and Acid Sphingomyelinase Deficiency",
+      "Lysosomal Sphingomyelin and Secondary Lipid Accumulation",
+      "Visceral and Neuronal Storage Pathology"
+    ],
+    "cell_types": [
+      "macrophage",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "sphingomyelin catabolic process",
+      "sphingomyelin metabolic process"
+    ],
+    "phenotypes": [
+      "Hepatosplenomegaly",
+      "Neurodegeneration",
+      "Developmental regression",
+      "Cherry red spot of the macula"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001433",
+      "HP:0002180",
+      "HP:0002376",
+      "HP:0010729"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMPD1"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Enzyme Replacement Therapy (olipudase alfa)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Niemann-Pick_Disease_Type_A.yaml",
+    "page_url": "../pages/disorders/Niemann-Pick_Disease_Type_A.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Niemann-Pick Disease Type C",
     "disease_id": "MONDO:0018982",
     "category": "Genetic",
@@ -94778,6 +95074,7 @@ window.searchData = [
       "Alpha-Synuclein Aggregation",
       "Mitochondrial Dysfunction",
       "Neuroinflammation",
+      "Complement C3-C3aR Activation in Depression",
       "Autophagy-Lysosome Pathway Dysfunction",
       "Gut Microbiome Dysbiosis",
       "Intestinal Inflammation and Barrier Dysfunction",
@@ -94821,6 +95118,8 @@ window.searchData = [
       "GABAergic synaptic transmission",
       "inclusion body assembly",
       "mitochondrion organization",
+      "complement activation",
+      "synapse pruning",
       "Autophagy",
       "Chaperone-mediated Autophagy",
       "Inflammatory Response",
@@ -94900,10 +95199,10 @@ window.searchData = [
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 19,
+    "num_pathophysiology": 20,
     "num_genes": 9,
     "num_treatments": 6,
-    "causal_graph_edges": "44",
+    "causal_graph_edges": "46",
     "causal_graph_longest_path": "9"
   },
   {
@@ -98441,7 +98740,8 @@ window.searchData = [
       "Autophagy-Ferroptosis Crosstalk in Granulosa Cell Death",
       "Gut Microbiome Dysregulation and Gut-Ovarian Axis Inflammation",
       "Chronic Low-Grade Inflammation",
-      "Granulosa Cell Ferroptosis-Autophagy Crosstalk"
+      "Granulosa Cell Ferroptosis-Autophagy Crosstalk",
+      "Granulosa Cell Apoptosis via PCSK9-Lipid Dysregulation"
     ],
     "cell_types": [
       "granulosa cell",
@@ -98464,7 +98764,10 @@ window.searchData = [
       "Response to Endoplasmic Reticulum Stress",
       "Lipid Metabolic Process",
       "Signal Transduction",
-      "Apoptotic Process"
+      "Apoptotic Process",
+      "Phosphorylation (AMPK and GSK-3\u03b2 Activation)",
+      "Apoptosis",
+      "Lipid Metabolism Abnormalities"
     ],
     "phenotypes": [
       "Irregular Menstruation",
@@ -98527,10 +98830,10 @@ window.searchData = [
     "source_file": "Polycystic_Ovary_Syndrome.yaml",
     "page_url": "../pages/disorders/Polycystic_Ovary_Syndrome.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "3"
   },
   {
@@ -99912,6 +100215,7 @@ window.searchData = [
       "Maternal Vascular Susceptibility Threshold",
       "Defective Trophoblast Invasion and Spiral Artery Remodeling",
       "Placental Anti-Angiogenic Factor Release",
+      "NLRP3 Inflammasome Activation and Inflammatory Cascade",
       "Maternal Endothelial Dysfunction",
       "Glomerular Endotheliosis and Proteinuria",
       "Hepatic Sinusoidal Obstruction and HELLP",
@@ -99922,6 +100226,7 @@ window.searchData = [
       "extravillous trophoblast",
       "blood vessel endothelial cell",
       "syncytiotrophoblast",
+      "placental macrophage",
       "platelet",
       "glomerular endothelial cell",
       "hepatic sinusoidal endothelial cell",
@@ -99932,6 +100237,7 @@ window.searchData = [
       "CL:0008036",
       "CL:0000071",
       "CL:0000525",
+      "CL:0000235",
       "CL:0000233",
       "CL:0002188",
       "CL:1000398",
@@ -99948,8 +100254,11 @@ window.searchData = [
       "VEGF receptor signaling pathway",
       "angiogenesis",
       "response to hypoxia",
-      "innate immune response",
+      "NLRP3 inflammasome complex assembly",
+      "interleukin-1 beta production",
       "inflammatory response",
+      "response to oxidative stress",
+      "innate immune response",
       "glomerular filtration",
       "blood coagulation"
     ],
@@ -100015,10 +100324,10 @@ window.searchData = [
     "source_file": "Preeclampsia.yaml",
     "page_url": "../pages/disorders/Preeclampsia.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -105532,6 +105841,107 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Rhizomelic Chondrodysplasia Punctata, Plasmalogen-Synthesis Defect",
+    "disease_id": "MONDO:0015776",
+    "category": "Mendelian",
+    "parents": [
+      "peroxisomal single enzyme/protein defect",
+      "disorder of plasmalogens biosynthesis",
+      "inborn errors of metabolism"
+    ],
+    "creation_date": "2026-06-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "RCDP2",
+      "RCDP3",
+      "RCDP4"
+    ],
+    "description": "Rhizomelic chondrodysplasia punctata (RCDP) types 2-4 are autosomal recessive inborn errors of ether-phospholipid (plasmalogen) biosynthesis caused by biallelic loss-of-function variants in a single plasmalogen-synthesis enzyme rather than in a peroxisome import receptor. Three sequential enzymes feed the pathway: fatty acyl-CoA reductase 1 (FAR1; rate-limiting, supplies the fatty alcohol), glyceronephosphate O-acyltransferase (GNPAT/DHAPAT), and alkylglycerone-phosphate synthase (AGPS/alkyl-DHAP synthase; forms the ether bond). Loss of any one of these enzymes converges on the same lesion \u2014 cellular plasmalogen deficiency \u2014 producing a phenotype that overlaps classic RCDP1: rhizomelic limb shortening, chondrodysplasia punctata (stippled epiphyses), coronal vertebral clefts, congenital cataracts, severe growth and intellectual impairment, and seizures (FAR1 deficiency is distinguished by prominent microcephaly, epilepsy, and spasticity, often without rhizomelia). The critical biochemical discriminator from RCDP1 is that phytanic acid alpha-oxidation is preserved: RCDP1 (PEX7) and the PEX5 PTS2-binding-domain form (RCDP5) lose the PTS2 import receptor and therefore knock out both plasmalogen synthesis and phytanoyl-CoA hydroxylase, whereas these single-enzyme defects lie downstream of import and leave phytanic alpha-oxidation intact, so phytanic acid is normal. This entry models the single-enzyme plasmalogen-synthesis convergence (RCDP2 GNPAT, RCDP3 AGPS, RCDP4 FAR1 deficiency); the import-receptor forms RCDP1 (PEX7) and RCDP5 (PEX5), and the mechanistically inverse FAR1 gain-of-function disorder (plasmalogen elevation), are captured as differentials.",
+    "pathophysiology": [
+      "Plasmalogen-Synthesis Enzyme Deficiency",
+      "Plasmalogen (Ether Lipid) Deficiency",
+      "Preserved Phytanic Acid Alpha-Oxidation",
+      "Skeletal Dysplasia",
+      "Congenital Cataract",
+      "Neurological Impairment"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "lens fiber cell",
+      "neuron",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0011004",
+      "CL:0000540",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "ether lipid biosynthetic process",
+      "fatty acid alpha-oxidation"
+    ],
+    "phenotypes": [
+      "Rhizomelia",
+      "Chondrodysplasia Punctata",
+      "Coronal Cleft Vertebrae",
+      "Cataract",
+      "Postnatal Growth Deficiency",
+      "Intellectual Disability",
+      "Seizures",
+      "Microcephaly",
+      "Spasticity"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Visual",
+      "Growth",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008905",
+      "HP:0010655",
+      "HP:0003417",
+      "HP:0000518",
+      "HP:0008897",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0001257"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GNPAT",
+      "AGPS",
+      "FAR1"
+    ],
+    "treatments": [
+      "Supportive and Rehabilitative Care",
+      "Cataract Extraction"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasmalogens",
+      "Phytanic acid"
+    ],
+    "source_file": "Rhizomelic_Chondrodysplasia_Punctata_Plasmalogen_Synthesis_Defect.yaml",
+    "page_url": "../pages/disorders/Rhizomelic_Chondrodysplasia_Punctata,_Plasmalogen-Synthesis_Defect.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 3,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Rhizomelic Chondrodysplasia Punctata Type 1",
@@ -112514,9 +112924,11 @@ window.searchData = [
       "Weakness of Facial Musculature",
       "Difficulty Running",
       "Triceps Weakness",
+      "Global Developmental Delay",
       "Neurodevelopmental Vulnerability",
       "Expressive Language Delay",
-      "Impaired Executive Functioning",
+      "Executive Dysfunction",
+      "Autism Spectrum Manifestations",
       "Social Communication Vulnerability"
     ],
     "phenotype_categories": [
@@ -112524,7 +112936,8 @@ window.searchData = [
       "Musculoskeletal",
       "Respiratory",
       "Gastrointestinal",
-      "General"
+      "General",
+      "Behavioral"
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
@@ -112566,9 +112979,11 @@ window.searchData = [
       "HP:0030319",
       "HP:0009046",
       "HP:0031108",
+      "HP:0001263",
       "HP:0012759",
       "HP:0002474",
       "HP:0033051",
+      "HP:0000729",
       "HP:0012433"
     ],
     "frequencies": [
@@ -112592,7 +113007,7 @@ window.searchData = [
     ],
     "source_file": "Spinal_Muscular_Atrophy.yaml",
     "page_url": "../pages/disorders/Spinal_Muscular_Atrophy.html",
-    "num_phenotypes": 33,
+    "num_phenotypes": 35,
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 4,
@@ -122032,6 +122447,93 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Volumetric Muscle Loss",
+    "disease_id": null,
+    "category": "Traumatic Injury",
+    "parents": [
+      "Musculoskeletal Disease"
+    ],
+    "creation_date": "2026-06-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Volumetric muscle loss (VML) is the traumatic or surgical loss of a large volume of skeletal muscle \u2014 frank ablation of muscle fibers together with the basal lamina, satellite cells, vasculature, and nerve of the defect \u2014 that exceeds the endogenous regenerative capacity of mammalian skeletal muscle. Rather than regenerating functional contractile tissue, the defect heals through an evolutionarily conserved wound-closure program that fills it with non-functional fibrotic scar, producing persistent strength deficits and disability. VML is common in civilian and military extremity trauma and often presents with a residual open wound. This entry models VML as an instance of the conserved fibrotic response specialized to skeletal muscle, and incorporates the spatial fibrosis-versus-myogenesis competition mechanism derived from the Wound Environment Agent-Based Model (WEABM) digital twin.",
+    "pathophysiology": [
+      "Frank Muscle Loss and Destruction of the Regenerative Niche",
+      "Persistent Open-Wound Inflammatory Stimulus",
+      "Myofibroblast Activation and Excessive Collagen Deposition",
+      "Excessive ECM Deposition",
+      "Impaired Satellite Cell-Mediated Myogenesis",
+      "Fibrosis-Myogenesis Spatial Competition",
+      "Fibrotic Scar Replacement and Persistent Functional Deficit"
+    ],
+    "cell_types": [
+      "skeletal muscle satellite cell",
+      "skeletal muscle fiber",
+      "macrophage",
+      "neutrophil",
+      "fibro-adipogenic progenitor (FAP)",
+      "myofibroblast",
+      "myoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000594",
+      "CL:0008002",
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000057",
+      "CL:0000186",
+      "CL:0000056"
+    ],
+    "biological_processes": [
+      "wound healing",
+      "skeletal muscle tissue regeneration",
+      "inflammatory response",
+      "TGF-beta receptor signaling pathway",
+      "collagen biosynthetic process",
+      "extracellular matrix organization",
+      "collagen fibril organization",
+      "satellite cell activation involved in skeletal muscle regeneration",
+      "myoblast fusion"
+    ],
+    "phenotypes": [
+      "Muscle weakness",
+      "Skeletal muscle atrophy",
+      "Limitation of joint mobility",
+      "Skeletal muscle fibrosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001324",
+      "HP:0003202",
+      "HP:0001376",
+      "HP:0030951"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Surgical Reconstruction",
+      "Decellularized ECM Scaffold Implantation",
+      "Physical Therapy and Rehabilitation",
+      "WEABM Digital-Twin-Directed Multimodal Wound Control (Investigational)",
+      "IL-10 Local Immunotherapy (Investigational)",
+      "Maresin 1 Pro-Resolving Lipid Mediator Therapy (Investigational)",
+      "TGF-beta Receptor (TGFBR2) Inhibition (Investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Volumetric_Muscle_Loss.yaml",
+    "page_url": "../pages/disorders/Volumetric_Muscle_Loss.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Von Hippel-Lindau Disease",
     "disease_id": "MONDO:0008667",
     "category": "",
@@ -126278,13 +126780,13 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1253,
-  "total_subtypes": 2033,
-  "total_disorders_and_subtypes": 3286,
-  "total_unique_evidence_sources": 22288,
-  "total_unique_disease_categories": 46,
+  "total_disorder_pages": 1258,
+  "total_subtypes": 2040,
+  "total_disorders_and_subtypes": 3298,
+  "total_unique_evidence_sources": 22353,
+  "total_unique_disease_categories": 47,
   "total_unique_phenotype_categories": 207,
-  "total_pathographs": 1245,
-  "total_unique_pathological_events": 6076
+  "total_pathographs": 1250,
+  "total_unique_pathological_events": 6103
 };
 window.dispatchEvent(new Event('searchDataReady'));
