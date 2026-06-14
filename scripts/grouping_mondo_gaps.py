@@ -137,6 +137,37 @@ def build_reports(
 ) -> list[GroupingReport]:
     adapter = get_adapter("sqlite:obo:mondo")
     index = disorder_mondo_index()
+    descendant_cache: dict[str, set[str]] = {}
+
+    try:
+        rows = adapter.connection.exec_driver_sql(
+            "SELECT DISTINCT object FROM edge "
+            "WHERE predicate = 'rdfs:subClassOf' "
+            "AND subject LIKE 'MONDO:%' "
+            "AND object LIKE 'MONDO:%'"
+        )
+        mondo_terms_with_children = {row[0] for row in rows}
+    except Exception:
+        mondo_terms_with_children = set()
+
+    def mondo_descendants(term_id: str) -> set[str]:
+        if term_id not in descendant_cache:
+            descendant_cache[term_id] = {
+                d
+                for d in adapter.descendants([term_id], predicates=[IS_A])
+                if isinstance(d, str) and d.startswith("MONDO:") and d != term_id
+            }
+        return descendant_cache[term_id]
+
+    def is_mondo_leaf(term_id: str) -> bool:
+        if mondo_terms_with_children:
+            return term_id not in mondo_terms_with_children
+        return not {
+            child
+            for _, child in adapter.incoming_relationships(term_id)
+            if isinstance(child, str) and child.startswith("MONDO:")
+        }
+
     reports: list[GroupingReport] = []
     for name, mondo, predicate in grouping_mondo_terms(include_inexact):
         if only and only.lower() not in name.lower():
@@ -144,11 +175,7 @@ def build_reports(
         label = adapter.label(mondo) or ""
         ld = logical_definition_str(adapter, mondo)
         rep = GroupingReport(name, mondo, predicate, label, ld)
-        descendants = {
-            d
-            for d in adapter.descendants([mondo], predicates=[IS_A])
-            if d.startswith("MONDO:") and d != mondo
-        }
+        descendants = mondo_descendants(mondo)
         covered_ids = {d for d in descendants if d in index}
         # "Shadowed" = descendants of an already-covered entry. A gap inside the
         # shadow is just a finer MONDO split of a disorder we already curate
@@ -156,11 +183,7 @@ def build_reports(
         # a real curation gap. Gaps outside every shadow are the real candidates.
         shadowed: set[str] = set()
         for cid in covered_ids:
-            shadowed.update(
-                s
-                for s in adapter.descendants([cid], predicates=[IS_A])
-                if s.startswith("MONDO:")
-            )
+            shadowed.update(mondo_descendants(cid))
         for d in sorted(descendants):
             dlabel = adapter.label(d) or ""
             if d in index:
@@ -168,13 +191,7 @@ def build_reports(
             elif d in shadowed:
                 continue  # finer split of an already-curated entry; skip
             else:
-                sub = {
-                    s
-                    for s in adapter.descendants([d], predicates=[IS_A])
-                    if s.startswith("MONDO:")
-                }
-                is_leaf = sub <= {d}
-                rep.gaps.append((d, dlabel, is_leaf))
+                rep.gaps.append((d, dlabel, is_mondo_leaf(d)))
         reports.append(rep)
     return reports
 
