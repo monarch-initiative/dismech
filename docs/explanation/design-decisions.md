@@ -41,7 +41,7 @@ literature-grounded evidence.
 Mendelian, complex/common, infectious, environmental/exposure-related, neoplastic,
 and psychiatric conditions are all represented. Rare and common diseases are both in
 scope. Though Dismech is primarily intended as a resource for human diseases and disorders,
-veterinary and animal-model observations are in scope as *evidence* 
+veterinary and animal-model observations are in scope as *evidence*
 (`evidence_source: MODEL_ORGANISM`).
 
 **Out of scope.** Dismech is **not**:
@@ -241,7 +241,7 @@ initiated either by humans or by GitHub Actions.
 - The default assumption is that issue/PR contents *and comments* are AI-generated; humans
   are **not** assumed to have verified every line their agent produced. Mark human-authored
   content explicitly if desired.
-- **Human-in-the-loop is the PR review gate.** Every PR receives an automated 
+- **Human-in-the-loop is the PR review gate.** Every PR receives an automated
   review and must address its findings. Unresolved disagreements are escalated to a human
   maintainer.
 
