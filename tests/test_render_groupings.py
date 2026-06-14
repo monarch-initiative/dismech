@@ -46,8 +46,38 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
             "display_name": "Alpha Group",
             "description": "First test grouping.",
             "grouping_basis": ["SHARED_PATHWAY"],
+            "mappings": {
+                "mondo_mappings": [
+                    {
+                        "term": {
+                            "id": "MONDO:9999999",
+                            "label": "alpha grouping",
+                        },
+                        "mapping_predicate": "skos:closeMatch",
+                        "mapping_source": "MONDO",
+                    }
+                ]
+            },
             "membership_criteria": [],
-            "members": [],
+            "members": [
+                {
+                    "member": "Alpha Disorder",
+                    "member_type": "DISEASE",
+                }
+            ],
+        },
+    )
+    _write_yaml(
+        disorders_dir / "Alpha_Disorder.yaml",
+        {
+            "name": "Alpha Disorder",
+            "disease_term": {
+                "preferred_term": "Alpha disorder",
+                "term": {
+                    "id": "MONDO:1234567",
+                    "label": "alpha disorder",
+                },
+            },
         },
     )
 
@@ -65,4 +95,12 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
     assert "2 groupings" in html
     assert 'href="Alpha_Group.html">Alpha Group</a>' in html
     assert 'href="Beta_Group.html">Beta Group</a>' in html
+    assert "skos:closeMatch MONDO:9999999" in html
+    assert 'href="http://purl.obolibrary.org/obo/MONDO_9999999"' in html
     assert html.index("Alpha Group") < html.index("Beta Group")
+
+    detail_html = (output_dir / "Alpha_Group.html").read_text()
+    assert "Coverage and gaps" in detail_html
+    assert "Alpha Disorder" in detail_html
+    assert "MONDO:1234567" in detail_html
+    assert "listed in both" in detail_html
