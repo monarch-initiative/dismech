@@ -9,6 +9,18 @@ This is the **Disorder Mechanisms Knowledge Base (dismech)** - a LinkML-based kn
 2. A knowledge base of disorder YAML files (`kb/disorders/*.yaml`)
 3. HTML rendering for browsable disorder pages (`pages/disorders/*.html`)
 
+## Design Decisions
+
+Before making structural, scope, ontology, BioLink/KGX, or evidence-policy choices,
+consult the decision register at
+[`docs/explanation/design-decisions.md`](docs/explanation/design-decisions.md). It records
+*why* the project is built the way it is — project scope (what is/isn't a dismech entry),
+the LinkML schema choice, the constrained ontology set, export-layer-only BioLink reuse,
+the evidence/provenance policy, curation governance, and a tracked list of open/deferred
+decisions. Cite it when a recorded decision is relevant; if a decision looks wrong or
+stale, surface it rather than silently contradicting it. The specifics below in this file
+remain authoritative for day-to-day curation mechanics.
+
 ## Skills
 
 Claude Code skills are available in `.claude/skills/`:
