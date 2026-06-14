@@ -1990,6 +1990,272 @@ def render_all_comorbidities(
     return output_files
 
 
+# --------------------------------------------------------------------------- #
+# Disease groupings
+# --------------------------------------------------------------------------- #
+
+
+def load_grouping(yaml_path: Path) -> dict:
+    """Load a grouping YAML file."""
+    return yaml.safe_load(yaml_path.read_text()) or {}
+
+
+def _term_chip(descriptor: dict | None) -> dict | None:
+    """Build a {label, id, url} chip from a descriptor's ontology term."""
+    if not isinstance(descriptor, dict):
+        return None
+    term = descriptor.get("term")
+    if not isinstance(term, dict) or not term.get("id"):
+        return None
+    label = (
+        descriptor.get("preferred_term")
+        or term.get("label")
+        or term.get("id")
+    )
+    return {"label": label, "id": term.get("id"), "url": curie_to_url(term.get("id"))}
+
+
+def _module_href(module_ref: str | None) -> dict | None:
+    """Build a {stem, node, href} link for a module reference (with #anchor)."""
+    if not module_ref:
+        return None
+    stem, _, node = module_ref.partition("#")
+    stem = stem.strip()
+    node = node.strip()
+    if not stem:
+        return None
+    return {"stem": stem, "node": node, "href": f"../modules/{stem}.html"}
+
+
+def _logic_view(node: dict | None) -> dict | None:
+    """Build a template-friendly recursive view of a LogicalCriterion node."""
+    if not isinstance(node, dict):
+        return None
+    from .groupings import NodeKind, classify_node
+
+    kind = classify_node(node)
+    view: dict = {
+        "kind": kind.value,
+        "description": node.get("description"),
+        "negated": bool(node.get("negated")),
+    }
+    if kind is NodeKind.BRANCH:
+        view["operator"] = node.get("operator")
+        view["operands"] = [
+            v
+            for v in (_logic_view(child) for child in node.get("operands") or [])
+            if v
+        ]
+    else:
+        view["predicate"] = node.get("criterion_predicate")
+        view["min_frequency"] = node.get("min_frequency")
+        view["module"] = _module_href(node.get("module"))
+        chips: list[dict] = []
+        for slot in ("phenotype_term", "gene"):
+            chip = _term_chip(node.get(slot))
+            if chip:
+                chips.append(chip)
+        for bp in node.get("biological_processes") or []:
+            chip = _term_chip(bp)
+            if chip:
+                chips.append(chip)
+        view["terms"] = chips
+    return view
+
+
+def _resolve_member_href(
+    member: dict, by_name: dict[str, str]
+) -> str | None:
+    """Resolve a grouping member to its page href."""
+    mtype = member.get("member_type", "DISEASE")
+    ref = member.get("member")
+    if not ref:
+        return None
+    if mtype in ("DISEASE", "SUBTYPE"):
+        page = by_name.get(_normalize_disorder_lookup(ref))
+        return f"../disorders/{page}" if page else None
+    if mtype == "MODULE":
+        return f"../modules/{ref.split('#', 1)[0].strip()}.html"
+    if mtype == "GROUPING":
+        return f"{slugify(ref)}.html"
+    return None
+
+
+def _annotate_grouping(
+    grouping: dict,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> dict:
+    """Decorate a grouping with member hrefs, criteria views, and an advisory
+    membership audit, returning summary metadata used by the page templates."""
+    _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+
+    # Criteria views (recursive logic trees).
+    for criteria in grouping.get("membership_criteria") or []:
+        criteria["_logic_view"] = _logic_view(criteria.get("logic"))
+
+    # Member hrefs + differentiating-mechanism chips.
+    for member in grouping.get("members") or []:
+        member["_href"] = _resolve_member_href(member, by_name)
+        for mech in member.get("differentiating_mechanisms") or []:
+            chips = []
+            for slot in ("gene", "phenotype_term"):
+                chip = _term_chip(mech.get(slot))
+                if chip:
+                    chips.append(chip)
+            for bp in mech.get("biological_processes") or []:
+                chip = _term_chip(bp)
+                if chip:
+                    chips.append(chip)
+            mech["_chips"] = chips
+            mech["_module"] = _module_href(mech.get("module"))
+
+    # Advisory membership audit (never let this break rendering).
+    audit: dict[str, list[dict]] = {}
+    candidates: list[dict] = []
+    try:
+        from .groupings import (
+            evaluate_grouping,
+            find_candidate_members,
+            load_disease_index,
+        )
+
+        index = load_disease_index(disorders_dir)
+        for ev in evaluate_grouping(grouping, index):
+            audit.setdefault(ev.member, []).append(
+                {
+                    "criteria_index": ev.criteria_index,
+                    "semantics": ev.semantics,
+                    "result": ev.result.value,
+                    "unmet": [
+                        d for d, r in ev.leaves if r.value != "SATISFIED"
+                    ],
+                }
+            )
+        for name in find_candidate_members(grouping, index):
+            page = by_name.get(_normalize_disorder_lookup(name))
+            candidates.append(
+                {"name": name, "href": f"../disorders/{page}" if page else None}
+            )
+    except Exception:
+        audit = {}
+        candidates = []
+    grouping["_audit"] = audit
+    grouping["_candidates"] = candidates
+
+    member_count = len(grouping.get("members") or [])
+    return {
+        "id": slugify(str(grouping.get("name") or "")),
+        "name": grouping.get("name"),
+        "display_name": grouping.get("display_name"),
+        "description": grouping.get("description"),
+        "grouping_basis": grouping.get("grouping_basis") or [],
+        "member_count": member_count,
+        "criteria_count": len(grouping.get("membership_criteria") or []),
+        "candidate_count": len(candidates),
+        "href": f"{slugify(str(grouping.get('name') or ''))}.html",
+    }
+
+
+def render_grouping(
+    yaml_path: Path,
+    output_path: Optional[Path] = None,
+    template_path: Optional[Path] = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> Path:
+    """Render a single disease grouping YAML file to HTML."""
+    grouping = load_grouping(yaml_path)
+    summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+    yaml_content = yaml_path.read_text()
+
+    if template_path is None:
+        template_dir = Path(__file__).parent / "templates"
+        template_name = "grouping.html.j2"
+    else:
+        template_dir = template_path.parent
+        template_name = template_path.name
+
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    env.filters["curie_to_url"] = curie_to_url
+    template = env.get_template(template_name)
+
+    source_file = (
+        "https://github.com/monarch-initiative/dismech/blob/main/"
+        f"kb/groupings/{yaml_path.name}"
+    )
+    html = template.render(
+        grouping=grouping,
+        summary=summary,
+        yaml_content=yaml_content,
+        source_file=source_file,
+    )
+
+    if output_path is None:
+        output_path = Path("pages/groupings") / f"{summary['id']}.html"
+    else:
+        output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_grouping_index(
+    groupings: list[dict],
+    output_path: Path = Path("pages/groupings/index.html"),
+) -> Path:
+    """Render the disease-grouping index page."""
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("grouping_index.html.j2")
+    html = template.render(
+        groupings=sorted(
+            groupings, key=lambda g: str(g.get("name") or "").casefold()
+        )
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_groupings(
+    input_dir: Path = Path("kb/groupings"),
+    output_dir: Path = Path("pages/groupings"),
+    template_path: Optional[Path] = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> list[Path]:
+    """Render all disease groupings plus their index page."""
+    if not input_dir.exists():
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_files: list[Path] = []
+    summaries: list[dict] = []
+    for yaml_path in sorted(input_dir.glob("*.yaml")):
+        output_path = output_dir / f"{slugify(yaml_path.stem)}.html"
+        # Re-load per file so annotation summary matches the rendered grouping.
+        grouping = load_grouping(yaml_path)
+        summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+        render_grouping(
+            yaml_path, output_path, template_path, disorders_dir=disorders_dir
+        )
+        output_files.append(output_path)
+        summaries.append(summary)
+        print(f"Rendered grouping: {yaml_path.stem} -> {output_path}")
+
+    index_path = render_grouping_index(summaries, output_dir / "index.html")
+    output_files.append(index_path)
+    print(f"Rendered grouping index -> {index_path}")
+    return output_files
+
+
 def _load_schema() -> dict:
     schema_path = Path(__file__).parent / "schema" / "dismech.yaml"
     try:
@@ -2377,6 +2643,9 @@ def main():
         "--comorbidity", action="store_true", help="Render comorbidity page(s)"
     )
     parser.add_argument("--module", action="store_true", help="Render module page(s)")
+    parser.add_argument(
+        "--grouping", action="store_true", help="Render grouping page(s)"
+    )
     parser.add_argument("--research", action="store_true", help="Render research index")
     parser.add_argument("--output", "-o", help="Output path (file or directory)")
     parser.add_argument("--template", "-t", help="Custom template path")
@@ -2410,6 +2679,19 @@ def main():
         else:
             output_path = Path(args.output) if args.output else None
             result = render_module(input_path, output_path, template_path)
+            print(f"Generated: {result}")
+        return
+
+    if args.grouping:
+        if args.path is None:
+            raise SystemExit("Error: --grouping requires a file or directory path")
+        input_path = Path(args.path)
+        if input_path.is_dir():
+            output_dir = Path(args.output) if args.output else Path("pages/groupings")
+            render_all_groupings(input_path, output_dir, template_path)
+        else:
+            output_path = Path(args.output) if args.output else None
+            result = render_grouping(input_path, output_path, template_path)
             print(f"Generated: {result}")
         return
 
