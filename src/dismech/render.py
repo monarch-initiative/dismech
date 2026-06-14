@@ -2430,7 +2430,13 @@ def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
         and has_mondo
         and mondo_id not in exact_scope_ids
     ):
-        return "outside_scope", "outside MONDO scope"
+        if is_listed:
+            return "outside_scope", "listed outside grouping MONDO"
+        if is_candidate:
+            return "outside_scope", "candidate outside grouping MONDO"
+        if is_not_listed:
+            return "outside_scope", "DisMech outside grouping MONDO"
+        return "outside_scope", "outside grouping MONDO"
     if has_dismech and has_mondo and is_listed:
         if has_exact_scope:
             return "mapped", "listed in scope"
