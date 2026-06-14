@@ -82,6 +82,7 @@
         .coverage .col-dismech { min-width: 245px; }
         .coverage .col-mondo { min-width: 245px; }
         .coverage .col-presence { width: 92px; }
+        .coverage .col-scope { width: 126px; }
         .coverage .col-state { width: 130px; }
         .coverage .col-criterion { min-width: 150px; max-width: 190px; white-space: normal; }
         .criterion-title { display: block; color: var(--gray-800); font-size: 0.72rem; line-height: 1.35; text-transform: none; letter-spacing: 0; margin-top: 2px; white-space: normal; }
@@ -105,6 +106,7 @@
         .presence { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; }
         .presence.yes { background: #dcfce7; color: #166534; }
         .presence.no { background: #fee2e2; color: #991b1b; }
+        .presence.na { background: var(--gray-100); color: var(--gray-600); }
         .audit { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 5px; }
         .audit-SATISFIED { background: #dcfce7; color: #166534; }
         .audit-NOT_SATISFIED { background: #fee2e2; color: #991b1b; }
@@ -204,8 +206,18 @@
             <h2>Coverage and gaps</h2>
             <div class="coverage-summary">
                 <span class="coverage-stat">{{ grouping._coverage.counts.rows }} row{{ '' if grouping._coverage.counts.rows == 1 else 's' }}</span>
-                <span class="coverage-stat">{{ grouping._coverage.counts.mapped }} listed in both</span>
+                {% if grouping._coverage.completeness.available %}
+                <span class="coverage-stat">MONDO-scope coverage: {{ grouping._coverage.completeness.label }}</span>
+                {% if grouping._coverage.completeness.dismech_covered > grouping._coverage.completeness.covered %}
+                <span class="coverage-stat">{{ grouping._coverage.completeness.dismech_covered }} DisMech IDs in scope</span>
+                {% endif %}
+                {% else %}
+                <span class="coverage-stat">MONDO-scope coverage not assessed</span>
+                {% endif %}
+                <span class="coverage-stat">{{ grouping._coverage.counts.mapped }} {{ 'listed in scope' if grouping._coverage.exact_roots else 'listed with MONDO ID' }}</span>
+                {% if grouping._coverage.exact_roots or grouping._coverage.counts.mondo_gap %}
                 <span class="coverage-stat">{{ grouping._coverage.counts.mondo_gap }} MONDO gap{{ '' if grouping._coverage.counts.mondo_gap == 1 else 's' }}</span>
+                {% endif %}
                 {% if grouping._coverage.counts.not_listed %}<span class="coverage-stat">{{ grouping._coverage.counts.not_listed }} DisMech not listed</span>{% endif %}
                 {% if grouping._coverage.counts.dismech_only %}<span class="coverage-stat">{{ grouping._coverage.counts.dismech_only }} DisMech outside/no MONDO</span>{% endif %}
             </div>
@@ -215,6 +227,7 @@
                 {% for root in grouping._coverage.exact_roots %}
                 <a href="{{ root.url }}">{{ root.id }} &middot; {{ root.label }}</a>{% if not loop.last %}; {% endif %}
                 {% endfor %}
+                {% if grouping._coverage.completeness.available %}Completeness is counted over rows inside this exact MONDO scope that are listed in this grouping.{% endif %}
                 {% if grouping._coverage.shadowed_count %}Finer MONDO descendants under already-covered DisMech concepts are suppressed ({{ grouping._coverage.shadowed_count }}).{% endif %}
             </p>
             {% else %}
@@ -231,7 +244,8 @@
                             <th class="col-dismech">DisMech entry</th>
                             <th class="col-mondo">MONDO concept</th>
                             <th class="col-presence">In DisMech</th>
-                            <th class="col-presence">In MONDO</th>
+                            <th class="col-presence">Has MONDO ID</th>
+                            <th class="col-scope">In grouping MONDO</th>
                             <th class="col-state">Member state</th>
                             {% for column in grouping._criteria_columns %}
                             <th class="col-criterion" title="{{ column.title }}">
@@ -282,6 +296,7 @@
                             </td>
                             <td><span class="presence {{ 'yes' if row.dismech_entries else 'no' }}">{{ 'yes' if row.dismech_entries else 'no' }}</span></td>
                             <td><span class="presence {{ 'yes' if row.mondo else 'no' }}">{{ 'yes' if row.mondo else 'no' }}</span></td>
+                            <td><span class="presence {{ row.mondo_scope.class }}" title="{{ row.mondo_scope.title }}">{{ row.mondo_scope.label }}</span></td>
                             <td>
                                 {% if row.dismech_entries %}
                                 {% for entry in row.dismech_entries %}

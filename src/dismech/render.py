@@ -2382,6 +2382,37 @@ def _coverage_criteria_cells(
     return cells
 
 
+def _mondo_scope_state(row: dict, exact_scope_ids: set[str]) -> dict:
+    """Describe whether this row falls inside the grouping's exact MONDO scope."""
+    if not exact_scope_ids:
+        return {
+            "value": "not_assessed",
+            "label": "not assessed",
+            "class": "na",
+            "title": "No exact MONDO grouping mapping is declared.",
+        }
+    if row["mondo"] is None:
+        return {
+            "value": "no_mondo",
+            "label": "no MONDO ID",
+            "class": "no",
+            "title": "This DisMech row has no MONDO identity to test.",
+        }
+    if row["mondo"]["id"] in exact_scope_ids:
+        return {
+            "value": "yes",
+            "label": "yes",
+            "class": "yes",
+            "title": "This MONDO concept is the exact grouping term or an is-a descendant.",
+        }
+    return {
+        "value": "no",
+        "label": "no",
+        "class": "no",
+        "title": "This MONDO concept is outside the exact grouping MONDO scope.",
+    }
+
+
 def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
     has_dismech = bool(row["dismech_entries"])
     has_mondo = row["mondo"] is not None
@@ -2391,20 +2422,27 @@ def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
         e["member_state"] == "not_listed" for e in row["dismech_entries"]
     )
     mondo_id = row["mondo"]["id"] if row["mondo"] else None
+    has_exact_scope = bool(exact_scope_ids)
 
     if (
-        exact_scope_ids
+        has_exact_scope
         and has_dismech
         and has_mondo
         and mondo_id not in exact_scope_ids
     ):
         return "outside_scope", "outside MONDO scope"
     if has_dismech and has_mondo and is_listed:
-        return "mapped", "listed in both"
+        if has_exact_scope:
+            return "mapped", "listed in scope"
+        return "mapped", "listed with MONDO ID"
     if has_dismech and has_mondo and is_candidate:
+        if has_exact_scope:
+            return "candidate", "candidate in scope"
         return "candidate", "DisMech candidate"
     if has_dismech and has_mondo and is_not_listed:
-        return "not_listed", "DisMech not listed"
+        if has_exact_scope:
+            return "not_listed", "DisMech not listed"
+        return "not_listed", "not listed, MONDO ID"
     if has_dismech and not has_mondo:
         return "dismech_only", "DisMech only"
     if has_mondo:
@@ -2522,6 +2560,7 @@ def _build_grouping_coverage_rows(
     for row in rows.values():
         names = [entry["name"] for entry in row["dismech_entries"]]
         row["criteria_cells"] = _coverage_criteria_cells(names, criteria_columns, audit)
+        row["mondo_scope"] = _mondo_scope_state(row, exact_scope_ids)
         status, status_label = _coverage_status(row, exact_scope_ids)
         row["status"] = status
         row["status_label"] = status_label
@@ -2542,10 +2581,33 @@ def _build_grouping_coverage_rows(
             or ", ".join(e["display_name"] for e in row["dismech_entries"]),
         ),
     )
+    scope_rows = [row for row in sorted_rows if row["mondo_scope"]["value"] == "yes"]
+    scope_listed = sum(
+        1
+        for row in scope_rows
+        if any(entry["member_state"] == "listed" for entry in row["dismech_entries"])
+    )
+    scope_dismech = sum(1 for row in scope_rows if row["dismech_entries"])
+    scope_total = len(scope_rows)
+    scope_percent = (
+        round((scope_listed / scope_total) * 100, 1) if scope_total else None
+    )
     coverage = {
         "note": note,
         "exact_roots": [m for m in mondo_mappings if m["is_exact"]],
         "shadowed_count": len(shadowed_ids - set(descendant_terms)),
+        "completeness": {
+            "available": bool(exact_roots and scope_total),
+            "covered": scope_listed,
+            "dismech_covered": scope_dismech,
+            "total": scope_total,
+            "percent": scope_percent,
+            "label": (
+                f"{scope_listed}/{scope_total} ({scope_percent:.1f}%)"
+                if scope_percent is not None
+                else None
+            ),
+        },
         "counts": {
             "rows": len(sorted_rows),
             "mapped": sum(1 for r in sorted_rows if r["status"] == "mapped"),

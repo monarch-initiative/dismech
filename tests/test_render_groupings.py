@@ -50,10 +50,10 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
                 "mondo_mappings": [
                     {
                         "term": {
-                            "id": "MONDO:9999999",
+                            "id": "MONDO:1234567",
                             "label": "alpha grouping",
                         },
-                        "mapping_predicate": "skos:closeMatch",
+                        "mapping_predicate": "skos:exactMatch",
                         "mapping_source": "MONDO",
                     }
                 ]
@@ -67,6 +67,27 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
             ],
         },
     )
+    _write_yaml(
+        disorders_dir / "Beta_Disorder.yaml",
+        {
+            "name": "Beta Disorder",
+            "disease_term": {
+                "preferred_term": "Beta disorder",
+                "term": {
+                    "id": "MONDO:7654321",
+                    "label": "beta disorder",
+                },
+            },
+        },
+    )
+    beta_group = yaml.safe_load((input_dir / "Beta_Group.yaml").read_text())
+    beta_group["members"] = [
+        {
+            "member": "Beta Disorder",
+            "member_type": "DISEASE",
+        }
+    ]
+    _write_yaml(input_dir / "Beta_Group.yaml", beta_group)
     _write_yaml(
         disorders_dir / "Alpha_Disorder.yaml",
         {
@@ -95,12 +116,19 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
     assert "2 groupings" in html
     assert 'href="Alpha_Group.html">Alpha Group</a>' in html
     assert 'href="Beta_Group.html">Beta Group</a>' in html
-    assert "skos:closeMatch MONDO:9999999" in html
-    assert 'href="http://purl.obolibrary.org/obo/MONDO_9999999"' in html
+    assert "skos:exactMatch MONDO:1234567" in html
+    assert 'href="http://purl.obolibrary.org/obo/MONDO_1234567"' in html
     assert html.index("Alpha Group") < html.index("Beta Group")
 
     detail_html = (output_dir / "Alpha_Group.html").read_text()
     assert "Coverage and gaps" in detail_html
     assert "Alpha Disorder" in detail_html
     assert "MONDO:1234567" in detail_html
-    assert "listed in both" in detail_html
+    assert "MONDO-scope coverage: 1/1 (100.0%)" in detail_html
+    assert "listed in scope" in detail_html
+    assert "In grouping MONDO" in detail_html
+
+    beta_detail_html = (output_dir / "Beta_Group.html").read_text()
+    assert "MONDO-scope coverage not assessed" in beta_detail_html
+    assert "listed with MONDO ID" in beta_detail_html
+    assert "not assessed" in beta_detail_html
