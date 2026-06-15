@@ -893,6 +893,45 @@ def test_reference_range_interpretation_bands_validate(validator):
     assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
 
 
+def test_reference_range_band_rejects_invalid_abnormal_flag():
+    """An out-of-enum abnormal_flag on a band must fail strict validation.
+
+    Uses a closed jsonschema validator because the lenient module-scoped
+    ``validator`` fixture does not enforce enum membership.
+    """
+    from linkml.validator import Validator as _Validator
+    from linkml.validator.plugins import JsonschemaValidationPlugin
+
+    strict = _Validator(
+        SCHEMA_PATH, validation_plugins=[JsonschemaValidationPlugin(closed=True)]
+    )
+    data = {
+        "name": "Test Disease",
+        "biochemical": [
+            {
+                "name": "Serum Calcium",
+                "reference_ranges": [
+                    {
+                        "lower_bound": 8.5,
+                        "upper_bound": 10.5,
+                        "unit": "mg/dL",
+                        "interpretation_bands": [
+                            {
+                                "name": "Bogus",
+                                "lower_bound": 10.5,
+                                "abnormal_flag": "PANIC",  # not in AbnormalFlagEnum
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    report = strict.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert errors, "Expected a validation error for an invalid abnormal_flag value"
+
+
 def test_disorder_count():
     """Test that we have the expected number of disorders."""
     assert len(DISORDER_FILES) >= 50, (

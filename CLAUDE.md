@@ -680,7 +680,10 @@ Each band maps a value interval to a category and is rendered as a colored
 pill on the disorder page:
 
 - `name` (required): category label (e.g., "Normal", "Mild hypercalcemia").
-- `lower_bound` / `upper_bound`: the band's interval; omit `lower_bound` for
+- `lower_bound` / `upper_bound`: the band's half-open interval
+  `[lower_bound, upper_bound)` — `lower_bound` inclusive, `upper_bound`
+  exclusive — so adjacent bands sharing a boundary value partition cleanly
+  (a result at the boundary falls in the upper band). Omit `lower_bound` for
   the open-below tier and `upper_bound` for the open-above tier.
 - `abnormal_flag`: `NORMAL`, `LOW`, `HIGH`, `CRITICAL_LOW`, `CRITICAL_HIGH`
   (HL7 v2 / LOINC convention).
