@@ -271,6 +271,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../explanation/design-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../quality-control/" class="md-nav__link">
         
   
@@ -560,6 +587,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#node-granularity-and-debundling-case-study-csan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Node Granularity and Debundling (case study: CSAN)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Node Granularity and Debundling (case study: CSAN)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#modeling-rules-this-case-study-illustrates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modeling rules this case study illustrates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-not-to-debundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When not to debundle
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#dependencies" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -758,6 +824,70 @@ D3.js + dagre       --&gt; Interactive SVG visualization
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Reduced Exercise Tolerance</span>
 </code></pre></div>
 <p>The <code>target</code> field must match the <code>name</code> of another entry in any section. Unresolved targets appear as orphan nodes with dashed red borders.</p>
+<h2 id="node-granularity-and-debundling-case-study-csan">Node Granularity and Debundling (case study: CSAN)</h2>
+<p>A pathograph is only as informative as the node boundaries the curator chooses.
+Compressing several mechanistic layers into one "gain-of-function" node produces a
+valid but shallow graph that hides the actual causal wiring, and any node that is not
+on an edge (<code>downstream</code>/<code>sequelae</code>, <code>target_phenotypes</code>/<code>target_mechanisms</code>) is
+dropped from the serialized graph entirely. Crouzon syndrome with acanthosis nigricans
+(CSAN, <code>MONDO:0012833</code>, recurrent FGFR3 p.Ala391Glu) is a compact worked example
+(<a href="https://github.com/monarch-initiative/dismech/issues/4158">issue #4158</a>, debundled in
+<a href="https://github.com/monarch-initiative/dismech/pull/4182">PR #4182</a>).</p>
+<p><strong>Before</strong> — a bundled four-node chain in which one node carried the variant, the
+receptor biophysics, and two effector branches at once, and the syndrome-defining
+cutaneous phenotype was present but disconnected (so invisible in the pathograph):</p>
+<div class="highlight"><pre><span></span><code>FGFR3 A391E Gain-of-Function
+  -&gt; Sustained MAPK/STAT signaling in suture osteoblasts
+  -&gt; Premature cranial suture fusion
+  -&gt; Craniosynostosis
+</code></pre></div>
+<p><strong>After</strong> — the single receptor lesion is split into its biophysical layers and then
+forked into the skeletal and cutaneous phenotypes it actually drives:</p>
+<div class="highlight"><pre><span></span><code>FGFR3 A391E Transmembrane Dimer Stabilization
+  -&gt; Constitutive FGFR3 Kinase Autophosphorylation        # branch point
+       -&gt; FRS2-GRB2-SOS RAS-MAPK Signaling
+            -&gt; Cranial Suture Osteoblast Differentiation
+                 -&gt; Premature cranial suture fusion -&gt; Craniosynostosis
+       -&gt; FGFR3-STAT Signaling                            # parallel effector, kept separate
+       -&gt; FGFR3 Signaling in Keratinocytes                # cutaneous fork
+            -&gt; Epidermal Hyperkeratosis and Hyperpigmentation -&gt; Acanthosis Nigricans
+</code></pre></div>
+<h3 id="modeling-rules-this-case-study-illustrates">Modeling rules this case study illustrates</h3>
+<ul>
+<li><strong>One node = one mechanistic claim.</strong> Split a node when it bundles steps that have
+  <em>separable evidence</em>, <em>different cell types/locations</em>, or <em>different downstream
+  targets</em>. In CSAN, dimer stabilization (<code>PMID:21536014</code>, <code>PMID:23437153</code>) and
+  activation-loop autophosphorylation are distinct, separately-evidenced biophysical
+  steps, so they became two nodes rather than one "gain-of-function" node.</li>
+<li><strong>Branch at the real branch point, not at a pathway label.</strong> The activated receptor
+  (<code>Constitutive FGFR3 Kinase Autophosphorylation</code>) is the node from which RAS-MAPK,
+  STAT, and the keratinocyte branch all diverge. Modeling the fork at the receptor —
+  rather than inside a single "MAPK/STAT" node — makes the parallel outputs explicit.</li>
+<li><strong>Do not merge parallel effectors under a pathway shorthand.</strong> STAT and ERK are
+  parallel FGFR3 outputs with distinct biology; "MAPK/STAT" as one node hid that. Keep
+  them as sibling nodes unless a specific downstream phenotype edge genuinely requires
+  both inputs.</li>
+<li><strong>Connect every syndrome-defining phenotype into the graph.</strong> Acanthosis nigricans is
+  diagnostic for CSAN but was an orphan before debundling. Adding the keratinocyte →
+  epidermal-change → phenotype branch (and linking treatments via <code>target_phenotypes</code>)
+  is what brings these nodes into the serialized pathograph.</li>
+<li><strong>Make edge confidence visible, and let it expose knowledge gaps.</strong> Edge confidence
+  varies by layer: human genetics and craniosynostosis are strongly evidenced
+  (<code>causal_link_type: DIRECT</code> / <code>INDIRECT_KNOWN_INTERMEDIATES</code>), whereas the
+  keratinocyte route to flexural acanthosis is inferential
+  (<code>causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES</code>, node
+  <code>mechanism_confidence: PROVISIONAL</code>). Rather than overstate that edge, the cutaneous
+  branch carries an explicit <code>KNOWLEDGE_GAP</code> discussion
+  (<code>gap_csan_cutaneous_fgfr3_branch</code>) attached to the provisional nodes and phenotype.</li>
+</ul>
+<h3 id="when-not-to-debundle">When <em>not</em> to debundle</h3>
+<p>Granularity has a cost: a graph that expands every canonical pathway into its textbook
+intermediates becomes pathway-heavy and harder to read without adding disease-specific
+insight. Split a node only when the finer boundary carries its own evidence, its own
+ontology annotations, or a distinct downstream target. If an intermediate has none of
+those, leave it folded into the adjacent node and capture the detail in the node
+<code>description</code> instead. The goal is a graph whose node boundaries mirror the points where
+the <em>causal evidence</em> actually changes.</p>
 <h2 id="dependencies">Dependencies</h2>
 <p>The pathograph loads two libraries via CDN:</p>
 <ul>
