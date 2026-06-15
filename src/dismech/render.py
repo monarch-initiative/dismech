@@ -142,6 +142,11 @@ def curie_to_url(curie: str) -> str:
     return f"https://bioregistry.io/{curie}"
 
 
+def _strip_line_end_whitespace(text: str) -> str:
+    """Remove renderer-introduced spaces at line ends without changing content."""
+    return re.sub(r"[ \t]+(?=\r?\n|$)", "", text)
+
+
 def slugify(name: str) -> str:
     """Convert a disorder name to a filename-safe slug."""
     return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
@@ -1517,26 +1522,28 @@ def render_disorder(
         research_root.resolve(), output_path.parent.resolve()
     )
 
-    html = template.render(
-        disorder=disorder,
-        yaml_content=yaml_content,
-        source_file=source_file,
-        mermaid_code=mermaid_code,
-        pathograph_data=pathograph_data,
-        pathograph_node_count=pathograph_node_count,
-        graph_issues=graph.integrity_issues,
-        comorbidity_links=comorbidity_links,
-        phenotype_groups=phenotype_groups,
-        report_sections=report_sections,
-        literature_sections=literature_sections,
-        hypothesis_research_links=hypothesis_research_links,
-        hypothesis_research_count=hypothesis_research_count,
-        research_root_rel=research_root_rel,
-        # OpenScientist integration
-        disorder_slug=disorder_slug,
-        yaml_revision=yaml_revision,
-        mondo_id=disease_term_term.get("id", ""),
-        openscientist_proxy_url=openscientist_proxy_url,
+    html = _strip_line_end_whitespace(
+        template.render(
+            disorder=disorder,
+            yaml_content=yaml_content,
+            source_file=source_file,
+            mermaid_code=mermaid_code,
+            pathograph_data=pathograph_data,
+            pathograph_node_count=pathograph_node_count,
+            graph_issues=graph.integrity_issues,
+            comorbidity_links=comorbidity_links,
+            phenotype_groups=phenotype_groups,
+            report_sections=report_sections,
+            literature_sections=literature_sections,
+            hypothesis_research_links=hypothesis_research_links,
+            hypothesis_research_count=hypothesis_research_count,
+            research_root_rel=research_root_rel,
+            # OpenScientist integration
+            disorder_slug=disorder_slug,
+            yaml_revision=yaml_revision,
+            mondo_id=disease_term_term.get("id", ""),
+            openscientist_proxy_url=openscientist_proxy_url,
+        )
     )
 
     # Write output
@@ -1786,7 +1793,9 @@ def _collect_research_index_rows(
             continue
         disorder = load_disorder(yaml_path) or {}
         disorder_name = disorder.get("name") or yaml_path.stem
-        page_name_by_filename[f"{slugify(str(disorder_name))}.html"] = str(disorder_name)
+        page_name_by_filename[f"{slugify(str(disorder_name))}.html"] = str(
+            disorder_name
+        )
 
     rows: dict[str, dict] = {}
     report_pattern = re.compile(
@@ -1975,9 +1984,889 @@ def render_all_comorbidities(
         )
         print(f"Rendered comorbidity: {yaml_path.stem} -> {output_path}")
 
-    index_path = render_comorbidity_index(comorbidity_summaries, output_dir / "index.html")
+    index_path = render_comorbidity_index(
+        comorbidity_summaries, output_dir / "index.html"
+    )
     output_files.append(index_path)
     print(f"Rendered comorbidity index -> {index_path}")
+    return output_files
+
+
+# --------------------------------------------------------------------------- #
+# Disease groupings
+# --------------------------------------------------------------------------- #
+
+EXACT_MATCH = "skos:exactMatch"
+
+
+def load_grouping(yaml_path: Path) -> dict:
+    """Load a grouping YAML file."""
+    return yaml.safe_load(yaml_path.read_text()) or {}
+
+
+def _term_chip(descriptor: dict | None) -> dict | None:
+    """Build a {label, id, url} chip from a descriptor's ontology term."""
+    if not isinstance(descriptor, dict):
+        return None
+    term = descriptor.get("term")
+    if not isinstance(term, dict) or not term.get("id"):
+        return None
+    label = descriptor.get("preferred_term") or term.get("label") or term.get("id")
+    return {"label": label, "id": term.get("id"), "url": curie_to_url(term.get("id"))}
+
+
+def _module_href(module_ref: str | None) -> dict | None:
+    """Build a {stem, node, href} link for a module reference (with #anchor)."""
+    if not module_ref:
+        return None
+    stem, _, node = module_ref.partition("#")
+    stem = stem.strip()
+    node = node.strip()
+    if not stem:
+        return None
+    return {"stem": stem, "node": node, "href": f"../modules/{stem}.html"}
+
+
+def _logic_view(node: dict | None) -> dict | None:
+    """Build a template-friendly recursive view of a LogicalCriterion node."""
+    if not isinstance(node, dict):
+        return None
+    from .groupings import NodeKind, classify_node
+
+    kind = classify_node(node)
+    view: dict = {
+        "kind": kind.value,
+        "description": node.get("description"),
+        "negated": bool(node.get("negated")),
+    }
+    if kind is NodeKind.BRANCH:
+        view["operator"] = node.get("operator")
+        view["operands"] = [
+            v for v in (_logic_view(child) for child in node.get("operands") or []) if v
+        ]
+    else:
+        view["predicate"] = node.get("criterion_predicate")
+        view["min_frequency"] = node.get("min_frequency")
+        view["module"] = _module_href(node.get("module"))
+        chips: list[dict] = []
+        for slot in ("phenotype_term", "gene"):
+            chip = _term_chip(node.get(slot))
+            if chip:
+                chips.append(chip)
+        for bp in node.get("biological_processes") or []:
+            chip = _term_chip(bp)
+            if chip:
+                chips.append(chip)
+        view["terms"] = chips
+    return view
+
+
+def _resolve_member_href(member: dict, by_name: dict[str, str]) -> str | None:
+    """Resolve a grouping member to its page href."""
+    mtype = member.get("member_type", "DISEASE")
+    ref = member.get("member")
+    if not ref:
+        return None
+    if mtype in ("DISEASE", "SUBTYPE"):
+        page = by_name.get(_normalize_disorder_lookup(ref))
+        return f"../disorders/{page}" if page else None
+    if mtype == "MODULE":
+        return f"../modules/{ref.split('#', 1)[0].strip()}.html"
+    if mtype == "GROUPING":
+        return f"{slugify(ref)}.html"
+    return None
+
+
+def _grouping_mondo_mappings(grouping: dict) -> list[dict]:
+    """Return template-friendly MONDO mappings declared by a grouping."""
+    out: list[dict] = []
+    mappings = (grouping.get("mappings") or {}).get("mondo_mappings") or []
+    for mapping in mappings:
+        if not isinstance(mapping, dict):
+            continue
+        term = mapping.get("term") or {}
+        if not isinstance(term, dict):
+            continue
+        term_id = term.get("id")
+        if not isinstance(term_id, str) or not term_id.startswith("MONDO:"):
+            continue
+        predicate = mapping.get("mapping_predicate") or ""
+        out.append(
+            {
+                "id": term_id,
+                "label": term.get("label") or term_id,
+                "predicate": predicate,
+                "source": mapping.get("mapping_source"),
+                "url": curie_to_url(term_id),
+                "is_exact": predicate == EXACT_MATCH,
+            }
+        )
+    return out
+
+
+def _leaf_term_ids(node: dict) -> list[str]:
+    """Collect compact term ids for a criterion leaf."""
+    ids: list[str] = []
+    for slot in ("phenotype_term", "gene"):
+        chip = _term_chip(node.get(slot))
+        if chip:
+            ids.append(chip["id"])
+    for bp in node.get("biological_processes") or []:
+        chip = _term_chip(bp)
+        if chip:
+            ids.append(chip["id"])
+    return ids
+
+
+def _grouping_criteria_columns(grouping: dict) -> list[dict]:
+    """Flatten criteria leaves into table columns."""
+    try:
+        from .groupings import NodeKind, classify_node, iter_nodes
+    except Exception:
+        return []
+
+    columns: list[dict] = []
+    for ci, criteria in enumerate(grouping.get("membership_criteria") or []):
+        logic = criteria.get("logic")
+        if logic is None:
+            continue
+        leaf_index = 0
+        for node in iter_nodes(logic):
+            if classify_node(node) is not NodeKind.LEAF:
+                continue
+            description = node.get("description") or node.get(
+                "criterion_predicate", "criterion"
+            )
+            term_ids = _leaf_term_ids(node)
+            columns.append(
+                {
+                    "key": f"{ci}:{leaf_index}",
+                    "short_label": f"C{ci + 1}.{leaf_index + 1}",
+                    "label": description,
+                    "predicate": node.get("criterion_predicate"),
+                    "semantics": criteria.get("criteria_semantics"),
+                    "term_ids": term_ids,
+                    "title": " | ".join(
+                        part
+                        for part in (
+                            criteria.get("criteria_semantics"),
+                            node.get("criterion_predicate"),
+                            description,
+                            ", ".join(term_ids),
+                        )
+                        if part
+                    ),
+                }
+            )
+            leaf_index += 1
+    return columns
+
+
+def _primary_mondo_term(disorder: dict) -> dict | None:
+    disease_term = disorder.get("disease_term")
+    if not isinstance(disease_term, dict):
+        return None
+    term = disease_term.get("term")
+    if not isinstance(term, dict):
+        return None
+    term_id = term.get("id")
+    if not isinstance(term_id, str) or not term_id.startswith("MONDO:"):
+        return None
+    return {
+        "id": term_id,
+        "label": disease_term.get("preferred_term") or term.get("label") or term_id,
+        "url": curie_to_url(term_id),
+    }
+
+
+def _top_level_mondo_mapping_terms(disorder: dict) -> list[dict]:
+    terms: list[dict] = []
+    mappings = (disorder.get("mappings") or {}).get("mondo_mappings") or []
+    for mapping in mappings:
+        if not isinstance(mapping, dict):
+            continue
+        term = mapping.get("term") or {}
+        if not isinstance(term, dict):
+            continue
+        term_id = term.get("id")
+        if not isinstance(term_id, str) or not term_id.startswith("MONDO:"):
+            continue
+        terms.append(
+            {
+                "id": term_id,
+                "label": term.get("label") or term_id,
+                "url": curie_to_url(term_id),
+            }
+        )
+    return terms
+
+
+@lru_cache(maxsize=8)
+def _build_grouping_disorder_context(disorders_dir: str) -> dict:
+    """Parse disorders once for all indexes needed by grouping rendering."""
+    try:
+        from .groupings import extract_disease_facts
+    except Exception:
+        extract_disease_facts = None
+
+    root = Path(disorders_dir)
+    page_by_name_candidates: dict[str, set[str]] = defaultdict(set)
+    identity_by_name: dict[str, dict] = {}
+    by_mondo: dict[str, list[dict]] = defaultdict(list)
+    disease_index: dict[str, object] = {}
+
+    for disorder_path in sorted(root.glob("*.yaml")):
+        if disorder_path.name.endswith(".history.yaml"):
+            continue
+        try:
+            disorder = load_disorder(disorder_path) or {}
+        except Exception:
+            continue
+        name = disorder.get("name") or disorder_path.stem
+        name = str(name)
+        display_name = disorder.get("display_name")
+        page_filename = f"{slugify(name)}.html"
+        href = f"../disorders/{page_filename}"
+
+        for candidate in (name, disorder_path.stem):
+            lookup_key = _normalize_disorder_lookup(
+                str(candidate) if candidate else None
+            )
+            if lookup_key:
+                page_by_name_candidates[lookup_key].add(page_filename)
+
+        primary = _primary_mondo_term(disorder)
+        identity_terms = (
+            [primary] if primary else _top_level_mondo_mapping_terms(disorder)
+        )
+        entry = {
+            "name": name,
+            "display_name": display_name,
+            "href": href,
+            "mondo_terms": [t for t in identity_terms if t],
+        }
+        identity_by_name[_normalize_disorder_lookup(name)] = entry
+        for term in entry["mondo_terms"]:
+            by_mondo[term["id"]].append(entry)
+
+        if extract_disease_facts is not None and disorder.get("name"):
+            disease_index[name] = extract_disease_facts(name, disorder)
+
+    page_by_name = {
+        lookup_key: next(iter(page_names))
+        for lookup_key, page_names in page_by_name_candidates.items()
+        if len(page_names) == 1
+    }
+    return {
+        "page_by_name": page_by_name,
+        "identity_by_name": identity_by_name,
+        "by_mondo": dict(by_mondo),
+        "disease_index": disease_index,
+    }
+
+
+def _mondo_term(term_id: str, label: str | None = None) -> dict:
+    return {
+        "id": term_id,
+        "label": label or term_id,
+        "url": curie_to_url(term_id),
+    }
+
+
+@lru_cache(maxsize=256)
+def _cached_mondo_descendants(term_id: str) -> tuple[str, ...]:
+    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    if adapter is None:
+        return ()
+    try:
+        from oaklib.datamodels.vocabulary import IS_A
+
+        return tuple(
+            sorted(
+                d
+                for d in adapter.descendants([term_id], predicates=[IS_A])
+                if isinstance(d, str) and d.startswith("MONDO:") and d != term_id
+            )
+        )
+    except Exception:
+        return ()
+
+
+@lru_cache(maxsize=2048)
+def _cached_mondo_label(term_id: str) -> str:
+    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    if adapter is None:
+        return term_id
+    try:
+        return adapter.label(term_id) or term_id
+    except Exception:
+        return term_id
+
+
+def _exact_mondo_descendant_terms(
+    root_ids: list[str], by_mondo: dict[str, list[dict]]
+) -> tuple[dict[str, dict], set[str], set[str], str | None]:
+    """Fetch visible exact-MONDO descendant terms for coverage rows.
+
+    Descendants under an already-covered DisMech MONDO class are suppressed as
+    finer ontology splits of a curated entry, matching the standalone gap report.
+    """
+    if not root_ids:
+        return {}, set(), set(), None
+
+    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    if adapter is None:
+        return {}, set(), set(), "MONDO descendant lookup unavailable."
+
+    descendant_terms: dict[str, dict] = {}
+    exact_scope_ids: set[str] = set(root_ids)
+    shadowed_ids: set[str] = set()
+    covered_ids = set(by_mondo)
+
+    try:
+        for root_id in root_ids:
+            descendants = set(_cached_mondo_descendants(root_id))
+            exact_scope_ids.update(descendants)
+            covered_descendants = descendants & covered_ids
+            for covered_id in covered_descendants:
+                shadowed_ids.update(_cached_mondo_descendants(covered_id))
+            for term_id in sorted(descendants):
+                if term_id in shadowed_ids and term_id not in covered_ids:
+                    continue
+                descendant_terms[term_id] = _mondo_term(
+                    term_id, _cached_mondo_label(term_id)
+                )
+    except Exception:
+        return {}, set(root_ids), set(), "MONDO descendant lookup failed."
+
+    return descendant_terms, exact_scope_ids, shadowed_ids, None
+
+
+def _coverage_criteria_cells(
+    names: list[str],
+    criteria_columns: list[dict],
+    audit: dict[str, list[dict]],
+) -> list[dict]:
+    """Build criteria cells for one coverage row across one or more entries."""
+    order = {"NOT_SATISFIED": 0, "UNKNOWN": 1, "SATISFIED": 2}
+    by_key: dict[str, list[dict]] = defaultdict(list)
+    for name in names:
+        for audit_entry in audit.get(name, []):
+            for leaf in audit_entry.get("leaves", []):
+                by_key[leaf["key"]].append(
+                    {
+                        "entry": name,
+                        "result": leaf["result"],
+                        "description": leaf["description"],
+                    }
+                )
+
+    cells: list[dict] = []
+    for column in criteria_columns:
+        entries = by_key.get(column["key"], [])
+        if not entries:
+            cells.append({"result": "", "label": "", "title": column["title"]})
+            continue
+        worst = min(entries, key=lambda e: order.get(e["result"], 1))
+        results = sorted({e["result"] for e in entries})
+        title = "; ".join(
+            f"{e['entry']}: {e['result'].replace('_', ' ').lower()}" for e in entries
+        )
+        cells.append(
+            {
+                "result": worst["result"],
+                "label": "mixed" if len(results) > 1 else worst["result"],
+                "title": title or column["title"],
+            }
+        )
+    return cells
+
+
+def _mondo_scope_state(row: dict, exact_scope_ids: set[str]) -> dict:
+    """Describe whether this row falls inside the grouping's exact MONDO scope."""
+    if not exact_scope_ids:
+        return {
+            "value": "not_assessed",
+            "label": "not assessed",
+            "class": "na",
+            "title": "No exact MONDO grouping mapping is declared.",
+        }
+    if row["mondo"] is None:
+        return {
+            "value": "no_mondo",
+            "label": "no MONDO ID",
+            "class": "no",
+            "title": "This DisMech row has no MONDO identity to test.",
+        }
+    if row["mondo"]["id"] in exact_scope_ids:
+        return {
+            "value": "yes",
+            "label": "yes",
+            "class": "yes",
+            "title": "This MONDO concept is the exact grouping term or an is-a descendant.",
+        }
+    return {
+        "value": "no",
+        "label": "no",
+        "class": "no",
+        "title": "This MONDO concept is outside the exact grouping MONDO scope.",
+    }
+
+
+def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
+    has_dismech = bool(row["dismech_entries"])
+    has_mondo = row["mondo"] is not None
+    is_listed = any(e["member_state"] == "listed" for e in row["dismech_entries"])
+    is_candidate = any(e["member_state"] == "candidate" for e in row["dismech_entries"])
+    is_not_listed = any(
+        e["member_state"] == "not_listed" for e in row["dismech_entries"]
+    )
+    mondo_id = row["mondo"]["id"] if row["mondo"] else None
+    has_exact_scope = bool(exact_scope_ids)
+
+    if (
+        has_exact_scope
+        and has_dismech
+        and has_mondo
+        and mondo_id not in exact_scope_ids
+    ):
+        if is_listed:
+            return "outside_scope", "listed outside grouping MONDO"
+        if is_candidate:
+            return "outside_scope", "candidate outside grouping MONDO"
+        if is_not_listed:
+            return "outside_scope", "DisMech outside grouping MONDO"
+        return "outside_scope", "outside grouping MONDO"
+    if has_dismech and has_mondo and is_listed:
+        if has_exact_scope:
+            return "mapped", "listed in scope"
+        return "mapped", "listed with MONDO ID"
+    if has_dismech and has_mondo and is_candidate:
+        if has_exact_scope:
+            return "candidate", "candidate in scope"
+        return "candidate", "DisMech candidate"
+    if has_dismech and has_mondo and is_not_listed:
+        if has_exact_scope:
+            return "not_listed", "DisMech not listed"
+        return "not_listed", "not listed, MONDO ID"
+    if has_dismech and not has_mondo:
+        return "dismech_only", "DisMech only"
+    if has_mondo:
+        return "mondo_gap", "MONDO gap"
+    return "dismech_only", "DisMech only"
+
+
+def _build_grouping_coverage_rows(
+    grouping: dict,
+    *,
+    audit: dict[str, list[dict]],
+    candidates: list[dict],
+    criteria_columns: list[dict],
+    identity_by_name: dict[str, dict],
+    by_mondo: dict[str, list[dict]],
+) -> tuple[list[dict], dict]:
+    """Build a unified DisMech/MONDO coverage table for a grouping page."""
+    mondo_mappings = _grouping_mondo_mappings(grouping)
+    exact_roots = [m["id"] for m in mondo_mappings if m["is_exact"]]
+    descendant_terms, exact_scope_ids, shadowed_ids, note = (
+        _exact_mondo_descendant_terms(exact_roots, by_mondo)
+    )
+
+    listed_names = {
+        m.get("member")
+        for m in grouping.get("members") or []
+        if isinstance(m, dict) and m.get("member")
+    }
+    candidate_names = {c["name"] for c in candidates if c.get("name")}
+
+    member_by_name = {
+        m.get("member"): m
+        for m in grouping.get("members") or []
+        if isinstance(m, dict) and m.get("member")
+    }
+    rows: dict[str, dict] = {}
+
+    def ensure_row(key: str) -> dict:
+        return rows.setdefault(
+            key,
+            {
+                "key": key,
+                "mondo": None,
+                "dismech_entries": [],
+                "criteria_cells": [],
+                "status": "",
+                "status_label": "",
+                "is_leaf_gap": False,
+            },
+        )
+
+    def add_mondo(term: dict) -> dict:
+        row = ensure_row(f"mondo:{term['id']}")
+        row["mondo"] = term
+        return row
+
+    def add_dismech(row: dict, entry: dict, member: dict | None = None) -> None:
+        name = entry["name"]
+        if any(existing["name"] == name for existing in row["dismech_entries"]):
+            return
+        if name in listed_names:
+            state = "listed"
+        elif name in candidate_names:
+            state = "candidate"
+        else:
+            state = "not_listed"
+        row["dismech_entries"].append(
+            {
+                "name": name,
+                "display_name": entry.get("display_name") or name,
+                "href": entry.get("href"),
+                "member_state": state,
+                "member_type": (member or {}).get("member_type", "DISEASE"),
+                "mechanisms": (member or {}).get("differentiating_mechanisms") or [],
+            }
+        )
+
+    # Add exact-root descendants first, collapsed with any DisMech entry that
+    # declares the same primary identity MONDO id.
+    for term_id, term in sorted(
+        descendant_terms.items(), key=lambda item: item[1]["label"]
+    ):
+        row = add_mondo(term)
+        for entry in by_mondo.get(term_id, []):
+            add_dismech(row, entry, member_by_name.get(entry["name"]))
+
+    # Add exact roots themselves when a DisMech entry maps directly to the root.
+    # For inexact mappings, the mapping target is diagnostic/provenance context,
+    # not a scope whose DisMech entries should be pulled into this table.
+    for mapping in mondo_mappings:
+        if not mapping["is_exact"]:
+            continue
+        term = _mondo_term(mapping["id"], mapping["label"])
+        for entry in by_mondo.get(mapping["id"], []):
+            row = add_mondo(term)
+            add_dismech(row, entry, member_by_name.get(entry["name"]))
+
+    # Add all listed members and advisory candidates, including DisMech-only or
+    # outside-MONDO-scope rows.
+    for name in sorted(listed_names | candidate_names):
+        entry = identity_by_name.get(_normalize_disorder_lookup(name))
+        if entry is None:
+            entry = {
+                "name": name,
+                "display_name": name,
+                "href": None,
+                "mondo_terms": [],
+            }
+        terms = entry.get("mondo_terms") or []
+        if terms:
+            for term in terms:
+                if term["id"] in exact_scope_ids:
+                    row = add_mondo(term)
+                else:
+                    row = ensure_row(
+                        f"dismech:{_normalize_disorder_lookup(name)}:mondo:{term['id']}"
+                    )
+                    row["mondo"] = term
+                add_dismech(row, entry, member_by_name.get(name))
+        else:
+            row = ensure_row(f"dismech:{_normalize_disorder_lookup(name)}")
+            add_dismech(row, entry, member_by_name.get(name))
+
+    # Add criteria results and status labels.
+    for row in rows.values():
+        names = [entry["name"] for entry in row["dismech_entries"]]
+        row["criteria_cells"] = _coverage_criteria_cells(names, criteria_columns, audit)
+        row["mondo_scope"] = _mondo_scope_state(row, exact_scope_ids)
+        status, status_label = _coverage_status(row, exact_scope_ids)
+        row["status"] = status
+        row["status_label"] = status_label
+
+    status_order = {
+        "mapped": 0,
+        "candidate": 1,
+        "not_listed": 2,
+        "mondo_gap": 3,
+        "outside_scope": 4,
+        "dismech_only": 5,
+    }
+    sorted_rows = sorted(
+        rows.values(),
+        key=lambda row: (
+            status_order.get(row["status"], 99),
+            (row["mondo"] or {}).get("label")
+            or ", ".join(e["display_name"] for e in row["dismech_entries"]),
+        ),
+    )
+    scope_rows = [row for row in sorted_rows if row["mondo_scope"]["value"] == "yes"]
+    scope_listed = sum(
+        1
+        for row in scope_rows
+        if any(entry["member_state"] == "listed" for entry in row["dismech_entries"])
+    )
+    scope_dismech = sum(1 for row in scope_rows if row["dismech_entries"])
+    scope_total = len(scope_rows)
+    scope_percent = (
+        round((scope_listed / scope_total) * 100, 1) if scope_total else None
+    )
+    coverage = {
+        "note": note,
+        "exact_roots": [m for m in mondo_mappings if m["is_exact"]],
+        "shadowed_count": len(shadowed_ids - set(descendant_terms)),
+        "completeness": {
+            "available": bool(exact_roots and scope_total),
+            "covered": scope_listed,
+            "dismech_covered": scope_dismech,
+            "total": scope_total,
+            "percent": scope_percent,
+            "label": (
+                f"{scope_listed}/{scope_total} ({scope_percent:.1f}%)"
+                if scope_percent is not None
+                else None
+            ),
+        },
+        "counts": {
+            "rows": len(sorted_rows),
+            "mapped": sum(1 for r in sorted_rows if r["status"] == "mapped"),
+            "mondo_gap": sum(1 for r in sorted_rows if r["status"] == "mondo_gap"),
+            "not_listed": sum(1 for r in sorted_rows if r["status"] == "not_listed"),
+            "dismech_only": sum(
+                1
+                for r in sorted_rows
+                if r["status"] in {"dismech_only", "outside_scope"}
+            ),
+        },
+    }
+    return sorted_rows, coverage
+
+
+def _annotate_grouping(
+    grouping: dict,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> dict:
+    """Decorate a grouping with member hrefs, criteria views, and an advisory
+    membership audit, returning summary metadata used by the page templates."""
+    disorder_context = _build_grouping_disorder_context(str(disorders_dir.resolve()))
+    by_name = disorder_context["page_by_name"]
+    mondo_mappings = _grouping_mondo_mappings(grouping)
+    criteria_columns = _grouping_criteria_columns(grouping)
+
+    # Criteria views (recursive logic trees).
+    for criteria in grouping.get("membership_criteria") or []:
+        criteria["_logic_view"] = _logic_view(criteria.get("logic"))
+
+    # Member hrefs + differentiating-mechanism chips.
+    for member in grouping.get("members") or []:
+        member["_href"] = _resolve_member_href(member, by_name)
+        for mech in member.get("differentiating_mechanisms") or []:
+            chips = []
+            for slot in ("gene", "phenotype_term"):
+                chip = _term_chip(mech.get(slot))
+                if chip:
+                    chips.append(chip)
+            for bp in mech.get("biological_processes") or []:
+                chip = _term_chip(bp)
+                if chip:
+                    chips.append(chip)
+            mech["_chips"] = chips
+            mech["_module"] = _module_href(mech.get("module"))
+
+    # Advisory membership audit (never let this break rendering).
+    audit: dict[str, list[dict]] = {}
+    candidates: list[dict] = []
+    try:
+        from .groupings import (
+            evaluate_grouping,
+            find_candidate_members,
+        )
+
+        index = disorder_context["disease_index"]
+        for ev in evaluate_grouping(grouping, index):
+            audit.setdefault(ev.member, []).append(
+                {
+                    "criteria_index": ev.criteria_index,
+                    "semantics": ev.semantics,
+                    "result": ev.result.value,
+                    "leaves": [
+                        {
+                            "key": f"{ev.criteria_index}:{leaf_index}",
+                            "description": description,
+                            "result": result.value,
+                        }
+                        for leaf_index, (description, result) in enumerate(ev.leaves)
+                    ],
+                    "unmet": [d for d, r in ev.leaves if r.value != "SATISFIED"],
+                }
+            )
+        for name in find_candidate_members(grouping, index):
+            page = by_name.get(_normalize_disorder_lookup(name))
+            candidates.append(
+                {"name": name, "href": f"../disorders/{page}" if page else None}
+            )
+    except Exception:
+        audit = {}
+        candidates = []
+    grouping["_audit"] = audit
+    grouping["_candidates"] = candidates
+    grouping["_mondo_mappings"] = mondo_mappings
+    grouping["_criteria_columns"] = criteria_columns
+    try:
+        coverage_rows, coverage = _build_grouping_coverage_rows(
+            grouping,
+            audit=audit,
+            candidates=candidates,
+            criteria_columns=criteria_columns,
+            identity_by_name=disorder_context["identity_by_name"],
+            by_mondo=disorder_context["by_mondo"],
+        )
+    except Exception:
+        coverage_rows = []
+        coverage = {
+            "note": "Coverage table could not be built.",
+            "exact_roots": [m for m in mondo_mappings if m["is_exact"]],
+            "shadowed_count": 0,
+            "completeness": {
+                "available": False,
+                "covered": 0,
+                "dismech_covered": 0,
+                "total": 0,
+                "percent": None,
+                "label": None,
+            },
+            "counts": {
+                "rows": 0,
+                "mapped": 0,
+                "mondo_gap": 0,
+                "not_listed": 0,
+                "dismech_only": 0,
+            },
+        }
+    grouping["_coverage_rows"] = coverage_rows
+    grouping["_coverage"] = coverage
+
+    member_count = len(grouping.get("members") or [])
+    return {
+        "id": slugify(str(grouping.get("name") or "")),
+        "name": grouping.get("name"),
+        "display_name": grouping.get("display_name"),
+        "description": grouping.get("description"),
+        "grouping_basis": grouping.get("grouping_basis") or [],
+        "mondo_mappings": mondo_mappings,
+        "coverage": coverage,
+        "member_count": member_count,
+        "criteria_count": len(grouping.get("membership_criteria") or []),
+        "candidate_count": len(candidates),
+        "href": f"{slugify(str(grouping.get('name') or ''))}.html",
+    }
+
+
+def _render_grouping_document(
+    grouping: dict,
+    summary: dict,
+    yaml_path: Path,
+    output_path: Optional[Path] = None,
+    template_path: Optional[Path] = None,
+) -> Path:
+    """Render a loaded and annotated grouping to HTML."""
+    yaml_content = yaml_path.read_text()
+
+    if template_path is None:
+        template_dir = Path(__file__).parent / "templates"
+        template_name = "grouping.html.j2"
+    else:
+        template_dir = template_path.parent
+        template_name = template_path.name
+
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    env.filters["curie_to_url"] = curie_to_url
+    template = env.get_template(template_name)
+
+    source_file = (
+        "https://github.com/monarch-initiative/dismech/blob/main/"
+        f"kb/groupings/{yaml_path.name}"
+    )
+    html = template.render(
+        grouping=grouping,
+        summary=summary,
+        yaml_content=yaml_content,
+        source_file=source_file,
+    )
+
+    if output_path is None:
+        output_path = Path("pages/groupings") / f"{summary['id']}.html"
+    else:
+        output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_grouping(
+    yaml_path: Path,
+    output_path: Optional[Path] = None,
+    template_path: Optional[Path] = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> Path:
+    """Render a single disease grouping YAML file to HTML."""
+    grouping = load_grouping(yaml_path)
+    summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+    return _render_grouping_document(
+        grouping, summary, yaml_path, output_path, template_path
+    )
+
+
+def render_grouping_index(
+    groupings: list[dict],
+    output_path: Path = Path("pages/groupings/index.html"),
+) -> Path:
+    """Render the disease-grouping index page."""
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("grouping_index.html.j2")
+    html = template.render(
+        groupings=sorted(groupings, key=lambda g: str(g.get("name") or "").casefold())
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_groupings(
+    input_dir: Path = Path("kb/groupings"),
+    output_dir: Path = Path("pages/groupings"),
+    template_path: Optional[Path] = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> list[Path]:
+    """Render all disease groupings plus their index page."""
+    if not input_dir.exists():
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_files: list[Path] = []
+    summaries: list[dict] = []
+    for yaml_path in sorted(input_dir.glob("*.yaml")):
+        # Load once per file so the index summary matches the rendered grouping.
+        grouping = load_grouping(yaml_path)
+        summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+        output_path = output_dir / summary["href"]
+        _render_grouping_document(
+            grouping, summary, yaml_path, output_path, template_path
+        )
+        output_files.append(output_path)
+        summaries.append(summary)
+        print(f"Rendered grouping: {yaml_path.stem} -> {output_path}")
+
+    index_path = render_grouping_index(summaries, output_dir / "index.html")
+    output_files.append(index_path)
+    print(f"Rendered grouping index -> {index_path}")
     return output_files
 
 
@@ -2368,6 +3257,9 @@ def main():
         "--comorbidity", action="store_true", help="Render comorbidity page(s)"
     )
     parser.add_argument("--module", action="store_true", help="Render module page(s)")
+    parser.add_argument(
+        "--grouping", action="store_true", help="Render grouping page(s)"
+    )
     parser.add_argument("--research", action="store_true", help="Render research index")
     parser.add_argument("--output", "-o", help="Output path (file or directory)")
     parser.add_argument("--template", "-t", help="Custom template path")
@@ -2401,6 +3293,19 @@ def main():
         else:
             output_path = Path(args.output) if args.output else None
             result = render_module(input_path, output_path, template_path)
+            print(f"Generated: {result}")
+        return
+
+    if args.grouping:
+        if args.path is None:
+            raise SystemExit("Error: --grouping requires a file or directory path")
+        input_path = Path(args.path)
+        if input_path.is_dir():
+            output_dir = Path(args.output) if args.output else Path("pages/groupings")
+            render_all_groupings(input_path, output_dir, template_path)
+        else:
+            output_path = Path(args.output) if args.output else None
+            result = render_grouping(input_path, output_path, template_path)
             print(f"Generated: {result}")
         return
 
