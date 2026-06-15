@@ -26,6 +26,18 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
             "display_name": "Beta Group",
             "description": "Second test grouping.",
             "grouping_basis": ["SHARED_MECHANISM"],
+            "mappings": {
+                "mondo_mappings": [
+                    {
+                        "term": {
+                            "id": "MONDO:7654321",
+                            "label": "beta grouping",
+                        },
+                        "mapping_predicate": "skos:narrowMatch",
+                        "mapping_source": "MONDO",
+                    }
+                ]
+            },
             "membership_criteria": [
                 {
                     "description": "Members share the beta mechanism.",
@@ -118,6 +130,8 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
     assert 'href="Beta_Group.html">Beta Group</a>' in html
     assert "skos:exactMatch MONDO:1234567" in html
     assert 'href="http://purl.obolibrary.org/obo/MONDO_1234567"' in html
+    assert "MONDO coverage 1/1 (100.0%)" in html
+    assert "MONDO coverage not assessed" in html
     assert html.index("Alpha Group") < html.index("Beta Group")
 
     detail_html = (output_dir / "Alpha_Group.html").read_text()

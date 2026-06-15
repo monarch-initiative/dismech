@@ -2715,6 +2715,14 @@ def _annotate_grouping(
             "note": "Coverage table could not be built.",
             "exact_roots": [m for m in mondo_mappings if m["is_exact"]],
             "shadowed_count": 0,
+            "completeness": {
+                "available": False,
+                "covered": 0,
+                "dismech_covered": 0,
+                "total": 0,
+                "percent": None,
+                "label": None,
+            },
             "counts": {
                 "rows": 0,
                 "mapped": 0,
@@ -2734,6 +2742,7 @@ def _annotate_grouping(
         "description": grouping.get("description"),
         "grouping_basis": grouping.get("grouping_basis") or [],
         "mondo_mappings": mondo_mappings,
+        "coverage": coverage,
         "member_count": member_count,
         "criteria_count": len(grouping.get("membership_criteria") or []),
         "candidate_count": len(candidates),
@@ -2741,16 +2750,14 @@ def _annotate_grouping(
     }
 
 
-def render_grouping(
+def _render_grouping_document(
+    grouping: dict,
+    summary: dict,
     yaml_path: Path,
     output_path: Optional[Path] = None,
     template_path: Optional[Path] = None,
-    *,
-    disorders_dir: Path = Path("kb/disorders"),
 ) -> Path:
-    """Render a single disease grouping YAML file to HTML."""
-    grouping = load_grouping(yaml_path)
-    summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+    """Render a loaded and annotated grouping to HTML."""
     yaml_content = yaml_path.read_text()
 
     if template_path is None:
@@ -2785,6 +2792,21 @@ def render_grouping(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
     return output_path
+
+
+def render_grouping(
+    yaml_path: Path,
+    output_path: Optional[Path] = None,
+    template_path: Optional[Path] = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> Path:
+    """Render a single disease grouping YAML file to HTML."""
+    grouping = load_grouping(yaml_path)
+    summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+    return _render_grouping_document(
+        grouping, summary, yaml_path, output_path, template_path
+    )
 
 
 def render_grouping_index(
@@ -2822,11 +2844,11 @@ def render_all_groupings(
     summaries: list[dict] = []
     for yaml_path in sorted(input_dir.glob("*.yaml")):
         output_path = output_dir / f"{slugify(yaml_path.stem)}.html"
-        # Re-load per file so annotation summary matches the rendered grouping.
+        # Load once per file so the index summary matches the rendered grouping.
         grouping = load_grouping(yaml_path)
         summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
-        render_grouping(
-            yaml_path, output_path, template_path, disorders_dir=disorders_dir
+        _render_grouping_document(
+            grouping, summary, yaml_path, output_path, template_path
         )
         output_files.append(output_path)
         summaries.append(summary)

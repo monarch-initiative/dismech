@@ -275,14 +275,16 @@ def audit_consistency(only: str | None = None) -> str:
     # disorder name -> primary MONDO (disease_term)
     prim: dict[str, str] = {}
     for path in sorted(glob.glob(os.path.join(DISORDERS_DIR, "*.yaml"))):
-        data = yaml.safe_load(open(path))
+        with open(path) as fh:
+            data = yaml.safe_load(fh)
         if isinstance(data, dict):
             ids = list(_mondo_ids(data.get("disease_term")))
             if ids:
                 prim[data.get("name")] = ids[0]
     lines: list[str] = []
     for path in sorted(glob.glob(os.path.join(GROUPINGS_DIR, "*.yaml"))):
-        g = yaml.safe_load(open(path))
+        with open(path) as fh:
+            g = yaml.safe_load(fh)
         if not isinstance(g, dict):
             continue
         if only and only.lower() not in (g.get("name", "")).lower():
