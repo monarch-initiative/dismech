@@ -172,8 +172,13 @@ def test_build_summary_metrics():
         "total_subtypes": 3,
         "total_disorders_and_subtypes": 6,
         "total_unique_evidence_sources": 3,
+        "total_unique_publications": 3,
         "total_unique_disease_categories": 2,
         "total_unique_phenotype_categories": 2,
         "total_pathographs": 2,
         "total_unique_pathological_events": 2,
     }
+
+    # num_modules, when supplied, is surfaced as an extra metric
+    metrics_with_modules = BrowserExporter.build_summary_metrics(disorders, num_modules=53)
+    assert metrics_with_modules["total_modules"] == 53
