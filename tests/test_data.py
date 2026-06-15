@@ -816,7 +816,13 @@ def test_reference_range_on_biochemical_validates(validator):
                         "upper_bound": 5.0,
                         "unit": "mmol/L",
                         "population": "adults",
-                        "source": "KDIGO 2017",
+                        "evidence": [
+                            {
+                                "reference": "PMID:12345678",
+                                "supports": "SUPPORT",
+                                "snippet": "serum potassium reference interval",
+                            }
+                        ],
                     }
                 ],
             }

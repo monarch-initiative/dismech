@@ -666,8 +666,12 @@ phenotypes:
 
 A `Biochemical` marker can carry clinical laboratory `reference_ranges`
 (`ReferenceRange` class): a LOINC-coded normal interval (`lower_bound` /
-`upper_bound` / `unit`), a `population` stratifier, a `source`, and optional
-`evidence`. Omit a bound for one-sided intervals.
+`upper_bound` / `unit`) and a `population` stratifier. Omit a bound for
+one-sided intervals. Attribute the interval with structured `evidence`
+(the same `EvidenceItem` model used everywhere else — a citable PMID/DOI
+with a verified snippet), **not** a free-text source string. When the
+provenance is a lab manual that has no citable article (e.g., the Tietz
+guide), put that attribution in `notes` rather than inventing a citation.
 
 When a result is interpreted in graded categories rather than a single
 normal interval (e.g., above one value is mild, above a higher value is
@@ -695,7 +699,12 @@ reference_ranges:
   upper_bound: 10.5
   unit: mg/dL
   population: adults
-  source: "Tietz Clinical Guide to Laboratory Tests, 4th ed. (2006)"
+  evidence:
+  - reference: PMID:26303319
+    supports: SUPPORT
+    snippet: "exact quote stating the interval"
+    explanation: Source for the calcium reference interval.
+  notes: "Or, for a non-citable lab-manual interval, record provenance here."
   interpretation_bands:
   - name: Normal
     lower_bound: 8.5
