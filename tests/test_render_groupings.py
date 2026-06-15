@@ -130,19 +130,19 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
     assert 'href="Beta_Group.html">Beta Group</a>' in html
     assert "skos:exactMatch MONDO:1234567" in html
     assert 'href="http://purl.obolibrary.org/obo/MONDO_1234567"' in html
-    assert "MONDO coverage 1/1 (100.0%)" in html
-    assert "MONDO coverage not assessed" in html
+    assert "Coverage 1/1 (100.0%)" in html
+    assert "Coverage not assessed" in html
     assert html.index("Alpha Group") < html.index("Beta Group")
 
     detail_html = (output_dir / "Alpha_Group.html").read_text()
     assert "Coverage and gaps" in detail_html
     assert "Alpha Disorder" in detail_html
     assert "MONDO:1234567" in detail_html
-    assert "MONDO-scope coverage: 1/1 (100.0%)" in detail_html
+    assert "DisMech coverage of exact MONDO scope: 1/1 (100.0%)" in detail_html
     assert "listed in scope" in detail_html
     assert "In grouping MONDO" in detail_html
 
     beta_detail_html = (output_dir / "Beta_Group.html").read_text()
-    assert "MONDO-scope coverage not assessed" in beta_detail_html
+    assert "Exact MONDO scope not assessed" in beta_detail_html
     assert "listed with MONDO ID" in beta_detail_html
     assert "not assessed" in beta_detail_html
