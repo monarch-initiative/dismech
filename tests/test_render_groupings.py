@@ -54,8 +54,8 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
     _write_yaml(
         input_dir / "Alpha_Group.yaml",
         {
-            "name": "Alpha_Group",
-            "display_name": "Alpha Group",
+            "name": "Alpha-Group",
+            "display_name": "Alpha-Group",
             "description": "First test grouping.",
             "grouping_basis": ["SHARED_PATHWAY"],
             "mappings": {
@@ -120,21 +120,22 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
         disorders_dir=disorders_dir,
     )
 
-    assert output_dir / "Alpha_Group.html" in output_paths
+    assert output_dir / "Alpha-Group.html" in output_paths
     assert output_dir / "Beta_Group.html" in output_paths
     assert output_dir / "index.html" in output_paths
 
     html = (output_dir / "index.html").read_text()
     assert "2 groupings" in html
-    assert 'href="Alpha_Group.html">Alpha Group</a>' in html
+    assert 'href="Alpha-Group.html">Alpha-Group</a>' in html
     assert 'href="Beta_Group.html">Beta Group</a>' in html
+    assert not (output_dir / "Alpha_Group.html").exists()
     assert "skos:exactMatch MONDO:1234567" in html
     assert 'href="http://purl.obolibrary.org/obo/MONDO_1234567"' in html
     assert "Coverage 1/1 (100.0%)" in html
     assert "Coverage not assessed" in html
-    assert html.index("Alpha Group") < html.index("Beta Group")
+    assert html.index("Alpha-Group") < html.index("Beta Group")
 
-    detail_html = (output_dir / "Alpha_Group.html").read_text()
+    detail_html = (output_dir / "Alpha-Group.html").read_text()
     assert "Coverage and gaps" in detail_html
     assert "Alpha Disorder" in detail_html
     assert "MONDO:1234567" in detail_html

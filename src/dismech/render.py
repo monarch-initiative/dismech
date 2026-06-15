@@ -2843,10 +2843,10 @@ def render_all_groupings(
     output_files: list[Path] = []
     summaries: list[dict] = []
     for yaml_path in sorted(input_dir.glob("*.yaml")):
-        output_path = output_dir / f"{slugify(yaml_path.stem)}.html"
         # Load once per file so the index summary matches the rendered grouping.
         grouping = load_grouping(yaml_path)
         summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+        output_path = output_dir / summary["href"]
         _render_grouping_document(
             grouping, summary, yaml_path, output_path, template_path
         )
