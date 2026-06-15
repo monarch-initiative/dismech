@@ -1,6 +1,6 @@
 """Use grouping MONDO mappings as a curation prioritization signal.
 
-For each grouping in kb/groupings/ that carries a MONDO mapping, this script:
+For each grouping in kb/groupings/ that carries an exact MONDO mapping, this script:
 
 1. Fetches the reflexive is-a descendants of the grouping's MONDO term.
 2. Cross-references them against the MONDO ids declared by dismech disorder
@@ -11,6 +11,12 @@ For each grouping in kb/groupings/ that carries a MONDO mapping, this script:
    restrictions) so we can eyeball whether the MONDO class is something this
    grouping could be made consistent with, or is a higher-level grouping we do
    not attempt to capture.
+
+By default, descendant gaps are derived only from ``skos:exactMatch`` mappings:
+an exact grouping mapping says the DisMech grouping and MONDO class are the same
+intended concept, so missing MONDO descendants are curation gaps. Use
+``--include-inexact`` for diagnostic reports over narrow/broad/related mappings;
+those descendants are not exhaustive curation targets for the DisMech grouping.
 
 Usage:
     uv run python scripts/grouping_mondo_gaps.py
@@ -32,6 +38,7 @@ from oaklib.datamodels.vocabulary import IS_A
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GROUPINGS_DIR = os.path.join(ROOT, "kb", "groupings")
 DISORDERS_DIR = os.path.join(ROOT, "kb", "disorders")
+EXACT_MATCH = "skos:exactMatch"
 
 
 def _mondo_ids(obj):
@@ -48,8 +55,10 @@ def _mondo_ids(obj):
             yield from _mondo_ids(v)
 
 
-def grouping_mondo_terms() -> list[tuple[str, str]]:
-    """Return (grouping_name, mondo_id) for groupings that carry a mapping."""
+def grouping_mondo_terms(
+    include_inexact: bool = False,
+) -> list[tuple[str, str, str]]:
+    """Return (grouping_name, mondo_id, predicate) for eligible mappings."""
     out = []
     for path in sorted(glob.glob(os.path.join(GROUPINGS_DIR, "*.yaml"))):
         with open(path) as fh:
@@ -60,8 +69,11 @@ def grouping_mondo_terms() -> list[tuple[str, str]]:
         for m in mappings:
             term = (m or {}).get("term") or {}
             mid = term.get("id")
+            predicate = (m or {}).get("mapping_predicate") or ""
+            if not include_inexact and predicate != EXACT_MATCH:
+                continue
             if isinstance(mid, str) and mid.startswith("MONDO:"):
-                out.append((data.get("name", os.path.basename(path)), mid))
+                out.append((data.get("name", os.path.basename(path)), mid, predicate))
     return out
 
 
@@ -93,6 +105,7 @@ def disorder_mondo_index() -> dict[str, list[str]]:
 class GroupingReport:
     grouping: str
     mondo: str
+    mapping_predicate: str
     mondo_label: str
     logical_definition: str
     covered: list[tuple[str, str, list[str]]] = field(default_factory=list)
@@ -109,9 +122,7 @@ def logical_definition_str(adapter, mondo: str) -> str:
     parts = []
     for ld in lds:
         genus = ", ".join(ld.genusIds or [])
-        rests = [
-            f"{r.propertyId} some {r.fillerId}" for r in (ld.restrictions or [])
-        ]
+        rests = [f"{r.propertyId} some {r.fillerId}" for r in (ld.restrictions or [])]
         body = genus
         if rests:
             body += " and (" + " and ".join(rests) + ")"
@@ -119,21 +130,52 @@ def logical_definition_str(adapter, mondo: str) -> str:
     return " ; ".join(parts)
 
 
-def build_reports(only: str | None = None) -> list[GroupingReport]:
+def build_reports(
+    only: str | None = None,
+    *,
+    include_inexact: bool = False,
+) -> list[GroupingReport]:
     adapter = get_adapter("sqlite:obo:mondo")
     index = disorder_mondo_index()
+    descendant_cache: dict[str, set[str]] = {}
+
+    try:
+        rows = adapter.connection.exec_driver_sql(
+            "SELECT DISTINCT object FROM edge "
+            "WHERE predicate = 'rdfs:subClassOf' "
+            "AND subject LIKE 'MONDO:%' "
+            "AND object LIKE 'MONDO:%'"
+        )
+        mondo_terms_with_children = {row[0] for row in rows}
+    except Exception:
+        mondo_terms_with_children = set()
+
+    def mondo_descendants(term_id: str) -> set[str]:
+        if term_id not in descendant_cache:
+            descendant_cache[term_id] = {
+                d
+                for d in adapter.descendants([term_id], predicates=[IS_A])
+                if isinstance(d, str) and d.startswith("MONDO:") and d != term_id
+            }
+        return descendant_cache[term_id]
+
+    def is_mondo_leaf(term_id: str) -> bool:
+        if mondo_terms_with_children:
+            return term_id not in mondo_terms_with_children
+        return not {
+            child
+            for _, child in adapter.incoming_relationships(term_id)
+            if isinstance(child, str) and child.startswith("MONDO:")
+        }
+
     reports: list[GroupingReport] = []
-    for name, mondo in grouping_mondo_terms():
+    for name, mondo, predicate in grouping_mondo_terms(include_inexact):
         if only and only.lower() not in name.lower():
             continue
         label = adapter.label(mondo) or ""
         ld = logical_definition_str(adapter, mondo)
-        rep = GroupingReport(name, mondo, label, ld)
-        descendants = {
-            d
-            for d in adapter.descendants([mondo], predicates=[IS_A])
-            if d.startswith("MONDO:") and d != mondo
-        }
+        rep = GroupingReport(name, mondo, predicate, label, ld)
+        descendants = mondo_descendants(mondo)
         covered_ids = {d for d in descendants if d in index}
         # "Shadowed" = descendants of an already-covered entry. A gap inside the
         # shadow is just a finer MONDO split of a disorder we already curate
@@ -141,11 +183,7 @@ def build_reports(only: str | None = None) -> list[GroupingReport]:
         # a real curation gap. Gaps outside every shadow are the real candidates.
         shadowed: set[str] = set()
         for cid in covered_ids:
-            shadowed.update(
-                s
-                for s in adapter.descendants([cid], predicates=[IS_A])
-                if s.startswith("MONDO:")
-            )
+            shadowed.update(mondo_descendants(cid))
         for d in sorted(descendants):
             dlabel = adapter.label(d) or ""
             if d in index:
@@ -153,13 +191,7 @@ def build_reports(only: str | None = None) -> list[GroupingReport]:
             elif d in shadowed:
                 continue  # finer split of an already-curated entry; skip
             else:
-                sub = {
-                    s
-                    for s in adapter.descendants([d], predicates=[IS_A])
-                    if s.startswith("MONDO:")
-                }
-                is_leaf = sub <= {d}
-                rep.gaps.append((d, dlabel, is_leaf))
+                rep.gaps.append((d, dlabel, is_mondo_leaf(d)))
         reports.append(rep)
     return reports
 
@@ -169,13 +201,22 @@ def render(reports: list[GroupingReport], markdown: bool) -> str:
     h = (lambda s: f"## {s}") if markdown else (lambda s: f"\n=== {s} ===")
     for r in reports:
         total = len(r.covered) + len(r.gaps)
-        lines.append(h(f"{r.grouping}  [{r.mondo} {r.mondo_label}]"))
+        lines.append(
+            h(f"{r.grouping}  [{r.mapping_predicate} {r.mondo} {r.mondo_label}]")
+        )
+        if r.mapping_predicate != EXACT_MATCH:
+            lines.append(
+                "Mapping diagnostic only: inexact mappings do not imply that all "
+                "MONDO descendants are DisMech curation gaps."
+            )
         lines.append(f"MONDO logical definition: {r.logical_definition}")
         lines.append(
             f"Coverage: {len(r.covered)}/{total} descendant classes have a dismech entry"
         )
         leaf_gaps = [g for g in r.gaps if g[2]]
-        lines.append(f"Gaps (no dismech entry): {len(r.gaps)}  (leaf classes: {len(leaf_gaps)})")
+        lines.append(
+            f"Gaps (no dismech entry): {len(r.gaps)}  (leaf classes: {len(leaf_gaps)})"
+        )
         if r.covered:
             lines.append("  covered:")
             for mid, lab, names in r.covered:
@@ -192,48 +233,87 @@ def render(reports: list[GroupingReport], markdown: bool) -> str:
     return "\n".join(lines)
 
 
+def _audit_recommendation(
+    current_predicate: str | None,
+    *,
+    outside_count: int,
+) -> str:
+    """Recommend follow-up without treating incomplete curation as mismatch."""
+    if not current_predicate:
+        return "(no mapping)"
+    if current_predicate == EXACT_MATCH:
+        if outside_count:
+            return "keep exactMatch if conceptually equivalent; review outside-subtree members"
+        return EXACT_MATCH
+    if current_predicate == "skos:closeMatch":
+        if outside_count:
+            return (
+                "consider exactMatch if conceptually equivalent; record "
+                "outside-subtree members as consistency signals"
+            )
+        return "consider skos:exactMatch; partial DisMech coverage is not a downgrade reason"
+    if current_predicate in {
+        "skos:narrowMatch",
+        "skos:broadMatch",
+        "skos:relatedMatch",
+    }:
+        return f"keep {current_predicate} unless conceptual scope changes"
+    return f"review current predicate {current_predicate}"
+
+
 def audit_consistency(only: str | None = None) -> str:
     """For each grouping MONDO mapping, report whether the term is-a-subsumes the
-    members' primary MONDO ids, and recommend a SKOS predicate.
+    members' primary MONDO ids, and flag consistency signals.
 
-    A grouping whose members all fall under the MONDO term but which is one of
-    many such MONDO descendants is a curated (often partial) union of that class
-    -> skos:closeMatch. A grouping with members outside the MONDO term's is-a
-    subtree is broader than the MONDO class -> skos:broadMatch. This produces the
-    provenance recorded in each grouping's mapping `consistency`/`mapping_justification`.
+    Mapping predicates describe conceptual scope, not current DisMech curation
+    completeness. If an exact grouping mapping is missing many MONDO descendants,
+    those descendants are curation gaps. If listed members sit outside the mapped
+    MONDO subtree, that is a MONDO/member-alignment signal to record in
+    `consistency`, not an automatic reason to weaken the mapping predicate.
     """
     adapter = get_adapter("sqlite:obo:mondo")
     # disorder name -> primary MONDO (disease_term)
     prim: dict[str, str] = {}
     for path in sorted(glob.glob(os.path.join(DISORDERS_DIR, "*.yaml"))):
-        data = yaml.safe_load(open(path))
+        with open(path) as fh:
+            data = yaml.safe_load(fh)
         if isinstance(data, dict):
             ids = list(_mondo_ids(data.get("disease_term")))
             if ids:
                 prim[data.get("name")] = ids[0]
     lines: list[str] = []
     for path in sorted(glob.glob(os.path.join(GROUPINGS_DIR, "*.yaml"))):
-        g = yaml.safe_load(open(path))
+        with open(path) as fh:
+            g = yaml.safe_load(fh)
         if not isinstance(g, dict):
             continue
         if only and only.lower() not in (g.get("name", "")).lower():
             continue
         maps = (g.get("mappings") or {}).get("mondo_mappings") or []
-        gm = maps[0]["term"]["id"] if maps else None
+        first_map = maps[0] if maps else {}
+        gm = (first_map.get("term") or {}).get("id") if first_map else None
+        current = first_map.get("mapping_predicate") if first_map else None
         members = [m.get("member") for m in (g.get("members") or [])]
         desc = (
-            {x for x in adapter.descendants([gm], predicates=[IS_A]) if x.startswith("MONDO:")}
+            {
+                x
+                for x in adapter.descendants([gm], predicates=[IS_A])
+                if x.startswith("MONDO:")
+            }
             if gm
             else set()
         )
         sub = [m for m in members if prim.get(m) in desc]
         out = [m for m in members if prim.get(m) and prim.get(m) not in desc]
         nomondo = [m for m in members if not prim.get(m)]
-        rec = "(no mapping)" if not gm else (
-            "skos:closeMatch" if not out else "skos:broadMatch (grouping broader than MONDO class)"
+        rec = _audit_recommendation(current, outside_count=len(out))
+        lines.append(
+            f"## {g.get('name')}  mapping={gm or '(none)'}  "
+            f"current={current or '(none)'}  recommend={rec}"
         )
-        lines.append(f"## {g.get('name')}  mapping={gm or '(none)'}  recommend={rec}")
-        lines.append(f"   subsumed {len(sub)}/{len(members)}; outside-subtree {len(out)}; no-mondo {len(nomondo)}")
+        lines.append(
+            f"   subsumed {len(sub)}/{len(members)}; outside-subtree {len(out)}; no-mondo {len(nomondo)}"
+        )
         for m in out:
             lines.append(f"   - OUTSIDE: {m} -> {prim.get(m)}")
         for m in nomondo:
@@ -243,15 +323,30 @@ def audit_consistency(only: str | None = None) -> str:
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--grouping", help="Only analyze groupings whose name contains this substring.")
+    p.add_argument(
+        "--grouping", help="Only analyze groupings whose name contains this substring."
+    )
     p.add_argument("--markdown", action="store_true", help="Emit markdown.")
-    p.add_argument("--audit", action="store_true", help="Audit MONDO mapping consistency (subsumption of members) and recommend a SKOS predicate.")
+    p.add_argument(
+        "--audit",
+        action="store_true",
+        help="Audit MONDO mapping consistency (subsumption of members) and recommend a SKOS predicate.",
+    )
+    p.add_argument(
+        "--include-inexact",
+        action="store_true",
+        help=(
+            "Include narrow/broad/related mappings in descendant reports for "
+            "diagnostics. By default only skos:exactMatch mappings generate "
+            "curation-gap reports."
+        ),
+    )
     args = p.parse_args(argv)
 
     if args.audit:
         print(audit_consistency(args.grouping))
         return 0
-    reports = build_reports(args.grouping)
+    reports = build_reports(args.grouping, include_inexact=args.include_inexact)
     if not reports:
         print("No groupings with MONDO mappings matched.")
         return 0
@@ -259,15 +354,15 @@ def main(argv=None) -> int:
         print("# Grouping MONDO descendant coverage (curation prioritization)\n")
         print(
             "Generated by `scripts/grouping_mondo_gaps.py`. For each grouping that "
-            "carries a MONDO mapping, this lists the MONDO term's is-a descendants "
-            "and whether a dismech disorder declares that MONDO id. **Finer MONDO "
-            "splits beneath an already-curated entry are collapsed** (e.g. "
-            "*Bardet-Biedl syndrome 1* under our lumped BBS entry), so `Coverage: "
-            "X/Y` counts only meaningful classes: Y = covered + unshadowed gaps. "
-            "Leaf-class gaps are the highest-priority curation candidates. A 0/N "
-            "coverage usually means the grouping's MONDO mapping does not is-a-"
-            "subsume our curated members (a mapping-predicate/consistency signal, "
-            "not N real gaps).\n"
+            "carries an exact MONDO mapping, this lists the MONDO term's is-a "
+            "descendants and whether a dismech disorder declares that MONDO id. "
+            "**Finer MONDO splits beneath an already-curated entry are collapsed** "
+            "(e.g. *Bardet-Biedl syndrome 1* under our lumped BBS entry), so "
+            "`Coverage: X/Y` counts only meaningful classes: Y = covered + "
+            "unshadowed gaps. Leaf-class gaps are the highest-priority curation "
+            "candidates. Inexact mappings can be included with `--include-inexact`, "
+            "but their descendants are diagnostic rather than exhaustive curation "
+            "targets.\n"
         )
     print(render(reports, args.markdown))
     return 0
