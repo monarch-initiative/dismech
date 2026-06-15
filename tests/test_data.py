@@ -827,6 +827,66 @@ def test_reference_range_on_biochemical_validates(validator):
     assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
 
 
+def test_reference_range_interpretation_bands_validate(validator):
+    """Graded interpretation bands on a ReferenceRange should pass validation."""
+    data = {
+        "name": "Test Disease",
+        "biochemical": [
+            {
+                "name": "Hemoglobin",
+                "reference_ranges": [
+                    {
+                        "loinc_term": {
+                            "id": "LOINC:718-7",
+                            "label": "Hemoglobin [Mass/volume] in Blood",
+                        },
+                        "lower_bound": 12.0,
+                        "upper_bound": 16.0,
+                        "unit": "g/dL",
+                        "population": "adult female",
+                        "interpretation_bands": [
+                            {
+                                "name": "Severe",
+                                "upper_bound": 8.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "CRITICAL_LOW",
+                                "severity": "SEVERE",
+                                "interpretation": "Severe anemia.",
+                            },
+                            {
+                                "name": "Moderate",
+                                "lower_bound": 8.0,
+                                "upper_bound": 11.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "LOW",
+                                "severity": "MODERATE",
+                            },
+                            {
+                                "name": "Mild",
+                                "lower_bound": 11.0,
+                                "upper_bound": 12.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "LOW",
+                                "severity": "MILD",
+                            },
+                            {
+                                "name": "Normal",
+                                "lower_bound": 12.0,
+                                "upper_bound": 16.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "NORMAL",
+                            },
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
+
+
 def test_disorder_count():
     """Test that we have the expected number of disorders."""
     assert len(DISORDER_FILES) >= 50, (
