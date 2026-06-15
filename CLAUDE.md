@@ -662,6 +662,65 @@ phenotypes:
 
 **When `display_name` is set**, renderers show it instead of `name`. When absent, `name` is displayed directly.
 
+### Reference Ranges and Interpretation Bands
+
+A `Biochemical` marker can carry clinical laboratory `reference_ranges`
+(`ReferenceRange` class): a LOINC-coded normal interval (`lower_bound` /
+`upper_bound` / `unit`), a `population` stratifier, a `source`, and optional
+`evidence`. Omit a bound for one-sided intervals.
+
+When a result is interpreted in graded categories rather than a single
+normal interval (e.g., above one value is mild, above a higher value is
+moderate, then severe), add `interpretation_bands` (`ReferenceRangeBand`).
+Each band maps a value interval to a category and is rendered as a colored
+pill on the disorder page:
+
+- `name` (required): category label (e.g., "Normal", "Mild hypercalcemia").
+- `lower_bound` / `upper_bound`: the band's interval; omit `lower_bound` for
+  the open-below tier and `upper_bound` for the open-above tier.
+- `abnormal_flag`: `NORMAL`, `LOW`, `HIGH`, `CRITICAL_LOW`, `CRITICAL_HIGH`
+  (HL7 v2 / LOINC convention).
+- `severity`: ordinal `MILD` / `MODERATE` / `SEVERE` when the category aligns
+  with severity grading. Renderer colors bands by `severity` first, then
+  `abnormal_flag`.
+- `phenotype_term`: optional HP term an abnormal band maps to (LOINC2HPO style).
+- `interpretation`: free-text clinical interpretation of results in the band.
+
+```yaml
+reference_ranges:
+- loinc_term:
+    id: LOINC:17861-6
+    label: Calcium [Mass/volume] in Serum or Plasma
+  lower_bound: 8.5
+  upper_bound: 10.5
+  unit: mg/dL
+  population: adults
+  source: "Tietz Clinical Guide to Laboratory Tests, 4th ed. (2006)"
+  interpretation_bands:
+  - name: Normal
+    lower_bound: 8.5
+    upper_bound: 10.5
+    unit: mg/dL
+    abnormal_flag: NORMAL
+  - name: Mild hypercalcemia
+    lower_bound: 10.5
+    upper_bound: 12.0
+    unit: mg/dL
+    abnormal_flag: HIGH
+    severity: MILD
+  - name: Severe hypercalcemia
+    lower_bound: 14.0
+    unit: mg/dL
+    abnormal_flag: CRITICAL_HIGH
+    severity: SEVERE
+```
+
+`reference_ranges` (empirical clinical intervals) are distinct from
+`ModelVariableDescriptor` thresholds / `severity_scale` (computational-model
+phenotype-activation points); use reference ranges for measured lab analytes.
+
+The CKD-Mineral Bone Disorder entry is the worked example.
+
 ### Clinical Trials
 
 Clinical trials can be added to disease entries with evidence validated against ClinicalTrials.gov:
