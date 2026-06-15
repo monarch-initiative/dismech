@@ -2536,7 +2536,11 @@ def _build_grouping_coverage_rows(
             add_dismech(row, entry, member_by_name.get(entry["name"]))
 
     # Add exact roots themselves when a DisMech entry maps directly to the root.
+    # For inexact mappings, the mapping target is diagnostic/provenance context,
+    # not a scope whose DisMech entries should be pulled into this table.
     for mapping in mondo_mappings:
+        if not mapping["is_exact"]:
+            continue
         term = _mondo_term(mapping["id"], mapping["label"])
         for entry in by_mondo.get(mapping["id"], []):
             row = add_mondo(term)
@@ -2556,7 +2560,13 @@ def _build_grouping_coverage_rows(
         terms = entry.get("mondo_terms") or []
         if terms:
             for term in terms:
-                row = add_mondo(term)
+                if term["id"] in exact_scope_ids:
+                    row = add_mondo(term)
+                else:
+                    row = ensure_row(
+                        f"dismech:{_normalize_disorder_lookup(name)}:mondo:{term['id']}"
+                    )
+                    row["mondo"] = term
                 add_dismech(row, entry, member_by_name.get(name))
         else:
             row = ensure_row(f"dismech:{_normalize_disorder_lookup(name)}")

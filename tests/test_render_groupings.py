@@ -84,10 +84,10 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
         {
             "name": "Beta Disorder",
             "disease_term": {
-                "preferred_term": "Beta disorder",
+                "preferred_term": "Shared beta molecular subtype",
                 "term": {
-                    "id": "MONDO:7654321",
-                    "label": "beta disorder",
+                    "id": "MONDO:1111111",
+                    "label": "shared beta molecular subtype",
                 },
             },
         },
@@ -97,9 +97,39 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
         {
             "member": "Beta Disorder",
             "member_type": "DISEASE",
-        }
+        },
+        {
+            "member": "Gamma Disorder",
+            "member_type": "DISEASE",
+        },
     ]
     _write_yaml(input_dir / "Beta_Group.yaml", beta_group)
+    _write_yaml(
+        disorders_dir / "Generic_Beta_Disease.yaml",
+        {
+            "name": "Unlisted Generic Beta Disease",
+            "disease_term": {
+                "preferred_term": "Generic beta disease",
+                "term": {
+                    "id": "MONDO:7654321",
+                    "label": "generic beta disease",
+                },
+            },
+        },
+    )
+    _write_yaml(
+        disorders_dir / "Gamma_Disorder.yaml",
+        {
+            "name": "Gamma Disorder",
+            "disease_term": {
+                "preferred_term": "Shared beta molecular subtype",
+                "term": {
+                    "id": "MONDO:1111111",
+                    "label": "shared beta molecular subtype",
+                },
+            },
+        },
+    )
     _write_yaml(
         disorders_dir / "Alpha_Disorder.yaml",
         {
@@ -145,5 +175,8 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
 
     beta_detail_html = (output_dir / "Beta_Group.html").read_text()
     assert "Exact MONDO scope not assessed" in beta_detail_html
-    assert "listed with MONDO ID" in beta_detail_html
+    assert "2 rows" in beta_detail_html
+    assert "2 listed with MONDO ID" in beta_detail_html
+    assert "not listed, MONDO ID" not in beta_detail_html
+    assert "Unlisted Generic Beta Disease" not in beta_detail_html
     assert "not assessed" in beta_detail_html
