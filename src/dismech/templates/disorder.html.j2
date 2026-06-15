@@ -1493,6 +1493,48 @@
             color: #92400e;
         }
 
+        .reference-ranges {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .reference-ranges-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .reference-range {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .reference-range-interval {
+            font-weight: 700;
+            color: #92400e;
+        }
+
+        .reference-range-meta {
+            color: #b45309;
+            font-size: 0.82rem;
+        }
+
+        .reference-range-bands {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .reference-range-band-interp {
+            margin: 3px 0 0 2px;
+            font-size: 0.8rem;
+            color: #92400e;
+        }
+
         .regulatory-endpoints {
             margin-top: 8px;
             display: grid;
@@ -5195,6 +5237,72 @@
                         </div>
                         {% endif %}
                         {{ render_evidence(readout.evidence) }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if bio.reference_ranges %}
+                <div class="reference-ranges">
+                    <div class="reference-ranges-title">Reference Ranges</div>
+                    {% for rr in bio.reference_ranges %}
+                    <div class="reference-range">
+                        {% if rr.loinc_term and rr.loinc_term.id %}
+                        <a href="{{ rr.loinc_term.id | curie_to_url }}" target="_blank" rel="noopener" class="readout-target">{{ rr.loinc_term.label or rr.loinc_term.id }}</a>
+                        {% endif %}
+                        <span class="reference-range-interval">
+                            {% if rr.lower_bound is not none and rr.upper_bound is not none %}
+                            {{ rr.lower_bound }}–{{ rr.upper_bound }}{% if rr.unit %} {{ rr.unit }}{% endif %}
+                            {% elif rr.upper_bound is not none %}
+                            ≤ {{ rr.upper_bound }}{% if rr.unit %} {{ rr.unit }}{% endif %}
+                            {% elif rr.lower_bound is not none %}
+                            ≥ {{ rr.lower_bound }}{% if rr.unit %} {{ rr.unit }}{% endif %}
+                            {% endif %}
+                        </span>
+                        {% if rr.population %}
+                        <span class="reference-range-meta">({{ rr.population }})</span>
+                        {% endif %}
+                        {% if rr.interpretation_bands %}
+                        <div class="reference-range-bands">
+                            {% for band in rr.interpretation_bands %}
+                            {% set flag = (band.abnormal_flag or '') | upper %}
+                            {% set sev = (band.severity or '') | string | lower %}
+                            {% if flag in ('CRITICAL_LOW', 'CRITICAL_HIGH') or sev == 'severe' %}
+                            {% set band_class = 'severity-severe' %}
+                            {% elif sev == 'moderate' %}
+                            {% set band_class = 'severity-moderate' %}
+                            {% elif sev == 'mild' %}
+                            {% set band_class = 'severity-mild' %}
+                            {% elif flag in ('LOW', 'HIGH') %}
+                            {% set band_class = 'severity-moderate' %}
+                            {% else %}
+                            {% set band_class = 'severity-other' %}
+                            {% endif %}
+                            {% set band_unit = band.unit or rr.unit %}
+                            <span class="severity-pill {{ band_class }}">
+                                {{ band.name }}
+                                {% if band.lower_bound is not none and band.upper_bound is not none %}
+                                ({{ band.lower_bound }}–{{ band.upper_bound }}{% if band_unit %} {{ band_unit }}{% endif %})
+                                {% elif band.upper_bound is not none %}
+                                (&lt; {{ band.upper_bound }}{% if band_unit %} {{ band_unit }}{% endif %})
+                                {% elif band.lower_bound is not none %}
+                                (≥ {{ band.lower_bound }}{% if band_unit %} {{ band_unit }}{% endif %})
+                                {% endif %}
+                                {% if band.phenotype_term and band.phenotype_term.term and band.phenotype_term.term.id %}
+                                <a href="{{ band.phenotype_term.term.id | curie_to_url }}" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;" title="Mapped HP phenotype">→ {{ band.phenotype_term.term.label or band.phenotype_term.preferred_term }}</a>
+                                {% endif %}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% for band in rr.interpretation_bands %}
+                        {% if band.interpretation %}
+                        <div class="reference-range-band-interp"><strong>{{ band.name }}:</strong> {{ band.interpretation }}</div>
+                        {% endif %}
+                        {% endfor %}
+                        {% endif %}
+                        {% if rr.notes %}
+                        <div class="reference-range-meta">{{ rr.notes }}</div>
+                        {% endif %}
+                        {{ render_evidence(rr.evidence) }}
                     </div>
                     {% endfor %}
                 </div>
