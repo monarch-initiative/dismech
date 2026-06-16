@@ -1264,6 +1264,22 @@ enums:
       below:
         description: Activates when the variable falls below the threshold
 
+  AbnormalFlagEnum:
+    description: >-
+      Categorical interpretation flag for a clinical laboratory result band,
+      aligned with HL7 v2 / LOINC abnormal-flag conventions.
+    permissible_values:
+      NORMAL:
+        description: Result within the reference interval (HL7 "N")
+      LOW:
+        description: Result below the reference interval (HL7 "L")
+      HIGH:
+        description: Result above the reference interval (HL7 "H")
+      CRITICAL_LOW:
+        description: Critically (panic) low result requiring urgent action (HL7 "LL")
+      CRITICAL_HIGH:
+        description: Critically (panic) high result requiring urgent action (HL7 "HH")
+
   CausalLinkTypeEnum:
     description: Degree of mechanistic directness represented by a causal edge
     permissible_values:
@@ -2744,6 +2760,21 @@ slots:
     multivalued: true
     range: ReferenceRange
     inlined_as_list: true
+  interpretation_bands:
+    description: >-
+      Ordered graded interpretation bands that partition a measurement scale
+      into categorical tiers (e.g., normal / mild / moderate / severe). Each
+      band maps a value interval to a clinical category, so a numeric result
+      can be classified. Complements the normal interval given by
+      lower_bound/upper_bound on the parent reference range.
+    multivalued: true
+    range: ReferenceRangeBand
+    inlined_as_list: true
+  abnormal_flag:
+    description: >-
+      Categorical abnormal-result flag for a reference-range band, following
+      HL7/LOINC interpretation conventions (normal, low, high, critical).
+    range: AbnormalFlagEnum
   function:
     range: string
   regulatory_category:
@@ -4533,11 +4564,72 @@ classes:
         description: Human-readable interpretation of the link for display and curation review.
       evidence:
         description: Evidence supporting this biomarker-to-pathograph-node readout link
+  ReferenceRangeBand:
+    description: >-
+      A single graded interpretation band within a reference range, mapping a
+      value interval to a categorical clinical label (e.g., "Normal", "Mild",
+      "Moderate", "Severe", "Critical"). Bands partition the measurement scale so
+      a numeric result can be classified into a clinical category. This expresses
+      the "above value X is mild, above value Y is moderate" style of graded
+      result interpretation that a single normal interval cannot capture.
+    comments:
+      - Order bands from lowest to highest value when listing them
+      - Bands partition the scale half-open, [lower_bound, upper_bound) — lower_bound inclusive, upper_bound exclusive — so adjacent bands sharing a boundary value do not overlap
+      - Omit lower_bound for the lowest (open-below) band
+      - Omit upper_bound for the highest (open-above) band
+      - Use abnormal_flag to record normal/low/high/critical status per HL7/LOINC
+      - Optionally map an abnormal band to an HP phenotype via phenotype_term (LOINC2HPO style)
+    slots:
+      - name
+      - lower_bound
+      - upper_bound
+      - unit
+      - abnormal_flag
+      - severity
+      - phenotype_term
+      - interpretation
+    slot_usage:
+      name:
+        description: >-
+          Category label for this band (e.g., "Normal", "Mild", "Moderate",
+          "Severe", "Critical high").
+        required: true
+      lower_bound:
+        description: >-
+          Inclusive lower bound of this band's value interval. Omit for an
+          open-below band (the lowest tier).
+      upper_bound:
+        description: >-
+          Exclusive upper bound of this band's value interval, so adjacent
+          bands sharing a boundary value partition cleanly (a result exactly
+          at the boundary falls in the next band, whose inclusive lower_bound
+          equals it). Omit for an open-above band (the highest tier).
+      unit:
+        description: >-
+          UCUM unit for this band's bounds. Usually matches the parent
+          reference range; set only if it differs or for standalone clarity.
+      abnormal_flag:
+        description: >-
+          Normal/low/high/critical classification of results in this band,
+          following HL7/LOINC abnormal-flag conventions.
+      severity:
+        description: >-
+          Optional ordinal severity for this band when the category aligns with
+          MILD/MODERATE/SEVERE grading.
+      phenotype_term:
+        description: >-
+          Optional HP phenotype that an abnormal result in this band maps to
+          (LOINC2HPO-style observation-to-phenotype linkage).
+      interpretation:
+        description: >-
+          Free-text clinical interpretation of results that fall in this band.
   ReferenceRange:
     description: >-
       A population reference interval for a clinical laboratory analyte. Captures
       the numeric normal range (lower and upper bounds), measurement unit in UCUM
-      notation, population qualifier, and data provenance. Complements
+      notation, and population qualifier. Provenance is carried by structured
+      evidence items (the same EvidenceItem model used elsewhere in dismech),
+      consistent with how all other assertions are attributed. Complements
       ModelVariableDescriptor thresholds (which define disease-model activation
       points) with empirically grounded clinical reference intervals.
     comments:
@@ -4545,13 +4637,14 @@ classes:
       - Use UCUM notation for unit (e.g., "mmol/L", "g/dL", "U/L")
       - population describes age group, sex, fasting state, or other stratifiers
       - Omit lower_bound or upper_bound when the interval is one-sided
+      - Attribute the interval with evidence; use notes for non-citable provenance (e.g., a lab manual)
     slots:
       - loinc_term
       - lower_bound
       - upper_bound
       - unit
       - population
-      - source
+      - interpretation_bands
       - evidence
       - notes
     slot_usage:
@@ -4561,6 +4654,12 @@ classes:
           potassium, LOINC:2777-1 for serum phosphate). Required for
           machine-queryable reference interval lookups.
         recommended: true
+      interpretation_bands:
+        description: >-
+          Ordered graded interpretation bands for this analyte (normal / mild /
+          moderate / severe / critical). Use when a result is classified into
+          categories beyond the single normal interval; order from lowest to
+          highest value.
       lower_bound:
         description: >-
           Lower bound of the reference interval (inclusive). Omit when there
@@ -4581,14 +4680,19 @@ classes:
           Population or stratification qualifier for this interval (e.g.,
           "adults", "female 20-60y", "fasting", "pediatric 0-12mo").
           Omit for universal adult reference ranges without stratification.
-      source:
-        description: >-
-          Provenance for this reference interval (e.g., "LOINC distribution",
-          "Tietz Clinical Guide 4th ed.", "KDIGO 2017", "Mayo Clinic Labs").
       evidence:
         description: >-
-          Evidence items supporting this reference interval (typically a
-          clinical guideline PMID or structured-source reference).
+          Structured evidence items attributing this reference interval
+          (typically a clinical guideline or primary-study PMID/DOI, or a
+          structured-source reference). Preferred over free-text provenance so
+          reference ranges are held to the same evidentiary standard as other
+          dismech assertions.
+        recommended: true
+      notes:
+        description: >-
+          Free-text provenance or caveats that are not a citable reference
+          (e.g., a lab-manual interval such as "Tietz Clinical Guide 4th ed."
+          or an assay-dependence note).
   SurrogateEndpoint:
     description: >-
       A regulatory surrogate endpoint assertion curated from FDA's surrogate

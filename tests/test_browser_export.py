@@ -5,7 +5,24 @@ from pathlib import Path
 
 import yaml
 
-from dismech.export.browser_export import BrowserExporter
+from dismech.export.browser_export import BrowserExporter, count_mechanism_modules
+
+
+def test_count_mechanism_modules():
+    """count_mechanism_modules counts *.yaml, skips history files, handles missing dir."""
+    with tempfile.TemporaryDirectory() as tmp:
+        module_dir = Path(tmp) / "modules"
+        module_dir.mkdir()
+        (module_dir / "fibrotic_response.yaml").write_text("name: fibrotic_response\n")
+        (module_dir / "ciliopathy_dysfunction.yaml").write_text("name: ciliopathy\n")
+        # History snapshots and non-YAML files must not be counted
+        (module_dir / "fibrotic_response.history.yaml").write_text("name: old\n")
+        (module_dir / "README.md").write_text("not a module\n")
+
+        assert count_mechanism_modules(module_dir) == 2
+
+    # A non-existent directory yields None so the metric is omitted, not zeroed
+    assert count_mechanism_modules(Path(tmp) / "gone") is None
 
 
 def test_extract_disorder_with_null_fields():
@@ -172,8 +189,13 @@ def test_build_summary_metrics():
         "total_subtypes": 3,
         "total_disorders_and_subtypes": 6,
         "total_unique_evidence_sources": 3,
+        "total_unique_publications": 3,
         "total_unique_disease_categories": 2,
         "total_unique_phenotype_categories": 2,
         "total_pathographs": 2,
         "total_unique_pathological_events": 2,
     }
+
+    # num_modules, when supplied, is surfaced as an extra metric
+    metrics_with_modules = BrowserExporter.build_summary_metrics(disorders, num_modules=53)
+    assert metrics_with_modules["total_modules"] == 53
