@@ -4952,7 +4952,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
   },
   {
@@ -5021,8 +5021,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Acute Intermittent Porphyria",
@@ -5187,7 +5187,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "2"
   },
   {
@@ -23729,7 +23729,7 @@ window.searchData = [
       "Bone Resorption",
       "Calcium Ion Homeostasis",
       "Vitamin D Metabolic Process",
-      "Ossification",
+      "Osteogenic Transdifferentiation of Vascular Smooth Muscle Cells",
       "Wnt Signaling Pathway",
       "Bone Remodeling",
       "Osteoclast Differentiation"
@@ -25030,6 +25030,63 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "COX11-Related COX Deficiency",
+    "disease_id": "MONDO:0859520",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-06-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COX11-related COX deficiency (mitochondrial complex IV deficiency nuclear type 23, MC4DN23) is a rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COX11. COX11 is a copper metallochaperone that delivers copper to the CuB centre of the mitochondrially encoded core catalytic subunit COX1 (MT-CO1) during Complex IV biogenesis. It is mechanistically complementary to the SCO1/SCO2 metallochaperones, which instead metallate the CuA centre of COX2, so COX11 completes the copper-delivery picture for the holoenzyme. Loss of COX11 impairs CuB metallation and stalls assembly of a functional Complex IV, producing an isolated Complex IV deficiency. The disorder was first defined in 2022 as an infantile-onset mitochondrial encephalopathy in two unrelated families, with a subsequently reported patient showing Leigh-like features. A distinctive feature is that the cellular bioenergetic defect (reduced respiration-derived ATP) can be partially rescued in patient fibroblasts by coenzyme Q10 supplementation, suggesting a candidate metabolic therapeutic strategy despite COX11 having no known role in CoQ10 biosynthesis. It conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to defective copper delivery to the CuB centre of COX1.\n",
+    "pathophysiology": [
+      "COX11 Loss and Defective Copper Delivery to the CuB Centre",
+      "Impaired Terminal Electron Transfer and ATP Synthesis"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "copper ion transport",
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Encephalopathy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001298"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COX11 pathogenic variants causing MC4DN23"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care",
+      "Coenzyme Q10 Supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COX11-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/COX11-Related_COX_Deficiency.html",
+    "num_phenotypes": 1,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "COX15-Related COX Deficiency",
     "disease_id": "MONDO:0014051",
     "category": "Mendelian",
@@ -25148,6 +25205,135 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 1,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "COX20-Related COX Deficiency",
+    "disease_id": "MONDO:0033645",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-06-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COX20-related COX deficiency (mitochondrial complex IV deficiency nuclear type 11, MC4DN11) is a rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COX20 (FAM36A). COX20 is an inner-membrane assembly factor that acts as a chaperone for the mitochondrially encoded core catalytic subunit COX2, stabilizing newly synthesized COX2 and presenting it to the SCO1/SCO2 copper metallochaperone module during Complex IV biogenesis. Loss of COX20 destabilizes COX2 and causes assembly of the holoenzyme to stall, producing an isolated Complex IV deficiency. Unlike the fatal infantile cardioencephalomyopathy seen with some other nuclear COX defects, COX20-related disease characteristically presents as a comparatively slowly progressive neurological disorder dominated by early hypotonia, cerebellar ataxia, dysarthria, dystonia, and a sensory-predominant axonal neuropathy. It conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to defective COX2 maturation.\n",
+    "pathophysiology": [
+      "COX20 Loss and Defective COX2 Maturation",
+      "Impaired Terminal Electron Transfer and ATP Synthesis"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Hypotonia",
+      "Ataxia",
+      "Dysarthria",
+      "Dystonia",
+      "Areflexia",
+      "Sensory axonal neuropathy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001252",
+      "HP:0001251",
+      "HP:0001260",
+      "HP:0001332",
+      "HP:0001284",
+      "HP:0003390"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COX20 pathogenic variants causing MC4DN11"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COX20-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/COX20-Related_COX_Deficiency.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "COX6B1-Related COX Deficiency",
+    "disease_id": "MONDO:0033637",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-06-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COX6B1-related COX deficiency (mitochondrial complex IV deficiency nuclear type 7, MC4DN7) is a rare nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COX6B1. COX6B1 is notable for being one of the very few nuclear-encoded *structural* subunits of Complex IV in which disease-causing mutations have been identified \u2014 most nuclear COX defects arise in assembly factors or metallochaperones rather than in the structural subunits themselves. The reported phenotype is severe infantile encephalomyopathy, with additional cases showing hydrocephalus and hypertrophic cardiomyopathy. It conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to loss of a structural subunit (rather than an assembly factor), destabilizing the holoenzyme and impairing terminal electron transfer and oxidative ATP synthesis.\n",
+    "pathophysiology": [
+      "COX6B1 Loss and Defective Complex IV Assembly",
+      "Impaired Terminal Electron Transfer and ATP Synthesis"
+    ],
+    "cell_types": [
+      "neuron",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Encephalopathy",
+      "Hydrocephalus",
+      "Hypertrophic cardiomyopathy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001298",
+      "HP:0000238",
+      "HP:0001639"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COX6B1 pathogenic variants causing MC4DN7"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care",
+      "Antioxidant and Metabolic Cofactor Supplementation (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COX6B1-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/COX6B1-Related_COX_Deficiency.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
   },
@@ -30807,8 +30993,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Chronic Kidney Disease",
@@ -33208,26 +33394,32 @@ window.searchData = [
     ],
     "description": "Rare autoimmune vasculitis characterized by ocular inflammation and audiovestibular involvement, often with systemic vasculitis.",
     "pathophysiology": [
+      "Molecular mimicry and autoantibody generation",
       "Autoantibodies target corneal antigens",
       "Autoantibodies target inner ear antigens",
       "Autoantibodies bind CD148 on inner ear sensory epithelium and endothelial cells",
       "Autoantibodies bind connexin 26",
       "Autoantibodies target endothelial antigens",
+      "Immune-mediated inner ear injury",
       "Systemic vasculitic inflammation"
     ],
     "cell_types": [
       "corneal epithelial cell",
       "sensory epithelial cell",
-      "endothelial cell"
+      "endothelial cell",
+      "auditory hair cell"
     ],
     "cell_type_ids": [
       "CL:0000575",
       "CL:0000098",
-      "CL:0000115"
+      "CL:0000115",
+      "CL:0000202"
     ],
     "biological_processes": [
-      "immune system process",
-      "inflammatory response"
+      "immunoglobulin production",
+      "adaptive immune response",
+      "inflammatory response",
+      "immune system process"
     ],
     "phenotypes": [
       "Keratitis",
@@ -33296,11 +33488,11 @@ window.searchData = [
     "source_file": "Cogan_Syndrome.yaml",
     "page_url": "../pages/disorders/Cogan_Syndrome.html",
     "num_phenotypes": 17,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 8,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Collagenous Sprue",
@@ -37943,7 +38135,10 @@ window.searchData = [
       "Alpha-lipoic acid investigational therapy"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Urinary Cystine Excretion",
+      "Urinary Cystine Capacity"
+    ],
     "source_file": "Cystinuria.yaml",
     "page_url": "../pages/disorders/Cystinuria.html",
     "num_phenotypes": 15,
@@ -69472,6 +69667,87 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Juvenile Sialidosis Type 2",
+    "disease_id": "MONDO:0019681",
+    "category": "Mendelian",
+    "parents": [
+      "Lysosomal Storage Disorder"
+    ],
+    "creation_date": "2026-06-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Juvenile sialidosis type 2 is the juvenile/childhood-onset subtype of sialidosis type II (the dysmorphic, severe form of sialidosis), an autosomal recessive lysosomal storage disorder caused by biallelic NEU1 variants that abolish lysosomal neuraminidase-1 (alpha-N-acetyl neuraminidase/sialidase). Enzyme deficiency impairs removal of terminal sialic acid from glycoconjugates, causing intracellular accumulation and urinary excretion of sialyloligosaccharides. The juvenile type 2 form presents in childhood with coarse/dysmorphic facies, dysostosis multiplex, hepatosplenomegaly, a macular cherry-red spot, and progressive neurological impairment.",
+    "pathophysiology": [
+      "Neuraminidase-1 Deficiency",
+      "Sialyloligosaccharide Lysosomal Accumulation"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "oligosaccharide catabolic process"
+    ],
+    "phenotypes": [
+      "Coarse facial features",
+      "Cherry red spot of the macula",
+      "Intellectual disability",
+      "Dysostosis multiplex",
+      "Short stature",
+      "Scoliosis",
+      "Hepatomegaly",
+      "Sensorineural hearing loss",
+      "Seizures",
+      "Ataxia",
+      "Myoclonus"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000280",
+      "HP:0010729",
+      "HP:0001249",
+      "HP:0000943",
+      "HP:0004322",
+      "HP:0002650",
+      "HP:0002240",
+      "HP:0000407",
+      "HP:0001250",
+      "HP:0001251",
+      "HP:0001336"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NEU1"
+    ],
+    "treatments": [
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urinary sialyloligosaccharides"
+    ],
+    "source_file": "Juvenile_Sialidosis_Type_2.yaml",
+    "page_url": "../pages/disorders/Juvenile_Sialidosis_Type_2.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Juvenile Temporal Arteritis",
     "disease_id": "MONDO:0016848",
     "category": "Complex",
@@ -97446,7 +97722,8 @@ window.searchData = [
       "MAO-B Inhibitors",
       "COMT Inhibitors",
       "Deep Brain Stimulation",
-      "Physical Therapy"
+      "Physical Therapy",
+      "Botulinum Neurotoxin A (BoNT/A) for Depression"
     ],
     "environmental": [
       "Pesticide Exposure",
@@ -97459,9 +97736,91 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 20,
     "num_genes": 9,
-    "num_treatments": 6,
-    "causal_graph_edges": "46",
+    "num_treatments": 7,
+    "causal_graph_edges": "47",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Paroxysmal Familial Ventricular Fibrillation",
+    "disease_id": "MONDO:0100234",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "creation_date": "2026-06-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Type 1",
+      "Type 2"
+    ],
+    "description": "Paroxysmal familial ventricular fibrillation is an inherited primary electrical disease (cardiac channelopathy) in which ventricular fibrillation arises in a structurally normal heart, without the diagnostic features of long QT, short QT, or Brugada syndrome. It is the familial, Mendelian subset of idiopathic ventricular fibrillation (IVF), in which life-threatening polymorphic ventricular arrhythmia and aborted or fatal sudden cardiac death occur at a young age with a normal resting electrocardiogram and no overt repolarization syndrome. Two gene-defined forms are recognized: an SCN5A-associated form (type 1) overlapping the cardiac sodium-channelopathy spectrum, and a DPP6-associated form (type 2) caused by cardiac overexpression of the transient-outward-current accessory subunit DPP6, which selectively accelerates Purkinje-fiber repolarization. The entry treats the parent concept (MONDO:0100234) as the disease root and the numbered loci as gene-axis subtypes, consistent with the dismech lumping convention for channelopathy series.",
+    "pathophysiology": [
+      "Cardiac Ion-Channel Variant",
+      "Accelerated Purkinje Repolarization and Altered Excitability",
+      "Arrhythmogenic Substrate and Triggered Activity",
+      "Ventricular Fibrillation",
+      "Syncope and Sudden Cardiac Death"
+    ],
+    "cell_types": [
+      "cardiomyocyte",
+      "cardiac Purkinje fiber cell",
+      "ventricular cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002068",
+      "CL:2000046"
+    ],
+    "biological_processes": [
+      "potassium ion transport",
+      "sodium ion transport",
+      "membrane repolarization",
+      "cardiac muscle cell action potential",
+      "regulation of cardiac conduction",
+      "membrane repolarization during ventricular cardiac muscle cell action potential",
+      "cardiac conduction"
+    ],
+    "phenotypes": [
+      "Ventricular fibrillation",
+      "Cardiac arrest",
+      "Sudden cardiac death",
+      "Syncope"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001663",
+      "HP:0001695",
+      "HP:0001645",
+      "HP:0001279"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DPP6 overexpression risk haplotype",
+      "SCN5A variants"
+    ],
+    "treatments": [
+      "Implantable cardioverter-defibrillator placement",
+      "Quinidine",
+      "Cardiac ablation of Purkinje triggers"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Paroxysmal_Familial_Ventricular_Fibrillation.yaml",
+    "page_url": "../pages/disorders/Paroxysmal_Familial_Ventricular_Fibrillation.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Pars Planitis",
@@ -118187,6 +118546,74 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "TACO1-Related COX Deficiency",
+    "disease_id": "MONDO:0033638",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-06-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TACO1-related COX deficiency (mitochondrial complex IV deficiency nuclear type 8, MC4DN8) is a nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in TACO1 (translational activator of cytochrome c oxidase I). Unlike the structural-subunit, copper-chaperone (SCO1/SCO2), or heme A (COX10/COX15) defects, TACO1 encodes a mitochondrial mRNA translational activator specific for the mtDNA-encoded COX I (MT-CO1) core subunit; its loss selectively impairs COX I synthesis and therefore Complex IV biogenesis. The typical presentation is a subtle, late (childhood- to adolescent-onset) slowly progressive Leigh syndrome with bilateral symmetric basal ganglia lesions, cognitive decline, dystonia, and visual impairment. It conforms to the conserved Complex IV assembly deficiency mechanism, with the lesion localized to mitochondrial translation of COX I.\n",
+    "pathophysiology": [
+      "TACO1 Loss and Defective Mitochondrial COX I Translation",
+      "Impaired Terminal Electron Transfer and ATP Synthesis"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial translation",
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Encephalopathy",
+      "Bilateral basal ganglia lesions",
+      "Cognitive decline",
+      "Dystonia",
+      "Visual impairment",
+      "Lactic acidosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001298",
+      "HP:0007146",
+      "HP:0001268",
+      "HP:0001332",
+      "HP:0000505",
+      "HP:0003128"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TACO1 pathogenic variants causing MC4DN8"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TACO1-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/TACO1-Related_COX_Deficiency.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "TARP syndrome",
     "disease_id": "MONDO:0010711",
     "category": "Mendelian",
@@ -125340,8 +125767,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 7,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Von Hippel-Lindau Disease",
@@ -129590,15 +130017,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1298,
-  "total_subtypes": 2051,
-  "total_disorders_and_subtypes": 3349,
-  "total_unique_evidence_sources": 22486,
-  "total_unique_publications": 21184,
+  "total_disorder_pages": 1304,
+  "total_subtypes": 2053,
+  "total_disorders_and_subtypes": 3357,
+  "total_unique_evidence_sources": 22521,
+  "total_unique_publications": 21218,
   "total_unique_disease_categories": 47,
   "total_unique_phenotype_categories": 207,
-  "total_pathographs": 1290,
-  "total_unique_pathological_events": 6199,
+  "total_pathographs": 1296,
+  "total_unique_pathological_events": 6210,
   "total_modules": 53
 };
 window.dispatchEvent(new Event('searchDataReady'));
