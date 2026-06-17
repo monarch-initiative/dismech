@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06662994
+reference_id: "clinicaltrials:NCT06662994"
 title: High Dose Aflibercept in Diabetic Macular Edema in Patients With Previous Vitrectomy
 content_type: summary
 ---
