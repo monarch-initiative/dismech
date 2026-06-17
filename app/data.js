@@ -27823,6 +27823,96 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Central Areolar Choroidal Dystrophy",
+    "disease_id": "MONDO:0008982",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-06-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "CACD1",
+      "CACD2",
+      "CACD3"
+    ],
+    "description": "Central areolar choroidal dystrophy (CACD) is a rare inherited macular dystrophy characterized by a slowly progressive, bilateral, symmetric, well-demarcated (\"areolar\") area of retinal pigment epithelium (RPE) and choriocapillaris atrophy centered on the fovea, producing central vision loss in mid-adult life. It evolves through stages from subtle parafoveal RPE mottling, through a sharply bordered patch of RPE atrophy outside the fovea, to an end-stage geographic atrophic lesion of the central macula with loss of the choriocapillaris and underlying choroidal vessels and severe visual acuity loss (commonly <20/200). Most genetically solved cases are autosomal dominant and caused by PRPH2 (peripherin-2) variants (CACD3), with a historically defined autosomal dominant 17p13 locus (CACD1) of unknown gene and GUCY2D-associated disease (CACD2) also described; GUCA1A variants can produce a CACD-spectrum maculopathy. The reported genes are photoreceptor-expressed, supporting a model of primary photoreceptor/RPE dysfunction with secondary choriocapillaris degeneration restricted to the central macula, distinguishing CACD from generalized choroideremia and the panretinal rod-cone degenerations.",
+    "pathophysiology": [
+      "PRPH2 Outer-Segment Structural Defect",
+      "Phototransduction Recovery Dysregulation",
+      "RPE and Photoreceptor Degeneration",
+      "Neuroinflammation and Glial Activation",
+      "Choriocapillaris Atrophy",
+      "Central Macular Geographic Atrophy"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell",
+      "retinal pigment epithelial cell",
+      "eye photoreceptor cell",
+      "microglial cell",
+      "Mueller cell",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0002586",
+      "CL:0000287",
+      "CL:0000129",
+      "CL:0000636",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "photoreceptor cell outer segment organization",
+      "phototransduction",
+      "microglial cell activation"
+    ],
+    "phenotypes": [
+      "Central areolar chorioretinal atrophy",
+      "Macular degeneration",
+      "Retinal pigment epithelial atrophy",
+      "Reduced visual acuity",
+      "Central scotoma",
+      "Abnormal electroretinogram"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000533",
+      "HP:0000608",
+      "HP:0007722",
+      "HP:0007663",
+      "HP:0000603",
+      "HP:0000512"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PRPH2 pathogenic variants",
+      "GUCY2D pathogenic variants",
+      "GUCA1A pathogenic variants"
+    ],
+    "treatments": [
+      "Low Vision Rehabilitation and Supportive Care",
+      "Genetic Counseling",
+      "Investigational Gene-Directed Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Central_Areolar_Choroidal_Dystrophy.yaml",
+    "page_url": "../pages/disorders/Central_Areolar_Choroidal_Dystrophy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 3,
+    "num_treatments": 3,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Central Congenital Hypothyroidism",
     "disease_id": "MONDO:0016410",
     "category": "Mendelian",
@@ -40623,6 +40713,86 @@ window.searchData = [
     "causal_graph_longest_path": "15"
   },
   {
+    "name": "Diabetic Retinopathy",
+    "disease_id": "MONDO:0005266",
+    "category": "Complex",
+    "parents": [
+      "Retinal Disease",
+      "Complication of Diabetes"
+    ],
+    "creation_date": "2026-06-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Nonproliferative Diabetic Retinopathy",
+      "Severe Nonproliferative Diabetic Retinopathy",
+      "Proliferative Diabetic Retinopathy"
+    ],
+    "description": "Diabetic retinopathy (DR) is a progressive neurovascular complication of both type 1 and type 2 diabetes mellitus and a leading cause of preventable blindness in working-age adults worldwide. Chronic hyperglycemia drives retinal microvascular injury through oxidative stress, inflammation, and vascular dysfunction, leading to pericyte loss, blood-retinal barrier (BRB) breakdown, and ultimately to macular edema and pathological neovascularization. Disease progresses from nonproliferative stages (NPDR), in which retinal vessels are damaged but neovascularization has not yet occurred, to proliferative diabetic retinopathy (PDR), characterized by VEGF-driven abnormal neovascularization. Diabetic macular edema (DME), due to BRB breakdown with fluid accumulation in the macula, is the major cause of moderate vision loss and can occur at any stage. Contemporary management rests on systematic screening, glycemic and cardiovascular risk-factor control, intravitreal anti-VEGF therapy for center-involving DME, and panretinal photocoagulation (PRP) for high-risk PDR.\n",
+    "pathophysiology": [
+      "Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation",
+      "Retinal Vascular Cell Injury and Pericyte Loss",
+      "Neuroinflammatory Cytokine and Microglial Activation",
+      "Blood-Retinal Barrier Breakdown",
+      "VEGF-Driven Retinal Neovascularization"
+    ],
+    "cell_types": [
+      "pericyte",
+      "retinal vascular endothelial cell",
+      "microglial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000669",
+      "CL:0000115",
+      "CL:0000129"
+    ],
+    "biological_processes": [
+      "response to oxidative stress",
+      "angiogenesis",
+      "inflammatory response",
+      "cytokine-mediated signaling pathway"
+    ],
+    "phenotypes": [
+      "Visual Impairment",
+      "Macular Edema",
+      "Retinal Hemorrhage",
+      "Vitreous Hemorrhage"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000505",
+      "HP:0040049",
+      "HP:0000573",
+      "HP:0007902"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Intravitreal Anti-VEGF Therapy",
+      "Panretinal Laser Photocoagulation",
+      "Pars Plana Vitrectomy"
+    ],
+    "environmental": [
+      "Chronic Hyperglycemia",
+      "Diabetes Duration",
+      "Hypertension",
+      "Nephropathy and Proteinuria"
+    ],
+    "biochemical": [],
+    "source_file": "Diabetic_Retinopathy.yaml",
+    "page_url": "../pages/disorders/Diabetic_Retinopathy.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Diamond-Blackfan Anemia",
     "disease_id": "MONDO:0015253",
     "category": "Mendelian",
@@ -48257,6 +48427,111 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 4,
     "causal_graph_edges": "4",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Familial Cold Autoinflammatory Syndrome",
+    "disease_id": "MONDO:0018768",
+    "category": "Mendelian",
+    "parents": [
+      "Autoinflammatory diseases",
+      "Cryopyrin-associated periodic syndromes"
+    ],
+    "creation_date": "2026-06-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "FCAS1",
+      "FCAS2",
+      "FCAS3",
+      "FCAS4"
+    ],
+    "description": "Familial cold autoinflammatory syndrome (FCAS) is a dominantly inherited autoinflammatory disorder characterized by recurrent, cold-triggered episodes of urticaria-like skin rash, low-grade fever, arthralgia/myalgia, and conjunctivitis. FCAS1 (NLRP3/cryopyrin) is the mildest disorder on the cryopyrin-associated periodic syndrome (CAPS) spectrum, which also includes Muckle-Wells syndrome and CINCA/NOMID. The shared mechanism is inappropriate activation of the NLRP3 inflammasome with caspase-1-dependent overproduction of IL-1beta. Genetically distinct FCAS-like cold-triggered syndromes are caused by mutations in NLRP12 (FCAS2), PLCG2 (FCAS3), and NLRP1 (FCAS4).\n",
+    "pathophysiology": [
+      "NLRP3 gain-of-function mutation",
+      "Constitutive NLRP3 inflammasome activation",
+      "Caspase-1 activation and IL-1beta overproduction",
+      "Systemic cold-triggered sterile inflammation",
+      "NLRP12-associated NF-kappaB dysregulation",
+      "PLCG2 cold-dependent gain of function",
+      "NLRP1 inflammasome activation"
+    ],
+    "cell_types": [
+      "Monocyte",
+      "Macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "NLRP3 inflammasome complex assembly",
+      "Interleukin-1 beta production",
+      "Pyroptotic inflammatory response",
+      "Inflammatory response",
+      "Interleukin-18 production"
+    ],
+    "phenotypes": [
+      "Urticarial rash",
+      "Recurrent fever",
+      "Arthralgia",
+      "Conjunctivitis",
+      "Myalgia",
+      "Elevated C-reactive protein",
+      "Sensorineural hearing loss",
+      "Renal amyloidosis"
+    ],
+    "phenotype_categories": [
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001025",
+      "HP:0001954",
+      "HP:0002829",
+      "HP:0000509",
+      "HP:0003326",
+      "HP:0011227",
+      "HP:0000407",
+      "HP:0001917"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NLRP3",
+      "NLRP12",
+      "PLCG2",
+      "NLRP1"
+    ],
+    "treatments": [
+      "Anakinra",
+      "Canakinumab",
+      "Rilonacept",
+      "Genetic counseling",
+      "Cold avoidance"
+    ],
+    "environmental": [
+      "Generalized cold exposure"
+    ],
+    "biochemical": [
+      "C-reactive protein",
+      "Serum amyloid A"
+    ],
+    "source_file": "Familial_Cold_Autoinflammatory_Syndrome.yaml",
+    "page_url": "../pages/disorders/Familial_Cold_Autoinflammatory_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 4,
+    "num_treatments": 5,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -63354,6 +63629,75 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hydrolethalus Syndrome 2",
+    "disease_id": "MONDO:0013585",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathies"
+    ],
+    "creation_date": "2026-06-16T20:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hydrolethalus syndrome 2 (HLS2) is a rare, autosomal recessive, perinatally lethal multiple-malformation disorder caused by biallelic mutations in KIF7, the human ortholog of Drosophila Costal2 and a cilium-tip regulator of the Sonic hedgehog (SHH) pathway. It sits at the severe, frequently lethal end of the KIF7-related ciliopathy spectrum that also encompasses acrocallosal syndrome (a milder allelic disorder) and a subset of Joubert syndrome. HLS2 is characterized by a severe midline brain malformation \u2014 most often hydrocephaly with absent midline structures and corpus callosum agenesis \u2014 together with pre- and/or postaxial polydactyly, cleft palate, and other midline craniofacial defects. Mechanistically, KIF7 dysfunction deregulates GLI transcription-factor output and impairs GLI3 processing in the primary cilium, derailing the tightly dosed Hedgehog signaling that patterns the midline brain, limbs, and face; affected fetuses are stillborn or die shortly after birth.",
+    "pathophysiology": [
+      "KIF7 Cilium-Tip Dysfunction and Impaired Hedgehog Signal Transduction",
+      "Lethal Midline Brain and Craniofacial Malformation"
+    ],
+    "cell_types": [
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Smoothened (Hedgehog) Signaling",
+      "Regulation of Hedgehog Signaling",
+      "Corpus Callosum Development",
+      "Neural Tube Formation"
+    ],
+    "phenotypes": [
+      "Hydrocephalus",
+      "Agenesis of Corpus Callosum",
+      "Polydactyly",
+      "Cleft Palate"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Skeletal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000238",
+      "HP:0001274",
+      "HP:0010442",
+      "HP:0000175"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KIF7 Mutations"
+    ],
+    "treatments": [
+      "Supportive and Palliative Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hydrolethalus_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Hydrolethalus_Syndrome_2.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Hypereosinophilic syndrome",
     "disease_id": "MONDO:0015691",
     "category": "Complex",
@@ -72463,6 +72807,99 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "L1 Syndrome",
+    "disease_id": "MONDO:0017140",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-06-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "HSAS",
+      "MASA",
+      "SPG1",
+      "X-linked ACC"
+    ],
+    "description": "L1 syndrome is an X-linked recessive neurodevelopmental disorder caused by pathogenic variants in L1CAM (Xq28), which encodes the L1 neural cell adhesion molecule. It comprises a phenotypic spectrum historically described as overlapping clinical entities: X-linked hydrocephalus with stenosis of the aqueduct of Sylvius (HSAS), MASA syndrome (which subsumes X-linked complicated hereditary spastic paraplegia type 1, SPG1), and X-linked complicated corpus callosum agenesis. The acronym CRASH (corpus callosum hypoplasia, retardation/ intellectual disability, adducted thumbs, spastic paraplegia, hydrocephalus) is also used for the broad spectrum. Cardinal features include congenital hydrocephalus/ventriculomegaly (often with aqueductal stenosis), agenesis or hypoplasia of the corpus callosum, spasticity/spastic paraplegia, intellectual disability, and adducted thumbs. Severity ranges from prenatal-onset, often lethal hydrocephalus to milder, survivable motor and cognitive phenotypes, and all phenotypes can co-occur within a single family.",
+    "pathophysiology": [
+      "Defective L1CAM Neural Cell Adhesion",
+      "Impaired Axon Guidance and Neurite Outgrowth",
+      "Corticospinal Tract and Commissural Defects",
+      "Aqueductal Stenosis and Hydrocephalus"
+    ],
+    "cell_types": [
+      "neuron",
+      "myelinating Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000218"
+    ],
+    "biological_processes": [
+      "cell adhesion",
+      "nervous system development",
+      "axon guidance",
+      "neuron projection development",
+      "neuron migration",
+      "corpus callosum development",
+      "corticospinal tract morphogenesis",
+      "cerebrospinal fluid circulation"
+    ],
+    "phenotypes": [
+      "Hydrocephalus",
+      "Ventriculomegaly",
+      "Aqueductal stenosis",
+      "Agenesis of corpus callosum",
+      "Hypoplasia of the corpus callosum",
+      "Adducted thumb",
+      "Spastic paraplegia",
+      "Intellectual disability",
+      "Aphasia",
+      "Shuffling gait",
+      "Corticospinal tract hypoplasia"
+    ],
+    "phenotype_categories": [
+      "Phenotypic abnormality"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000238",
+      "HP:0002119",
+      "HP:0002410",
+      "HP:0001274",
+      "HP:0002079",
+      "HP:0001181",
+      "HP:0001258",
+      "HP:0001249",
+      "HP:0002381",
+      "HP:0002362",
+      "HP:0007016"
+    ],
+    "frequencies": [],
+    "genes": [
+      "L1CAM"
+    ],
+    "treatments": [
+      "Cerebrospinal Fluid Shunting",
+      "Genetic Counseling",
+      "Prenatal Genetic Testing",
+      "Supportive and Rehabilitative Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "L1_Syndrome.yaml",
+    "page_url": "../pages/disorders/L1_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "LRBA Deficiency",
     "disease_id": "MONDO:0013863",
     "category": "Mendelian",
@@ -76397,6 +76834,7 @@ window.searchData = [
       "Complement Evasion via BBK32-Mediated C1r Inhibition",
       "Alternative Complement Pathway Evasion via Factor H Recruitment",
       "Antigenic Variation via vlsE Gene Conversion",
+      "Host Lipid Scavenging and Membrane Biogenesis",
       "Inflammatory Response and Tissue Damage",
       "Autoimmune Activation after Persistent Infection",
       "Post-Infectious Immune Dysregulation"
@@ -76422,6 +76860,10 @@ window.searchData = [
       "cell adhesion",
       "negative regulation of complement activation",
       "DNA recombination",
+      "host lipid acquisition",
+      "host cholesterol import",
+      "cholesteryl ester and triglyceride storage in intracellular foci",
+      "sulfoquinovosyl diacylglycerol (SQDG) biosynthesis",
       "inflammatory response",
       "adaptive immune response"
     ],
@@ -76492,11 +76934,11 @@ window.searchData = [
     "source_file": "Lyme_Disease.yaml",
     "page_url": "../pages/disorders/Lyme_Disease.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Lymphatic filariasis",
@@ -93107,6 +93549,102 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Omphalocele",
+    "disease_id": "MONDO:0019015",
+    "category": "Congenital",
+    "parents": [
+      "Abdominal wall malformation"
+    ],
+    "creation_date": "2026-06-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Isolated",
+      "Syndromic",
+      "BWS-associated",
+      "Pentalogy of Cantrell",
+      "OEIS"
+    ],
+    "description": "Omphalocele (exomphalos) is a congenital midline ventral abdominal wall defect at the base of the umbilical cord in which abdominal viscera herniate outside the abdomen, typically protected by a membranous sac composed of peritoneum, Wharton's jelly, and amnion. It arises from a developmental defect of ventral body wall formation, with persistence of the normal physiologic midgut herniation (which occurs at roughly 6-10 weeks' gestation and normally returns to the abdomen). Defects are commonly classified as small (no liver herniation) versus large/giant (liver herniation with viscero-abdominal disproportion). Omphalocele is etiologically heterogeneous: many cases are sporadic, but a substantial subset is associated with aneuploidy (trisomy 13, 18, 21), chromosomal rearrangements, and genetic syndromes (notably Beckwith-Wiedemann syndrome). Associated malformations - especially congenital heart defects - and chromosomal/syndromic diagnoses are the principal determinants of prognosis, rather than the abdominal wall defect alone.",
+    "pathophysiology": [
+      "Ventral Body Wall Closure Failure",
+      "Midgut Herniation and Viscero-Abdominal Disproportion",
+      "Pulmonary Hypoplasia and Pulmonary Hypertension"
+    ],
+    "cell_types": [
+      "Body wall mesenchymal cell",
+      "Body wall fibroblast",
+      "Hepatocyte (herniated liver)",
+      "Pulmonary artery endothelial cell",
+      "Pulmonary arterial smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000134",
+      "CL:0000057",
+      "CL:0000182",
+      "CL:1001568",
+      "CL:0002591"
+    ],
+    "biological_processes": [
+      "Embryonic body morphogenesis (ventral body wall closure)",
+      "Mesenchymal cell migration (body-fold migration)",
+      "Umbilical cord morphogenesis",
+      "Midgut development",
+      "Lung development",
+      "Pulmonary vasculature development"
+    ],
+    "phenotypes": [
+      "Omphalocele (ventral abdominal wall defect)",
+      "Congenital heart defects",
+      "Ventricular septal defect",
+      "Pulmonary hypoplasia",
+      "Pulmonary hypertension",
+      "Respiratory insufficiency",
+      "Feeding difficulties"
+    ],
+    "phenotype_categories": [
+      "Physical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001539",
+      "HP:0001627",
+      "HP:0001629",
+      "HP:0002089",
+      "HP:0002092",
+      "HP:0002093",
+      "HP:0011968"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Chromosomal aneuploidy (trisomy 13, 18, 21)",
+      "Associated chromosomal abnormalities (population estimate)",
+      "Monogenic variants in selected non-isolated cases"
+    ],
+    "treatments": [
+      "Primary surgical closure",
+      "Staged / traction-assisted closure",
+      "Conservative \"paint and wait\" management",
+      "Awake graduated compression dressing",
+      "Prenatal diagnosis and genetic testing",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Omphalocele.yaml",
+    "page_url": "../pages/disorders/Omphalocele.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 6,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Onchocerciasis",
     "disease_id": "MONDO:0017137",
     "category": "Infectious Disease",
@@ -95538,6 +96076,101 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "PET100-Related COX Deficiency",
+    "disease_id": "MONDO:0033646",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-06-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PET100-related COX deficiency (mitochondrial complex IV deficiency nuclear type 12, MC4DN12) is a rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in PET100 (formerly C19orf79). PET100 is a small mitochondrial inner-membrane chaperone that acts at an intermediate stage of Complex IV biogenesis, promoting incorporation of the COX subunits into the maturing holoenzyme. Loss of PET100 leaves the COX subunits unstable and blocks assembly of fully assembled Complex IV, producing an isolated Complex IV deficiency. The clinical spectrum spans a Lebanese founder mutation presenting as complex IV-deficient Leigh syndrome with prominent seizures, through a fatal neonatal-onset isolated COX deficiency with severe lactic acidosis and multiorgan involvement reported outside the Lebanese population. It conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to failed holoenzyme assembly.\n",
+    "pathophysiology": [
+      "PET100 Loss and Failed Complex IV Assembly",
+      "Impaired Terminal Electron Transfer and ATP Synthesis",
+      "Lactic Acidosis and Metabolic Decompensation"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport",
+      "lactate biosynthetic process"
+    ],
+    "phenotypes": [
+      "Leigh syndrome",
+      "Bilateral basal ganglia lesions",
+      "Seizures",
+      "Lactic acidosis",
+      "Intrauterine growth retardation",
+      "Neonatal hypoglycemia",
+      "Generalized aminoaciduria",
+      "Microcephaly",
+      "Decreased liver function",
+      "Prolonged prothrombin time",
+      "Hypoalbuminemia",
+      "Elevated circulating creatine kinase concentration",
+      "Global developmental delay",
+      "Muscular hypotonia",
+      "Failure to thrive",
+      "Respiratory insufficiency"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002180",
+      "HP:0007146",
+      "HP:0001250",
+      "HP:0003128",
+      "HP:0001511",
+      "HP:0001998",
+      "HP:0002909",
+      "HP:0000252",
+      "HP:0001410",
+      "HP:0008151",
+      "HP:0003073",
+      "HP:0003236",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001508",
+      "HP:0002093"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PET100 pathogenic variants causing MC4DN12"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PET100-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/PET100-Related_COX_Deficiency.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "PHARC syndrome",
@@ -102358,6 +102991,99 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Posterior Polymorphous Corneal Dystrophy",
+    "disease_id": "MONDO:0020364",
+    "category": "Mendelian",
+    "parents": [
+      "Corneal endothelial dystrophy",
+      "Posterior corneal dystrophy",
+      "Hereditary disease"
+    ],
+    "creation_date": "2026-06-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "PPCD1",
+      "PPCD3",
+      "PPCD4"
+    ],
+    "description": "Posterior polymorphous corneal dystrophy (PPCD) is a rare, usually autosomal-dominant, bilateral posterior corneal endothelial dystrophy. Its defining pathology is an abnormal transdifferentiation of the corneal endothelium toward an epithelial-like phenotype: endothelial cells acquire epithelial morphology, gene expression (E-cadherin, cytokeratins), and proliferative behavior, and deposit an aberrant, multilaminar Descemet membrane. Clinically this produces the characteristic vesicular, band, and diffuse opacities at the level of Descemet membrane. Most patients are asymptomatic, but a subset develop corneal edema, iridocorneal adhesions, corectopia, and secondary glaucoma. PPCD is genetically heterogeneous and the recognized subtypes are caused by transcription-factor dysregulation that converges on the ZEB1 epithelial-mesenchymal transition (EMT) axis: OVOL2 promoter mutations (PPCD1), ZEB1 loss-of-function (PPCD3), and GRHL2 non-coding regulatory mutations (PPCD4). It is distinct from Fuchs endothelial corneal dystrophy, which is an attritional (cell-loss) endothelial dystrophy rather than an endothelial-to-epithelial transdifferentiation disorder.",
+    "pathophysiology": [
+      "Corneal Endothelial-to-Epithelial Transdifferentiation",
+      "ZEB1 EMT-Axis Transcription Factor Dysregulation",
+      "Aberrant Descemet Membrane Deposition",
+      "Iridocorneal Adhesion and Anterior Chamber Distortion",
+      "Secondary Glaucoma"
+    ],
+    "cell_types": [
+      "Corneal endothelial cell undergoing epithelial-like transdifferentiation",
+      "Corneal endothelial cell",
+      "Epithelial-like (transdifferentiated) corneal endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000132"
+    ],
+    "biological_processes": [
+      "Aberrant mesenchymal-to-epithelial transition of the endothelium",
+      "Dysregulated epithelial-to-mesenchymal transition control",
+      "Dysregulated RNA polymerase II transcriptional regulation",
+      "Aberrant Wnt signaling activation",
+      "Aberrant basement membrane assembly"
+    ],
+    "phenotypes": [
+      "Polymorphous posterior corneal dystrophy",
+      "Abnormal corneal endothelium morphology",
+      "Reduced corneal endothelial cell density",
+      "Abnormal Descemet membrane morphology",
+      "Corneal opacity",
+      "Glaucoma",
+      "Corectopia",
+      "Iridocorneal adhesions",
+      "Inguinal hernia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Extraocular"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0007915",
+      "HP:0011488",
+      "HP:0011491",
+      "HP:0011490",
+      "HP:0007957",
+      "HP:0000501",
+      "HP:0009918",
+      "HP:0011483",
+      "HP:0000023"
+    ],
+    "frequencies": [],
+    "genes": [
+      "OVOL2",
+      "ZEB1",
+      "GRHL2"
+    ],
+    "treatments": [
+      "Observation",
+      "Corneal Transplantation",
+      "Antiglaucoma Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Posterior_Polymorphous_Corneal_Dystrophy.yaml",
+    "page_url": "../pages/disorders/Posterior_Polymorphous_Corneal_Dystrophy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 3,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Postinfectious Vasculitis",
@@ -128765,6 +129491,92 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Yolk Sac Tumor",
+    "disease_id": "MONDO:0005744",
+    "category": "Complex",
+    "parents": [
+      "germ cell tumor",
+      "nonseminomatous germ cell tumor"
+    ],
+    "creation_date": "2026-06-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Testicular YST",
+      "Ovarian YST",
+      "Mediastinal YST",
+      "CNS YST",
+      "Vaginal YST"
+    ],
+    "description": "Yolk sac tumor (YST), historically called endodermal sinus tumor, is a malignant germ cell tumor that recapitulates extraembryonic (yolk sac / primitive endoderm) differentiation. It is the most common malignant germ cell tumor of childhood and arises at both gonadal (testis, ovary) and extragonadal midline (mediastinum, retroperitoneum, sacrococcyx, pineal/CNS, vagina) sites, reflecting the migration path of primordial germ cells. YST cells produce alpha-fetoprotein (AFP), which serves as a sensitive serum tumor marker for diagnosis and treatment monitoring. The histologic hallmark is the Schiller-Duval body. Pure pediatric tumors are typically managed by surgery with platinum-based chemotherapy (BEP/JEB regimens) and have an excellent prognosis, whereas YST occurring as a component of adult mixed germ cell tumors and chemoresistant somatically-derived YST are more aggressive.",
+    "pathophysiology": [
+      "Primordial Germ Cell Origin and Extraembryonic Differentiation",
+      "AFP Secretion",
+      "Uncontrolled Germ Cell Tumor Proliferation",
+      "Isochromosome 12p and Germ Cell Tumor Genetics"
+    ],
+    "cell_types": [
+      "primordial germ cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000670"
+    ],
+    "biological_processes": [
+      "aberrant extraembryonic (yolk sac) differentiation",
+      "tumor cell proliferation"
+    ],
+    "phenotypes": [
+      "Elevated serum alpha-fetoprotein",
+      "Abdominal pain",
+      "Testicular mass",
+      "Ovarian mass",
+      "Abdominal mass",
+      "Abnormal vaginal bleeding",
+      "Mediastinal mass"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0006254",
+      "HP:0002027",
+      "HP:0010788",
+      "HP:0100615",
+      "HP:0031500",
+      "HP:0034263",
+      "HP:0033823"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Isochromosome 12p"
+    ],
+    "treatments": [
+      "BEP Combination Chemotherapy",
+      "JEB Chemotherapy Regimen",
+      "Surgical Resection"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Alpha-Fetoprotein",
+      "SALL4 Expression",
+      "Glypican-3 Expression"
+    ],
+    "source_file": "Yolk_Sac_Tumor.yaml",
+    "page_url": "../pages/disorders/Yolk_Sac_Tumor.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "You-Hoover-Fong Syndrome",
     "disease_id": "MONDO:0014848",
     "category": "Mendelian",
@@ -130017,15 +130829,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1304,
-  "total_subtypes": 2053,
-  "total_disorders_and_subtypes": 3357,
-  "total_unique_evidence_sources": 22521,
-  "total_unique_publications": 21218,
+  "total_disorder_pages": 1313,
+  "total_subtypes": 2080,
+  "total_disorders_and_subtypes": 3393,
+  "total_unique_evidence_sources": 22589,
+  "total_unique_publications": 21285,
   "total_unique_disease_categories": 47,
-  "total_unique_phenotype_categories": 207,
-  "total_pathographs": 1296,
-  "total_unique_pathological_events": 6210,
+  "total_unique_phenotype_categories": 208,
+  "total_pathographs": 1305,
+  "total_unique_pathological_events": 6245,
   "total_modules": 53
 };
 window.dispatchEvent(new Event('searchDataReady'));
