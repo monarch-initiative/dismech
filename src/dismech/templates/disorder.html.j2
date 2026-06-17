@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ disorder.name }} - dismech</title>
+    <link rel="canonical" href="https://dismech.monarchinitiative.org/pages/disorders/{{ disorder_slug }}.html">
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
     <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -1493,6 +1494,48 @@
             color: #92400e;
         }
 
+        .reference-ranges {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .reference-ranges-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .reference-range {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .reference-range-interval {
+            font-weight: 700;
+            color: #92400e;
+        }
+
+        .reference-range-meta {
+            color: #b45309;
+            font-size: 0.82rem;
+        }
+
+        .reference-range-bands {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .reference-range-band-interp {
+            margin: 3px 0 0 2px;
+            font-size: 0.8rem;
+            color: #92400e;
+        }
+
         .regulatory-endpoints {
             margin-top: 8px;
             display: grid;
@@ -2198,7 +2241,7 @@
         phenotype: "Phenotype",
         environmental: "Environmental",
         genetic: "Genetics / Variants",
-        treatment: "Treatments",
+        treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
         computational_model: "Computational Models",
@@ -2860,7 +2903,7 @@
         </summary>
         <div class="evidence-list">
             {% for ev in evidence_list[:max_visible] %}
-            <div class="evidence-item">
+            <div class="evidence-item" data-dismech-evidence="{{ ev.reference | e }}" data-dismech-supports="{{ ev.supports or '' }}">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="{{ ev.reference | curie_to_url }}" target="_blank">{{ ev.reference }}</a>
@@ -3676,7 +3719,7 @@
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
                 <div class="stat-value">{{ treatments_count }}</div>
-                <div class="stat-label">Treatments</div>
+                <div class="stat-label">Medical Actions</div>
             </div>
             </a>
             {% endif %}
@@ -4378,7 +4421,7 @@
                 <span class="card-count">{{ disorder.discussions | length }}</span>
             </div>
             {% for discussion in disorder.discussions %}
-            <div class="item-box discussion-box anchor-target">
+            <div class="item-box discussion-box anchor-target"{% if discussion.discussion_id %} id="{{ discussion.discussion_id }}"{% endif %}>
                 <div class="item-name">{{ discussion.prompt }}</div>
                 <div class="item-meta">
                     {% if discussion.kind %}
@@ -4448,7 +4491,7 @@
                 <span class="card-count">{{ disorder.pathophysiology | length }}</span>
             </div>
             {% for patho in disorder.pathophysiology %}
-            <div class="item-box pathophys-box anchor-target" id="{{ patho._anchor_id }}">
+            <div class="item-box pathophys-box anchor-target" id="{{ patho._anchor_id }}" data-dismech-node="{{ patho.name | e }}" data-dismech-type="pathophysiology">
                 <div class="item-name">{{ patho.name }}</div>
                 {% if patho.description %}
                 <div class="item-desc">{{ patho.description }}</div>
@@ -4862,12 +4905,12 @@
         </div>
         {% endif %}
 
-        <!-- Treatments -->
+        <!-- Medical actions -->
         {% if disorder.treatments %}
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
-                <h2 class="card-title">Treatments</h2>
+                <h2 class="card-title">Medical Actions</h2>
                 <span class="card-count">{{ disorder.treatments | length }}</span>
             </div>
             {% for tx in disorder.treatments %}
@@ -4875,36 +4918,42 @@
                 <div class="item-name">
                     {{ tx.name }}
                 </div>
-                {% if (tx.treatment_term and tx.treatment_term.term) or (tx.regimen_term and tx.regimen_term.term) %}
+                {% if tx.action_category or (tx.treatment_term and tx.treatment_term.term) or (tx.regimen_term and tx.regimen_term.term) -%}
                 <div class="item-meta">
-                    {% if tx.treatment_term and tx.treatment_term.term %}
-                    {% set tx_term_id = tx.treatment_term.term.id %}
-                    {% set tx_term_label = tx.treatment_term.term.label %}
-                    {% set tx_term_display = tx.treatment_term.preferred_term or tx_term_label %}
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    {% if tx.action_category -%}
+                    {% set category_value = tx.action_category | string -%}
+                    {% set category_display = "Counseling / Informational" if category_value == "COUNSELING_INFORMATIONAL" else (category_value | replace('_', ' ') | title) -%}
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
+                    <span class="tag tag-treatment">{{ category_display }}</span>
+                    {% endif -%}
+                    {% if tx.treatment_term and tx.treatment_term.term -%}
+                    {% set tx_term_id = tx.treatment_term.term.id -%}
+                    {% set tx_term_label = tx.treatment_term.term.label -%}
+                    {% set tx_term_display = tx.treatment_term.preferred_term or tx_term_label -%}
+                    <strong style="font-size: 0.8rem; color: #5b21b6;{% if tx.action_category %} margin-left: 12px;{% endif %}">Action:</strong>
                     <span class="tag tag-treatment">{{ tx_term_display }}</span>
-                    {% if tx_term_label and tx_term_display and tx_term_label != tx_term_display %}
+                    {% if tx_term_label and tx_term_display and tx_term_label != tx_term_display -%}
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: {{ tx_term_label }}</span>
                     {% endif %}
                     {% if tx_term_id %}
                     {{ render_curie_link(tx_term_id) }}
                     {% endif %}
                     {{ render_descriptor_qualifiers(tx.treatment_term) }}
-                    {% endif %}
-                    {% if tx.regimen_term and tx.regimen_term.term %}
-                    {% set regimen_id = tx.regimen_term.term.id %}
-                    {% set regimen_label = tx.regimen_term.term.label %}
-                    {% set regimen_display = tx.regimen_term.preferred_term or regimen_label %}
+                    {% endif -%}
+                    {% if tx.regimen_term and tx.regimen_term.term -%}
+                    {% set regimen_id = tx.regimen_term.term.id -%}
+                    {% set regimen_label = tx.regimen_term.term.label -%}
+                    {% set regimen_display = tx.regimen_term.preferred_term or regimen_label -%}
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
                     <span class="tag tag-treatment">{{ regimen_display }}</span>
-                    {% if regimen_label and regimen_display and regimen_label != regimen_display %}
+                    {% if regimen_label and regimen_display and regimen_label != regimen_display -%}
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: {{ regimen_label }}</span>
                     {% endif %}
                     {% if regimen_id %}
                     {{ render_curie_link(regimen_id) }}
                     {% endif %}
                     {{ render_descriptor_qualifiers(tx.regimen_term) }}
-                    {% endif %}
+                    {% endif -%}
                 </div>
                 {% endif %}
                 {% if (tx.treatment_term and tx.treatment_term.located_in) or (tx.regimen_term and tx.regimen_term.located_in) %}
@@ -5189,6 +5238,72 @@
                         </div>
                         {% endif %}
                         {{ render_evidence(readout.evidence) }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if bio.reference_ranges %}
+                <div class="reference-ranges">
+                    <div class="reference-ranges-title">Reference Ranges</div>
+                    {% for rr in bio.reference_ranges %}
+                    <div class="reference-range">
+                        {% if rr.loinc_term and rr.loinc_term.id %}
+                        <a href="{{ rr.loinc_term.id | curie_to_url }}" target="_blank" rel="noopener" class="readout-target">{{ rr.loinc_term.label or rr.loinc_term.id }}</a>
+                        {% endif %}
+                        <span class="reference-range-interval">
+                            {% if rr.lower_bound is not none and rr.upper_bound is not none %}
+                            {{ rr.lower_bound }}–{{ rr.upper_bound }}{% if rr.unit %} {{ rr.unit }}{% endif %}
+                            {% elif rr.upper_bound is not none %}
+                            ≤ {{ rr.upper_bound }}{% if rr.unit %} {{ rr.unit }}{% endif %}
+                            {% elif rr.lower_bound is not none %}
+                            ≥ {{ rr.lower_bound }}{% if rr.unit %} {{ rr.unit }}{% endif %}
+                            {% endif %}
+                        </span>
+                        {% if rr.population %}
+                        <span class="reference-range-meta">({{ rr.population }})</span>
+                        {% endif %}
+                        {% if rr.interpretation_bands %}
+                        <div class="reference-range-bands">
+                            {% for band in rr.interpretation_bands %}
+                            {% set flag = (band.abnormal_flag or '') | upper %}
+                            {% set sev = (band.severity or '') | string | lower %}
+                            {% if flag in ('CRITICAL_LOW', 'CRITICAL_HIGH') or sev == 'severe' %}
+                            {% set band_class = 'severity-severe' %}
+                            {% elif sev == 'moderate' %}
+                            {% set band_class = 'severity-moderate' %}
+                            {% elif sev == 'mild' %}
+                            {% set band_class = 'severity-mild' %}
+                            {% elif flag in ('LOW', 'HIGH') %}
+                            {% set band_class = 'severity-moderate' %}
+                            {% else %}
+                            {% set band_class = 'severity-other' %}
+                            {% endif %}
+                            {% set band_unit = band.unit or rr.unit %}
+                            <span class="severity-pill {{ band_class }}">
+                                {{ band.name }}
+                                {% if band.lower_bound is not none and band.upper_bound is not none %}
+                                ({{ band.lower_bound }}–{{ band.upper_bound }}{% if band_unit %} {{ band_unit }}{% endif %})
+                                {% elif band.upper_bound is not none %}
+                                (&lt; {{ band.upper_bound }}{% if band_unit %} {{ band_unit }}{% endif %})
+                                {% elif band.lower_bound is not none %}
+                                (≥ {{ band.lower_bound }}{% if band_unit %} {{ band_unit }}{% endif %})
+                                {% endif %}
+                                {% if band.phenotype_term and band.phenotype_term.term and band.phenotype_term.term.id %}
+                                <a href="{{ band.phenotype_term.term.id | curie_to_url }}" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;" title="Mapped HP phenotype">→ {{ band.phenotype_term.term.label or band.phenotype_term.preferred_term }}</a>
+                                {% endif %}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% for band in rr.interpretation_bands %}
+                        {% if band.interpretation %}
+                        <div class="reference-range-band-interp"><strong>{{ band.name }}:</strong> {{ band.interpretation }}</div>
+                        {% endif %}
+                        {% endfor %}
+                        {% endif %}
+                        {% if rr.notes %}
+                        <div class="reference-range-meta">{{ rr.notes }}</div>
+                        {% endif %}
+                        {{ render_evidence(rr.evidence) }}
                     </div>
                     {% endfor %}
                 </div>
@@ -6209,5 +6324,20 @@
         })();
     })();
     </script>
+    <!-- hypothes.is curator feedback — group ID can be changed to a private group once created at hypothes.is/groups -->
+    <script type="application/json" class="js-hypothesis-config">
+    {
+      "openSidebar": false,
+      "showHighlights": "always",
+      "services": [
+        {
+          "apiUrl": "https://hypothes.is/api/",
+          "authority": "hypothes.is",
+          "groups": ["__world__"]
+        }
+      ]
+    }
+    </script>
+    <script src="https://hypothes.is/embed.js" async></script>
 </body>
 </html>
