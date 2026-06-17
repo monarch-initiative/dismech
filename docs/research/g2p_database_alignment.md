@@ -1,17 +1,17 @@
-# G2P Database Alignment Against dismech
+# G2P Database Alignment Against Dismech
 
 ## Scope
 
 This note covers how a Gene2Phenotype (G2P) row should be interpreted against
-dismech's disease-centric model, using PTEN as the worked example and then
+Dismech's disease-centric model, using PTEN as the worked example and then
 generalizing into a reusable audit workflow.
 
 After the second pass, this workflow is intentionally aligned to Sujay Patil's
 earlier disease-to-phenotype comparison work in PR #383 rather than standing up
 a parallel comparison framework.
 
-The immediate question is not "does one dismech disease file explain one G2P
-row?" but "does the set of dismech disease entries for a gene explain the set
+The immediate question is not "does one Dismech disease file explain one G2P
+row?" but "does the set of Dismech disease entries for a gene explain the set
 of G2P assertions for that gene?"
 
 ## Sources consulted
@@ -22,18 +22,18 @@ of G2P assertions for that gene?"
   https://ftp.ebi.ac.uk/pub/databases/gene2phenotype/README
 - G2P download format:
   https://ftp.ebi.ac.uk/pub/databases/gene2phenotype/G2P_data_downloads/Data_download_format_202511.txt
-- dismech PR #383:
+- Dismech PR #383:
   `src/dismech/compare/d2p.py`
 - Current G2P release used for the PTEN snapshot:
   `https://ftp.ebi.ac.uk/pub/databases/gene2phenotype/G2P_data_downloads/2026_03_28/allG2P_2026-03-28.csv.gz`
 
 ## Relationship to D2P Comparison Work
 
-PR #383 already established the main comparison pattern in dismech:
+PR #383 already established the main comparison pattern in Dismech:
 
-1. resolve one dismech entity set
+1. resolve one Dismech entity set
 2. fetch or load one external source
-3. extract dismech-side structured records
+3. extract Dismech-side structured records
 4. build a comparison table
 5. compute a compact summary
 6. expose both a library entrypoint and a CLI
@@ -45,7 +45,7 @@ The G2P problem is not identical because the source is gene-centric rather than
 disease-centric, but the architecture should still be the same:
 
 - external source rows are loaded once per G2P release
-- dismech records are extracted once per gene across all disease files
+- Dismech records are extracted once per gene across all disease files
 - a row-level comparison table is built for each gene
 - a compact audit summary is computed from that table
 - the CLI exposes single-gene and multi-gene comparison entrypoints
@@ -70,7 +70,7 @@ bundle with:
 - HPO phenotype set
 - reviewed publications
 
-dismech is disease-centric. The equivalent information is distributed across a
+Dismech is disease-centric. The equivalent information is distributed across a
 disease file:
 
 - `disease_term` for disease identity
@@ -80,7 +80,7 @@ disease file:
 - `evidence.reference` items spread across the disease file rather than bundled
   as a single row-level citation set
 
-The main implication is that a G2P row can only be checked against dismech by
+The main implication is that a G2P row can only be checked against Dismech by
 crosswalking one row into multiple disease-file sections, and a gene must be
 audited across all relevant disease entries, not just one disease file.
 
@@ -115,15 +115,15 @@ anchored on a disease file, with:
 The final `row status` should be a small controlled set:
 
 - `ROOT_MATCH`
-  one clear disease-root candidate in dismech
+  one clear disease-root candidate in Dismech
 - `ROOT_MATCH_PMID_GAP`
   clear disease-root match but poor reviewed-PMID overlap
 - `SPLIT_ACROSS_DISMECH`
-  one G2P row corresponds to multiple dismech disease roots
+  one G2P row corresponds to multiple Dismech disease roots
 - `EMBEDDED_NOT_ROOTED`
   the concept exists only as phenotype/differential/spectrum content
 - `UNDERREPRESENTED_IN_DISMECH`
-  G2P has multiple disease rows but dismech covers only part of the family
+  G2P has multiple disease rows but Dismech covers only part of the family
 
 This is more explicit than the first-pass "find a matching disease file"
 approach, and it better matches how the two resources are actually organized.
@@ -151,13 +151,13 @@ gene.
 
 Current dismech PTEN matches from structured `genetic[]` slots:
 
-| Match class | dismech disease | Notes |
+| Match class | Dismech disease | Notes |
 | --- | --- | --- |
 | Causative | `Cowden_Syndrome.yaml` | Direct PTEN disease anchor |
 | Subtype-specific | `Juvenile_Polyposis_Syndrome.yaml` | PTEN-BMPR1A contiguous deletion partner |
 | Secondary genetic | 6 cancer entries | Somatic/co-occurring/non-primary PTEN involvement |
 
-Additional PTEN-related content exists in dismech but not as a direct PTEN
+Additional PTEN-related content exists in Dismech but not as a direct PTEN
 genetic anchor:
 
 - [`Cowden_Syndrome.yaml`](https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Cowden_Syndrome.yaml)
@@ -166,7 +166,7 @@ genetic anchor:
   carries PTEN hamartoma tumor syndrome as a differential diagnosis, not as the
   primary genetic disease entity for that file.
 
-This means PTEN is partly represented in dismech as:
+This means PTEN is partly represented in Dismech as:
 
 - a direct disease root for Cowden syndrome
 - a subtype modifier in juvenile polyposis of infancy
@@ -192,10 +192,10 @@ one-row-per-G2P-assertion crosswalk.
 For PTEN across all three current G2P rows:
 
 - reviewed G2P PMIDs: 21
-- dismech PMIDs from direct PTEN genetic anchors only: 2
+- Dismech PMIDs from direct PTEN genetic anchors only: 2
   `21194675`, `33822054`
-- dismech PMIDs from all direct-anchor disease files: 26
-- PMID overlap between G2P reviewed PTEN PMIDs and direct dismech PTEN anchors: 0
+- Dismech PMIDs from all direct-anchor disease files: 26
+- PMID overlap between G2P reviewed PTEN PMIDs and direct Dismech PTEN anchors: 0
 
 For the PTEN/Cowden row alone (`G2P00413`):
 
@@ -205,11 +205,11 @@ For the PTEN/Cowden row alone (`G2P00413`):
 
 Interpretation:
 
-- dismech currently explains the Cowden/PTEN biology conceptually, but not using
+- Dismech currently explains the Cowden/PTEN biology conceptually, but not using
   the same publication bundle curated into G2P
 - PMID coverage must therefore be measured separately from disease/mechanism
   coverage
-- a disease can be "explained" in dismech while still having poor publication
+- a disease can be "explained" in Dismech while still having poor publication
   overlap with G2P
 
 ### Phenotype coverage
@@ -217,13 +217,13 @@ Interpretation:
 For `G2P00413`:
 
 - G2P HPO terms: 84
-- top-level dismech Cowden phenotypes: 7
+- top-level Dismech Cowden phenotypes: 7
 - exact HPO overlap: 6
 
 This is not necessarily a defect. It shows a structural difference:
 
 - G2P stores broad phenotype enumerations for the assertion
-- dismech stores a smaller explanatory phenotype subset tied to disease
+- Dismech stores a smaller explanatory phenotype subset tied to disease
   mechanism and clinical salience
 
 ### Mechanism alignment
@@ -239,7 +239,7 @@ G2P says:
 - mechanism evidence: biochemical/protein expression plus functional alteration
   and model support
 
-dismech Cowden says:
+Dismech Cowden says:
 
 - `genetic[].inheritance` contains autosomal dominant inheritance
 - `genetic[].notes` explicitly describe germline PTEN loss-of-function variants
@@ -257,21 +257,21 @@ Batch command used:
 uv run python -m dismech.compare.g2p compare-all PTEN FLNB PIK3CA FGFR2 --format summary
 ```
 
-Cross-gene summary from the current dismech worktree and current G2P release:
+Cross-gene summary from the current Dismech worktree and current G2P release:
 
-| Gene | Pattern | G2P rows | Mapped rows | Direct dismech matches | Direct section PMID overlap |
+| Gene | Pattern | G2P rows | Mapped rows | Direct Dismech matches | Direct section PMID overlap |
 | --- | --- | ---: | ---: | ---: | ---: |
 | PTEN | root match with PMID gap + MONDO collision | 3 | 1 | 2 | 0 |
 | FLNB | strongest current one-to-one family coverage | 4 | 4 | 4 | 4 |
-| PIK3CA | one broad G2P row split across dismech disease roots | 1 | 0 | 2 | 3 |
-| FGFR2 | many G2P rows, only one dismech disease root | 7 | 1 | 1 | 1 |
+| PIK3CA | one broad G2P row split across Dismech disease roots | 1 | 0 | 2 | 3 |
+| FGFR2 | many G2P rows, only one Dismech disease root | 7 | 1 | 1 | 1 |
 
 ### FLNB
 
 FLNB is the cleanest current positive example.
 
 - G2P rows: 4
-- direct dismech disease anchors: 4
+- direct Dismech disease anchors: 4
 - row-to-root mapping works for all 4 rows
 - direct section PMID overlap: 4
 - disease-level PMID overlap: 6
@@ -283,7 +283,7 @@ Current FLNB rows map directly to:
 - Larsen Syndrome
 - Spondylocarpotarsal Synostosis Syndrome
 
-This is close to the ideal dismech-compatible pattern:
+This is close to the ideal Dismech-compatible pattern:
 
 - one gene with multiple disease roots
 - one G2P row per disease root
@@ -296,11 +296,11 @@ This is close to the ideal dismech-compatible pattern:
 PIK3CA shows the opposite pattern from FLNB.
 
 - G2P rows: 1
-- direct dismech disease anchors: 2
+- direct Dismech disease anchors: 2
 - mapped rows: 0 by current root-label logic
 - direct section PMID overlap: 3
 
-The G2P row is a broad overgrowth-spectrum assertion, while dismech currently
+The G2P row is a broad overgrowth-spectrum assertion, while Dismech currently
 surfaces PIK3CA as a direct causative gene in:
 
 - CLOVES Syndrome
@@ -309,28 +309,28 @@ surfaces PIK3CA as a direct causative gene in:
 So this is not a simple failed match. It is a representation mismatch:
 
 - G2P aggregates spectrum-level disease knowledge into one row
-- dismech splits the same gene across disease-specific roots
+- Dismech splits the same gene across disease-specific roots
 
 This is a `SPLIT_ACROSS_DISMECH` pattern.
 
 ### FGFR2
 
-FGFR2 shows dismech undercoverage relative to G2P.
+FGFR2 shows Dismech undercoverage relative to G2P.
 
 - G2P rows: 7
-- direct dismech disease anchors: 1
+- direct Dismech disease anchors: 1
 - mapped rows: 1
 - direct section PMID overlap: 1
 
-Only the Apert syndrome row currently has a direct dismech root match. The
+Only the Apert syndrome row currently has a direct Dismech root match. The
 other G2P rows, including Crouzon, Pfeiffer, Jackson-Weiss, LADD,
 Beare-Stevenson, and Antley-Bixler, do not currently have matching direct
-disease roots in dismech.
+disease roots in Dismech.
 
 This is a clear `UNDERREPRESENTED_IN_DISMECH` pattern: the gene family is known
-and split in G2P, but only one disease anchor is curated in dismech.
+and split in G2P, but only one disease anchor is curated in Dismech.
 
-## Where dismech Aligns Well
+## Where Dismech Aligns Well
 
 - Disease-level modeling is strong when a gene has a well-curated disease root,
   as in [`Cowden_Syndrome.yaml`](https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Cowden_Syndrome.yaml).
@@ -343,23 +343,23 @@ and split in G2P, but only one disease anchor is curated in dismech.
 - `evidence_source` in dismech supports some of the same evidence-type ideas
   that G2P encodes in molecular mechanism evidence.
 
-## Where dismech Aligns Poorly
+## Where Dismech Aligns Poorly
 
 - There is no first-class row-level gene assertion object equivalent to a G2P row.
 - PMIDs are distributed across disease sections, not bundled as "the citation set
   for the PTEN-Cowden assertion".
-- A gene can appear in dismech as:
+- A gene can appear in Dismech as:
   causative, subtype-specific, secondary somatic, mechanistic, or differential.
   A naive gene search overcounts disease coverage.
 - Disease identifiers are not stable enough for a MONDO-only join in the PTEN
   case.
-- G2P phenotype breadth is often much larger than dismech's curated phenotype
+- G2P phenotype breadth is often much larger than Dismech's curated phenotype
   subset.
 - dismech mechanism nodes do not always populate structured `gene`/`genes`
   fields, even when the node is obviously gene-specific by name.
 - G2P's compact mechanism support fields
   (`molecular mechanism support`, `categorisation`, `evidence`) do not have a
-  single direct home in dismech.
+  single direct home in Dismech.
 
 ## Proposed Crosswalk Strategy
 
@@ -381,7 +381,7 @@ In implementation terms, this should become a stable intermediate artifact,
 not just a transient parse step. The current compare module now makes this
 artifact explicit enough to support row tables and row-status summaries.
 
-### 2. Match into dismech by ordered evidence, not a single key
+### 2. Match into Dismech by ordered evidence, not a single key
 
 Use this order when creating `DismechMappingCandidate` records:
 
@@ -398,7 +398,7 @@ Important rule for scoring:
 
 ### 3. Separate match classes
 
-For every gene, classify dismech hits as:
+For every gene, classify Dismech hits as:
 
 - direct genetic anchor
   example: PTEN in Cowden syndrome
@@ -419,8 +419,8 @@ For each gene, compute:
 
 - row-to-root phenotype overlap
 - G2P reviewed PMIDs
-- dismech PMIDs from matched gene-specific sections only
-- dismech PMIDs from the full matched disease files
+- Dismech PMIDs from matched gene-specific sections only
+- Dismech PMIDs from the full matched disease files
 
 This gives two answers:
 
@@ -479,7 +479,7 @@ is slightly narrower than this ideal target, but it now carries the key fields
 needed for the first-pass audit loop:
 
 - G2P row identity and mechanism summary
-- best linked dismech disease anchor
+- best linked Dismech disease anchor
 - candidate counts
 - related direct-root disorders
 - per-row `row_status`
@@ -515,7 +515,7 @@ Behavior:
 
 - defaults to the latest official `allG2P` FTP release
 - mirrors the D2P compare flow:
-  load source rows -> extract dismech matches -> build comparison table ->
+  load source rows -> extract Dismech matches -> build comparison table ->
   compute summary -> expose CLI
 - pre-indexes dismech gene anchors once per release-scale audit so `--all-genes`
   runs do not re-read every disease YAML for every gene
@@ -538,12 +538,12 @@ Current limitation:
 
 - it does not yet count differential-diagnosis embeddings or unstructured gene
   mentions inside pathophysiology node names/descriptions
-- row-status classification is still heuristic because dismech does not yet have
+- row-status classification is still heuristic because Dismech does not yet have
   a first-class gene-assertion object comparable to a G2P row
 
 ## Recommended Next Steps
 
-- Add an explicit gene-assertion audit artifact to dismech outputs rather than
+- Add an explicit gene-assertion audit artifact to Dismech outputs rather than
   deriving it ad hoc from disease YAML files.
 - Normalize PTEN-related MONDO usage before relying on exact MONDO joins.
 - Add structured `gene`/`genes` values to gene-specific pathophysiology nodes
