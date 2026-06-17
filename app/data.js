@@ -63354,6 +63354,75 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hydrolethalus Syndrome 2",
+    "disease_id": "MONDO:0013585",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathies"
+    ],
+    "creation_date": "2026-06-16T20:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hydrolethalus syndrome 2 (HLS2) is a rare, autosomal recessive, perinatally lethal multiple-malformation disorder caused by biallelic mutations in KIF7, the human ortholog of Drosophila Costal2 and a cilium-tip regulator of the Sonic hedgehog (SHH) pathway. It sits at the severe, frequently lethal end of the KIF7-related ciliopathy spectrum that also encompasses acrocallosal syndrome (a milder allelic disorder) and a subset of Joubert syndrome. HLS2 is characterized by a severe midline brain malformation \u2014 most often hydrocephaly with absent midline structures and corpus callosum agenesis \u2014 together with pre- and/or postaxial polydactyly, cleft palate, and other midline craniofacial defects. Mechanistically, KIF7 dysfunction deregulates GLI transcription-factor output and impairs GLI3 processing in the primary cilium, derailing the tightly dosed Hedgehog signaling that patterns the midline brain, limbs, and face; affected fetuses are stillborn or die shortly after birth.",
+    "pathophysiology": [
+      "KIF7 Cilium-Tip Dysfunction and Impaired Hedgehog Signal Transduction",
+      "Lethal Midline Brain and Craniofacial Malformation"
+    ],
+    "cell_types": [
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Smoothened (Hedgehog) Signaling",
+      "Regulation of Hedgehog Signaling",
+      "Corpus Callosum Development",
+      "Neural Tube Formation"
+    ],
+    "phenotypes": [
+      "Hydrocephalus",
+      "Agenesis of Corpus Callosum",
+      "Polydactyly",
+      "Cleft Palate"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Skeletal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000238",
+      "HP:0001274",
+      "HP:0010442",
+      "HP:0000175"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KIF7 Mutations"
+    ],
+    "treatments": [
+      "Supportive and Palliative Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hydrolethalus_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Hydrolethalus_Syndrome_2.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Hypereosinophilic syndrome",
     "disease_id": "MONDO:0015691",
     "category": "Complex",
@@ -76397,6 +76466,7 @@ window.searchData = [
       "Complement Evasion via BBK32-Mediated C1r Inhibition",
       "Alternative Complement Pathway Evasion via Factor H Recruitment",
       "Antigenic Variation via vlsE Gene Conversion",
+      "Host Lipid Scavenging and Membrane Biogenesis",
       "Inflammatory Response and Tissue Damage",
       "Autoimmune Activation after Persistent Infection",
       "Post-Infectious Immune Dysregulation"
@@ -76422,6 +76492,10 @@ window.searchData = [
       "cell adhesion",
       "negative regulation of complement activation",
       "DNA recombination",
+      "host lipid acquisition",
+      "host cholesterol import",
+      "cholesteryl ester and triglyceride storage in intracellular foci",
+      "sulfoquinovosyl diacylglycerol (SQDG) biosynthesis",
       "inflammatory response",
       "adaptive immune response"
     ],
@@ -76492,11 +76566,11 @@ window.searchData = [
     "source_file": "Lyme_Disease.yaml",
     "page_url": "../pages/disorders/Lyme_Disease.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Lymphatic filariasis",
@@ -95540,6 +95614,101 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "PET100-Related COX Deficiency",
+    "disease_id": "MONDO:0033646",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-06-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PET100-related COX deficiency (mitochondrial complex IV deficiency nuclear type 12, MC4DN12) is a rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in PET100 (formerly C19orf79). PET100 is a small mitochondrial inner-membrane chaperone that acts at an intermediate stage of Complex IV biogenesis, promoting incorporation of the COX subunits into the maturing holoenzyme. Loss of PET100 leaves the COX subunits unstable and blocks assembly of fully assembled Complex IV, producing an isolated Complex IV deficiency. The clinical spectrum spans a Lebanese founder mutation presenting as complex IV-deficient Leigh syndrome with prominent seizures, through a fatal neonatal-onset isolated COX deficiency with severe lactic acidosis and multiorgan involvement reported outside the Lebanese population. It conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to failed holoenzyme assembly.\n",
+    "pathophysiology": [
+      "PET100 Loss and Failed Complex IV Assembly",
+      "Impaired Terminal Electron Transfer and ATP Synthesis",
+      "Lactic Acidosis and Metabolic Decompensation"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "ATP synthesis coupled electron transport",
+      "lactate biosynthetic process"
+    ],
+    "phenotypes": [
+      "Leigh syndrome",
+      "Bilateral basal ganglia lesions",
+      "Seizures",
+      "Lactic acidosis",
+      "Intrauterine growth retardation",
+      "Neonatal hypoglycemia",
+      "Generalized aminoaciduria",
+      "Microcephaly",
+      "Decreased liver function",
+      "Prolonged prothrombin time",
+      "Hypoalbuminemia",
+      "Elevated circulating creatine kinase concentration",
+      "Global developmental delay",
+      "Muscular hypotonia",
+      "Failure to thrive",
+      "Respiratory insufficiency"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002180",
+      "HP:0007146",
+      "HP:0001250",
+      "HP:0003128",
+      "HP:0001511",
+      "HP:0001998",
+      "HP:0002909",
+      "HP:0000252",
+      "HP:0001410",
+      "HP:0008151",
+      "HP:0003073",
+      "HP:0003236",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001508",
+      "HP:0002093"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PET100 pathogenic variants causing MC4DN12"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PET100-Related_COX_Deficiency.yaml",
+    "page_url": "../pages/disorders/PET100-Related_COX_Deficiency.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "PHARC syndrome",
     "disease_id": "MONDO:0012984",
     "category": "Mendelian",
@@ -102358,6 +102527,99 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Posterior Polymorphous Corneal Dystrophy",
+    "disease_id": "MONDO:0020364",
+    "category": "Mendelian",
+    "parents": [
+      "Corneal endothelial dystrophy",
+      "Posterior corneal dystrophy",
+      "Hereditary disease"
+    ],
+    "creation_date": "2026-06-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "PPCD1",
+      "PPCD3",
+      "PPCD4"
+    ],
+    "description": "Posterior polymorphous corneal dystrophy (PPCD) is a rare, usually autosomal-dominant, bilateral posterior corneal endothelial dystrophy. Its defining pathology is an abnormal transdifferentiation of the corneal endothelium toward an epithelial-like phenotype: endothelial cells acquire epithelial morphology, gene expression (E-cadherin, cytokeratins), and proliferative behavior, and deposit an aberrant, multilaminar Descemet membrane. Clinically this produces the characteristic vesicular, band, and diffuse opacities at the level of Descemet membrane. Most patients are asymptomatic, but a subset develop corneal edema, iridocorneal adhesions, corectopia, and secondary glaucoma. PPCD is genetically heterogeneous and the recognized subtypes are caused by transcription-factor dysregulation that converges on the ZEB1 epithelial-mesenchymal transition (EMT) axis: OVOL2 promoter mutations (PPCD1), ZEB1 loss-of-function (PPCD3), and GRHL2 non-coding regulatory mutations (PPCD4). It is distinct from Fuchs endothelial corneal dystrophy, which is an attritional (cell-loss) endothelial dystrophy rather than an endothelial-to-epithelial transdifferentiation disorder.",
+    "pathophysiology": [
+      "Corneal Endothelial-to-Epithelial Transdifferentiation",
+      "ZEB1 EMT-Axis Transcription Factor Dysregulation",
+      "Aberrant Descemet Membrane Deposition",
+      "Iridocorneal Adhesion and Anterior Chamber Distortion",
+      "Secondary Glaucoma"
+    ],
+    "cell_types": [
+      "Corneal endothelial cell undergoing epithelial-like transdifferentiation",
+      "Corneal endothelial cell",
+      "Epithelial-like (transdifferentiated) corneal endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000132"
+    ],
+    "biological_processes": [
+      "Aberrant mesenchymal-to-epithelial transition of the endothelium",
+      "Dysregulated epithelial-to-mesenchymal transition control",
+      "Dysregulated RNA polymerase II transcriptional regulation",
+      "Aberrant Wnt signaling activation",
+      "Aberrant basement membrane assembly"
+    ],
+    "phenotypes": [
+      "Polymorphous posterior corneal dystrophy",
+      "Abnormal corneal endothelium morphology",
+      "Reduced corneal endothelial cell density",
+      "Abnormal Descemet membrane morphology",
+      "Corneal opacity",
+      "Glaucoma",
+      "Corectopia",
+      "Iridocorneal adhesions",
+      "Inguinal hernia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Extraocular"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0007915",
+      "HP:0011488",
+      "HP:0011491",
+      "HP:0011490",
+      "HP:0007957",
+      "HP:0000501",
+      "HP:0009918",
+      "HP:0011483",
+      "HP:0000023"
+    ],
+    "frequencies": [],
+    "genes": [
+      "OVOL2",
+      "ZEB1",
+      "GRHL2"
+    ],
+    "treatments": [
+      "Observation",
+      "Corneal Transplantation",
+      "Antiglaucoma Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Posterior_Polymorphous_Corneal_Dystrophy.yaml",
+    "page_url": "../pages/disorders/Posterior_Polymorphous_Corneal_Dystrophy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 3,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Postinfectious Vasculitis",
@@ -130017,15 +130279,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1304,
-  "total_subtypes": 2053,
-  "total_disorders_and_subtypes": 3357,
-  "total_unique_evidence_sources": 22521,
-  "total_unique_publications": 21218,
+  "total_disorder_pages": 1307,
+  "total_subtypes": 2056,
+  "total_disorders_and_subtypes": 3363,
+  "total_unique_evidence_sources": 22536,
+  "total_unique_publications": 21233,
   "total_unique_disease_categories": 47,
-  "total_unique_phenotype_categories": 207,
-  "total_pathographs": 1296,
-  "total_unique_pathological_events": 6210,
+  "total_unique_phenotype_categories": 208,
+  "total_pathographs": 1299,
+  "total_unique_pathological_events": 6219,
   "total_modules": 53
 };
 window.dispatchEvent(new Event('searchDataReady'));
