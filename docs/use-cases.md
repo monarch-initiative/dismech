@@ -1,13 +1,13 @@
-# dismech Use Cases
+# Dismech Use Cases
 
-This document outlines use cases for the Disorder Mechanisms Knowledge Base (dismech),
+This document outlines use cases for the Disorder Mechanisms Knowledge Base (Dismech),
 organized by audience and application domain.
 
 ## Clinical & Research
 
 ### Differential Diagnosis Support
 
-Given a set of phenotypes (HP terms), query dismech to find disorders sharing those
+Given a set of phenotypes (HP terms), query Dismech to find disorders sharing those
 phenotypes and rank by overlap. The structured phenotype descriptors with ontology
 bindings make this computationally tractable.
 
@@ -48,7 +48,7 @@ statements at face value.
 
 ### Ontology-Grounded NLP Benchmark
 
-dismech entries with their precise ontology mappings (HP, MONDO, GO, CL, MAXO) could
+Dismech entries with their precise ontology mappings (HP, MONDO, GO, CL, MAXO) could
 serve as gold-standard annotations for evaluating biomedical NLP systems that extract
 disease mechanisms from text.
 
@@ -61,7 +61,7 @@ disease-gene-phenotype edges with mechanistic context.
 
 ### Cross-Ontology Bridging
 
-dismech links MONDO diseases to HP phenotypes, GO processes, CL cell types, MAXO
+Dismech links MONDO diseases to HP phenotypes, GO processes, CL cell types, MAXO
 treatments, and UBERON anatomy in a single curated record. This creates implicit
 cross-ontology mappings that are otherwise hard to derive automatically.
 
@@ -76,7 +76,7 @@ NMDC biosamples, linking host disease mechanisms to microbial community profiles
 ### LLM Hallucination Benchmarking
 
 The reference validation pipeline (snippet matching against PubMed abstracts) is itself
-a reusable pattern for measuring how accurately LLMs cite scientific literature. dismech
+a reusable pattern for measuring how accurately LLMs cite scientific literature. Dismech
 could publish a benchmark dataset of verified vs. hallucinated citations.
 
 ### Automated Curation Pipelines
@@ -96,11 +96,11 @@ highest-impact gaps.
 ### Genotype-to-Treatment Pathway Mapping
 
 For entries with `genetic_basis` → `pathophysiology` → `treatments` chains (especially
-cancer entries like BRAF V600E melanoma, ALK-rearranged NSCLC), dismech encodes the
+cancer entries like BRAF V600E melanoma, ALK-rearranged NSCLC), Dismech encodes the
 logic of precision oncology: specific mutations → specific targeted therapies.
 
 ### Rare Disease Mechanism Cataloging
 
 With disorders including rare conditions (Achondrogenesis Type II,
-Beta-Mannosidosis, CHIME syndrome), dismech serves as a structured mechanism reference
+Beta-Mannosidosis, CHIME syndrome), Dismech serves as a structured mechanism reference
 for diseases that are often poorly documented in traditional resources.

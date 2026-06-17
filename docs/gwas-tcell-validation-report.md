@@ -1,4 +1,4 @@
-# Validation Report: Zhu/Dann T Cell Perturb-seq vs DisMech Autoimmune Entries
+# Validation Report: Zhu/Dann T Cell Perturb-seq vs Dismech Autoimmune Entries
 
 **Date:** 2026-02-14
 **Pipeline:** Zhu, Dann, Ota, Pritchard, Marson et al. (bioRxiv Dec 2025)
