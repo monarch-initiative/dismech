@@ -1147,7 +1147,9 @@ def test_grouping_three_valued_logic():
 def test_grouping_overlap_expands_nested_grouping_members():
     """Overlap computation expands nested GROUPING members to disease entries."""
     from dismech.groupings import (
+        DiseaseFacts,
         compute_grouping_overlaps,
+        find_candidate_members,
         grouping_disease_members,
     )
 
@@ -1172,6 +1174,15 @@ def test_grouping_overlap_expands_nested_grouping_members():
         },
         "Parent": {
             "name": "Parent",
+            "membership_criteria": [
+                {
+                    "criteria_semantics": "SUFFICIENT",
+                    "logic": {
+                        "criterion_predicate": "HAS_GENE",
+                        "gene": {"term": {"id": "hgnc:1"}},
+                    },
+                }
+            ],
             "members": [
                 {"member": "A", "member_type": "DISEASE"},
                 {"member": "Child", "member_type": "GROUPING"},
@@ -1201,6 +1212,12 @@ def test_grouping_overlap_expands_nested_grouping_members():
         selected_names=["Child", "Crosscut", "Far", "Parent"],
     )
     assert all(o.overlap_count for o in nonzero)
+
+    index = {
+        name: DiseaseFacts(name=name, gene_ids={"hgnc:1"})
+        for name in ("A", "B", "C", "D")
+    }
+    assert find_candidate_members(groupings["Parent"], index, groupings) == ["D"]
 
 
 @pytest.mark.parametrize("filepath", GROUPING_FILES)

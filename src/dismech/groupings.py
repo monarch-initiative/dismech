@@ -425,14 +425,20 @@ def evaluate_grouping(
     return evaluations
 
 
-def find_candidate_members(grouping: dict, index: dict[str, DiseaseFacts]) -> list[str]:
+def find_candidate_members(
+    grouping: dict,
+    index: dict[str, DiseaseFacts],
+    groupings_by_name: Optional[dict[str, dict]] = None,
+) -> list[str]:
     """For SUFFICIENT / N&S criteria, find disorders satisfying them that are
-    not already listed as members (candidate additions)."""
-    listed = {
-        m.get("member")
-        for m in grouping.get("members", []) or []
-        if m.get("member_type", "DISEASE") in ("DISEASE", "SUBTYPE")
-    }
+    not already listed as direct or nested members (candidate additions)."""
+    if groupings_by_name is None:
+        groupings_by_name = load_groupings_by_name(
+            sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml")))
+        )
+        if grouping.get("name"):
+            groupings_by_name[str(grouping["name"])] = grouping
+    listed = grouping_disease_members(grouping, groupings_by_name)
     candidates: set[str] = set()
     for criteria in grouping.get("membership_criteria", []) or []:
         if criteria.get("criteria_semantics") not in (
