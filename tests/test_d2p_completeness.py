@@ -2,12 +2,48 @@
 
 from dismech.compare.d2p import (
     _is_genetic_disease,
+    _parse_monarch_associations,
     build_disease_audit_payload,
     build_comparison_table,
     build_completeness_audit,
     compute_audit_summary,
     extract_dismech_phenotypes,
 )
+
+
+def test_parse_monarch_associations_skips_explicit_zero_frequency_rows():
+    items = [
+        {
+            "object": "HP:0000001",
+            "object_label": "Zero percent phenotype",
+            "primary_knowledge_source": "infores:omim",
+            "has_percentage": 0.0,
+            "has_count": 0,
+            "has_total": 20,
+            "publications": ["PMID:1"],
+        },
+        {
+            "object": "HP:0000002",
+            "object_label": "Zero count phenotype",
+            "primary_knowledge_source": "infores:omim",
+            "has_count": 0,
+            "has_total": 10,
+            "publications": ["PMID:2"],
+        },
+        {
+            "object": "HP:0000003",
+            "object_label": "Observed phenotype",
+            "primary_knowledge_source": "infores:orphanet",
+            "has_count": 3,
+            "has_total": 10,
+            "publications": ["PMID:3"],
+        },
+    ]
+
+    omim_phenos, ordo_phenos = _parse_monarch_associations(items)
+
+    assert omim_phenos == []
+    assert [record["hp_id"] for record in ordo_phenos] == ["HP:0000003"]
 
 
 def test_completeness_audit_flags_source_evidence_and_pathograph_gaps():

@@ -135,6 +135,25 @@ def fetch_monarch_d2p(mondo_id: str) -> list[dict[str, Any]]:
     return all_items
 
 
+def _is_explicit_zero_frequency(item: dict[str, Any]) -> bool:
+    """Return true for source rows that explicitly assert zero observed cases."""
+    has_pct = item.get("has_percentage")
+    if has_pct is not None:
+        try:
+            return float(has_pct) == 0.0
+        except (TypeError, ValueError):
+            return False
+
+    has_count = item.get("has_count")
+    if has_count is not None:
+        try:
+            return int(has_count) == 0
+        except (TypeError, ValueError):
+            return False
+
+    return False
+
+
 def _parse_monarch_associations(
     items: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -155,6 +174,8 @@ def _parse_monarch_associations(
         obj = item.get("object", "")
         hp_id = _normalize_hp_id(obj)
         if not hp_id:
+            continue
+        if _is_explicit_zero_frequency(item):
             continue
 
         label = item.get("object_label", "")
