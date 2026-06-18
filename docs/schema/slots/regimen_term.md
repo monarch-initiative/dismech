@@ -31,13 +31,28 @@ Alias: regimen_term
 
 ## Properties
 
-* Range: [RegimenDescriptor](../classes/RegimenDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [RegimenDescriptor](../classes/RegimenDescriptor.md) |
+| Domain Of | [Treatment](../classes/Treatment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -31,15 +31,29 @@ Alias: variables
 
 ## Properties
 
-* Range: [ModelVariable](../classes/ModelVariable.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ModelVariable](../classes/ModelVariable.md) |
+| Domain Of | [ComputationalModel](../classes/ComputationalModel.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

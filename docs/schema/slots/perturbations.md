@@ -23,6 +23,8 @@ Alias: perturbations
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [ComputationalModel](../classes/ComputationalModel.md) | A computational or in-silico model relevant to understanding disease mechanis... |  no  |
+| [Experiment](../classes/Experiment.md) | A structured experiment or protocol-level study design that can be proposed t... |  yes  |
+| [ExperimentalControl](../classes/ExperimentalControl.md) | A comparator or control condition for an experiment, such as an isogenic wild... |  yes  |
 
 
 
@@ -31,15 +33,29 @@ Alias: perturbations
 
 ## Properties
 
-* Range: [GeneDescriptor](../classes/GeneDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [GeneDescriptor](../classes/GeneDescriptor.md) |
+| Domain Of | [Experiment](../classes/Experiment.md), [ExperimentalControl](../classes/ExperimentalControl.md), [ComputationalModel](../classes/ComputationalModel.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -74,6 +90,8 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: perturbations
 domain_of:
+- Experiment
+- ExperimentalControl
 - ComputationalModel
 range: GeneDescriptor
 multivalued: true

@@ -31,13 +31,28 @@ Alias: go_enrichment
 
 ## Properties
 
-* Range: [GOEnrichment](../classes/GOEnrichment.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [GOEnrichment](../classes/GOEnrichment.md) |
+| Domain Of | [AssociationSignal](../classes/AssociationSignal.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

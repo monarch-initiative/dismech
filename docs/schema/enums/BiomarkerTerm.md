@@ -18,13 +18,17 @@ _This is a dynamic enum_
 
 
 
+
+
+
 ## Comments
 
 * NCIT biomarkers span multiple hierarchies (proteins, genes, fusions, hormones)
 * Validation checks term exists in NCIT with correct label
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

@@ -26,15 +26,29 @@ Alias: diagnosis
 
 ## Properties
 
-* Range: [Diagnosis](../classes/Diagnosis.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Diagnosis](../classes/Diagnosis.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

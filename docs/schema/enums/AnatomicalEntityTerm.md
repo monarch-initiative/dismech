@@ -8,6 +8,12 @@ _A term representing an anatomical entity_
 
 
 URI: [dismech:enum/AnatomicalEntityTerm](https://w3id.org/monarch-initiative/dismech/enum/AnatomicalEntityTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** UBERON:0001062
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

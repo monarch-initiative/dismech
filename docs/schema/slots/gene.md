@@ -17,9 +17,12 @@ Alias: gene
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
-| [Variant](../classes/Variant.md) |  |  no  |
+| [Variant](../classes/Variant.md) | A genetic variant associated with a disease, including coding and non-coding ... |  no  |
 | [GeneticContext](../classes/GeneticContext.md) | A structured description of a genetic context that modifies phenotype frequen... |  no  |
+| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [LogicalCriterion](../classes/LogicalCriterion.md) | A node in a nested boolean membership-criteria expression |  no  |
+| [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | A structured perturbation, intervention, or exposure used in an experiment |  no  |
+| [DifferentiatingMechanism](../classes/DifferentiatingMechanism.md) | A mechanism or feature that distinguishes a grouping member from its siblings... |  no  |
 
 
 
@@ -28,7 +31,21 @@ Alias: gene
 
 ## Properties
 
-* Range: [GeneDescriptor](../classes/GeneDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [GeneDescriptor](../classes/GeneDescriptor.md) |
+| Domain Of | [GeneticContext](../classes/GeneticContext.md), [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md), [Pathophysiology](../classes/Pathophysiology.md), [Variant](../classes/Variant.md), [LogicalCriterion](../classes/LogicalCriterion.md), [DifferentiatingMechanism](../classes/DifferentiatingMechanism.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -40,8 +57,9 @@ Alias: gene
 | --- |
 | {preferred_term: MEFV} |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -77,8 +95,11 @@ rank: 1000
 alias: gene
 domain_of:
 - GeneticContext
+- ExperimentalPerturbation
 - Pathophysiology
 - Variant
+- LogicalCriterion
+- DifferentiatingMechanism
 range: GeneDescriptor
 inlined: true
 

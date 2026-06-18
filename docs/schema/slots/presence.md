@@ -17,10 +17,10 @@ Alias: presence
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Diagnosis](../classes/Diagnosis.md) |  |  no  |
-| [Genetic](../classes/Genetic.md) |  |  no  |
 | [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
+| [Diagnosis](../classes/Diagnosis.md) |  |  no  |
 | [Biochemical](../classes/Biochemical.md) |  |  no  |
+| [Genetic](../classes/Genetic.md) |  |  no  |
 
 
 
@@ -29,7 +29,21 @@ Alias: presence
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Biochemical](../classes/Biochemical.md), [Genetic](../classes/Genetic.md), [Environmental](../classes/Environmental.md), [Diagnosis](../classes/Diagnosis.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -41,8 +55,9 @@ Alias: presence
 | --- |
 | Positive |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

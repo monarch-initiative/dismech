@@ -10,7 +10,6 @@ _Curation workflow status for an association_
 URI: [dismech:enum/CurationStatusEnum](https://w3id.org/monarch-initiative/dismech/enum/CurationStatusEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | CANDIDATE | None | Prioritized for curation |
@@ -31,8 +30,12 @@ URI: [dismech:enum/CurationStatusEnum](https://w3id.org/monarch-initiative/disme
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

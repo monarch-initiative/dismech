@@ -10,7 +10,6 @@ _The type of definition or criteria set_
 URI: [dismech:enum/DefinitionTypeEnum](https://w3id.org/monarch-initiative/dismech/enum/DefinitionTypeEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | DIAGNOSTIC_CRITERIA | None | Published diagnostic criteria (clinical/serologic/imaging) |
@@ -31,8 +30,12 @@ URI: [dismech:enum/DefinitionTypeEnum](https://w3id.org/monarch-initiative/disme
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

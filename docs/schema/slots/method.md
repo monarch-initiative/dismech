@@ -22,9 +22,9 @@ Alias: method
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [GOEnrichment](../classes/GOEnrichment.md) | GO enrichment results for an association signal |  no  |
 | [AssociationSignal](../classes/AssociationSignal.md) | An association signal from EHR, registry, or computational sources, optionall... |  yes  |
 | [ProteinStructure](../classes/ProteinStructure.md) | A 3D protein structure from PDB or AlphaFold relevant to understanding a trea... |  no  |
-| [GOEnrichment](../classes/GOEnrichment.md) | GO enrichment results for an association signal |  no  |
 
 
 
@@ -33,13 +33,28 @@ Alias: method
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [ProteinStructure](../classes/ProteinStructure.md), [AssociationSignal](../classes/AssociationSignal.md), [GOEnrichment](../classes/GOEnrichment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
