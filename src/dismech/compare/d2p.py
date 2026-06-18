@@ -1,8 +1,19 @@
-"""Compare dismech disease-to-phenotype annotations against OMIM and Orphanet via the Monarch API."""
+"""Compare dismech disease-to-phenotype annotations against external sources.
+
+The comparison data come from the Monarch association API, split by primary
+knowledge source into OMIM and Orphanet-backed phenotype records. The audit
+commands turn those comparisons into a phenotype-completeness checklist:
+
+* source-backed phenotypes absent from the local top-level phenotype list,
+* source-backed phenotypes covered only by a broader local HPO term,
+* local phenotypes without supporting evidence, and
+* local phenotypes not causally linked into the rendered pathograph.
+"""
 
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -10,6 +21,8 @@ from typing import Any
 import httpx
 import typer
 from oaklib import get_adapter
+
+from dismech.qc_plugins import causal_inlink_coverage
 
 from .support import default_kb_dir as _default_kb_dir
 from .support import get_disease_term_id as _get_mondo_id
@@ -28,6 +41,10 @@ _PAGE_LIMIT = 500
 
 _SOURCE_OMIM = "infores:omim"
 _SOURCE_ORDO = "infores:orphanet"
+
+_SOURCE_COLUMNS = ("omim", "ordo")
+_SUPPORTING_EVIDENCE_VALUES = {"SUPPORT", "PARTIAL"}
+_GENETIC_CATEGORY_KEYWORDS = ("mendelian", "genetic", "chromosomal")
 
 app = typer.Typer(help="Compare dismech phenotypes against OMIM/Orphanet databases.")
 
@@ -191,7 +208,8 @@ def _parse_monarch_associations(
 def extract_dismech_phenotypes(disease_data: dict[str, Any]) -> list[dict[str, Any]]:
     """Extract phenotype records from a dismech disease YAML dict.
 
-    Returns list of dicts with: hp_id, label, frequency, pmids.
+    Returns list of dicts with: hp_id, label, name, frequency, pmids, and
+    evidence-count metadata.
     """
     phenotypes = disease_data.get("phenotypes", [])
     if not isinstance(phenotypes, list):
@@ -222,23 +240,324 @@ def extract_dismech_phenotypes(disease_data: dict[str, Any]) -> list[dict[str, A
         frequency = str(item.get("frequency", "")) if item.get("frequency") else ""
 
         pmids: list[str] = []
+        references: list[str] = []
+        supporting_references: list[str] = []
         for ev in item.get("evidence", []) or []:
             if not isinstance(ev, dict):
                 continue
             ref = ev.get("reference", "")
+            if isinstance(ref, str) and ref.strip():
+                references.append(ref)
             if ref.upper().startswith("PMID:"):
                 pmids.append(ref)
+            supports = str(ev.get("supports", "")).upper()
+            if ref and supports in _SUPPORTING_EVIDENCE_VALUES:
+                supporting_references.append(ref)
 
         results.append(
             {
                 "hp_id": hp_id,
                 "label": label,
+                "name": item.get("name") or label,
                 "frequency": frequency,
                 "pmids": pmids,
+                "references": references,
+                "supporting_references": supporting_references,
+                "evidence_count": len(references),
+                "supporting_evidence_count": len(supporting_references),
             }
         )
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Completeness audit
+# ---------------------------------------------------------------------------
+
+
+_AUDIT_COLUMNS = [
+    "issue_type",
+    "priority",
+    "disease_id",
+    "disease_name",
+    "phenotype_id",
+    "phenotype_label",
+    "phenotype_name",
+    "dismech",
+    "omim",
+    "ordo",
+    "source_evidence_refs",
+    "local_evidence_refs",
+    "pathograph_status",
+    "recommendation",
+]
+
+
+def _cell_match_kind(cell: Any) -> str | None:
+    if not isinstance(cell, str) or cell == "-":
+        return None
+    return cell.split(";", 1)[0]
+
+
+def _has_source_backing(row: dict[str, Any]) -> bool:
+    return any(row.get(column) != "-" for column in _SOURCE_COLUMNS)
+
+
+def _local_phenotypes_by_hp(
+    dismech_phenos: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
+    by_hp: dict[str, list[dict[str, Any]]] = {}
+    for rec in dismech_phenos:
+        hp_id = rec.get("hp_id")
+        if isinstance(hp_id, str):
+            by_hp.setdefault(hp_id, []).append(rec)
+    return by_hp
+
+
+def _first_local_for_row(
+    row: dict[str, Any], by_hp: dict[str, list[dict[str, Any]]]
+) -> dict[str, Any] | None:
+    phenotype_id = row.get("phenotype_id")
+    if isinstance(phenotype_id, str) and phenotype_id in by_hp:
+        return by_hp[phenotype_id][0]
+    return None
+
+
+def _iter_evidence_references(node: Any) -> list[str]:
+    refs: list[str] = []
+    if isinstance(node, dict):
+        ref = node.get("reference")
+        if isinstance(ref, str) and ref.strip():
+            refs.append(ref.strip())
+        for value in node.values():
+            refs.extend(_iter_evidence_references(value))
+    elif isinstance(node, list):
+        for item in node:
+            refs.extend(_iter_evidence_references(item))
+    return refs
+
+
+def _source_evidence_refs_for_row(
+    row: dict[str, Any], disease_orpha_refs: list[str]
+) -> list[str]:
+    refs: list[str] = []
+    for column in _SOURCE_COLUMNS:
+        value = row.get(column)
+        if not isinstance(value, str) or value == "-":
+            continue
+        refs.extend(re.findall(r"PMID:\d+", value))
+        if column == "ordo":
+            refs.extend(disease_orpha_refs)
+    return sorted(set(refs))
+
+
+def _audit_row(
+    *,
+    issue_type: str,
+    priority: str,
+    row: dict[str, Any],
+    phenotype_name: str = "",
+    source_evidence_refs: list[str] | None = None,
+    local_evidence_refs: list[str] | None = None,
+    pathograph_status: str = "",
+    recommendation: str,
+) -> dict[str, Any]:
+    return {
+        "issue_type": issue_type,
+        "priority": priority,
+        "disease_id": row.get("disease_id", ""),
+        "disease_name": row.get("disease_name", ""),
+        "phenotype_id": row.get("phenotype_id", ""),
+        "phenotype_label": row.get("phenotype_label", ""),
+        "phenotype_name": phenotype_name,
+        "dismech": row.get("dismech", "-"),
+        "omim": row.get("omim", "-"),
+        "ordo": row.get("ordo", "-"),
+        "source_evidence_refs": ";".join(source_evidence_refs or []),
+        "local_evidence_refs": ";".join(local_evidence_refs or []),
+        "pathograph_status": pathograph_status,
+        "recommendation": recommendation,
+    }
+
+
+def build_completeness_audit(
+    disease_data: dict[str, Any],
+    comparison_table: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build actionable phenotype-completeness audit rows for one disease.
+
+    The audit is intentionally conservative: it does not add phenotypes. It
+    identifies where a curator should inspect source-backed evidence and only
+    then update the disease YAML.
+    """
+    audit_rows: list[dict[str, Any]] = []
+    dismech_phenos = extract_dismech_phenotypes(disease_data)
+    disease_orpha_refs = sorted(
+        {
+            ref
+            for ref in _iter_evidence_references(disease_data)
+            if ref.startswith("ORPHA:")
+        }
+    )
+    by_hp = _local_phenotypes_by_hp(dismech_phenos)
+    table_by_hp = {
+        row.get("phenotype_id"): row
+        for row in comparison_table
+        if isinstance(row.get("phenotype_id"), str)
+    }
+
+    for row in comparison_table:
+        if not _has_source_backing(row):
+            continue
+
+        dismech_cell = row.get("dismech")
+        if dismech_cell == "-":
+            audit_rows.append(
+                _audit_row(
+                    issue_type="source_phenotype_missing_locally",
+                    priority="high",
+                    row=row,
+                    source_evidence_refs=_source_evidence_refs_for_row(
+                        row, disease_orpha_refs
+                    ),
+                    pathograph_status="not_local",
+                    recommendation=(
+                        "Review the source-backed phenotype; add it as a top-level "
+                        "phenotype only with exact supporting evidence, and link it "
+                        "from the pathograph if the mechanism explains it."
+                    ),
+                )
+            )
+            continue
+
+        match_kind = _cell_match_kind(dismech_cell)
+        if match_kind and match_kind.startswith("broad:"):
+            local = _first_local_for_row(row, by_hp)
+            audit_rows.append(
+                _audit_row(
+                    issue_type="source_phenotype_covered_only_by_broader_local_term",
+                    priority="medium",
+                    row=row,
+                    phenotype_name=str(local.get("name", "")) if local else "",
+                    source_evidence_refs=_source_evidence_refs_for_row(
+                        row, disease_orpha_refs
+                    ),
+                    local_evidence_refs=(
+                        list(local.get("supporting_references", [])) if local else []
+                    ),
+                    pathograph_status="local_broader_match",
+                    recommendation=(
+                        "Review whether the local HPO assertion is too broad; add or "
+                        "replace with the specific phenotype only after validating exact "
+                        "evidence."
+                    ),
+                )
+            )
+
+    _connected, _total, unconnected = causal_inlink_coverage(disease_data)
+    unconnected_names = set(unconnected)
+
+    for local in dismech_phenos:
+        hp_id = local["hp_id"]
+        row = table_by_hp.get(hp_id) or {
+            "disease_id": _get_mondo_id(disease_data) or "",
+            "disease_name": disease_data.get("name", ""),
+            "phenotype_id": hp_id,
+            "phenotype_label": local.get("label", ""),
+            "dismech": "exact",
+            "omim": "-",
+            "ordo": "-",
+        }
+        phenotype_name = str(local.get("name", ""))
+        supporting_refs = list(local.get("supporting_references", []))
+
+        if not supporting_refs:
+            audit_rows.append(
+                _audit_row(
+                    issue_type="local_phenotype_missing_supporting_evidence",
+                    priority="high",
+                    row=row,
+                    phenotype_name=phenotype_name,
+                    source_evidence_refs=_source_evidence_refs_for_row(
+                        row, disease_orpha_refs
+                    ),
+                    local_evidence_refs=list(local.get("references", [])),
+                    pathograph_status=(
+                        "unlinked" if phenotype_name in unconnected_names else "linked"
+                    ),
+                    recommendation=(
+                        "Add exact SUPPORT/PARTIAL evidence for this phenotype or "
+                        "remove the unsupported assertion."
+                    ),
+                )
+            )
+
+        if phenotype_name in unconnected_names:
+            audit_rows.append(
+                _audit_row(
+                    issue_type="local_phenotype_unlinked_to_pathograph",
+                    priority="medium",
+                    row=row,
+                    phenotype_name=phenotype_name,
+                    source_evidence_refs=_source_evidence_refs_for_row(
+                        row, disease_orpha_refs
+                    ),
+                    local_evidence_refs=supporting_refs,
+                    pathograph_status="unlinked",
+                    recommendation=(
+                        "Review whether the phenotype is mechanistically explainable; "
+                        "if so, add an evidence-backed downstream edge or intermediate "
+                        "pathophysiology node."
+                    ),
+                )
+            )
+
+    priority_rank = {"high": 0, "medium": 1, "low": 2}
+    audit_rows.sort(
+        key=lambda item: (
+            priority_rank.get(str(item["priority"]), 99),
+            str(item["disease_name"]).casefold(),
+            str(item["issue_type"]),
+            str(item["phenotype_label"]).casefold(),
+            str(item["phenotype_id"]),
+        )
+    )
+    return audit_rows
+
+
+def compute_audit_summary(audit_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize audit rows by issue type and priority."""
+    by_issue: dict[str, int] = {}
+    by_priority: dict[str, int] = {}
+    diseases: set[str] = set()
+    for row in audit_rows:
+        issue_type = str(row.get("issue_type", ""))
+        priority = str(row.get("priority", ""))
+        disease_name = str(row.get("disease_name", ""))
+        if issue_type:
+            by_issue[issue_type] = by_issue.get(issue_type, 0) + 1
+        if priority:
+            by_priority[priority] = by_priority.get(priority, 0) + 1
+        if disease_name:
+            diseases.add(disease_name)
+    return {
+        "total_issues": len(audit_rows),
+        "disease_count": len(diseases),
+        "by_issue_type": dict(sorted(by_issue.items())),
+        "by_priority": dict(sorted(by_priority.items())),
+    }
+
+
+def _is_genetic_disease(disease_data: dict[str, Any]) -> bool:
+    """Return whether a disease should be included in genetic-disease audits."""
+    if disease_data.get("genetic"):
+        return True
+    category = disease_data.get("category")
+    if not isinstance(category, str):
+        return False
+    category_text = category.casefold()
+    return any(keyword in category_text for keyword in _GENETIC_CATEGORY_KEYWORDS)
 
 
 # ---------------------------------------------------------------------------
@@ -441,6 +760,21 @@ def _write_json(rows: list[dict[str, Any]], venn: dict[str, int], file=None) -> 
     out.write("\n")
 
 
+def _write_audit_tsv(rows: list[dict[str, Any]], file=None) -> None:
+    out = file or sys.stdout
+    out.write("\t".join(_AUDIT_COLUMNS) + "\n")
+    for row in rows:
+        out.write("\t".join(str(row.get(c, "")) for c in _AUDIT_COLUMNS) + "\n")
+
+
+def _write_audit_json(
+    rows: list[dict[str, Any]], summary: dict[str, Any], file=None
+) -> None:
+    out = file or sys.stdout
+    json.dump({"summary": summary, "issues": rows}, out, indent=2)
+    out.write("\n")
+
+
 def _write_summary(venn: dict[str, int], disease_name: str, file=None) -> None:
     out = file or sys.stderr
     out.write(f"\n--- Venn Summary for {disease_name} ---\n")
@@ -503,6 +837,40 @@ def run_comparison(
     return table, venn, disease_name
 
 
+def run_audit(
+    disease_ref: str,
+    *,
+    use_closure: bool = True,
+) -> tuple[list[dict[str, Any]], dict[str, Any], str]:
+    """Run the phenotype-completeness audit for a single disease."""
+    slug, path = _resolve_disease_ref(disease_ref)
+    disease_data = _load_disease_yaml(path)
+    disease_name = disease_data.get("name", slug)
+    mondo_id = _get_mondo_id(disease_data)
+
+    if not mondo_id:
+        typer.echo(
+            f"WARNING: {slug} has no disease_term with MONDO ID, skipping.", err=True
+        )
+        return [], {}, disease_name
+
+    dismech_phenos = extract_dismech_phenotypes(disease_data)
+    typer.echo(f"Fetching Monarch D2P for {mondo_id} ({disease_name})...", err=True)
+    monarch_items = fetch_monarch_d2p(mondo_id)
+    omim_phenos, ordo_phenos = _parse_monarch_associations(monarch_items)
+    typer.echo(
+        f"  Found: {len(dismech_phenos)} dismech, {len(omim_phenos)} OMIM, {len(ordo_phenos)} Orphanet phenotypes",
+        err=True,
+    )
+
+    resolver = HPOClosureResolver() if use_closure else None
+    table = build_comparison_table(
+        mondo_id, disease_name, dismech_phenos, omim_phenos, ordo_phenos, resolver
+    )
+    audit_rows = build_completeness_audit(disease_data, table)
+    return audit_rows, compute_audit_summary(audit_rows), disease_name
+
+
 # ---------------------------------------------------------------------------
 # CLI commands
 # ---------------------------------------------------------------------------
@@ -534,6 +902,38 @@ def compare(
             _write_json(table, venn, file=out_file)
         elif format == "summary":
             _write_summary(venn, disease_name, file=out_file or sys.stdout)
+        else:
+            typer.echo(f"Unknown format: {format}", err=True)
+            raise typer.Exit(1)
+    finally:
+        if out_file:
+            out_file.close()
+
+
+@app.command()
+def audit(
+    disease_ref: str = typer.Argument(
+        help="Disease slug, MONDO ID, name, or YAML path."
+    ),
+    format: str = typer.Option("tsv", help="Output format: tsv, json."),
+    output: str | None = typer.Option(None, help="Output file path (default: stdout)."),
+    no_closure: bool = typer.Option(
+        False, "--no-closure", help="Disable HPO closure matching."
+    ),
+) -> None:
+    """Audit one disease for phenotype completeness against OMIM/Orphanet."""
+    rows, summary, disease_name = run_audit(disease_ref, use_closure=not no_closure)
+
+    out_file = open(output, "w") if output else None
+    try:
+        if format == "tsv":
+            _write_audit_tsv(rows, file=out_file)
+            typer.echo(
+                f"{disease_name}: {summary.get('total_issues', 0)} phenotype-completeness issues",
+                err=True,
+            )
+        elif format == "json":
+            _write_audit_json(rows, summary, file=out_file)
         else:
             typer.echo(f"Unknown format: {format}", err=True)
             raise typer.Exit(1)
@@ -613,6 +1013,94 @@ def compare_all(
             out = out_file or sys.stdout
             json.dump(combined, out, indent=2)
             out.write("\n")
+        else:
+            typer.echo(f"Unknown format: {format}", err=True)
+            raise typer.Exit(1)
+    finally:
+        if out_file:
+            out_file.close()
+
+
+@app.command()
+def audit_all(
+    format: str = typer.Option("tsv", help="Output format: tsv, json."),
+    output: str | None = typer.Option(None, help="Output file path (default: stdout)."),
+    no_closure: bool = typer.Option(
+        False, "--no-closure", help="Disable HPO closure matching."
+    ),
+    genetic_only: bool = typer.Option(
+        False,
+        "--genetic-only",
+        help="Only audit entries with a genetic section or genetic/Mendelian category.",
+    ),
+    limit: int | None = typer.Option(
+        None, "--limit", help="Maximum number of disease files to audit."
+    ),
+) -> None:
+    """Audit all KB diseases for phenotype completeness against OMIM/Orphanet."""
+    kb_dir = _default_kb_dir()
+    disease_files = _iter_disease_files(kb_dir)
+
+    all_rows: list[dict[str, Any]] = []
+    audited = 0
+    skipped_non_genetic = 0
+
+    resolver = HPOClosureResolver() if not no_closure else None
+
+    for disease_path in disease_files:
+        if limit is not None and audited >= limit:
+            break
+
+        slug = disease_path.stem
+        disease_data = _load_disease_yaml(disease_path)
+        disease_name = disease_data.get("name", slug)
+        mondo_id = _get_mondo_id(disease_data)
+
+        if genetic_only and not _is_genetic_disease(disease_data):
+            skipped_non_genetic += 1
+            continue
+
+        if not mondo_id:
+            typer.echo(
+                f"WARNING: {slug} has no disease_term with MONDO ID, skipping.",
+                err=True,
+            )
+            continue
+
+        dismech_phenos = extract_dismech_phenotypes(disease_data)
+        typer.echo(f"Fetching Monarch D2P for {mondo_id} ({disease_name})...", err=True)
+        try:
+            monarch_items = fetch_monarch_d2p(mondo_id)
+        except httpx.HTTPError as exc:
+            typer.echo(f"  ERROR fetching {mondo_id}: {exc}", err=True)
+            continue
+
+        omim_phenos, ordo_phenos = _parse_monarch_associations(monarch_items)
+        typer.echo(
+            f"  Found: {len(dismech_phenos)} dismech, {len(omim_phenos)} OMIM, {len(ordo_phenos)} Orphanet",
+            err=True,
+        )
+
+        table = build_comparison_table(
+            mondo_id, disease_name, dismech_phenos, omim_phenos, ordo_phenos, resolver
+        )
+        all_rows.extend(build_completeness_audit(disease_data, table))
+        audited += 1
+
+    summary = compute_audit_summary(all_rows)
+    summary["audited_diseases"] = audited
+    summary["skipped_non_genetic_diseases"] = skipped_non_genetic
+
+    out_file = open(output, "w") if output else None
+    try:
+        if format == "tsv":
+            _write_audit_tsv(all_rows, file=out_file)
+            typer.echo(
+                f"Audited {audited} diseases; found {summary['total_issues']} phenotype-completeness issues.",
+                err=True,
+            )
+        elif format == "json":
+            _write_audit_json(all_rows, summary, file=out_file)
         else:
             typer.echo(f"Unknown format: {format}", err=True)
             raise typer.Exit(1)
