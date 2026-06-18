@@ -335,6 +335,7 @@ validate-groupings:
 # Structural lint is enforced in pytest; this report also evaluates whether
 # listed members satisfy NECESSARY criteria (advisory — criteria may be
 # aspirational). Pass a file to scope to one grouping; --strict to gate.
+# Use `--overlaps` to report all pairwise disease-member overlaps.
 [group('QC')]
 check-groupings *args="":
     uv run python -m dismech.groupings {{args}}

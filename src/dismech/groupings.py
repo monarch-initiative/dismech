@@ -23,6 +23,10 @@ This module provides two tiers of tooling:
    is advisory: criteria are often aspirational (a member may not yet declare a
    ``conforms_to`` edge the criteria require), so the CLI reports rather than
    gates.
+
+3. **Overlap reporting** (:func:`compute_grouping_overlaps`) — all-vs-all
+   comparison of grouping disease-member sets, expanding nested ``GROUPING``
+   members to concrete disease entries.
 """
 
 from __future__ import annotations
@@ -124,13 +128,9 @@ def lint_criterion(node: Any, path: str = "logic") -> list[str]:
     kind = classify_node(node)
     if kind is NodeKind.INVALID:
         if node.get("operator") and node.get("criterion_predicate"):
-            errors.append(
-                f"{path}: node sets both operator and criterion_predicate"
-            )
+            errors.append(f"{path}: node sets both operator and criterion_predicate")
         else:
-            errors.append(
-                f"{path}: node sets neither operator nor criterion_predicate"
-            )
+            errors.append(f"{path}: node sets neither operator nor criterion_predicate")
         return errors
 
     if kind is NodeKind.BRANCH:
@@ -140,9 +140,7 @@ def lint_criterion(node: Any, path: str = "logic") -> list[str]:
         operands = node.get("operands") or []
         if not operands:
             errors.append(f"{path}: branch node {operator!r} has no operands")
-        if node.get("operands") is not None and not isinstance(
-            node["operands"], list
-        ):
+        if node.get("operands") is not None and not isinstance(node["operands"], list):
             errors.append(f"{path}: operands must be a list")
             operands = []
         for i, child in enumerate(operands):
@@ -154,9 +152,7 @@ def lint_criterion(node: Any, path: str = "logic") -> list[str]:
         else:
             required = PREDICATE_PAYLOAD[predicate]
             if required and node.get(required) is None:
-                errors.append(
-                    f"{path}: predicate {predicate} requires '{required}'"
-                )
+                errors.append(f"{path}: predicate {predicate} requires '{required}'")
         if node.get("operands"):
             errors.append(f"{path}: leaf node must not have operands")
     return errors
@@ -409,8 +405,10 @@ def evaluate_grouping(
                 continue
             facts = index[ref]
             leaves = [
-                (leaf.get("description") or leaf.get("criterion_predicate", "?"),
-                 _eval_leaf(leaf, facts))
+                (
+                    leaf.get("description") or leaf.get("criterion_predicate", "?"),
+                    _eval_leaf(leaf, facts),
+                )
                 for leaf in iter_nodes(logic)
                 if classify_node(leaf) is NodeKind.LEAF
             ]
@@ -427,9 +425,7 @@ def evaluate_grouping(
     return evaluations
 
 
-def find_candidate_members(
-    grouping: dict, index: dict[str, DiseaseFacts]
-) -> list[str]:
+def find_candidate_members(grouping: dict, index: dict[str, DiseaseFacts]) -> list[str]:
     """For SUFFICIENT / N&S criteria, find disorders satisfying them that are
     not already listed as members (candidate additions)."""
     listed = {
@@ -456,8 +452,191 @@ def find_candidate_members(
 
 
 # --------------------------------------------------------------------------- #
+# Grouping-overlap reporting
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class GroupingOverlap:
+    """Pairwise overlap between two grouping disease-member sets."""
+
+    grouping_a: str
+    grouping_b: str
+    member_count_a: int
+    member_count_b: int
+    shared_members: tuple[str, ...]
+
+    @property
+    def overlap_count(self) -> int:
+        return len(self.shared_members)
+
+    @property
+    def relation(self) -> str:
+        if self.overlap_count == 0:
+            return "DISJOINT"
+        if (
+            self.overlap_count == self.member_count_a
+            and self.overlap_count == self.member_count_b
+        ):
+            return "EQUAL"
+        if self.overlap_count == self.member_count_a:
+            return "A_SUBSET_B"
+        if self.overlap_count == self.member_count_b:
+            return "A_SUPERSET_B"
+        return "PARTIAL_OVERLAP"
+
+
+def load_groupings_by_name(paths: Iterable[str | Path]) -> dict[str, dict]:
+    """Load grouping YAML files keyed by their `name`."""
+    groupings: dict[str, dict] = {}
+    for path in paths:
+        with open(path) as f:
+            data = yaml.safe_load(f)
+        if isinstance(data, dict) and data.get("name"):
+            groupings[str(data["name"])] = data
+    return groupings
+
+
+def grouping_disease_members(
+    grouping: str | dict,
+    groupings_by_name: dict[str, dict],
+    *,
+    expand_nested: bool = True,
+    _stack: tuple[str, ...] = (),
+) -> set[str]:
+    """Return DISEASE/SUBTYPE members for a grouping.
+
+    Nested `member_type: GROUPING` references are expanded by default so the
+    result is the set of concrete DisMech disease entries represented by the
+    grouping. `MODULE` members are not disease entries and are omitted.
+    """
+    if isinstance(grouping, str):
+        name = grouping
+        if name not in groupings_by_name:
+            raise KeyError(f"Unknown grouping {name!r}")
+        data = groupings_by_name[name]
+    else:
+        data = grouping
+        name = str(data.get("name") or "<anonymous>")
+
+    if name in _stack:
+        cycle = " -> ".join((*_stack, name))
+        raise ValueError(f"Grouping nesting cycle detected: {cycle}")
+
+    members: set[str] = set()
+    for member in data.get("members", []) or []:
+        ref = member.get("member")
+        if not ref:
+            continue
+        mtype = member.get("member_type", "DISEASE")
+        if mtype in ("DISEASE", "SUBTYPE"):
+            members.add(ref)
+        elif expand_nested and mtype == "GROUPING":
+            members.update(
+                grouping_disease_members(
+                    ref,
+                    groupings_by_name,
+                    expand_nested=expand_nested,
+                    _stack=(*_stack, name),
+                )
+            )
+    return members
+
+
+def compute_grouping_overlaps(
+    groupings_by_name: dict[str, dict],
+    *,
+    selected_names: Optional[Iterable[str]] = None,
+    include_zero: bool = False,
+    expand_nested: bool = True,
+) -> list[GroupingOverlap]:
+    """Compute all pairwise overlaps among grouping disease-member sets."""
+    names = sorted(selected_names if selected_names is not None else groupings_by_name)
+    member_sets = {
+        name: grouping_disease_members(
+            name, groupings_by_name, expand_nested=expand_nested
+        )
+        for name in names
+    }
+
+    overlaps: list[GroupingOverlap] = []
+    for i, grouping_a in enumerate(names):
+        members_a = member_sets[grouping_a]
+        for grouping_b in names[i + 1 :]:
+            members_b = member_sets[grouping_b]
+            shared = tuple(sorted(members_a & members_b))
+            if shared or include_zero:
+                overlaps.append(
+                    GroupingOverlap(
+                        grouping_a=grouping_a,
+                        grouping_b=grouping_b,
+                        member_count_a=len(members_a),
+                        member_count_b=len(members_b),
+                        shared_members=shared,
+                    )
+                )
+    return overlaps
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
+
+
+def _load_groupings_for_report(paths: list[str]) -> tuple[dict[str, dict], list[str]]:
+    """Load all groupings for nested expansion and select report targets."""
+    all_paths = sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml")))
+    if not paths:
+        groupings = load_groupings_by_name(all_paths)
+        return groupings, sorted(groupings)
+
+    groupings = load_groupings_by_name([*all_paths, *paths])
+    selected = sorted(load_groupings_by_name(paths))
+    return groupings, selected
+
+
+def _report_overlaps(paths: list[str], show_zero_overlaps: bool) -> int:
+    groupings_by_name, selected_names = _load_groupings_for_report(paths)
+    if len(selected_names) < 2:
+        print("Need at least two grouping files to compute overlaps.")
+        return 0
+
+    all_overlaps = compute_grouping_overlaps(
+        groupings_by_name, selected_names=selected_names, include_zero=True
+    )
+    nonzero = [o for o in all_overlaps if o.overlap_count]
+    rows = all_overlaps if show_zero_overlaps else nonzero
+
+    print("\n=== Grouping disease-member overlaps ===")
+    print(
+        f"  groupings: {len(selected_names)}; pairs checked: {len(all_overlaps)}; "
+        f"non-zero overlaps: {len(nonzero)}"
+    )
+
+    if not rows:
+        print("  no disease-member overlaps")
+        return 0
+
+    print(
+        "  overlap_count\trelation\tgrouping_a\tmember_count_a\t"
+        "grouping_b\tmember_count_b\tshared_members"
+    )
+    for overlap in sorted(
+        rows,
+        key=lambda o: (
+            -o.overlap_count,
+            o.relation,
+            o.grouping_a.casefold(),
+            o.grouping_b.casefold(),
+        ),
+    ):
+        shared = "; ".join(overlap.shared_members) if overlap.shared_members else "-"
+        print(
+            f"  {overlap.overlap_count}\t{overlap.relation}\t"
+            f"{overlap.grouping_a}\t{overlap.member_count_a}\t"
+            f"{overlap.grouping_b}\t{overlap.member_count_b}\t{shared}"
+        )
+    return 0
 
 
 def _report(paths: list[str], strict: bool) -> int:
@@ -473,7 +652,9 @@ def _report(paths: list[str], strict: bool) -> int:
         lint_errors: list[str] = []
         for ci, criteria in enumerate(grouping.get("membership_criteria", []) or []):
             lint_errors.extend(
-                lint_criterion(criteria.get("logic"), f"membership_criteria[{ci}].logic")
+                lint_criterion(
+                    criteria.get("logic"), f"membership_criteria[{ci}].logic"
+                )
             )
         if lint_errors:
             exit_code = 1
@@ -517,7 +698,23 @@ def main(argv: Optional[list[str]] = None) -> int:
         action="store_true",
         help="Exit non-zero on structural errors or NOT_SATISFIED members.",
     )
+    parser.add_argument(
+        "--overlaps",
+        action="store_true",
+        help=(
+            "Compute all pairwise overlaps between grouping disease-member sets. "
+            "Nested GROUPING members are expanded."
+        ),
+    )
+    parser.add_argument(
+        "--show-zero-overlaps",
+        action="store_true",
+        help="With --overlaps, include disjoint pairs in the report.",
+    )
     args = parser.parse_args(argv)
+    if args.overlaps:
+        return _report_overlaps(args.paths, args.show_zero_overlaps)
+
     paths = args.paths or sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml")))
     if not paths:
         print("No grouping files found.")

@@ -1144,6 +1144,65 @@ def test_grouping_three_valued_logic():
     assert _eval_node(negated, facts) is Satisfaction.SATISFIED
 
 
+def test_grouping_overlap_expands_nested_grouping_members():
+    """Overlap computation expands nested GROUPING members to disease entries."""
+    from dismech.groupings import (
+        compute_grouping_overlaps,
+        grouping_disease_members,
+    )
+
+    groupings = {
+        "Child": {
+            "name": "Child",
+            "members": [
+                {"member": "B", "member_type": "DISEASE"},
+                {"member": "C", "member_type": "DISEASE"},
+            ],
+        },
+        "Crosscut": {
+            "name": "Crosscut",
+            "members": [
+                {"member": "C", "member_type": "DISEASE"},
+                {"member": "D", "member_type": "DISEASE"},
+            ],
+        },
+        "Far": {
+            "name": "Far",
+            "members": [{"member": "E", "member_type": "DISEASE"}],
+        },
+        "Parent": {
+            "name": "Parent",
+            "members": [
+                {"member": "A", "member_type": "DISEASE"},
+                {"member": "Child", "member_type": "GROUPING"},
+                {"member": "mechanism_module", "member_type": "MODULE"},
+            ],
+        },
+    }
+
+    assert grouping_disease_members("Parent", groupings) == {"A", "B", "C"}
+
+    overlaps = compute_grouping_overlaps(
+        groupings,
+        selected_names=["Child", "Crosscut", "Far", "Parent"],
+        include_zero=True,
+    )
+    by_pair = {(o.grouping_a, o.grouping_b): o for o in overlaps}
+
+    assert by_pair[("Child", "Parent")].shared_members == ("B", "C")
+    assert by_pair[("Child", "Parent")].relation == "A_SUBSET_B"
+    assert by_pair[("Child", "Crosscut")].shared_members == ("C",)
+    assert by_pair[("Child", "Crosscut")].relation == "PARTIAL_OVERLAP"
+    assert by_pair[("Far", "Parent")].overlap_count == 0
+    assert by_pair[("Far", "Parent")].relation == "DISJOINT"
+
+    nonzero = compute_grouping_overlaps(
+        groupings,
+        selected_names=["Child", "Crosscut", "Far", "Parent"],
+    )
+    assert all(o.overlap_count for o in nonzero)
+
+
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_grouping_evaluation_runs(filepath):
     """The membership evaluator executes and returns structured results.
