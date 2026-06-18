@@ -22,8 +22,9 @@ Alias: creation_date
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ComorbidityAssociation](../classes/ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |  yes  |
 | [Disease](../classes/Disease.md) |  |  yes  |
+| [ComorbidityAssociation](../classes/ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |  yes  |
+| [Grouping](../classes/Grouping.md) | An explicit, curated union of distinct Disease entries assembled below the le... |  yes  |
 
 
 
@@ -32,17 +33,36 @@ Alias: creation_date
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
 
-* Recommended: True
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Disease](../classes/Disease.md), [ComorbidityAssociation](../classes/ComorbidityAssociation.md), [Grouping](../classes/Grouping.md) |
 
-* Regex pattern: `^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$`
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Recommended | Yes |
+### Value Constraints
+
+| Property | Value |
+| --- | --- |
+| Regex Pattern | `^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$` |
+
+
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -79,6 +99,7 @@ alias: creation_date
 domain_of:
 - Disease
 - ComorbidityAssociation
+- Grouping
 range: string
 recommended: true
 pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$

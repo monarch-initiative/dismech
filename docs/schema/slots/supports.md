@@ -26,7 +26,21 @@ Alias: supports
 
 ## Properties
 
-* Range: [EvidenceItemSupportEnum](../enums/EvidenceItemSupportEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [EvidenceItemSupportEnum](../enums/EvidenceItemSupportEnum.md) |
+| Domain Of | [EvidenceItem](../classes/EvidenceItem.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -38,8 +52,9 @@ Alias: supports
 | --- |
 | SUPPORT |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

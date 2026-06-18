@@ -26,9 +26,22 @@ Alias: associated_phenotypes
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [AnimalModel](../classes/AnimalModel.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: associated_phenotypes
 | --- |
 | ['Celiac Disease', 'Type 1 Diabetes', 'Autoimmune Thyroid Disease'] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

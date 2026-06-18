@@ -8,6 +8,12 @@ _A term representing a phenotype or disease manifestation_
 
 
 URI: [dismech:enum/PhenotypeTerm](https://w3id.org/monarch-initiative/dismech/enum/PhenotypeTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** HP:0000118, MONDO:0000001
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

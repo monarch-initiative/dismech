@@ -17,9 +17,9 @@ Alias: category
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [AnimalModel](../classes/AnimalModel.md) |  |  no  |
 | [Phenotype](../classes/Phenotype.md) |  |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
-| [AnimalModel](../classes/AnimalModel.md) |  |  no  |
 
 
 
@@ -28,7 +28,21 @@ Alias: category
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Phenotype](../classes/Phenotype.md), [Disease](../classes/Disease.md), [AnimalModel](../classes/AnimalModel.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -40,8 +54,9 @@ Alias: category
 | --- |
 | Hematologic |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

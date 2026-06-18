@@ -31,13 +31,28 @@ Alias: curation_status
 
 ## Properties
 
-* Range: [CurationStatusEnum](../enums/CurationStatusEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [CurationStatusEnum](../enums/CurationStatusEnum.md) |
+| Domain Of | [ComorbidityAssociation](../classes/ComorbidityAssociation.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

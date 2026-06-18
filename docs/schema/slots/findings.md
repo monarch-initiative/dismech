@@ -22,9 +22,10 @@ Alias: findings
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [ExperimentalModel](../classes/ExperimentalModel.md) | A disease-relevant non-animal experimental model system |  no  |
+| [Dataset](../classes/Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
 | [PublicationReference](../classes/PublicationReference.md) | A reference to a publication with associated findings |  no  |
 | [ComputationalModel](../classes/ComputationalModel.md) | A computational or in-silico model relevant to understanding disease mechanis... |  no  |
-| [Dataset](../classes/Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
 
 
 
@@ -33,15 +34,29 @@ Alias: findings
 
 ## Properties
 
-* Range: [Finding](../classes/Finding.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Finding](../classes/Finding.md) |
+| Domain Of | [Dataset](../classes/Dataset.md), [ExperimentalModel](../classes/ExperimentalModel.md), [ComputationalModel](../classes/ComputationalModel.md), [PublicationReference](../classes/PublicationReference.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -76,6 +91,7 @@ rank: 1000
 alias: findings
 domain_of:
 - Dataset
+- ExperimentalModel
 - ComputationalModel
 - PublicationReference
 range: Finding

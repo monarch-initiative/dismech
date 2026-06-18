@@ -8,6 +8,12 @@ _A term representing a chemical entity_
 
 
 URI: [dismech:enum/ChemicalEntityTerm](https://w3id.org/monarch-initiative/dismech/enum/ChemicalEntityTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** CHEBI:24431, NCIT:C1909
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

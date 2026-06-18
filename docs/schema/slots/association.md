@@ -3,6 +3,11 @@
 # Slot: association 
 
 
+_Free-text descriptor of how the gene is associated with the disease. For a controlled vocabulary, also set `relationship_type`._
+
+
+
+
 
 URI: [dismech:slot/association](https://w3id.org/monarch-initiative/dismech/slot/association)
 Alias: association
@@ -26,7 +31,21 @@ Alias: association
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Genetic](../classes/Genetic.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -38,8 +57,9 @@ Alias: association
 | --- |
 | Susceptibility |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -68,6 +88,8 @@ Alias: association
 <details>
 ```yaml
 name: association
+description: Free-text descriptor of how the gene is associated with the disease.
+  For a controlled vocabulary, also set `relationship_type`.
 examples:
 - value: Susceptibility
 from_schema: https://w3id.org/monarch-initiative/dismech

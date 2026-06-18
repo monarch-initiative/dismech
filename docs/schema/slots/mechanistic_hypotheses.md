@@ -31,15 +31,29 @@ Alias: mechanistic_hypotheses
 
 ## Properties
 
-* Range: [MechanisticHypothesis](../classes/MechanisticHypothesis.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [MechanisticHypothesis](../classes/MechanisticHypothesis.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

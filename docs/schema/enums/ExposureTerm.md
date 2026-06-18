@@ -8,9 +8,18 @@ _A term representing an exposure event (from ECTO or XCO)_
 
 
 URI: [dismech:enum/ExposureTerm](https://w3id.org/monarch-initiative/dismech/enum/ExposureTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** ExO:0000002, XCO:0000000
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
+
+
+
 
 
 
@@ -23,8 +32,9 @@ _This is a dynamic enum_
 * ECTO (Environmental Conditions, Treatments, and Exposures Ontology) is preferred
 * XCO (Experimental Conditions Ontology) can also be used
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

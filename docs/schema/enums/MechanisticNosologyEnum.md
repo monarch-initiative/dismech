@@ -10,7 +10,6 @@ _Classification of diseases by molecular mechanism or affected cellular system. 
 URI: [dismech:enum/MechanisticNosologyEnum](https://w3id.org/monarch-initiative/dismech/enum/MechanisticNosologyEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | RASopathy | MONDO:0021060 | RAS/MAPK signaling pathway disorders (Noonan, Costello, CFC, NF1) |
@@ -21,6 +20,8 @@ URI: [dismech:enum/MechanisticNosologyEnum](https://w3id.org/monarch-initiative/
 | amyloidopathy | None | Amyloid protein aggregation disorders (Alzheimer's, CAA, hereditary cerebral ... |
 | tauopathy | MONDO:0005574 | Tau protein aggregation disorders (Alzheimer's, PSP, CBD) |
 | synucleinopathy | MONDO:0000510 | Alpha-synuclein aggregation disorders (Parkinson's, DLB, MSA) |
+| intermediate filament disease | None | Intermediate filament structure/aggregation disorders (Alexander disease/GFAP... |
+| proteotoxic disease | None | Diseases driven by toxic protein misfolding/aggregation and proteostasis fail... |
 
 
 
@@ -35,8 +36,12 @@ URI: [dismech:enum/MechanisticNosologyEnum](https://w3id.org/monarch-initiative/
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -94,6 +99,14 @@ permissible_values:
     text: synucleinopathy
     description: Alpha-synuclein aggregation disorders (Parkinson's, DLB, MSA)
     meaning: MONDO:0000510
+  intermediate filament disease:
+    text: intermediate filament disease
+    description: Intermediate filament structure/aggregation disorders (Alexander
+      disease/GFAP, epidermolysis bullosa simplex/keratins)
+  proteotoxic disease:
+    text: proteotoxic disease
+    description: Diseases driven by toxic protein misfolding/aggregation and proteostasis
+      failure (Alexander disease, polyQ disorders)
 
 ```
 </details>

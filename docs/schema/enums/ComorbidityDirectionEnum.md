@@ -10,7 +10,6 @@ _Directionality of a comorbidity/trajectory association_
 URI: [dismech:enum/ComorbidityDirectionEnum](https://w3id.org/monarch-initiative/dismech/enum/ComorbidityDirectionEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | A_BEFORE_B | None | A precedes B |
@@ -32,8 +31,12 @@ URI: [dismech:enum/ComorbidityDirectionEnum](https://w3id.org/monarch-initiative
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

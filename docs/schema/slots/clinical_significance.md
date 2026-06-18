@@ -17,7 +17,7 @@ Alias: clinical_significance
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Variant](../classes/Variant.md) |  |  no  |
+| [Variant](../classes/Variant.md) | A genetic variant associated with a disease, including coding and non-coding ... |  no  |
 
 
 
@@ -26,13 +26,28 @@ Alias: clinical_significance
 
 ## Properties
 
-* Range: [ClinicalSignificanceEnum](../enums/ClinicalSignificanceEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ClinicalSignificanceEnum](../enums/ClinicalSignificanceEnum.md) |
+| Domain Of | [Variant](../classes/Variant.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
