@@ -73,6 +73,15 @@ URI: [dismech:class/PhenotypeContext](https://w3id.org/monarch-initiative/dismec
         
       PhenotypeContext : severity
         
+          
+    
+        
+        
+        PhenotypeContext --> "0..1" Any : severity
+        click Any href "../../classes/Any/"
+    
+
+        
       PhenotypeContext : sex
         
           
@@ -94,13 +103,12 @@ URI: [dismech:class/PhenotypeContext](https://w3id.org/monarch-initiative/dismec
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
 | ---  | --- | --- | --- |
 | [frequency](../slots/frequency.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md) |  | direct |
-| [severity](../slots/severity.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
+| [severity](../slots/severity.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md)&nbsp;or&nbsp;<br />[SeverityQualifierEnum](../enums/SeverityQualifierEnum.md) |  | direct |
 | [onset](../slots/onset.md) | 0..1 <br/> [OnsetDescriptor](../classes/OnsetDescriptor.md) | Structured age of onset descriptor | direct |
 | [notes](../slots/notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) | Evidence supporting the frequency, severity, or onset claims made in this spe... | direct |
@@ -126,8 +134,12 @@ URI: [dismech:class/PhenotypeContext](https://w3id.org/monarch-initiative/dismec
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -245,9 +257,14 @@ attributes:
     alias: severity
     owner: PhenotypeContext
     domain_of:
+    - Descriptor
     - PhenotypeContext
+    - ReferenceRangeBand
     - Phenotype
-    range: string
+    range: Any
+    any_of:
+    - range: SeverityQualifierEnum
+    - range: string
   onset:
     name: onset
     description: Structured age of onset descriptor. Combines an HPO onset category
@@ -258,6 +275,7 @@ attributes:
     alias: onset
     owner: PhenotypeContext
     domain_of:
+    - Descriptor
     - PhenotypeContext
     range: OnsetDescriptor
     inlined: true
@@ -275,10 +293,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -305,6 +333,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
   evidence:
     name: evidence
@@ -317,12 +350,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -352,6 +395,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -367,6 +414,7 @@ attributes:
     owner: PhenotypeContext
     domain_of:
     - PhenotypeContext
+    - Pathophysiology
     range: GeneticContext
     inlined: true
   sex:
@@ -392,6 +440,7 @@ attributes:
     owner: PhenotypeContext
     domain_of:
     - PhenotypeContext
+    - ReferenceRange
     - Prevalence
     - AssociationSignal
     range: string
@@ -406,6 +455,7 @@ attributes:
     owner: PhenotypeContext
     domain_of:
     - PhenotypeContext
+    - SurrogateEndpoint
     - ProgressionInfo
     - Demographics
     range: string

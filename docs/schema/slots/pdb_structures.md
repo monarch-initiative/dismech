@@ -22,8 +22,8 @@ Alias: pdb_structures
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 | [Treatment](../classes/Treatment.md) |  |  no  |
+| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 
 
 
@@ -32,15 +32,29 @@ Alias: pdb_structures
 
 ## Properties
 
-* Range: [ProteinStructure](../classes/ProteinStructure.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ProteinStructure](../classes/ProteinStructure.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md), [Treatment](../classes/Treatment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

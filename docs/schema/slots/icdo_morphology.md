@@ -31,13 +31,28 @@ Alias: icdo_morphology
 
 ## Properties
 
-* Range: [ICDOMorphologyAssignment](../classes/ICDOMorphologyAssignment.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ICDOMorphologyAssignment](../classes/ICDOMorphologyAssignment.md) |
+| Domain Of | [DiseaseClassifications](../classes/DiseaseClassifications.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

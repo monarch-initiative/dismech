@@ -31,15 +31,29 @@ Alias: definitions
 
 ## Properties
 
-* Range: [Definition](../classes/Definition.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Definition](../classes/Definition.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -26,15 +26,29 @@ Alias: modeling_considerations
 
 ## Properties
 
-* Range: [ModelingConsideration](../classes/ModelingConsideration.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ModelingConsideration](../classes/ModelingConsideration.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

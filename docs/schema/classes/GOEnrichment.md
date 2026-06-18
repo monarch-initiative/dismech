@@ -42,7 +42,6 @@ URI: [dismech:class/GOEnrichment](https://w3id.org/monarch-initiative/dismech/cl
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -67,8 +66,12 @@ URI: [dismech:class/GOEnrichment](https://w3id.org/monarch-initiative/dismech/cl
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -141,8 +144,14 @@ attributes:
     owner: GOEnrichment
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -150,7 +159,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -178,6 +191,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   go_terms:
     name: go_terms

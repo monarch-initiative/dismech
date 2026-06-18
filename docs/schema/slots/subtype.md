@@ -17,13 +17,13 @@ Alias: subtype
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Phenotype](../classes/Phenotype.md) |  |  no  |
-| [ProgressionInfo](../classes/ProgressionInfo.md) |  |  no  |
-| [Genetic](../classes/Genetic.md) |  |  no  |
 | [Prevalence](../classes/Prevalence.md) |  |  no  |
-| [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
-| [HistopathologyFinding](../classes/HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  no  |
 | [Biochemical](../classes/Biochemical.md) |  |  no  |
+| [Genetic](../classes/Genetic.md) |  |  no  |
+| [ProgressionInfo](../classes/ProgressionInfo.md) |  |  no  |
+| [Phenotype](../classes/Phenotype.md) |  |  no  |
+| [HistopathologyFinding](../classes/HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  no  |
+| [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
 
 
 
@@ -32,7 +32,21 @@ Alias: subtype
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [PhenotypeContext](../classes/PhenotypeContext.md), [Prevalence](../classes/Prevalence.md), [ProgressionInfo](../classes/ProgressionInfo.md), [Phenotype](../classes/Phenotype.md), [Biochemical](../classes/Biochemical.md), [HistopathologyFinding](../classes/HistopathologyFinding.md), [Genetic](../classes/Genetic.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -44,8 +58,9 @@ Alias: subtype
 | --- |
 | Eyelid Myoclonia with Absences |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

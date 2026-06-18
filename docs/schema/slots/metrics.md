@@ -32,15 +32,29 @@ Alias: metrics
 
 ## Properties
 
-* Range: [AssociationMetric](../classes/AssociationMetric.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [AssociationMetric](../classes/AssociationMetric.md) |
+| Domain Of | [AssociationSignal](../classes/AssociationSignal.md), [AssociationStatistics](../classes/AssociationStatistics.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

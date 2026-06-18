@@ -17,8 +17,8 @@ Alias: inheritance
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Disease](../classes/Disease.md) |  |  no  |
 | [Subtype](../classes/Subtype.md) |  |  no  |
+| [Disease](../classes/Disease.md) |  |  no  |
 | [Genetic](../classes/Genetic.md) |  |  no  |
 
 
@@ -28,9 +28,22 @@ Alias: inheritance
 
 ## Properties
 
-* Range: [Inheritance](../classes/Inheritance.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Inheritance](../classes/Inheritance.md) |
+| Domain Of | [Subtype](../classes/Subtype.md), [Genetic](../classes/Genetic.md), [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -42,8 +55,9 @@ Alias: inheritance
 | --- |
 | Autosomal Dominant |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

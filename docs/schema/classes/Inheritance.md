@@ -76,7 +76,6 @@ URI: [dismech:class/Inheritance](https://w3id.org/monarch-initiative/dismech/cla
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -109,8 +108,12 @@ URI: [dismech:class/Inheritance](https://w3id.org/monarch-initiative/dismech/cla
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -177,12 +180,20 @@ attributes:
     alias: name
     owner: Inheritance
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -205,6 +216,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   inheritance_term:
@@ -277,12 +289,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -312,6 +334,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -325,8 +351,14 @@ attributes:
     owner: Inheritance
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -334,7 +366,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -362,6 +398,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
 
 ```
