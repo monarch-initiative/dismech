@@ -2745,6 +2745,11 @@ def _annotate_grouping(
     grouping["_coverage"] = coverage
 
     member_count = len(grouping.get("members") or [])
+    child_grouping_names = [
+        str(member["member"])
+        for member in grouping.get("members") or []
+        if member.get("member_type") == "GROUPING" and member.get("member")
+    ]
     return {
         "id": slugify(str(grouping.get("name") or "")),
         "name": grouping.get("name"),
@@ -2754,6 +2759,7 @@ def _annotate_grouping(
         "mondo_mappings": mondo_mappings,
         "coverage": coverage,
         "member_count": member_count,
+        "child_grouping_names": child_grouping_names,
         "criteria_count": len(grouping.get("membership_criteria") or []),
         "candidate_count": len(candidates),
         "href": f"{slugify(str(grouping.get('name') or ''))}.html",
@@ -2819,6 +2825,54 @@ def render_grouping(
     )
 
 
+def _build_grouping_tree(groupings: list[dict]) -> dict:
+    """Build a forest from explicit GROUPING members on grouping summaries."""
+    by_name = {str(g.get("name")): g for g in groupings if g.get("name")}
+    children_by_parent: dict[str, list[str]] = {}
+    parents_by_child: dict[str, list[str]] = defaultdict(list)
+
+    for grouping in groupings:
+        parent = grouping.get("name")
+        if not parent:
+            continue
+        parent_name = str(parent)
+        children: list[str] = []
+        for child in grouping.get("child_grouping_names") or []:
+            if child in by_name:
+                children.append(child)
+                parents_by_child[child].append(parent_name)
+        children_by_parent[parent_name] = sorted(children, key=str.casefold)
+
+    names = sorted(by_name, key=str.casefold)
+    roots = [name for name in names if not parents_by_child.get(name)]
+    if not roots and names:
+        roots = names
+
+    def make_node(name: str, stack: tuple[str, ...] = ()) -> dict:
+        summary = by_name[name]
+        cycle = name in stack
+        child_names = [] if cycle else children_by_parent.get(name, [])
+        return {
+            "name": summary.get("name"),
+            "display_name": summary.get("display_name"),
+            "href": summary.get("href"),
+            "member_count": summary.get("member_count", 0),
+            "children": [make_node(child, (*stack, name)) for child in child_names],
+            "parent_count": len(parents_by_child.get(name, [])),
+            "is_shared": len(parents_by_child.get(name, [])) > 1,
+            "cycle": cycle,
+        }
+
+    edge_count = sum(len(children) for children in children_by_parent.values())
+    nested_count = len(parents_by_child)
+    return {
+        "roots": [make_node(name) for name in roots],
+        "edge_count": edge_count,
+        "nested_count": nested_count,
+        "root_count": len(roots),
+    }
+
+
 def render_grouping_index(
     groupings: list[dict],
     output_path: Path = Path("pages/groupings/index.html"),
@@ -2830,8 +2884,12 @@ def render_grouping_index(
         autoescape=select_autoescape(["html", "j2"]),
     )
     template = env.get_template("grouping_index.html.j2")
+    sorted_groupings = sorted(
+        groupings, key=lambda g: str(g.get("name") or "").casefold()
+    )
     html = template.render(
-        groupings=sorted(groupings, key=lambda g: str(g.get("name") or "").casefold())
+        groupings=sorted_groupings,
+        grouping_tree=_build_grouping_tree(sorted_groupings),
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
