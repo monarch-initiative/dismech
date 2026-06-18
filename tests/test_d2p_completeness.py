@@ -2,6 +2,7 @@
 
 from dismech.compare.d2p import (
     _is_genetic_disease,
+    build_disease_audit_payload,
     build_comparison_table,
     build_completeness_audit,
     compute_audit_summary,
@@ -139,3 +140,28 @@ def test_genetic_disease_filter_uses_genetic_section_or_category():
     assert _is_genetic_disease({"category": "Mendelian"})
     assert _is_genetic_disease({"category": "Rare genetic disorder"})
     assert not _is_genetic_disease({"category": "Infectious"})
+
+
+def test_disease_audit_payload_records_checkpoint_metadata():
+    rows = [
+        {
+            "issue_type": "source_phenotype_missing_locally",
+            "priority": "high",
+            "disease_name": "Test Disease",
+        }
+    ]
+
+    payload = build_disease_audit_payload(
+        slug="Test_Disease",
+        source_file="Test_Disease.yaml",
+        disease_id="MONDO:0000001",
+        disease_name="Test Disease",
+        rows=rows,
+    )
+
+    assert payload["status"] == "ok"
+    assert payload["slug"] == "Test_Disease"
+    assert payload["source_file"] == "Test_Disease.yaml"
+    assert payload["disease_id"] == "MONDO:0000001"
+    assert payload["summary"]["total_issues"] == 1
+    assert payload["issues"] == rows

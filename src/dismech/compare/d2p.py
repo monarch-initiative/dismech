@@ -775,6 +775,44 @@ def _write_audit_json(
     out.write("\n")
 
 
+def build_disease_audit_payload(
+    *,
+    slug: str,
+    source_file: str,
+    disease_id: str,
+    disease_name: str,
+    rows: list[dict[str, Any]],
+    status: str = "ok",
+    error: str | None = None,
+) -> dict[str, Any]:
+    """Build the per-disease JSON payload used for checkpointed audit runs."""
+    payload: dict[str, Any] = {
+        "status": status,
+        "slug": slug,
+        "source_file": source_file,
+        "disease_id": disease_id,
+        "disease_name": disease_name,
+        "summary": compute_audit_summary(rows),
+        "issues": rows,
+    }
+    if error:
+        payload["error"] = error
+    return payload
+
+
+def _write_disease_audit_payload(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def _read_disease_audit_payload(path: Path) -> dict[str, Any]:
+    with open(path, encoding="utf-8") as stream:
+        payload = json.load(stream)
+    if not isinstance(payload, dict):
+        raise ValueError(f"Audit checkpoint {path} must contain a JSON object")
+    return payload
+
+
 def _write_summary(venn: dict[str, int], disease_name: str, file=None) -> None:
     out = file or sys.stderr
     out.write(f"\n--- Venn Summary for {disease_name} ---\n")
@@ -1034,7 +1072,17 @@ def audit_all(
         help="Only audit entries with a genetic section or genetic/Mendelian category.",
     ),
     limit: int | None = typer.Option(
-        None, "--limit", help="Maximum number of disease files to audit."
+        None, "--limit", help="Maximum number of disease files to fetch in this run."
+    ),
+    audit_dir: Path | None = typer.Option(
+        None,
+        "--audit-dir",
+        help="Optional directory for one JSON checkpoint per audited disease.",
+    ),
+    resume: bool = typer.Option(
+        False,
+        "--resume",
+        help="With --audit-dir, reuse existing per-disease JSON checkpoints.",
     ),
 ) -> None:
     """Audit all KB diseases for phenotype completeness against OMIM/Orphanet."""
@@ -1043,28 +1091,69 @@ def audit_all(
 
     all_rows: list[dict[str, Any]] = []
     audited = 0
+    fetched = 0
+    reused = 0
     skipped_non_genetic = 0
+    skipped_no_mondo = 0
+    errors: list[dict[str, str]] = []
 
     resolver = HPOClosureResolver() if not no_closure else None
 
     for disease_path in disease_files:
-        if limit is not None and audited >= limit:
-            break
-
         slug = disease_path.stem
         disease_data = _load_disease_yaml(disease_path)
         disease_name = disease_data.get("name", slug)
         mondo_id = _get_mondo_id(disease_data)
+        checkpoint_path = audit_dir / f"{slug}.json" if audit_dir else None
 
         if genetic_only and not _is_genetic_disease(disease_data):
             skipped_non_genetic += 1
             continue
 
+        if checkpoint_path and resume and checkpoint_path.exists():
+            try:
+                payload = _read_disease_audit_payload(checkpoint_path)
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                typer.echo(
+                    f"  ERROR reading checkpoint {checkpoint_path}: {exc}", err=True
+                )
+            else:
+                status = str(payload.get("status", ""))
+                if status == "ok":
+                    all_rows.extend(payload.get("issues", []) or [])
+                    audited += 1
+                    reused += 1
+                    typer.echo(
+                        f"Reusing audit checkpoint for {disease_name} ({slug})",
+                        err=True,
+                    )
+                    continue
+                if status == "error":
+                    errors.append(
+                        {
+                            "slug": slug,
+                            "disease_name": str(
+                                payload.get("disease_name", disease_name)
+                            ),
+                            "error": str(payload.get("error", "unknown error")),
+                        }
+                    )
+                    reused += 1
+                    typer.echo(
+                        f"Reusing error checkpoint for {disease_name} ({slug})",
+                        err=True,
+                    )
+                    continue
+
         if not mondo_id:
+            skipped_no_mondo += 1
             typer.echo(
                 f"WARNING: {slug} has no disease_term with MONDO ID, skipping.",
                 err=True,
             )
+            continue
+
+        if limit is not None and fetched >= limit:
             continue
 
         dismech_phenos = extract_dismech_phenotypes(disease_data)
@@ -1073,6 +1162,23 @@ def audit_all(
             monarch_items = fetch_monarch_d2p(mondo_id)
         except httpx.HTTPError as exc:
             typer.echo(f"  ERROR fetching {mondo_id}: {exc}", err=True)
+            errors.append(
+                {"slug": slug, "disease_name": str(disease_name), "error": str(exc)}
+            )
+            if checkpoint_path:
+                _write_disease_audit_payload(
+                    checkpoint_path,
+                    build_disease_audit_payload(
+                        slug=slug,
+                        source_file=disease_path.name,
+                        disease_id=mondo_id,
+                        disease_name=str(disease_name),
+                        rows=[],
+                        status="error",
+                        error=str(exc),
+                    ),
+                )
+            fetched += 1
             continue
 
         omim_phenos, ordo_phenos = _parse_monarch_associations(monarch_items)
@@ -1084,19 +1190,37 @@ def audit_all(
         table = build_comparison_table(
             mondo_id, disease_name, dismech_phenos, omim_phenos, ordo_phenos, resolver
         )
-        all_rows.extend(build_completeness_audit(disease_data, table))
+        audit_rows = build_completeness_audit(disease_data, table)
+        all_rows.extend(audit_rows)
+        if checkpoint_path:
+            _write_disease_audit_payload(
+                checkpoint_path,
+                build_disease_audit_payload(
+                    slug=slug,
+                    source_file=disease_path.name,
+                    disease_id=mondo_id,
+                    disease_name=str(disease_name),
+                    rows=audit_rows,
+                ),
+            )
         audited += 1
+        fetched += 1
 
     summary = compute_audit_summary(all_rows)
     summary["audited_diseases"] = audited
+    summary["fetched_diseases"] = fetched
+    summary["reused_checkpoints"] = reused
     summary["skipped_non_genetic_diseases"] = skipped_non_genetic
+    summary["skipped_no_mondo_diseases"] = skipped_no_mondo
+    summary["error_count"] = len(errors)
+    summary["errors"] = errors
 
     out_file = open(output, "w") if output else None
     try:
         if format == "tsv":
             _write_audit_tsv(all_rows, file=out_file)
             typer.echo(
-                f"Audited {audited} diseases; found {summary['total_issues']} phenotype-completeness issues.",
+                f"Audited {audited} diseases ({fetched} fetched, {reused} reused); found {summary['total_issues']} phenotype-completeness issues.",
                 err=True,
             )
         elif format == "json":
