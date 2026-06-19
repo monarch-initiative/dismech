@@ -1662,6 +1662,16 @@ d2p-compare-all:
 d2p-compare-json disease:
     uv run python -m dismech.compare.d2p compare "{{disease}}" --format json
 
+# Audit one disease for source-backed phenotype gaps, evidence gaps, and pathograph-link gaps
+[group('Analysis')]
+d2p-audit disease:
+    uv run python -m dismech.compare.d2p audit "{{disease}}"
+
+# Audit genetic diseases for phenotype completeness; use ARGS for --limit/--audit-dir/--resume/--format/--output
+[group('Analysis')]
+d2p-audit-genetic *ARGS:
+    uv run python -m dismech.compare.d2p audit-all --genetic-only {{ARGS}}
+
 # Compare G2P gene assertions against dismech for a single gene
 [group('Analysis')]
 g2p-compare gene:
