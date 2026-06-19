@@ -17,7 +17,7 @@ Alias: identifiers
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Variant](../classes/Variant.md) |  |  no  |
+| [Variant](../classes/Variant.md) | A genetic variant associated with a disease, including coding and non-coding ... |  no  |
 
 
 
@@ -26,15 +26,29 @@ Alias: identifiers
 
 ## Properties
 
-* Range: [Uriorcurie](../types/Uriorcurie.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Uriorcurie](../types/Uriorcurie.md) |
+| Domain Of | [Variant](../classes/Variant.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

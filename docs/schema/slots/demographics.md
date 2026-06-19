@@ -31,13 +31,28 @@ Alias: demographics
 
 ## Properties
 
-* Range: [Demographics](../classes/Demographics.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Demographics](../classes/Demographics.md) |
+| Domain Of | [AssociationSignal](../classes/AssociationSignal.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -20,6 +20,8 @@ URI: [dismech:class/Subtype](https://w3id.org/monarch-initiative/dismech/class/S
         
       Subtype : description
         
+      Subtype : display_name
+        
       Subtype : evidence
         
           
@@ -75,6 +77,17 @@ URI: [dismech:class/Subtype](https://w3id.org/monarch-initiative/dismech/class/S
     
 
         
+      Subtype : mappings
+        
+          
+    
+        
+        
+        Subtype --> "0..1" DiseaseMappings : mappings
+        click DiseaseMappings href "../../classes/DiseaseMappings/"
+    
+
+        
       Subtype : name
         
       Subtype : review_notes
@@ -87,8 +100,8 @@ URI: [dismech:class/Subtype](https://w3id.org/monarch-initiative/dismech/class/S
     
         
         
-        Subtype --> "0..1" DiseaseDescriptor : subtype_term
-        click DiseaseDescriptor href "../../classes/DiseaseDescriptor/"
+        Subtype --> "0..1" SubtypeDescriptor : subtype_term
+        click SubtypeDescriptor href "../../classes/SubtypeDescriptor/"
     
 
         
@@ -100,13 +113,14 @@ URI: [dismech:class/Subtype](https://w3id.org/monarch-initiative/dismech/class/S
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
 | ---  | --- | --- | --- |
 | [name](../slots/name.md) | 1 <br/> [String](../types/String.md) |  | direct |
-| [subtype_term](../slots/subtype_term.md) | 0..1 <br/> [DiseaseDescriptor](../classes/DiseaseDescriptor.md) | The MONDO term for a disease subtype | direct |
+| [display_name](../slots/display_name.md) | 0..1 <br/> [String](../types/String.md) | Human-readable display name for a subtype, used when the name (which serves a... | direct |
+| [subtype_term](../slots/subtype_term.md) | 0..1 <br/> [SubtypeDescriptor](../classes/SubtypeDescriptor.md) | The ontology term grounding this subtype or cancer facet value | direct |
+| [mappings](../slots/mappings.md) | 0..1 <br/> [DiseaseMappings](../classes/DiseaseMappings.md) | External identifier mappings for this disease or subtype (SSSOM-inspired) | direct |
 | [description](../slots/description.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) |  | direct |
 | [review_notes](../slots/review_notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
@@ -135,8 +149,12 @@ URI: [dismech:class/Subtype](https://w3id.org/monarch-initiative/dismech/class/S
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -174,7 +192,9 @@ name: Subtype
 from_schema: https://w3id.org/monarch-initiative/dismech
 slots:
 - name
+- display_name
 - subtype_term
+- mappings
 - description
 - evidence
 - review_notes
@@ -206,12 +226,20 @@ attributes:
     alias: name
     owner: Subtype
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -234,18 +262,48 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
+  display_name:
+    name: display_name
+    description: Human-readable display name for a subtype, used when the name (which
+      serves as the FK target) is too terse for comfortable display. Optional; when
+      absent, renderers should fall back to name.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: display_name
+    owner: Subtype
+    domain_of:
+    - Subtype
+    - Grouping
+    - GroupingMember
+    range: string
   subtype_term:
     name: subtype_term
-    description: The MONDO term for a disease subtype
+    description: The ontology term grounding this subtype or cancer facet value. Prefer
+      MONDO when available; use NCIT for oncology-specific subtype refinement when
+      needed.
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: subtype_term
     owner: Subtype
     domain_of:
     - Subtype
-    range: DiseaseDescriptor
+    range: SubtypeDescriptor
+    inlined: true
+  mappings:
+    name: mappings
+    description: External identifier mappings for this disease or subtype (SSSOM-inspired)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: mappings
+    owner: Subtype
+    domain_of:
+    - Subtype
+    - Disease
+    - Grouping
+    range: DiseaseMappings
     inlined: true
   description:
     name: description
@@ -255,8 +313,14 @@ attributes:
     owner: Subtype
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -264,7 +328,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -292,6 +360,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   evidence:
     name: evidence
@@ -302,12 +374,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -337,6 +419,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -398,6 +484,7 @@ attributes:
     owner: Subtype
     domain_of:
     - Subtype
+    - LogicalCriterion
     range: string
   children:
     name: children
@@ -423,6 +510,7 @@ attributes:
     domain_of:
     - GeneticContext
     - Dataset
+    - ExperimentalPerturbation
     - Subtype
     - Pathophysiology
     - AnimalModel

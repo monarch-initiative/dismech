@@ -34,6 +34,17 @@ URI: [dismech:class/PublicationReference](https://w3id.org/monarch-initiative/di
         
       PublicationReference : reference
         
+      PublicationReference : tags
+        
+          
+    
+        
+        
+        PublicationReference --> "*" ReferenceTagEnum : tags
+        click ReferenceTagEnum href "../../enums/ReferenceTagEnum/"
+    
+
+        
       PublicationReference : title
         
       
@@ -44,7 +55,6 @@ URI: [dismech:class/PublicationReference](https://w3id.org/monarch-initiative/di
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -52,6 +62,7 @@ URI: [dismech:class/PublicationReference](https://w3id.org/monarch-initiative/di
 | [reference](../slots/reference.md) | 1 <br/> [PMID](../types/PMID.md) | The authoritative reference (publication) for this evidence item | direct |
 | [title](../slots/title.md) | 0..1 <br/> [String](../types/String.md) | Title of the publication | direct |
 | [found_in](../slots/found_in.md) | * <br/> [String](../types/String.md) | Deep-research output files where this reference was cited | direct |
+| [tags](../slots/tags.md) | * <br/> [ReferenceTagEnum](../enums/ReferenceTagEnum.md) | Authoritative-source tags for a reference (e | direct |
 | [findings](../slots/findings.md) | * <br/> [Finding](../classes/Finding.md) | Key findings or claims extracted from this source (publication or dataset) | direct |
 
 
@@ -63,6 +74,12 @@ URI: [dismech:class/PublicationReference](https://w3id.org/monarch-initiative/di
 | used by | used in | type | used |
 | ---  | --- | --- | --- |
 | [Disease](../classes/Disease.md) | [references](../slots/references.md) | range | [PublicationReference](../classes/PublicationReference.md) |
+| [Grouping](../classes/Grouping.md) | [references](../slots/references.md) | range | [PublicationReference](../classes/PublicationReference.md) |
+
+
+
+
+
 
 
 
@@ -71,7 +88,6 @@ URI: [dismech:class/PublicationReference](https://w3id.org/monarch-initiative/di
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -112,6 +128,7 @@ slots:
 - reference
 - title
 - found_in
+- tags
 - findings
 slot_usage:
   reference:
@@ -165,6 +182,7 @@ attributes:
     domain_of:
     - Dataset
     - PublicationReference
+    - TrackedIssue
     range: string
   found_in:
     name: found_in
@@ -177,6 +195,19 @@ attributes:
     - PublicationReference
     range: string
     multivalued: true
+  tags:
+    name: tags
+    description: Authoritative-source tags for a reference (e.g. GeneReviews). Populated
+      programmatically by scripts/tag_references.py; use `just tag-references` to
+      refresh.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: tags
+    owner: PublicationReference
+    domain_of:
+    - PublicationReference
+    range: ReferenceTagEnum
+    multivalued: true
   findings:
     name: findings
     description: Key findings or claims extracted from this source (publication or
@@ -187,6 +218,7 @@ attributes:
     owner: PublicationReference
     domain_of:
     - Dataset
+    - ExperimentalModel
     - ComputationalModel
     - PublicationReference
     range: Finding

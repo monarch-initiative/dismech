@@ -17,10 +17,10 @@ Alias: examples
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Genetic](../classes/Genetic.md) |  |  no  |
-| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 | [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
+| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 | [Stage](../classes/Stage.md) |  |  no  |
+| [Genetic](../classes/Genetic.md) |  |  no  |
 | [Treatment](../classes/Treatment.md) |  |  no  |
 
 
@@ -30,9 +30,22 @@ Alias: examples
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md), [Genetic](../classes/Genetic.md), [Environmental](../classes/Environmental.md), [Stage](../classes/Stage.md), [Treatment](../classes/Treatment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -44,8 +57,9 @@ Alias: examples
 | --- |
 | ['Kaposi Sarcoma'] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

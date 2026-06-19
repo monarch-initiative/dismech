@@ -10,7 +10,6 @@ _Clinical trial phase categories per FDA/NIH standards_
 URI: [dismech:enum/ClinicalTrialPhaseEnum](https://w3id.org/monarch-initiative/dismech/enum/ClinicalTrialPhaseEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | PHASE_I | None | Phase I - Initial safety and dosage assessment in small group (20-100 partici... |
@@ -32,8 +31,12 @@ URI: [dismech:enum/ClinicalTrialPhaseEnum](https://w3id.org/monarch-initiative/d
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

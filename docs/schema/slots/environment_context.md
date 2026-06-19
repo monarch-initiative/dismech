@@ -31,13 +31,28 @@ Alias: environment_context
 
 ## Properties
 
-* Range: [EnvironmentDescriptor](../classes/EnvironmentDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [EnvironmentDescriptor](../classes/EnvironmentDescriptor.md) |
+| Domain Of | [Environmental](../classes/Environmental.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

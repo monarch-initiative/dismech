@@ -31,15 +31,29 @@ Alias: harrisons_chapter
 
 ## Properties
 
-* Range: [HarrisonsChapterAssignment](../classes/HarrisonsChapterAssignment.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [HarrisonsChapterAssignment](../classes/HarrisonsChapterAssignment.md) |
+| Domain Of | [DiseaseClassifications](../classes/DiseaseClassifications.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

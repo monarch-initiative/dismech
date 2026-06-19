@@ -14,12 +14,72 @@ ROOT_DIR = Path(__file__).parent.parent
 SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "dismech.yaml"
 KB_DIR = ROOT_DIR / "kb" / "disorders"
 COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
+MODULES_DIR = ROOT_DIR / "kb" / "modules"
+GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
 
 # Get all disorder YAML files (exclude history snapshots)
 DISORDER_FILES = [
     f for f in glob.glob(str(KB_DIR / "*.yaml")) if not f.endswith(".history.yaml")
 ]
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
+GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
+
+
+def _disease_names():
+    """Set of all Disease `name` values across kb/disorders/."""
+    names = set()
+    for fp in DISORDER_FILES:
+        with open(fp) as f:
+            data = yaml.safe_load(f)
+        if isinstance(data, dict) and data.get("name"):
+            names.add(data["name"])
+    return names
+
+
+def _module_stems():
+    """Set of mechanism module filename stems (without .yaml) in kb/modules/."""
+    return {Path(f).stem for f in glob.glob(str(MODULES_DIR / "*.yaml"))}
+
+
+def _grouping_names():
+    """Set of Grouping `name` values across kb/groupings/."""
+    names = set()
+    for fp in GROUPING_FILES:
+        with open(fp) as f:
+            data = yaml.safe_load(f)
+        if isinstance(data, dict) and data.get("name"):
+            names.add(data["name"])
+    return names
+
+
+NON_THERAPEUTIC_ACTION_CATEGORIES = {
+    "DIAGNOSTIC",
+    "SCREENING",
+    "MONITORING",
+    "COUNSELING_INFORMATIONAL",
+}
+
+
+def _non_therapeutic_action_target_errors(data):
+    """Find annotated non-therapeutic medical actions that link to pathograph nodes."""
+    errors = []
+    for i, treatment in enumerate(data.get("treatments", []) or []):
+        category = treatment.get("action_category")
+        if category not in NON_THERAPEUTIC_ACTION_CATEGORIES:
+            continue
+        invalid_target_slots = [
+            slot
+            for slot in ("target_mechanisms", "target_phenotypes")
+            if treatment.get(slot)
+        ]
+        if invalid_target_slots:
+            slot_list = ", ".join(invalid_target_slots)
+            name = treatment.get("name", f"treatments[{i}]")
+            errors.append(
+                f"treatments[{i}] {name!r} has action_category={category!r} "
+                f"but also has treatment-style target slots: {slot_list}"
+            )
+    return errors
 
 
 @pytest.fixture(scope="module")
@@ -450,6 +510,97 @@ def test_treatment_dietary_modifications_accept_chebi_nutrient(validator):
     assert not errors, f"Validation errors: {[str(e) for e in errors]}"
 
 
+def test_treatment_action_category_validates(validator):
+    """Treatment entries may be categorized as broader medical actions."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Newborn screening",
+                "action_category": "SCREENING",
+                "treatment_term": {
+                    "preferred_term": "disease screening",
+                    "term": {"id": "MAXO:0000124", "label": "disease screening"},
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+def test_non_therapeutic_action_target_check_catches_counseling():
+    """Annotated non-therapeutic actions must not link as pathograph treatments."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Genetic counseling",
+                "action_category": "COUNSELING_INFORMATIONAL",
+                "target_mechanisms": [{"target": "Primary mechanism"}],
+            }
+        ],
+    }
+
+    errors = _non_therapeutic_action_target_errors(data)
+
+    assert errors
+    assert "Genetic counseling" in errors[0]
+    assert "target_mechanisms" in errors[0]
+
+
+def test_non_therapeutic_action_target_check_catches_screening_phenotypes():
+    """Non-therapeutic actions must not use phenotype targets that render as treats edges."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Newborn screening",
+                "action_category": "SCREENING",
+                "target_phenotypes": [{"preferred_term": "Screening marker"}],
+            }
+        ],
+    }
+
+    errors = _non_therapeutic_action_target_errors(data)
+
+    assert errors
+    assert "Newborn screening" in errors[0]
+    assert "target_phenotypes" in errors[0]
+
+
+def test_therapeutic_action_target_check_allows_mechanism_targets():
+    """Therapeutic actions may continue to target pathophysiology nodes."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Enzyme replacement",
+                "action_category": "THERAPEUTIC",
+                "target_mechanisms": [{"target": "Primary mechanism"}],
+            }
+        ],
+    }
+
+    assert not _non_therapeutic_action_target_errors(data)
+
+
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_non_therapeutic_actions_do_not_use_treatment_targets(filepath):
+    """Annotated non-therapeutic medical actions must not use treatment-style target links."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    errors = _non_therapeutic_action_target_errors(data)
+
+    assert not errors, (
+        f"Non-therapeutic action target links in {Path(filepath).name}: {errors}"
+    )
+
+
 def test_all_disorders_have_unique_names():
     """Test that all disorder names are unique."""
     names = []
@@ -648,8 +799,443 @@ def test_subtypes_have_disease_term(filepath):
         )
 
 
+def test_reference_range_on_biochemical_validates(validator):
+    """ReferenceRange entries on a Biochemical block should pass schema validation."""
+    data = {
+        "name": "Test Disease",
+        "biochemical": [
+            {
+                "name": "Serum Potassium",
+                "reference_ranges": [
+                    {
+                        "loinc_term": {
+                            "id": "LOINC:2823-3",
+                            "label": "Potassium [Moles/volume] in Serum or Plasma",
+                        },
+                        "lower_bound": 3.5,
+                        "upper_bound": 5.0,
+                        "unit": "mmol/L",
+                        "population": "adults",
+                        "evidence": [
+                            {
+                                "reference": "PMID:12345678",
+                                "supports": "SUPPORT",
+                                "snippet": "serum potassium reference interval",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
+
+
+def test_reference_range_interpretation_bands_validate(validator):
+    """Graded interpretation bands on a ReferenceRange should pass validation."""
+    data = {
+        "name": "Test Disease",
+        "biochemical": [
+            {
+                "name": "Hemoglobin",
+                "reference_ranges": [
+                    {
+                        "loinc_term": {
+                            "id": "LOINC:718-7",
+                            "label": "Hemoglobin [Mass/volume] in Blood",
+                        },
+                        "lower_bound": 12.0,
+                        "upper_bound": 16.0,
+                        "unit": "g/dL",
+                        "population": "adult female",
+                        "interpretation_bands": [
+                            {
+                                "name": "Severe",
+                                "upper_bound": 8.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "CRITICAL_LOW",
+                                "severity": "SEVERE",
+                                "interpretation": "Severe anemia.",
+                            },
+                            {
+                                "name": "Moderate",
+                                "lower_bound": 8.0,
+                                "upper_bound": 11.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "LOW",
+                                "severity": "MODERATE",
+                            },
+                            {
+                                "name": "Mild",
+                                "lower_bound": 11.0,
+                                "upper_bound": 12.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "LOW",
+                                "severity": "MILD",
+                            },
+                            {
+                                "name": "Normal",
+                                "lower_bound": 12.0,
+                                "upper_bound": 16.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "NORMAL",
+                            },
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
+
+
+def test_reference_range_band_rejects_invalid_abnormal_flag():
+    """An out-of-enum abnormal_flag on a band must fail strict validation.
+
+    Uses a closed jsonschema validator because the lenient module-scoped
+    ``validator`` fixture does not enforce enum membership.
+    """
+    from linkml.validator import Validator as _Validator
+    from linkml.validator.plugins import JsonschemaValidationPlugin
+
+    strict = _Validator(
+        SCHEMA_PATH, validation_plugins=[JsonschemaValidationPlugin(closed=True)]
+    )
+    data = {
+        "name": "Test Disease",
+        "biochemical": [
+            {
+                "name": "Serum Calcium",
+                "reference_ranges": [
+                    {
+                        "lower_bound": 8.5,
+                        "upper_bound": 10.5,
+                        "unit": "mg/dL",
+                        "interpretation_bands": [
+                            {
+                                "name": "Bogus",
+                                "lower_bound": 10.5,
+                                "abnormal_flag": "PANIC",  # not in AbnormalFlagEnum
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    report = strict.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert errors, "Expected a validation error for an invalid abnormal_flag value"
+
+
 def test_disorder_count():
     """Test that we have the expected number of disorders."""
     assert len(DISORDER_FILES) >= 50, (
         f"Expected at least 50 disorders, got {len(DISORDER_FILES)}"
     )
+
+
+# --- Disease grouping tests ---
+
+
+def _iter_logic_nodes(node):
+    """Yield every LogicalCriterion node in a (possibly nested) expression."""
+    if not isinstance(node, dict):
+        return
+    yield node
+    for child in node.get("operands", []) or []:
+        yield from _iter_logic_nodes(child)
+
+
+def _module_stem(ref):
+    """Strip an optional '#Node Name' anchor from a module reference."""
+    return ref.split("#", 1)[0].strip() if ref else ref
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_valid_grouping_files(filepath, validator):
+    """All grouping files validate against the Grouping class."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    report = validator.validate(data, target_class="Grouping")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_member_foreign_keys(filepath):
+    """Each grouping member must resolve to a real Disease, module, or grouping."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    disease_names = _disease_names()
+    module_stems = _module_stems()
+    grouping_names = _grouping_names()
+
+    errors = []
+    for i, member in enumerate(data.get("members", [])):
+        ref = member.get("member")
+        mtype = member.get("member_type", "DISEASE")
+        if not ref:
+            continue
+        if mtype in ("DISEASE", "SUBTYPE"):
+            # SUBTYPE members still name their parent Disease entry.
+            if ref not in disease_names:
+                errors.append(f"members[{i}].member={ref!r} (type {mtype})")
+        elif mtype == "MODULE":
+            if _module_stem(ref) not in module_stems:
+                errors.append(f"members[{i}].member={ref!r} (type MODULE)")
+        elif mtype == "GROUPING":
+            if ref not in grouping_names:
+                errors.append(f"members[{i}].member={ref!r} (type GROUPING)")
+
+    assert not errors, (
+        f"Grouping member FK mismatches in {Path(filepath).name}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_module_references(filepath):
+    """Every `module` reference in a grouping must resolve to a module file."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    module_stems = _module_stems()
+    errors = []
+
+    # Module refs inside the structured membership criteria expressions.
+    for c, criteria in enumerate(data.get("membership_criteria", []) or []):
+        for node in _iter_logic_nodes(criteria.get("logic")):
+            ref = node.get("module")
+            if ref and _module_stem(ref) not in module_stems:
+                errors.append(f"membership_criteria[{c}].logic module={ref!r}")
+
+    # Module refs inside per-member differentiating mechanisms.
+    for i, member in enumerate(data.get("members", [])):
+        for j, mech in enumerate(member.get("differentiating_mechanisms", []) or []):
+            ref = mech.get("module")
+            if ref and _module_stem(ref) not in module_stems:
+                errors.append(
+                    f"members[{i}].differentiating_mechanisms[{j}].module={ref!r}"
+                )
+
+    assert not errors, (
+        f"Grouping module reference mismatches in {Path(filepath).name}. "
+        f"Bad refs: {errors}"
+    )
+
+
+def test_grouping_unique_names():
+    """Grouping `name` values must be unique across kb/groupings/."""
+    seen = {}
+    for fp in GROUPING_FILES:
+        with open(fp) as f:
+            data = yaml.safe_load(f)
+        name = data.get("name") if isinstance(data, dict) else None
+        if name:
+            seen.setdefault(name, []).append(Path(fp).name)
+    dupes = {k: v for k, v in seen.items() if len(v) > 1}
+    assert not dupes, f"Duplicate grouping names: {dupes}"
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_criteria_well_formed(filepath):
+    """Structured membership-criteria expressions must be well-formed.
+
+    Each LogicalCriterion node must be either a BRANCH (operator + operands) or
+    a LEAF (criterion_predicate + matching payload), never both or neither.
+    """
+    from dismech.groupings import lint_criterion
+
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    errors = []
+    for c, criteria in enumerate(data.get("membership_criteria", []) or []):
+        errors.extend(
+            lint_criterion(criteria.get("logic"), f"membership_criteria[{c}].logic")
+        )
+    assert not errors, f"Malformed criteria in {Path(filepath).name}: {errors}"
+
+
+def test_grouping_node_classification():
+    """classify_node distinguishes BRANCH, LEAF, and INVALID nodes."""
+    from dismech.groupings import NodeKind, classify_node
+
+    assert classify_node({"operator": "AND", "operands": []}) is NodeKind.BRANCH
+    assert classify_node({"criterion_predicate": "HAS_GENE"}) is NodeKind.LEAF
+    # Both operator and predicate -> invalid.
+    assert (
+        classify_node({"operator": "AND", "criterion_predicate": "HAS_GENE"})
+        is NodeKind.INVALID
+    )
+    # Neither -> invalid.
+    assert classify_node({"description": "x"}) is NodeKind.INVALID
+
+
+def test_grouping_lint_catches_bad_nodes():
+    """The structural linter flags malformed leaves and branches."""
+    from dismech.groupings import lint_criterion
+
+    # Leaf predicate missing its required payload.
+    assert lint_criterion({"criterion_predicate": "HAS_GENE"})
+    # Branch operator with no operands.
+    assert lint_criterion({"operator": "AND", "operands": []})
+    # A well-formed expression yields no errors.
+    good = {
+        "operator": "AND",
+        "operands": [
+            {
+                "criterion_predicate": "HAS_GENE",
+                "gene": {"term": {"id": "hgnc:5391"}},
+            }
+        ],
+    }
+    assert lint_criterion(good) == []
+
+
+def test_grouping_three_valued_logic():
+    """AND/OR/NOT combine SATISFIED/NOT_SATISFIED/UNKNOWN correctly."""
+    from dismech.groupings import (
+        DiseaseFacts,
+        Satisfaction,
+        _eval_node,
+    )
+
+    facts = DiseaseFacts(name="x", gene_ids={"hgnc:5391"}, go_ids={"GO:0006027"})
+
+    has_gene = {
+        "criterion_predicate": "HAS_GENE",
+        "gene": {"term": {"id": "hgnc:5391"}},
+    }
+    missing_gene = {
+        "criterion_predicate": "HAS_GENE",
+        "gene": {"term": {"id": "hgnc:9999"}},
+    }
+    unknown = {"criterion_predicate": "OTHER", "description": "unscored"}
+
+    assert _eval_node(has_gene, facts) is Satisfaction.SATISFIED
+    assert _eval_node(missing_gene, facts) is Satisfaction.NOT_SATISFIED
+    assert _eval_node(unknown, facts) is Satisfaction.UNKNOWN
+
+    # AND: a NOT_SATISFIED operand dominates.
+    assert (
+        _eval_node({"operator": "AND", "operands": [has_gene, missing_gene]}, facts)
+        is Satisfaction.NOT_SATISFIED
+    )
+    # OR: a SATISFIED operand dominates.
+    assert (
+        _eval_node({"operator": "OR", "operands": [has_gene, missing_gene]}, facts)
+        is Satisfaction.SATISFIED
+    )
+    # NOT flips.
+    assert (
+        _eval_node({"operator": "NOT", "operands": [missing_gene]}, facts)
+        is Satisfaction.SATISFIED
+    )
+    # negated leaf flips.
+    negated = dict(missing_gene, negated=True)
+    assert _eval_node(negated, facts) is Satisfaction.SATISFIED
+
+
+def test_grouping_overlap_expands_nested_grouping_members():
+    """Overlap computation expands nested GROUPING members to disease entries."""
+    from dismech.groupings import (
+        DiseaseFacts,
+        compute_grouping_overlaps,
+        find_candidate_members,
+        grouping_disease_members,
+    )
+
+    groupings = {
+        "Child": {
+            "name": "Child",
+            "members": [
+                {"member": "B", "member_type": "DISEASE"},
+                {"member": "C", "member_type": "DISEASE"},
+            ],
+        },
+        "Crosscut": {
+            "name": "Crosscut",
+            "members": [
+                {"member": "C", "member_type": "DISEASE"},
+                {"member": "D", "member_type": "DISEASE"},
+            ],
+        },
+        "Far": {
+            "name": "Far",
+            "members": [{"member": "E", "member_type": "DISEASE"}],
+        },
+        "Parent": {
+            "name": "Parent",
+            "membership_criteria": [
+                {
+                    "criteria_semantics": "SUFFICIENT",
+                    "logic": {
+                        "criterion_predicate": "HAS_GENE",
+                        "gene": {"term": {"id": "hgnc:1"}},
+                    },
+                }
+            ],
+            "members": [
+                {"member": "A", "member_type": "DISEASE"},
+                {"member": "Child", "member_type": "GROUPING"},
+                {"member": "mechanism_module", "member_type": "MODULE"},
+            ],
+        },
+    }
+
+    assert grouping_disease_members("Parent", groupings) == {"A", "B", "C"}
+
+    overlaps = compute_grouping_overlaps(
+        groupings,
+        selected_names=["Child", "Crosscut", "Far", "Parent"],
+        include_zero=True,
+    )
+    by_pair = {(o.grouping_a, o.grouping_b): o for o in overlaps}
+
+    assert by_pair[("Child", "Parent")].shared_members == ("B", "C")
+    assert by_pair[("Child", "Parent")].relation == "A_SUBSET_B"
+    assert by_pair[("Child", "Crosscut")].shared_members == ("C",)
+    assert by_pair[("Child", "Crosscut")].relation == "PARTIAL_OVERLAP"
+    assert by_pair[("Far", "Parent")].overlap_count == 0
+    assert by_pair[("Far", "Parent")].relation == "DISJOINT"
+
+    nonzero = compute_grouping_overlaps(
+        groupings,
+        selected_names=["Child", "Crosscut", "Far", "Parent"],
+    )
+    assert all(o.overlap_count for o in nonzero)
+
+    index = {
+        name: DiseaseFacts(name=name, gene_ids={"hgnc:1"})
+        for name in ("A", "B", "C", "D")
+    }
+    assert find_candidate_members(groupings["Parent"], index, groupings) == ["D"]
+
+
+@pytest.mark.parametrize("filepath", GROUPING_FILES)
+def test_grouping_evaluation_runs(filepath):
+    """The membership evaluator executes and returns structured results.
+
+    This is advisory (criteria may be aspirational), so it asserts the evaluator
+    runs and produces valid Satisfaction values, not that members satisfy.
+    """
+    from dismech.groupings import (
+        Satisfaction,
+        evaluate_grouping,
+        load_disease_index,
+    )
+
+    with open(filepath) as f:
+        grouping = yaml.safe_load(f)
+
+    index = load_disease_index()
+    for ev in evaluate_grouping(grouping, index):
+        assert isinstance(ev.result, Satisfaction)

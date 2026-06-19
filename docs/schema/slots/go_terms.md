@@ -31,15 +31,29 @@ Alias: go_terms
 
 ## Properties
 
-* Range: [GOEnrichmentTerm](../classes/GOEnrichmentTerm.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [GOEnrichmentTerm](../classes/GOEnrichmentTerm.md) |
+| Domain Of | [GOEnrichment](../classes/GOEnrichment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

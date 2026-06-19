@@ -44,7 +44,6 @@ URI: [dismech:class/CurationEvent](https://w3id.org/monarch-initiative/dismech/c
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -63,6 +62,12 @@ URI: [dismech:class/CurationEvent](https://w3id.org/monarch-initiative/dismech/c
 | used by | used in | type | used |
 | ---  | --- | --- | --- |
 | [Disease](../classes/Disease.md) | [curation_history](../slots/curation_history.md) | range | [CurationEvent](../classes/CurationEvent.md) |
+| [Grouping](../classes/Grouping.md) | [curation_history](../slots/curation_history.md) | range | [CurationEvent](../classes/CurationEvent.md) |
+
+
+
+
+
 
 
 
@@ -71,7 +76,6 @@ URI: [dismech:class/CurationEvent](https://w3id.org/monarch-initiative/dismech/c
 
 
 ## Identifier and Mapping Information
-
 
 
 

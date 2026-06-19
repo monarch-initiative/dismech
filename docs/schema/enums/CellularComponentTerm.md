@@ -8,6 +8,12 @@ _A term representing a cellular component_
 
 
 URI: [dismech:enum/CellularComponentTerm](https://w3id.org/monarch-initiative/dismech/enum/CellularComponentTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** GO:0005575
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

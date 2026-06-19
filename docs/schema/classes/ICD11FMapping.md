@@ -52,6 +52,17 @@ URI: [dismech:class/ICD11FMapping](https://w3id.org/monarch-initiative/dismech/c
     
 
         
+      ICD11FMapping : tracked_issues
+        
+          
+    
+        
+        
+        ICD11FMapping --> "*" TrackedIssue : tracked_issues
+        click TrackedIssue href "../../classes/TrackedIssue/"
+    
+
+        
       
 ```
 
@@ -64,7 +75,6 @@ URI: [dismech:class/ICD11FMapping](https://w3id.org/monarch-initiative/dismech/c
     * **ICD11FMapping**
 
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -74,6 +84,7 @@ URI: [dismech:class/ICD11FMapping](https://w3id.org/monarch-initiative/dismech/c
 | [mapping_source](../slots/mapping_source.md) | 0..1 <br/> [String](../types/String.md) | Source of the mapping (e | [TermMapping](../classes/TermMapping.md) |
 | [mapping_justification](../slots/mapping_justification.md) | 0..1 <br/> [String](../types/String.md) | Brief rationale or justification for the mapping | [TermMapping](../classes/TermMapping.md) |
 | [consistency](../slots/consistency.md) | * <br/> [MappingConsistency](../classes/MappingConsistency.md) | Consistency assertions for this mapping against other sources | [TermMapping](../classes/TermMapping.md) |
+| [tracked_issues](../slots/tracked_issues.md) | * <br/> [TrackedIssue](../classes/TrackedIssue.md) | Structured pointers to external tracker issues (e | [TermMapping](../classes/TermMapping.md) |
 | [notes](../slots/notes.md) | 0..1 <br/> [String](../types/String.md) |  | [TermMapping](../classes/TermMapping.md) |
 
 
@@ -92,8 +103,12 @@ URI: [dismech:class/ICD11FMapping](https://w3id.org/monarch-initiative/dismech/c
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -222,6 +237,24 @@ attributes:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  tracked_issues:
+    name: tracked_issues
+    description: Structured pointers to external tracker issues (e.g., GitHub ontology
+      term requests, schema follow-ups) that provide curation provenance for this
+      entry or nested object. Use this in preference to stashing issue URLs inside
+      free-text `notes` fields so they can be validated, rendered, and queried consistently.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: tracked_issues
+    owner: ICD11FMapping
+    domain_of:
+    - SurrogateEndpointCollection
+    - Disease
+    - TermMapping
+    range: TrackedIssue
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   notes:
     name: notes
     examples:
@@ -236,10 +269,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -266,6 +309,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
 
 ```

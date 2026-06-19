@@ -77,6 +77,39 @@ Creates `dashboard/index.html` with:
 - Priority curation targets (10 lowest-scoring files)
 - Trend analysis across the knowledge base
 
+### Graph-Derived Metrics (Connectivity)
+
+Recommended-slot compliance only measures whether fields are *populated* on an
+object. It cannot express cross-object graph properties — most importantly,
+whether a phenotype is actually wired into the causal **pathograph**. A
+phenotype can have a perfect HPO `term`, evidence, and description (full
+compliance credit) yet still float as a disconnected node, because the edge that
+connects it lives on a *different* object's `downstream` list.
+
+`dismech.qc_plugins` fills this gap with a graph-derived QC metric computed from
+`build_causal_graph()` and emitted as an `AggregatedPathScore` (path
+`phenotypes[].causal_inlink`), so it composes with weighted compliance and
+`conf/qc_config.yaml` weights/thresholds like any other field. It is **graded
+coverage, not a binary gate**: a file with 9/12 phenotypes wired in scores 75%.
+
+```bash
+# Per-file connectivity coverage across the KB (lists files with gaps)
+just compliance-connectivity
+
+# Show the floating phenotype node names
+just compliance-connectivity --list-unconnected
+
+# Fail CI if aggregate coverage drops below a percentage
+just compliance-connectivity --fail-under 30
+```
+
+A phenotype counts as connected when at least one *causal* edge (`causes` /
+`leads_to` predicate) targets it. To fix a floating phenotype, add the
+phenotype's `name` as a `downstream: [{target: <phenotype name>}]` on the
+upstream pathophysiology node. The `QCMetricPlugin` protocol in
+`src/dismech/qc_plugins.py` is the generic seam for further graph-derived
+metrics (orphan-target rate, gene-to-mechanism wiring, dead-end nodes).
+
 ## Understanding Compliance Scores
 
 ### Global vs Weighted Compliance

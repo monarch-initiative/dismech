@@ -26,7 +26,21 @@ Alias: consequence
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -38,8 +52,9 @@ Alias: consequence
 | --- |
 | Leads to abnormal sexual development and bone maturation. |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

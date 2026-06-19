@@ -13,6 +13,7 @@ import yaml
 from oaklib import get_adapter
 
 from dismech.graph import build_causal_graph
+from dismech.export.utils import discover_disorder_files
 
 # Direct children of HP:0000118 (Phenotypic abnormality) — the broad phenotype categories.
 # Keys match PhenotypeCategoryEnum permissible_value keys in the schema.
@@ -162,6 +163,21 @@ def _collect_reference_ids(value: Any) -> set[str]:
     return references
 
 
+def count_mechanism_modules(module_dir: Path = Path("kb/modules")) -> int | None:
+    """Count mechanism module YAML files for the landing-page module metric.
+
+    Returns ``None`` when the directory does not exist so the metric is simply
+    omitted rather than reported as zero.
+    """
+    if not module_dir.is_dir():
+        return None
+    return sum(
+        1
+        for path in module_dir.glob("*.yaml")
+        if not path.name.endswith(".history.yaml")
+    )
+
+
 def slugify(name: str) -> str:
     """Convert a disorder name to a filename-safe slug."""
     return name.replace(' ', '_').replace('/', '_').replace('(', '').replace(')', '')
@@ -303,7 +319,10 @@ class BrowserExporter:
         }
 
     @staticmethod
-    def build_summary_metrics(disorders: list[dict[str, Any]]) -> dict[str, int]:
+    def build_summary_metrics(
+        disorders: list[dict[str, Any]],
+        num_modules: int | None = None,
+    ) -> dict[str, int]:
         """Aggregate landing-page summary metrics directly from disorder data."""
         categories = {
             category.strip() for disorder in disorders if (category := disorder.get("category"))
@@ -320,6 +339,11 @@ class BrowserExporter:
             for reference_id in _collect_reference_ids(disorder)
             if reference_id
         }
+        publication_references = {
+            reference_id
+            for reference_id in evidence_references
+            if reference_id.upper().startswith(("PMID:", "DOI:"))
+        }
         unique_pathological_events = {
             pathophysiology_name.strip()
             for disorder in disorders
@@ -330,15 +354,27 @@ class BrowserExporter:
         total_pathographs = sum(
             1 for disorder in disorders if disorder.get("pathophysiology")
         )
+        total_subtypes = sum(
+            1
+            for disorder in disorders
+            for subtype in (disorder.get("has_subtypes") or [])
+            if isinstance(subtype, dict) and subtype.get("name")
+        )
 
-        return {
+        metrics = {
             "total_disorder_pages": len(disorders),
+            "total_subtypes": total_subtypes,
+            "total_disorders_and_subtypes": len(disorders) + total_subtypes,
             "total_unique_evidence_sources": len(evidence_references),
+            "total_unique_publications": len(publication_references),
             "total_unique_disease_categories": len(categories),
             "total_unique_phenotype_categories": len(phenotype_categories),
             "total_pathographs": total_pathographs,
             "total_unique_pathological_events": len(unique_pathological_events),
         }
+        if num_modules is not None:
+            metrics["total_modules"] = num_modules
+        return metrics
 
     def _write_hpo_category_cache(self, output_path: Path) -> None:
         """Write the accumulated HP-to-category cache as JSON for use by the renderer."""
@@ -362,8 +398,15 @@ class BrowserExporter:
         self._write_hpo_category_cache(output_path)
         print(f"Exported {len(records)} disorders to {output_path}")
 
-    def export_to_js(self, disorder_files: list[Path], output_path: Path) -> None:
+    def export_to_js(
+        self,
+        disorder_files: list[Path],
+        output_path: Path,
+        num_modules: int | None = None,
+    ) -> None:
         """Export all disorder files to a JavaScript data file."""
+        if num_modules is None:
+            num_modules = count_mechanism_modules()
         records = []
         disorders = []
         for file_path in disorder_files:
@@ -372,7 +415,7 @@ class BrowserExporter:
             record = self.extract_disorder(disorder, file_path.name)
             records.append(record)
 
-        metrics = self.build_summary_metrics(disorders)
+        metrics = self.build_summary_metrics(disorders, num_modules=num_modules)
         js_content = f"window.searchData = {json.dumps(records, indent=2)};\n"
         js_content += f"window.searchMetrics = {json.dumps(metrics, indent=2)};\n"
         js_content += "window.dispatchEvent(new Event('searchDataReady'));\n"
@@ -396,23 +439,24 @@ def main():
         "--output", "-o", default="app/data.js", help="Output file path")
     parser.add_argument(
         "--format", "-f", choices=["json", "js"], default="js", help="Output format")
+    parser.add_argument(
+        "--modules-dir", default="kb/modules",
+        help="Directory with mechanism module YAML files (for the module count metric)")
 
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir)
     output_path = Path(args.output)
 
-    disorder_files = [
-        path
-        for path in sorted(input_dir.glob("*.yaml"))
-        if not path.name.endswith(".history.yaml")
-    ]
+    disorder_files = discover_disorder_files(input_dir)
+
+    num_modules = count_mechanism_modules(Path(args.modules_dir))
 
     exporter = BrowserExporter()
     if args.format == "json":
         exporter.export_to_json(disorder_files, output_path)
     else:
-        exporter.export_to_js(disorder_files, output_path)
+        exporter.export_to_js(disorder_files, output_path, num_modules=num_modules)
 
 
 if __name__ == "__main__":

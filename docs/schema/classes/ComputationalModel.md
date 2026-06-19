@@ -62,6 +62,17 @@ URI: [dismech:class/ComputationalModel](https://w3id.org/monarch-initiative/dism
     
 
         
+      ComputationalModel : modeled_mechanisms
+        
+          
+    
+        
+        
+        ComputationalModel --> "*" ModelMechanismLink : modeled_mechanisms
+        click ModelMechanismLink href "../../classes/ModelMechanismLink/"
+    
+
+        
       ComputationalModel : name
         
       ComputationalModel : notes
@@ -100,7 +111,6 @@ URI: [dismech:class/ComputationalModel](https://w3id.org/monarch-initiative/dism
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -113,6 +123,7 @@ URI: [dismech:class/ComputationalModel](https://w3id.org/monarch-initiative/dism
 | [base_model](../slots/base_model.md) | 0..1 <br/> [String](../types/String.md) | Parent/base model this is derived from (e | direct |
 | [perturbations](../slots/perturbations.md) | * <br/> [GeneDescriptor](../classes/GeneDescriptor.md) | Gene knockouts, reaction deletions, or parameter changes modeling the disease | direct |
 | [variables](../slots/variables.md) | * <br/> [ModelVariable](../classes/ModelVariable.md) | Variables/outputs of a computational model with ontology mappings | direct |
+| [modeled_mechanisms](../slots/modeled_mechanisms.md) | * <br/> [ModelMechanismLink](../classes/ModelMechanismLink.md) | Pathophysiology mechanism nodes/assertions that this experimental model is in... | direct |
 | [model_software](../slots/model_software.md) | 0..1 <br/> [String](../types/String.md) | Software/toolbox for running the model (e | direct |
 | [model_format](../slots/model_format.md) | 0..1 <br/> [String](../types/String.md) | File format (e | direct |
 | [publication](../slots/publication.md) | 0..1 <br/> [PMID](../types/PMID.md) | Associated publication (PMID) | direct |
@@ -136,14 +147,18 @@ URI: [dismech:class/ComputationalModel](https://w3id.org/monarch-initiative/dism
 
 
 
+
+
+
 ## Comments
 
 * Covers genome-scale metabolic models, FBA, kinetic models, digital twins, and ML models
 * Perturbations track gene knockouts or parameter changes used to simulate the disease
 * Findings capture key predictions or insights the model can generate
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -195,6 +210,7 @@ slots:
 - base_model
 - perturbations
 - variables
+- modeled_mechanisms
 - model_software
 - model_format
 - publication
@@ -229,12 +245,20 @@ attributes:
     alias: name
     owner: ComputationalModel
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -257,6 +281,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   description:
@@ -267,8 +292,14 @@ attributes:
     owner: ComputationalModel
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -276,7 +307,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -304,6 +339,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   model_type:
     name: model_type
@@ -354,6 +393,8 @@ attributes:
     alias: perturbations
     owner: ComputationalModel
     domain_of:
+    - Experiment
+    - ExperimentalControl
     - ComputationalModel
     range: GeneDescriptor
     multivalued: true
@@ -369,6 +410,27 @@ attributes:
     domain_of:
     - ComputationalModel
     range: ModelVariable
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  modeled_mechanisms:
+    name: modeled_mechanisms
+    description: Pathophysiology mechanism nodes/assertions that this experimental
+      model is intended to recapitulate, perturb, or measure within the disease pathograph.
+    comments:
+    - Target names should match pathophysiology entry names in the same disease file
+    - Use description to capture the specific assayable or modeled assertion, not
+      just the node label
+    - Kept intentionally lightweight so it can later align more explicitly with NAMO
+      relations
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: modeled_mechanisms
+    owner: ComputationalModel
+    domain_of:
+    - ExperimentalModel
+    - ComputationalModel
+    range: ModelMechanismLink
     multivalued: true
     inlined: true
     inlined_as_list: true
@@ -401,6 +463,7 @@ attributes:
     owner: ComputationalModel
     domain_of:
     - Dataset
+    - ExperimentalModel
     - ComputationalModel
     - ProteinStructure
     range: PMID
@@ -414,6 +477,7 @@ attributes:
     owner: ComputationalModel
     domain_of:
     - Dataset
+    - ExperimentalModel
     - ComputationalModel
     - PublicationReference
     range: Finding
@@ -429,12 +493,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -464,6 +538,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -483,10 +561,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -513,6 +601,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
 
 ```

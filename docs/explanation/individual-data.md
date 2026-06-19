@@ -35,7 +35,7 @@ A patient presents with a set of HPO-coded phenotypes. Dismech entries annotate
 phenotypes with frequencies, categories, and mechanism links. An interpretation
 system could:
 
-- Match patient phenotypes against dismech phenotype lists.
+- Match patient phenotypes against Dismech phenotype lists.
 - Rank candidate disorders by the proportion and frequency of matching
   phenotypes.
 - Highlight *diagnostic* phenotypes (the `diagnostic: true` flag exists in the
@@ -68,7 +68,7 @@ whose subtype is known:
 
 - Match the patient's subtype to the relevant pathophysiology branch.
 - Identify treatments that target that specific mechanism.
-- Use clinical trial data (already modeled in dismech) to assess evidence
+- Use clinical trial data (already modeled in Dismech) to assess evidence
   strength.
 - Flag treatments that target the wrong mechanism for the patient's subtype.
 
@@ -78,7 +78,7 @@ The schema has a full comorbidity/trajectory model (`ComorbidityDirectionEnum`,
 `AssociationSignalSourceEnum`, `CausalEdge` with `sequelae`). For an individual
 with disease A:
 
-- Query dismech for directed comorbidity pairs where A precedes B.
+- Query Dismech for directed comorbidity pairs where A precedes B.
 - Estimate risk based on population-level metrics (OR, HR, RR — all in
   `AssociationMetricTypeEnum`).
 - Prioritize surveillance for downstream conditions.
@@ -109,35 +109,28 @@ dismech:
 
 ## Architectural model
 
-The cleanest integration pattern treats dismech as an interpretive scaffold that
+The cleanest integration pattern treats Dismech as an interpretive scaffold that
 sits alongside — not within — individual data systems:
 
-```
-Individual data (Phenopackets / OMOP / FHIR)
-        │
-        ▼
-   ┌─────────────────┐
-   │  Interpretation  │  ← match, score, explain
-   │     Engine       │
-   └────────┬────────┘
-            │
-            ▼
-   dismech knowledge base
-   (mechanisms, phenotypes,
-    frequencies, treatments,
-    trajectories)
+```mermaid
+flowchart TD
+    A["Individual data<br/>(Phenopackets / OMOP / FHIR)"]
+    B["Interpretation Engine<br/><em>match, score, explain</em>"]
+    C["Dismech knowledge base<br/>(mechanisms, phenotypes,<br/>frequencies, treatments, trajectories)"]
+    A --> B
+    B --> C
 ```
 
 Dismech already has the ontology bindings (HP, MONDO, CL, GO, MAXO, CHEBI) that
-make this interoperable — a Phenopacket's HPO terms directly match dismech's
+make this interoperable — a Phenopacket's HPO terms directly match Dismech's
 `PhenotypeDescriptor` terms. The `datasets` section with `PHENOPACKETS` type
 already supports linking to case-level collections.
 
-## What dismech is NOT
+## What Dismech is NOT
 
 Dismech should not attempt to become an individual-data store. The boundary is:
 
-| Concern | Belongs in dismech | Belongs elsewhere |
+| Concern | Belongs in Dismech | Belongs elsewhere |
 |---|---|---|
 | Disease mechanisms | Yes | — |
 | Phenotype frequencies | Yes | — |
@@ -148,6 +141,6 @@ Dismech should not attempt to become an individual-data store. The boundary is:
 | Per-patient variant calls | — | VCF, GA4GH VRS |
 | Clinical decision support rules | — | CDS systems |
 
-The gap to fill is primarily an **interpretation layer** that queries dismech
+The gap to fill is primarily an **interpretation layer** that queries Dismech
 programmatically and applies its knowledge to individual observations — not
-changes to dismech's own data model.
+changes to Dismech's own data model.

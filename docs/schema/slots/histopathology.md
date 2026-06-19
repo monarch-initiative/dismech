@@ -31,9 +31,22 @@ Alias: histopathology
 
 ## Properties
 
-* Range: [HistopathologyFinding](../classes/HistopathologyFinding.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [HistopathologyFinding](../classes/HistopathologyFinding.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -45,8 +58,9 @@ Alias: histopathology
 * {'For cancer': 'includes grade, differentiation, growth patterns, necrosis'}
 * {'For other diseases': 'may include architectural changes, cellular infiltrates'}
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

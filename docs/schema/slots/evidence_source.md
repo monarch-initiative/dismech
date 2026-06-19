@@ -31,13 +31,28 @@ Alias: evidence_source
 
 ## Properties
 
-* Range: [EvidenceSourceEnum](../enums/EvidenceSourceEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [EvidenceSourceEnum](../enums/EvidenceSourceEnum.md) |
+| Domain Of | [EvidenceItem](../classes/EvidenceItem.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
