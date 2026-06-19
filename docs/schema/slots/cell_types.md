@@ -17,8 +17,9 @@ Alias: cell_types
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [ExperimentalModel](../classes/ExperimentalModel.md) | A disease-relevant non-animal experimental model system |  no  |
 | [Biochemical](../classes/Biochemical.md) |  |  no  |
+| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 
 
 
@@ -27,9 +28,22 @@ Alias: cell_types
 
 ## Properties
 
-* Range: [CellTypeDescriptor](../classes/CellTypeDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [CellTypeDescriptor](../classes/CellTypeDescriptor.md) |
+| Domain Of | [ExperimentalModel](../classes/ExperimentalModel.md), [Pathophysiology](../classes/Pathophysiology.md), [Biochemical](../classes/Biochemical.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -41,8 +55,9 @@ Alias: cell_types
 | --- |
 | [{preferred_term: Macrophage}, {preferred_term: T Cell}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -77,6 +92,7 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: cell_types
 domain_of:
+- ExperimentalModel
 - Pathophysiology
 - Biochemical
 range: CellTypeDescriptor

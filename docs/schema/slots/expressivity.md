@@ -31,13 +31,28 @@ Alias: expressivity
 
 ## Properties
 
-* Range: [ExpressivityEnum](../enums/ExpressivityEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ExpressivityEnum](../enums/ExpressivityEnum.md) |
+| Domain Of | [Inheritance](../classes/Inheritance.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

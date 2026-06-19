@@ -31,13 +31,28 @@ Alias: data_type
 
 ## Properties
 
-* Range: [DatasetTypeEnum](../enums/DatasetTypeEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [DatasetTypeEnum](../enums/DatasetTypeEnum.md) |
+| Domain Of | [Dataset](../classes/Dataset.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

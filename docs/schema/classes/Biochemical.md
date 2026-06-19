@@ -88,9 +88,33 @@ URI: [dismech:class/Biochemical](https://w3id.org/monarch-initiative/dismech/cla
         
       Biochemical : presence
         
+      Biochemical : readouts
+        
+          
+    
+        
+        
+        Biochemical --> "*" BiomarkerReadout : readouts
+        click BiomarkerReadout href "../../classes/BiomarkerReadout/"
+    
+
+        
+      Biochemical : reference_ranges
+        
+          
+    
+        
+        
+        Biochemical --> "*" ReferenceRange : reference_ranges
+        click ReferenceRange href "../../classes/ReferenceRange/"
+    
+
+        
       Biochemical : specificity
         
       Biochemical : subtype
+        
+      Biochemical : subtypes
         
       Biochemical : synonyms
         
@@ -102,7 +126,6 @@ URI: [dismech:class/Biochemical](https://w3id.org/monarch-initiative/dismech/cla
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -110,12 +133,15 @@ URI: [dismech:class/Biochemical](https://w3id.org/monarch-initiative/dismech/cla
 | [name](../slots/name.md) | 1 <br/> [String](../types/String.md) |  | direct |
 | [biomarker_term](../slots/biomarker_term.md) | 0..1 <br/> [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md) | Ontology term for a biomarker (from NCIT) | direct |
 | [presence](../slots/presence.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
+| [readouts](../slots/readouts.md) | * <br/> [BiomarkerReadout](../classes/BiomarkerReadout.md) | Links this biomarker to disease pathograph nodes that it measures, reflects, ... | direct |
+| [reference_ranges](../slots/reference_ranges.md) | * <br/> [ReferenceRange](../classes/ReferenceRange.md) | Clinical laboratory reference intervals for this biomarker, keyed by LOINC co... | direct |
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) |  | direct |
 | [specificity](../slots/specificity.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [frequency](../slots/frequency.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md) |  | direct |
 | [notes](../slots/notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [context](../slots/context.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [subtype](../slots/subtype.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
+| [subtypes](../slots/subtypes.md) | * <br/> [String](../types/String.md) | Names of subtypes (foreign keys to this disease's `has_subtypes[] | direct |
 | [cell_types](../slots/cell_types.md) | * <br/> [CellTypeDescriptor](../classes/CellTypeDescriptor.md) |  | direct |
 | [assays](../slots/assays.md) | * <br/> [AssayDescriptor](../classes/AssayDescriptor.md) |  | direct |
 | [mappings_list](../slots/mappings_list.md) | * <br/> [ModelVariableDescriptor](../classes/ModelVariableDescriptor.md) | Ontology term mappings for a model variable (LOINC, CHEBI, HP, etc | direct |
@@ -137,8 +163,12 @@ URI: [dismech:class/Biochemical](https://w3id.org/monarch-initiative/dismech/cla
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -178,12 +208,15 @@ slots:
 - name
 - biomarker_term
 - presence
+- readouts
+- reference_ranges
 - evidence
 - specificity
 - frequency
 - notes
 - context
 - subtype
+- subtypes
 - cell_types
 - assays
 - mappings_list
@@ -209,12 +242,20 @@ attributes:
     alias: name
     owner: Biochemical
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -237,6 +278,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   biomarker_term:
@@ -250,6 +292,7 @@ attributes:
     alias: biomarker_term
     owner: Biochemical
     domain_of:
+    - ExperimentalReadout
     - Biochemical
     range: BiomarkerDescriptor
     inlined: true
@@ -267,6 +310,43 @@ attributes:
     - Environmental
     - Diagnosis
     range: string
+  readouts:
+    name: readouts
+    description: Links this biomarker to disease pathograph nodes that it measures,
+      reflects, predicts, or pharmacodynamically reports on. The target should be
+      a named pathograph node, typically a pathophysiology mechanism.
+    comments:
+    - Target names should match pathophysiology or phenotype entry names in the same
+      disease file
+    - Readout links are observational/associative, not causal disease-progression
+      edges
+    - Use evidence on the readout link when the biomarker-to-mechanism mapping is
+      distinct from the biomarker's own evidence
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: readouts
+    owner: Biochemical
+    domain_of:
+    - Experiment
+    - Biochemical
+    range: BiomarkerReadout
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  reference_ranges:
+    name: reference_ranges
+    description: Clinical laboratory reference intervals for this biomarker, keyed
+      by LOINC code with population qualifier and UCUM units.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: reference_ranges
+    owner: Biochemical
+    domain_of:
+    - Biochemical
+    range: ReferenceRange
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   evidence:
     name: evidence
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -276,12 +356,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -311,6 +401,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -360,10 +454,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -390,6 +494,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
   context:
     name: context
@@ -425,6 +534,26 @@ attributes:
     - HistopathologyFinding
     - Genetic
     range: string
+  subtypes:
+    name: subtypes
+    description: Names of subtypes (foreign keys to this disease's `has_subtypes[].name`)
+      associated with a phenotype, biochemical finding, pathophysiology node, or other
+      subtyped entry. Use this multivalued form when an item is characteristic of
+      more than one subtype with overlapping features. For single-subtype associations,
+      the scalar `subtype` slot may still be used.
+    examples:
+    - value: '[''DENV-1'', ''DENV-2'', ''DENV-3'', ''DENV-4'']'
+    - value: '[''Type 1'', ''Type 2'']'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: subtypes
+    owner: Biochemical
+    domain_of:
+    - Pathophysiology
+    - Phenotype
+    - Biochemical
+    range: string
+    multivalued: true
   cell_types:
     name: cell_types
     examples:
@@ -434,6 +563,7 @@ attributes:
     alias: cell_types
     owner: Biochemical
     domain_of:
+    - ExperimentalModel
     - Pathophysiology
     - Biochemical
     range: CellTypeDescriptor
@@ -449,6 +579,8 @@ attributes:
     alias: assays
     owner: Biochemical
     domain_of:
+    - Experiment
+    - ExperimentalReadout
     - Pathophysiology
     - Biochemical
     range: AssayDescriptor

@@ -133,7 +133,7 @@ Nodes that reference human gene symbols get extra NDEx-friendly attributes so th
 
 - direct gene nodes may export as `type=gene`
 - descriptive event nodes that reference genes may export as `type=proteinfamily` plus `member=[...]`
-- the original dismech semantic category is preserved separately as `dismech_type`
+- the original Dismech semantic category is preserved separately as `dismech_type`
 
 This keeps all pathograph nodes while still exposing the small gene-relevant subset in the form NDEx expects.
 

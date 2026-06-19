@@ -31,15 +31,29 @@ Alias: association_signals
 
 ## Properties
 
-* Range: [AssociationSignal](../classes/AssociationSignal.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [AssociationSignal](../classes/AssociationSignal.md) |
+| Domain Of | [ComorbidityAssociation](../classes/ComorbidityAssociation.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

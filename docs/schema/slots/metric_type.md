@@ -31,13 +31,28 @@ Alias: metric_type
 
 ## Properties
 
-* Range: [AssociationMetricTypeEnum](../enums/AssociationMetricTypeEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [AssociationMetricTypeEnum](../enums/AssociationMetricTypeEnum.md) |
+| Domain Of | [AssociationMetric](../classes/AssociationMetric.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

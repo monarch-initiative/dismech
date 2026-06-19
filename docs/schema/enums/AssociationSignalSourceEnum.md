@@ -10,7 +10,6 @@ _Source of an association signal_
 URI: [dismech:enum/AssociationSignalSourceEnum](https://w3id.org/monarch-initiative/dismech/enum/AssociationSignalSourceEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | DISEASE_TRAJECTORIES | None | Disease Trajectories (CSH/Austria) |
@@ -31,8 +30,12 @@ URI: [dismech:enum/AssociationSignalSourceEnum](https://w3id.org/monarch-initiat
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

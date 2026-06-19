@@ -70,9 +70,31 @@ URI: [dismech:class/Genetic](https://w3id.org/monarch-initiative/dismech/class/G
         
       Genetic : presence
         
+      Genetic : relationship_type
+        
+          
+    
+        
+        
+        Genetic --> "0..1" GeneDiseaseRelationshipEnum : relationship_type
+        click GeneDiseaseRelationshipEnum href "../../enums/GeneDiseaseRelationshipEnum/"
+    
+
+        
       Genetic : review_notes
         
       Genetic : subtype
+        
+      Genetic : variant_origin
+        
+          
+    
+        
+        
+        Genetic --> "0..1" VariantOriginEnum : variant_origin
+        click VariantOriginEnum href "../../enums/VariantOriginEnum/"
+    
+
         
       Genetic : variants
         
@@ -93,7 +115,6 @@ URI: [dismech:class/Genetic](https://w3id.org/monarch-initiative/dismech/class/G
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -102,7 +123,9 @@ URI: [dismech:class/Genetic](https://w3id.org/monarch-initiative/dismech/class/G
 | [gene_term](../slots/gene_term.md) | 0..1 <br/> [GeneDescriptor](../classes/GeneDescriptor.md) | The HGNC term for this gene | direct |
 | [presence](../slots/presence.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) |  | direct |
-| [association](../slots/association.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
+| [association](../slots/association.md) | 0..1 <br/> [String](../types/String.md) | Free-text descriptor of how the gene is associated with the disease | direct |
+| [relationship_type](../slots/relationship_type.md) | 0..1 <br/> [GeneDiseaseRelationshipEnum](../enums/GeneDiseaseRelationshipEnum.md) | Controlled-vocabulary classification of the gene-disease relationship (e | direct |
+| [variant_origin](../slots/variant_origin.md) | 0..1 <br/> [VariantOriginEnum](../enums/VariantOriginEnum.md) | The origin of disease-associated variation in this gene (germline, somatic, d... | direct |
 | [review_notes](../slots/review_notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [subtype](../slots/subtype.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [frequency](../slots/frequency.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md) |  | direct |
@@ -128,8 +151,12 @@ URI: [dismech:class/Genetic](https://w3id.org/monarch-initiative/dismech/class/G
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -171,6 +198,8 @@ slots:
 - presence
 - evidence
 - association
+- relationship_type
+- variant_origin
 - review_notes
 - subtype
 - frequency
@@ -200,12 +229,20 @@ attributes:
     alias: name
     owner: Genetic
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -228,6 +265,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   gene_term:
@@ -264,12 +302,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -299,6 +347,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -306,6 +358,8 @@ attributes:
     inlined_as_list: true
   association:
     name: association
+    description: Free-text descriptor of how the gene is associated with the disease.
+      For a controlled vocabulary, also set `relationship_type`.
     examples:
     - value: Susceptibility
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -315,6 +369,34 @@ attributes:
     domain_of:
     - Genetic
     range: string
+  relationship_type:
+    name: relationship_type
+    description: Controlled-vocabulary classification of the gene-disease relationship
+      (e.g., causative, risk factor, modifier, somatic driver). Use this in addition
+      to the free-text `association` slot when possible.
+    examples:
+    - value: RISK_FACTOR
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: relationship_type
+    owner: Genetic
+    domain_of:
+    - Genetic
+    range: GeneDiseaseRelationshipEnum
+  variant_origin:
+    name: variant_origin
+    description: The origin of disease-associated variation in this gene (germline,
+      somatic, de novo, or both). Bound to GENO allele origin terms.
+    examples:
+    - value: SOMATIC
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: variant_origin
+    owner: Genetic
+    domain_of:
+    - GeneticContext
+    - Genetic
+    range: VariantOriginEnum
   review_notes:
     name: review_notes
     examples:
@@ -428,10 +510,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -458,6 +550,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
   examples:
     name: examples

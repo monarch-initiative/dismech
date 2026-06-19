@@ -18,13 +18,17 @@ _This is a dynamic enum_
 
 
 
+
+
+
 ## Comments
 
 * Uses HGNC gene nomenclature committee identifiers
 * Validation requires exact label match with HGNC database
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

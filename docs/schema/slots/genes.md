@@ -17,11 +17,12 @@ Alias: genes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Dataset](../classes/Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
-| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
-| [AnimalModel](../classes/AnimalModel.md) |  |  no  |
 | [Subtype](../classes/Subtype.md) |  |  no  |
 | [GeneticContext](../classes/GeneticContext.md) | A structured description of a genetic context that modifies phenotype frequen... |  no  |
+| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Dataset](../classes/Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
+| [AnimalModel](../classes/AnimalModel.md) |  |  no  |
+| [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | A structured perturbation, intervention, or exposure used in an experiment |  no  |
 
 
 
@@ -30,9 +31,22 @@ Alias: genes
 
 ## Properties
 
-* Range: [GeneDescriptor](../classes/GeneDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [GeneDescriptor](../classes/GeneDescriptor.md) |
+| Domain Of | [GeneticContext](../classes/GeneticContext.md), [Dataset](../classes/Dataset.md), [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md), [Subtype](../classes/Subtype.md), [Pathophysiology](../classes/Pathophysiology.md), [AnimalModel](../classes/AnimalModel.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -44,8 +58,9 @@ Alias: genes
 | --- |
 | [{preferred_term: HLA-DQ2}, {preferred_term: INS}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -82,6 +97,7 @@ alias: genes
 domain_of:
 - GeneticContext
 - Dataset
+- ExperimentalPerturbation
 - Subtype
 - Pathophysiology
 - AnimalModel

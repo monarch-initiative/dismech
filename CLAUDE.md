@@ -879,6 +879,58 @@ If a DR-suggested citation cannot be verified against the real abstract, do not 
 
 **Historical note:** Issue #1737 audited DR-sourced entries and found ~1% hallucination rate in the cache layer — the dismech validation stack catches these errors, but only *after* the curator runs the checks. Treating DR outputs as leads rather than ground truth is the most reliable protection.
 
+### 2b. Named Entity Confusion (NEC) — the DR report describes the *wrong disease*
+
+Named Entity Confusion (NEC) is a **fourth, semantically distinct** DR failure mode
+(tracked in #3889), separate from the three hallucination categories above. In NEC the
+DR tool resolves the queried disease name to a *different* disease entity and produces a
+report that is **coherent but wrong**: the citations are real, the snippets validate as
+exact substrings of their (wrong-disease) abstracts, and the ontology terms exist — so
+**none of the standard anti-hallucination checks (snippet-in-abstract, PMID existence,
+term validation) can catch it.** The only catch is semantic: confirming the report is
+about the disease you actually intended to curate.
+
+**How NEC happens:**
+- **Synonym aliasing** — a historical synonym maps to a different OMIM/MONDO entry
+  (e.g. "Lichtenstein-Knorr syndrome"/SCAR19/`MONDO:0014572`/SLC9A1 was reported as
+  SNX14-SCAR20/`MONDO:0014591`; PR #3874)
+- **Eponymic collision** — multiple diseases share an eponym but differ in gene/OMIM
+  (e.g. Temtamy syndrome C12orf57/`MONDO:0009033` vs. Temtamy preaxial brachydactyly
+  syndrome CHSY1; PR #3835)
+- **Abbreviation/acronym ambiguity** — a short label or acronym matches more than one entity
+- **Closely related disease conflation** — literature from a phenotypically similar or
+  genomically adjacent disease (same family, same locus, shifted numbered series such as
+  SCAR1–SCAR20 or CMT types)
+
+**Mandatory NEC preflight — run BEFORE using any DR content:** confirm the report's
+primary disease identity matches the MONDO entity you intend to curate.
+
+1. Pull the authoritative MONDO record for the intended disease:
+   ```bash
+   uv run runoak -i sqlite:obo:mondo info MONDO:XXXXXXX -O obo
+   ```
+   The `obo` output gives you three independent identity anchors: the **causal gene**
+   (named in the `def:` definition text), the **OMIM xref**, and the **synonym list**.
+2. **Gene check** — the gene(s) most frequently named in the DR report MUST match the
+   causal gene in the MONDO definition. A report that mentions a different gene far more
+   often than the canonical one is the strongest NEC signal.
+3. **OMIM check** — any OMIM ID asserted in the report must match the MONDO `OMIM:` xref.
+4. **Synonym check** — scan the MONDO `synonym:` lines for the exact name/acronym the DR
+   tool resolved. If the report keyed off a synonym that is *also* a synonym (or label) of
+   a **different** MONDO entry, treat the report as NEC-suspect.
+5. **On any mismatch: discard the DR report entirely — do NOT cherry-pick from it.**
+   Rebuild from primary literature anchored on the verified gene/OMIM. (Note: the local
+   `sqlite:obo:mondo` adapter does not expose gene associations via `relationships`; read
+   the gene from the `def:` text and OMIM/synonym xrefs as above.)
+
+**High-NEC-risk classes** (numbered series, shared eponyms, recently reclassified
+synonyms, locus-adjacent disorders) are enumerated in
+[`research/nec_risk_disease_classes.md`](research/nec_risk_disease_classes.md); the audit
+that produced it is `scripts/nec_risk_audit.py` (#3947). Apply extra scrutiny when the
+queried disease falls in one of those classes. A `just preflight-dr` automation of this
+gene-frequency-vs-MONDO check is in progress (#3902); until it lands, run the manual
+preflight above.
+
 ### 3. Validation Workflow
 
 Before committing changes to any disorder file:

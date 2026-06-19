@@ -26,9 +26,22 @@ Alias: mechanisms
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: mechanisms
 | --- |
 | ['Thrombocytopenia', 'Platelet Dysfunction', 'Disseminated Intravascular Coagulation (DIC)'] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

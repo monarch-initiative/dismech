@@ -17,7 +17,7 @@ Alias: functional_effects
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Variant](../classes/Variant.md) |  |  no  |
+| [Variant](../classes/Variant.md) | A genetic variant associated with a disease, including coding and non-coding ... |  no  |
 
 
 
@@ -26,15 +26,29 @@ Alias: functional_effects
 
 ## Properties
 
-* Range: [FunctionalEffect](../classes/FunctionalEffect.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [FunctionalEffect](../classes/FunctionalEffect.md) |
+| Domain Of | [Variant](../classes/Variant.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -31,7 +31,21 @@ Alias: diagnosis_term
 
 ## Properties
 
-* Range: [TreatmentDescriptor](../classes/TreatmentDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [TreatmentDescriptor](../classes/TreatmentDescriptor.md) |
+| Domain Of | [Diagnosis](../classes/Diagnosis.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -41,8 +55,9 @@ Alias: diagnosis_term
 * MAXO includes diagnostic procedures under medical actions
 * Use qualifiers with UBERON terms to specify anatomical location (e.g., right heart catheterization)
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
