@@ -404,6 +404,20 @@
             margin-top: 0.45rem;
         }
 
+        .notice-banner {
+            border: 1px solid #fed7aa;
+            background: #fff7ed;
+            color: #7c2d12;
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        .notice-banner strong {
+            color: #9a3412;
+        }
+
         code {
             font-family: var(--mono);
             font-size: 0.88em;
@@ -550,6 +564,7 @@
             </div>
         </div>
         <div class="main">
+            <div id="focus-message" class="notice-banner" role="status" aria-live="polite" hidden></div>
             <div class="plot-card">
                 <div class="plot-header">
                     <div class="plot-title">Interactive embedding map</div>
@@ -578,6 +593,7 @@
         let searchTerm = '';
         let showLabels = false;
         let focusName = null;       // disorder to highlight + zoom into (from ?focus=)
+        let focusFoundInCache = false;
         let focusZoomPending = false; // apply neighborhood zoom on the next plot only
 
         function loadData() {
@@ -600,8 +616,10 @@
             const requestedFocus = params.get('focus');
             if (requestedFocus) {
                 focusName = resolveFocusName(requestedFocus);
-                focusZoomPending = true;
+                focusFoundInCache = focusExistsInAnySpace(focusName);
+                focusZoomPending = focusFoundInCache;
                 setupFocusBanner();
+                updateFocusMessage();
             }
             const reqSpace = params.get('space');
             if (reqSpace && data[reqSpace]) {
@@ -674,6 +692,53 @@
             return requested; // keep the raw value; banner will note if not found
         }
 
+        function focusExistsInAnySpace(name) {
+            if (!name) return false;
+            for (const space of Object.values(data || {})) {
+                if (!space || !space.metadata) continue;
+                if (space.metadata.some(meta => meta.name === name)) return true;
+            }
+            return false;
+        }
+
+        function updateFocusMessage(currentSpaceFound = focusFoundInCache) {
+            const message = document.getElementById('focus-message');
+            if (!message) return;
+            message.replaceChildren();
+
+            if (!focusName) {
+                message.hidden = true;
+                return;
+            }
+
+            if (!focusFoundInCache) {
+                const strong = document.createElement('strong');
+                strong.textContent = focusName;
+                message.append(
+                    strong,
+                    ' is not yet in the embedding cache. The map is still usable, but this focus link cannot highlight or zoom to the disorder until ',
+                );
+                const code = document.createElement('code');
+                code.textContent = 'app/embeddings/data.js';
+                message.append(code, ' is regenerated after the disorder is indexed.');
+                message.hidden = false;
+                return;
+            }
+
+            if (!currentSpaceFound) {
+                const strong = document.createElement('strong');
+                strong.textContent = focusName;
+                message.append(
+                    strong,
+                    ' is in the embedding cache, but not in the currently selected embedding space.'
+                );
+                message.hidden = false;
+                return;
+            }
+
+            message.hidden = true;
+        }
+
         function setupFocusBanner() {
             const sidebar = document.querySelector('.sidebar');
             if (!sidebar || document.getElementById('focus-group')) return;
@@ -695,8 +760,10 @@
             document.getElementById('focus-name').textContent = focusName;
             document.getElementById('clear-focus').addEventListener('click', () => {
                 focusName = null;
+                focusFoundInCache = false;
                 focusZoomPending = false;
                 group.remove();
+                updateFocusMessage();
                 updatePlot();
             });
         }
@@ -902,8 +969,13 @@
                     if (note) note.textContent = "Zoomed into this disorder's neighborhood.";
                 } else {
                     const note = document.getElementById('focus-note');
-                    if (note) note.textContent = 'Not found in this embedding space.';
+                    if (note) {
+                        note.textContent = focusFoundInCache
+                            ? 'Not found in this embedding space.'
+                            : 'Not yet in the embedding cache.';
+                    }
                 }
+                updateFocusMessage(focusIdx >= 0);
                 focusZoomPending = false;
             }
 
