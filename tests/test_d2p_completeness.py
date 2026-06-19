@@ -2,11 +2,14 @@
 
 from dismech.compare.d2p import (
     _is_genetic_disease,
+    _match_type,
     _parse_monarch_associations,
+    _resolve_disease_ref,
     build_disease_audit_payload,
     build_comparison_table,
     build_completeness_audit,
     compute_audit_summary,
+    compute_venn_summary,
     extract_dismech_phenotypes,
 )
 
@@ -176,6 +179,59 @@ def test_genetic_disease_filter_uses_genetic_section_or_category():
     assert _is_genetic_disease({"category": "Mendelian"})
     assert _is_genetic_disease({"category": "Rare genetic disorder"})
     assert not _is_genetic_disease({"category": "Infectious"})
+
+
+def test_match_type_uses_resolver_for_narrow_and_broad_matches():
+    class FakeResolver:
+        def ancestors(self, term_id: str) -> set[str]:
+            return {
+                "HP:child": {"HP:child", "HP:parent"},
+                "HP:parent": {"HP:parent"},
+            }[term_id]
+
+    resolver = FakeResolver()
+
+    narrow_match, narrow_record = _match_type(
+        "HP:parent", [{"hp_id": "HP:child"}], resolver
+    )
+    assert narrow_match == "narrow:HP:child"
+    assert narrow_record == {"hp_id": "HP:child"}
+
+    broad_match, broad_record = _match_type(
+        "HP:child", [{"hp_id": "HP:parent"}], resolver
+    )
+    assert broad_match == "broad:HP:parent"
+    assert broad_record == {"hp_id": "HP:parent"}
+
+
+def test_compute_venn_summary_counts_all_source_combinations():
+    rows = [
+        {"dismech": "exact", "omim": "-", "ordo": "-"},
+        {"dismech": "-", "omim": "exact", "ordo": "-"},
+        {"dismech": "-", "omim": "-", "ordo": "exact"},
+        {"dismech": "exact", "omim": "exact", "ordo": "-"},
+        {"dismech": "exact", "omim": "-", "ordo": "exact"},
+        {"dismech": "-", "omim": "exact", "ordo": "exact"},
+        {"dismech": "exact", "omim": "exact", "ordo": "exact"},
+    ]
+
+    assert compute_venn_summary(rows) == {
+        "dismech_only": 1,
+        "omim_only": 1,
+        "ordo_only": 1,
+        "dismech_omim": 1,
+        "dismech_ordo": 1,
+        "omim_ordo": 1,
+        "all_three": 1,
+        "total": 7,
+    }
+
+
+def test_resolve_disease_ref_uses_dismech_resolution_without_phenoagent():
+    slug, path = _resolve_disease_ref("ANK2 Ankyrin-B Syndrome")
+
+    assert slug == "ANK2_Ankyrin_B_Syndrome"
+    assert path.name == "ANK2_Ankyrin_B_Syndrome.yaml"
 
 
 def test_disease_audit_payload_records_checkpoint_metadata():

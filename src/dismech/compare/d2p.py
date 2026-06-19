@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -82,7 +83,11 @@ class HPOClosureResolver:
                 )
                 if isinstance(a, str)
             }
-        except Exception:
+        except Exception as exc:
+            typer.echo(
+                f"WARNING: could not resolve HPO ancestors for {normalized}: {exc}",
+                err=True,
+            )
             anc = set()
 
         self._ancestor_cache[normalized] = anc
@@ -96,7 +101,11 @@ class HPOClosureResolver:
         adapter = self._get_adapter()
         try:
             return adapter.label(normalized)
-        except Exception:
+        except Exception as exc:
+            typer.echo(
+                f"WARNING: could not resolve HPO label for {normalized}: {exc}",
+                err=True,
+            )
             return None
 
 
@@ -747,10 +756,90 @@ def compute_venn_summary(table: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _resolve_disease_ref(ref: str) -> tuple[str, Path]:
-    """Resolve a disease reference to (slug, path), reusing phenoagent logic."""
-    from phenoagent.matching import resolve_disease_reference
+    """Resolve a disease reference to (slug, path)."""
+    reference_text = str(ref).strip()
+    if not reference_text:
+        raise ValueError("Disease reference must not be empty")
 
-    return resolve_disease_reference(ref)
+    ref_path = Path(reference_text)
+    if ref_path.exists():
+        path = ref_path.resolve()
+        if not path.is_file():
+            raise ValueError(f"Disease reference path is not a file: {path}")
+        slug = path.stem
+        if slug.endswith(".history"):
+            slug = slug[: -len(".history")]
+        return slug, path
+
+    disorder_dir = _default_kb_dir()
+    if not disorder_dir.exists():
+        raise FileNotFoundError(f"Disorder directory does not exist: {disorder_dir}")
+
+    literal_candidates = [
+        reference_text,
+        f"{reference_text}.yaml",
+        reference_text.replace(" ", "_"),
+        f"{reference_text.replace(' ', '_')}.yaml",
+    ]
+    for candidate in literal_candidates:
+        candidate_path = disorder_dir / candidate
+        if candidate_path.exists() and candidate_path.is_file():
+            slug = candidate_path.stem
+            if slug.endswith(".history"):
+                slug = slug[: -len(".history")]
+            return slug, candidate_path.resolve()
+
+    disease_files = _iter_disease_files(disorder_dir)
+
+    if ":" in reference_text:
+        ref_upper = reference_text.upper()
+        matches: list[Path] = []
+        for disease_file in disease_files:
+            disease_model = _load_disease_yaml(disease_file)
+            term_id = _get_mondo_id(disease_model)
+            if term_id and term_id.upper() == ref_upper:
+                matches.append(disease_file)
+        if len(matches) == 1:
+            return matches[0].stem, matches[0].resolve()
+        if len(matches) > 1:
+            raise ValueError(
+                f"Disease reference '{reference_text}' matched multiple disease files: "
+                + ", ".join(path.name for path in matches)
+            )
+
+    normalized_ref = _normalize_disease_lookup(reference_text)
+    name_matches: list[Path] = []
+    for disease_file in disease_files:
+        disease_model = _load_disease_yaml(disease_file)
+        disease_name = disease_model.get("name")
+        if (
+            _normalize_disease_lookup(str(disease_name) if disease_name else "")
+            == normalized_ref
+        ):
+            name_matches.append(disease_file)
+            continue
+        if _normalize_disease_lookup(disease_file.stem) == normalized_ref:
+            name_matches.append(disease_file)
+
+    if len(name_matches) == 1:
+        return name_matches[0].stem, name_matches[0].resolve()
+    if len(name_matches) > 1:
+        raise ValueError(
+            f"Disease reference '{reference_text}' is ambiguous; matches: "
+            + ", ".join(path.name for path in name_matches)
+        )
+
+    raise FileNotFoundError(
+        f"Could not resolve disease reference '{reference_text}' as a path, slug, id, or name in {disorder_dir}"
+    )
+
+
+def _normalize_disease_lookup(value: str | None) -> str:
+    """Normalize disease names/slugs for tolerant lookup."""
+    if not value:
+        return ""
+    compact = value.casefold().replace("_", " ").replace("-", " ")
+    return " ".join(compact.split())
 
 
 # ---------------------------------------------------------------------------
@@ -779,6 +868,13 @@ def _write_json(rows: list[dict[str, Any]], venn: dict[str, int], file=None) -> 
     out = file or sys.stdout
     json.dump({"table": rows, "venn_summary": venn}, out, indent=2)
     out.write("\n")
+
+
+def _open_output(output: str | None):
+    """Return a writable context manager for output or stdout."""
+    if output:
+        return open(output, "w", encoding="utf-8")
+    return nullcontext(sys.stdout)
 
 
 def _write_audit_tsv(rows: list[dict[str, Any]], file=None) -> None:
@@ -940,7 +1036,9 @@ def compare(
     disease_ref: str = typer.Argument(
         help="Disease slug, MONDO ID, name, or YAML path."
     ),
-    format: str = typer.Option("tsv", help="Output format: tsv, json, summary."),
+    output_format: str = typer.Option(
+        "tsv", "--format", help="Output format: tsv, json, summary."
+    ),
     output: str | None = typer.Option(None, help="Output file path (default: stdout)."),
     no_closure: bool = typer.Option(
         False, "--no-closure", help="Disable HPO closure matching."
@@ -952,21 +1050,17 @@ def compare(
     if not table:
         raise typer.Exit(1)
 
-    out_file = open(output, "w") if output else None
-    try:
-        if format == "tsv":
-            _write_tsv(table, file=out_file)
+    with _open_output(output) as out:
+        if output_format == "tsv":
+            _write_tsv(table, file=out)
             _write_summary(venn, disease_name)
-        elif format == "json":
-            _write_json(table, venn, file=out_file)
-        elif format == "summary":
-            _write_summary(venn, disease_name, file=out_file or sys.stdout)
+        elif output_format == "json":
+            _write_json(table, venn, file=out)
+        elif output_format == "summary":
+            _write_summary(venn, disease_name, file=out)
         else:
-            typer.echo(f"Unknown format: {format}", err=True)
+            typer.echo(f"Unknown format: {output_format}", err=True)
             raise typer.Exit(1)
-    finally:
-        if out_file:
-            out_file.close()
 
 
 @app.command()
@@ -974,7 +1068,9 @@ def audit(
     disease_ref: str = typer.Argument(
         help="Disease slug, MONDO ID, name, or YAML path."
     ),
-    format: str = typer.Option("tsv", help="Output format: tsv, json."),
+    output_format: str = typer.Option(
+        "tsv", "--format", help="Output format: tsv, json."
+    ),
     output: str | None = typer.Option(None, help="Output file path (default: stdout)."),
     no_closure: bool = typer.Option(
         False, "--no-closure", help="Disable HPO closure matching."
@@ -983,27 +1079,25 @@ def audit(
     """Audit one disease for phenotype completeness against OMIM/Orphanet."""
     rows, summary, disease_name = run_audit(disease_ref, use_closure=not no_closure)
 
-    out_file = open(output, "w") if output else None
-    try:
-        if format == "tsv":
-            _write_audit_tsv(rows, file=out_file)
+    with _open_output(output) as out:
+        if output_format == "tsv":
+            _write_audit_tsv(rows, file=out)
             typer.echo(
                 f"{disease_name}: {summary.get('total_issues', 0)} phenotype-completeness issues",
                 err=True,
             )
-        elif format == "json":
-            _write_audit_json(rows, summary, file=out_file)
+        elif output_format == "json":
+            _write_audit_json(rows, summary, file=out)
         else:
-            typer.echo(f"Unknown format: {format}", err=True)
+            typer.echo(f"Unknown format: {output_format}", err=True)
             raise typer.Exit(1)
-    finally:
-        if out_file:
-            out_file.close()
 
 
 @app.command()
 def compare_all(
-    format: str = typer.Option("tsv", help="Output format: tsv, json."),
+    output_format: str = typer.Option(
+        "tsv", "--format", help="Output format: tsv, json."
+    ),
     output: str | None = typer.Option(None, help="Output file path (default: stdout)."),
     no_closure: bool = typer.Option(
         False, "--no-closure", help="Disable HPO closure matching."
@@ -1055,34 +1149,31 @@ def compare_all(
         all_rows.extend(table)
         all_venns[slug] = venn
 
-    out_file = open(output, "w") if output else None
-    try:
-        if format == "tsv":
-            _write_tsv(all_rows, file=out_file)
+    with _open_output(output) as out:
+        if output_format == "tsv":
+            _write_tsv(all_rows, file=out)
             # Print per-disease summaries to stderr
             for slug, venn in all_venns.items():
                 _write_summary(venn, slug)
-        elif format == "json":
+        elif output_format == "json":
             combined = {
                 "diseases": all_venns,
                 "table": all_rows,
                 "total_diseases": len(all_venns),
                 "total_phenotypes": len(all_rows),
             }
-            out = out_file or sys.stdout
             json.dump(combined, out, indent=2)
             out.write("\n")
         else:
-            typer.echo(f"Unknown format: {format}", err=True)
+            typer.echo(f"Unknown format: {output_format}", err=True)
             raise typer.Exit(1)
-    finally:
-        if out_file:
-            out_file.close()
 
 
 @app.command()
 def audit_all(
-    format: str = typer.Option("tsv", help="Output format: tsv, json."),
+    output_format: str = typer.Option(
+        "tsv", "--format", help="Output format: tsv, json."
+    ),
     output: str | None = typer.Option(None, help="Output file path (default: stdout)."),
     no_closure: bool = typer.Option(
         False, "--no-closure", help="Disable HPO closure matching."
@@ -1236,22 +1327,18 @@ def audit_all(
     summary["error_count"] = len(errors)
     summary["errors"] = errors
 
-    out_file = open(output, "w") if output else None
-    try:
-        if format == "tsv":
-            _write_audit_tsv(all_rows, file=out_file)
+    with _open_output(output) as out:
+        if output_format == "tsv":
+            _write_audit_tsv(all_rows, file=out)
             typer.echo(
                 f"Audited {audited} diseases ({fetched} fetched, {reused} reused); found {summary['total_issues']} phenotype-completeness issues.",
                 err=True,
             )
-        elif format == "json":
-            _write_audit_json(all_rows, summary, file=out_file)
+        elif output_format == "json":
+            _write_audit_json(all_rows, summary, file=out)
         else:
-            typer.echo(f"Unknown format: {format}", err=True)
+            typer.echo(f"Unknown format: {output_format}", err=True)
             raise typer.Exit(1)
-    finally:
-        if out_file:
-            out_file.close()
 
 
 if __name__ == "__main__":
