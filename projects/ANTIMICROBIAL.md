@@ -1,6 +1,6 @@
 # Antimicrobial Therapy: Drug–Bug Mechanism Design Pattern
 
-## Status: Phase 0 — Strategy / Design Note
+## Status: Phase 1 — Strategy Note + Proof-of-Concept Module
 
 Recording the strategy for the treatment/action block of **bacterial infectious
 disease** entries. The same pattern generalizes to antifungal, antiparasitic, and
@@ -106,8 +106,17 @@ conserved-mechanism layer, no new top-level class needed.
 
 ## 7. Next Steps
 
-- [ ] Draft a `bacterial_cell_wall_synthesis_inhibition` and/or
-      `intracellular_pathogen_persistence` module as proof-of-concept.
+- [x] Draft a `bacterial_cell_wall_synthesis_inhibition` module as proof-of-concept.
+      Built at `kb/modules/bacterial_cell_wall_synthesis_inhibition.yaml`: five
+      nodes (precursor/lipid II synthesis → PBP cross-linking → bactericidal
+      autolysis, plus acquired-resistance and intrinsic cell-wall-deficient
+      gating branches). Schema + term validation pass; all evidence snippets are
+      verified exact substrings of real abstracts (Typas 22203377, Sauvage
+      18266856, Blair 25435309, Pereyre/Tardy 34680797, Kim 18302341). Key
+      conformance/treatment target: `#Peptidoglycan Cross-Linking by
+      Penicillin-Binding Proteins`.
+- [ ] Draft an `intracellular_pathogen_persistence` module (the lifestyle-gating
+      counterpart) covering the cell-penetrant-drug requirement.
 - [ ] Retrofit one existing entry (Leprosy or Murine_Typhus) with Tier-2
       `target_mechanisms` edges to demonstrate the pattern end-to-end.
 - [ ] Audit existing bacterial entries (Leprosy, Lyme_Disease, Murine_Typhus,
