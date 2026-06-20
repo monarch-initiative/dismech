@@ -1,6 +1,33 @@
 # Antimicrobial Therapy: Drug–Bug Mechanism Design Pattern
 
-## Status: Phase 1 — Strategy Note + Module + Conforming Entries
+## Status: Phase 1 — Strategy Note + 3 Modules + Conforming Entries
+
+## 0. Scope and Positioning (what this is and is NOT)
+
+This work is an **explanatory mechanism layer**, not a drug–indication database and
+not a clinical decision support system (DSS):
+
+- **Not duplicating drug-indication curation.** Other efforts already enumerate
+  *which* drugs treat *which* conditions (drug labels, DrugBank, DrugCentral,
+  ChEMBL indications, RxNorm/NDF-RT may-treat, DailyMed). dismech does not try to
+  recapitulate that catalogue. Its contribution is to *explain* those
+  associations mechanistically — linking a treatment, via `target_mechanisms`, to
+  the specific pathophysiology node (drug target or gating principle) that makes
+  it work, and to make that explanation queryable and consistency-checkable
+  across diseases via shared modules.
+- **Not a DSS — claims must stay moderated.** Antibiotic decision support already
+  exists (institutional antibiograms/stewardship tools, IDSA guidelines, Sanford
+  Guide, UpToDate, local empiric-therapy pathways, CLSI/EUCAST breakpoints). We
+  should not position these modules as point-of-care prescribing guidance. At
+  most this is a *mechanistic substrate* that such tools could cite or build on;
+  the deliverable here is explanation and structured knowledge, not a
+  recommendation engine.
+- **Open question worth a short survey:** look at how existing DSSs and
+  knowledge bases (DrugMechDB for mechanism paths; guideline/stewardship tools
+  for drug–bug logic) represent this, to (a) borrow vocabulary and avoid
+  reinventing, and (b) sharpen where the *mechanistic-explanation* niche is
+  genuinely additive rather than overlapping. Tracked as a follow-up, not a
+  blocker.
 
 Recording the strategy for the treatment/action block of **bacterial infectious
 disease** entries. The same pattern generalizes to antifungal, antiparasitic, and
@@ -134,7 +161,28 @@ conserved-mechanism layer, no new top-level class needed.
       Oroya_Fever (intracellular Bartonella), Folliculitis (often topical/mixed).
       These are candidates for the future `intracellular_pathogen_persistence`
       and protein-synthesis-inhibitor modules instead.
-- [ ] Draft an `intracellular_pathogen_persistence` module (the lifestyle-gating
-      counterpart) covering the cell-penetrant-drug requirement (Murine_Typhus,
-      Oroya_Fever, Leprosy).
+- [x] Draft `bacterial_protein_synthesis_inhibition` module. Built at
+      `kb/modules/bacterial_protein_synthesis_inhibition.yaml`: three nodes
+      (ribosomal translation target → toxin/exoprotein-synthesis suppression →
+      ribosomal target resistance). Evidence: Wilson 24336183 (ribosome target +
+      resistance), Sawai 17101685 (clindamycin exoprotein suppression). Schema +
+      term validation pass.
+- [x] Draft `intracellular_pathogen_persistence` module (lifestyle-gating). Built
+      at `kb/modules/intracellular_pathogen_persistence.yaml`: two nodes
+      (intracellular niche / beta-lactam exclusion → cell-penetrant-drug
+      requirement). Evidence: Maurin & Raoult 18611821, Pea 28639230. Schema +
+      term validation pass.
+- [x] Multi-module conformers wired: **Murine_Typhus** (doxycycline) and
+      **Oroya_Fever** (chloramphenicol) each conform to BOTH the ribosome target
+      (`#Bacterial mRNA Translation by the Ribosome`) and the intracellular gating
+      node (`#Intracellular Niche and Beta-Lactam Exclusion`), demonstrating
+      composition of a target-based module with a pharmacokinetic-gating module.
+- [ ] Further ribosome conformers (doxycycline/macrolide first-line): Lyme_Disease,
+      Leptospirosis, Yaws, Whipple_Disease (doxycycline alternative regimen),
+      Scarlet_Fever (macrolide for penicillin allergy). Not yet wired.
+- [ ] The `#Suppression of Toxin and Exoprotein Synthesis` node has no conformer
+      yet — needs a toxin-mediated entry (necrotizing fasciitis / strep or staph
+      toxic shock), which does not currently exist in `kb/disorders/`.
+- [ ] Short survey of existing drug-mechanism KBs / DSSs (DrugMechDB, stewardship
+      tooling) — see §0; borrow vocabulary, sharpen the explanatory niche.
 - [ ] Record the per-disease-vs-module decision in the design register.
