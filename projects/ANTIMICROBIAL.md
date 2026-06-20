@@ -1,6 +1,25 @@
 # Antimicrobial Therapy: Drug–Bug Mechanism Design Pattern
 
-## Status: Phase 1 — Strategy Note + 3 Modules + Conforming Entries
+## Status: Phase 2 — Canonical Antibacterial Target-Class Module Set Complete
+
+Six antimicrobial mechanism modules now cover the major antibacterial target
+classes plus the lifestyle-gating axis:
+
+| Module | Target / principle | Drug classes | Example conformers |
+|---|---|---|---|
+| `bacterial_cell_wall_synthesis_inhibition` | PBP transpeptidation, lipid II | beta-lactams, glycopeptides | Lyme, Scarlet, Bejel, Pinta, Whipple, Paratyphoid, Ludwig's, meningitis, C. diff, Furunculosis, Leptospirosis |
+| `bacterial_protein_synthesis_inhibition` | 70S ribosome; toxin-synthesis suppression | tetracyclines, macrolides, aminoglycosides, lincosamides, chloramphenicol, oxazolidinones | Murine Typhus, Oroya, Lyme, Leptospirosis, Yaws, Whipple, Scarlet |
+| `bacterial_dna_topoisomerase_inhibition` | DNA gyrase / topo IV | fluoroquinolones | Travelers' Diarrhea |
+| `bacterial_rna_polymerase_inhibition` | RpoB | rifamycins | Leprosy, Buruli Ulcer |
+| `bacterial_folate_synthesis_inhibition` | DHPS / DHFR | sulfonamides, dapsone, trimethoprim | Leprosy, Whipple |
+| `intracellular_pathogen_persistence` | PK gating (cell penetration) | doxycycline/macrolide/FQ/rifamycin required | Murine Typhus, Oroya, Leprosy |
+
+**Multi-module conformers** (the payoff — one disease, several independent
+mechanistic constraints):
+- **Leprosy**: RNA polymerase (rifampicin) + folate/DHPS (dapsone) + intracellular niche (M. leprae)
+- **Whipple**: cell wall (ceftriaxone) + ribosome (doxycycline) + folate (TMP-SMX)
+- **Murine Typhus / Oroya Fever**: ribosome (doxycycline/chloramphenicol) + intracellular niche
+- **Leptospirosis**: ribosome (doxycycline) + cell wall (penicillin/ceftriaxone)
 
 ## 0. Scope and Positioning (what this is and is NOT)
 
@@ -177,9 +196,15 @@ conserved-mechanism layer, no new top-level class needed.
       (`#Bacterial mRNA Translation by the Ribosome`) and the intracellular gating
       node (`#Intracellular Niche and Beta-Lactam Exclusion`), demonstrating
       composition of a target-based module with a pharmacokinetic-gating module.
-- [ ] Further ribosome conformers (doxycycline/macrolide first-line): Lyme_Disease,
-      Leptospirosis, Yaws, Whipple_Disease (doxycycline alternative regimen),
-      Scarlet_Fever (macrolide for penicillin allergy). Not yet wired.
+- [x] Built the remaining target-class modules: `bacterial_dna_topoisomerase_inhibition`
+      (fluoroquinolone), `bacterial_rna_polymerase_inhibition` (rifamycin), and
+      `bacterial_folate_synthesis_inhibition` (sulfonamide/trimethoprim/dapsone).
+      Evidence: Hooper & Jacoby 27449972, Mosaei & Zenkin 32342856, Capasso &
+      Supuran 23627736, Bourne 27025730. All pass schema + term validation.
+- [x] Wired remaining ribosome conformers (Lyme, Leptospirosis, Yaws, Whipple,
+      Scarlet), plus fluoroquinolone (Travelers' Diarrhea), rifamycin (Leprosy,
+      Buruli), folate (Leprosy, Whipple), and a fixed cell-wall link on Whipple
+      (its earlier node had no treatment edge — now corrected).
 - [ ] The `#Suppression of Toxin and Exoprotein Synthesis` node has no conformer
       yet — needs a toxin-mediated entry (necrotizing fasciitis / strep or staph
       toxic shock), which does not currently exist in `kb/disorders/`.
