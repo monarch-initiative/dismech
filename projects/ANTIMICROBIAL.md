@@ -1,6 +1,6 @@
 # Antimicrobial Therapy: Drug–Bug Mechanism Design Pattern
 
-## Status: Phase 1 — Strategy Note + Proof-of-Concept Module
+## Status: Phase 1 — Strategy Note + Module + Conforming Entries
 
 Recording the strategy for the treatment/action block of **bacterial infectious
 disease** entries. The same pattern generalizes to antifungal, antiparasitic, and
@@ -115,10 +115,26 @@ conserved-mechanism layer, no new top-level class needed.
       18266856, Blair 25435309, Pereyre/Tardy 34680797, Kim 18302341). Key
       conformance/treatment target: `#Peptidoglycan Cross-Linking by
       Penicillin-Binding Proteins`.
+- [x] Wire conforming entries end-to-end. Ten bacterial-disease entries now carry
+      a drug-target pathophysiology node with `conforms_to` the module plus a
+      treatment `target_mechanisms` edge to that node:
+      - **β-lactam → PBP cross-linking node**: Lyme_Disease (amoxicillin,
+        ceftriaxone), Scarlet_Fever (penicillin), Bejel + Pinta (benzylpenicillin),
+        Whipple_Disease (ceftriaxone), Paratyphoid_Fever (ceftriaxone),
+        Ludwigs_Angina (penicillin), Bacterial_meningitis (ceftriaxone).
+      - **glycopeptide → lipid II / precursor node**: Clostridioides_difficile
+        (oral vancomycin), Bacterial_meningitis (vancomycin, second node).
+      - **acquired-resistance node**: Furunculosis models both the β-lactam target
+        (oxacillin/MSSA) and the `Acquired Resistance and Drug Inactivation` node
+        (PBP2a/MRSA → vancomycin substitution), the clearest drug-choice gating case.
+      All ten pass schema + term validation.
+- [ ] Deliberately **excluded** (primary therapy is not a cell-wall agent, so they
+      do not conform to this module): Leptospirosis, Yaws (doxycycline/azithromycin
+      first-line), Tetanus (metronidazole + antitoxin; β-lactam adjunct only),
+      Oroya_Fever (intracellular Bartonella), Folliculitis (often topical/mixed).
+      These are candidates for the future `intracellular_pathogen_persistence`
+      and protein-synthesis-inhibitor modules instead.
 - [ ] Draft an `intracellular_pathogen_persistence` module (the lifestyle-gating
-      counterpart) covering the cell-penetrant-drug requirement.
-- [ ] Retrofit one existing entry (Leprosy or Murine_Typhus) with Tier-2
-      `target_mechanisms` edges to demonstrate the pattern end-to-end.
-- [ ] Audit existing bacterial entries (Leprosy, Lyme_Disease, Murine_Typhus,
-      Oroya_Fever, Paratyphoid_Fever, Ainhum) for the drug-target node gap.
+      counterpart) covering the cell-penetrant-drug requirement (Murine_Typhus,
+      Oroya_Fever, Leprosy).
 - [ ] Record the per-disease-vs-module decision in the design register.
