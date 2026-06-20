@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02871778
+reference_id: "clinicaltrials:NCT02871778"
 title: "A Phase 2a, 2-part,Randomized, Double-blind, Placebo-controlled, Incomplete Block Crossover Study to Evaluate the Safety and Efficacy of VX-371 Solution for Inhalation With and Without Oral Ivacaftor in Subjects With Primary Ciliary Dyskinesia"
 content_type: summary
 ---
