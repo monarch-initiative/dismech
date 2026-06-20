@@ -1,37 +1,34 @@
 ---
-name: Generate Pages
+name: Generate Grouping Pages
+
+# Grouping pages re-parse every disorder YAML to build their MONDO-coverage and
+# member-audit tables, so a full regeneration is expensive (~2.5 min). Rather
+# than rerun on every disorder edit (the most frequent change in this repo),
+# this dedicated workflow regenerates grouping pages only when groupings or the
+# rendering code change, plus a daily schedule to absorb disorder-driven
+# coverage drift.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'kb/disorders/*.yaml'
-      - 'kb/comorbidities/*.yaml'
-      # Grouping pages are handled by generate-grouping-pages.yaml (they re-parse
-      # every disorder and so run on their own, less-frequent schedule).
-      - 'src/dismech/schema/**'
-      - 'src/dismech/templates/**'
+      - 'kb/groupings/*.yaml'
+      - 'src/dismech/groupings.py'
       - 'src/dismech/render.py'
-      - 'src/dismech/qc_dashboard.py'
-      - 'src/dismech/export.py'
-      - 'scripts/qc_uncurated_disease_links.py'
-      - 'conf/qc_config.yaml'
+      - 'src/dismech/schema/**'
+      - 'src/dismech/templates/grouping*.j2'
       - 'project.justfile'
-      - 'mkdocs.yml'
-      - 'docs/**'
+  schedule:
+    # Daily at 7:00 AM UTC to pick up disorder-driven coverage changes.
+    - cron: '0 7 * * *'
   workflow_dispatch:
-    inputs:
-      force:
-        description: 'Force run even if already ran today'
-        type: boolean
-        default: false
 
 concurrency:
-  group: generate-pages
+  group: generate-grouping-pages
   cancel-in-progress: true
 
 jobs:
-  generate-pages:
+  generate-grouping-pages:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -51,22 +48,22 @@ jobs:
           mapfile -t stale_prs < <(
             gh pr list \
               --repo "$GITHUB_REPOSITORY" \
-              --search 'is:open author:app/github-actions Regenerate pages' \
+              --search 'is:open author:app/github-actions Regenerate grouping pages' \
               --json number,createdAt \
               --limit 100 \
               --jq '.[] | select((now - (.createdAt | fromdateiso8601)) >= 3600) | .number'
           )
 
           if [ "${#stale_prs[@]}" -eq 0 ]; then
-            echo "No stale regen PRs to close."
+            echo "No stale grouping regen PRs to close."
             exit 0
           fi
 
           for pr_number in "${stale_prs[@]}"; do
-            echo "Closing stale regen PR #$pr_number"
+            echo "Closing stale grouping regen PR #$pr_number"
             gh pr close "$pr_number" \
               --repo "$GITHUB_REPOSITORY" \
-              --comment "Superseded by a newer automated pages regeneration run."
+              --comment "Superseded by a newer automated grouping pages regeneration run."
           done
 
       - name: Install uv
@@ -85,33 +82,18 @@ jobs:
       - name: Install project
         run: uv sync --dev
 
-      - name: Generate static HTML pages
-        run: just gen-pages
-
-      - name: Generate browser data
-        run: just gen-browser-data
-
-      - name: Generate pathograph artifact
-        run: just gen-pathographs
-
-      - name: Generate compliance dashboard
-        run: just gen-dashboard
-
-      - name: Generate priority dashboard
-        run: just gen-priority-dashboard
-
-      - name: Generate schema docs site
-        run: just gen-schema-docs
+      - name: Generate grouping HTML pages
+        run: just gen-grouping-pages
 
       - name: Check for changes
         id: check-changes
         run: |
-          if git diff --quiet pages/ app/data.js pathographs/ dashboard/ elements/; then
+          if git diff --quiet pages/groupings/; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
             echo "Changed files:"
-            git diff --stat pages/ app/data.js pathographs/ dashboard/ elements/
+            git diff --stat pages/groupings/
           fi
 
       - name: Create or update Pull Request
@@ -123,29 +105,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          BRANCH_NAME="auto/generate-pages"
+          BRANCH_NAME="auto/generate-grouping-pages"
           git checkout -B "$BRANCH_NAME"
 
-          git add pages/ app/data.js pathographs/ dashboard/ elements/
+          git add pages/groupings/
 
-          PAGE_COUNT=$(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ')
-          COMORB_PAGE_COUNT=$(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ')
           GROUPING_PAGE_COUNT=$(ls -1 pages/groupings/*.html 2>/dev/null | wc -l | tr -d ' ')
-          DISORDER_COUNT=$(ls -1 kb/disorders/*.yaml 2>/dev/null | wc -l | tr -d ' ')
-          COMORB_COUNT=$(ls -1 kb/comorbidities/*.yaml 2>/dev/null | wc -l | tr -d ' ')
           GROUPING_COUNT=$(ls -1 kb/groupings/*.yaml 2>/dev/null | wc -l | tr -d ' ')
 
           git commit -m "$(cat <<EOF
-          Regenerate pages, app data, dashboard, and schema docs
+          Regenerate grouping pages
 
-          - $PAGE_COUNT disorder HTML pages
-          - $COMORB_PAGE_COUNT comorbidity HTML pages
-          - $GROUPING_PAGE_COUNT grouping HTML pages
-          - Browser app data.js
-          - Compliance dashboard
-          - Schema docs site (MkDocs)
+          - $GROUPING_PAGE_COUNT grouping HTML pages from $GROUPING_COUNT groupings
 
-          Triggered by changes to KB or templates.
+          Triggered by changes to groupings/render code or the daily schedule.
           EOF
           )"
 
@@ -169,20 +142,20 @@ jobs:
             --jq '.[0].number // empty')"
 
           if [ -n "$EXISTING_BRANCH_PR_NUMBER" ]; then
-            echo "Updated existing regen PR #$EXISTING_BRANCH_PR_NUMBER; enabling auto-merge."
+            echo "Updated existing grouping regen PR #$EXISTING_BRANCH_PR_NUMBER; enabling auto-merge."
             enable_auto_merge "$EXISTING_BRANCH_PR_NUMBER"
             exit 0
           fi
 
           RECENT_REGEN_PR_NUMBER="$(gh pr list \
             --repo "$GITHUB_REPOSITORY" \
-            --search 'is:open author:app/github-actions Regenerate pages' \
+            --search 'is:open author:app/github-actions Regenerate grouping pages' \
             --json number,createdAt,headRefName \
             --limit 100 \
             --jq '[.[] | select(.headRefName != "'"$BRANCH_NAME"'" and (now - (.createdAt | fromdateiso8601)) < 3600)][0].number // empty')"
 
           if [ -n "$RECENT_REGEN_PR_NUMBER" ]; then
-            echo "Recent regen PR #$RECENT_REGEN_PR_NUMBER already exists; skipping PR creation for $BRANCH_NAME."
+            echo "Recent grouping regen PR #$RECENT_REGEN_PR_NUMBER already exists; skipping PR creation for $BRANCH_NAME."
             exit 0
           fi
 
@@ -190,44 +163,32 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --base main \
             --head "$BRANCH_NAME" \
-            --title "📄 Regenerate pages, dashboard, and schema docs ($(date +%Y-%m-%d))" \
+            --title "📄 Regenerate grouping pages ($(date +%Y-%m-%d))" \
             --body "$(cat <<EOF
           ## Summary
 
-          Automated regeneration of static assets after KB or template changes.
+          Automated regeneration of disease grouping HTML pages.
 
           ## Generated Assets
 
           | Asset | Count/Status |
           |-------|--------------|
-          | Disorder HTML pages | $PAGE_COUNT |
-          | Comorbidity HTML pages | $COMORB_PAGE_COUNT |
           | Grouping HTML pages | $GROUPING_PAGE_COUNT |
-          | Disorders in KB | $DISORDER_COUNT |
-          | Comorbidities in KB | $COMORB_COUNT |
           | Groupings in KB | $GROUPING_COUNT |
-          | Browser data.js | ✅ |
-          | Compliance dashboard | ✅ |
-          | Schema docs site | ✅ |
 
           ## Trigger
 
-          This PR was triggered by changes to:
-          - \`kb/disorders/*.yaml\` - disorder data files
-          - \`kb/comorbidities/*.yaml\` - comorbidity data files
+          This PR was triggered by changes to groupings or rendering code, or the
+          daily schedule that refreshes disorder-driven coverage tables:
           - \`kb/groupings/*.yaml\` - disease grouping data files
-          - \`src/dismech/schema/**\` - LinkML schema files
-          - \`src/dismech/templates/**\` - Jinja2 templates
-          - \`src/dismech/render.py\` - rendering code
-          - \`src/dismech/export.py\` - export code
-          - \`conf/qc_config.yaml\` - QC configuration
-          - \`mkdocs.yml\` and \`docs/**\` - schema docs configuration/content
+          - \`src/dismech/groupings.py\` / \`src/dismech/render.py\` - grouping logic
+          - \`src/dismech/templates/grouping*.j2\` - grouping templates
+          - daily schedule (disorder MONDO-coverage / member-audit drift)
 
           ## Review
 
-          - [ ] Spot-check a few HTML pages render correctly
-          - [ ] Verify dashboard loads and shows charts
-          - [ ] Verify schema docs load at /elements/
+          - [ ] Spot-check a few grouping pages render correctly
+          - [ ] Verify the coverage/audit tables look right
           EOF
           )"
 
@@ -240,9 +201,9 @@ jobs:
             --jq '.[0].number // empty')"
 
           if [ -z "$CREATED_PR_NUMBER" ]; then
-            echo "Failed to resolve created regen PR number for $BRANCH_NAME."
+            echo "Failed to resolve created grouping regen PR number for $BRANCH_NAME."
             exit 1
           fi
 
-          echo "Created regen PR #$CREATED_PR_NUMBER; enabling auto-merge."
+          echo "Created grouping regen PR #$CREATED_PR_NUMBER; enabling auto-merge."
           enable_auto_merge "$CREATED_PR_NUMBER"
