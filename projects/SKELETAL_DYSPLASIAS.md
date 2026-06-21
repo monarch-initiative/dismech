@@ -1,3 +1,17 @@
+---
+title: Skeletal Dysplasias Curation Project
+status: IN_PROGRESS
+description: 'Comprehensive curation of skeletal dysplasias for the dismech knowledge base, prioritizing genetic skeletal disorders with defined molecular pathogenesis and clear genotype-phenotype correlations. This project focuses on disorders where: 1. Single-gene or well-defined genetic drivers are establis...'
+diseases:
+- Collagenous_Sprue
+- Ehlers-Danlos_Syndrome
+- Ehlers-Danlos_Syndrome_COL5A1-related
+- Fibrodysplasia_Ossificans_Progressiva
+- Marfan_Syndrome
+- Osteoarthritis
+- Osteoporosis
+---
+
 # Skeletal Dysplasias Curation Project
 
 ## Overview
