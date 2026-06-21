@@ -97,6 +97,16 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 - Generates browsable HTML pages in `pages/disorders/`
 - Links ontology terms to external browsers (HPO JAX, MONDO Monarch, OLS, etc.)
 
+### Curation Projects (`projects/*.md` → `pages/projects/`)
+- Thematic curation tracking files. A project may carry standardized YAML
+  frontmatter (`title`, `status`, `tags`, `description`, and entity lists:
+  `diseases`, `modules`, `groupings`, `drugs`, `phenotypes`).
+- Convention: refer to diseases/modules/groupings **by slug** in the markdown
+  body; declared slugs auto-link to their dismech pages on render (filename
+  refs like `Foo.yaml` and code blocks are left intact).
+- `just gen-project-pages` renders all projects plus an auto-generated index
+  (`pages/projects/index.html`). See [`docs/projects.md`](docs/projects.md).
+
 ### Scripts (`scripts/`)
 - `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
 
