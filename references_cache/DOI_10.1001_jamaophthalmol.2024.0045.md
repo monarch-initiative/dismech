@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1001/jamaophthalmol.2024.0045
+reference_id: "DOI:10.1001/jamaophthalmol.2024.0045"
 title: Multinational External Validation of Autonomous Retinopathy of Prematurity Screening
 authors:
 - Aaron S. Coyner
