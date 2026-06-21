@@ -3109,36 +3109,19 @@ def _project_summary(
     }
 
 
-def render_project(
+def _render_project_html(
     md_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
-    *,
-    disorders_dir: Path = Path("kb/disorders"),
-    modules_dir: Path = Path("kb/modules"),
-    groupings_dir: Path = Path("kb/groupings"),
-    by_name: dict[str, str] | None = None,
-    groupings_by_name: dict[str, str] | None = None,
+    metadata: dict,
+    body: str,
+    entities: dict[str, list[dict]],
+    output_path: Path,
+    template_path: Optional[Path],
 ) -> Path:
-    """Render a single curation-project markdown file to an HTML page.
+    """Render an already-parsed/resolved project to HTML and write it out.
 
-    ``by_name`` (disorder page index) and ``groupings_by_name`` may be passed
-    in by batch callers to avoid re-scanning the corpus for every project.
+    Split out so batch rendering can reuse the metadata/body/entities it has
+    already computed instead of re-reading and re-resolving each file.
     """
-    metadata, body = _split_front_matter(md_path.read_text())
-
-    if by_name is None:
-        _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
-    if groupings_by_name is None:
-        groupings_by_name = _build_groupings_page_index(groupings_dir)
-
-    entities = _resolve_project_entities(
-        metadata,
-        by_name=by_name,
-        modules_dir=modules_dir,
-        groupings_by_name=groupings_by_name,
-    )
-
     # Auto-link only entities that resolve to a page (local or external).
     link_map = {
         entry["token"]: (entry["href"], entry["label"])
@@ -3179,13 +3162,48 @@ def render_project(
         source_file=source_file,
     )
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_project(
+    md_path: Path,
+    output_path: Optional[Path] = None,
+    template_path: Optional[Path] = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+    modules_dir: Path = Path("kb/modules"),
+    groupings_dir: Path = Path("kb/groupings"),
+    by_name: dict[str, str] | None = None,
+    groupings_by_name: dict[str, str] | None = None,
+) -> Path:
+    """Render a single curation-project markdown file to an HTML page.
+
+    ``by_name`` (disorder page index) and ``groupings_by_name`` may be passed
+    in by batch callers to avoid re-scanning the corpus for every project.
+    """
+    metadata, body = _split_front_matter(md_path.read_text())
+
+    if by_name is None:
+        _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+    if groupings_by_name is None:
+        groupings_by_name = _build_groupings_page_index(groupings_dir)
+
+    entities = _resolve_project_entities(
+        metadata,
+        by_name=by_name,
+        modules_dir=modules_dir,
+        groupings_by_name=groupings_by_name,
+    )
+
     if output_path is None:
         output_path = Path("pages/projects") / f"{md_path.stem}.html"
     else:
         output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html)
-    return output_path
+    return _render_project_html(
+        md_path, metadata, body, entities, output_path, template_path
+    )
 
 
 def render_project_index(
@@ -3232,23 +3250,22 @@ def render_all_projects(
     output_files: list[Path] = []
     summaries: list[dict] = []
     for md_path in sorted(input_dir.glob("*.md")):
+        # Parse and resolve once, then reuse for both the page and the index
+        # summary (no second file read or entity resolution per project).
         metadata, body = _split_front_matter(md_path.read_text())
-        output_path = render_project(
-            md_path,
-            output_dir / f"{md_path.stem}.html",
-            template_path,
-            disorders_dir=disorders_dir,
-            modules_dir=modules_dir,
-            groupings_dir=groupings_dir,
-            by_name=by_name,
-            groupings_by_name=groupings_by_name,
-        )
-        # Re-resolve entities for the summary using the same prebuilt indexes.
         entities = _resolve_project_entities(
             metadata,
             by_name=by_name,
             modules_dir=modules_dir,
             groupings_by_name=groupings_by_name,
+        )
+        output_path = _render_project_html(
+            md_path,
+            metadata,
+            body,
+            entities,
+            output_dir / f"{md_path.stem}.html",
+            template_path,
         )
         summaries.append(_project_summary(md_path, metadata, body, entities))
         output_files.append(output_path)
