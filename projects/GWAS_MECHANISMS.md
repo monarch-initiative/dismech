@@ -1,3 +1,33 @@
+---
+title: 'GWAS Mechanisms: Gene-Program-Trait Causal Modeling'
+status: IN_PROGRESS
+description: 'Use DisMech as a validation/interpretation layer for computational pipelines that discover causal gene-to-trait relationships via GWAS, Perturb-seq, and causal modeling. The pilot application is the Ota et al. (Nature 2025) framework that builds three-layer causal graphs:'
+diseases:
+- Ankylosing_Spondylitis
+- Asthma
+- Atopic_Dermatitis
+- Autoimmune_Hemolytic_Anemia
+- Beta_Thalassemia
+- Chronic_Lymphocytic_Leukemia
+- Chronic_Myeloid_Leukemia
+- Essential_Thrombocythemia
+- Fanconi_Anemia
+- Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency
+- Hashimotos_Thyroiditis
+- Hemochromatosis
+- Hemophilia_A
+- Hemophilia_B
+- Immune_Thrombocytopenia
+- Multiple_Sclerosis
+- Polycythemia_Vera
+- Primary_Myelofibrosis
+- Psoriasis
+- Rheumatoid_Arthritis
+- Sickle_Cell_Disease
+- Systemic_Lupus_Erythematosus
+- Ulcerative_Colitis
+---
+
 # GWAS Mechanisms: Gene-Program-Trait Causal Modeling
 
 ## Overview

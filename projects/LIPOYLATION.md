@@ -1,3 +1,13 @@
+---
+title: Mitochondrial Lipoylation Disorders
+status: IN_PROGRESS
+description: 'This project curates the three known disorders of the mitochondrial protein lipoylation pathway. Lipoylation is a post-translational modification essential for the function of four mitochondrial enzyme complexes: pyruvate dehydrogenase (PDH), alpha-ketoglutarate dehydrogenase (OGDH), branched-cha...'
+diseases:
+- Lipoic_Acid_Synthetase_Deficiency
+- Lipoyl_Transferase_1_Deficiency
+- NELABA
+---
+
 # Mitochondrial Lipoylation Disorders
 
 ## Overview

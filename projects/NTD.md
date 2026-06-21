@@ -1,3 +1,36 @@
+---
+title: Neglected Tropical Diseases Curation Project
+status: EVERGREEN
+description: Curate the WHO-recognized neglected tropical diseases (NTDs) in the Disorder Mechanisms Knowledge Base, with emphasis on pathogen life cycles, transmission routes, immune evasion, and chronic morbidity mechanisms. The current WHO list includes 21 diseases or disease groups, which maps to 22 KB fi...
+diseases:
+- Bejel
+- Buruli_Ulcer
+- Chagas_Disease
+- Chikungunya
+- Chromoblastomycosis
+- Cystic_Echinococcosis
+- Dengue
+- Dracunculiasis
+- Foodborne_Trematodiases
+- Human_African_Trypanosomiasis
+- Leishmaniasis
+- Leprosy
+- Lymphatic_Filariasis
+- Mycetoma
+- Noma
+- Onchocerciasis
+- Pinta
+- Polycystic_Echinococcosis
+- Rabies
+- Scabies
+- Schistosomiasis
+- Snakebite_Envenoming
+- Soil_Transmitted_Helminthiases
+- Taeniasis_Cysticercosis
+- Trachoma
+- Yaws
+---
+
 # Neglected Tropical Diseases Curation Project
 
 > **GitHub Epic**: https://github.com/monarch-initiative/dismech/issues/220

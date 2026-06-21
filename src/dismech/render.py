@@ -2928,6 +2928,355 @@ def render_all_groupings(
     return output_files
 
 
+# ---------------------------------------------------------------------------
+# Project pages (curation projects under projects/*.md)
+# ---------------------------------------------------------------------------
+
+# Frontmatter keys whose values are lists of entities, mapped to the kind of
+# local/external page each entity links to.
+_PROJECT_ENTITY_KINDS = ("diseases", "modules", "groupings", "drugs", "phenotypes")
+
+_PROJECT_STATUS_LABELS = {
+    "PLANNED": "Planned",
+    "IN_PROGRESS": "In progress",
+    "ACTIVE": "Active",
+    "COMPLETE": "Complete",
+    "EVERGREEN": "Evergreen",
+    "ARCHIVED": "Archived",
+}
+
+
+def _coerce_entity_entry(entry: object) -> dict | None:
+    """Normalize a frontmatter entity entry (string slug or mapping) to a dict.
+
+    Returns a dict with at least a ``token`` (the form written in the markdown
+    body) plus an optional ``id`` (CURIE) and ``label``.
+    """
+    if isinstance(entry, str):
+        token = entry.strip()
+        if not token:
+            return None
+        return {"token": token, "id": None, "label": _display_name_from_slug(token)}
+    if isinstance(entry, dict):
+        token = entry.get("slug") or entry.get("name") or entry.get("id")
+        token = str(token).strip() if token else ""
+        if not token:
+            return None
+        curie = entry.get("id")
+        label = entry.get("label") or entry.get("name") or _display_name_from_slug(token)
+        return {
+            "token": token,
+            "id": str(curie) if curie else None,
+            "label": str(label),
+            "note": entry.get("note"),
+        }
+    return None
+
+
+def _build_groupings_page_index(groupings_dir: Path) -> dict[str, str]:
+    """Build a normalized name/stem -> grouping page filename index."""
+    index: dict[str, str] = {}
+    if not groupings_dir.exists():
+        return index
+    for grouping_path in sorted(groupings_dir.glob("*.yaml")):
+        try:
+            grouping = load_grouping(grouping_path) or {}
+        except Exception:
+            continue
+        name = grouping.get("name") or grouping_path.stem
+        page = f"{slugify(str(name))}.html"
+        for candidate in (name, grouping_path.stem):
+            key = _normalize_disorder_lookup(str(candidate) if candidate else None)
+            if key:
+                index[key] = page
+    return index
+
+
+def _resolve_project_entities(
+    metadata: dict,
+    *,
+    by_name: dict[str, str],
+    modules_dir: Path,
+    groupings_by_name: dict[str, str],
+) -> dict[str, list[dict]]:
+    """Resolve frontmatter entity lists into render-ready records with hrefs.
+
+    Disease/module/grouping slugs resolve to local page hrefs (relative to a
+    project page in ``pages/projects/``); drugs/phenotypes resolve to external
+    ontology browser URLs when an ``id`` CURIE is supplied. ``by_name`` and
+    ``groupings_by_name`` are prebuilt page indexes so batch rendering avoids
+    re-scanning the (large) disorder corpus per project.
+    """
+    resolved: dict[str, list[dict]] = {kind: [] for kind in _PROJECT_ENTITY_KINDS}
+    for kind in _PROJECT_ENTITY_KINDS:
+        for raw in metadata.get(kind, []) or []:
+            entry = _coerce_entity_entry(raw)
+            if entry is None:
+                continue
+            href: str | None = None
+            local = False
+            if kind == "diseases":
+                href = _resolve_local_disorder_slug_href(
+                    entry["token"], by_name, local_prefix="../disorders/"
+                )
+                local = href is not None
+            elif kind == "modules":
+                if (modules_dir / f"{entry['token']}.yaml").exists():
+                    href = f"../modules/{entry['token']}.html"
+                    local = True
+            elif kind == "groupings":
+                page = groupings_by_name.get(_normalize_disorder_lookup(entry["token"]))
+                if page:
+                    href = f"../groupings/{page}"
+                    local = True
+            if href is None and entry.get("id"):
+                external = curie_to_url(entry["id"])
+                if external:
+                    href = external
+            entry["href"] = href
+            entry["local"] = local
+            entry["unresolved"] = href is None
+            resolved[kind].append(entry)
+    return resolved
+
+
+def _autolink_project_body(body: str, link_map: dict[str, tuple[str, str]]) -> str:
+    """Wrap declared entity slug tokens in the markdown body with links.
+
+    Only tokens declared in the project frontmatter (and resolving to a page)
+    are linked, and only outside fenced/inline code and existing links.
+    """
+    if not link_map:
+        return body
+
+    tokens = sorted(link_map, key=len, reverse=True)
+    # Boundaries reject word chars, existing-link/code delimiters, and a
+    # trailing "." so filename references (e.g. Lynch_Syndrome.yaml) and anchor
+    # paths are left untouched.
+    pattern = re.compile(
+        r"(?<![\w/\[`#.-])(" + "|".join(re.escape(t) for t in tokens) + r")(?![\w`\]./-])"
+    )
+
+    def _sub(match: re.Match) -> str:
+        href, label = link_map[match.group(1)]
+        return f"[{label}]({href})"
+
+    def _autolink_line(line: str) -> str:
+        # Protect inline code spans from substitution.
+        parts = re.split(r"(`[^`]*`)", line)
+        for index, part in enumerate(parts):
+            if part.startswith("`"):
+                continue
+            parts[index] = pattern.sub(_sub, part)
+        return "".join(parts)
+
+    out_lines: list[str] = []
+    in_fence = False
+    for line in body.split("\n"):
+        stripped = line.lstrip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_fence = not in_fence
+            out_lines.append(line)
+            continue
+        out_lines.append(line if in_fence else _autolink_line(line))
+    return "\n".join(out_lines)
+
+
+def _project_summary(
+    md_path: Path,
+    metadata: dict,
+    body: str,
+    entities: dict[str, list[dict]],
+) -> dict:
+    """Build the index-card summary for a single project."""
+    title = (
+        metadata.get("title")
+        or _extract_display_title(body, md_path.stem)
+        or _display_name_from_slug(md_path.stem)
+    )
+    status = str(metadata.get("status") or "").upper()
+    counts = {kind: len(entities.get(kind, [])) for kind in _PROJECT_ENTITY_KINDS}
+    return {
+        "id": md_path.stem,
+        "href": f"{md_path.stem}.html",
+        "title": title,
+        "description": metadata.get("description"),
+        "status": status,
+        "status_label": _PROJECT_STATUS_LABELS.get(status, status.title() or None),
+        "tags": [str(tag) for tag in (metadata.get("tags") or [])],
+        "counts": counts,
+        "entity_total": sum(counts.values()),
+    }
+
+
+def _render_project_html(
+    md_path: Path,
+    metadata: dict,
+    body: str,
+    entities: dict[str, list[dict]],
+    output_path: Path,
+    template_path: Optional[Path],
+) -> Path:
+    """Render an already-parsed/resolved project to HTML and write it out.
+
+    Split out so batch rendering can reuse the metadata/body/entities it has
+    already computed instead of re-reading and re-resolving each file.
+    """
+    # Auto-link only entities that resolve to a page (local or external).
+    link_map = {
+        entry["token"]: (entry["href"], entry["label"])
+        for kind in _PROJECT_ENTITY_KINDS
+        for entry in entities[kind]
+        if entry.get("href")
+    }
+    linked_body = _autolink_project_body(body, link_map)
+
+    md = markdown_lib.Markdown(extensions=["tables", "fenced_code", "toc", "sane_lists"])
+    body_html = md.convert(linked_body)
+
+    summary = _project_summary(md_path, metadata, body, entities)
+
+    if template_path is None:
+        template_dir = Path(__file__).parent / "templates"
+        template_name = "project.html.j2"
+    else:
+        template_dir = template_path.parent
+        template_name = template_path.name
+
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    env.filters["curie_to_url"] = curie_to_url
+    template = env.get_template(template_name)
+
+    source_file = (
+        "https://github.com/monarch-initiative/dismech/blob/main/"
+        f"projects/{md_path.name}"
+    )
+    html = template.render(
+        project=summary,
+        metadata=metadata,
+        entities=entities,
+        body_html=body_html,
+        source_file=source_file,
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_project(
+    md_path: Path,
+    output_path: Optional[Path] = None,
+    template_path: Optional[Path] = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+    modules_dir: Path = Path("kb/modules"),
+    groupings_dir: Path = Path("kb/groupings"),
+    by_name: dict[str, str] | None = None,
+    groupings_by_name: dict[str, str] | None = None,
+) -> Path:
+    """Render a single curation-project markdown file to an HTML page.
+
+    ``by_name`` (disorder page index) and ``groupings_by_name`` may be passed
+    in by batch callers to avoid re-scanning the corpus for every project.
+    """
+    metadata, body = _split_front_matter(md_path.read_text())
+
+    if by_name is None:
+        _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+    if groupings_by_name is None:
+        groupings_by_name = _build_groupings_page_index(groupings_dir)
+
+    entities = _resolve_project_entities(
+        metadata,
+        by_name=by_name,
+        modules_dir=modules_dir,
+        groupings_by_name=groupings_by_name,
+    )
+
+    if output_path is None:
+        output_path = Path("pages/projects") / f"{md_path.stem}.html"
+    else:
+        output_path = Path(output_path)
+    return _render_project_html(
+        md_path, metadata, body, entities, output_path, template_path
+    )
+
+
+def render_project_index(
+    projects: list[dict],
+    output_path: Path = Path("pages/projects/index.html"),
+) -> Path:
+    """Render the curation-project index page."""
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("project_index.html.j2")
+    sorted_projects = sorted(
+        projects, key=lambda project: str(project.get("title") or "").casefold()
+    )
+    all_tags = sorted({tag for project in projects for tag in project.get("tags", [])})
+    html = template.render(projects=sorted_projects, all_tags=all_tags)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_projects(
+    input_dir: Path = Path("projects"),
+    output_dir: Path = Path("pages/projects"),
+    template_path: Optional[Path] = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+    modules_dir: Path = Path("kb/modules"),
+    groupings_dir: Path = Path("kb/groupings"),
+) -> list[Path]:
+    """Render every top-level ``projects/*.md`` page plus the project index."""
+    if not input_dir.exists():
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build the (expensive) page indexes once and reuse for every project so the
+    # disorder corpus is scanned a single time, and the index summaries resolve
+    # groupings with the same index the per-project pages use.
+    _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+    groupings_by_name = _build_groupings_page_index(groupings_dir)
+
+    output_files: list[Path] = []
+    summaries: list[dict] = []
+    for md_path in sorted(input_dir.glob("*.md")):
+        # Parse and resolve once, then reuse for both the page and the index
+        # summary (no second file read or entity resolution per project).
+        metadata, body = _split_front_matter(md_path.read_text())
+        entities = _resolve_project_entities(
+            metadata,
+            by_name=by_name,
+            modules_dir=modules_dir,
+            groupings_by_name=groupings_by_name,
+        )
+        output_path = _render_project_html(
+            md_path,
+            metadata,
+            body,
+            entities,
+            output_dir / f"{md_path.stem}.html",
+            template_path,
+        )
+        summaries.append(_project_summary(md_path, metadata, body, entities))
+        output_files.append(output_path)
+        print(f"Rendered project: {md_path.stem} -> {output_path}")
+
+    index_path = render_project_index(summaries, output_dir / "index.html")
+    output_files.append(index_path)
+    print(f"Rendered project index -> {index_path}")
+    return output_files
+
+
 def _load_schema() -> dict:
     schema_path = Path(__file__).parent / "schema" / "dismech.yaml"
     try:
@@ -3319,6 +3668,9 @@ def main():
         "--grouping", action="store_true", help="Render grouping page(s)"
     )
     parser.add_argument("--research", action="store_true", help="Render research index")
+    parser.add_argument(
+        "--project", action="store_true", help="Render curation-project page(s)"
+    )
     parser.add_argument("--output", "-o", help="Output path (file or directory)")
     parser.add_argument("--template", "-t", help="Custom template path")
 
@@ -3364,6 +3716,17 @@ def main():
         else:
             output_path = Path(args.output) if args.output else None
             result = render_grouping(input_path, output_path, template_path)
+            print(f"Generated: {result}")
+        return
+
+    if args.project:
+        input_path = Path(args.path) if args.path else Path("projects")
+        if input_path.is_dir():
+            output_dir = Path(args.output) if args.output else Path("pages/projects")
+            render_all_projects(input_path, output_dir, template_path)
+        else:
+            output_path = Path(args.output) if args.output else None
+            result = render_project(input_path, output_path, template_path)
             print(f"Generated: {result}")
         return
 

@@ -1,3 +1,9 @@
+---
+title: Childhood Cancer / CCDI Alignment Project
+status: IN_PROGRESS
+description: Explore how dismech can contribute to the childhood / pediatric / AYA cancer data ecosystem, with a focus on structured disease mechanism curation for pediatric malignancies and direct alignment with the NCI Childhood Cancer Data Initiative (CCDI).
+---
+
 # Childhood Cancer / CCDI Alignment Project
 
 ## Overview

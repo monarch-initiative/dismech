@@ -1,3 +1,9 @@
+---
+title: Organ Fibrosis Collaboration (Saez-Rodriguez Lab)
+status: IN_PROGRESS
+description: Integrate the dismech knowledge base with the cross-organ fibrosis atlas from the Saez-Rodriguez lab (Heidelberg / EMBL-EBI), an open single-cell resource mapping shared and organ-specific fibrotic gene programs across heart, liver, kidney, and lung.
+---
+
 # Organ Fibrosis Collaboration (Saez-Rodriguez Lab)
 
 ## Overview
