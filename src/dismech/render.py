@@ -2973,10 +2973,29 @@ def _coerce_entity_entry(entry: object) -> dict | None:
     return None
 
 
+def _build_groupings_page_index(groupings_dir: Path) -> dict[str, str]:
+    """Build a normalized name/stem -> grouping page filename index."""
+    index: dict[str, str] = {}
+    if not groupings_dir.exists():
+        return index
+    for grouping_path in sorted(groupings_dir.glob("*.yaml")):
+        try:
+            grouping = load_grouping(grouping_path) or {}
+        except Exception:
+            continue
+        name = grouping.get("name") or grouping_path.stem
+        page = f"{slugify(str(name))}.html"
+        for candidate in (name, grouping_path.stem):
+            key = _normalize_disorder_lookup(str(candidate) if candidate else None)
+            if key:
+                index[key] = page
+    return index
+
+
 def _resolve_project_entities(
     metadata: dict,
     *,
-    disorders_dir: Path,
+    by_name: dict[str, str],
     modules_dir: Path,
     groupings_by_name: dict[str, str],
 ) -> dict[str, list[dict]]:
@@ -2984,10 +3003,10 @@ def _resolve_project_entities(
 
     Disease/module/grouping slugs resolve to local page hrefs (relative to a
     project page in ``pages/projects/``); drugs/phenotypes resolve to external
-    ontology browser URLs when an ``id`` CURIE is supplied.
+    ontology browser URLs when an ``id`` CURIE is supplied. ``by_name`` and
+    ``groupings_by_name`` are prebuilt page indexes so batch rendering avoids
+    re-scanning the (large) disorder corpus per project.
     """
-    _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
-
     resolved: dict[str, list[dict]] = {kind: [] for kind in _PROJECT_ENTITY_KINDS}
     for kind in _PROJECT_ENTITY_KINDS:
         for raw in metadata.get(kind, []) or []:
@@ -3098,27 +3117,24 @@ def render_project(
     disorders_dir: Path = Path("kb/disorders"),
     modules_dir: Path = Path("kb/modules"),
     groupings_dir: Path = Path("kb/groupings"),
+    by_name: dict[str, str] | None = None,
+    groupings_by_name: dict[str, str] | None = None,
 ) -> Path:
-    """Render a single curation-project markdown file to an HTML page."""
+    """Render a single curation-project markdown file to an HTML page.
+
+    ``by_name`` (disorder page index) and ``groupings_by_name`` may be passed
+    in by batch callers to avoid re-scanning the corpus for every project.
+    """
     metadata, body = _split_front_matter(md_path.read_text())
 
-    groupings_by_name: dict[str, str] = {}
-    if groupings_dir.exists():
-        for grouping_path in sorted(groupings_dir.glob("*.yaml")):
-            try:
-                grouping = load_grouping(grouping_path) or {}
-            except Exception:
-                continue
-            name = grouping.get("name") or grouping_path.stem
-            page = f"{slugify(str(name))}.html"
-            for candidate in (name, grouping_path.stem):
-                key = _normalize_disorder_lookup(str(candidate) if candidate else None)
-                if key:
-                    groupings_by_name[key] = page
+    if by_name is None:
+        _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+    if groupings_by_name is None:
+        groupings_by_name = _build_groupings_page_index(groupings_dir)
 
     entities = _resolve_project_entities(
         metadata,
-        disorders_dir=disorders_dir,
+        by_name=by_name,
         modules_dir=modules_dir,
         groupings_by_name=groupings_by_name,
     )
@@ -3207,6 +3223,12 @@ def render_all_projects(
         return []
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Build the (expensive) page indexes once and reuse for every project so the
+    # disorder corpus is scanned a single time, and the index summaries resolve
+    # groupings with the same index the per-project pages use.
+    _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+    groupings_by_name = _build_groupings_page_index(groupings_dir)
+
     output_files: list[Path] = []
     summaries: list[dict] = []
     for md_path in sorted(input_dir.glob("*.md")):
@@ -3218,12 +3240,13 @@ def render_all_projects(
             disorders_dir=disorders_dir,
             modules_dir=modules_dir,
             groupings_dir=groupings_dir,
+            by_name=by_name,
+            groupings_by_name=groupings_by_name,
         )
-        # Re-resolve entities for the summary (cheap; keeps index consistent).
-        groupings_by_name: dict[str, str] = {}
+        # Re-resolve entities for the summary using the same prebuilt indexes.
         entities = _resolve_project_entities(
             metadata,
-            disorders_dir=disorders_dir,
+            by_name=by_name,
             modules_dir=modules_dir,
             groupings_by_name=groupings_by_name,
         )

@@ -23,6 +23,7 @@ def _fixture(tmp_path: Path) -> dict[str, Path]:
     groupings = tmp_path / "kb" / "groupings"
     _write_yaml(disorders / "Test_Disease.yaml", {"name": "Test Disease"})
     _write_yaml(modules / "test_module.yaml", {"name": "Test Module"})
+    _write_yaml(groupings / "Demo_Grouping.yaml", {"name": "Demo Grouping"})
     return {"disorders": disorders, "modules": modules, "groupings": groupings}
 
 
@@ -39,12 +40,14 @@ def test_render_project_autolinks_declared_slugs(tmp_path: Path) -> None:
         "  - Test_Disease\n"
         "modules:\n"
         "  - test_module\n"
+        "groupings:\n"
+        "  - Demo_Grouping\n"
         "drugs:\n"
         "  - id: CHEBI:45783\n"
         "    label: imatinib\n"
         "---\n\n"
         "# Demo Project\n\n"
-        "We curate Test_Disease using the test_module module.\n\n"
+        "We curate Test_Disease using the test_module module under Demo_Grouping.\n\n"
         "The source file is Test_Disease.yaml (must not be mangled).\n",
     )
 
@@ -61,6 +64,8 @@ def test_render_project_autolinks_declared_slugs(tmp_path: Path) -> None:
     # Body slug references are auto-linked to their dismech pages.
     assert 'href="../disorders/Test_Disease.html"' in html
     assert 'href="../modules/test_module.html"' in html
+    # Grouping slugs resolve to the grouping page (sidebar + body).
+    assert 'href="../groupings/Demo_Grouping.html"' in html
     # Filename references keep their extension intact (not auto-linked).
     assert "Test_Disease.yaml" in html
     # Sidebar resolves entities, including external drug CURIE.
@@ -69,13 +74,51 @@ def test_render_project_autolinks_declared_slugs(tmp_path: Path) -> None:
     assert "In progress" in html
 
 
+def test_render_project_does_not_link_inside_code(tmp_path: Path) -> None:
+    dirs = _fixture(tmp_path)
+    project_md = tmp_path / "projects" / "CODE.md"
+    _write(
+        project_md,
+        "---\n"
+        "title: Code Project\n"
+        "diseases:\n"
+        "  - Test_Disease\n"
+        "---\n\n"
+        "# Code Project\n\n"
+        "Inline `Test_Disease` stays literal.\n\n"
+        "```yaml\n"
+        "conforms_to: Test_Disease\n"
+        "```\n",
+    )
+
+    output = tmp_path / "out" / "CODE.html"
+    render_project(
+        project_md,
+        output,
+        disorders_dir=dirs["disorders"],
+        modules_dir=dirs["modules"],
+        groupings_dir=dirs["groupings"],
+    )
+    html = output.read_text()
+
+    # Isolate the rendered markdown body (the sidebar always links declared
+    # entities; code protection only concerns the body itself).
+    body_html = html.split('<article class="content">', 1)[1]
+
+    # The slug appears only in inline/fenced code, so it must not be linked
+    # in the body, but it must still be present as literal code text.
+    assert 'href="../disorders/Test_Disease.html"' not in body_html
+    assert "Test_Disease" in body_html
+
+
 def test_render_all_projects_builds_index(tmp_path: Path) -> None:
     dirs = _fixture(tmp_path)
     projects_dir = tmp_path / "projects"
     _write(
         projects_dir / "ALPHA.md",
         "---\ntitle: Alpha Project\nstatus: COMPLETE\n"
-        "diseases:\n  - Test_Disease\n---\n\n# Alpha Project\n",
+        "diseases:\n  - Test_Disease\n"
+        "groupings:\n  - Demo_Grouping\n---\n\n# Alpha Project\n",
     )
     _write(projects_dir / "BETA.md", "# Beta Project\n\nNo frontmatter here.\n")
 
@@ -95,3 +138,6 @@ def test_render_all_projects_builds_index(tmp_path: Path) -> None:
     # Falls back to the first H1 when no title frontmatter is given.
     assert 'href="BETA.html">Beta Project' in index_html
     assert "Complete" in index_html
+    # Index summaries must resolve groupings (regression: previously the index
+    # used an empty grouping index and always reported 0 groupings).
+    assert "1 grouping" in index_html
