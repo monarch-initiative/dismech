@@ -93,7 +93,6 @@ URI: [dismech:class/DiseaseClassifications](https://w3id.org/monarch-initiative/
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -121,8 +120,12 @@ URI: [dismech:class/DiseaseClassifications](https://w3id.org/monarch-initiative/
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

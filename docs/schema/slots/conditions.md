@@ -22,6 +22,7 @@ Alias: conditions
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [ExperimentalModel](../classes/ExperimentalModel.md) | A disease-relevant non-animal experimental model system |  no  |
 | [Dataset](../classes/Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
 
 
@@ -31,15 +32,29 @@ Alias: conditions
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Dataset](../classes/Dataset.md), [ExperimentalModel](../classes/ExperimentalModel.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -74,6 +89,7 @@ rank: 1000
 alias: conditions
 domain_of:
 - Dataset
+- ExperimentalModel
 range: string
 multivalued: true
 

@@ -22,12 +22,12 @@ Alias: classification_value
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [LysosomalStorageAssignment](../classes/LysosomalStorageAssignment.md) | Lysosomal storage disease biochemical classification assignment |  yes  |
+| [MechanisticNosologyAssignment](../classes/MechanisticNosologyAssignment.md) | Mechanistic/pathway-based disease classification assignment |  yes  |
+| [ChannelopathyAssignment](../classes/ChannelopathyAssignment.md) | Channelopathy organ system classification assignment |  yes  |
+| [ICDOMorphologyAssignment](../classes/ICDOMorphologyAssignment.md) | ICD-O morphology classification assignment for neoplastic diseases |  yes  |
 | [HarrisonsChapterAssignment](../classes/HarrisonsChapterAssignment.md) | Harrison's internal medicine chapter classification assignment |  yes  |
 | [IUISAssignment](../classes/IUISAssignment.md) | IUIS primary immunodeficiency classification assignment |  yes  |
-| [ChannelopathyAssignment](../classes/ChannelopathyAssignment.md) | Channelopathy organ system classification assignment |  yes  |
-| [MechanisticNosologyAssignment](../classes/MechanisticNosologyAssignment.md) | Mechanistic/pathway-based disease classification assignment |  yes  |
-| [ICDOMorphologyAssignment](../classes/ICDOMorphologyAssignment.md) | ICD-O morphology classification assignment for neoplastic diseases |  yes  |
-| [LysosomalStorageAssignment](../classes/LysosomalStorageAssignment.md) | Lysosomal storage disease biochemical classification assignment |  yes  |
 
 
 
@@ -36,13 +36,28 @@ Alias: classification_value
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [ICDOMorphologyAssignment](../classes/ICDOMorphologyAssignment.md), [HarrisonsChapterAssignment](../classes/HarrisonsChapterAssignment.md), [LysosomalStorageAssignment](../classes/LysosomalStorageAssignment.md), [MechanisticNosologyAssignment](../classes/MechanisticNosologyAssignment.md), [IUISAssignment](../classes/IUISAssignment.md), [ChannelopathyAssignment](../classes/ChannelopathyAssignment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

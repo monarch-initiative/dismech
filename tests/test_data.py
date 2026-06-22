@@ -816,7 +816,13 @@ def test_reference_range_on_biochemical_validates(validator):
                         "upper_bound": 5.0,
                         "unit": "mmol/L",
                         "population": "adults",
-                        "source": "KDIGO 2017",
+                        "evidence": [
+                            {
+                                "reference": "PMID:12345678",
+                                "supports": "SUPPORT",
+                                "snippet": "serum potassium reference interval",
+                            }
+                        ],
                     }
                 ],
             }
@@ -825,6 +831,105 @@ def test_reference_range_on_biochemical_validates(validator):
     report = validator.validate(data, target_class="Disease")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
+
+
+def test_reference_range_interpretation_bands_validate(validator):
+    """Graded interpretation bands on a ReferenceRange should pass validation."""
+    data = {
+        "name": "Test Disease",
+        "biochemical": [
+            {
+                "name": "Hemoglobin",
+                "reference_ranges": [
+                    {
+                        "loinc_term": {
+                            "id": "LOINC:718-7",
+                            "label": "Hemoglobin [Mass/volume] in Blood",
+                        },
+                        "lower_bound": 12.0,
+                        "upper_bound": 16.0,
+                        "unit": "g/dL",
+                        "population": "adult female",
+                        "interpretation_bands": [
+                            {
+                                "name": "Severe",
+                                "upper_bound": 8.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "CRITICAL_LOW",
+                                "severity": "SEVERE",
+                                "interpretation": "Severe anemia.",
+                            },
+                            {
+                                "name": "Moderate",
+                                "lower_bound": 8.0,
+                                "upper_bound": 11.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "LOW",
+                                "severity": "MODERATE",
+                            },
+                            {
+                                "name": "Mild",
+                                "lower_bound": 11.0,
+                                "upper_bound": 12.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "LOW",
+                                "severity": "MILD",
+                            },
+                            {
+                                "name": "Normal",
+                                "lower_bound": 12.0,
+                                "upper_bound": 16.0,
+                                "unit": "g/dL",
+                                "abnormal_flag": "NORMAL",
+                            },
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
+
+
+def test_reference_range_band_rejects_invalid_abnormal_flag():
+    """An out-of-enum abnormal_flag on a band must fail strict validation.
+
+    Uses a closed jsonschema validator because the lenient module-scoped
+    ``validator`` fixture does not enforce enum membership.
+    """
+    from linkml.validator import Validator as _Validator
+    from linkml.validator.plugins import JsonschemaValidationPlugin
+
+    strict = _Validator(
+        SCHEMA_PATH, validation_plugins=[JsonschemaValidationPlugin(closed=True)]
+    )
+    data = {
+        "name": "Test Disease",
+        "biochemical": [
+            {
+                "name": "Serum Calcium",
+                "reference_ranges": [
+                    {
+                        "lower_bound": 8.5,
+                        "upper_bound": 10.5,
+                        "unit": "mg/dL",
+                        "interpretation_bands": [
+                            {
+                                "name": "Bogus",
+                                "lower_bound": 10.5,
+                                "abnormal_flag": "PANIC",  # not in AbnormalFlagEnum
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    report = strict.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert errors, "Expected a validation error for an invalid abnormal_flag value"
 
 
 def test_disorder_count():
@@ -1037,6 +1142,82 @@ def test_grouping_three_valued_logic():
     # negated leaf flips.
     negated = dict(missing_gene, negated=True)
     assert _eval_node(negated, facts) is Satisfaction.SATISFIED
+
+
+def test_grouping_overlap_expands_nested_grouping_members():
+    """Overlap computation expands nested GROUPING members to disease entries."""
+    from dismech.groupings import (
+        DiseaseFacts,
+        compute_grouping_overlaps,
+        find_candidate_members,
+        grouping_disease_members,
+    )
+
+    groupings = {
+        "Child": {
+            "name": "Child",
+            "members": [
+                {"member": "B", "member_type": "DISEASE"},
+                {"member": "C", "member_type": "DISEASE"},
+            ],
+        },
+        "Crosscut": {
+            "name": "Crosscut",
+            "members": [
+                {"member": "C", "member_type": "DISEASE"},
+                {"member": "D", "member_type": "DISEASE"},
+            ],
+        },
+        "Far": {
+            "name": "Far",
+            "members": [{"member": "E", "member_type": "DISEASE"}],
+        },
+        "Parent": {
+            "name": "Parent",
+            "membership_criteria": [
+                {
+                    "criteria_semantics": "SUFFICIENT",
+                    "logic": {
+                        "criterion_predicate": "HAS_GENE",
+                        "gene": {"term": {"id": "hgnc:1"}},
+                    },
+                }
+            ],
+            "members": [
+                {"member": "A", "member_type": "DISEASE"},
+                {"member": "Child", "member_type": "GROUPING"},
+                {"member": "mechanism_module", "member_type": "MODULE"},
+            ],
+        },
+    }
+
+    assert grouping_disease_members("Parent", groupings) == {"A", "B", "C"}
+
+    overlaps = compute_grouping_overlaps(
+        groupings,
+        selected_names=["Child", "Crosscut", "Far", "Parent"],
+        include_zero=True,
+    )
+    by_pair = {(o.grouping_a, o.grouping_b): o for o in overlaps}
+
+    assert by_pair[("Child", "Parent")].shared_members == ("B", "C")
+    assert by_pair[("Child", "Parent")].relation == "A_SUBSET_B"
+    assert by_pair[("Child", "Crosscut")].shared_members == ("C",)
+    assert by_pair[("Child", "Crosscut")].relation == "PARTIAL_OVERLAP"
+    assert by_pair[("Far", "Parent")].overlap_count == 0
+    assert by_pair[("Far", "Parent")].relation == "DISJOINT"
+
+    nonzero = compute_grouping_overlaps(
+        groupings,
+        selected_names=["Child", "Crosscut", "Far", "Parent"],
+    )
+    assert all(o.overlap_count for o in nonzero)
+
+    index = {
+        name: DiseaseFacts(name=name, gene_ids={"hgnc:1"})
+        for name in ("A", "B", "C", "D")
+    }
+    assert find_candidate_members(groupings["Parent"], index, groupings) == ["D"]
 
 
 @pytest.mark.parametrize("filepath", GROUPING_FILES)

@@ -31,13 +31,28 @@ Alias: consistent
 
 ## Properties
 
-* Range: [MappingConsistencyEnum](../enums/MappingConsistencyEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [MappingConsistencyEnum](../enums/MappingConsistencyEnum.md) |
+| Domain Of | [MappingConsistency](../classes/MappingConsistency.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

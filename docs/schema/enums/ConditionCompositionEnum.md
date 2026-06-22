@@ -10,7 +10,6 @@ _Composition type for a composite condition descriptor_
 URI: [dismech:enum/ConditionCompositionEnum](https://w3id.org/monarch-initiative/dismech/enum/ConditionCompositionEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | SINGLE | None | Single condition (default) |
@@ -33,8 +32,12 @@ URI: [dismech:enum/ConditionCompositionEnum](https://w3id.org/monarch-initiative
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
