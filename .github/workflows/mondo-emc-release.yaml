@@ -1,0 +1,59 @@
+---
+name: Mondo EMC Export Release
+
+# Regenerates exports/mondo_emc.tsv on every published release and commits
+# the updated file back to the release tag so Mondo (or any other consumer)
+# can pin to a stable, versioned URL.
+
+on:  # yamllint disable-line rule:truthy
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  mondo-emc-export:
+    name: Generate Mondo EMC TSV and commit to release tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed to push the regenerated file back to the tag
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          # Fetch the full tag ref so we can push back to it
+          ref: ${{ github.ref }}
+          persist-credentials: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install just
+        run: uv tool install rust-just
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Generate Mondo EMC TSV
+        run: just export-mondo-tsv
+
+      - name: Commit updated exports/mondo_emc.tsv to release tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add exports/mondo_emc.tsv
+          if git diff --cached --quiet; then
+            echo "No changes to exports/mondo_emc.tsv — skipping commit."
+          else
+            git commit -m "chore: regenerate exports/mondo_emc.tsv for ${{ github.ref_name }}"
+            git push origin HEAD:${{ github.ref }}
+          fi
+
+      - name: Upload Mondo EMC TSV as release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: exports/mondo_emc.tsv

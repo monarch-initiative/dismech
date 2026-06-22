@@ -819,6 +819,14 @@ export-hpoa:
 export-disease-inventory output="output/disease_inventory.csv":
     uv run dismech-disease-inventory -i {{kb_dir}} -o {{output}}
 
+# Generate a Mondo EMC (Externally Managed Content) TSV for downstream Mondo ingest.
+# One row per disorder with an exactMatch Mondo mapping; columns: mondo_id,
+# mondo_label, dismech_definition, dismech_exact_synonyms, dismech_definition_pmid.
+# The output is committed to exports/mondo_emc.tsv so Mondo can pin to a release tag.
+[group('Export')]
+export-mondo-tsv output="exports/mondo_emc.tsv":
+    uv run python -m dismech.export.mondo_emc_export --kb-dir {{kb_dir}} --output {{output}}
+
 # ============== CX2 Export ==============
 
 cx2_output_dir := "output/cx2"
