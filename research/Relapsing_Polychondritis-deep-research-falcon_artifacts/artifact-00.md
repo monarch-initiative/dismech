@@ -1,0 +1,14 @@
+| Identifier system | Identifier/code | Label | Source (URL + publication/record date if available) | Notes |
+|---|---|---|---|---|
+| MeSH | D011081 | Polychondritis, Relapsing | ClinicalTrials.gov record NCT06873100, *Efficacy, Safety and Immunological Evaluation of Upadacitinib for Relapsing Polychondritis*; first posted 2025-03-12; https://clinicaltrials.gov/study/NCT06873100 (pqac-00000044, pqac-00000035) | Explicit MeSH term/ID present in trial metadata; canonical disease label in MeSH-formatted form. |
+| EFO | EFO_1001148 | relapsing polychondritis | Open Targets query result for “Relapsing polychondritis”; cited platform paper: Buniello et al., 2025; https://platform.opentargets.org/ (pqac-00000046) | Disease identifier returned by Open Targets; no associated targets were found in the retrieved snapshot. |
+| Abbreviation / synonym | RP | Relapsing polychondritis | Mertz et al., 2023, *Best Practice & Research Clinical Rheumatology*; 2023; DOI not fully available in retrieved text (pqac-00000048, pqac-00000047) | Common abbreviation used throughout recent reviews and trial records. |
+| Related term / subset label | — | VEXAS-relapsing polychondritis | Mertz et al., 2023, *Best Practice & Research Clinical Rheumatology*; 2023; DOI not fully available in retrieved text (pqac-00000048) | Used for the UBA1/VEXAS-associated RP subset; reflects an overlapping clinicogenetic entity rather than a formal ontology synonym. |
+| Related syndrome term | — | MAGIC syndrome | Mertz et al., 2023, *Best Practice & Research Clinical Rheumatology*; 2023; DOI not fully available in retrieved text (pqac-00000048) | “Mouth and genital ulcers with inflamed cartilage”; overlap syndrome relevant to RP differential diagnosis/phenotyping, not a direct synonym. |
+| ICD-10 | not retrieved in provided sources | — | Not retrieved in the provided evidence set (pqac-00000044, pqac-00000046) | Should be verified in ICD source databases before KB ingestion. |
+| ICD-11 | not retrieved in provided sources | — | Not retrieved in the provided evidence set (pqac-00000044, pqac-00000046) | Should be verified in ICD source databases before KB ingestion. |
+| Orphanet | not retrieved in provided sources | — | Not retrieved in the provided evidence set (pqac-00000044, pqac-00000046) | ORPHA code was requested but not available in the retrieved sources. |
+| MONDO | not retrieved in provided sources | — | Not retrieved in the provided evidence set (pqac-00000044, pqac-00000046) | MONDO cross-reference should be added from MONDO/OLS when available. |
+
+
+*Table: This table compiles the key identifiers and commonly used names for relapsing polychondritis that were explicitly retrievable from the provided sources. It also flags major ontology/code systems that were requested but not recovered in the evidence set, helping identify curation gaps for a knowledge-base entry.*

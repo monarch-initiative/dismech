@@ -31,13 +31,28 @@ Alias: iuis_category
 
 ## Properties
 
-* Range: [IUISAssignment](../classes/IUISAssignment.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [IUISAssignment](../classes/IUISAssignment.md) |
+| Domain Of | [DiseaseClassifications](../classes/DiseaseClassifications.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

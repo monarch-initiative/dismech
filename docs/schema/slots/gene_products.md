@@ -31,9 +31,22 @@ Alias: gene_products
 
 ## Properties
 
-* Range: [GeneProductDescriptor](../classes/GeneProductDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [GeneProductDescriptor](../classes/GeneProductDescriptor.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -45,8 +58,9 @@ Alias: gene_products
 | --- |
 | [{preferred_term: BCR-ABL1 fusion protein, term: {id: NCIT:C16325, label: BCR/ABL1 Fusion Protein}}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

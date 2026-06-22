@@ -17,8 +17,10 @@ Alias: unit
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [EpidemiologyInfo](../classes/EpidemiologyInfo.md) |  |  no  |
 | [ModelVariable](../classes/ModelVariable.md) | A variable in a computational model, identified by a human-readable name, wit... |  no  |
+| [ReferenceRange](../classes/ReferenceRange.md) | A population reference interval for a clinical laboratory analyte |  yes  |
+| [ReferenceRangeBand](../classes/ReferenceRangeBand.md) | A single graded interpretation band within a reference range, mapping a value... |  yes  |
+| [EpidemiologyInfo](../classes/EpidemiologyInfo.md) |  |  no  |
 
 
 
@@ -27,7 +29,21 @@ Alias: unit
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [ModelVariable](../classes/ModelVariable.md), [ReferenceRangeBand](../classes/ReferenceRangeBand.md), [ReferenceRange](../classes/ReferenceRange.md), [EpidemiologyInfo](../classes/EpidemiologyInfo.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -39,8 +55,9 @@ Alias: unit
 | --- |
 | cm |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -76,6 +93,8 @@ rank: 1000
 alias: unit
 domain_of:
 - ModelVariable
+- ReferenceRangeBand
+- ReferenceRange
 - EpidemiologyInfo
 range: string
 

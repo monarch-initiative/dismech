@@ -22,8 +22,9 @@ Alias: title
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [PublicationReference](../classes/PublicationReference.md) | A reference to a publication with associated findings |  no  |
+| [TrackedIssue](../classes/TrackedIssue.md) | Structured pointer to an external tracker issue (typically a GitHub issue) us... |  yes  |
 | [Dataset](../classes/Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
+| [PublicationReference](../classes/PublicationReference.md) | A reference to a publication with associated findings |  no  |
 
 
 
@@ -32,13 +33,28 @@ Alias: title
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Dataset](../classes/Dataset.md), [PublicationReference](../classes/PublicationReference.md), [TrackedIssue](../classes/TrackedIssue.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -76,6 +92,7 @@ alias: title
 domain_of:
 - Dataset
 - PublicationReference
+- TrackedIssue
 range: string
 
 ```

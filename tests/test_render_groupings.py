@@ -4,12 +4,55 @@ from pathlib import Path
 
 import yaml
 
-from dismech.render import render_all_groupings
+from dismech.render import render_all_groupings, render_grouping_index
 
 
 def _write_yaml(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+
+def _summary(name: str, *, children: list[str] | None = None) -> dict:
+    return {
+        "name": name,
+        "display_name": name,
+        "description": f"{name} test grouping.",
+        "grouping_basis": [],
+        "mondo_mappings": [],
+        "coverage": {"completeness": {"available": False}},
+        "member_count": 1,
+        "child_grouping_names": children or [],
+        "criteria_count": 0,
+        "candidate_count": 0,
+        "href": f"{name.replace(' ', '_')}.html",
+    }
+
+
+def test_render_grouping_index_shows_explicit_grouping_tree(tmp_path: Path) -> None:
+    output_path = tmp_path / "pages" / "groupings" / "index.html"
+
+    render_grouping_index(
+        [
+            _summary("Lysosomal Storage Disorders", children=["Niemann-Pick Diseases"]),
+            _summary("Niemann-Pick Diseases"),
+            _summary("Tubulinopathies"),
+        ],
+        output_path,
+    )
+
+    html = output_path.read_text()
+    assert "Grouping Tree" in html
+    assert "2 roots" in html
+    assert "1 nested relation" in html
+    assert (
+        'href="Lysosomal_Storage_Disorders.html">Lysosomal Storage Disorders</a>'
+        in html
+    )
+    assert 'href="Niemann-Pick_Diseases.html">Niemann-Pick Diseases</a>' in html
+    assert "tree-children" in html
+    assert html.index("Lysosomal Storage Disorders") < html.index(
+        "Niemann-Pick Diseases"
+    )
 
 
 def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) -> None:

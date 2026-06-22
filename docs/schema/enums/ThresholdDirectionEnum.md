@@ -10,7 +10,6 @@ _Whether a threshold activates when the variable goes above or below the value_
 URI: [dismech:enum/ThresholdDirectionEnum](https://w3id.org/monarch-initiative/dismech/enum/ThresholdDirectionEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | above | None | Activates when the variable exceeds the threshold |
@@ -29,8 +28,12 @@ URI: [dismech:enum/ThresholdDirectionEnum](https://w3id.org/monarch-initiative/d
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

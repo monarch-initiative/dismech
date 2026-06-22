@@ -31,13 +31,28 @@ Alias: penetrance
 
 ## Properties
 
-* Range: [PenetranceEnum](../enums/PenetranceEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [PenetranceEnum](../enums/PenetranceEnum.md) |
+| Domain Of | [Inheritance](../classes/Inheritance.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

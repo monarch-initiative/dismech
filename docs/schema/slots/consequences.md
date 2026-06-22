@@ -26,9 +26,22 @@ Alias: consequences
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -37,8 +50,9 @@ Alias: consequences
 
 * unify consequences and consequence
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

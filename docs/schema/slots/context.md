@@ -17,13 +17,13 @@ Alias: context
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [Biochemical](../classes/Biochemical.md) |  |  no  |
+| [Stage](../classes/Stage.md) |  |  no  |
 | [Phenotype](../classes/Phenotype.md) |  |  no  |
 | [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md) |  |  no  |
-| [Stage](../classes/Stage.md) |  |  no  |
-| [AgentLifeCycle](../classes/AgentLifeCycle.md) |  |  no  |
-| [Treatment](../classes/Treatment.md) |  |  no  |
 | [HistopathologyFinding](../classes/HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  yes  |
-| [Biochemical](../classes/Biochemical.md) |  |  no  |
+| [Treatment](../classes/Treatment.md) |  |  no  |
+| [AgentLifeCycle](../classes/AgentLifeCycle.md) |  |  no  |
 
 
 
@@ -32,7 +32,21 @@ Alias: context
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Phenotype](../classes/Phenotype.md), [Biochemical](../classes/Biochemical.md), [HistopathologyFinding](../classes/HistopathologyFinding.md), [Stage](../classes/Stage.md), [AgentLifeCycle](../classes/AgentLifeCycle.md), [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md), [Treatment](../classes/Treatment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -44,8 +58,9 @@ Alias: context
 | --- |
 | Pregnancy |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

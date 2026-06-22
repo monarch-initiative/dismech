@@ -31,15 +31,29 @@ Alias: components
 
 ## Properties
 
-* Range: [ConditionDescriptor](../classes/ConditionDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ConditionDescriptor](../classes/ConditionDescriptor.md) |
+| Domain Of | [ConditionDescriptor](../classes/ConditionDescriptor.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
