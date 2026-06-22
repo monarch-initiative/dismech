@@ -1,3 +1,9 @@
+---
+title: G2P
+status: IN_PROGRESS
+description: This project tracks how Gene2Phenotype (G2P) disease rows map onto dismech's disease-centric knowledge model, with the goal of turning comparison output into curation triage rather than a one-off research exercise.
+---
+
 # G2P
 
 ## Scope

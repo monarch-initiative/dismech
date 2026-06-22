@@ -1,3 +1,32 @@
+---
+title: NICU Curation Project
+status: IN_PROGRESS
+description: This project focuses on disorders commonly managed in neonatal intensive care units (NICUs), spanning prematurity complications, neonatal critical care, and high-impact genetic diseases that present in the newborn period.
+diseases:
+- 22q11.2_Deletion_Syndrome
+- Achondroplasia
+- CHIME_syndrome
+- Down_syndrome
+- Fabry_Disease
+- Fanconi_Anemia
+- Gaucher_Disease
+- Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency
+- HIDEA_Syndrome
+- Hypochondroplasia
+- MCAD_Deficiency
+- Maple_Syrup_Urine_Disease
+- Noonan_Syndrome
+- Peroxisome_Biogenesis_Disorder
+- Phenylketonuria
+- SADDAN
+- Sengers_syndrome
+- Spinal_Muscular_Atrophy
+- TARP_syndrome
+- Thanatophoric_Dysplasia_Type_1
+- Thanatophoric_Dysplasia_Type_2
+- Wolf-Hirschhorn_Syndrome
+---
+
 # NICU Curation Project
 
 ## Overview

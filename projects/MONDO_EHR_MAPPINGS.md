@@ -1,3 +1,9 @@
+---
+title: MONDO-Driven EHR Rare Disease Mapping Refactor
+status: IN_PROGRESS
+description: Replace brittle, hand-maintained SQL IN (...) code lists with a reproducible MONDO-driven mapping pipeline that generates versioned SNOMED/ICD concept sets for OMOP queries.
+---
+
 # MONDO-Driven EHR Rare Disease Mapping Refactor
 
 ## Overview

@@ -1,3 +1,11 @@
+---
+title: MC4R Pathway Obesity Curation Project
+status: IN_PROGRESS
+description: 'Create a mechanism-centered dismech entry for obesity caused by disruption of the leptin-melanocortin-4 receptor pathway. The scope includes:'
+diseases:
+- Obesity_Due_to_MC4R_Pathway_Disruption
+---
+
 # MC4R Pathway Obesity Curation Project
 
 ## Overview
