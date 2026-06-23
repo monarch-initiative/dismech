@@ -468,7 +468,7 @@ just fetch-reference DOI:10.xxxx/xxxxx
 ```
 
 Use PMID-based references in YAML evidence whenever possible. Keep PMCID as
-useful supporting metadata, but Dismech evidence validation is centered on PMID
+useful supporting metadata, but DisMech evidence validation is centered on PMID
 abstracts.
 
 Then use this to provide snippets/excerpts and explanations for assertions. For example, for a phenotype assertion:

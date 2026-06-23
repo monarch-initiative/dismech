@@ -1,4 +1,4 @@
-# Validation Report: Zhu/Dann T Cell Perturb-seq vs Dismech Autoimmune Entries
+# Validation Report: Zhu/Dann T Cell Perturb-seq vs DisMech Autoimmune Entries
 
 **Date:** 2026-02-14
 **Pipeline:** Zhu, Dann, Ota, Pritchard, Marson et al. (bioRxiv Dec 2025)
@@ -12,12 +12,12 @@ tested for enrichment of GWAS disease genes (Open Targets, genetic_evidence >= 0
 | Diseases evaluated | 12 (of 14 tested; autoimmune umbrella excluded, atopic eczema not in KB) |
 | Significant cluster-disease pairs (FDR < 0.05) | 146 |
 | Unique GWAS genes tested | 408 |
-| Genes confirmed in Dismech | 11 (2.7%) |
-| Genes novel to Dismech | 405 (99.3%) |
+| Genes confirmed in DisMech | 11 (2.7%) |
+| Genes novel to DisMech | 405 (99.3%) |
 
 ### Per-Disease Confirmation Rates
 
-| Disease | Dismech Genes | Pairs | Confirmed | Novel | Rate |
+| Disease | DisMech Genes | Pairs | Confirmed | Novel | Rate |
 |---------|--------------|-------|-----------|-------|------|
 | Type 1 diabetes | 10 | 5 | 3 | 34 | 8.1% |
 | Hashimoto's thyroiditis | 4 | 7 | 2 | 37 | 5.1% |
@@ -34,7 +34,7 @@ tested for enrichment of GWAS disease genes (Open Targets, genetic_evidence >= 0
 
 ### Confirmed Genes
 
-These Dismech-curated genes were rediscovered by the T cell Perturb-seq pipeline:
+These DisMech-curated genes were rediscovered by the T cell Perturb-seq pipeline:
 
 | Gene | Confirmed In | Role |
 |------|-------------|------|
@@ -54,24 +54,24 @@ These Dismech-curated genes were rediscovered by the T cell Perturb-seq pipeline
 
 ### Why is the confirmation rate so low?
 
-The 2.7% rate does **not** indicate contradiction. It reflects a **gene coverage gap** in Dismech:
+The 2.7% rate does **not** indicate contradiction. It reflects a **gene coverage gap** in DisMech:
 
-1. **Dismech has 3-11 genes per disease** (median ~6), curated from classic GWAS papers and textbook genetics. These are the "greatest hits" -- HLA loci, PTPN22, IL23R, NOD2, etc.
+1. **DisMech has 3-11 genes per disease** (median ~6), curated from classic GWAS papers and textbook genetics. These are the "greatest hits" -- HLA loci, PTPN22, IL23R, NOD2, etc.
 
 2. **The pipeline tests hundreds of genes per disease** from Open Targets (genetic_evidence_score >= 0.1), including many more recent GWAS discoveries, rare variant associations, and genes with modest effect sizes.
 
-3. **The "novel" genes are mostly real.** EGR2, BACH2, IRF4, STAT3, TNFAIP3, IKZF1, CD28, GATA3, SMAD3 are well-established autoimmune risk genes in the literature. They are "novel" only in the sense that Dismech hasn't curated them yet.
+3. **The "novel" genes are mostly real.** EGR2, BACH2, IRF4, STAT3, TNFAIP3, IKZF1, CD28, GATA3, SMAD3 are well-established autoimmune risk genes in the literature. They are "novel" only in the sense that DisMech hasn't curated them yet.
 
-### What does Dismech confirm well?
+### What does DisMech confirm well?
 
 The confirmed genes cluster into functional categories:
 - **T cell signaling:** PTPN22, CTLA4, IL2RA, IL7R, CD28 (partial)
 - **Cytokines:** IL4, IL13, IL23R
 - **Transcription factors:** STAT4
 
-These are exactly the genes where Dismech has the strongest mechanistic documentation.
+These are exactly the genes where DisMech has the strongest mechanistic documentation.
 
-### What does Dismech miss?
+### What does DisMech miss?
 
 The top "novel" genes (appearing in 7+ diseases) reveal systematic gaps:
 
@@ -118,11 +118,11 @@ This 6-gene cluster (IRF4, BATF, STAT3, JUNB, IPMK, NUP188) shows the strongest 
 - MS: OR=16.9
 - Autoimmune (general): OR=9.0
 
-Dismech should ensure Th17 differentiation is prominently featured in the pathophysiology of Crohn's, Psoriasis, and Ankylosing Spondylitis.
+DisMech should ensure Th17 differentiation is prominently featured in the pathophysiology of Crohn's, Psoriasis, and Ankylosing Spondylitis.
 
 ### 4. Schema Gap: Gene-Disease Specificity
 
-Many genes (PTPN22, IL2RA, BACH2) are shared across autoimmune diseases but Dismech only records them in 1-4 entries. The pipeline data provides evidence for which diseases each gene is relevant to, with enrichment statistics. Consider:
+Many genes (PTPN22, IL2RA, BACH2) are shared across autoimmune diseases but DisMech only records them in 1-4 entries. The pipeline data provides evidence for which diseases each gene is relevant to, with enrichment statistics. Consider:
 - Systematic addition of pleiotropic autoimmune genes across all relevant entries
 - Recording the T cell regulatory context (which cluster, which condition)
 
@@ -140,8 +140,8 @@ Many genes (PTPN22, IL2RA, BACH2) are shared across autoimmune diseases but Dism
 
 ### Limitations
 - Only matches gene symbols in structured fields; does not search free-text descriptions
-- Dismech uses some non-standard gene names (e.g., "HLA-B27" vs "HLA-B", "BCR-ABL1")
-- Does not assess whether Dismech's pathophysiology *narratives* describe the gene's mechanism
+- DisMech uses some non-standard gene names (e.g., "HLA-B27" vs "HLA-B", "BCR-ABL1")
+- Does not assess whether DisMech's pathophysiology *narratives* describe the gene's mechanism
 - The pipeline's gene sets come from Open Targets (which includes GWAS + rare variant evidence), not just the T cell Perturb-seq results directly
 
 ## Data Files

@@ -1,7 +1,7 @@
-# Dismech Design Decisions
+# DisMech Design Decisions
 
 This document is the **decision register** for the Disorder Mechanisms Knowledge Base
-(Dismech). It records the deliberate design and scope choices that shape the project.
+(DisMech). It records the deliberate design and scope choices that shape the project.
 
 Both human contributors and AI agents need a single place that answers *"why is it built this way, and what is in or out of scope?"* rather than re-deriving the rationale from source each time.
 
@@ -32,7 +32,7 @@ A human-readable summary of the headline decisions is also published in the
 
 ## 1. Project scope
 
-**Decision.** Dismech is a *mechanism-first* knowledge base of disease pathophysiology.
+**Decision.** DisMech is a *mechanism-first* knowledge base of disease pathophysiology.
 Each entry models the causal chain from etiology (genetic, environmental, infectious)
 through molecular and cellular dysfunction to clinical phenotypes, with curated,
 literature-grounded evidence.
@@ -40,11 +40,11 @@ literature-grounded evidence.
 **In scope.** Any disease or disorder with a mechanistic story worth modeling is in scope.
 Mendelian, complex/common, infectious, environmental/exposure-related, neoplastic,
 and psychiatric conditions are all represented. Rare and common diseases are both in
-scope. Though Dismech is primarily intended as a resource for human diseases and disorders,
+scope. Though DisMech is primarily intended as a resource for human diseases and disorders,
 veterinary and animal-model observations are in scope as *evidence*
 (`evidence_source: MODEL_ORGANISM`).
 
-**Out of scope.** Dismech is **not**:
+**Out of scope.** DisMech is **not**:
 
 - a clinical-care guideline or treatment protocol authority,
 - a diagnostic decision-support tool for individual patients,
@@ -63,7 +63,7 @@ Which diseases get curated next is driven by:
 
 ## 2. Schema framework
 
-Dismech is based on a data model represented in the [LinkML](https://linkml.io/linkml/) data modeling language.
+DisMech is based on a data model represented in the [LinkML](https://linkml.io/linkml/) data modeling language.
 
 **Decision.** The data model is defined in
 [`src/dismech/schema/dismech.yaml`](https://github.com/monarch-initiative/dismech/blob/main/src/dismech/schema/dismech.yaml).
@@ -169,7 +169,7 @@ validation (only a warning), so an unconstrained prefix can pass unchecked — s
 **Decision.** [BioLink](https://github.com/biolink/biolink-model)
 (`biolink-model>=4.3.1`) is used **only at the export layer**, in the KGX exporter
 ([`src/dismech/export/kgx_export.py`](https://github.com/monarch-initiative/dismech/blob/main/src/dismech/export/kgx_export.py)).
-The internal Dismech schema does **not** use BioLink. Rather, it uses LinkML with OBO terms
+The internal DisMech schema does **not** use BioLink. Rather, it uses LinkML with OBO terms
 directly.
 
 **Rationale.** This deliberately separates the *internal curation model* (optimized for
@@ -228,13 +228,13 @@ exactly.
   separate quantitative claim from the association; when in doubt, omit it. See
   [frequency-evidence-guidelines](../frequency-evidence-guidelines.md).
 
-**Rationale.** The exact-quote-plus-validation pipeline is Dismech's primary defense
+**Rationale.** The exact-quote-plus-validation pipeline is DisMech's primary defense
 against AI hallucination and is core to the project's scientific credibility.
 
 
 ## 7. Curation process & governance
 
-**Decision.** Dismech is **agent-forward**: most curation is performed by AI agents,
+**Decision.** DisMech is **agent-forward**: most curation is performed by AI agents,
 initiated either by humans or by GitHub Actions.
 
 - Humans **initiate** work; agents execute and may also author issue/PR comments.

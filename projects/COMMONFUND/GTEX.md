@@ -15,7 +15,7 @@ For dismech, GTEx helps answer whether a disease-gene hypothesis is plausible
 in the affected tissue and whether a noncoding variant likely changes
 expression of the right gene in the right tissue.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use GTEx as a regulatory plausibility layer:
 
@@ -90,7 +90,7 @@ context, not to teach disease causality by itself.
 4. Update dismech only with conservative notes: GTEx supports expression or
    regulatory plausibility, not disease causality.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How GTEx helps |
 |---------|--------------------------------|----------------|
