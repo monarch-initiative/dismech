@@ -9,12 +9,13 @@ Columns
 -------
 mondo_id               MONDO CURIE (from the exactMatch mapping)
 mondo_label            Mondo term label at export time (from the mapping record)
+dismech_url            Canonical URL to the dismech disorder page
 dismech_definition     Top-level ``description`` field, normalised to a single line
 dismech_exact_synonyms Pipe-separated values from the top-level ``synonyms`` list
-dismech_definition_pmid  Pipe-separated PMID CURIEs collected from all ``evidence``
-                         items in the disorder file (definitions, pathophysiology,
-                         phenotypes, etc.) that reference a ``PMID:`` identifier.
-                         Empty when no PMIDs are cited anywhere in the file.
+dismech_pmids          Pipe-separated PMID CURIEs collected from all ``evidence``
+                       items in the disorder file (definitions, pathophysiology,
+                       phenotypes, etc.) that reference a ``PMID:`` identifier.
+                       Empty when no PMIDs are cited anywhere in the file.
 
 Empty cells are written as empty strings; Mondo decides per-row what to ingest.
 """
@@ -31,15 +32,18 @@ import yaml
 
 from dismech.export.utils import discover_disorder_files
 
+DISMECH_BASE_URL = "https://dismech.monarchinitiative.org/pages/disorders"
+
 TSV_COLUMNS = [
     "mondo_id",
     "mondo_label",
+    "dismech_url",
     "dismech_definition",
     "dismech_exact_synonyms",
-    "dismech_definition_pmid",
+    "dismech_pmids",
 ]
 
-_PMID_RE = re.compile(r"^PMID:\d+$", re.IGNORECASE)
+_PMID_RE = re.compile(r"^PMID:\d+$")
 
 
 def _collect_pmids(data: Any, seen: set[str] | None = None) -> list[str]:
@@ -101,12 +105,15 @@ def emc_row_for_disorder(yaml_path: Path) -> dict[str, str] | None:
     pmids = _collect_pmids(data)
     pmids_str = "|".join(pmids)
 
+    dismech_url = f"{DISMECH_BASE_URL}/{yaml_path.stem}.html"
+
     return {
         "mondo_id": mondo_id,
         "mondo_label": mondo_label,
+        "dismech_url": dismech_url,
         "dismech_definition": definition,
         "dismech_exact_synonyms": synonyms_str,
-        "dismech_definition_pmid": pmids_str,
+        "dismech_pmids": pmids_str,
     }
 
 
