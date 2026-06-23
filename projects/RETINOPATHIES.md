@@ -1,3 +1,15 @@
+---
+title: Retinopathies Curation Project
+status: IN_PROGRESS
+description: Curate retinopathy and retinal dystrophy branches for the dismech knowledge base with explicit granularity rules. The goal is to avoid duplicated pathographs while still separating entities whose proximal pathobiology, diagnosis, or management genuinely diverge.
+diseases:
+- Age_Related_Macular_Degeneration
+- PRPH2-Related_Retinopathy
+- Pars_Planitis
+- Retinoblastoma
+- Stargardt_Disease
+---
+
 # Retinopathies Curation Project
 
 ## Overview

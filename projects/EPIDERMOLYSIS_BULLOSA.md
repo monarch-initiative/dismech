@@ -1,3 +1,16 @@
+---
+title: Epidermolysis Bullosa Curation Project
+status: IN_PROGRESS
+description: Comprehensive curation of Epidermolysis Bullosa (EB) for the dismech knowledge base. EB is a group of inherited mechanobullous disorders characterized by skin and mucosal fragility due to mutations in structural proteins of the dermal-epidermal junction. The four major types are defined by the ul...
+diseases:
+- Diabetes_Mellitus
+- Dystrophic_Epidermolysis_Bullosa
+- Epidermolysis_Bullosa
+- Epidermolysis_Bullosa_Simplex
+- Junctional_Epidermolysis_Bullosa
+- Kindler_Epidermolysis_Bullosa
+---
+
 # Epidermolysis Bullosa Curation Project
 
 ## Overview
