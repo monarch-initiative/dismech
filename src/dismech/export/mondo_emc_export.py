@@ -78,7 +78,7 @@ def _resolve_mondo(data: dict[str, Any]) -> tuple[str, str]:
     disease_term = data.get("disease_term") or {}
     term = disease_term.get("term") or {}
     term_id = (term.get("id") or "").strip()
-    if term_id.startswith("MONDO:"):
+    if term_id.startswith("MONDO:") and term_id != "MONDO:0000001":
         return term_id, (term.get("label") or "").strip()
     return "", ""
 
