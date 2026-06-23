@@ -2,21 +2,20 @@
 Mondo EMC (Externally Managed Content) TSV exporter.
 
 Generates a stable TSV of dismech content that Mondo can ingest via its EMC
-pipeline. One row per disorder that has a MONDO identifier.
+pipeline. One row per disorder that has a MONDO identifier in
+``disease_term.term.id``.
 
-MONDO ID resolution order
--------------------------
-1. ``disease_term.term.id`` — the canonical disease identity field used in
-   every dismech entry.  ~99 % of disorders carry a ``MONDO:`` CURIE here.
-2. ``mappings.mondo_mappings`` (``skos:exactMatch``) — fallback for the small
-   number of entries whose ``disease_term`` either is empty or maps to a
-   non-MONDO ontology term.  The ``mappings`` block is primarily user-facing
-   metadata and cross-reference provenance; it is not the canonical source.
+MONDO ID source
+---------------
+Only ``disease_term.term.id`` is used — the canonical disease identity field
+in every dismech entry.  Entries whose ``disease_term.term.id`` is absent or
+carries a non-MONDO CURIE are excluded rather than falling back to
+``mappings.mondo_mappings``, keeping the export precise.
 
 Columns
 -------
-mondo_id               MONDO CURIE
-mondo_label            Mondo term label (from whichever source resolved the ID)
+mondo_id               MONDO CURIE from ``disease_term.term.id``
+mondo_label            Corresponding ``disease_term.term.label``
 dismech_url            Canonical URL to the dismech disorder page
 dismech_definition     Top-level ``description`` field, normalised to a single line
 dismech_exact_synonyms Pipe-separated values from the top-level ``synonyms`` list
@@ -70,11 +69,11 @@ def _collect_pmids(data: Any, seen: set[str] | None = None) -> list[str]:
     return sorted(seen)
 
 
-def _resolve_mondo_from_disease_term(data: dict[str, Any]) -> tuple[str, str]:
-    """Return ``(mondo_id, mondo_label)`` from the ``disease_term`` field.
+def _resolve_mondo(data: dict[str, Any]) -> tuple[str, str]:
+    """Return ``(mondo_id, mondo_label)`` from ``disease_term.term.id``.
 
     Returns ``("", "")`` when ``disease_term.term.id`` is absent or not a
-    ``MONDO:`` CURIE.
+    ``MONDO:`` CURIE.  No fallback to ``mappings.mondo_mappings``.
     """
     disease_term = data.get("disease_term") or {}
     term = disease_term.get("term") or {}
@@ -82,34 +81,6 @@ def _resolve_mondo_from_disease_term(data: dict[str, Any]) -> tuple[str, str]:
     if term_id.startswith("MONDO:"):
         return term_id, (term.get("label") or "").strip()
     return "", ""
-
-
-def _resolve_mondo_from_mappings(data: dict[str, Any]) -> tuple[str, str]:
-    """Return ``(mondo_id, mondo_label)`` from the first skos:exactMatch in
-    ``mappings.mondo_mappings``.
-
-    Returns ``("", "")`` when no exactMatch exists.
-    """
-    mappings = data.get("mappings") or {}
-    for mapping in (mappings.get("mondo_mappings")) or []:
-        if not isinstance(mapping, dict):
-            continue
-        if mapping.get("mapping_predicate") != "skos:exactMatch":
-            continue
-        term = mapping.get("term") or {}
-        mondo_id = (term.get("id") or "").strip()
-        if not mondo_id:
-            continue
-        return mondo_id, (term.get("label") or "").strip()
-    return "", ""
-
-
-def _resolve_mondo(data: dict[str, Any]) -> tuple[str, str]:
-    """Resolve MONDO ID/label for a disorder, trying ``disease_term`` first."""
-    mondo_id, mondo_label = _resolve_mondo_from_disease_term(data)
-    if mondo_id:
-        return mondo_id, mondo_label
-    return _resolve_mondo_from_mappings(data)
 
 
 def _normalize_description(raw: str | None) -> str:
@@ -122,8 +93,7 @@ def _normalize_description(raw: str | None) -> str:
 def emc_row_for_disorder(yaml_path: Path) -> dict[str, str] | None:
     """Return a TSV row dict for one disorder, or ``None`` if not eligible.
 
-    A disorder is eligible when a MONDO identifier can be resolved — either
-    from ``disease_term.term.id`` or from ``mappings.mondo_mappings``.
+    A disorder is eligible when ``disease_term.term.id`` is a ``MONDO:`` CURIE.
     """
     data: dict[str, Any] = yaml.safe_load(yaml_path.read_text()) or {}
     mondo_id, mondo_label = _resolve_mondo(data)
