@@ -2,13 +2,21 @@
 Mondo EMC (Externally Managed Content) TSV exporter.
 
 Generates a stable TSV of dismech content that Mondo can ingest via its EMC
-pipeline. One row per disorder that has at least one skos:exactMatch in
-``mappings.mondo_mappings``.
+pipeline. One row per disorder that has a MONDO identifier.
+
+MONDO ID resolution order
+-------------------------
+1. ``disease_term.term.id`` — the canonical disease identity field used in
+   every dismech entry.  ~99 % of disorders carry a ``MONDO:`` CURIE here.
+2. ``mappings.mondo_mappings`` (``skos:exactMatch``) — fallback for the small
+   number of entries whose ``disease_term`` either is empty or maps to a
+   non-MONDO ontology term.  The ``mappings`` block is primarily user-facing
+   metadata and cross-reference provenance; it is not the canonical source.
 
 Columns
 -------
-mondo_id               MONDO CURIE (from the exactMatch mapping)
-mondo_label            Mondo term label at export time (from the mapping record)
+mondo_id               MONDO CURIE
+mondo_label            Mondo term label (from whichever source resolved the ID)
 dismech_url            Canonical URL to the dismech disorder page
 dismech_definition     Top-level ``description`` field, normalised to a single line
 dismech_exact_synonyms Pipe-separated values from the top-level ``synonyms`` list
@@ -62,12 +70,28 @@ def _collect_pmids(data: Any, seen: set[str] | None = None) -> list[str]:
     return sorted(seen)
 
 
-def _resolve_exact_mondo(mappings: dict[str, Any] | None) -> tuple[str, str]:
-    """Return ``(mondo_id, mondo_label)`` for the first skos:exactMatch entry.
+def _resolve_mondo_from_disease_term(data: dict[str, Any]) -> tuple[str, str]:
+    """Return ``(mondo_id, mondo_label)`` from the ``disease_term`` field.
 
-    Returns ``("", "")`` when no exactMatch exists in ``mondo_mappings``.
+    Returns ``("", "")`` when ``disease_term.term.id`` is absent or not a
+    ``MONDO:`` CURIE.
     """
-    for mapping in (mappings or {}).get("mondo_mappings") or []:
+    disease_term = data.get("disease_term") or {}
+    term = disease_term.get("term") or {}
+    term_id = (term.get("id") or "").strip()
+    if term_id.startswith("MONDO:"):
+        return term_id, (term.get("label") or "").strip()
+    return "", ""
+
+
+def _resolve_mondo_from_mappings(data: dict[str, Any]) -> tuple[str, str]:
+    """Return ``(mondo_id, mondo_label)`` from the first skos:exactMatch in
+    ``mappings.mondo_mappings``.
+
+    Returns ``("", "")`` when no exactMatch exists.
+    """
+    mappings = data.get("mappings") or {}
+    for mapping in (mappings.get("mondo_mappings")) or []:
         if not isinstance(mapping, dict):
             continue
         if mapping.get("mapping_predicate") != "skos:exactMatch":
@@ -80,6 +104,14 @@ def _resolve_exact_mondo(mappings: dict[str, Any] | None) -> tuple[str, str]:
     return "", ""
 
 
+def _resolve_mondo(data: dict[str, Any]) -> tuple[str, str]:
+    """Resolve MONDO ID/label for a disorder, trying ``disease_term`` first."""
+    mondo_id, mondo_label = _resolve_mondo_from_disease_term(data)
+    if mondo_id:
+        return mondo_id, mondo_label
+    return _resolve_mondo_from_mappings(data)
+
+
 def _normalize_description(raw: str | None) -> str:
     """Collapse all whitespace (including newlines) in a description to single spaces."""
     if not raw:
@@ -90,12 +122,11 @@ def _normalize_description(raw: str | None) -> str:
 def emc_row_for_disorder(yaml_path: Path) -> dict[str, str] | None:
     """Return a TSV row dict for one disorder, or ``None`` if not eligible.
 
-    A disorder is eligible when it has at least one skos:exactMatch in
-    ``mappings.mondo_mappings`` and the resulting MONDO id is non-empty.
+    A disorder is eligible when a MONDO identifier can be resolved — either
+    from ``disease_term.term.id`` or from ``mappings.mondo_mappings``.
     """
     data: dict[str, Any] = yaml.safe_load(yaml_path.read_text()) or {}
-    mappings = data.get("mappings") or {}
-    mondo_id, mondo_label = _resolve_exact_mondo(mappings)
+    mondo_id, mondo_label = _resolve_mondo(data)
     if not mondo_id:
         return None
 
@@ -146,7 +177,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Generate a Mondo EMC TSV from the dismech knowledge base. "
-            "One row per disorder with an exactMatch Mondo mapping."
+            "One row per disorder with a MONDO identifier."
         )
     )
     parser.add_argument(
