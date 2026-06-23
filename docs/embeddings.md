@@ -1,6 +1,6 @@
 # Disorder Embeddings System
 
-The Dismech knowledge base includes a semantic embedding system for analyzing disorder similarity across multiple dimensions. This enables:
+The DisMech knowledge base includes a semantic embedding system for analyzing disorder similarity across multiple dimensions. This enables:
 
 - Finding disorders with similar pathophysiology, phenotypes, treatments, or cell types
 - Visualizing disease relationships in 2D space

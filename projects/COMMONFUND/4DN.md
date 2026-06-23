@@ -15,7 +15,7 @@ expression and cellular function, and how changes affect development and
 disease. The program has produced public 4DN Portal datasets, software,
 protocols, and reagents.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use 4DN data as an upstream regulatory-mechanism layer:
 
@@ -239,7 +239,7 @@ Optional positive-control task:
   confirm the analysis workflow can detect insulation loss. Keep this out of
   the main disease claim except as a method sanity check.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How 4DN helps |
 |---------|--------------------------------|---------------|

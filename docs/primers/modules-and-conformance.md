@@ -1,7 +1,7 @@
 # Primer: Mechanism Modules & Conformance
 
 Some pathological processes recur across many diseases — the fibrotic response,
-lysosomal substrate accumulation, glaucomatous optic neuropathy. Dismech captures
+lysosomal substrate accumulation, glaucomatous optic neuropathy. DisMech captures
 each as a **mechanism module** in `kb/modules/`, and individual disorders declare
 that one of their pathophysiology nodes **conforms to** a module node.
 

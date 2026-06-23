@@ -1,6 +1,6 @@
-# Dismech Documentation
+# DisMech Documentation
 
-Welcome to the documentation for **Dismech**, the Disorder Mechanisms Knowledge
+Welcome to the documentation for **DisMech**, the Disorder Mechanisms Knowledge
 Base — a structured, evidence-backed knowledge base of disease pathophysiology.
 
 This site covers the curation guides, the conceptual explanations, the data

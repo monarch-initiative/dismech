@@ -15,7 +15,7 @@ IBD, and stressors affecting individuals with prediabetes.
 For dismech, iHMP is a direct time-series source for trigger, amplifier,
 effector, and consequence nodes.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use iHMP to model transitions:
 
@@ -86,7 +86,7 @@ change over time.
 3. For each edge, record whether iHMP provides temporal support, correlation
    only, or requires independent experimental evidence.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How iHMP helps |
 |---------|--------------------------------|----------------|

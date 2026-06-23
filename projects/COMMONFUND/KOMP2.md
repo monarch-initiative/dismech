@@ -15,7 +15,7 @@ datasets.
 For dismech, KOMP2 is a model-organism support layer for gene function,
 phenotype concordance, and candidate disease mechanisms.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use KOMP2 as conserved-function evidence:
 
@@ -87,7 +87,7 @@ overstating human disease causality.
    mechanism. Only concordant or instructive discordant cases should become
    disease-file notes.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How KOMP2 helps |
 |---------|--------------------------------|-----------------|
