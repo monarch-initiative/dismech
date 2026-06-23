@@ -160,6 +160,28 @@ def test_pmid_cache_missing_both_authors_and_journal_is_rejected(tmp_path: Path)
     )
 
 
+def test_pmid_cache_ncbi_bookshelf_record_is_accepted(tmp_path: Path):
+    """NCBI Bookshelf records (LiverTox, GeneReviews, StatPearls, …) are real
+    PubMed-indexed references that efetch renders as a book citation, so they
+    legitimately carry neither ``authors`` nor ``journal``. The "[Internet]."
+    Bookshelf marker in the body exempts them from the #1737 fingerprint."""
+    good = tmp_path / "PMID_31643801.md"
+    good.write_text(
+        "---\n"
+        'reference_id: "PMID:31643801"\n'
+        "title: Rilonacept.\n"
+        "year: '2012'\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Rilonacept.\n\n"
+        "LiverTox: Clinical and Research Information on Drug-Induced Liver "
+        "Injury [Internet]. Bethesda (MD): National Institute of Diabetes and "
+        "Digestive and Kidney Diseases; 2012-.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
 def test_pmid_cache_with_only_journal_is_accepted(tmp_path: Path):
     """Pre-abstract-era and brief PubMed records often carry ``journal`` and
     ``year`` but no ``authors``. They are legitimate and must pass."""

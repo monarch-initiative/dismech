@@ -262,7 +262,7 @@ At the grouping level, select a high-level HPO anchor set covering:
 - early-onset periodontitis / absence of attached gingiva (pEDS defining), (kapfererseebacher2016periodontalehlersdanlossyndrome pages 1-2)
 - kyphoscoliosis (kEDS), congenital hip dislocation (aEDS), short stature (spEDS). (damme2022theehlers–danlossyndromes pages 2-3, ritelli2017expandingtheclinical pages 1-2)
 
-### 8.3 Dismech module conformance criteria and gaps
+### 8.3 DisMech module conformance criteria and gaps
 Key conformance points and expected gaps:
 - **hEDS**: mechanism/gene is unknown; cannot conform to “gene-required” rules but should remain in the grouping as an explicit EDS entity. (zschocke2024geneticdiagnosisof pages 1-2)
 - **Complement mechanism**: ensure the data model supports pEDS’s non-collagen mechanism class. (kapfererseebacher2016periodontalehlersdanlossyndrome pages 2-3)

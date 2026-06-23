@@ -1,6 +1,6 @@
-# Dismech Data Model
+# DisMech Data Model
 
-A curated map of the Dismech schema. The schema has ~100 classes; this page
+A curated map of the DisMech schema. The schema has ~100 classes; this page
 surfaces the ones you actually reach for when curating a disorder, grouped by
 what they describe. Each link goes to the full auto-generated page for that
 class.

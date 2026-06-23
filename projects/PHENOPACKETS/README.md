@@ -21,7 +21,7 @@ Evaluate the dismech knowledge base against the [Phenopacket Store](https://gith
 - **Organization**: By causal gene (300+ genes)
 - **Content**: Case-level phenopackets with HPO annotations from literature
 
-## Dismech KB Statistics
+## DisMech KB Statistics
 
 - **Total Disorders**: 280
 - **Mendelian Disorders**: ~40-50 (subset with genetic etiology)
@@ -31,7 +31,7 @@ Evaluate the dismech knowledge base against the [Phenopacket Store](https://gith
 These diseases exist in BOTH dismech AND the Phenopacket Store, making them ideal for phenotype comparison:
 
 ### Tier 1: Direct Matches (Gene-Based)
-| Phenopacket Gene | Phenopackets | Dismech Entry | Priority |
+| Phenopacket Gene | Phenopackets | DisMech Entry | Priority |
 |------------------|--------------|---------------|----------|
 | FBN1 | 143 | Marfan_Syndrome.yaml | [ ] Compare phenotypes |
 | NF1 | 405 | Neurofibromatosis_Type_1.yaml | [ ] Compare phenotypes |
@@ -46,7 +46,7 @@ These diseases exist in BOTH dismech AND the Phenopacket Store, making them idea
 | CFTR | (check) | Cystic_Fibrosis.yaml | [ ] Compare phenotypes |
 | SMN1 | (check) | Spinal_Muscular_Atrophy.yaml | [ ] Compare phenotypes |
 
-### Tier 2: Diseases in Phenopacket Store (Not in Dismech)
+### Tier 2: Diseases in Phenopacket Store (Not in DisMech)
 High-value diseases to potentially add to dismech based on phenopacket availability:
 
 | Gene | Phenopackets | Disease | Priority |
@@ -76,10 +76,10 @@ High-value diseases to potentially add to dismech based on phenopacket availabil
 | COQ4 | 51 | Coenzyme Q10 deficiency 7 | [ ] |
 | CLDN16 | 51 | Hypomagnesemia 3, renal | [ ] |
 
-### Tier 3: Existing Dismech Entries to Enhance
+### Tier 3: Existing DisMech Entries to Enhance
 Mendelian diseases already in dismech that could benefit from phenopacket comparison:
 
-| Dismech Entry | Phenopacket Gene(s) | Status |
+| DisMech Entry | Phenopacket Gene(s) | Status |
 |---------------|---------------------|--------|
 | Gaucher_Disease.yaml | GBA1 | [ ] Check phenopackets |
 | Tay-Sachs_Disease.yaml | HEXA | [ ] Check phenopackets |
@@ -134,7 +134,7 @@ wget https://github.com/monarch-initiative/phenopacket-store/releases/download/0
 
 ### Disease Mapping
 - Phenopackets use MONDO/OMIM disease IDs
-- Dismech uses MONDO IDs in `disease_id` field
+- DisMech uses MONDO IDs in `disease_id` field
 - Gene-disease mapping via HGNC
 
 ## Resources
@@ -146,7 +146,7 @@ wget https://github.com/monarch-initiative/phenopacket-store/releases/download/0
 
 ---
 
-# Related Open Repositories for Dismech Evaluation
+# Related Open Repositories for DisMech Evaluation
 
 Comprehensive literature search conducted 2026-01-30 for open repositories containing patient phenotype data, disease mechanisms, and clinical case information that could be used for dismech evaluation and enhancement.
 
@@ -374,7 +374,7 @@ Comprehensive literature search conducted 2026-01-30 for open repositories conta
 - **Format**: XML bulk download, AACT relational database
 - **Use case**: Validate dismech treatment annotations against trial data
 
-## Summary: Priority Datasets for Dismech Evaluation
+## Summary: Priority Datasets for DisMech Evaluation
 
 | Dataset | Primary Use | Data Type | Access |
 |---------|-------------|-----------|--------|

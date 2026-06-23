@@ -249,7 +249,7 @@ Use a small set of high‑specificity phenotypes for each disease entry to drive
 **NPC anchors (examples):**
 - Ataxia, vertical supranuclear gaze palsy, dysarthria, cognitive impairment, dysphagia; and early visceral signs (splenomegaly/hepatomegaly) are common. (patterson2020treatmentoutcomesfollowing pages 1-2)
 
-### 8.3 Dismech module‑conformance (suggested fields) and gaps
+### 8.3 DisMech module‑conformance (suggested fields) and gaps
 **Recommended module fields for the grouping YAML (high‑value):**
 - **Causal genes:** SMPD1; NPC1; NPC2. (geberhiwot2023consensusclinicalmanagement pages 1-2, stern2024evaluationofthe pages 1-2)
 - **Primary stored materials:** sphingomyelin (ASMD) vs unesterified cholesterol (NPC), with secondary lipid classes. (alagia2024acidsphingomyelinasedeficiency pages 18-20, stern2024evaluationofthe pages 1-2)

@@ -1,6 +1,6 @@
 # Quality Control & Compliance Scoring
 
-This document describes the **general QC mechanism** in Dismech: how disorder
+This document describes the **general QC mechanism** in DisMech: how disorder
 entries are scored for completeness, how that scoring is configured and
 weighted, and how the scoring system is *extended* with computed metrics that
 go beyond what the schema can express. The phenotype-connectivity metric is used
@@ -13,7 +13,7 @@ machinery itself.
 
 ## The QC stack at a glance
 
-Dismech layers several independent checks. They answer different questions and
+DisMech layers several independent checks. They answer different questions and
 fail independently:
 
 | Layer | Tool | Question it answers |
@@ -170,7 +170,7 @@ is how computed metrics ride alongside schema-driven ones in a single report
 (e.g. for the dashboard).
 
 > **Design note.** `linkml-data-qc` (v0.1.0) has no upstream plugin/entry-point
-> system. The plugin layer lives in Dismech as a thin wrapper around
+> system. The plugin layer lives in DisMech as a thin wrapper around
 > `ComplianceAnalyzer`. The `QCMetricPlugin` protocol is deliberately the same
 > minimal shape an upstream hook would use, so the metrics can be lifted into
 > `linkml-data-qc` proper later without rewriting them.

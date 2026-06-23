@@ -1,6 +1,6 @@
-# About Dismech
+# About DisMech
 
-**Dismech** (the **Dis**order **Mech**anisms Knowledge Base) is a structured,
+**DisMech** (the **Dis**order **Mech**anisms Knowledge Base) is a structured,
 evidence-backed knowledge base of disease pathophysiology. It records *how*
 diseases work — the cell types, biological processes, and causal chains that
 link a genetic or environmental cause to its clinical phenotypes — and ties every
@@ -28,5 +28,5 @@ recorded in the [Design Decisions](explanation/design-decisions.md) register.
 - **Disorder browser:** [/app](https://dismech.monarchinitiative.org/app/)
 - **Source & issues:** [github.com/monarch-initiative/dismech](https://github.com/monarch-initiative/dismech)
 
-Dismech is developed as part of the
+DisMech is developed as part of the
 [Monarch Initiative](https://monarchinitiative.org).
