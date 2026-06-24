@@ -31,13 +31,28 @@ Alias: infectious_agent_term
 
 ## Properties
 
-* Range: [OrganismDescriptor](../classes/OrganismDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [OrganismDescriptor](../classes/OrganismDescriptor.md) |
+| Domain Of | [InfectiousAgent](../classes/InfectiousAgent.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

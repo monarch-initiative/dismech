@@ -1,7 +1,7 @@
 # MONDO Prioritizer
 
 The MONDO prioritizer builds a curation queue from MONDO disease rows rather than
-from ad hoc checklist issues. It scores candidate diseases against local dismech
+from ad hoc checklist issues. It scores candidate diseases against local DisMech
 coverage, then applies a small set of explicit specificity heuristics to suggest
 whether a term should be curated as a root, lumped into a parent, or dropped.
 
@@ -134,7 +134,7 @@ reusable way to:
 
 - start from MONDO terms and metadata
 - layer in optional external evidence counts
-- compare against current dismech coverage
+- compare against current DisMech coverage
 - generate a tuneable queue with transparent reasons
 
 That makes it easier to review prioritization choices and to adjust weights as

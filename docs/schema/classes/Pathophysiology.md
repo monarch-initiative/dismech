@@ -69,6 +69,8 @@ URI: [dismech:class/Pathophysiology](https://w3id.org/monarch-initiative/dismech
     
 
         
+      Pathophysiology : conforms_to
+        
       Pathophysiology : consequence
         
       Pathophysiology : consequences
@@ -143,6 +145,17 @@ URI: [dismech:class/Pathophysiology](https://w3id.org/monarch-initiative/dismech
     
 
         
+      Pathophysiology : genetic_context
+        
+          
+    
+        
+        
+        Pathophysiology --> "0..1" GeneticContext : genetic_context
+        click GeneticContext href "../../classes/GeneticContext/"
+    
+
+        
       Pathophysiology : locations
         
           
@@ -154,7 +167,29 @@ URI: [dismech:class/Pathophysiology](https://w3id.org/monarch-initiative/dismech
     
 
         
+      Pathophysiology : mechanism_confidence
+        
+          
+    
+        
+        
+        Pathophysiology --> "0..1" MechanismConfidenceEnum : mechanism_confidence
+        click MechanismConfidenceEnum href "../../enums/MechanismConfidenceEnum/"
+    
+
+        
       Pathophysiology : mechanisms
+        
+      Pathophysiology : molecular_functions
+        
+          
+    
+        
+        
+        Pathophysiology --> "*" MolecularFunctionDescriptor : molecular_functions
+        click MolecularFunctionDescriptor href "../../classes/MolecularFunctionDescriptor/"
+    
+
         
       Pathophysiology : name
         
@@ -218,7 +253,6 @@ URI: [dismech:class/Pathophysiology](https://w3id.org/monarch-initiative/dismech
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -228,9 +262,11 @@ URI: [dismech:class/Pathophysiology](https://w3id.org/monarch-initiative/dismech
 | [cell_types](../slots/cell_types.md) | * <br/> [CellTypeDescriptor](../classes/CellTypeDescriptor.md) |  | direct |
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) |  | direct |
 | [biological_processes](../slots/biological_processes.md) | * <br/> [BiologicalProcessDescriptor](../classes/BiologicalProcessDescriptor.md) |  | direct |
+| [molecular_functions](../slots/molecular_functions.md) | * <br/> [MolecularFunctionDescriptor](../classes/MolecularFunctionDescriptor.md) |  | direct |
 | [locations](../slots/locations.md) | * <br/> [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md) |  | direct |
 | [examples](../slots/examples.md) | * <br/> [String](../types/String.md) |  | direct |
 | [role](../slots/role.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
+| [conforms_to](../slots/conforms_to.md) | 0..1 <br/> [String](../types/String.md) | Reference to a mechanism module that this pathophysiology node is an organ-sp... | direct |
 | [synonyms](../slots/synonyms.md) | * <br/> [String](../types/String.md) |  | direct |
 | [consequence](../slots/consequence.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [consequences](../slots/consequences.md) | * <br/> [String](../types/String.md) |  | direct |
@@ -238,7 +274,7 @@ URI: [dismech:class/Pathophysiology](https://w3id.org/monarch-initiative/dismech
 | [pathways](../slots/pathways.md) | * <br/> [BiologicalProcessDescriptor](../classes/BiologicalProcessDescriptor.md) |  | direct |
 | [downstream](../slots/downstream.md) | * <br/> [CausalEdge](../classes/CausalEdge.md) |  | direct |
 | [genes](../slots/genes.md) | * <br/> [GeneDescriptor](../classes/GeneDescriptor.md) |  | direct |
-| [subtypes](../slots/subtypes.md) | * <br/> [String](../types/String.md) |  | direct |
+| [subtypes](../slots/subtypes.md) | * <br/> [String](../types/String.md) | Names of subtypes (foreign keys to this disease's `has_subtypes[] | direct |
 | [cellular_components](../slots/cellular_components.md) | * <br/> [CellularComponentDescriptor](../classes/CellularComponentDescriptor.md) |  | direct |
 | [protein_complexes](../slots/protein_complexes.md) | * <br/> [ProteinComplexDescriptor](../classes/ProteinComplexDescriptor.md) | Protein complexes that gene products participate in | direct |
 | [chemical_entities](../slots/chemical_entities.md) | * <br/> [ChemicalEntityDescriptor](../classes/ChemicalEntityDescriptor.md) |  | direct |
@@ -248,7 +284,9 @@ URI: [dismech:class/Pathophysiology](https://w3id.org/monarch-initiative/dismech
 | [mechanisms](../slots/mechanisms.md) | * <br/> [String](../types/String.md) |  | direct |
 | [notes](../slots/notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [frequency](../slots/frequency.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md) |  | direct |
+| [genetic_context](../slots/genetic_context.md) | 0..1 <br/> [GeneticContext](../classes/GeneticContext.md) | The genetic context under which this qualification applies | direct |
 | [pdb_structures](../slots/pdb_structures.md) | * <br/> [ProteinStructure](../classes/ProteinStructure.md) | Experimental or predicted 3D protein structures relevant to this treatment's ... | direct |
+| [mechanism_confidence](../slots/mechanism_confidence.md) | 0..1 <br/> [MechanismConfidenceEnum](../enums/MechanismConfidenceEnum.md) | Level of confidence in this pathophysiology mechanism | direct |
 
 
 
@@ -268,8 +306,12 @@ URI: [dismech:class/Pathophysiology](https://w3id.org/monarch-initiative/dismech
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -311,9 +353,11 @@ slots:
 - cell_types
 - evidence
 - biological_processes
+- molecular_functions
 - locations
 - examples
 - role
+- conforms_to
 - synonyms
 - consequence
 - consequences
@@ -331,7 +375,9 @@ slots:
 - mechanisms
 - notes
 - frequency
+- genetic_context
 - pdb_structures
+- mechanism_confidence
 
 ```
 </details>
@@ -353,12 +399,20 @@ attributes:
     alias: name
     owner: Pathophysiology
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -381,6 +435,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   description:
@@ -391,8 +446,14 @@ attributes:
     owner: Pathophysiology
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -400,7 +461,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -428,6 +493,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   cell_types:
     name: cell_types
@@ -438,6 +507,7 @@ attributes:
     alias: cell_types
     owner: Pathophysiology
     domain_of:
+    - ExperimentalModel
     - Pathophysiology
     - Biochemical
     range: CellTypeDescriptor
@@ -453,12 +523,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -488,6 +568,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -502,8 +586,26 @@ attributes:
     alias: biological_processes
     owner: Pathophysiology
     domain_of:
+    - ExperimentalPerturbation
+    - ExperimentalReadout
     - Pathophysiology
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: BiologicalProcessDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  molecular_functions:
+    name: molecular_functions
+    examples:
+    - value: '[{preferred_term: Kinase Activity}]'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: molecular_functions
+    owner: Pathophysiology
+    domain_of:
+    - Pathophysiology
+    range: MolecularFunctionDescriptor
     multivalued: true
     inlined: true
     inlined_as_list: true
@@ -549,6 +651,21 @@ attributes:
     - Pathophysiology
     - Stage
     - Treatment
+    range: string
+  conforms_to:
+    name: conforms_to
+    description: 'Reference to a mechanism module that this pathophysiology node is
+      an organ-specific instance of. Value is a path relative to kb/modules/ (e.g.,
+      "fibrotic_response") plus an optional node name after a hash (e.g., "fibrotic_response#Mesenchymal
+      Cell Activation"). Used for cross-disorder consistency checking: if a node declares
+      conformance, it should include the expected cell types, biological processes,
+      and causal edges defined in the referenced module node.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: conforms_to
+    owner: Pathophysiology
+    domain_of:
+    - Pathophysiology
     range: string
   synonyms:
     name: synonyms
@@ -599,8 +716,11 @@ attributes:
     owner: Pathophysiology
     domain_of:
     - GeneticContext
+    - ExperimentalPerturbation
     - Pathophysiology
     - Variant
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: GeneDescriptor
     inlined: true
   pathways:
@@ -643,6 +763,7 @@ attributes:
     domain_of:
     - GeneticContext
     - Dataset
+    - ExperimentalPerturbation
     - Subtype
     - Pathophysiology
     - AnimalModel
@@ -652,14 +773,22 @@ attributes:
     inlined_as_list: true
   subtypes:
     name: subtypes
+    description: Names of subtypes (foreign keys to this disease's `has_subtypes[].name`)
+      associated with a phenotype, biochemical finding, pathophysiology node, or other
+      subtyped entry. Use this multivalued form when an item is characteristic of
+      more than one subtype with overlapping features. For single-subtype associations,
+      the scalar `subtype` slot may still be used.
     examples:
     - value: '[''DENV-1'', ''DENV-2'', ''DENV-3'', ''DENV-4'']'
+    - value: '[''Type 1'', ''Type 2'']'
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: subtypes
     owner: Pathophysiology
     domain_of:
     - Pathophysiology
+    - Phenotype
+    - Biochemical
     range: string
     multivalued: true
   cellular_components:
@@ -701,6 +830,7 @@ attributes:
     alias: chemical_entities
     owner: Pathophysiology
     domain_of:
+    - ExperimentalPerturbation
     - Pathophysiology
     range: ChemicalEntityDescriptor
     multivalued: true
@@ -732,6 +862,7 @@ attributes:
     alias: triggers
     owner: Pathophysiology
     domain_of:
+    - ExperimentalPerturbation
     - Pathophysiology
     range: TriggerDescriptor
     multivalued: true
@@ -746,6 +877,8 @@ attributes:
     alias: assays
     owner: Pathophysiology
     domain_of:
+    - Experiment
+    - ExperimentalReadout
     - Pathophysiology
     - Biochemical
     range: AssayDescriptor
@@ -779,10 +912,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -809,6 +952,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
   frequency:
     name: frequency
@@ -829,6 +977,19 @@ attributes:
     any_of:
     - range: FrequencyEnum
     - range: FrequencyQuantity
+  genetic_context:
+    name: genetic_context
+    description: The genetic context under which this qualification applies. May specify
+      genes, mutation types, zygosity, complementation groups, or complex genotypes.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: genetic_context
+    owner: Pathophysiology
+    domain_of:
+    - PhenotypeContext
+    - Pathophysiology
+    range: GeneticContext
+    inlined: true
   pdb_structures:
     name: pdb_structures
     description: Experimental or predicted 3D protein structures relevant to this
@@ -845,6 +1006,17 @@ attributes:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  mechanism_confidence:
+    name: mechanism_confidence
+    description: Level of confidence in this pathophysiology mechanism. If not specified,
+      the mechanism is assumed to be established.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: mechanism_confidence
+    owner: Pathophysiology
+    domain_of:
+    - Pathophysiology
+    range: MechanismConfidenceEnum
 
 ```
 </details>

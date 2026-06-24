@@ -15,7 +15,9 @@ It validates only structural facts:
 - the filename matches the normalized ``reference_id``
 - ``PMID:`` caches carry at least one of ``authors`` / ``journal`` (issue
   #1737 defense-in-depth — the documented fabrication fingerprint had
-  neither field populated)
+  neither field populated), *except* genuine NCBI Bookshelf records
+  (LiverTox, GeneReviews, StatPearls, …) which efetch renders as a book
+  citation carrying neither field
 
 The heavier last line of defence remains the existing
 ``linkml-reference-validator`` run inside ``just qc``.
@@ -23,6 +25,7 @@ The heavier last line of defence remains the existing
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +36,19 @@ from ruamel.yaml import YAML
 
 _YAML = YAML(typ="safe")
 _YAML.allow_duplicate_keys = False
+_FRONTMATTER_RE = re.compile(
+    r"\A---[ \t]*\r?\n(?P<frontmatter>.*?)(?:\r?\n)---[ \t]*(?:\r?\n|\Z)",
+    re.DOTALL,
+)
+# NCBI Bookshelf records (LiverTox, GeneReviews, StatPearls, …) are real
+# PubMed-indexed references that legitimately carry neither ``authors:`` nor
+# ``journal:``: efetch renders them as a book citation, not a journal article.
+# The "[Internet]." token is the distinctive Bookshelf citation marker and
+# does not appear in journal abstracts, so we use it to exempt these records
+# from the #1737 fabrication-fingerprint check. Re-fetching such a record
+# reproduces the same file byte-for-byte, the ground-truth signal that it is
+# not a hand-crafted fabrication.
+_NCBI_BOOKSHELF_RE = re.compile(r"\[Internet\]\.")
 
 
 class SupplementaryFileFrontmatter(BaseModel):
@@ -92,12 +108,10 @@ class Finding:
 def _extract_frontmatter_text(path: Path) -> str | None:
     """Return the YAML frontmatter slice of a markdown file, or ``None``."""
     text = path.read_text(encoding="utf-8")
-    if not text.startswith("---"):
+    match = _FRONTMATTER_RE.match(text)
+    if match is None:
         return None
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return None
-    return parts[1]
+    return match.group("frontmatter")
 
 
 def _load_frontmatter(path: Path) -> dict[str, Any]:
@@ -111,7 +125,14 @@ def _load_frontmatter(path: Path) -> dict[str, Any]:
     return data
 
 
-def _validate_contract(path: Path, data: dict[str, Any]) -> list[str]:
+def _looks_like_ncbi_bookshelf(text: str) -> bool:
+    """True if the cache body is an NCBI Bookshelf book citation."""
+    return _NCBI_BOOKSHELF_RE.search(text) is not None
+
+
+def _validate_contract(
+    path: Path, data: dict[str, Any], *, is_book: bool = False
+) -> list[str]:
     try:
         frontmatter = ReferenceCacheFrontmatter.model_validate(data)
     except ValidationError as exc:
@@ -144,9 +165,12 @@ def _validate_contract(path: Path, data: dict[str, Any]) -> list[str]:
     # in linkml-reference-validator. All legitimate PMID caches in the
     # current corpus carry at least one of authors / journal — including
     # pre-abstract-era papers, foreign-language abstracts, and minimal
-    # PubMed records.
-    if frontmatter.reference_id.startswith("PMID:") and not (
-        frontmatter.authors or frontmatter.journal
+    # PubMed records. Genuine NCBI Bookshelf records (``is_book``) are the
+    # one legitimate exception and are exempted.
+    if (
+        frontmatter.reference_id.startswith("PMID:")
+        and not is_book
+        and not (frontmatter.authors or frontmatter.journal)
     ):
         reasons.append(
             "PMID cache files must carry at least one of `authors:` or "
@@ -167,7 +191,11 @@ def check_cache_file(path: Path) -> Finding | None:
             reasons=(f"invalid YAML frontmatter: {exc}",),
         )
 
-    reasons = _validate_contract(path, data)
+    try:
+        is_book = _looks_like_ncbi_bookshelf(path.read_text(encoding="utf-8"))
+    except OSError:
+        is_book = False
+    reasons = _validate_contract(path, data, is_book=is_book)
     if not reasons:
         return None
 

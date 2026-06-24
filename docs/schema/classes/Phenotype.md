@@ -85,7 +85,18 @@ URI: [dismech:class/Phenotype](https://w3id.org/monarch-initiative/dismech/class
         
       Phenotype : severity
         
+          
+    
+        
+        
+        Phenotype --> "0..1" Any : severity
+        click Any href "../../classes/Any/"
+    
+
+        
       Phenotype : subtype
+        
+      Phenotype : subtypes
         
       
 ```
@@ -94,7 +105,6 @@ URI: [dismech:class/Phenotype](https://w3id.org/monarch-initiative/dismech/class
 
 
 <!-- no inheritance hierarchy -->
-
 
 ## Slots
 
@@ -110,9 +120,10 @@ URI: [dismech:class/Phenotype](https://w3id.org/monarch-initiative/dismech/class
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) |  | direct |
 | [context](../slots/context.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [review_notes](../slots/review_notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
-| [severity](../slots/severity.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
+| [severity](../slots/severity.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md)&nbsp;or&nbsp;<br />[SeverityQualifierEnum](../enums/SeverityQualifierEnum.md) |  | direct |
 | [notes](../slots/notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [subtype](../slots/subtype.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
+| [subtypes](../slots/subtypes.md) | * <br/> [String](../types/String.md) | Names of subtypes (foreign keys to this disease's `has_subtypes[] | direct |
 | [phenotype_contexts](../slots/phenotype_contexts.md) | * <br/> [PhenotypeContext](../classes/PhenotypeContext.md) | Context-specific qualifications of this phenotype's frequency, severity, or o... | direct |
 
 
@@ -133,8 +144,12 @@ URI: [dismech:class/Phenotype](https://w3id.org/monarch-initiative/dismech/class
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -184,6 +199,7 @@ slots:
 - severity
 - notes
 - subtype
+- subtypes
 - phenotype_contexts
 
 ```
@@ -219,12 +235,20 @@ attributes:
     alias: name
     owner: Phenotype
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -247,6 +271,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   phenotype_term:
@@ -257,7 +282,11 @@ attributes:
     alias: phenotype_term
     owner: Phenotype
     domain_of:
+    - ExperimentalReadout
+    - ReferenceRangeBand
     - Phenotype
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: PhenotypeDescriptor
     inlined: true
   frequency:
@@ -287,8 +316,14 @@ attributes:
     owner: Phenotype
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -296,7 +331,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -324,6 +363,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   diagnostic:
     name: diagnostic
@@ -358,12 +401,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -393,6 +446,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -445,9 +502,14 @@ attributes:
     alias: severity
     owner: Phenotype
     domain_of:
+    - Descriptor
     - PhenotypeContext
+    - ReferenceRangeBand
     - Phenotype
-    range: string
+    range: Any
+    any_of:
+    - range: SeverityQualifierEnum
+    - range: string
   notes:
     name: notes
     examples:
@@ -462,10 +524,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -492,6 +564,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
   subtype:
     name: subtype
@@ -510,6 +587,26 @@ attributes:
     - HistopathologyFinding
     - Genetic
     range: string
+  subtypes:
+    name: subtypes
+    description: Names of subtypes (foreign keys to this disease's `has_subtypes[].name`)
+      associated with a phenotype, biochemical finding, pathophysiology node, or other
+      subtyped entry. Use this multivalued form when an item is characteristic of
+      more than one subtype with overlapping features. For single-subtype associations,
+      the scalar `subtype` slot may still be used.
+    examples:
+    - value: '[''DENV-1'', ''DENV-2'', ''DENV-3'', ''DENV-4'']'
+    - value: '[''Type 1'', ''Type 2'']'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: subtypes
+    owner: Phenotype
+    domain_of:
+    - Pathophysiology
+    - Phenotype
+    - Biochemical
+    range: string
+    multivalued: true
   phenotype_contexts:
     name: phenotype_contexts
     description: Context-specific qualifications of this phenotype's frequency, severity,

@@ -17,6 +17,7 @@ Alias: triggers
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | A structured perturbation, intervention, or exposure used in an experiment |  no  |
 | [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 
 
@@ -26,9 +27,22 @@ Alias: triggers
 
 ## Properties
 
-* Range: [TriggerDescriptor](../classes/TriggerDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [TriggerDescriptor](../classes/TriggerDescriptor.md) |
+| Domain Of | [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md), [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +54,9 @@ Alias: triggers
 | --- |
 | [{preferred_term: Viral Infections}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -76,6 +91,7 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: triggers
 domain_of:
+- ExperimentalPerturbation
 - Pathophysiology
 range: TriggerDescriptor
 multivalued: true

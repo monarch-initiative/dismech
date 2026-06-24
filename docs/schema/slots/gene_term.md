@@ -31,13 +31,28 @@ Alias: gene_term
 
 ## Properties
 
-* Range: [GeneDescriptor](../classes/GeneDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [GeneDescriptor](../classes/GeneDescriptor.md) |
+| Domain Of | [Genetic](../classes/Genetic.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

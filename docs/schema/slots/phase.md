@@ -27,7 +27,21 @@ Alias: phase
 
 ## Properties
 
-* Range: [PhaseTerm](../enums/PhaseTerm.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [PhaseTerm](../enums/PhaseTerm.md) |
+| Domain Of | [ClinicalTrial](../classes/ClinicalTrial.md), [ProgressionInfo](../classes/ProgressionInfo.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -39,8 +53,9 @@ Alias: phase
 | --- |
 | Active TB |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

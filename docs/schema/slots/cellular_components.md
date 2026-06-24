@@ -26,9 +26,22 @@ Alias: cellular_components
 
 ## Properties
 
-* Range: [CellularComponentDescriptor](../classes/CellularComponentDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [CellularComponentDescriptor](../classes/CellularComponentDescriptor.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: cellular_components
 | --- |
 | [{preferred_term: Peroxisome}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

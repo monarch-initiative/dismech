@@ -27,13 +27,28 @@ Alias: diagnostic
 
 ## Properties
 
-* Range: [Boolean](../types/Boolean.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Boolean](../types/Boolean.md) |
+| Domain Of | [Phenotype](../classes/Phenotype.md), [HistopathologyFinding](../classes/HistopathologyFinding.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

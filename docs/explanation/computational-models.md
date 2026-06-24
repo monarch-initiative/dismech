@@ -2,7 +2,7 @@
 
 ## Overview
 
-Some dismech disorder entries reference SBML (Systems Biology Markup Language) models that capture the quantitative dynamics of disease mechanisms as ordinary differential equations (ODEs). The **dismech-perturb** framework connects these models back to the clinical knowledge in the YAML, answering questions like:
+Some DisMech disorder entries reference SBML (Systems Biology Markup Language) models that capture the quantitative dynamics of disease mechanisms as ordinary differential equations (ODEs). The **dismech-perturb** framework connects these models back to the clinical knowledge in the YAML, answering questions like:
 
 > "If gene X is lost or environmental parameter Y changes, which phenotypes activate, how severely, and through which mechanistic path?"
 
@@ -119,27 +119,17 @@ coupling:
 
 ## How It Works
 
-```
-Gene/Environment Perturbation
-        │
-        ▼
-┌─── Model Config ───┐     ┌──── Disorder YAML ────────────────────┐
-│ gene → parameter   │     │ pathophysiology[].downstream → graph  │
-│ coupling config    │     │ computational_models[].variables:     │
-└────────┬───────────┘     │   dataset_identifier → model species  │
-         │                 │   mappings_list → HP terms + thresholds│
-         ▼                 └────────┬──────────────────────────────┘
-┌─── ODE Simulation ─┐             │
-│ SBML + Extension   │             │
-│ coupled run        │             │
-│ → variable values  │             │
-└────────┬───────────┘             │
-         │                         │
-         ▼                         ▼
-┌─── Phenotype Mapper ─────────────────────────────┐
-│ variable thresholds → HP terms + severity        │
-│ causal chain trace → mechanistic explanation     │
-└──────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    P["Gene / Environment Perturbation"]
+    MC["<b>Model Config</b><br/>gene → parameter<br/>coupling config"]
+    DY["<b>Disorder YAML</b><br/>pathophysiology[].downstream → graph<br/>computational_models[].variables:<br/>• dataset_identifier → model species<br/>• mappings_list → HP terms + thresholds"]
+    ODE["<b>ODE Simulation</b><br/>SBML + Extension, coupled run<br/>→ variable values"]
+    PM["<b>Phenotype Mapper</b><br/>variable thresholds → HP terms + severity<br/>causal chain trace → mechanistic explanation"]
+    P --> MC
+    MC --> ODE
+    ODE --> PM
+    DY --> PM
 ```
 
 1. A perturbation (gene LoF/GoF, parameter change, or GFR level) modifies an ODE model parameter
@@ -179,23 +169,34 @@ The base model is Peterson-Riggs 2010 (BioModels BIOMD0000000613), a 12-compartm
 
 Seven pathophysiology mechanisms form the backbone, with `downstream` edges connecting them:
 
-```
-Kidney G3P Sensing ──► Phosphate Retention & FGF23 Axis
-                            │
-                ┌───────────┼───────────────┐
-                ▼           ▼               ▼
-        Calcitriol    Secondary HPT    Vascular
-        Deficiency         │           Calcification
-           │         ┌─────┼─────┐         │
-           │         ▼     ▼     ▼         ▼
-           │     RANKL/  Bone  LVH    Bone-Vascular
-           │     OPG    Pain          Paradox
-           │      │                      │
-           │      ├──► ↓BMD ◄────────────┘
-           │      └──► Fractures
-           │
-           ├──► Proximal Myopathy
-           └──► Short Stature
+```mermaid
+flowchart TD
+    G["Kidney G3P Sensing"]
+    FGF["Phosphate Retention & FGF23 Axis"]
+    CAL["Calcitriol Deficiency"]
+    HPT["Secondary HPT"]
+    VC["Vascular Calcification"]
+    RANKL["RANKL/OPG"]
+    BP["Bone Pain"]
+    LVH["LVH"]
+    BVP["Bone–Vascular Paradox"]
+    BMD["Decreased BMD (↓BMD)"]
+    FR["Fractures"]
+    MYO["Proximal Myopathy"]
+    SS["Short Stature"]
+    G --> FGF
+    FGF --> CAL
+    FGF --> HPT
+    FGF --> VC
+    HPT --> RANKL
+    HPT --> BP
+    HPT --> LVH
+    RANKL --> BMD
+    RANKL --> FR
+    VC --> BVP
+    BVP --> BMD
+    CAL --> MYO
+    CAL --> SS
 ```
 
 Phenotypes (HP terms) sit at the leaves. Each edge carries a `causal_link_type` and optional `intermediate_mechanisms` for transparency.

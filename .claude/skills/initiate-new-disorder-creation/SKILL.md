@@ -23,15 +23,43 @@ This skill can also be consulted for ongoing curation of existing disorders.
 
 ## Workflow
 
-### Step 1: Select Disorder Name and Verify Disorder Doesn't Exist
+### Step 1: Select Disorder Name and Run Duplicate Preflight
 
 Choose the clinically preferred name for the disorder, use title case (e.g. `Foo Bar Syndrome`).
 For file names, spaces will. be replaced by underscores, and characters such as apostrophes removed.
 
+Before creating a new disorder file, check all three duplicate surfaces:
+
+1. **Most recent knowledgebase**: fetch `origin/main` and search the current
+   upstream disorder YAMLs by MONDO ID, preferred label, and important synonyms.
+2. **All pull requests**: search open, closed, and merged PRs for the same ID
+   and names.
+3. **All issues**: search open and closed issues for the same ID and names.
+
+Use specific identifiers first, then human-readable labels and synonyms:
+
 ```bash
-ls kb/disorders/*yaml
+git fetch origin main
+
+# Knowledgebase on the latest origin/main, not just the local working tree.
+git grep -n -i -e "<MONDO_ID>" -e "<preferred disorder name>" origin/main -- kb/disorders || true
+git grep -n -i -e "<important synonym>" origin/main -- kb/disorders || true
+
+# PRs and issues across all states.
+gh pr list --repo monarch-initiative/dismech --state all \
+  --search "\"<MONDO_ID>\" OR \"<preferred disorder name>\"" \
+  --json number,title,state,url,headRefName --limit 100
+gh issue list --repo monarch-initiative/dismech --state all \
+  --search "\"<MONDO_ID>\" OR \"<preferred disorder name>\"" \
+  --json number,title,state,url,labels --limit 100
 ```
-If it exists, edit the existing file instead of creating a new one.
+
+Repeat the PR and issue searches for important synonyms if the first search is
+empty. If the disorder already exists in the knowledgebase, edit the existing
+file instead of creating a new one. If an open PR or issue already covers the
+same disorder, continue there rather than starting duplicate work. If a closed
+PR or issue appears relevant, inspect it before deciding whether new curation is
+still needed.
 
 ### Step 2a: Setup git worktree
 
@@ -96,8 +124,13 @@ Depending on user preference, use one or more of the following commands
 
 Use the filesystem-friendly name here.
 
-`falcon` requires `EDISON_API_KEY` to be exported in the environment.  Edison
-(formerly FutureHouse Falcon) is a large-scale literature agent that performs
+`falcon` requires `EDISON_API_KEY` **or** `FUTUREHOUSE_API_KEY` to be exported
+in the environment — both names refer to the same key and are accepted
+interchangeably by `deep-research-client`.  The provider was originally named
+"FutureHouse Falcon" and later rebranded as "Edison Scientific"; the `falcon`
+provider slug in `just research-disorder` is unchanged.  Use whichever key name
+your environment/secrets manager provides; if you have `FUTUREHOUSE_API_KEY`
+that is sufficient.  Edison is a large-scale literature agent that performs
 deep bibliographic research.  `falcon` runs may take 20 minutes or longer.
 In addition to the narrative report, Edison runs frequently produce **artifacts**
 — structured tables, figures, or supplementary documents — that summarise key
@@ -435,7 +468,7 @@ just fetch-reference DOI:10.xxxx/xxxxx
 ```
 
 Use PMID-based references in YAML evidence whenever possible. Keep PMCID as
-useful supporting metadata, but Dismech evidence validation is centered on PMID
+useful supporting metadata, but DisMech evidence validation is centered on PMID
 abstracts.
 
 Then use this to provide snippets/excerpts and explanations for assertions. For example, for a phenotype assertion:
