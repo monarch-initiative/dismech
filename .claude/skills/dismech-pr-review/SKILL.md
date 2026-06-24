@@ -255,7 +255,9 @@ defence against schema-valid but content-incomplete entries.
 15. GeneReviews Baseline Completeness
 
 For new entries and major augmentations, verify that GeneReviews was used as a
-mandatory baseline where applicable.
+mandatory baseline where applicable. The goal is not to "box-check" GeneReviews as
+cited — it is to **actively mine** GeneReviews as an authoritative clinical source
+and back specific claims with quoted snippets from each major section.
 
 **Step 1 — Is a GeneReviews article tagged?**
 
@@ -279,14 +281,55 @@ curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
   that is a **blocking omission** — flag it as `REQUEST_CHANGES`.
 - If no GeneReviews article exists, no action needed.
 
-**Step 2 — If GeneReviews is tagged, check coverage**
+**Step 2 — If GeneReviews is tagged, verify the cache exists**
 
-Read the cached abstract at `references_cache/PMID_<ID>.md` and verify:
-- Every phenotype listed in the *Clinical Characteristics* section of the
-  abstract is either present in the YAML `phenotypes:` block or the omission
-  is clearly intentional (documented scope narrowing).
-- Any *Agents/Circumstances to Avoid* mentioned in the abstract are reflected
-  in the relevant treatment entry.
+Confirm the GR abstract is cached:
+```bash
+ls references_cache/PMID_<ID>.md
+```
+
+If it is missing, the reviewer should run `just fetch-reference PMID:<ID>` before
+assessing content. A tagged but uncached GR reference means the abstract was never
+verified — this is a blocking gap if it is the only source for core claims.
+
+**Step 3 — Deep-mine GeneReviews sections**
+
+GeneReviews abstracts cover four clinical domains. Each must be **represented by
+evidence items with exact GR snippets** in the YAML, not just by matching narrative
+content. Check each domain:
+
+- **CLINICAL CHARACTERISTICS** → `phenotypes:` entries with GR snippets backing
+  onset age, clinical course, frequency qualifiers, and major organ systems. A claim
+  like "onset in childhood" or "affects 80–90% of patients" needs a GR evidence item,
+  not just a narrative match.
+- **DIAGNOSIS / TESTING** → `diagnosis:` entries that use GR snippets to support
+  the diagnostic criteria or testing strategy described in GeneReviews. If GR specifies
+  the confirmatory test (e.g., "molecular genetic testing of [gene] is the primary
+  method of diagnosis"), that sentence should appear as a snippet.
+- **MANAGEMENT** → `treatments:` entries backed by GR management and surveillance
+  recommendations. Surveillance schedules ("annual ophthalmologic examination"),
+  agents-to-avoid statements, and specific intervention recommendations should each
+  have GR evidence items.
+- **GENETIC COUNSELING** → `inheritance:` entries and any genetic counseling content
+  should cite GR for transmission risk figures ("Each child of an affected individual
+  has a 50% chance of inheriting the pathogenic variant"), penetrance, recurrence
+  risk, and prenatal/PGT availability.
+
+**Section-by-section checklist (complete for every GeneReviews-tagged entry):**
+
+```
+[ ] Clinical Characteristics: GR snippets back ≥1 phenotype onset/frequency claim
+[ ] Diagnosis: GR snippets back the primary diagnostic test/criteria statement
+[ ] Management: GR snippets back ≥1 treatment or surveillance recommendation
+[ ] Genetic Counseling: GR snippets back the inheritance transmission-risk statement
+[ ] Agents/Circumstances to Avoid: any GR-listed agent is reflected in treatments
+[ ] No GR phenotype affecting >10% of patients is absent without scoping rationale
+```
+
+Partial coverage (e.g., Clinical Characteristics mined but Management/Genetic
+Counseling sections absent) is a gap — flag which sections are missing and request
+them. Full absence of GR evidence items (GR only tagged in `references:`, never
+cited in evidence items) is **blocking**.
 
 Absence of a GeneReviews-documented phenotype that affects >10% of patients
 is **blocking** under the same threshold as the Content-Completeness Checklist.
@@ -302,7 +345,7 @@ Submit `--approve` when **all** of the following hold:
 - No major ontology placement errors (e.g., GO molecular function term in `biological_processes`)
 - All pathophysiology entries are atomic (not chained multi-step sentences)
 - When matching deep-research artifacts exist, the **Content-Completeness Checklist** was completed and no blocking omissions remain across any dimension (phenotypes, subtypes, pathophysiology, treatments, genetics, biomarkers, references)
-- GeneReviews baseline check completed (item 15): if a GeneReviews article exists, it is tagged and its Clinical Characteristics are covered
+- GeneReviews baseline check completed (item 15): if a GeneReviews article exists, it is tagged, cached, and **actively mined** — evidence items with GR snippets exist for ≥1 claim in each of the four major sections (Clinical Characteristics, Diagnosis, Management, Genetic Counseling)
 - At most minor wording / completeness issues
 - (CI handles schema/term/reference validation — do not duplicate that work)
 
@@ -315,6 +358,8 @@ Submit `--request-changes` when **any one** of the following is true:
 - Claim–evidence mismatch (evidence snippet does not support the stated claim)
 - A central research-backed mechanism, phenotype, diagnostic, treatment, biomarker, or subtype was omitted even though the supporting evidence is clear, quotable, and in scope for this YAML
 - A GeneReviews article exists for a new Mendelian entry but is not tagged (`tags: [GeneReviews]`) in the top-level `references:` block
+- GeneReviews is tagged but no evidence items in the YAML cite it with exact GR snippets (tagged-but-not-mined)
+- GeneReviews Management or Genetic Counseling sections have no corresponding evidence items with GR snippets, when those sections exist in the GR abstract
 - A GeneReviews-documented phenotype affecting >10% of patients is absent from the YAML with no documented scoping rationale
 
 ### COMMENT + reassign to @cmungall
