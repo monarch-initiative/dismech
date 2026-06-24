@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00335-024-10091-y
+reference_id: "DOI:10.1007/s00335-024-10091-y"
 title: "Canine models of inherited retinal diseases: from neglect to well-recognized translational value"
 authors:
 - Valérie L. Dufour

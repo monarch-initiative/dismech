@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms23137432
+reference_id: "DOI:10.3390/ijms23137432"
 title: Impaired Bestrophin Channel Activity in an iPSC-RPE Model of Best Vitelliform Macular Dystrophy (BVMD) from an Early Onset Patient Carrying the P77S Dominant Mutation
 authors:
 - Arnau Navinés-Ferrer
