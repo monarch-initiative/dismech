@@ -25,6 +25,7 @@ def test_collect_research_index_rows_normalizes_provider_categories(
         "Test_Disorder-deep-research-openscientist-review.md",
         "Test_Disorder-deep-research-codex.md",
         "Test_Disorder-deep-research-fallback.md",
+        "Test_Disorder-deep-research-claude_code.md",
         "Test_Disorder-deep-research-claudeweb.md",
     ]
     for filename in valid_reports:
@@ -45,6 +46,7 @@ def test_collect_research_index_rows_normalizes_provider_categories(
 
     providers = {provider["key"]: provider for provider in row["providers"]}
     assert set(providers) == {
+        "claude-code",
         "cyberian",
         "edison",
         "fallback",
@@ -56,6 +58,7 @@ def test_collect_research_index_rows_normalizes_provider_categories(
     assert providers["cyberian"]["name"] == "Cyberian"
     assert providers["openscientist"]["name"] == "OpenScientist"
     assert providers["openai"]["name"] == "OpenAI"
+    assert providers["claude-code"]["name"] == "Claude Code"
     assert providers["fallback"]["name"] == "Fallback"
     assert providers["other"]["name"] == "Other"
 
@@ -87,6 +90,7 @@ def test_render_research_index_exposes_fixed_provider_filters(tmp_path: Path) ->
         "openai",
         "cyberian",
         "perplexity",
+        "claude-code",
         "fallback",
         "openscientist",
         "other",

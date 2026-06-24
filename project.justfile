@@ -948,6 +948,7 @@ templates_dir := "templates"
 #   just research-disorder asta Liver_Cirrhosis
 #   just research-disorder openai Huntingtons_Disease --model gpt-4o
 #   just research-disorder cborg Crohn_Disease
+#   just research-disorder claude_code Sarcoidosis   # no extra key; reuses Claude Code creds
 [group('Research')]
 research-disorder provider disorder *args="":
     #!/usr/bin/env bash
