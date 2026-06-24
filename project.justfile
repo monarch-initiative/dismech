@@ -769,6 +769,17 @@ gen-comorbidity-page file:
 gen-comorbidity-pages:
     uv run python -m dismech.render --comorbidity {{comorbidity_dir}}
 
+# Generate a single curation-project page
+[group('Pages')]
+gen-project-page file:
+    uv run python -m dismech.render --project {{file}}
+
+# Generate all curation-project pages plus the project index
+[group('Pages')]
+gen-project-pages:
+    uv run python -m dismech.render --project projects
+    @echo "Generated $(ls -1 pages/projects/*.html 2>/dev/null | wc -l | tr -d ' ') project pages"
+
 # Generate static schema docs site via MkDocs (served at /elements/)
 [group('Pages')]
 gen-schema-docs:
@@ -781,8 +792,8 @@ gen-schema-docs:
 
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-schema-docs
-    @echo "Generated browser data, pathographs, disorder/comorbidity/grouping pages, and schema docs"
+gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-schema-docs
+    @echo "Generated browser data, pathographs, disorder/comorbidity/grouping/project pages, and schema docs"
 
 # ============== KGX Export ==============
 

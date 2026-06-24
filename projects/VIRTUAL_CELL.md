@@ -1,3 +1,9 @@
+---
+title: Virtual Cell Alignment Project
+status: IN_PROGRESS
+description: Align the dismech knowledge base with the CZI Virtual Cell initiative, enabling disease mechanism data to connect with single-cell foundation models (scGPT, UCE, TranscriptFormer, GREmLN, rBio) and the CELLxGENE Census data platform.
+---
+
 # Virtual Cell Alignment Project
 
 ## Overview

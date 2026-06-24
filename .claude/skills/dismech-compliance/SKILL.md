@@ -7,7 +7,7 @@ description: >
   priority scoring, and systematically improving knowledge base coverage.
 ---
 
-# Dismech Compliance Analysis Skill
+# DisMech Compliance Analysis Skill
 
 ## Overview
 

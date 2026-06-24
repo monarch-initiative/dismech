@@ -1,3 +1,27 @@
+---
+title: 'Antimicrobial Therapy: Drug–Bug Mechanism Design Pattern'
+status: IN_PROGRESS
+description: 'Six antimicrobial mechanism modules now cover the major antibacterial target classes plus the lifestyle-gating axis:'
+diseases:
+- Bacterial_meningitis
+- Ludwigs_Angina
+- Lyme_Disease
+- Murine_Typhus
+- Oroya_Fever
+- Paratyphoid_Fever
+- Scarlet_Fever
+- Whipple_Disease
+modules:
+- bacterial_cell_wall_synthesis_inhibition
+- bacterial_dna_topoisomerase_inhibition
+- bacterial_folate_synthesis_inhibition
+- bacterial_protein_synthesis_inhibition
+- bacterial_rna_polymerase_inhibition
+- fibrotic_response
+- immune_checkpoint_blockade
+- intracellular_pathogen_persistence
+---
+
 # Antimicrobial Therapy: Drug–Bug Mechanism Design Pattern
 
 ## Status: Phase 2 — Canonical Antibacterial Target-Class Module Set Complete

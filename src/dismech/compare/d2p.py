@@ -231,7 +231,7 @@ def _parse_monarch_associations(
 
 
 # ---------------------------------------------------------------------------
-# Dismech phenotype extraction
+# DisMech phenotype extraction
 # ---------------------------------------------------------------------------
 
 

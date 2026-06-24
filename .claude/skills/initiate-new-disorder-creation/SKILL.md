@@ -124,8 +124,13 @@ Depending on user preference, use one or more of the following commands
 
 Use the filesystem-friendly name here.
 
-`falcon` requires `EDISON_API_KEY` to be exported in the environment.  Edison
-(formerly FutureHouse Falcon) is a large-scale literature agent that performs
+`falcon` requires `EDISON_API_KEY` **or** `FUTUREHOUSE_API_KEY` to be exported
+in the environment — both names refer to the same key and are accepted
+interchangeably by `deep-research-client`.  The provider was originally named
+"FutureHouse Falcon" and later rebranded as "Edison Scientific"; the `falcon`
+provider slug in `just research-disorder` is unchanged.  Use whichever key name
+your environment/secrets manager provides; if you have `FUTUREHOUSE_API_KEY`
+that is sufficient.  Edison is a large-scale literature agent that performs
 deep bibliographic research.  `falcon` runs may take 20 minutes or longer.
 In addition to the narrative report, Edison runs frequently produce **artifacts**
 — structured tables, figures, or supplementary documents — that summarise key
@@ -463,7 +468,7 @@ just fetch-reference DOI:10.xxxx/xxxxx
 ```
 
 Use PMID-based references in YAML evidence whenever possible. Keep PMCID as
-useful supporting metadata, but Dismech evidence validation is centered on PMID
+useful supporting metadata, but DisMech evidence validation is centered on PMID
 abstracts.
 
 Then use this to provide snippets/excerpts and explanations for assertions. For example, for a phenotype assertion:

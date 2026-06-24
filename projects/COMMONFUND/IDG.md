@@ -11,10 +11,10 @@ molecular tools, assays, transgenic mice, recombinant cell lines, data, and
 digital resources. Pharos integrates data across many sources and exposes target
 development levels.
 
-Dismech can provide the disease-mechanism rationale for why an understudied
+DisMech can provide the disease-mechanism rationale for why an understudied
 target matters.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use IDG to link disease mechanisms to actionable targets:
 
@@ -82,7 +82,7 @@ classes, target development levels, probes, ligands, and treatment gaps.
 3. For five targets, write the full chain: disease mechanism node -> target ->
    ligand/probe or drug -> expected downstream phenotype change.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How IDG helps |
 |---------|--------------------------------|---------------|
