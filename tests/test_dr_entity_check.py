@@ -60,6 +60,24 @@ def test_extract_drops_sequencing_method_acronyms():
         assert noise not in counts
 
 
+def test_extract_keeps_ids_gene_symbol():
+    # IDS (iduronate 2-sulfatase, hgnc:5389; Hunter syndrome) is a real gene and
+    # must NOT be swallowed by the stoplist (dismech#3902 review). "ID" alone
+    # stays stoplisted.
+    counts = extract_gene_mentions("Hunter syndrome is caused by IDS variants; one ID per patient.")
+    assert counts["IDS"] == 1
+    assert "ID" not in counts
+
+
+def test_extract_drops_ar_as_autosomal_recessive():
+    # KNOWN LIMITATION (dismech#3902): AR is a real gene (hgnc:644) but is
+    # stoplisted because "AR" overwhelmingly means "autosomal recessive" in DR
+    # prose. The NEC check therefore cannot vouch for AR-gene diseases.
+    counts = extract_gene_mentions("HEXB-related disease shows AR inheritance in an AR pattern.")
+    assert counts["HEXB"] == 1
+    assert "AR" not in counts
+
+
 def test_extract_drops_short_english_words_in_headers():
     # ALL-CAPS section headers ("OVERVIEW OF SNX14 AND THE ROLE IN ...") spray
     # short English words that are gene-symbol-shaped; they must not be counted.

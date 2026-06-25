@@ -71,17 +71,35 @@ COMPETITOR_RATIO = 0.5
 # Uppercase tokens that look gene-symbol-like but are not genes. Kept small and
 # focused on tokens that actually recur in dismech DR reports; the goal is to
 # cut obvious false positives, not to be an exhaustive dictionary.
+#
+# Gene-symbol collisions (dismech#3902 review): some stoplisted tokens are also
+# real HGNC symbols, so stoplisting them blinds the NEC check for the diseases
+# those genes cause. We resolve each collision deliberately:
+#   * ``IDS`` (iduronate 2-sulfatase, hgnc:5389; Hunter syndrome / MPS II) is
+#     NOT stoplisted — "IDS" as the plural of "ID" is rare enough in DR prose
+#     that the gene signal wins. (``ID`` alone stays stoplisted.)
+#   * ``AR`` (androgen receptor, hgnc:644; androgen insensitivity, prostate
+#     cancer) IS stoplisted because "AR" overwhelmingly means "autosomal
+#     recessive" in DR reports; counting it as a gene would spray false
+#     competitor signal across nearly every recessive-disease report. KNOWN
+#     LIMITATION: the NEC preflight cannot vouch for AR-the-gene diseases —
+#     curators of androgen-receptor disorders must run the manual MONDO
+#     gene/OMIM/synonym preflight (CLAUDE.md §2b) by hand.
+#   * ``FAD`` is the flavin adenine dinucleotide cofactor and has no current
+#     approved HGNC symbol, so it stays as a true non-gene token.
 NON_GENE_TOKENS = frozenset(
     {
         # Ontologies / identifiers / pipeline jargon
         "MONDO", "OMIM", "ORPHA", "HGNC", "HPO", "HP", "GO", "CL", "MAXO",
         "CHEBI", "NCIT", "UBERON", "GENO", "PMID", "DOI", "NCT", "CURIE",
-        "DR", "NEC", "QC", "CI", "SOP", "URL", "YAML", "JSON", "ID", "IDS",
+        "DR", "NEC", "QC", "CI", "SOP", "URL", "YAML", "JSON", "ID",
         # Common biomedical abbreviations
         "DNA", "RNA", "MRNA", "CDNA", "RRNA", "TRNA", "SNRNA", "MIRNA",
         "ATP", "ADP", "AMP", "GTP", "NAD", "NADH", "NADP", "FAD",
         "CSF", "CNS", "PNS", "ECM", "ER", "ROS", "PH", "BMI",
         "MRI", "CT", "EEG", "ECG", "EKG", "PET", "USA", "UK", "EU", "WHO",
+        # NB: "AR" is a real gene (hgnc:644) but stoplisted as "autosomal
+        # recessive" — see the gene-symbol-collision note above.
         "AR", "AD", "XL", "XLR", "XLD", "MOI", "SNV", "CNV", "INDEL",
         "WT", "KO", "KI", "IPSC", "IPSCS", "FDA", "EMA", "ICP", "LP",
         "TYPE", "MIM", "OK", "NA", "ND", "II", "III", "IV", "VI", "VII",
