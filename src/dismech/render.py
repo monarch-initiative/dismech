@@ -10,7 +10,7 @@ import re
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, TypedDict
 
 import markdown as markdown_lib
 import yaml
@@ -1196,7 +1196,28 @@ def _extract_display_title(text: str, fallback: str) -> str:
 #   prefix       legend/pill prefix (e.g. the fallback warning glyph)
 #   description  legend descriptive text
 #   pill         pill colors {"border", "background", "color"}
-DEEP_RESEARCH_PROVIDERS: list[dict] = [
+class _ProviderPill(TypedDict):
+    """Pill colors for a provider category."""
+
+    border: str
+    background: str
+    color: str
+
+
+class _ProviderEntry(TypedDict):
+    """One deep-research provider category in the registry."""
+
+    key: str
+    name: str
+    match_keys: tuple[str, ...]
+    humanize: dict[str, str]
+    url: str | None
+    prefix: str
+    description: str
+    pill: _ProviderPill
+
+
+DEEP_RESEARCH_PROVIDERS: list[_ProviderEntry] = [
     {
         "key": "edison",
         "name": "Edison",
@@ -1430,10 +1451,10 @@ def update_details_provider_docs(
     return details_path
 
 
-def _rebase_relative_html_urls(html: str, base_prefix: str) -> str:
+def _rebase_relative_html_urls(html_doc: str, base_prefix: str) -> str:
     """Prefix relative src/href URLs so embedded report assets resolve from the page."""
-    if not html or base_prefix in {"", "."}:
-        return html
+    if not html_doc or base_prefix in {"", "."}:
+        return html_doc
 
     def _replace(match: re.Match[str]) -> str:
         url = match.group("url")
@@ -1445,7 +1466,7 @@ def _rebase_relative_html_urls(html: str, base_prefix: str) -> str:
             f"{rebased}{match.group('quote')}"
         )
 
-    return _RELATIVE_URL_ATTR_PATTERN.sub(_replace, html)
+    return _RELATIVE_URL_ATTR_PATTERN.sub(_replace, html_doc)
 
 
 def collect_reports(
