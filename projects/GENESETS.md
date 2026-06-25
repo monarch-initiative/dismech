@@ -250,6 +250,102 @@ This single example shows the value in both directions: KEGG_ASTHMA would prompt
 would tell genesets-rs which asthma-relevant processes *no flat gene set can be
 expected to recover*.
 
+## Worked examples: the other four disease sets
+
+I pulled the four remaining disease interpretations from PR #3
+(`feat/curate-genesets`) and diffed each against the matching dismech entry.
+Legend: **✓** dismech has the same/child GO term; **~** dismech has a related
+sibling term; **✗** genuine gap (add to dismech); **omit-OK** = genesets tagged
+it `nonspecific`/marker and dismech correctly does *not* model it.
+
+### Cross-cutting findings (more useful than any single disease)
+
+1. **The `nonspecific` role is a validated denylist.** `GO:0006412 translation`
+   is tagged `nonspecific` in **all five** interpretations, and dismech's five
+   matching entries **never** include it. This is direct evidence for feedback
+   flow #2: genesets-rs's `nonspecific`/`false_association` roles line up with
+   exactly what dismech curators already omit by hand. A `nonspecific`/`false_*`
+   term appearing in a dismech pathograph would be a useful lint signal.
+2. **`Colon_Adenocarcinoma` is the highest-value target.** The dismech CRC entry
+   is a 6-node stub with **zero** `biological_processes` GO terms (it names Wnt/
+   APC only in prose). `KEGG_COLORECTAL_CANCER`'s interpretation (Wnt, regulation
+   of proliferation, MAPK, cell migration) is a ready-made scaffold — flow 1 pays
+   off most where dismech is thinnest.
+3. **Curation divergence worth a decision: neuron death.** genesets models
+   neurodegenerative neuron loss as `GO:0051402 neuron apoptotic process`
+   (AD + PD, `core`), whereas dismech PD models it as `GO:0097707 ferroptosis`
+   and avoids generic apoptosis. Not obviously a "gap" — possibly dismech being
+   more specific/current. The diff tool must treat parent/child and
+   mechanism-substitution as *reconcile*, not *missing*.
+
+### KEGG_PARKINSONS_DISEASE → `Parkinsons_Disease` (MONDO:0005180)
+
+| genesets term | role | dismech |
+|---|---|---|
+| GO:0042416 dopamine biosynthetic process | core | ✓ present |
+| GO:0006119 oxidative phosphorylation | core | ✗ **gap** (dismech has GO:0007005 mitochondrion organization, not OXPHOS) |
+| GO:0006511 ubiquitin-dependent protein catabolic process | core | ✗ **gap** (PARK2/PINK1/PRKN are curated as *genes*, but no proteasome/mitophagy GO process) |
+| GO:0005739 mitochondrion (CC) | core_component | ~ BP analogue only |
+| GO:0051402 neuron apoptotic process | core | ~ dismech uses GO:0097707 ferroptosis |
+| GO:0006915 apoptotic process | supporting | ~ ferroptosis |
+| GO:0006412 translation | nonspecific | omit-OK |
+
+**Actionable:** add OXPHOS (`GO:0006119`) and ubiquitin-proteasome/mitophagy
+(`GO:0006511`/`GO:0000422`) to the *Mitochondrial Dysfunction* /
+*Autophagy-Lysosome* nodes — strongly justified since PINK1/PRKN are already
+genes there. dismech is otherwise far richer (α-synuclein inclusion bodies,
+gut-brain seeding, complement, iron/ferroptosis, BBB).
+
+### KEGG_TYPE_I_DIABETES_MELLITUS → `Type_I_Diabetes` (MONDO:0005147)
+
+| genesets term | role | dismech |
+|---|---|---|
+| GO:0001913 T cell mediated cytotoxicity | core | ✓ present |
+| GO:0006915 apoptotic process | supporting | ✓ present |
+| GO:0019882 antigen processing and presentation | core | ~ dismech has **MHC class I** child GO:0002474 only |
+| GO:0042613 MHC class II protein complex (CC) | core_component | ✗ **gap** (HLA-DQ2/DQ8 are curated genes, but no MHC-II GO term) |
+| GO:0006955 immune response | supporting | ~ GO:0002250 adaptive immune response |
+| GO:0030073 insulin secretion | marker_driven_plausible | ✗ minor (descriptive *Insulin Deficiency* node, no GO term) |
+| GO:0006412 translation | nonspecific | omit-OK |
+
+**Actionable:** add **MHC class II** antigen presentation (`GO:0019886`) — dismech
+annotates only MHC-I despite HLA-DQ (class II) being its lead susceptibility
+genes. Otherwise strong agreement; dismech adds type-I-IFN, dendritic-cell
+migration, ER stress, viral defense.
+
+### KEGG_ALZHEIMERS_DISEASE → `Alzheimer_Disease` (MONDO:0004975)
+
+| genesets term | role | dismech |
+|---|---|---|
+| GO:0042987 amyloid precursor protein catabolic process | core | ✓ GO:0042982 APP metabolic + GO:0034205 amyloid-β formation |
+| GO:0005739 mitochondrion | core_component | ✓ present |
+| GO:0006119 oxidative phosphorylation | core | ~ GO:0022904 respiratory electron transport chain |
+| GO:0051402 neuron apoptotic process | core | ✗ gap (but see divergence note) |
+| GO:0006816 calcium ion transport | supporting | ✗ minor gap |
+| GO:0006915 apoptotic process | supporting | ✗ |
+| GO:0006412 translation | nonspecific | omit-OK |
+
+**Actionable:** little — dismech AD is already richer (NLRP3 inflammasome, tau/
+microtubule depolymerization, HSV-1 reactivation, neuroinflammation, BBB,
+synaptic). Only modest adds (explicit neuronal Ca²⁺ transport).
+
+### KEGG_COLORECTAL_CANCER → `Colon_Adenocarcinoma` (MONDO:0005575)
+
+| genesets term | role | dismech |
+|---|---|---|
+| GO:0016055 Wnt signaling pathway | core | ✗ **gap** (Wnt/APC in prose only, no GO term) |
+| GO:0042127 regulation of cell population proliferation | core | ✗ **gap** |
+| GO:0000165 MAPK cascade | supporting | ✗ gap |
+| GO:0016477 cell migration | supporting | ✗ gap |
+| GO:0006915 apoptotic process | supporting | ✗ gap |
+| GO:0006412 translation | nonspecific | omit-OK |
+
+**Actionable:** the whole interpretation is a scaffold for the missing
+`biological_processes` of a stub entry. (Subtype entries
+`BRAF_V600E_Mutant_Colorectal_Cancer` (7 GO), `MSI_High_Colorectal_Cancer` (4),
+`Metastatic_Colorectal_Cancer` (7) are better annotated — the generic base entry
+is the one to enrich.)
+
 ## The duplication problem to resolve first
 
 `genesets/` (dismech) and `curation/genesets/` (genesets-rs) both hold MSigDB
@@ -281,8 +377,11 @@ these touch scope, structured-source policy, and cross-repo governance.
 
 ## Next steps
 
-- [ ] Get full `KEGG_ASTHMA.yaml` interpretation from genesets-rs PR #3 and do
-      the Asthma gap analysis above for real (term-by-term), as the pilot.
+- [x] Pull all 5 disease interpretations from PR #3 and diff term-by-term against
+      dismech (Asthma, Parkinson's, Type I Diabetes, Alzheimer's, Colorectal) —
+      done; see worked-examples section.
+- [ ] File the concrete gaps as curation issues: PD OXPHOS + ubiquitin/mitophagy;
+      T1D MHC-class-II presentation; CRC `Colon_Adenocarcinoma` GO scaffold.
 - [ ] Decide membership ownership; if genesets-rs wins, open a dismech issue to
       retire/repoint `genesets/`.
 - [ ] Prototype the `MSigDB`/`GeneSet` structured source
@@ -302,5 +401,12 @@ these touch scope, structured-source policy, and cross-repo governance.
   (GeneSetInterpretation schema + GO `role` taxonomy + eval-first CLI).
 - Identified the Asthma ↔ KEGG_ASTHMA pilot and a concrete gap list (antigen
   presentation, FcεRI degranulation, eosinophil effectors, CD40 costimulation).
+- Extended the diff to all 5 disease interpretations in the PR. Key results:
+  `GO:0006412 translation` is `nonspecific` in all five and absent from all five
+  dismech entries (denylist validated); `Colon_Adenocarcinoma` is a GO-free stub
+  (highest-value enrichment target); concrete adds for PD (OXPHOS, ubiquitin/
+  mitophagy) and T1D (MHC class II). Noted the neuron-death modeling divergence
+  (genesets apoptosis vs dismech ferroptosis) — the diff tool must reconcile
+  parent/child + mechanism substitution, not flag them as missing.
 </content>
 </invoke>
