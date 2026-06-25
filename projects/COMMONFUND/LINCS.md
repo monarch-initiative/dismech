@@ -14,7 +14,7 @@ signatures for many perturbagens, doses, time points, and cell lines.
 For dismech, LINCS can test whether a perturbation mimics or reverses a disease
 mechanism state.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use LINCS for perturbation-to-mechanism interpretation:
 
@@ -81,7 +81,7 @@ with explicit direction, cell-line relevance, and target/pathway caveats.
 3. Query LINCS Level 5 signatures for reversal and mimicry. Keep the top hits
    only if the cell line and perturbagen mechanism are biologically plausible.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How LINCS helps |
 |---------|--------------------------------|-----------------|

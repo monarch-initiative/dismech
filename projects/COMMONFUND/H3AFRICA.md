@@ -15,7 +15,7 @@ Genetics, and Wellcome/AESA.
 For dismech, H3Africa should enhance population-aware curation without turning
 ancestry into a mechanism by itself.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use H3Africa to add population, environment, and variant-context layers:
 
@@ -94,7 +94,7 @@ context from the actual biological mechanism.
 3. Add only the biological mechanism claims to pathophysiology; keep ancestry,
    country, and cohort as evidence context or dataset metadata.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How H3Africa helps |
 |---------|--------------------------------|--------------------|

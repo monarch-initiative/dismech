@@ -210,7 +210,7 @@ Across the retrieved literature, authoritative consensus themes include:
 
 6) **Primary 2017 nosology + GeneReviews retrieval limitation**: This tool session did not successfully retrieve the full-text primary 2017 EDS nosology paper or the official GeneReviews chapter with PubMed PMID. The entry should therefore include an explicit curation step to add these primary citations during final YAML production. (forghani2019updatesinclinical pages 2-3, scicluna2022hypermobileehlers–danlossyndrome pages 1-2)
 
-### 8) Dismech-ready structured content
+### 8) DisMech-ready structured content
 The following artifacts can be directly used to scaffold a dismech YAML entry.
 
 | Topic | Summary | Key quantitative / defining details | Supporting citations |

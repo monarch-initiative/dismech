@@ -1,6 +1,6 @@
 # Primer: Preferred Term vs Ontology Label
 
-Every descriptor in Dismech (phenotype, cell type, treatment, …) carries **two**
+Every descriptor in DisMech (phenotype, cell type, treatment, …) carries **two**
 label fields, and they answer different questions. Mixing them up is one of the
 most common curation slips.
 

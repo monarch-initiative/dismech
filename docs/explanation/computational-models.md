@@ -2,7 +2,7 @@
 
 ## Overview
 
-Some Dismech disorder entries reference SBML (Systems Biology Markup Language) models that capture the quantitative dynamics of disease mechanisms as ordinary differential equations (ODEs). The **dismech-perturb** framework connects these models back to the clinical knowledge in the YAML, answering questions like:
+Some DisMech disorder entries reference SBML (Systems Biology Markup Language) models that capture the quantitative dynamics of disease mechanisms as ordinary differential equations (ODEs). The **dismech-perturb** framework connects these models back to the clinical knowledge in the YAML, answering questions like:
 
 > "If gene X is lost or environmental parameter Y changes, which phenotypes activate, how severely, and through which mechanistic path?"
 
