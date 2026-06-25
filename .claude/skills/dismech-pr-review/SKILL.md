@@ -294,7 +294,7 @@ verified — this is a blocking gap if it is the only source for core claims.
 
 **Step 3 — Deep-mine GeneReviews sections**
 
-GeneReviews abstracts cover four clinical domains. Each must be **represented by
+GeneReviews PubMed abstracts cover four clinical domains. Each must be **represented by
 evidence items with exact GR snippets** in the YAML, not just by matching narrative
 content. Check each domain:
 
@@ -345,7 +345,7 @@ Submit `--approve` when **all** of the following hold:
 - No major ontology placement errors (e.g., GO molecular function term in `biological_processes`)
 - All pathophysiology entries are atomic (not chained multi-step sentences)
 - When matching deep-research artifacts exist, the **Content-Completeness Checklist** was completed and no blocking omissions remain across any dimension (phenotypes, subtypes, pathophysiology, treatments, genetics, biomarkers, references)
-- GeneReviews baseline check completed (item 15): if a GeneReviews article exists, it is tagged, cached, and **actively mined** — evidence items with GR snippets exist for ≥1 claim in each of the four major sections (Clinical Characteristics, Diagnosis, Management, Genetic Counseling)
+- GeneReviews baseline check completed (item 15): if a GeneReviews article exists, it is tagged, cached, and **actively mined** — evidence items with GR snippets exist for ≥1 claim in each of the four major sections present in the GR abstract (Clinical Characteristics, Diagnosis, Management, Genetic Counseling)
 - At most minor wording / completeness issues
 - (CI handles schema/term/reference validation — do not duplicate that work)
 
@@ -359,7 +359,7 @@ Submit `--request-changes` when **any one** of the following is true:
 - A central research-backed mechanism, phenotype, diagnostic, treatment, biomarker, or subtype was omitted even though the supporting evidence is clear, quotable, and in scope for this YAML
 - A GeneReviews article exists for a new Mendelian entry but is not tagged (`tags: [GeneReviews]`) in the top-level `references:` block
 - GeneReviews is tagged but no evidence items in the YAML cite it with exact GR snippets (tagged-but-not-mined)
-- GeneReviews Management or Genetic Counseling sections have no corresponding evidence items with GR snippets, when those sections exist in the GR abstract
+- GeneReviews sections present in the GR abstract have no corresponding evidence items with GR snippets (partial mining — all present sections must be covered)
 - A GeneReviews-documented phenotype affecting >10% of patients is absent from the YAML with no documented scoping rationale
 
 ### COMMENT + reassign to @cmungall
