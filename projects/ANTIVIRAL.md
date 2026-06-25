@@ -1,7 +1,7 @@
 ---
 title: 'Antiviral Therapy: Drug–Virus Mechanism Design Pattern'
-status: PLANNED
-description: 'Extends the antimicrobial drug–bug mechanism layer to antiviral therapy: viral-target modules (polymerase, protease, entry/fusion, integrase, release) plus the latency/reservoir and quasispecies-resistance gating axes.'
+status: IN_PROGRESS
+description: 'Extends the antimicrobial drug–bug mechanism layer to antiviral therapy: viral-target modules (polymerase, protease, entry/fusion, integrase, release) plus the latency/reservoir gating axis. Five target-class modules plus the gating module are now built and validated.'
 diseases:
 - Acquired_Immunodeficiency_Syndrome
 - Acute_Hepatitis_C_Virus_Infection
@@ -10,23 +10,33 @@ diseases:
 - Hepatitis_C
 - Influenza
 modules:
+- viral_polymerase_inhibition
+- viral_protease_inhibition
+- viral_entry_fusion_inhibition
+- viral_integrase_inhibition
+- viral_assembly_release_inhibition
+- viral_latency_reservoir_persistence
 - parp_parg_macrodomain_viral_evasion
 ---
 
 # Antiviral Therapy: Drug–Virus Mechanism Design Pattern
 
-## Status: Phase 0 — Strategy / Module Set Proposed
+## Status: Phase 1 — Antiviral Mechanism Module Set Built
 
 This project extends the [`ANTIMICROBIAL`](ANTIMICROBIAL.md) drug–bug mechanism
 design pattern to **antiviral therapy**. The same machinery applies — a
 `Treatment` links via `target_mechanisms` to the specific pathophysiology node
 (a viral enzyme/step or a gating principle) that makes the drug work, and
 recurrent *virus-property × drug-class* interactions are captured once as
-`kb/modules/` that disease entries `conforms_to`. The worked examples below are
-already partly in the KB; the **antiviral target-class modules are proposed, not
-yet built**.
+`kb/modules/` that disease entries `conforms_to`.
 
-| Proposed module | Target / principle | Drug classes | Candidate conformers (existing entries) |
+**Six antiviral mechanism modules are now built and validated** (schema + term +
+independent snippet-substring verification of every evidence quote): five
+direct-acting viral-target modules plus the latency/reservoir gating module. The
+remaining work is **wiring conforming disease entries** (`conforms_to` +
+treatment `target_mechanisms` edges), tracked in §7.
+
+| Module (built ✓) | Target / principle | Drug classes | Candidate conformers (existing entries) |
 |---|---|---|---|
 | `viral_polymerase_inhibition` | RdRp / reverse transcriptase / viral DNA polymerase; nucleos(t)ide chain termination + non-nucleoside allosteric block | NRTIs, NNRTIs, nucleotide analogs | Hepatitis_B (tenofovir, entecavir), Hepatitis_C (sofosbuvir), COVID-19 (remdesivir, molnupiravir), Acquired_Immunodeficiency_Syndrome (tenofovir/emtricitabine) |
 | `viral_protease_inhibition` | Viral polyprotein maturation protease (HIV PR, HCV NS3/4A, SARS-CoV-2 Mpro/3CLpro) | protease inhibitors | COVID-19 (nirmatrelvir), Hepatitis_C (glecaprevir/grazoprevir), Acquired_Immunodeficiency_Syndrome (atazanavir/darunavir, ritonavir boost) |
@@ -174,30 +184,46 @@ can separate them.
 
 ## 7. Next Steps
 
-- [ ] Draft `viral_polymerase_inhibition` as the proof-of-concept module
+- [x] Draft `viral_polymerase_inhibition` as the proof-of-concept module
       (nucleos(t)ide chain termination + non-nucleoside allosteric block across
       RdRp / reverse transcriptase / viral DNA polymerase), mirroring the
-      `bacterial_cell_wall_synthesis_inhibition` build: target node →
-      chain-termination/inhibition mechanism → resistance-mutation branch. It is
-      the highest-yield module (covers HCV, HBV, HIV, SARS-CoV-2, herpesviruses).
-- [ ] Wire **COVID-19** end-to-end as the first conformer: add explicit
-      "SARS-CoV-2 RdRp" and "SARS-CoV-2 Main Protease (Mpro)" drug-target nodes,
-      `conforms_to` the polymerase/protease modules, and add `target_mechanisms`
-      edges from remdesivir/molnupiravir and nirmatrelvir. (The host-evasion
-      `parp_parg_macrodomain_viral_evasion` conformance is already present.)
-- [ ] Refine **Acute_Hepatitis_C_Virus_Infection** / **Hepatitis_C**: split the
-      coarse "Early HCV infection of hepatocytes" target into explicit NS5B
-      polymerase, NS3/4A protease, and NS5A replication-complex nodes so all
-      three DAA classes attach.
-- [ ] Draft `viral_protease_inhibition` and wire the multi-target HCV and HIV
-      regimens plus COVID-19 Mpro.
-- [ ] Draft `viral_latency_reservoir_persistence` (gating, not a drug target —
-      the antiviral analog of `intracellular_pathogen_persistence`). Wire
-      **Acquired_Immunodeficiency_Syndrome** (proviral reservoir) and
-      **Hepatitis_B** (cccDNA) as the worked "suppression ≠ cure" examples.
-- [ ] Draft `viral_integrase_inhibition` and `viral_entry_fusion_inhibition`;
-      build out **Acquired_Immunodeficiency_Syndrome** as the flagship
-      multi-module conformer (RT + integrase + protease + entry + reservoir).
+      `bacterial_cell_wall_synthesis_inhibition` build. Built at
+      `kb/modules/viral_polymerase_inhibition.yaml`: four nodes (polymerase
+      target → chain-termination/replication-arrest → non-nucleoside allosteric
+      inhibition → quasispecies-driven target resistance). Evidence: Geraghty
+      33924302 (broad-spectrum nucleoside analogues, remdesivir delayed chain
+      termination, sofosbuvir prodrug, high-mutation-rate escape), Amblard
+      35792384 (HIV NRTIs). Key target: `#Viral Polymerase as the Replication
+      Engine and Drug Target`.
+- [x] Draft `viral_protease_inhibition`. Built: three nodes (maturation protease
+      target → immature non-infectious virions → protease-inhibitor resistance /
+      ritonavir-boost rationale). Evidence: 32858867 (HIV maturation), 37407698
+      (SARS-CoV-2 Mpro structure), 35993498 (HCV NS3/4A resistance), 26566368
+      (cobicistat boosting). Key target: `#Viral Polyprotein Maturation Protease
+      as Drug Target`.
+- [x] Draft `viral_entry_fusion_inhibition` (attachment / co-receptor / fusion /
+      NTCP), `viral_integrase_inhibition` (retroviral strand transfer), and
+      `viral_assembly_release_inhibition` (influenza neuraminidase + HCV NS5A;
+      baloxavir deliberately excluded as a PA-endonuclease target). All built,
+      each with a target → consequence → resistance/gating node set and verified
+      evidence.
+- [x] Draft `viral_latency_reservoir_persistence` (gating, not a drug target —
+      the antiviral analog of `intracellular_pathogen_persistence`). Built: three
+      nodes (latent/archival genome → suppression-without-eradication →
+      reactivation on interruption). Evidence covers the HIV proviral reservoir,
+      HBV cccDNA, and HSV neuronal latency. Key gating target: `#Antiviral
+      Suppression Without Eradication of the Reservoir`.
+- [ ] **Wire conforming disease entries** (the remaining payoff — modules exist
+      but no antiviral disorder yet `conforms_to` them). Highest-value first:
+      **COVID-19** (add explicit SARS-CoV-2 RdRp + Mpro drug-target nodes,
+      `conforms_to` the polymerase/protease modules, `target_mechanisms` from
+      remdesivir/molnupiravir and nirmatrelvir; host-evasion
+      `parp_parg_macrodomain_viral_evasion` conformance is already present);
+      **Acute_Hepatitis_C_Virus_Infection** / **Hepatitis_C** (split the coarse
+      "Early HCV infection of hepatocytes" target into NS5B / NS3/4A / NS5A
+      nodes); **Hepatitis_B** (RT suppression gated by cccDNA reservoir);
+      **Acquired_Immunodeficiency_Syndrome** as the flagship five-module
+      conformer (RT + integrase + protease + entry + reservoir).
 - [ ] Decide how to model **Influenza** baloxavir (cap-dependent endonuclease,
       PA subunit) vs oseltamivir (neuraminidase release): endonuclease is closer
       to a polymerase-complex target than to assembly/release — may warrant its

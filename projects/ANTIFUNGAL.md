@@ -1,33 +1,45 @@
 ---
 title: 'Antifungal Therapy: Drug–Fungus Mechanism Design Pattern'
-status: PLANNED
-description: 'Extends the antimicrobial drug–bug mechanism layer to antifungal therapy: ergosterol-synthesis (azoles/allylamines), membrane-ergosterol-binding (polyenes), cell-wall glucan-synthesis (echinocandins), and antimetabolite (flucytosine) target modules, plus intrinsic-resistance and CNS-penetration gating axes.'
+status: IN_PROGRESS
+description: 'Extends the antimicrobial drug–bug mechanism layer to antifungal therapy: ergosterol-synthesis (azoles/allylamines), membrane-ergosterol-binding (polyenes), cell-wall glucan-synthesis (echinocandins), and antimetabolite (flucytosine) target modules, plus an intrinsic-resistance gating axis. All five modules are now built and validated.'
 diseases:
 - Chromoblastomycosis
 - Coccidioidomycosis
 - Mycetoma
 - Otomycosis
+modules:
+- fungal_ergosterol_synthesis_inhibition
+- fungal_membrane_ergosterol_binding
+- fungal_cell_wall_glucan_synthesis_inhibition
+- fungal_nucleic_acid_antimetabolite
+- antifungal_intrinsic_resistance_gating
 ---
 
 # Antifungal Therapy: Drug–Fungus Mechanism Design Pattern
 
-## Status: Phase 0 — Strategy / Module Set Proposed
+## Status: Phase 1 — Antifungal Mechanism Module Set Built
 
 This project extends the [`ANTIMICROBIAL`](ANTIMICROBIAL.md) drug–bug mechanism
 design pattern to **antifungal therapy**. Same machinery — a `Treatment` links
 via `target_mechanisms` to the specific pathophysiology node (a fungal
 biosynthetic target or a gating principle) that makes the drug work, and
 recurrent *fungus-property × drug-class* interactions are captured once as
-`kb/modules/` that disease entries `conforms_to`. **No antifungal modules exist
-yet**; the worked examples below build on existing fungal entries
-(Otomycosis, Coccidioidomycosis, Chromoblastomycosis, Mycetoma).
+`kb/modules/` that disease entries `conforms_to`.
+
+**All five antifungal mechanism modules are now built and validated** (schema +
+term + independent snippet-substring verification of every evidence quote): four
+drug-target modules (ergosterol synthesis, polyene membrane binding, echinocandin
+β-glucan synthesis, flucytosine antimetabolite) plus the species-level
+intrinsic-resistance gating module. The remaining work is **wiring conforming
+disease entries** and creating the missing flagship entries (cryptococcal
+meningitis, invasive candidiasis), tracked in §7.
 
 Antifungal pharmacology has a tighter, more conserved target set than antivirals
 because fungi are eukaryotes — selective toxicity hinges on a handful of
 fungal-specific structures (ergosterol instead of cholesterol; a β-1,3-glucan
 cell wall mammalian cells lack).
 
-| Proposed module | Target / principle | Drug classes | Candidate conformers (existing entries) |
+| Module (built ✓) | Target / principle | Drug classes | Candidate conformers (existing entries) |
 |---|---|---|---|
 | `fungal_ergosterol_synthesis_inhibition` | Ergosterol biosynthesis: lanosterol 14α-demethylase (CYP51/ERG11, azole target) and squalene epoxidase (ERG1, allylamine target) | triazoles, imidazoles, allylamines | Otomycosis (clotrimazole, fluconazole), Coccidioidomycosis (fluconazole/itraconazole), Chromoblastomycosis (itraconazole/terbinafine), Mycetoma (itraconazole) |
 | `fungal_membrane_ergosterol_binding` | Direct ergosterol binding → membrane pore / oxidative damage | polyenes | Coccidioidomycosis (amphotericin B for severe/disseminated), Mycetoma |
@@ -176,27 +188,44 @@ folate module holds distinct DHPS and DHFR nodes.
 
 ## 7. Next Steps
 
-- [ ] Draft `fungal_ergosterol_synthesis_inhibition` as the proof-of-concept
-      module (CYP51/ERG11 demethylase node + squalene epoxidase node →
-      ergosterol depletion / membrane stress → azole-resistance branch: ERG11
-      mutation, efflux, TR34/L98H), mirroring the
-      `bacterial_cell_wall_synthesis_inhibition` build. Highest-yield module
-      (azoles are the workhorse class across nearly every mycosis here).
-- [ ] Wire **Otomycosis** end-to-end as the first conformer: add an "Ergosterol
-      Biosynthesis (CYP51/ERG11)" drug-target node, `conforms_to` the module,
-      add `target_mechanisms` edges from clotrimazole/miconazole/fluconazole,
-      and connect the existing biofilm/resistance node to
-      `antifungal_intrinsic_resistance_gating` (Aspergillus ↔ fluconazole).
-- [ ] Wire **Coccidioidomycosis**: add ergosterol-synthesis (azole) and
-      ergosterol-membrane (amphotericin B) target nodes; cross-link the existing
-      dectin-1/CLEC7A β-glucan host-recognition node to a future β-glucan
-      drug-target node.
-- [ ] Draft `fungal_membrane_ergosterol_binding` (polyenes) and
-      `fungal_cell_wall_glucan_synthesis_inhibition` (echinocandins, FKS1 —
-      the cleanest fungal-specific selectivity story).
-- [ ] Draft `fungal_nucleic_acid_antimetabolite` (flucytosine) and
-      `antifungal_intrinsic_resistance_gating` (the antifungal analog of
+- [x] Draft `fungal_ergosterol_synthesis_inhibition` as the proof-of-concept
+      module. Built at `kb/modules/fungal_ergosterol_synthesis_inhibition.yaml`:
+      four nodes (CYP51/ERG11 demethylase azole target + squalene epoxidase ERG1
+      allylamine target → ergosterol depletion / membrane dysfunction →
+      azole-target resistance: ERG11 mutation/overexpression, efflux, TR34/L98H).
+      Evidence: Rosam 33374996, 37151610 (CYP51), Ryder 1543672 (terbinafine /
+      squalene epoxidase), 38878211 / 31542320 / 36458152 (Aspergillus azole
+      resistance). Key target: `#Ergosterol Biosynthesis - Lanosterol
+      14-alpha-Demethylase (CYP51/ERG11) as Azole Target`.
+- [x] Draft `fungal_membrane_ergosterol_binding` (polyenes). Built: three nodes
+      (membrane ergosterol as the polyene binding target → permeabilization /
+      fungicidal killing → rare resistance via reduced ergosterol). Evidence:
+      31643715 (LiverTox), Anderson 24681535 (sterol-sponge), Czajka 37998390.
+- [x] Draft `fungal_cell_wall_glucan_synthesis_inhibition` (echinocandins, FKS1).
+      Built: four nodes (β-1,3-glucan synthase target → cell-wall integrity
+      failure / osmotic lysis → FKS-mediated resistance → intrinsic resistance in
+      Cryptococcus/Mucorales). Evidence: Perlin 26190298 / 26567278, Emri
+      23463246, Aruanno 31138565, Cappelletty 21694887, Iyer 33558691.
+- [x] Draft `fungal_nucleic_acid_antimetabolite` (flucytosine). Built: three
+      nodes (fungal cytosine-deaminase activation of 5-FC to 5-FU → disruption of
+      fungal RNA/DNA synthesis → rapid monotherapy resistance mandating
+      combination). Evidence: Vermes 10933638, Houšť 32178468, Noël 12654658.
+- [x] Draft `antifungal_intrinsic_resistance_gating` (the antifungal analog of
       `intracellular_pathogen_persistence` — species-level class exclusion).
+      Built: two nodes (species-level intrinsic resistance —
+      Aspergillus/fluconazole, Cryptococcus/echinocandin,
+      Mucorales/voriconazole+echinocandin → acquired multidrug resistance in
+      *Candida auris*). Evidence: 33558691, 38445857, 31159914, 33091071,
+      28911043.
+- [ ] **Wire conforming disease entries** (modules exist but no fungal disorder
+      yet `conforms_to` them). **Otomycosis** first: add an ergosterol-synthesis
+      (CYP51/ERG11) drug-target node, `conforms_to` the module, `target_mechanisms`
+      from clotrimazole/miconazole/fluconazole, and connect the existing
+      biofilm/resistance node to `antifungal_intrinsic_resistance_gating`
+      (Aspergillus ↔ fluconazole). **Coccidioidomycosis**: ergosterol-synthesis
+      (azole) + ergosterol-membrane (amphotericin B) target nodes; cross-link the
+      existing dectin-1/CLEC7A β-glucan host-recognition node to the β-glucan
+      drug-target node.
 - [ ] Create the missing flagship entries that unlock the multi-module
       conformers: **Cryptococcal_Meningitis** (AmB + flucytosine induction →
       fluconazole consolidation; echinocandin-resistant) and **Invasive
