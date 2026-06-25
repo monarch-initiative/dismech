@@ -26,6 +26,16 @@ jobs:
 
     steps:
 
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false   # keep python/uv/etc
+          docker-images: true
+
       # https://github.com/actions/checkout
       - name: Check out repository
         uses: actions/checkout@v6
@@ -48,6 +58,10 @@ jobs:
               - '!kb/disorders/**/*.history.yaml'
             kb_comorbidities:
               - 'kb/comorbidities/**/*.yaml'
+            history:
+              - 'history/**/*.yaml'
+              - 'src/dismech/schema/history.yaml'
+              - 'project.justfile'
             app:
               - 'app/**'
               - 'tests/js/**'
@@ -71,7 +85,7 @@ jobs:
 
           if echo "$CHANGED" | grep -q '^kb/'; then
             INFRA=$(echo "$CHANGED" \
-              | grep -vE '^(kb/|cache/|references_cache/|research/|pages/|dashboard/)' \
+              | grep -vE '^(kb/|history/|cache/|references_cache/|research/|pages/|dashboard/)' \
               || true)
 
             if [ -n "$INFRA" ]; then
@@ -151,6 +165,10 @@ jobs:
               echo "Skipping non-comorbidity file: $f"
             fi
           done
+
+      - name: Validate history records
+        if: steps.changes.outputs.history == 'true'
+        run: just validate-history-all
 
       - name: Set up Node.js
         if: steps.changes.outputs.app == 'true' || steps.changes.outputs.src == 'true'

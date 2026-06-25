@@ -22,10 +22,11 @@ Alias: mapping_source
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ICD11FMapping](../classes/ICD11FMapping.md) | ICD-11 Foundation diagnosis code mapping |  no  |
 | [TermMapping](../classes/TermMapping.md) | Mapping from this disease entry to an external term or code |  no  |
 | [ICD10CMMapping](../classes/ICD10CMMapping.md) | ICD-10-CM diagnosis code mapping |  no  |
+| [ICD11FMapping](../classes/ICD11FMapping.md) | ICD-11 Foundation diagnosis code mapping |  no  |
 | [MondoMapping](../classes/MondoMapping.md) | MONDO disease ontology mapping |  no  |
+| [NCITMapping](../classes/NCITMapping.md) | NCIT disease, subtype, or disease/finding ontology mapping for cancer entries |  no  |
 
 
 
@@ -34,13 +35,28 @@ Alias: mapping_source
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [TermMapping](../classes/TermMapping.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

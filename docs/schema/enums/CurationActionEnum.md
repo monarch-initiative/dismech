@@ -10,7 +10,6 @@ _Simple action types for curation audit trail_
 URI: [dismech:enum/CurationActionEnum](https://w3id.org/monarch-initiative/dismech/enum/CurationActionEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | CREATED | None | Initial file creation |
@@ -29,8 +28,12 @@ URI: [dismech:enum/CurationActionEnum](https://w3id.org/monarch-initiative/disme
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

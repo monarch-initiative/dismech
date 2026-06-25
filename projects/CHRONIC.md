@@ -1,3 +1,49 @@
+---
+title: Chronic Disease Curation Project
+status: EVERGREEN
+description: This project aims to curate comprehensive pathophysiology entries for major chronic diseases in the Disorder Mechanisms Knowledge Base. Chronic diseases represent long-term conditions that require ongoing management and significantly impact quality of life.
+diseases:
+- Age_Related_Macular_Degeneration
+- Asthma
+- Atrial_Fibrillation
+- Benign_Prostatic_Hyperplasia
+- Bipolar_Disorder
+- Celiac_Disease
+- Chronic_Kidney_Disease
+- Chronic_Obstructive_Pulmonary_Disease
+- Chronic_Pancreatitis
+- Coronary_Artery_Disease
+- Crohn_Disease
+- Endometriosis
+- Epilepsy
+- Essential_Hypertension
+- Fibromyalgia
+- Gastroesophageal_Reflux_Disease
+- Generalized_Anxiety_Disorder
+- Glaucoma
+- Gout
+- Hashimotos_Thyroiditis
+- Heart_Failure
+- Irritable_Bowel_Syndrome
+- Liver_Cirrhosis
+- Major_Depressive_Disorder
+- Migraine
+- Multiple_Sclerosis
+- Obesity
+- Obstructive_Sleep_Apnea
+- Osteoarthritis
+- Osteoporosis
+- Parkinsons_Disease
+- Peripheral_Artery_Disease
+- Polycystic_Ovary_Syndrome
+- Psoriasis
+- Rheumatoid_Arthritis
+- Sickle_Cell_Disease
+- Systemic_Lupus_Erythematosus
+- Type_2_Diabetes_Mellitus
+- Ulcerative_Colitis
+---
+
 # Chronic Disease Curation Project
 
 ## Overview

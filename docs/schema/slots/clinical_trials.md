@@ -31,15 +31,29 @@ Alias: clinical_trials
 
 ## Properties
 
-* Range: [ClinicalTrial](../classes/ClinicalTrial.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ClinicalTrial](../classes/ClinicalTrial.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

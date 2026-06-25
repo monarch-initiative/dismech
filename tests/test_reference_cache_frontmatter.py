@@ -36,6 +36,25 @@ def test_check_cache_file_accepts_valid_cache(tmp_path: Path):
     assert check_cache_file(good) is None
 
 
+def test_check_cache_file_allows_inline_triple_hyphen_sequence(tmp_path: Path):
+    """A title may contain ``---`` without closing the YAML frontmatter."""
+    good = tmp_path / "PMID_1899320.md"
+    good.write_text(
+        "---\n"
+        'reference_id: "PMID:1899320"\n'
+        "title: Rapid detection of the A----G(8344) mutation of mtDNA.\n"
+        "authors:\n"
+        "- Zeviani M\n"
+        "journal: Am J Hum Genet\n"
+        "year: '1991'\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Rapid detection of the A----G(8344) mutation of mtDNA.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
 def test_check_cache_file_reports_malformed_yaml(tmp_path: Path):
     broken = tmp_path / "PMID_88888888.md"
     broken.write_text(
@@ -139,6 +158,28 @@ def test_pmid_cache_missing_both_authors_and_journal_is_rejected(tmp_path: Path)
     assert any(
         "authors" in reason and "journal" in reason for reason in finding.reasons
     )
+
+
+def test_pmid_cache_ncbi_bookshelf_record_is_accepted(tmp_path: Path):
+    """NCBI Bookshelf records (LiverTox, GeneReviews, StatPearls, …) are real
+    PubMed-indexed references that efetch renders as a book citation, so they
+    legitimately carry neither ``authors`` nor ``journal``. The "[Internet]."
+    Bookshelf marker in the body exempts them from the #1737 fingerprint."""
+    good = tmp_path / "PMID_31643801.md"
+    good.write_text(
+        "---\n"
+        'reference_id: "PMID:31643801"\n'
+        "title: Rilonacept.\n"
+        "year: '2012'\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Rilonacept.\n\n"
+        "LiverTox: Clinical and Research Information on Drug-Induced Liver "
+        "Injury [Internet]. Bethesda (MD): National Institute of Diabetes and "
+        "Digestive and Kidney Diseases; 2012-.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
 
 
 def test_pmid_cache_with_only_journal_is_accepted(tmp_path: Path):

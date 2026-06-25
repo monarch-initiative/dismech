@@ -278,7 +278,7 @@ A 2023 systematic review evaluated cochlear implantation outcomes in early-deafe
 
 ---
 
-## 6) Dismech curation guidance: what to encode as separate entries
+## 6) DisMech curation guidance: what to encode as separate entries
 
 ### 6.1 Proposed dismech entry set
 

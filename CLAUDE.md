@@ -9,6 +9,18 @@ This is the **Disorder Mechanisms Knowledge Base (dismech)** - a LinkML-based kn
 2. A knowledge base of disorder YAML files (`kb/disorders/*.yaml`)
 3. HTML rendering for browsable disorder pages (`pages/disorders/*.html`)
 
+## Design Decisions
+
+Before making structural, scope, ontology, BioLink/KGX, or evidence-policy choices,
+consult the decision register at
+[`docs/explanation/design-decisions.md`](docs/explanation/design-decisions.md). It records
+*why* the project is built the way it is — project scope (what is/isn't a dismech entry),
+the LinkML schema choice, the constrained ontology set, export-layer-only BioLink reuse,
+the evidence/provenance policy, curation governance, and a tracked list of open/deferred
+decisions. Cite it when a recorded decision is relevant; if a decision looks wrong or
+stale, surface it rather than silently contradicting it. The specifics below in this file
+remain authoritative for day-to-day curation mechanics.
+
 ## Skills
 
 Claude Code skills are available in `.claude/skills/`:
@@ -85,6 +97,16 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 - Generates browsable HTML pages in `pages/disorders/`
 - Links ontology terms to external browsers (HPO JAX, MONDO Monarch, OLS, etc.)
 
+### Curation Projects (`projects/*.md` → `pages/projects/`)
+- Thematic curation tracking files. A project may carry standardized YAML
+  frontmatter (`title`, `status`, `tags`, `description`, and entity lists:
+  `diseases`, `modules`, `groupings`, `drugs`, `phenotypes`).
+- Convention: refer to diseases/modules/groupings **by slug** in the markdown
+  body; declared slugs auto-link to their dismech pages on render (filename
+  refs like `Foo.yaml` and code blocks are left intact).
+- `just gen-project-pages` renders all projects plus an auto-generated index
+  (`pages/projects/index.html`). See [`docs/projects.md`](docs/projects.md).
+
 ### Scripts (`scripts/`)
 - `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
 
@@ -145,7 +167,15 @@ pathophysiology:
 
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
+- `cellular_senescence` — Conserved cellular senescence: senescence-inducing stress → p16INK4a/Rb and p53/p21 cell-cycle arrest → senescence-associated secretory phenotype (SASP) → senescent cell accumulation (when immune clearance is outpaced) → chronic inflammation and tissue dysfunction driving age-related disease. Carries the two canonical senescence biomarkers (p16INK4a/CDKN2A and senescence-associated beta-galactosidase) as `biochemical` readouts, plus the senolytic drug-target pattern (treatments use `target_mechanisms` to link back to "Senescent Cell Accumulation"). Intentionally lean: disease-specific or context-dependent downstream theories (e.g. the age-contextualized accelerated-aging/early-onset-cancer association) are NOT embedded — they belong on the relevant disorder or comorbidity/trajectory entry, which can `conforms_to`/reference this module. Worked conformers: Osteoarthritis (senescent chondrocytes), pulmonary fibrosis (senescent fibroblasts). Key conformance target: `cellular_senescence#Senescent Cell Accumulation`. Complemented by `senescence_tumor_suppression` (the protective arm).
+- `senescence_tumor_suppression` — Conserved tumor-SUPPRESSIVE arm of senescence/aging, the deliberate complement of `cellular_senescence`: oncogenic/replicative/genotoxic stress in at-risk cells → p16INK4a/Rb and p53/p21 senescence-associated arrest → barrier to malignant transformation, with a convergent later-life thread (aging-associated loss of stemness, PMID:39633048) limiting tumor-initiating capacity. Carries the pro-senescent (senescence-inducing) drug-target pattern (treatments use `target_mechanisms` with `ACTIVATES` to reinforce the arrest), the conceptual inverse of the senolytic pattern. Together the two senescence modules capture the antagonistic pleiotropy of senescence as two modules rather than one effect-reversing edge. Framing guardrail: does NOT assert net age-protection (older people have higher overall cancer incidence); models specific conserved barriers. Key conformance target: `senescence_tumor_suppression#Barrier to Malignant Transformation`
 - `immune_checkpoint_blockade` — Conserved tumor-immune evasion pattern: neoantigen generation → anti-tumor T cell response → adaptive immune resistance (PD-L1 upregulation) → T cell exhaustion and immune escape. Drug mechanism design pattern: checkpoint inhibitor treatments use `target_mechanisms` to link back to the "Adaptive Immune Resistance" node they inhibit. Key conformance target: `immune_checkpoint_blockade#Adaptive Immune Resistance`
+- `bacterial_cell_wall_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for cell-wall-active antibiotics: peptidoglycan precursor/lipid II synthesis (fosfomycin, cycloserine, bacitracin, glycopeptide targets) → PBP transpeptidase cross-linking (the beta-lactam target) → cell-envelope integrity failure and bactericidal autolysis, with two resistance branches that gate drug choice: acquired resistance/drug inactivation (beta-lactamase, PBP2a, D-Ala-D-Lac remodeling) and intrinsic resistance in cell-wall-deficient organisms (Mycoplasma/Mollicutes have no target). Drug mechanism design pattern: cell-wall-active treatments use `target_mechanisms` to link back to the inhibited node. Key conformance / treatment target: `bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins`. See `projects/ANTIMICROBIAL.md` for the broader drug–bug strategy.
+- `bacterial_protein_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for ribosome-targeting antibiotics: bacterial mRNA translation by the 70S ribosome (the shared target of 30S-acting tetracyclines/aminoglycosides and 50S-acting macrolides, lincosamides, chloramphenicol, oxazolidinones) → suppression of toxin and exoprotein synthesis (the anti-toxin rationale for adjunctive clindamycin/linezolid in toxin-mediated streptococcal/staphylococcal disease, beyond bacterial killing) → ribosomal target resistance (erm rRNA methylation/MLSb, ribosomal mutation, drug-modifying enzymes, efflux). Key conformance / treatment targets: `bacterial_protein_synthesis_inhibition#Bacterial mRNA Translation by the Ribosome` and `#Suppression of Toxin and Exoprotein Synthesis`.
+- `intracellular_pathogen_persistence` — Conserved antibacterial lifestyle-gating pattern for obligate/facultative intracellular bacteria (Rickettsia, Bartonella, Brucella, Coxiella, Legionella, Chlamydia, intracellular Mycobacterium): intracellular niche and beta-lactam exclusion (poorly cell-penetrant drugs cannot reach the organism) → requirement for cell-penetrant antimicrobials (doxycycline, macrolides, fluoroquinolones, rifamycins). This is a pharmacokinetic gating module, not an enzyme target; a conforming disease usually ALSO conforms to a target-based module (ribosome/cell wall) for the drug's molecular mechanism. Key conformance / treatment target: `intracellular_pathogen_persistence#Requirement for Cell-Penetrant Antimicrobials`. Worked multi-module examples: Murine_Typhus and Oroya_Fever conform to both this and `bacterial_protein_synthesis_inhibition`.
+- `bacterial_dna_topoisomerase_inhibition` — Conserved antibacterial drug-mechanism pattern for fluoroquinolones (ciprofloxacin, levofloxacin, moxifloxacin): DNA gyrase and topoisomerase IV target (trapping of the enzyme-DNA cleavage complex → bactericidal double-strand breaks) → fluoroquinolone target resistance (QRDR mutation in GyrA/ParC, efflux, plasmid-mediated genes). Key conformance / treatment target: `bacterial_dna_topoisomerase_inhibition#DNA Gyrase and Topoisomerase IV (Fluoroquinolone Target)`.
+- `bacterial_rna_polymerase_inhibition` — Conserved antibacterial drug-mechanism pattern for rifamycins (rifampicin, rifabutin, rifapentine, rifaximin): bacterial RNA polymerase RpoB target (block of nascent-RNA elongation) → rpoB-mediated rifamycin resistance (single point mutations confer high-level resistance, hence combination use). Cell- and biofilm-penetrant; backbone of antimycobacterial regimens. Key conformance / treatment target: `bacterial_rna_polymerase_inhibition#Bacterial RNA Polymerase (Rifamycin Target)`.
+- `bacterial_folate_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for antifolates: de novo tetrahydrofolate synthesis target (dihydropteroate synthase/DHPS, inhibited by sulfonamides and the sulfone dapsone; dihydrofolate reductase/DHFR, inhibited by trimethoprim — co-trimoxazole gives synergistic sequential blockade; DHPS is prokaryote-specific, giving selectivity) → antifolate target resistance (acquired drug-insensitive sul/dfr variants). Key conformance / treatment target: `bacterial_folate_synthesis_inhibition#Bacterial Tetrahydrofolate Synthesis (Antifolate Target)`. Worked multi-module examples: Leprosy conforms to this (dapsone), `bacterial_rna_polymerase_inhibition` (rifampicin), and `intracellular_pathogen_persistence` (M. leprae); Whipple_Disease conforms to this (TMP-SMX), `bacterial_protein_synthesis_inhibition` (doxycycline), and `bacterial_cell_wall_synthesis_inhibition` (ceftriaxone).
 - `dna_repair_synthetic_lethality` — Conserved HRR/FA-BRCA deficiency pattern: HRR or FA/BRCA repair deficiency → replication-associated DNA damage accumulation → PARP/platinum synthetic lethality → POLQ/error-prone repair escape → restored HRR and acquired resistance. Key conformance target: `dna_repair_synthetic_lethality#PARP and Platinum Synthetic Lethality`
 - `rtk_grb2_signaling_adaptation` — Conserved RTK/GRB2 adaptor pattern: activated RTK phosphotyrosine docking → GRB2 adaptor hub → RAS-MAPK/PI3K-AKT proliferation output, with an emerging GRB2-RAD51 replication-fork protection branch. Key conformance target: `rtk_grb2_signaling_adaptation#GRB2 Adaptor Hub`
 - `parp_parg_macrodomain_viral_evasion` — Conserved antiviral ADP-ribosylation pattern: viral/interferon PARP induction → NAD-dependent antiviral ADP-ribosylation → PARG/host reset → viral macrodomain de-ADP-ribosylation countermeasure → enhanced viral replication/pathogenesis. Key conformance target: `parp_parg_macrodomain_viral_evasion#Viral Macrodomain De-ADP-Ribosylation Countermeasure`
@@ -153,6 +183,12 @@ pathophysiology:
 - `aortopathy_tgfbeta_dysregulation` — Conserved heritable thoracic aortic aneurysm/dissection (TAAD) pattern: aortic-wall ECM or smooth-muscle contractile-apparatus defect → paradoxically increased TGF-beta signaling dysregulation → medial degeneration (smooth muscle cell depletion + elastic fiber fragmentation) and wall weakening → progressive aortic dilation/aneurysm → aortic dissection and rupture. Conforming disorder nodes substitute the disorder-specific primary lesion (FBN1 microfibril deficiency in Marfan/Shprintzen-Goldberg; TGFBR1/2, SMAD3, TGFB2/3 in Loeys-Dietz; COL3A1 in vascular Ehlers-Danlos; SLC2A10 in arterial tortuosity; ACTA2/MYH11/MYLK/PRKG1 in nonsyndromic familial TAAD). Key conformance target: `aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation`
 - `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
 - `cardiac_ion_channel_repolarization` — Conserved cardiac channelopathy pattern: cardiac ion-channel or calcium-handling variant → altered action-potential duration / Ca²⁺ handling → arrhythmogenic substrate and triggered activity (EADs/DADs, dispersion of repolarization, reentry) → ventricular tachyarrhythmia → syncope and sudden cardiac death, with a parallel sinoatrial-node automaticity-failure branch producing bradyarrhythmia. For inherited arrhythmia syndromes in structurally normal hearts (Long QT, Short QT, Brugada, RYR2-CPVT, Timothy, torsade/short-coupled VF, familial sick sinus). Key conformance target: `cardiac_ion_channel_repolarization#Arrhythmogenic Substrate and Triggered Activity`
+
+The following modules capture conserved **treatment-toxicity / "side effect as mechanism"** patterns — adverse-drug-reaction pathophysiology that recurs across many culprit drugs, so a drug-toxicity entry can declare conformance rather than re-deriving the chain (the same insult-agnostic convergence logic the `intestinal_barrier_dysfunction` module already applies to drug-induced and disease-intrinsic diarrhea). Note that several mechanism modules above (`peripheral_axonal_degeneration` for chemo-induced peripheral neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT) already double as toxicity targets without a separate "side effect" class:
+- `myelosuppression` — Conserved cytotoxic bone-marrow-toxicity pattern (chemotherapy, radiation, other antiproliferative exposures): cytotoxic insult to proliferating hematopoietic stem/progenitor cells → bone marrow hematopoietic suppression → multilineage peripheral cytopenias (neutropenia/anemia/thrombocytopenia) → cytopenia-related clinical complications (infection/febrile neutropenia, fatigue, bleeding) and dose-limiting toxicity. Conforming disorder nodes substitute the disorder-specific cytotoxic driver and may specialize the cytopenia node to a predominant lineage. Key conformance target: `myelosuppression#Multilineage Peripheral Cytopenias`
+- `drug_induced_liver_injury` — Conserved hepatotoxicity pattern (DILI) across hepatotoxic drugs: reactive drug-metabolite formation / BSEP inhibition and hepatocellular stress (the acetaminophen → NAPQI archetype) → mitochondrial dysfunction and oxidative stress → hepatocyte cell death (necrosis/apoptosis) → sterile and immune-mediated inflammatory amplification (innate/adaptive immunity in idiosyncratic DILI) → liver injury (hepatocellular/cholestatic/mixed) progressing to acute liver failure. Conforming disorder nodes substitute the drug-specific proximal mechanism (reactive metabolite, BSEP inhibition, or immune-mediated idiosyncratic injury). Key conformance target: `drug_induced_liver_injury#Hepatocyte Cell Death`. Worked conformer: `Acetaminophen_Hepatotoxicity`.
+- `drug_induced_nephrotoxicity` — Conserved nephrotoxicity pattern (dose-dependent acute tubular injury) across nephrotoxic drugs (cisplatin, aminoglycosides, vancomycin, tenofovir, amphotericin B, contrast, NSAIDs): nephrotoxic drug exposure and proximal tubular uptake (apical endocytosis / OAT-OCT transport with intracellular accumulation) → tubular oxidative stress and mitochondrial injury → proximal tubular epithelial cell death (apoptosis/acute tubular necrosis) → tubulointerstitial inflammation → acute kidney injury (falling GFR), frequently dose-limiting. Models the dose-dependent ATN arm; crystal/cast obstruction and immune interstitial nephritis are distinct arms. Conforming disorder nodes substitute the drug-specific uptake route. Key conformance target: `drug_induced_nephrotoxicity#Proximal Tubular Epithelial Cell Death`. Worked conformer: the `Nephrotoxic Injury` node of `Hospital-Acquired_Acute_Kidney_Injury`.
+- `drug_hypersensitivity_scar` — Conserved immune-mediated (type IV hypersensitivity) toxicity pattern for severe cutaneous adverse reactions (SCARs), with SJS/TEN as prototype, across allopurinol, aromatic antiepileptics, sulfonamides, abacavir, NSAIDs: HLA class I-restricted drug/metabolite presentation to drug-specific T cells → drug-specific cytotoxic T-cell and NK-cell activation → cytotoxic mediator release (granulysin, FasL, perforin/granzyme) and keratinocyte death (apoptosis/necroptosis) → epidermal necrolysis and detachment → mucocutaneous failure with high mortality. The immune-mediated counterpart to the cytotoxic/metabolic/transport toxicity modules; HLA risk alleles gate susceptibility. DRESS/AGEP share the logic but are not the evidence focus. Key conformance target: `drug_hypersensitivity_scar#Cytotoxic Mediator Release and Keratinocyte Death`. Worked conformer: `Allopurinol_Induced_SJS_TEN` (HLA-B*58:01).
 
 The following modules capture conserved final-common-pathway mechanisms of **"disease-like phenotypes"** — phenotypes that are themselves diseases, carrying both an HP and a MONDO identifier (e.g. osteoporosis, glaucoma). Each is a recurrent downstream convergence point across many disorders:
 - `osteoporosis_bone_resorption` — Conserved low-bone-mass pattern (HP:0000939): bone remodeling imbalance → RANKL-driven osteoclastogenesis → increased osteoclastic bone resorption → impaired osteoblastic formation → net bone loss and skeletal fragility. Key conformance target: `osteoporosis_bone_resorption#Increased Osteoclastic Bone Resorption`
@@ -180,6 +216,107 @@ The following modules capture conserved final-common-pathway mechanisms of **"di
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
 - Causal edges opt into those groups with `downstream[].hypothesis_groups`. In conforming disorder entries, copy and specialize the same grouping only when the disease-specific causal edge belongs to that model.
 - Knowledge gaps should currently use `discussions` with `kind: KNOWLEDGE_GAP`, `attaches_to`, and optional `proposed_experiments`. A separate structural `knowledge_gaps:` slot is still a schema follow-up; do not invent it in YAML entries yet.
+- For the specific case where model-system evidence exists but its fidelity to human biology is uncertain (e.g., mouse knockout does not reproduce the human phenotype, lissencephalic models lack human-specific outer radial glia/OSVZ biology, organoid data are not confirmed in human tissue), use `kind: HUMAN_MODEL_MISMATCH` instead of the generic `KNOWLEDGE_GAP`. Key distinction: `KNOWLEDGE_GAP` means evidence is absent; `HUMAN_MODEL_MISMATCH` means evidence exists in a model but translational validity to human disease is the open question. Include a `prompt` that states the mismatch explicitly as a question, a `rationale` explaining why the mismatch is mechanistically meaningful, and `proposed_experiments` mapping to the experiments needed to resolve it. See the Autosomal_Recessive_Primary_Microcephaly entry for a worked example.
+
+### Disease Groupings
+
+Disease groupings (`kb/groupings/`) are explicit, curated **unions** of distinct
+`Disease` entries, assembled *below* the level of the `classifications` taxonomies.
+The canonical example is the mucopolysaccharidoses (MPS), which group the separate
+Hurler / Hunter / Sanfilippo / Morquio entries. Groupings validate against the
+**`Grouping`** class (not `Disease`).
+
+**Design principles:**
+- **Point down, not up.** A grouping explicitly *lists its members* (`members:`)
+  rather than being inferred from them. It is a union model.
+- **Not a re-implementation of MONDO.** An optional `mappings:` block may
+  cross-reference a MONDO grouping term, but the grouping stands on its own curated
+  rationale — do not try to recapitulate the ontology hierarchy.
+- **The boundary is auditable.** `grouping_basis` (multivalued enum: `SHARED_MECHANISM`,
+  `SHARED_GENE_FAMILY`, `SHARED_PATHWAY`, `SHARED_PHENOTYPE`, `SHARED_TREATMENT_RESPONSE`,
+  `CLINICAL_CONVENTION`, `OTHER`) records *why* the members belong together, and
+  `grouping_rationale` (free text) explains the lump/keep-split decision. Note: "lump
+  vs split" is a statement about the *entities* and lives in the individual `Disease`
+  entries; a grouping sits *over* already-distinct entries, so it carries a
+  `grouping_rationale`, not a `LUMP` flag.
+
+**Membership criteria — text plus structured boolean (OWL-lite):**
+
+`membership_criteria` is a multivalued list; each block pairs a required
+human-readable `description` with an optional nested boolean `logic` expression
+(`LogicalCriterion`) and a `criteria_semantics` marker. Branch nodes set `operator`
+(`AND`/`OR`/`NOT`) and combine child `operands`; leaf nodes set `criterion_predicate`
+and the payload for that predicate:
+- `HAS_PHENOTYPE` → `phenotype_term` + optional `min_frequency` (FrequencyEnum, "≥")
+- `HAS_GENE` → `gene`
+- `CONFORMS_TO_MODULE` → `module` (a `kb/modules/` stem, optionally with `#Node Name`)
+- `HAS_BIOLOGICAL_PROCESS` → `biological_processes`
+- `HAS_CLASSIFICATION` → `classification`; `HAS_INHERITANCE` / `HAS_MAPPING` / `OTHER`
+  carry the value in `description`
+- `negated: true` negates a leaf (alternative to a `NOT` operator)
+
+**Criteria semantics (`=>` / `<=` / `<=>`):** `criteria_semantics` records the OWL-style
+direction relating a criteria block to membership, which determines what tooling may infer:
+- `NECESSARY` (member ⇒ criteria): every member satisfies the criteria; used to **audit**
+  listed members for violations. (MPS uses this — being an MPS entails GAG storage, but
+  GAG storage alone does not make a disease an MPS.)
+- `SUFFICIENT` (criteria ⇒ member): any disorder satisfying the criteria is a member; used
+  to **classify** non-members as candidate additions.
+- `NECESSARY_AND_SUFFICIENT` (member ⇔ criteria): the criteria *define* the grouping; both.
+
+Multiple blocks are allowed (several `NECESSARY` blocks plus an optional defining block),
+mirroring OWL subclass/equivalence axioms.
+
+**Checking/classifying (`src/dismech/groupings.py`):**
+```bash
+just check-groupings                                 # lint + audit all groupings
+just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
+just check-groupings --strict                        # gate on errors/violations
+```
+Two tiers: a **structural linter** (`lint_criterion`) classifies every node BRANCH vs LEAF
+and enforces well-formedness (gating, enforced in `tests/test_data.py`); and an **advisory
+membership evaluator** (`evaluate_grouping`) that three-valuedly checks each member's disease
+entry against `NECESSARY`/`N&S` criteria (`SATISFIED`/`NOT_SATISFIED`/`UNKNOWN`) and, for
+`SUFFICIENT`/`N&S` criteria, flags candidate non-members. The evaluator is advisory because
+criteria are often aspirational (a member may not yet declare a required `conforms_to` edge).
+
+**Per-member differentiating mechanisms:**
+
+Each `members[]` entry references a `Disease` by name (`member`, with `member_type`
+defaulting conceptually to `DISEASE`; `MODULE` and `GROUPING` members are also allowed)
+and carries `differentiating_mechanisms` — prose plus optional structured descriptors
+(`gene`, `phenotype_term`, `biological_processes`, `module`, `modifier`) capturing what
+distinguishes that member from its siblings.
+
+**Foreign keys (enforced by `tests/test_data.py`):**
+- `members[].member` must resolve to a real `Disease.name` (DISEASE/SUBTYPE), module
+  stem (MODULE), or grouping name (GROUPING).
+- Every `module` reference (in criteria leaves and differentiating mechanisms) must
+  resolve to a file in `kb/modules/`.
+- Grouping `name` values must be unique.
+
+**Validation:**
+```bash
+just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml  # single file
+just validate-groupings                                         # all (also part of `just qc`)
+```
+
+**Rendering (HTML):**
+```bash
+just gen-grouping-pages                                  # all groupings + index
+just gen-grouping-page kb/groupings/Mucopolysaccharidoses.yaml
+```
+Renders `pages/groupings/*.html` (derived — not committed). The detail page shows
+the `grouping_basis`/MONDO mapping, the rationale, the membership-criteria boolean
+tree, and per-member differentiating mechanisms with an advisory audit badge
+(SATISFIED/NOT_SATISFIED/UNKNOWN from `evaluate_grouping`) plus any candidate
+members from SUFFICIENT/N&S criteria.
+
+**Worked examples:** `Mucopolysaccharidoses` (NECESSARY, aspirational members),
+`Inherited_Arrhythmia_Syndromes` (NECESSARY_AND_SUFFICIENT with a NOT leaf +
+candidate discovery), `Heritable_Thoracic_Aortic_Disease` (NECESSARY with a
+nested AND/OR phenotype branch), and `Lysosomal_Storage_Disorders` (defining
+module criterion + a nested GROUPING member).
 
 ### Evidence Items
 All evidence must have PMID references and support classification:
@@ -215,6 +352,36 @@ Rules:
 - Keep `creation_date` stable after first creation.
 - Prefer UTC (`Z` suffix) for consistency.
 - **Do not add `updated_date` to new entries.** The field is deprecated — git history is the authoritative change log. Existing entries that still carry `updated_date` may retain it until a future bulk cleanup.
+
+### History Records
+
+For structured curation, review, and audit provenance, add append-only history
+records under `history/`, not inside the KB YAML and not beside KB files as
+`kb/**/*.history.yaml`.
+
+Path pattern:
+
+```text
+history/disorders/<SLUG>/<TIMESTAMP>-<actor>-<shortid>.yaml
+history/modules/<SLUG>/<TIMESTAMP>-<actor>-<shortid>.yaml
+history/comorbidities/<SLUG>/<TIMESTAMP>-<actor>-<shortid>.yaml
+history/schema/<SLUG>/<TIMESTAMP>-<actor>-<shortid>.yaml
+```
+
+Each history file records one session for one target. Use `actors:` as a
+non-empty list even for single-actor sessions, include `links:` for relevant
+issues, PRs, and other URLs, keep `summary` short, and put rich review/curation
+notes in the required `details` field. For AI-assisted curation, include the
+model plus agent tool/version fields when they are known.
+
+Validate history records with:
+
+```bash
+just validate-history path/to/history.yaml
+just validate-history-all
+```
+
+See `docs/history.md` and `src/dismech/schema/history.yaml` for the full format.
 
 Quick classification rules (use these before tagging):
 - HUMAN_CLINICAL: human patients, cohorts, case reports, clinical trials (NCT), epidemiology.
@@ -549,6 +716,77 @@ phenotypes:
 
 **When `display_name` is set**, renderers show it instead of `name`. When absent, `name` is displayed directly.
 
+### Reference Ranges and Interpretation Bands
+
+A `Biochemical` marker can carry clinical laboratory `reference_ranges`
+(`ReferenceRange` class): a LOINC-coded normal interval (`lower_bound` /
+`upper_bound` / `unit`) and a `population` stratifier. Omit a bound for
+one-sided intervals. Attribute the interval with structured `evidence`
+(the same `EvidenceItem` model used everywhere else — a citable PMID/DOI
+with a verified snippet), **not** a free-text source string. When the
+provenance is a lab manual that has no citable article (e.g., the Tietz
+guide), put that attribution in `notes` rather than inventing a citation.
+
+When a result is interpreted in graded categories rather than a single
+normal interval (e.g., above one value is mild, above a higher value is
+moderate, then severe), add `interpretation_bands` (`ReferenceRangeBand`).
+Each band maps a value interval to a category and is rendered as a colored
+pill on the disorder page:
+
+- `name` (required): category label (e.g., "Normal", "Mild hypercalcemia").
+- `lower_bound` / `upper_bound`: the band's half-open interval
+  `[lower_bound, upper_bound)` — `lower_bound` inclusive, `upper_bound`
+  exclusive — so adjacent bands sharing a boundary value partition cleanly
+  (a result at the boundary falls in the upper band). Omit `lower_bound` for
+  the open-below tier and `upper_bound` for the open-above tier.
+- `abnormal_flag`: `NORMAL`, `LOW`, `HIGH`, `CRITICAL_LOW`, `CRITICAL_HIGH`
+  (HL7 v2 / LOINC convention).
+- `severity`: ordinal `MILD` / `MODERATE` / `SEVERE` when the category aligns
+  with severity grading. Renderer colors bands by `severity` first, then
+  `abnormal_flag`.
+- `phenotype_term`: optional HP term an abnormal band maps to (LOINC2HPO style).
+- `interpretation`: free-text clinical interpretation of results in the band.
+
+```yaml
+reference_ranges:
+- loinc_term:
+    id: LOINC:17861-6
+    label: Calcium [Mass/volume] in Serum or Plasma
+  lower_bound: 8.5
+  upper_bound: 10.5
+  unit: mg/dL
+  population: adults
+  evidence:
+  - reference: PMID:26303319
+    supports: SUPPORT
+    snippet: "exact quote stating the interval"
+    explanation: Source for the calcium reference interval.
+  notes: "Or, for a non-citable lab-manual interval, record provenance here."
+  interpretation_bands:
+  - name: Normal
+    lower_bound: 8.5
+    upper_bound: 10.5
+    unit: mg/dL
+    abnormal_flag: NORMAL
+  - name: Mild hypercalcemia
+    lower_bound: 10.5
+    upper_bound: 12.0
+    unit: mg/dL
+    abnormal_flag: HIGH
+    severity: MILD
+  - name: Severe hypercalcemia
+    lower_bound: 14.0
+    unit: mg/dL
+    abnormal_flag: CRITICAL_HIGH
+    severity: SEVERE
+```
+
+`reference_ranges` (empirical clinical intervals) are distinct from
+`ModelVariableDescriptor` thresholds / `severity_scale` (computational-model
+phenotype-activation points); use reference ranges for measured lab analytes.
+
+The CKD-Mineral Bone Disorder entry is the worked example.
+
 ### Clinical Trials
 
 Clinical trials can be added to disease entries with evidence validated against ClinicalTrials.gov:
@@ -694,6 +932,58 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
 If a DR-suggested citation cannot be verified against the real abstract, do not use it. Find an alternative source or remove the claim entirely.
 
 **Historical note:** Issue #1737 audited DR-sourced entries and found ~1% hallucination rate in the cache layer — the dismech validation stack catches these errors, but only *after* the curator runs the checks. Treating DR outputs as leads rather than ground truth is the most reliable protection.
+
+### 2b. Named Entity Confusion (NEC) — the DR report describes the *wrong disease*
+
+Named Entity Confusion (NEC) is a **fourth, semantically distinct** DR failure mode
+(tracked in #3889), separate from the three hallucination categories above. In NEC the
+DR tool resolves the queried disease name to a *different* disease entity and produces a
+report that is **coherent but wrong**: the citations are real, the snippets validate as
+exact substrings of their (wrong-disease) abstracts, and the ontology terms exist — so
+**none of the standard anti-hallucination checks (snippet-in-abstract, PMID existence,
+term validation) can catch it.** The only catch is semantic: confirming the report is
+about the disease you actually intended to curate.
+
+**How NEC happens:**
+- **Synonym aliasing** — a historical synonym maps to a different OMIM/MONDO entry
+  (e.g. "Lichtenstein-Knorr syndrome"/SCAR19/`MONDO:0014572`/SLC9A1 was reported as
+  SNX14-SCAR20/`MONDO:0014591`; PR #3874)
+- **Eponymic collision** — multiple diseases share an eponym but differ in gene/OMIM
+  (e.g. Temtamy syndrome C12orf57/`MONDO:0009033` vs. Temtamy preaxial brachydactyly
+  syndrome CHSY1; PR #3835)
+- **Abbreviation/acronym ambiguity** — a short label or acronym matches more than one entity
+- **Closely related disease conflation** — literature from a phenotypically similar or
+  genomically adjacent disease (same family, same locus, shifted numbered series such as
+  SCAR1–SCAR20 or CMT types)
+
+**Mandatory NEC preflight — run BEFORE using any DR content:** confirm the report's
+primary disease identity matches the MONDO entity you intend to curate.
+
+1. Pull the authoritative MONDO record for the intended disease:
+   ```bash
+   uv run runoak -i sqlite:obo:mondo info MONDO:XXXXXXX -O obo
+   ```
+   The `obo` output gives you three independent identity anchors: the **causal gene**
+   (named in the `def:` definition text), the **OMIM xref**, and the **synonym list**.
+2. **Gene check** — the gene(s) most frequently named in the DR report MUST match the
+   causal gene in the MONDO definition. A report that mentions a different gene far more
+   often than the canonical one is the strongest NEC signal.
+3. **OMIM check** — any OMIM ID asserted in the report must match the MONDO `OMIM:` xref.
+4. **Synonym check** — scan the MONDO `synonym:` lines for the exact name/acronym the DR
+   tool resolved. If the report keyed off a synonym that is *also* a synonym (or label) of
+   a **different** MONDO entry, treat the report as NEC-suspect.
+5. **On any mismatch: discard the DR report entirely — do NOT cherry-pick from it.**
+   Rebuild from primary literature anchored on the verified gene/OMIM. (Note: the local
+   `sqlite:obo:mondo` adapter does not expose gene associations via `relationships`; read
+   the gene from the `def:` text and OMIM/synonym xrefs as above.)
+
+**High-NEC-risk classes** (numbered series, shared eponyms, recently reclassified
+synonyms, locus-adjacent disorders) are enumerated in
+[`research/nec_risk_disease_classes.md`](research/nec_risk_disease_classes.md); the audit
+that produced it is `scripts/nec_risk_audit.py` (#3947). Apply extra scrutiny when the
+queried disease falls in one of those classes. A `just preflight-dr` automation of this
+gene-frequency-vs-MONDO check is in progress (#3902); until it lands, run the manual
+preflight above.
 
 ### 3. Validation Workflow
 

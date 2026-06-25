@@ -32,15 +32,29 @@ Alias: mappings_list
 
 ## Properties
 
-* Range: [ModelVariableDescriptor](../classes/ModelVariableDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ModelVariableDescriptor](../classes/ModelVariableDescriptor.md) |
+| Domain Of | [ModelVariable](../classes/ModelVariable.md), [Biochemical](../classes/Biochemical.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

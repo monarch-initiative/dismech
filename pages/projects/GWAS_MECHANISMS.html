@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GWAS Mechanisms: Gene-Program-Trait Causal Modeling - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>GWAS Mechanisms: Gene-Program-Trait Causal Modeling</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>GWAS Mechanisms: Gene-Program-Trait Causal Modeling</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (23)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Ankylosing_Spondylitis.html">Ankylosing Spondylitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Asthma.html">Asthma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Atopic_Dermatitis.html">Atopic Dermatitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Autoimmune_Hemolytic_Anemia.html">Autoimmune Hemolytic Anemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Beta_Thalassemia.html">Beta Thalassemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Lymphocytic_Leukemia.html">Chronic Lymphocytic Leukemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive.html">Chronic Myeloid Leukemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Essential_Thrombocythemia.html">Essential Thrombocythemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Fanconi_Anemia.html">Fanconi Anemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency.html">Glucose-6-Phosphate Dehydrogenase G6PD Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hashimoto&#39;s_Thyroiditis.html">Hashimotos Thyroiditis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hemochromatosis.html">Hemochromatosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hemophilia_A.html">Hemophilia A</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hemophilia_B.html">Hemophilia B</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Immune_Thrombocytopenia.html">Immune Thrombocytopenia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Multiple_Sclerosis.html">Multiple Sclerosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Polycythemia_Vera.html">Polycythemia Vera</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Primary_Myelofibrosis.html">Primary Myelofibrosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Psoriasis.html">Psoriasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rheumatoid_Arthritis.html">Rheumatoid Arthritis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Sickle_Cell_Disease.html">Sickle Cell Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Systemic_Lupus_Erythematosus.html">Systemic Lupus Erythematosus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ulcerative_Colitis.html">Ulcerative Colitis</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/GWAS_MECHANISMS.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="gwas-mechanisms-gene-program-trait-causal-modeling">GWAS Mechanisms: Gene-Program-Trait Causal Modeling</h1>
+<h2 id="overview">Overview</h2>
+<p>Use DisMech as a validation/interpretation layer for computational pipelines that discover
+causal gene-to-trait relationships via GWAS, Perturb-seq, and causal modeling. The pilot
+application is the Ota et al. (Nature 2025) framework that builds three-layer causal graphs:</p>
+<pre><code>Gene (regulator) --[β]--&gt; Program --[effect]--&gt; Trait/Phenotype
+                          ↑
+Gene (member) ----[γ]----/
+</code></pre>
+<p>This project covers: (1) validating pipeline outputs against curated pathophysiology,
+(2) curating blood/hematological disorders to improve coverage, (3) building tooling
+to map between pipeline entities and dismech ontology terms, and (4) extending to
+other cell types and trait domains as new Perturb-seq datasets emerge.</p>
+<h2 id="background-ota-et-al-nature-2025">Background: Ota et al. (Nature 2025)</h2>
+<p><strong>Paper</strong>: "Causal modelling of gene effects from regulators to programs to traits"
+- Ota M, Spence JP, Zeng T, Dann E, Milind N, Marson A, Pritchard JK
+- Nature 650:399-408 (Feb 2026; online Dec 10, 2025)
+- DOI: <a href="https://www.nature.com/articles/s41586-025-09866-3">10.1038/s41586-025-09866-3</a>
+- PMID: 41372418 | PMCID: PMC12893915
+- bioRxiv: <a href="https://www.biorxiv.org/content/10.1101/2025.01.22.634424v1">2025.01.22.634424v1</a></p>
+<p><strong>Key methodology:</strong>
+- 60 gene programs from consensus NMF on K562 Perturb-seq (Replogle et al. 2022; 9,866 genes)
+- Gene-trait effect sizes from UK Biobank LoF burden tests (454K participants) via GeneBayes
+- S-LDSC to identify traits where K562 chromatin explains heritability
+- Multiple regression modeling gene effects on programs and program effects on traits
+- 73% accuracy predicting effect directions for top MCH GWAS hits</p>
+<p><strong>Key biological findings:</strong>
+- SUPT5H regulates hemoglobin production, cell cycle, and autophagy simultaneously
+- Programs capture biologically meaningful co-regulation modules
+- Regulators of a program vs. member genes can have distinct trait relationships</p>
+<h2 id="related-work">Related Work</h2>
+<table>
+<thead>
+<tr>
+<th>Paper</th>
+<th>Year</th>
+<th>Key Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Spence, Mostafavi, Ota, Pritchard - Nature</td>
+<td>2025</td>
+<td>Companion: "Specificity, length and luck drive gene rankings" - GWAS vs burden tests prioritize different genes</td>
+</tr>
+<tr>
+<td>Zhu, Dann, ..., Ota, Pritchard, Marson - bioRxiv</td>
+<td>2025</td>
+<td>Follow-up: Genome-scale Perturb-seq in primary CD4+ T cells (22M cells, 4 donors)</td>
+</tr>
+<tr>
+<td>Zeng, Spence, Mostafavi, Pritchard - Nat Genet</td>
+<td>2024</td>
+<td>GeneBayes: empirical Bayes framework for LoF effect size estimation</td>
+</tr>
+<tr>
+<td>Mani et al. - Nature</td>
+<td>2024</td>
+<td>CAD GWAS signals converge onto endothelial cell programs (variant-to-gene-to-program)</td>
+</tr>
+<tr>
+<td>Replogle et al. - Cell</td>
+<td>2022</td>
+<td>Original genome-scale K562 Perturb-seq dataset</td>
+</tr>
+<tr>
+<td>Qi et al. - Trends Genet</td>
+<td>2024</td>
+<td>Review: from genetic associations to genes (QTL colocalization, fine-mapping, networks)</td>
+</tr>
+<tr>
+<td>Costanzo et al. - Nat Genet</td>
+<td>2025</td>
+<td>Perspective: standardizing effector gene predictions from GWAS</td>
+</tr>
+</tbody>
+</table>
+<h2 id="assets">Assets</h2>
+<table>
+<thead>
+<tr>
+<th>Asset</th>
+<th>Path</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Paper PDF</td>
+<td><code>docs/assets/Causal modelling of gene effects from regulators to programs to traits.pdf</code></td>
+<td>Full text</td>
+</tr>
+<tr>
+<td>Table S1</td>
+<td><code>docs/assets/Ota_2025_TableS1.xlsx</code></td>
+<td>60 programs: GO annotations, top genes, TFs, marker coexpression</td>
+</tr>
+<tr>
+<td>Table S2</td>
+<td><code>docs/assets/Ota_2025_TableS2.xlsx</code></td>
+<td>54 traits: RBC (12), other blood (10), serum biomarkers (28), anthropometric (4)</td>
+</tr>
+<tr>
+<td>Table S3</td>
+<td><code>docs/assets/Ota_2025_TableS3.xlsx</code></td>
+<td>S-LDSC heritability enrichment by cell type and trait</td>
+</tr>
+<tr>
+<td>Table S4</td>
+<td><code>docs/assets/Ota_2025_TableS4.xlsx</code></td>
+<td>Alternate program annotations (variant analysis)</td>
+</tr>
+<tr>
+<td>Table S5</td>
+<td><code>docs/assets/Ota_2025_TableS5.xlsx</code></td>
+<td>Perturb-seq dataset descriptions (5 datasets)</td>
+</tr>
+<tr>
+<td>Integration plan</td>
+<td><code>docs/causal-modeling-integration-plan.md</code></td>
+<td>Detailed plan for dismech as validation resource</td>
+</tr>
+</tbody>
+</table>
+<h2 id="external-code-repositories">External Code Repositories</h2>
+<ul>
+<li><a href="https://github.com/tkzeng/GeneBayes">GeneBayes</a> - empirical Bayes framework (Zeng et al.)</li>
+<li><a href="https://github.com/jeffspence/specificity_length_luck">specificity_length_luck</a> - companion paper code</li>
+<li><a href="https://github.com/emdann/GWT_perturbseq_analysis_2025">GWT_perturbseq_analysis_2025</a> - T cell follow-up</li>
+<li>No dedicated repo for the main Ota et al. analysis code (as of Feb 2026)</li>
+</ul>
+<h2 id="existing-bloodhematological-disorders-in-kb">Existing Blood/Hematological Disorders in KB</h2>
+<table>
+<thead>
+<tr>
+<th>Disorder</th>
+<th>File</th>
+<th>Relevance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sickle Cell Disease</td>
+<td>Sickle_Cell_Disease.yaml</td>
+<td>Hemoglobin, erythrocytes, MCH</td>
+</tr>
+<tr>
+<td>Autoimmune Hemolytic Anemia</td>
+<td>Autoimmune_Hemolytic_Anemia.yaml</td>
+<td>RBC destruction, hemolysis</td>
+</tr>
+<tr>
+<td>G6PD Deficiency</td>
+<td>Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency.yaml</td>
+<td>RBC fragility, oxidative stress</td>
+</tr>
+<tr>
+<td><a href="../disorders/Hemochromatosis.html">Hemochromatosis</a></td>
+<td>Hemochromatosis.yaml</td>
+<td>Iron metabolism</td>
+</tr>
+<tr>
+<td>Fanconi Anemia</td>
+<td>Fanconi_Anemia.yaml</td>
+<td>Bone marrow failure</td>
+</tr>
+<tr>
+<td>Polycythemia Vera</td>
+<td>Polycythemia_Vera.yaml</td>
+<td>Erythrocytosis, JAK2</td>
+</tr>
+<tr>
+<td>Essential Thrombocythemia</td>
+<td>Essential_Thrombocythemia.yaml</td>
+<td>Platelet production</td>
+</tr>
+<tr>
+<td>Primary Myelofibrosis</td>
+<td>Primary_Myelofibrosis.yaml</td>
+<td>Bone marrow fibrosis</td>
+</tr>
+<tr>
+<td>CML</td>
+<td>Chronic_Myeloid_Leukemia.yaml</td>
+<td>Myeloid proliferation</td>
+</tr>
+<tr>
+<td>CLL</td>
+<td>Chronic_Lymphocytic_Leukemia.yaml</td>
+<td>Lymphocyte count</td>
+</tr>
+<tr>
+<td>Immune Thrombocytopenia</td>
+<td>Immune_Thrombocytopenia.yaml</td>
+<td>Platelet destruction</td>
+</tr>
+<tr>
+<td>Hemophilia A/B</td>
+<td>Hemophilia_A.yaml, Hemophilia_B.yaml</td>
+<td>Coagulation</td>
+</tr>
+</tbody>
+</table>
+<h2 id="key-programs-relevant-to-dismech-disorders">Key Programs Relevant to DisMech Disorders</h2>
+<table>
+<thead>
+<tr>
+<th>Program</th>
+<th>Annotation</th>
+<th>GO Term</th>
+<th>DisMech Diseases</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P4</td>
+<td>Cell cycle (S phase, DNA replication)</td>
+<td>DNA replication</td>
+<td>CML, Retinoblastoma</td>
+</tr>
+<tr>
+<td>P6</td>
+<td>Cell cycle (G2M checkpoint)</td>
+<td>G2M checkpoint</td>
+<td>Cancers</td>
+</tr>
+<tr>
+<td>P12</td>
+<td>Myeloid</td>
+<td>purine nucleotide metabolic process</td>
+<td>CML, AML, myeloproliferative</td>
+</tr>
+<tr>
+<td>P16</td>
+<td>Autophagosome</td>
+<td>autophagosome</td>
+<td>Crohn's, neurodegeneration</td>
+</tr>
+<tr>
+<td>P27</td>
+<td>Platelet activation (Mega, IKZF1)</td>
+<td>platelet activation</td>
+<td>ITP, Essential Thrombocythemia</td>
+</tr>
+<tr>
+<td>P28</td>
+<td>RBC (glycoproteins)</td>
+<td>HEME_METABOLISM</td>
+<td>Sickle Cell, Thalassemia</td>
+</tr>
+<tr>
+<td>P35</td>
+<td>TNF signaling (stress response)</td>
+<td>TNFA_SIGNALING_VIA_NFKB</td>
+<td>Autoimmune diseases</td>
+</tr>
+<tr>
+<td>P40</td>
+<td>Hemoglobin synthesis</td>
+<td>HEME_METABOLISM</td>
+<td>Sickle Cell, Thalassemia, Anemia</td>
+</tr>
+<tr>
+<td>P45</td>
+<td>TNF signaling (apoptosis)</td>
+<td>TNFA_SIGNALING_VIA_NFKB</td>
+<td>SLE, RA</td>
+</tr>
+<tr>
+<td>P46</td>
+<td>Cholesterol biosynthesis</td>
+<td>cholesterol biosynthesis</td>
+<td>CAD, Familial Hypercholesterolemia</td>
+</tr>
+</tbody>
+</table>
+<h2 id="traits-54-total-from-table-s2">Traits (54 total from Table S2)</h2>
+<h3 id="rbc-traits-12-primary-focus">RBC Traits (12) - primary focus</h3>
+<p>Reticulocyte count, Mean reticulocyte volume, Mean sphered cell volume, Immature reticulocyte
+fraction (IRF), High light scatter reticulocyte count, RBC count, MCV, MCH, MCHC, RDW,
+Haematocrit, Haemoglobin concentration</p>
+<h3 id="other-blood-traits-10">Other Blood Traits (10)</h3>
+<p>WBC count, Platelet count, Platelet crit, MPV, Platelet distribution width, Lymphocyte count,
+Monocyte count, Neutrophil count, Eosinophil count, Basophil percentage</p>
+<h3 id="serum-biomarkers-28">Serum Biomarkers (28)</h3>
+<p>Albumin, ALP, ALT, ApoA, ApoB, AST, Direct bilirubin, Urea, Calcium, Cholesterol, Creatinine,
+CRP, Cystatin C, GGT, Glucose, HbA1c, HDL, IGF-1, LDL, Oestradiol, Phosphate, SHBG,
+Total bilirubin, Testosterone, Total protein, Triglycerides, Urate, Vitamin D</p>
+<h3 id="anthropometric-4">Anthropometric (4)</h3>
+<p>Sitting height, Birth weight, BMI, Heel BMD</p>
+<hr />
+<h1 id="tasks">TASKS</h1>
+<h2 id="phase-1-blood-disorder-curation-gap-fill">Phase 1: Blood Disorder Curation Gap-Fill</h2>
+<p>Priority: curate missing blood disorders that are highly relevant to the 12 RBC traits.</p>
+<ul>
+<li>[ ] Alpha Thalassemia</li>
+<li>[ ] Beta Thalassemia</li>
+<li>[ ] Iron Deficiency Anemia</li>
+<li>[ ] Aplastic Anemia</li>
+<li>[ ] Myelodysplastic Syndromes</li>
+<li>[ ] Diamond-Blackfan Anemia</li>
+<li>[ ] Congenital Dyserythropoietic Anemia</li>
+<li>[ ] Hereditary Spherocytosis</li>
+</ul>
+<h2 id="phase-2-trait-to-hpo-mapping">Phase 2: Trait-to-HPO Mapping</h2>
+<p>Map all 54 traits from Table S2 to HPO terms (increased/decreased variants).</p>
+<ul>
+<li>[ ] Create trait_to_hpo.yaml mapping file for RBC traits (12)</li>
+<li>[ ] Create mappings for other blood traits (10)</li>
+<li>[ ] Create mappings for serum biomarkers (28)</li>
+<li>[ ] Create mappings for anthropometric traits (4)</li>
+</ul>
+<p>Example mapping needed:</p>
+<pre><code class="language-yaml">MCH:
+  trait_name: &quot;Mean corpuscular haemoglobin&quot;
+  lof_trait_id: 30050
+  hpo_decreased: HP:0025066  # Decreased mean corpuscular hemoglobin
+  hpo_increased: HP:0025065  # Increased mean corpuscular hemoglobin
+  related_disorders:
+    - Sickle_Cell_Disease
+    - Beta_Thalassemia
+</code></pre>
+<h2 id="phase-3-program-to-go-mapping">Phase 3: Program-to-GO Mapping</h2>
+<p>Map all 60 programs to proper GO terms (many currently use Hallmark gene set names).</p>
+<ul>
+<li>[ ] Resolve HALLMARK_* annotations to GO terms</li>
+<li>[ ] Validate GO terms via OAK</li>
+<li>[ ] Create program_go_mapping.yaml</li>
+</ul>
+<h2 id="phase-4-proof-of-concept-validation-mchrdwirf">Phase 4: Proof-of-Concept Validation (MCH/RDW/IRF)</h2>
+<p>Manual validation of top gene-program-trait relationships for the three blood traits.</p>
+<ul>
+<li>[ ] Extract top 20 genes per trait from paper/supplements</li>
+<li>[ ] For each gene-program-trait triple, check if dismech documents the relationship</li>
+<li>[ ] Classify as CONFIRMED / PARTIAL / NOVEL / CONTRADICTED</li>
+<li>[ ] Write validation report</li>
+</ul>
+<h2 id="phase-5-automated-validation-pipeline">Phase 5: Automated Validation Pipeline</h2>
+<p>Build tooling to systematically match pipeline outputs against dismech.</p>
+<ul>
+<li>[ ] Export dismech blood disorders to queryable format (gene, GO, HP indexed)</li>
+<li>[ ] Implement gene-program-trait matching logic</li>
+<li>[ ] Generate validation report with coverage statistics</li>
+<li>[ ] Identify curation gaps from NOVEL findings</li>
+</ul>
+<h2 id="phase-6-extend-to-t-cell-immune-traits">Phase 6: Extend to T Cell / Immune Traits</h2>
+<p>Leverage the Zhu/Dann et al. CD4+ T cell Perturb-seq follow-up.</p>
+<ul>
+<li>[ ] Obtain T cell program definitions when published</li>
+<li>[ ] Map immune traits to HPO terms</li>
+<li>[ ] Validate against dismech autoimmune disease entries (20+ curated)</li>
+<li>[ ] Compare K562 vs T cell program overlap</li>
+</ul>
+<h2 id="phase-7-schema-enhancements">Phase 7: Schema Enhancements</h2>
+<p>Address dismech schema gaps identified in the integration plan.</p>
+<ul>
+<li>[ ] Add systematic <code>modifier</code> (INCREASED/DECREASED) to phenotype entries</li>
+<li>[ ] Add genes to pathophysiology biological_process entries where missing</li>
+<li>[ ] Consider <code>gene</code> slot on BiologicalProcessDescriptor for explicit gene-process links</li>
+</ul>
+<hr />
+<h1 id="notes">NOTES</h1>
+<h2 id="zhudann-t-cell-follow-up-traits-and-diseases">Zhu/Dann T Cell Follow-up: Traits and Diseases</h2>
+<p>The T cell paper takes a different approach from the K562 paper. Rather than directly
+modeling continuous GWAS traits, it tests:</p>
+<ol>
+<li><strong>Cytokine readouts</strong> (30 genes): IFN-gamma, TNF, IL-4, IL-5, IL-13, IL-10, IL-2, IL-16, IL-21, CCL3, CCL4, CCL5, CXCL8, TGF-beta, etc.</li>
+<li><strong>Th1/Th2 polarization signatures</strong> from published bulk RNA-seq</li>
+<li><strong>CD4+ T cell aging signatures</strong> from OneK1K cohort (782 donors)</li>
+<li><strong>Lymphocyte counts</strong> from UK Biobank (Backman et al. 2021 exome data)</li>
+<li><strong>GWAS gene enrichment</strong> for 14 autoimmune diseases via Open Targets</li>
+</ol>
+<p><strong>Autoimmune diseases tested:</strong>
+| Disease | Open Targets ID | In dismech KB? |
+|---------|----------------|----------------|
+| Rheumatoid arthritis | EFO_0000685 | Yes |
+| SLE | MONDO_0007915 | Yes |
+| IBD | EFO_0003767 | Yes (Crohn's + UC) |
+| Multiple sclerosis | MONDO_0005301 | Yes |
+| Type 1 diabetes | MONDO_0005147 | Yes |
+| <a href="../disorders/Psoriasis.html">Psoriasis</a> | EFO_0000676 | Yes |
+| Ankylosing spondylitis | EFO_0003898 | Yes |
+| <a href="../disorders/Asthma.html">Asthma</a> | MONDO_0004979 | Yes |
+| Hashimoto's thyroiditis | EFO_0003779 | Yes |
+| Crohn's disease | EFO_0000384 | Yes |
+| Ulcerative colitis | EFO_0000729 | Yes |
+| Celiac disease | EFO_0001060 | Yes |
+| Atopic eczema | EFO_0000274 | Yes (<a href="../disorders/Atopic_Dermatitis.html">Atopic Dermatitis</a>) |
+| Autoimmune disease (general) | EFO_0005140 | — |</p>
+<p><strong>Key findings:</strong>
+- 111 regulator clusters from 3,341 perturbations of 1,860 regulators
+- Cluster 110 (12 genes incl. MAP3K8, CHD7, ITK): massive enrichment for asthma (OR=20.4), atopic eczema (OR=24.3), psoriasis (OR=17.6)
+- Cluster 79 (Th17; IRF4, BATF, STAT3, IPMK): Crohn's (OR=58.2), eczema (OR=38.1)
+- Cluster 59 (IL10, BACH2, REL, CTLA4, CD28): broad enrichment across IBD, psoriasis, MS</p>
+<p><strong>Key methodological difference:</strong> Uses GWAS gene enrichment per cluster (via Open Targets)
+rather than direct trait-effect modeling. Also uses pert2state models for aging/polarization.</p>
+<p><strong>GitHub repo:</strong> https://github.com/emdann/GWT_perturbseq_analysis_2025
+- Supplementary tables in <code>metadata/suppl_tables/</code>
+- Full clustering results: <code>clustering_results_and_annotations.csv</code>
+- Autoimmune enrichment: <code>cluster_autoimmune_enrichment_results.suppl_table.csv</code></p>
+<h2 id="blood-disorder-kb-readiness-assessment">Blood Disorder KB Readiness Assessment</h2>
+<table>
+<thead>
+<tr>
+<th>Disorder</th>
+<th>Genes</th>
+<th>GO Procs</th>
+<th>Modifiers</th>
+<th>Traceability</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CML</td>
+<td>1 (BCR-ABL1)</td>
+<td>6</td>
+<td>5 (INC/DEC/ABN)</td>
+<td><strong>Excellent</strong></td>
+<td>Best candidate</td>
+</tr>
+<tr>
+<td>Polycythemia Vera</td>
+<td>1 (JAK2)</td>
+<td>4</td>
+<td>4</td>
+<td>Good</td>
+<td>Clean JAK2→erythropoiesis chain</td>
+</tr>
+<tr>
+<td>Essential Thrombocythemia</td>
+<td>3 (JAK2/CALR/MPL)</td>
+<td>3</td>
+<td>3</td>
+<td>Good</td>
+<td>Platelet lineage</td>
+</tr>
+<tr>
+<td>Primary Myelofibrosis</td>
+<td>4</td>
+<td>4</td>
+<td>4</td>
+<td>Good</td>
+<td>Fibrosis mechanism</td>
+</tr>
+<tr>
+<td>Fanconi Anemia</td>
+<td>22+</td>
+<td>16</td>
+<td>0</td>
+<td>Good (complex)</td>
+<td>Many-to-many</td>
+</tr>
+<tr>
+<td><a href="../disorders/Hemochromatosis.html">Hemochromatosis</a></td>
+<td>1 (HFE)</td>
+<td>5</td>
+<td>0</td>
+<td>Good (implicit)</td>
+<td>Missing biochemical section</td>
+</tr>
+<tr>
+<td>G6PD Deficiency</td>
+<td>1</td>
+<td>5</td>
+<td>0</td>
+<td>Partial</td>
+<td>Needs modifiers</td>
+</tr>
+<tr>
+<td>Sickle Cell Disease</td>
+<td>3 (HBB+mods)</td>
+<td>4</td>
+<td>0</td>
+<td>Partial</td>
+<td>Imprecise GO terms</td>
+</tr>
+<tr>
+<td>AIHA</td>
+<td>0</td>
+<td>3</td>
+<td>0</td>
+<td>Poor</td>
+<td>No gene anchor</td>
+</tr>
+<tr>
+<td>ITP</td>
+<td>0</td>
+<td>4</td>
+<td>0</td>
+<td>Poor</td>
+<td>No gene anchor</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Best candidates for K562/blood validation:</strong> CML, PV, ET, PMF (myeloproliferative neoplasms)
+<strong>Best candidates for T cell/immune validation:</strong> All 14 autoimmune diseases already in KB</p>
+<hr />
+<h2 id="2026-02-14-t-cellautoimmune-validation-completed">2026-02-14 - T cell/autoimmune validation completed</h2>
+<p><strong>Result:</strong> 2.7% gene confirmation rate (11/408 genes across 12 diseases, 146 significant pairs).</p>
+<p>This reflects a gene coverage gap, not contradictions. dismech has 3-11 genes per disease
+(the classic GWAS hits) while the pipeline tests hundreds from Open Targets. The confirmed
+genes (PTPN22, CTLA4, IL2RA, IL4, IL23R, etc.) are exactly the well-documented ones.</p>
+<p><strong>Key outputs:</strong>
+- Validation report: <code>docs/gwas-tcell-validation-report.md</code>
+- Validation script: <code>scripts/validate_tcell_clusters.py</code>
+- Data: <code>docs/assets/zhu_dann_2025/</code></p>
+<p><strong>Top curation targets identified:</strong> EGR2, BACH2, ETS1, IRF4, TNFAIP3, IKZF1, CD28,
+STAT3, GATA3, SMAD3, IL10 -- all well-known autoimmune genes missing from dismech.</p>
+<p><strong>Cluster 79 (Th17: IRF4, BATF, STAT3, JUNB)</strong> is the standout -- OR=58.2 for Crohn's,
+38.1 for eczema, 26.9 for psoriasis. Th17 pathophysiology should be strengthened across entries.</p>
+<p><strong>Missing KB entry:</strong> Atopic Dermatitis/Eczema (16 significant pairs, strong pipeline signal).</p>
+<p><strong>Next steps:</strong> Add pleiotropic autoimmune genes to relevant entries; curate Atopic Dermatitis;
+strengthen Th17 pathophysiology in Crohn's, <a href="../disorders/Psoriasis.html">Psoriasis</a>, Ankylosing Spondylitis.</p>
+<h2 id="2026-02-14-mechanism-level-gap-filling">2026-02-14 - Mechanism-level gap filling</h2>
+<p>Addressed GO term and cell type gaps across autoimmune entries to enable mechanism-level
+matching against Zhu/Dann T cell clusters.</p>
+<p><strong>Asthma.yaml</strong> (most significant changes):
+- Added <code>biological_processes</code> GO terms to ALL 4 existing pathophysiology entries:
+  - Airway Inflammation: GO:0006954 inflammatory response, GO:0002437 inflammatory response to antigenic stimulus
+  - Bronchoconstriction: GO:0006939 smooth muscle contraction
+  - Mucus Overproduction: GO:0070254 mucus secretion
+  - Airway Remodeling: GO:0048771 tissue remodeling
+- Added NEW pathophysiology entry: "Type 2 Immune Response / Th2 Signaling"
+  - 5 GO biological_processes: GO:0042092, GO:0045064, GO:0035771, GO:0035708, GO:0032633
+  - 6 genes: IL4, IL13, IL4R, STAT6, IL5, GATA3 (with HGNC IDs)
+  - 4 cell types: Th2 cell, ILC2, mast cell, eosinophil
+  - Downstream links to Airway Inflammation and Mucus Overproduction
+  - This directly enables matching against Cluster 85 (STAT6, IL4R, RBPJ)</p>
+<p><strong>Psoriasis.yaml</strong>:
+- Added GO:0072538 (T-helper 17 type immune response) to IL-23/IL-17 Axis entry
+- Added cell types (Th17 cell, dendritic cell) that were missing</p>
+<p><strong>Ankylosing_Spondylitis.yaml</strong>:
+- Added GO:0072538 to IL-23/IL-17 Axis Activation entry
+- Changed cell type from generic CD4+ T helper to specific T-helper 17 cell
+- Added dendritic cell</p>
+<p><strong>Rheumatoid_Arthritis.yaml</strong>:
+- Added biological_processes to Autoimmune Response (had Th17 cell type but zero GO terms)
+- GO:0072538 (T-helper 17 type immune response) + GO:0006954 (inflammatory response)</p>
+<p><strong>Multiple_Sclerosis.yaml</strong>:
+- Added NEW pathophysiology entry: "Th1/Th17-Mediated Neuroinflammation"
+  - GO:0072538 (Th17 immune response), GO:0006954 (inflammatory response)
+  - Cell types: T-helper 17 cell, T-helper 1 cell
+  - Downstream link to Inflammatory Lesions
+  - Evidence from PMID:32801039 (Moser et al. 2020) and PMID:21338381 (Jadidi-Niaragh 2011)
+- Added biological_processes + cell_types to Inflammatory Lesions entry</p>
+<p><strong>Systemic_Lupus_Erythematosus.yaml</strong>:
+- Added biological_processes to Formation of Immune Complexes (GO:0002377, GO:0006958, GO:0019724)</p>
+<p><strong>Hashimotos_Thyroiditis.yaml</strong>:
+- Added biological_processes to Lymphocytic Infiltration (GO:0006954, GO:0002250)</p>
+<p><strong>Ulcerative_Colitis.yaml</strong>:
+- Added biological_processes to Dysregulated Immune Response (GO:0042092, GO:0006954)</p>
+<p><strong>NEW: Atopic_Dermatitis.yaml</strong> (complete new entry):
+- 4 pathophysiology mechanisms with GO terms, cell types, evidence
+- 5 phenotypes with HP terms, 5 genetic entries, 3 environmental factors, 5 treatments
+- Evidence from PMID:16550169, PMID:30819278, PMID:21388665
+- Enables matching against Cluster 79 (Th17, OR=38.1) and Cluster 85 (Th2)</p>
+<p><strong>Validation improvement:</strong> 13 diseases evaluated (up from 12), 162 cluster-disease pairs (up from 146)</p>
+<p><strong>Remaining gaps:</strong>
+- [x] Add pleiotropic autoimmune genes (EGR2, BACH2, ETS1, IRF4, STAT3, etc.) across entries → DONE (see below)
+- [ ] Epigenetic regulation mechanism (clusters 38, 59) - not documented in any entry
+- [ ] T cell metabolic reprogramming / mTOR (cluster 100) - undocumented</p>
+<h2 id="2026-02-14-pleiotropic-gene-additions-batch-1-6-genes">2026-02-14 - Pleiotropic gene additions (batch 1: 6 genes)</h2>
+<p>Added BACH2, TNFAIP3, STAT3, IL10, CD28, EGR2 across 12 disease files.
+Result: 17 confirmed genes, 4.0% rate.</p>
+<h2 id="2026-02-14-pleiotropic-gene-additions-batch-2-10-genes">2026-02-14 - Pleiotropic gene additions (batch 2: 10 genes)</h2>
+<p>Added 10 more pleiotropic GWAS genes across all 12 autoimmune disease files:
+- ETS1 (10 diseases), IRF4 (9), IRF8 (7), SATB1 (8), IKZF1 (8)
+- SMAD3 (8), REL (6), PRDM1 (6), PTPN22 extension (6 new), IL21R (4)</p>
+<p><strong>Result: 26 confirmed genes, 6.1% rate</strong> (up from 4.0%)</p>
+<p>Per-disease rates: Celiac 29.6%, <a href="../disorders/Psoriasis.html">Psoriasis</a> 25.0%, MS 19.1%, SLE 19.4%, T1D 18.9%,
+AS 17.6%, Crohn's 15.3%, AD 15.2%, UC 15.5%, Hashimoto's 12.8%, RA 12.0%, <a href="../disorders/Asthma.html">Asthma</a> 10.6%</p>
+<p>Top remaining novel genes (diminishing returns): IL2RA extension, FOSL2, IL7R, ADO,
+FADS2, BCL2L11, PRKCB - these are less established classical autoimmune GWAS hits.</p>
+<p><strong>Remaining mechanistic gaps:</strong>
+- [x] Epigenetic regulation (clusters 38/59) → Added to RA and SLE
+- [x] T cell metabolic reprogramming (cluster 100) → Added to SLE (combined entry)
+- [ ] IL2RA extension to remaining diseases (already in T1D, needs 8+ more)
+- [ ] Additional epigenetic entries could be added to MS, Crohn's, psoriasis</p>
+<h2 id="2026-02-14-epigeneticmetabolic-mechanism-entries">2026-02-14 - Epigenetic/metabolic mechanism entries</h2>
+<p>Added two new pathophysiology entries to capture cross-cutting regulatory mechanisms
+from Zhu/Dann clusters 38, 59, and 100:</p>
+<p><strong>Rheumatoid_Arthritis.yaml</strong>:
+- "Epigenetic Dysregulation of T Cell Function" with GO:0006338 (chromatin remodeling),
+  GO:0040029 (epigenetic regulation of gene expression), GO:0030217 (T cell differentiation)
+- Cell types: Th17, CD4+ helper T cell
+- Downstream link to Autoimmune Response</p>
+<p><strong>Systemic_Lupus_Erythematosus.yaml</strong>:
+- "Epigenetic Dysregulation and T Cell Metabolic Reprogramming" with GO:0040029, GO:0030217
+- Notes cluster 100 OR=3.7 for SLE (strongest metabolic/stress signal)
+- Downstream link to Autoantibody Production</p>
+<p>These entries enable mechanism-level matching for clusters 38 (MLL2 complex; DOT1L, MEN1),
+59 (RNF20, HDAC7), and 100 (ATF4, GLS, CBLB) against dismech pathophysiology GO terms.</p>
+<h2 id="2026-02-14-project-created">2026-02-14 - Project created</h2>
+<ul>
+<li>Found existing detailed integration plan at <code>docs/causal-modeling-integration-plan.md</code></li>
+<li>Supplementary tables S1-S5 already downloaded (S3-S5 were not noted in the plan doc)</li>
+<li>Table S3 contains S-LDSC heritability enrichment (cell type specificity) - important for identifying which traits are well-modeled by K562</li>
+<li>Table S4 appears to be an alternate program annotation (variant analysis)</li>
+<li>Table S5 describes the Perturb-seq datasets used (5 datasets including K562 genome-wide)</li>
+<li>No dedicated GitHub repo for main analysis code exists yet</li>
+<li>T cell follow-up (Zhu/Dann et al. Dec 2025) has a GitHub repo and would extend this to immune traits</li>
+<li>Companion paper (Spence et al.) on gene ranking biases is relevant context</li>
+<li>12 existing blood/hematological disorders in KB provide reasonable starting coverage</li>
+<li>Key gap: Thalassemia (alpha/beta), Iron Deficiency Anemia, Aplastic Anemia not yet curated</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>

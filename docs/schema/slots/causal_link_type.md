@@ -31,13 +31,28 @@ Alias: causal_link_type
 
 ## Properties
 
-* Range: [CausalLinkTypeEnum](../enums/CausalLinkTypeEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [CausalLinkTypeEnum](../enums/CausalLinkTypeEnum.md) |
+| Domain Of | [CausalEdge](../classes/CausalEdge.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

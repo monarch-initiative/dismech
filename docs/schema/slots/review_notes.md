@@ -17,17 +17,17 @@ Alias: review_notes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Phenotype](../classes/Phenotype.md) |  |  no  |
-| [Disease](../classes/Disease.md) |  |  no  |
-| [ProgressionInfo](../classes/ProgressionInfo.md) |  |  no  |
-| [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md) |  |  no  |
-| [Genetic](../classes/Genetic.md) |  |  no  |
-| [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
-| [Stage](../classes/Stage.md) |  |  no  |
-| [Treatment](../classes/Treatment.md) |  |  no  |
-| [Subtype](../classes/Subtype.md) |  |  no  |
-| [AgentLifeCycle](../classes/AgentLifeCycle.md) |  |  no  |
 | [ClinicalTrial](../classes/ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |  no  |
+| [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
+| [Subtype](../classes/Subtype.md) |  |  no  |
+| [Genetic](../classes/Genetic.md) |  |  no  |
+| [ProgressionInfo](../classes/ProgressionInfo.md) |  |  no  |
+| [Stage](../classes/Stage.md) |  |  no  |
+| [Phenotype](../classes/Phenotype.md) |  |  no  |
+| [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md) |  |  no  |
+| [Treatment](../classes/Treatment.md) |  |  no  |
+| [AgentLifeCycle](../classes/AgentLifeCycle.md) |  |  no  |
+| [Disease](../classes/Disease.md) |  |  no  |
 
 
 
@@ -36,7 +36,21 @@ Alias: review_notes
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [ClinicalTrial](../classes/ClinicalTrial.md), [Subtype](../classes/Subtype.md), [ProgressionInfo](../classes/ProgressionInfo.md), [Phenotype](../classes/Phenotype.md), [Genetic](../classes/Genetic.md), [Environmental](../classes/Environmental.md), [Disease](../classes/Disease.md), [Stage](../classes/Stage.md), [AgentLifeCycle](../classes/AgentLifeCycle.md), [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md), [Treatment](../classes/Treatment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -48,8 +62,9 @@ Alias: review_notes
 | --- |
 | Added an additional clinically relevant subtype. |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

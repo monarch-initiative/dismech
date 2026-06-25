@@ -23,6 +23,7 @@ Alias: classification
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [Subtype](../classes/Subtype.md) |  |  no  |
+| [LogicalCriterion](../classes/LogicalCriterion.md) | A node in a nested boolean membership-criteria expression |  no  |
 
 
 
@@ -31,13 +32,28 @@ Alias: classification
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Subtype](../classes/Subtype.md), [LogicalCriterion](../classes/LogicalCriterion.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -73,6 +89,7 @@ rank: 1000
 alias: classification
 domain_of:
 - Subtype
+- LogicalCriterion
 range: string
 
 ```

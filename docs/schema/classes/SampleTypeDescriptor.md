@@ -33,6 +33,17 @@ URI: [dismech:class/SampleTypeDescriptor](https://w3id.org/monarch-initiative/di
     
 
         
+      SampleTypeDescriptor : clinical_course
+        
+          
+    
+        
+        
+        SampleTypeDescriptor --> "0..1" ClinicalCourseEnum : clinical_course
+        click ClinicalCourseEnum href "../../enums/ClinicalCourseEnum/"
+    
+
+        
       SampleTypeDescriptor : description
         
       SampleTypeDescriptor : laterality
@@ -68,6 +79,17 @@ URI: [dismech:class/SampleTypeDescriptor](https://w3id.org/monarch-initiative/di
     
 
         
+      SampleTypeDescriptor : onset
+        
+          
+    
+        
+        
+        SampleTypeDescriptor --> "0..1" OnsetDescriptor : onset
+        click OnsetDescriptor href "../../classes/OnsetDescriptor/"
+    
+
+        
       SampleTypeDescriptor : preferred_term
         
       SampleTypeDescriptor : qualifiers
@@ -78,6 +100,39 @@ URI: [dismech:class/SampleTypeDescriptor](https://w3id.org/monarch-initiative/di
         
         SampleTypeDescriptor --> "*" Qualifier : qualifiers
         click Qualifier href "../../classes/Qualifier/"
+    
+
+        
+      SampleTypeDescriptor : severity
+        
+          
+    
+        
+        
+        SampleTypeDescriptor --> "0..1" Any : severity
+        click Any href "../../classes/Any/"
+    
+
+        
+      SampleTypeDescriptor : spatial_extent
+        
+          
+    
+        
+        
+        SampleTypeDescriptor --> "0..1" SpatialExtentEnum : spatial_extent
+        click SpatialExtentEnum href "../../enums/SpatialExtentEnum/"
+    
+
+        
+      SampleTypeDescriptor : temporality
+        
+          
+    
+        
+        
+        SampleTypeDescriptor --> "0..1" TemporalityEnum : temporality
+        click TemporalityEnum href "../../enums/TemporalityEnum/"
     
 
         
@@ -115,7 +170,6 @@ URI: [dismech:class/SampleTypeDescriptor](https://w3id.org/monarch-initiative/di
     * **SampleTypeDescriptor**
 
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -128,6 +182,11 @@ URI: [dismech:class/SampleTypeDescriptor](https://w3id.org/monarch-initiative/di
 | [modifier](../slots/modifier.md) | 0..1 <br/> [ModifierEnum](../enums/ModifierEnum.md) | Directional or qualitative modifier for a descriptor (e | [Descriptor](../classes/Descriptor.md) |
 | [located_in](../slots/located_in.md) | 0..1 <br/> [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md) | Anatomical location where this entity/process occurs or procedure is performe... | [Descriptor](../classes/Descriptor.md) |
 | [laterality](../slots/laterality.md) | 0..1 <br/> [LateralityEnum](../enums/LateralityEnum.md) | Laterality qualifier (left, right, or bilateral) | [Descriptor](../classes/Descriptor.md) |
+| [spatial_extent](../slots/spatial_extent.md) | 0..1 <br/> [SpatialExtentEnum](../enums/SpatialExtentEnum.md) | The spatial extent or distribution pattern applicable to this descriptor (e | [Descriptor](../classes/Descriptor.md) |
+| [onset](../slots/onset.md) | 0..1 <br/> [OnsetDescriptor](../classes/OnsetDescriptor.md) | Structured age of onset descriptor | [Descriptor](../classes/Descriptor.md) |
+| [temporality](../slots/temporality.md) | 0..1 <br/> [TemporalityEnum](../enums/TemporalityEnum.md) | Temporal qualifier for this descriptor (e | [Descriptor](../classes/Descriptor.md) |
+| [clinical_course](../slots/clinical_course.md) | 0..1 <br/> [ClinicalCourseEnum](../enums/ClinicalCourseEnum.md) | Clinical course qualifier for this descriptor (e | [Descriptor](../classes/Descriptor.md) |
+| [severity](../slots/severity.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md)&nbsp;or&nbsp;<br />[SeverityQualifierEnum](../enums/SeverityQualifierEnum.md) |  | [Descriptor](../classes/Descriptor.md) |
 | [qualifiers](../slots/qualifiers.md) | * <br/> [Qualifier](../classes/Qualifier.md) | List of predicate-value pairs for formal post-composition | [Descriptor](../classes/Descriptor.md) |
 
 
@@ -146,8 +205,12 @@ URI: [dismech:class/SampleTypeDescriptor](https://w3id.org/monarch-initiative/di
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -210,6 +273,7 @@ attributes:
     owner: SampleTypeDescriptor
     domain_of:
     - SampleTypeDescriptor
+    - ExperimentalModel
     range: AnatomicalEntityDescriptor
     inlined: true
   cell_type_term:
@@ -251,8 +315,14 @@ attributes:
     owner: SampleTypeDescriptor
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -260,7 +330,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -288,6 +362,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
     recommended: false
   term:
@@ -315,6 +393,7 @@ attributes:
     owner: SampleTypeDescriptor
     domain_of:
     - Descriptor
+    - DifferentiatingMechanism
     range: ModifierEnum
   located_in:
     name: located_in
@@ -338,6 +417,69 @@ attributes:
     domain_of:
     - Descriptor
     range: LateralityEnum
+  spatial_extent:
+    name: spatial_extent
+    description: The spatial extent or distribution pattern applicable to this descriptor
+      (e.g., focal, diffuse, extensive)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: spatial_extent
+    owner: SampleTypeDescriptor
+    domain_of:
+    - Descriptor
+    range: SpatialExtentEnum
+  onset:
+    name: onset
+    description: Structured age of onset descriptor. Combines an HPO onset category
+      with optional quantitative age data (mean, min, max in years) and free-text
+      notes.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: onset
+    owner: SampleTypeDescriptor
+    domain_of:
+    - Descriptor
+    - PhenotypeContext
+    range: OnsetDescriptor
+    inlined: true
+  temporality:
+    name: temporality
+    description: Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: temporality
+    owner: SampleTypeDescriptor
+    domain_of:
+    - Descriptor
+    range: TemporalityEnum
+  clinical_course:
+    name: clinical_course
+    description: Clinical course qualifier for this descriptor (e.g., progressive,
+      stable)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: clinical_course
+    owner: SampleTypeDescriptor
+    domain_of:
+    - Descriptor
+    range: ClinicalCourseEnum
+  severity:
+    name: severity
+    examples:
+    - value: Severe
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: severity
+    owner: SampleTypeDescriptor
+    domain_of:
+    - Descriptor
+    - PhenotypeContext
+    - ReferenceRangeBand
+    - Phenotype
+    range: Any
+    any_of:
+    - range: SeverityQualifierEnum
+    - range: string
   qualifiers:
     name: qualifiers
     description: List of predicate-value pairs for formal post-composition. Allows

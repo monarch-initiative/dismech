@@ -1,7 +1,7 @@
 # Frequency Qualifier Evidence Guidelines
 
 Curator-facing SOP for assigning and supporting `frequency` values on phenotypes
-in dismech disorder files. These guidelines apply to the **current schema** —
+in DisMech disorder files. These guidelines apply to the **current schema** —
 no schema change is required.
 
 Background and the broader schema design discussion live in
@@ -103,7 +103,7 @@ the mapping in `explanation`.
     supports: SUPPORT
     snippet: "Common manifestations include... ecchymoses."
     explanation: |
-      Author wording "common" maps to FREQUENT under the dismech qualitative
+      Author wording "common" maps to FREQUENT under the DisMech qualitative
       mapping (see docs/frequency-evidence-guidelines.md). No quantitative
       data was reported.
 ```
