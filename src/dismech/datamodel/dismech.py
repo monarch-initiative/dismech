@@ -6990,6 +6990,9 @@ class AssociationSignalSourceEnum(EnumDefinitionImpl):
     COHD = PermissibleValue(
         text="COHD",
         description="Columbia Open Health Data (COHD)")
+    ICEES = PermissibleValue(
+        text="ICEES",
+        description="Integrated Clinical and Environmental Exposures Service KG (RENCI/UNC)")
     LITERATURE = PermissibleValue(
         text="LITERATURE",
         description="Published literature source")
