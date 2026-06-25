@@ -759,6 +759,11 @@ gen-research-index:
     uv run python -m dismech.render --research
     @echo "Generated pages/research/index.html"
 
+# Regenerate the deep-research provider table in details/index.html from the registry
+[group('Pages')]
+gen-provider-docs:
+    uv run python -m dismech.render --provider-docs
+
 # Generate a single comorbidity page
 [group('Pages')]
 gen-comorbidity-page file:
