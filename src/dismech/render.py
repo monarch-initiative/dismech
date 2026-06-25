@@ -3,6 +3,7 @@ Render disorder YAML files to HTML pages using Jinja2 templates.
 """
 
 import hashlib
+import html
 import json
 import os
 import re
@@ -1170,25 +1171,263 @@ def _extract_display_title(text: str, fallback: str) -> str:
     return fallback
 
 
+# ---------------------------------------------------------------------------
+# Deep-research provider registry — single source of truth (dismech#4765)
+# ---------------------------------------------------------------------------
+# One ordered entry per known deep-research provider. Every consumer derives
+# from this list, so adding or renaming a provider means editing exactly one
+# place:
+#   * ``_humanize_provider``       — per-report label on disorder pages
+#   * ``_display_name_from_provider`` — canonical browse category for the index
+#   * ``provider_options``         — filter-chip key/name pairs (index page)
+#   * ``research_index.html.j2``   — pill colors + legend entries
+#
+# Per-entry fields:
+#   key          normalized category key (CSS class suffix + filter key)
+#   name         canonical category display name
+#   match_keys   dash-normalized report-filename slugs that collapse into this
+#                category (drives ``_display_name_from_provider`` grouping)
+#   humanize     per-slug overrides for ``_humanize_provider`` keyed by the raw
+#                lower-cased slug; slugs not listed fall back to title-casing,
+#                so only labels that title-casing cannot reproduce (e.g.
+#                "OpenAI") or legacy slugs that keep their own name (e.g.
+#                "falcon" -> "Falcon") need an entry here
+#   url          legend link target, or None for catch-all/non-product entries
+#   prefix       legend/pill prefix (e.g. the fallback warning glyph)
+#   description  legend descriptive text
+#   pill         pill colors {"border", "background", "color"}
+DEEP_RESEARCH_PROVIDERS: list[dict] = [
+    {
+        "key": "edison",
+        "name": "Edison",
+        "match_keys": ("edison", "falcon"),
+        "humanize": {"falcon": "Falcon"},
+        "url": "https://platform.edisonscientific.com/",
+        "prefix": "",
+        "description": (
+            "Formerly Falcon in report filenames; deep research generated via "
+            "Edison Scientific."
+        ),
+        "pill": {"border": "#c7d2fe", "background": "#eef2ff", "color": "#4338ca"},
+    },
+    {
+        "key": "asta",
+        "name": "Asta",
+        "match_keys": ("asta",),
+        "humanize": {"asta": "Asta"},
+        "url": "https://asta.allen.ai/",
+        "prefix": "",
+        "description": "Literature citations and snippets provided by Ai2 Asta.",
+        "pill": {"border": "#d9f99d", "background": "#f7fee7", "color": "#3f6212"},
+    },
+    {
+        "key": "openai",
+        "name": "OpenAI",
+        "match_keys": ("openai", "codex"),
+        "humanize": {"openai": "OpenAI"},
+        "url": "https://openai.com/",
+        "prefix": "",
+        "description": "Deep research generated using OpenAI models.",
+        "pill": {"border": "#bfdbfe", "background": "#eff6ff", "color": "#1d4ed8"},
+    },
+    {
+        "key": "cyberian",
+        "name": "Cyberian",
+        "match_keys": ("cyberian", "cyberian-codex"),
+        "humanize": {"cyberian-codex": "Cyberian Codex"},
+        "url": "https://github.com/monarch-initiative/deep-research-client",
+        "prefix": "",
+        "description": "Includes both Cyberian and Cyberian Codex reports.",
+        "pill": {"border": "#fed7aa", "background": "#fff7ed", "color": "#9a3412"},
+    },
+    {
+        "key": "perplexity",
+        "name": "Perplexity",
+        "match_keys": ("perplexity",),
+        "humanize": {"perplexity": "Perplexity"},
+        "url": "https://www.perplexity.ai/",
+        "prefix": "",
+        "description": (
+            "Deep research generated using Perplexity search/reasoning workflows."
+        ),
+        "pill": {"border": "#ddd6fe", "background": "#f5f3ff", "color": "#6d28d9"},
+    },
+    {
+        "key": "claude-code",
+        "name": "Claude Code",
+        "match_keys": ("claude-code", "claudecode"),
+        "humanize": {"claude_code": "Claude Code"},
+        "url": "https://claude.com/claude-code",
+        "prefix": "",
+        "description": (
+            "Web-grounded agentic deep research run via the local Claude Code CLI "
+            "(WebSearch/WebFetch only); no separate API key required."
+        ),
+        "pill": {"border": "#f3c2b3", "background": "#fdf2ee", "color": "#b8451f"},
+    },
+    {
+        "key": "fallback",
+        "name": "Fallback",
+        "match_keys": ("fallback",),
+        "humanize": {},
+        "url": None,
+        "prefix": "⚠️ ",
+        "description": (
+            "Not a true deep research run; produced by fallback extraction logic."
+        ),
+        "pill": {"border": "#fca5a5", "background": "#fef2f2", "color": "#b91c1c"},
+    },
+    {
+        "key": "openscientist",
+        "name": "OpenScientist",
+        "match_keys": ("openscientist", "openscientist-review"),
+        "humanize": {"openscientist": "OpenScientist"},
+        "url": "https://www.openscientist.io/",
+        "prefix": "",
+        "description": "Includes OpenScientist and OpenScientist Review reports.",
+        "pill": {"border": "#c4b5fd", "background": "#f5f3ff", "color": "#5b21b6"},
+    },
+    {
+        "key": "other",
+        "name": "Other",
+        "match_keys": (),
+        "humanize": {},
+        "url": None,
+        "prefix": "",
+        "description": "All providers outside the standard categories listed here.",
+        "pill": {"border": "#d1d5db", "background": "#f3f4f6", "color": "#374151"},
+    },
+]
+
+# Catch-all category key/name for slugs not matched by any registry entry.
+_PROVIDER_FALLBACK_CATEGORY = "Other"
+
+# Derived lookups (built once from the registry above).
+_PROVIDER_HUMANIZE_OVERRIDES: dict[str, str] = {
+    slug: label
+    for entry in DEEP_RESEARCH_PROVIDERS
+    for slug, label in entry["humanize"].items()
+}
+_PROVIDER_CATEGORY_BY_MATCH_KEY: dict[str, str] = {
+    match_key: entry["name"]
+    for entry in DEEP_RESEARCH_PROVIDERS
+    for match_key in entry["match_keys"]
+}
+_PROVIDER_PREFIX_BY_KEY: dict[str, str] = {
+    entry["key"]: entry["prefix"] for entry in DEEP_RESEARCH_PROVIDERS
+}
+
+
+def _normalize_provider_key(value: str | None) -> str:
+    """Dash-normalize a provider token (lowercase, non-alphanumeric -> '-')."""
+    return re.sub(r"[^a-z0-9]+", "-", (value or "").strip().casefold()).strip("-")
+
+
 def _humanize_provider(value: str | None) -> str | None:
-    """Convert a provider slug into a readable label."""
+    """Convert a provider slug into a readable per-report label."""
     if not value:
         return None
-    special_cases = {
-        "asta": "Asta",
-        "claude_code": "Claude Code",
-        "cyberian-codex": "Cyberian Codex",
-        "falcon": "Falcon",
-        "openai": "OpenAI",
-        "openscientist": "OpenScientist",
-        "perplexity": "Perplexity",
-    }
     normalized = str(value).strip().lower()
-    if normalized in special_cases:
-        return special_cases[normalized]
+    if normalized in _PROVIDER_HUMANIZE_OVERRIDES:
+        return _PROVIDER_HUMANIZE_OVERRIDES[normalized]
     return " ".join(
         part.capitalize() for part in re.split(r"[-_]+", normalized) if part
     )
+
+
+# Marker comments bounding the registry-generated providers table inside the
+# hand-maintained docs page at ``details/index.html``. The text between these
+# markers is fully regenerated from ``DEEP_RESEARCH_PROVIDERS``; everything else
+# on the page stays hand-edited.
+DETAILS_PROVIDER_BLOCK_BEGIN = (
+    "<!-- BEGIN GENERATED: deep-research-providers "
+    "(regenerate with `just gen-provider-docs`) -->"
+)
+DETAILS_PROVIDER_BLOCK_END = "<!-- END GENERATED: deep-research-providers -->"
+
+
+def render_provider_docs_table(indent: str = " " * 12) -> str:
+    """Render the deep-research provider registry as an HTML docs table.
+
+    The table mirrors the provider categories (name, description, and product
+    link) shown in the deep-research index legend, so the docs page stays in
+    sync with the registry that drives the index. Generated for embedding in
+    ``details/index.html`` between the provider block markers.
+    """
+    inner = indent + "    "
+    row_indent = inner + "    "
+    cell_indent = row_indent + "    "
+
+    lines = [f"{indent}<table>"]
+    lines.append(f"{inner}<thead>")
+    lines.append(f"{row_indent}<tr>")
+    lines.append(f"{cell_indent}<th>Provider</th>")
+    lines.append(f"{cell_indent}<th>What it contributes</th>")
+    lines.append(f"{cell_indent}<th>More information</th>")
+    lines.append(f"{row_indent}</tr>")
+    lines.append(f"{inner}</thead>")
+    lines.append(f"{inner}<tbody>")
+
+    for entry in DEEP_RESEARCH_PROVIDERS:
+        name = html.escape(entry["name"])
+        prefix = html.escape(entry["prefix"])
+        description = html.escape(entry["description"])
+        if entry["url"]:
+            url = html.escape(entry["url"], quote=True)
+            link_cell = (
+                f'<a href="{url}" target="_blank" '
+                f'rel="noopener noreferrer">{name} site</a>'
+            )
+        else:
+            link_cell = "&mdash;"
+        lines.append(f"{row_indent}<tr>")
+        lines.append(f"{cell_indent}<td>{prefix}{name}</td>")
+        lines.append(f"{cell_indent}<td>{description}</td>")
+        lines.append(f"{cell_indent}<td>{link_cell}</td>")
+        lines.append(f"{row_indent}</tr>")
+
+    lines.append(f"{inner}</tbody>")
+    lines.append(f"{indent}</table>")
+    return "\n".join(lines)
+
+
+def update_details_provider_docs(
+    details_path: Path = Path("details/index.html"),
+) -> Path:
+    """Regenerate the provider table in ``details/index.html`` from the registry.
+
+    Replaces the text between the provider block markers with a freshly
+    rendered table. Raises if the markers are missing so a malformed docs page
+    fails loudly rather than silently skipping the update.
+    """
+    text = details_path.read_text()
+
+    begin_idx = text.find(DETAILS_PROVIDER_BLOCK_BEGIN)
+    end_idx = text.find(DETAILS_PROVIDER_BLOCK_END)
+    if begin_idx == -1 or end_idx == -1 or end_idx < begin_idx:
+        raise SystemExit(
+            f"Provider block markers not found in {details_path}; expected "
+            f"{DETAILS_PROVIDER_BLOCK_BEGIN!r} ... {DETAILS_PROVIDER_BLOCK_END!r}"
+        )
+
+    # Preserve the indentation that precedes the begin marker for the table body.
+    line_start = text.rfind("\n", 0, begin_idx) + 1
+    indent = text[line_start:begin_idx]
+
+    table = render_provider_docs_table(indent=indent)
+    block = (
+        f"{DETAILS_PROVIDER_BLOCK_BEGIN}\n"
+        f"{table}\n"
+        f"{indent}{DETAILS_PROVIDER_BLOCK_END}"
+    )
+
+    new_text = (
+        text[:begin_idx]
+        + block
+        + text[end_idx + len(DETAILS_PROVIDER_BLOCK_END):]
+    )
+    details_path.write_text(new_text)
+    return details_path
 
 
 def _rebase_relative_html_urls(html: str, base_prefix: str) -> str:
@@ -1758,26 +1997,10 @@ def _display_name_from_slug(slug: str) -> str:
 
 def _display_name_from_provider(provider: str) -> str:
     """Normalize provider token to canonical deep-research browser categories."""
-    provider_key = re.sub(
-        r"[^a-z0-9]+", "-", (provider or "").strip().casefold()
-    ).strip("-")
-    if provider_key in {"falcon", "edison"}:
-        return "Edison"
-    if provider_key == "asta":
-        return "Asta"
-    if provider_key in {"openai", "codex"}:
-        return "OpenAI"
-    if provider_key in {"cyberian", "cyberian-codex"}:
-        return "Cyberian"
-    if provider_key == "perplexity":
-        return "Perplexity"
-    if provider_key in {"claude-code", "claudecode"}:
-        return "Claude Code"
-    if provider_key == "fallback":
-        return "Fallback"
-    if provider_key in {"openscientist", "openscientist-review"}:
-        return "OpenScientist"
-    return "Other"
+    provider_key = _normalize_provider_key(provider)
+    return _PROVIDER_CATEGORY_BY_MATCH_KEY.get(
+        provider_key, _PROVIDER_FALLBACK_CATEGORY
+    )
 
 
 def _collect_research_index_rows(
@@ -1839,17 +2062,20 @@ def _collect_research_index_rows(
 
     normalized_rows: list[dict] = []
     for row in rows.values():
-        providers = [
-            {
-                "name": provider_name,
-                "key": re.sub(r"[^a-z0-9]+", "-", provider_name.casefold()).strip("-"),
-                "count": count,
-            }
-            for provider_name, count in sorted(
-                row["provider_counts"].items(),
-                key=lambda item: item[0].casefold(),
+        providers = []
+        for provider_name, count in sorted(
+            row["provider_counts"].items(),
+            key=lambda item: item[0].casefold(),
+        ):
+            key = _normalize_provider_key(provider_name)
+            providers.append(
+                {
+                    "name": provider_name,
+                    "key": key,
+                    "count": count,
+                    "prefix": _PROVIDER_PREFIX_BY_KEY.get(key, ""),
+                }
             )
-        ]
         normalized_rows.append(
             {
                 "name": row["name"],
@@ -1877,15 +2103,8 @@ def render_research_index(
     template = env.get_template("research_index.html.j2")
 
     provider_options = [
-        {"key": "edison", "name": "Edison"},
-        {"key": "asta", "name": "Asta"},
-        {"key": "openai", "name": "OpenAI"},
-        {"key": "cyberian", "name": "Cyberian"},
-        {"key": "perplexity", "name": "Perplexity"},
-        {"key": "claude-code", "name": "Claude Code"},
-        {"key": "fallback", "name": "Fallback"},
-        {"key": "openscientist", "name": "OpenScientist"},
-        {"key": "other", "name": "Other"},
+        {"key": entry["key"], "name": entry["name"]}
+        for entry in DEEP_RESEARCH_PROVIDERS
     ]
 
     total_reports = sum(int(row.get("report_count") or 0) for row in rows)
@@ -1894,6 +2113,7 @@ def render_research_index(
         disorder_count=len(rows),
         total_reports=total_reports,
         provider_options=provider_options,
+        provider_registry=DEEP_RESEARCH_PROVIDERS,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -3673,6 +3893,11 @@ def main():
     )
     parser.add_argument("--research", action="store_true", help="Render research index")
     parser.add_argument(
+        "--provider-docs",
+        action="store_true",
+        help="Regenerate the deep-research provider table in details/index.html",
+    )
+    parser.add_argument(
         "--project", action="store_true", help="Render curation-project page(s)"
     )
     parser.add_argument("--output", "-o", help="Output path (file or directory)")
@@ -3732,6 +3957,16 @@ def main():
             output_path = Path(args.output) if args.output else None
             result = render_project(input_path, output_path, template_path)
             print(f"Generated: {result}")
+        return
+
+    if args.provider_docs:
+        details_path = (
+            Path(args.path)
+            if args.path
+            else (Path(args.output) if args.output else Path("details/index.html"))
+        )
+        result = update_details_provider_docs(details_path)
+        print(f"Updated provider docs: {result}")
         return
 
     if args.research:
