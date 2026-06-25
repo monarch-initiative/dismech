@@ -1176,6 +1176,7 @@ def _humanize_provider(value: str | None) -> str | None:
         return None
     special_cases = {
         "asta": "Asta",
+        "claude_code": "Claude Code",
         "cyberian-codex": "Cyberian Codex",
         "falcon": "Falcon",
         "openai": "OpenAI",
@@ -1770,6 +1771,8 @@ def _display_name_from_provider(provider: str) -> str:
         return "Cyberian"
     if provider_key == "perplexity":
         return "Perplexity"
+    if provider_key in {"claude-code", "claudecode"}:
+        return "Claude Code"
     if provider_key == "fallback":
         return "Fallback"
     if provider_key in {"openscientist", "openscientist-review"}:
@@ -1879,6 +1882,7 @@ def render_research_index(
         {"key": "openai", "name": "OpenAI"},
         {"key": "cyberian", "name": "Cyberian"},
         {"key": "perplexity", "name": "Perplexity"},
+        {"key": "claude-code", "name": "Claude Code"},
         {"key": "fallback", "name": "Fallback"},
         {"key": "openscientist", "name": "OpenScientist"},
         {"key": "other", "name": "Other"},
