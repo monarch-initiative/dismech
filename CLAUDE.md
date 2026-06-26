@@ -244,10 +244,16 @@ When a candidate primary anchor is missing, ask **"Is this a disease/disorder?"*
    [#795](https://github.com/monarch-initiative/dismech/issues/795) for the SOP
    on partial / inexact matches and `skos:closeMatch`/`broadMatch`.)
 2. **Yes, but MONDO lacks it** → **file a MONDO NTR**; temporarily document the
-   intended target in `notes`. "Missing MONDO ID" on a disease entry is *always*
-   a MONDO gap to be closed, never a permanent state. (This is the worklist of
-   epic [#3691](https://github.com/monarch-initiative/dismech/issues/3691);
-   `FICUS_syndrome.yaml` already documents its intended target this way.)
+   gap on the entry itself (an intended-target note in `notes`, or — when the
+   only candidate MONDO term is a *false match* for a different disease — a note
+   in `description` explaining why it is not used). "Missing MONDO ID" on a
+   disease entry is *always* a MONDO gap to be closed, never a permanent state.
+   (This is the worklist of epic
+   [#3691](https://github.com/monarch-initiative/dismech/issues/3691); e.g.
+   `FICUS_syndrome.yaml` has no top-level `disease_term` and documents in its
+   `description` that the only candidate term, `MONDO:0978296`, refers to a
+   different syndrome — so the entry is left anchorless pending an NTR rather
+   than mis-anchored.)
 3. **No — it is a recurring pathophysiological *process / state*** (e.g.
    dysbiosis, a fibrotic response, a signaling-adaptation pattern) → model it in
    `kb/modules/` and/or as a `pathophysiology` node inside the relevant
