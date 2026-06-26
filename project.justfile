@@ -1342,6 +1342,11 @@ clingen-dosage-refresh:
 civic-refresh:
     uv run python -m dismech.structured_sources.cli refresh civic
 
+# Refresh curated gene-set GO interpretations + membership (pinned by data/genesets/MANIFEST.yaml)
+[group('Research')]
+genesets-refresh:
+    uv run python -m dismech.structured_sources.cli refresh mygeneset
+
 # Rebuild every references_cache/ORPHA_*.md from current bulk XML
 # Use --id to limit to specific ORPHA codes.
 [group('Research')]
@@ -1365,6 +1370,17 @@ clingen-dosage-rebuild *args="":
 [group('Research')]
 civic-rebuild *args="":
     uv run python -m dismech.structured_sources.cli rebuild civic {{args}}
+
+# Rebuild every references_cache/MYGENESET_*.md from current interpretations + membership
+# Use --id to limit to specific gene-set ids (e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA).
+[group('Research')]
+genesets-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild mygeneset {{args}}
+
+# List the first N gene-set identifiers available to ingest
+[group('Research')]
+genesets-list limit="50":
+    uv run python -m dismech.structured_sources.cli list mygeneset --limit {{limit}}
 
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]

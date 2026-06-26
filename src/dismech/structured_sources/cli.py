@@ -26,6 +26,7 @@ from dismech.structured_sources.clingen_yaml_audit import (
     format_tsv,
 )
 from dismech.structured_sources.civic import CivicSource
+from dismech.structured_sources.mygeneset import MyGenesetSource
 from dismech.structured_sources.orphanet import OrphanetSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
@@ -57,6 +58,11 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             CivicSource.load_manifest(manifest)
         return CivicSource(_DEFAULT_DATA_DIR / "civic")
+    if name in {"mygeneset", "genesets", "geneset"}:
+        manifest = _DEFAULT_DATA_DIR / "genesets" / "MANIFEST.yaml"
+        if manifest.exists():
+            MyGenesetSource.load_manifest(manifest)
+        return MyGenesetSource(_DEFAULT_DATA_DIR / "genesets")
     raise typer.BadParameter(f"unknown source: {name}")
 
 

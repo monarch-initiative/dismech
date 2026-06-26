@@ -21,12 +21,13 @@ diseases:
 
 # Gene Sets ↔ dismech Integration
 
-> **Status:** decisions taken; import not yet built. The gene-set GO-interpretation
-> curation lives in **[`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets)**
+> **Status:** import **built** (structured source, evidence-validated). The gene-set
+> GO-interpretation curation lives in **[`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets)**
 > (formerly `cmungall/genesets-rs`; the interpretation PR is **merged** to `main`).
-> dismech's duplicated `genesets/` membership dir has been **retired** (this branch).
-> Remaining work is the dismech-side *import* (structured source) + the two-way
-> feedback tooling.
+> dismech's duplicated `genesets/` membership dir was **retired**, and gene sets are
+> now ingested as a structured reference source (`MYGENESET:` — see
+> [Implemented](#implemented-the-mygeneset-structured-source)). Remaining work is the
+> two-way feedback tooling + the optional `gene_sets` schema element.
 
 ## TL;DR
 
@@ -379,6 +380,68 @@ mygeneset.info, not just MSigDB. Rationale + handling of the "crazy IDs":
 > `MSIGDB:` as an xref), or (b) have the dismech importer remap `MSIGDB:` → `MYGENESET:`.
 > Option (a) is cleaner and future-proofs non-MSigDB sources.
 
+## Implemented: the `MyGeneset` structured source
+
+`src/dismech/structured_sources/mygeneset.py` (`MyGenesetSource`, registered in
+the CLI as `mygeneset`) ingests gene sets exactly like `OrphanetSource`/`ClinGenSource`:
+
+- **Inputs (pinned, not committed — `data/genesets/MANIFEST.yaml` is the pin):**
+  the curated `GeneSetInterpretation` YAMLs from `monarch-initiative/genesets`
+  at a pinned commit, joined with gene membership from **mygeneset.info**.
+- **Output (committed):** one `references_cache/MYGENESET_<id>.md` per set, in the
+  same line-oriented markdown-table format as the other structured sources, so
+  individual rows are quotable evidence `snippet:` values.
+- **Commands:**
+  ```bash
+  just genesets-refresh          # fetch interpretations (pinned commit) + mygeneset membership
+  just genesets-rebuild          # (re)write references_cache/MYGENESET_*.md   (--id KEGG_ASTHMA to limit)
+  just genesets-list             # list ingestable ids
+  ```
+- **Cache body sections:** Description · Context (disease/tissue MONDO/UBERON) ·
+  Curated GO interpretation (`GO id | label | aspect | role | confidence`) ·
+  Members (`symbol | NCBIGene:id`) · Source (genesets commit + mygeneset + upstream `gene_set_id` xref).
+
+**It acts as evidence today.** A disorder can cite e.g.:
+
+```yaml
+evidence:
+- reference: MYGENESET:KEGG_ASTHMA
+  supports: SUPPORT
+  snippet: "GO:0045064 | T-helper 2 cell differentiation | biological_process | core_process | high"
+  explanation: The curated KEGG_ASTHMA interpretation lists Th2 differentiation as a core process.
+```
+
+This validates through the real `linkml-reference-validator` (verified), and all
+23 emitted files pass the `check-reference-cache-frontmatter` contract. Caveat
+(unchanged): a gene-set row is a *lead*, not mechanism — back disease claims with
+a primary PMID too. 23 sets ingested on first run (3 cell-type sets have no
+mygeneset membership and serialize without a Members block).
+
+## Proposed (not built): a `gene_sets` schema element + scoring
+
+The structured-source path above makes gene sets *citable*. A complementary idea
+is a first-class **`gene_sets`** slot on `Disease` (sibling of `pathophysiology`,
+**not** under computational models — it's a reference object, not a model) that
+points at an external gene set and optionally carries a short interpretation:
+
+```yaml
+gene_sets:
+- reference: MYGENESET:KEGG_ASTHMA          # resolves to the cache file above
+  relationship: CANONICAL_PATHWAY           # or CELL_TYPE_SIGNATURE, PERTURBATION, ...
+  note: KEGG legacy asthma pathway; overlaps the Th2 + antigen-presentation arms.
+```
+
+Kept deliberately thin — membership and the GO interpretation already live
+upstream and in the cache file, so the slot just records the disease↔set link and
+its semantics (avoids re-duplicating genes in the KB). This would also be the
+natural anchor for **scoring**: with the disease's own gene set (union of
+`pathophysiology[].genes`, exportable today) and the external set both in hand,
+compute overlap / enrichment (Jaccard, hypergeometric) of *disease vs gene set*
+as an automated audit — high overlap corroborates the pathograph; a low-overlap
+"canonical" set flags a coverage gap (cf. the `Colon_Adenocarcinoma` stub).
+Decision needed before building: schema change scope + whether scoring runs in
+dismech or back in `genesets-rs`'s eval harness. (See Open decisions.)
+
 ## Coverage backlog
 
 Of the 13 sets dismech had staged, **5 now have an upstream GO interpretation**
@@ -437,13 +500,14 @@ these touch scope, structured-source policy, and cross-repo governance.
 - [ ] File the concrete gaps as curation issues: PD OXPHOS + ubiquitin/mitophagy;
       T1D MHC-class-II presentation; CRC `Colon_Adenocarcinoma` GO scaffold.
 - [x] Retire dismech's `genesets/` dir (membership owned upstream) — done.
+- [x] Build the `MyGeneset` structured source + `references_cache/MYGENESET_*.md`
+      generator (following `OrphanetSource`); 23 sets ingested, evidence-validated.
 - [ ] Confirm upstream `gene_set_id` alignment with @cmungall (`MYGENESET:` vs
       `MSIGDB:`); curate the 8 backlog interpretations upstream (value-ranked above).
-- [ ] Prototype the `MyGeneset`/`GeneSet` structured source
-      (`src/dismech/structured_sources/`) + `references_cache/MYGENESET_*.md`
-      generator, following `OrphanetSource`.
+- [ ] Decide on the `gene_sets` schema element (scope) and wire the first disease
+      to cite its canonical set (Asthma ↔ `MYGENESET:KEGG_ASTHMA`).
 - [ ] Add an exporter: dismech disease → (a) curated GO list, (b) union gene set,
-      (c) causal-edge GO ordering — as a benchmark artifact for `genesets report`.
+      (c) causal-edge GO ordering — benchmark artifact + input to disease-vs-set scoring.
 - [ ] Record decisions 1–6 in the design-decisions register.
 
 ## Notes / log
@@ -473,3 +537,12 @@ these touch scope, structured-source policy, and cross-repo governance.
   have upstream interpretations; 8 do not.
 - Settled the identifier scheme on **mygeneset.info** (`MYGENESET:<_id>`) after
   confirming mygeneset's `_id` is the bare set name + a `source` field.
+- Built the `MyGeneset` structured source (`src/dismech/structured_sources/mygeneset.py`)
+  + `data/genesets/MANIFEST.yaml` (pins genesets commit `c9af95e9`), CLI/justfile
+  recipes (`genesets-refresh|rebuild|list`), and tests. Ran refresh+rebuild → 23
+  `references_cache/MYGENESET_*.md`. Confirmed a `MYGENESET:` citation validates
+  through the real `linkml-reference-validator` and the whole cache passes the
+  frontmatter contract. Membership comes from mygeneset (symbol + NCBIGene); the
+  curated GO interpretation + evidence come from the genesets repo.
+- Wrote up the `gene_sets` schema-element + disease-vs-set scoring idea as a
+  documented proposal (not built) — see the "Proposed" section.
