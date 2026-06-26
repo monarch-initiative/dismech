@@ -18,6 +18,7 @@ from dismech.structured_sources.clingen import ClinGenSource
 from dismech.structured_sources.clingen_dosage import ClinGenDosageSource
 from dismech.structured_sources.civic import CivicSource
 from dismech.structured_sources.mygeneset import MyGenesetSource
+from dismech.structured_sources.icees import ICEESSource
 from dismech.structured_sources.orphanet import OrphanetSource
 
 __all__ = [
@@ -28,5 +29,6 @@ __all__ = [
     "ClinGenDosageSource",
     "CivicSource",
     "MyGenesetSource",
+    "ICEESSource",
     "OrphanetSource",
 ]

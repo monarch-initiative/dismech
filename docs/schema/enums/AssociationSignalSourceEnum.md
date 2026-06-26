@@ -14,6 +14,7 @@ URI: [dismech:enum/AssociationSignalSourceEnum](https://w3id.org/monarch-initiat
 | --- | --- | --- |
 | DISEASE_TRAJECTORIES | None | Disease Trajectories (CSH/Austria) |
 | COHD | None | Columbia Open Health Data (COHD) |
+| ICEES | None | Integrated Clinical and Environmental Exposures Service KG (RENCI/UNC) |
 | LITERATURE | None | Published literature source |
 | OTHER | None | Other or unspecified source |
 
@@ -66,6 +67,9 @@ permissible_values:
   COHD:
     text: COHD
     description: Columbia Open Health Data (COHD)
+  ICEES:
+    text: ICEES
+    description: Integrated Clinical and Environmental Exposures Service KG (RENCI/UNC)
   LITERATURE:
     text: LITERATURE
     description: Published literature source
