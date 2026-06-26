@@ -1,0 +1,160 @@
+# Central cadence configuration for the scheduled "agent" GitHub Actions.
+#
+# Instead of hand-editing the `cron:` lines in each workflow, pick a named
+# profile here and apply it with:
+#
+#     just cron-profile <name>          # rewrite workflows + commit
+#     just cron-profiles                # list profiles / show active
+#     uv run python scripts/apply_cron_profile.py <name> --dry-run
+#
+# The applier (scripts/apply_cron_profile.py) rewrites ONLY the cron entries in
+# each managed workflow's `on.schedule` block — everything else (inputs, jobs,
+# comments outside the schedule block) is left untouched.
+#
+# Conventions:
+#   * Each profile MUST define every managed workflow (the applier enforces this
+#     so a profile can't be half-configured).
+#   * Workflow keys are the file stem under .github/workflows/ (".yml" or
+#     ".yaml" is resolved automatically).
+#   * Weekday/weekend splits use two cron entries: `* * 1-5` (Mon-Fri) and
+#     `* * 0,6` (Sun/Sat). A single entry applies every day.
+#   * `comment:` is optional and rendered as a trailing inline comment.
+#
+# `medium` is the baseline and mirrors the historical live cadence, so applying
+# it is behaviour-preserving (cosmetic normalisation only). `slow`/`fast` dial
+# the high-frequency agents down/up; `fast-weekend` keeps weekday cadence at the
+# `medium` level but boosts the weekend (the weekend GitHub Actions queue is
+# usually quieter).
+#
+# The low-frequency weekly/daily jobs (literature-scan, knowledge-gap-scan,
+# weekly-compliance, stale-pr-reassign, post-review-agent) are intentionally
+# tier-invariant — they are not the cost driver. Edit them here if you want a
+# profile to move them too.
+
+active: medium
+
+profiles:
+
+  slow:
+    description: Conservative cadence — minimise API/compute spend.
+    workflows:
+      curation-scanner:
+        - cron: "0 */4 * * 1-5"
+          comment: "weekday: every 4h"
+        - cron: "0 */8 * * 0,6"
+          comment: "weekend: every 8h"
+      pr-shepherd:
+        - cron: "37 */4 * * *"
+          comment: "every 4h, offset from the curation scanner"
+      discussion-scanner:
+        - cron: "30 */6 * * *"
+          comment: "every 6h"
+      literature-scan:
+        - cron: "0 13 * * 5"
+          comment: "weekly Friday scan after the UTC publication week settles"
+      knowledge-gap-scan:
+        - cron: "0 13 * * 5"
+          comment: "weekly Friday scan, in parallel with the literature scan"
+      weekly-compliance:
+        - cron: "0 8 * * 5"
+          comment: "weekly Friday 08:00 UTC (midnight PST / 03:00 EST)"
+      stale-pr-reassign:
+        - cron: "0 9 * * *"
+          comment: "daily 09:00 UTC (02:00 PDT)"
+      post-review-agent:
+        - cron: "0 8 * * 6"
+          comment: "weekly Saturday 08:00 UTC"
+
+  medium:
+    description: Baseline cadence — mirrors the historical live schedules.
+    workflows:
+      curation-scanner:
+        - cron: "0 * * * 1-5"
+          comment: "weekday: hourly"
+        - cron: "0 * * * 0,6"
+          comment: "weekend: hourly"
+      pr-shepherd:
+        - cron: "37 * * * *"
+          comment: "hourly, offset from the curation scanner"
+      discussion-scanner:
+        - cron: "30 */2 * * *"
+          comment: "every 2h"
+      literature-scan:
+        - cron: "0 13 * * 5"
+          comment: "weekly Friday scan after the UTC publication week settles"
+      knowledge-gap-scan:
+        - cron: "0 13 * * 5"
+          comment: "weekly Friday scan, in parallel with the literature scan"
+      weekly-compliance:
+        - cron: "0 8 * * 5"
+          comment: "weekly Friday 08:00 UTC (midnight PST / 03:00 EST)"
+      stale-pr-reassign:
+        - cron: "0 9 * * *"
+          comment: "daily 09:00 UTC (02:00 PDT)"
+      post-review-agent:
+        - cron: "0 8 * * 6"
+          comment: "weekly Saturday 08:00 UTC"
+
+  fast:
+    description: Aggressive cadence — maximise responsiveness.
+    workflows:
+      curation-scanner:
+        - cron: "*/30 * * * 1-5"
+          comment: "weekday: every 30 min"
+        - cron: "*/30 * * * 0,6"
+          comment: "weekend: every 30 min"
+      pr-shepherd:
+        - cron: "7,37 * * * *"
+          comment: "every 30 min, offset from the curation scanner"
+      discussion-scanner:
+        - cron: "30 * * * *"
+          comment: "hourly"
+      literature-scan:
+        - cron: "0 13 * * 5"
+          comment: "weekly Friday scan after the UTC publication week settles"
+      knowledge-gap-scan:
+        - cron: "0 13 * * 5"
+          comment: "weekly Friday scan, in parallel with the literature scan"
+      weekly-compliance:
+        - cron: "0 8 * * 5"
+          comment: "weekly Friday 08:00 UTC (midnight PST / 03:00 EST)"
+      stale-pr-reassign:
+        - cron: "0 9 * * *"
+          comment: "daily 09:00 UTC (02:00 PDT)"
+      post-review-agent:
+        - cron: "0 8 * * 6"
+          comment: "weekly Saturday 08:00 UTC"
+
+  fast-weekend:
+    description: Weekday cadence at the medium level, weekend boosted.
+    workflows:
+      curation-scanner:
+        - cron: "0 * * * 1-5"
+          comment: "weekday: hourly (medium)"
+        - cron: "*/30 * * * 0,6"
+          comment: "weekend: every 30 min (boosted)"
+      pr-shepherd:
+        - cron: "37 * * * 1-5"
+          comment: "weekday: hourly"
+        - cron: "7,37 * * * 0,6"
+          comment: "weekend: every 30 min (boosted)"
+      discussion-scanner:
+        - cron: "30 */2 * * 1-5"
+          comment: "weekday: every 2h"
+        - cron: "30 * * * 0,6"
+          comment: "weekend: hourly (boosted)"
+      literature-scan:
+        - cron: "0 13 * * 5"
+          comment: "weekly Friday scan after the UTC publication week settles"
+      knowledge-gap-scan:
+        - cron: "0 13 * * 5"
+          comment: "weekly Friday scan, in parallel with the literature scan"
+      weekly-compliance:
+        - cron: "0 8 * * 5"
+          comment: "weekly Friday 08:00 UTC (midnight PST / 03:00 EST)"
+      stale-pr-reassign:
+        - cron: "0 9 * * *"
+          comment: "daily 09:00 UTC (02:00 PDT)"
+      post-review-agent:
+        - cron: "0 8 * * 6"
+          comment: "weekly Saturday 08:00 UTC"
