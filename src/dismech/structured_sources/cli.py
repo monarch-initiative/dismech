@@ -191,6 +191,34 @@ def ga_local_id(gene_set: str) -> str:
     return gene_set
 
 
+@app.command("align-all")
+def align_all_cmd(
+    kb_dir: Path = typer.Option(
+        _REPO_ROOT / "kb" / "disorders", "--kb-dir", help="Disorder YAML directory"
+    ),
+    cache_dir: Path = typer.Option(
+        _DEFAULT_CACHE_DIR, "--cache-dir", help="Reference cache directory"
+    ),
+    no_hierarchy: bool = typer.Option(
+        False, "--no-hierarchy", help="Exact GO-id match only (skip the OAK GO adapter)"
+    ),
+) -> None:
+    """Align every disease-context gene set to its dismech disorder (by MONDO)."""
+    from dismech import genesets_align as ga
+
+    adapter = None
+    if not no_hierarchy:
+        try:
+            from oaklib import get_adapter
+
+            adapter = get_adapter("sqlite:obo:go")
+        except Exception as exc:  # pragma: no cover - degrade to exact match
+            typer.echo(f"(GO adapter unavailable, exact-match only: {exc})", err=True)
+
+    entries = ga.sweep(cache_dir, kb_dir, adapter)
+    typer.echo(ga.format_sweep(entries))
+
+
 @app.command("clingen-audit-yaml")
 def clingen_audit_yaml_cmd(
     kb_dir: Path = typer.Option(

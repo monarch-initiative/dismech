@@ -21,13 +21,15 @@ diseases:
 
 # Gene Sets ↔ dismech Integration
 
-> **Status:** import **built** (structured source, evidence-validated). The gene-set
-> GO-interpretation curation lives in **[`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets)**
-> (formerly `cmungall/genesets-rs`; the interpretation PR is **merged** to `main`).
-> dismech's duplicated `genesets/` membership dir was **retired**, and gene sets are
-> now ingested as a structured reference source (`MYGENESET:` — see
-> [Implemented](#implemented-the-mygeneset-structured-source)). Remaining work is the
-> two-way feedback tooling + the optional `gene_sets` schema element.
+> **Status:** import **+ both-way tooling built**. The gene-set GO-interpretation
+> curation lives in **[`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets)**
+> (formerly `cmungall/genesets-rs`; merged to `main`, now **100** curated sets).
+> dismech's duplicated `genesets/` dir was **retired**; gene sets are ingested as a
+> structured reference source (`MYGENESET:`, evidence-validated — see
+> [Implemented](#implemented-the-mygeneset-structured-source)), and the
+> [BP aligner](#built-just-genesets-align-disease-set) scores each disease's
+> pathograph against its set's curated BPs (per-disease + `genesets-align-all`).
+> Remaining: the optional `gene_sets` schema element + confidence weighting.
 
 ## TL;DR
 
@@ -393,9 +395,11 @@ the CLI as `mygeneset`) ingests gene sets exactly like `OrphanetSource`/`ClinGen
   individual rows are quotable evidence `snippet:` values.
 - **Commands:**
   ```bash
-  just genesets-refresh          # fetch interpretations (pinned commit) + mygeneset membership
-  just genesets-rebuild          # (re)write references_cache/MYGENESET_*.md   (--id KEGG_ASTHMA to limit)
-  just genesets-list             # list ingestable ids
+  just genesets-refresh                 # fetch interpretations (pinned commit) + mygeneset membership
+  just genesets-rebuild                 # (re)write references_cache/MYGENESET_*.md   (--id KEGG_ASTHMA to limit)
+  just genesets-list                    # list ingestable ids
+  just genesets-align Asthma KEGG_ASTHMA  # BP alignment for one disease ↔ set
+  just genesets-align-all               # catalog-wide BP-alignment audit (by MONDO)
   ```
 - **Cache body sections:** Description · Context (disease/tissue MONDO/UBERON) ·
   Curated GO interpretation (`GO id | label | aspect | role | confidence`) ·
@@ -413,10 +417,11 @@ evidence:
 ```
 
 This validates through the real `linkml-reference-validator` (verified), and all
-23 emitted files pass the `check-reference-cache-frontmatter` contract. Caveat
+emitted files pass the `check-reference-cache-frontmatter` contract. Caveat
 (unchanged): a gene-set row is a *lead*, not mechanism — back disease claims with
-a primary PMID too. 23 sets ingested on first run (3 cell-type sets have no
-mygeneset membership and serialize without a Members block).
+a primary PMID too. **100 sets ingested** (pin `08115aa0`, 2026-06-26 — upstream
+grew from 23 → 100); a few cell-type sets have no mygeneset membership and
+serialize without a Members block.
 
 ## Proposed (not built): a `gene_sets` schema element + BP alignment
 
@@ -510,13 +515,45 @@ expected BPs is a **conformance** gap for the existing module-checking to catch,
 not something the aligner should paper over. Remaining open knob: whether to
 additionally weight corroboration by the set's `confidence`.
 
+### Catalog-wide audit: `just genesets-align-all`
+
+`align-all` (also `ga.sweep`) maps every disease-context set to its dismech
+disorder by the set's disease-context **MONDO** (via `build_mondo_index`) and runs
+the aligner across the whole catalog. On the 100-set pin: **56 disease-context
+sets, 37 mapped to a dismech disorder.** The table is reproducible (`just
+genesets-align-all`), so it's not pasted in full — recurring patterns:
+
+- **`MHC class II protein complex` (CC)** is the gap for Asthma, Rheumatoid
+  Arthritis, and Type I Diabetes (all 2/3). It's a *cellular_component* — dismech
+  models cells via CL, not GO CC, so this class of gap is partly structural, not a
+  curation miss. (Worth deciding whether CC-aspect set BPs should be scored at all.)
+- **`mitochondrion` (CC) + `neuron apoptotic process`** recur across the
+  neurodegeneration sets (Alzheimer's 1/4, Parkinson's 2/6, Huntington's 3/5, ALS
+  0/4) — genuine, actionable mechanistic gaps.
+- **`regulation of cell population proliferation`** is the common gap across the
+  KEGG cancer sets (CML, CRC, prostate, NSCLC, basal cell …) — a generic
+  proliferation BP most cancer pathographs don't carry as an explicit node.
+- Best-aligned: `WP_22Q11.2_CNV` ↔ 22q11.2 Deletion Syndrome **2/2**; worst flag
+  sparse pathographs (HCM 0/4, gastric-cancer nets 0/2) as enrichment targets —
+  the same signal as the `Colon_Adenocarcinoma` stub.
+
+Caveat: the MONDO→disorder map keeps one disorder per MONDO (advisory), so a set
+may align against a sibling subtype (e.g. KEGG_COLORECTAL_CANCER → the
+`Metastatic_Colorectal_Cancer` entry rather than `Colon_Adenocarcinoma`).
+
 ## Coverage backlog
 
-Of the 13 sets dismech had staged, **5 now have an upstream GO interpretation**
-in `monarch-initiative/genesets` (Alzheimer's, Asthma, Colorectal Cancer,
-Parkinson's, Type I Diabetes). The **8 not yet interpreted** — candidates to
-curate upstream, ranked by dismech two-way value (does a rich dismech pathograph
-exist to cross-check against?):
+**Largely closed by the 23 → 100 upstream expansion.** Of the original 8
+not-yet-interpreted staged sets, **6 now have an interpretation** (Huntington's,
+SLE, ALS, Autoimmune Thyroid, Graft-vs-Host, Prion). Still missing upstream:
+`WP_DRAVET_SYNDROME` (never had one) and `KEGG_MEDICUS_…_IL6_…JAK_STAT` (a
+signaling pathway, not a disease → wants a *module* mapping, not a disorder). The
+original pre-expansion backlog table is kept below for history.
+
+Of the 13 sets dismech had staged, **5 had an upstream GO interpretation** at the
+first pin (Alzheimer's, Asthma, Colorectal Cancer, Parkinson's, Type I Diabetes).
+The **8 then-not-yet-interpreted** — ranked by dismech two-way value (does a rich
+dismech pathograph exist to cross-check against?):
 
 | MSigDB set (`_id`) | dismech entry to cross-check | Value |
 |---|---|---|
@@ -642,3 +679,9 @@ these touch scope, structured-source policy, and cross-repo governance.
   duplicates module content into the disorder node, so the aligner correctly uses
   only the disorder's own BPs; importing module BPs would mask conformance gaps.
   Dropped that as a proposed knob.
+- Bumped the genesets pin to `08115aa0`: upstream grew **23 → 100** curated sets,
+  closing most of the coverage backlog. Re-ingested all 100. Added
+  `just genesets-align-all` (`ga.sweep`) — maps each disease-context set to its
+  dismech disorder by MONDO and aligns catalog-wide: 56 disease sets, 37 mapped.
+  Recurring gaps: MHC-class-II (CC) in Asthma/RA/T1D, mitochondrion + neuron
+  apoptosis across neurodegeneration, generic proliferation across cancers.

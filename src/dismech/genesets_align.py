@@ -118,6 +118,58 @@ def read_set_bps(cache_path: Path) -> list[SetBP]:
     return bps
 
 
+_CTX_DISEASE_RE = re.compile(r"^\|\s*disease\s*\|\s*(MONDO:\d+)\s*\|")
+
+
+def disease_context_mondo(cache_path: Path) -> Optional[str]:
+    """Return the disease-context MONDO id from a MYGENESET cache file, if any."""
+    in_ctx = False
+    for line in cache_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            in_ctx = line.strip() == "## Context"
+            continue
+        if in_ctx:
+            m = _CTX_DISEASE_RE.match(line)
+            if m:
+                return m.group(1)
+    return None
+
+
+def build_mondo_index(kb_dir: Path) -> dict[str, str]:
+    """Map a disorder's primary disease MONDO id -> its slug (filename stem).
+
+    Approximate: one disorder is kept per MONDO (first by sorted filename), so
+    a MONDO shared by several subtype entries resolves to one. Advisory only.
+    """
+    from ruamel.yaml import YAML
+
+    yaml = YAML(typ="safe")
+    index: dict[str, str] = {}
+    for path in sorted(kb_dir.glob("*.yaml")):
+        try:
+            data = yaml.load(path)
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
+        mondo = _primary_mondo(data)
+        if mondo and mondo not in index:
+            index[mondo] = path.stem
+    return index
+
+
+def _primary_mondo(data: dict) -> Optional[str]:
+    for key in ("disease_term", "mappings", "mondo", "meaning"):
+        val = data.get(key)
+        candidates = val if isinstance(val, list) else [val]
+        for cand in candidates:
+            if isinstance(cand, dict):
+                term = cand.get("term", cand)
+                if isinstance(term, dict) and str(term.get("id", "")).startswith("MONDO:"):
+                    return str(term["id"])
+    return None
+
+
 def extract_pathograph_bps(disease_path: Path) -> dict[str, str]:
     """Collect every GO id -> label under any ``biological_processes`` list."""
     from ruamel.yaml import YAML
@@ -195,6 +247,54 @@ def align(
             )
         )
     return result
+
+
+@dataclass
+class SweepEntry:
+    set_id: str  # local id, e.g. KEGG_ASTHMA
+    mondo: str
+    disorder: Optional[str]  # slug, or None if no dismech entry
+    result: Optional[AlignmentResult] = None
+
+
+def sweep(cache_dir: Path, kb_dir: Path, adapter: object = None) -> list[SweepEntry]:
+    """Align every disease-context MYGENESET set to its dismech disorder (by MONDO)."""
+    mondo_index = build_mondo_index(kb_dir)
+    entries: list[SweepEntry] = []
+    for cache in sorted(cache_dir.glob("MYGENESET_*.md")):
+        mondo = disease_context_mondo(cache)
+        if not mondo:
+            continue  # not a disease-context set (cell type / process)
+        local_id = cache.stem.removeprefix("MYGENESET_")
+        slug = mondo_index.get(mondo)
+        result = None
+        if slug and (kb_dir / f"{slug}.yaml").exists():
+            set_bps = read_set_bps(cache)
+            pathograph = extract_pathograph_bps(kb_dir / f"{slug}.yaml")
+            result = align(f"MYGENESET:{local_id}", slug, set_bps, pathograph, adapter)
+        entries.append(SweepEntry(local_id, mondo, slug, result))
+    return entries
+
+
+def format_sweep(entries: list[SweepEntry]) -> str:
+    out = [
+        f"{len(entries)} disease-context sets "
+        f"({sum(1 for e in entries if e.result)} mapped to a dismech disorder)",
+        "",
+        "| Gene set | dismech disorder | Corroboration | Core-BP gaps |",
+        "|---|---|---|---|",
+    ]
+    for e in entries:
+        if e.result is None:
+            out.append(f"| {e.set_id} | — (no entry for {e.mondo}) |  |  |")
+            continue
+        r = e.result
+        corr = f"{r.core_covered}/{r.core_total}"
+        if r.corroboration is not None:
+            corr += f" ({round(100 * r.corroboration)}%)"
+        gaps = "; ".join(g.bp.label for g in r.gaps) or "—"
+        out.append(f"| {e.set_id} | {e.disorder} | {corr} | {gaps} |")
+    return "\n".join(out)
 
 
 # ----- reporting -----

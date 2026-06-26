@@ -1388,6 +1388,11 @@ genesets-list limit="50":
 genesets-align disease gene_set:
     uv run python -m dismech.structured_sources.cli align {{disease}} {{gene_set}}
 
+# Align every disease-context gene set to its dismech disorder (by MONDO) — catalog-wide audit
+[group('Research')]
+genesets-align-all *args="":
+    uv run python -m dismech.structured_sources.cli align-all {{args}}
+
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]
 clingen-list limit="20":

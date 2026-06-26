@@ -124,6 +124,61 @@ def test_alignment_statuses_and_scoring(tmp_path: Path):
     assert lint_ids == {"GO:0000009"}
 
 
+CACHE_WITH_CONTEXT = """\
+---
+reference_id: "MYGENESET:DEMO"
+title: "DEMO"
+---
+
+## Context
+
+| Type | Term | Label |
+|---|---|---|
+| disease | MONDO:1234567 | demo disease |
+
+## Curated GO interpretation
+
+| GO ID | Label | Aspect | Role | Confidence |
+|---|---|---|---|---|
+| GO:0000001 | exact core | biological_process | core_process | high |
+"""
+
+DISEASE_WITH_MONDO = """\
+name: Demo Disease
+disease_term:
+  term: {id: MONDO:1234567, label: demo disease}
+pathophysiology:
+- name: N
+  biological_processes:
+  - term: {id: GO:0000001, label: exact core}
+"""
+
+
+def test_disease_context_mondo(tmp_path: Path):
+    p = tmp_path / "MYGENESET_DEMO.md"
+    p.write_text(CACHE_WITH_CONTEXT, encoding="utf-8")
+    assert ga.disease_context_mondo(p) == "MONDO:1234567"
+
+
+def test_build_mondo_index_and_sweep(tmp_path: Path):
+    kb = tmp_path / "kb"
+    cache = tmp_path / "cache"
+    kb.mkdir()
+    cache.mkdir()
+    (kb / "Demo.yaml").write_text(DISEASE_WITH_MONDO, encoding="utf-8")
+    (cache / "MYGENESET_DEMO.md").write_text(CACHE_WITH_CONTEXT, encoding="utf-8")
+
+    index = ga.build_mondo_index(kb)
+    assert index["MONDO:1234567"] == "Demo"
+
+    entries = ga.sweep(cache, kb, adapter=None)
+    assert len(entries) == 1
+    e = entries[0]
+    assert e.set_id == "DEMO" and e.disorder == "Demo"
+    assert e.result is not None and e.result.core_covered == 1
+    assert "Demo" in ga.format_sweep(entries)
+
+
 def test_exact_only_without_adapter(tmp_path: Path):
     (tmp_path / "MYGENESET_DEMO.md").write_text(CACHE_MD, encoding="utf-8")
     (tmp_path / "Demo.yaml").write_text(DISEASE_YAML, encoding="utf-8")
