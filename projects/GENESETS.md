@@ -498,9 +498,17 @@ It reproduces the manual gap analysis:
 | Parkinson's ↔ KEGG_PD | 2/6 | OXPHOS + ubiquitin-catabolism (broader-only), `mitochondrion` (CC), `neuron apoptotic process` |
 
 (The PD apoptosis-vs-ferroptosis divergence I flagged earlier got reconciled
-*upstream* — `ferroptosis` is now a curated set BP and matches EXACT.) Open
-choice: whether to additionally weight by the set's `confidence`, and whether to
-also pull module BPs (via `conforms_to`) into the pathograph side.
+*upstream* — `ferroptosis` is now a curated set BP and matches EXACT.)
+
+The aligner reads **only the disorder's own `biological_processes`**, and that is
+correct: `conforms_to` is a consistency-check pointer, **not** an import. A
+conforming disorder node fully duplicates the module's content locally (with
+organ-specific substitution) by design, so its own BPs are already authoritative.
+Pulling module BPs in via `conforms_to` would double-count and would *mask*
+under-curation — a disorder that declares `conforms_to` but omits the module's
+expected BPs is a **conformance** gap for the existing module-checking to catch,
+not something the aligner should paper over. Remaining open knob: whether to
+additionally weight corroboration by the set's `confidence`.
 
 ## Coverage backlog
 
@@ -630,3 +638,7 @@ these touch scope, structured-source policy, and cross-repo governance.
   Reproduces the manual gaps: Asthma 2/3 (MHC-II), T1D 2/3 (MHC-II; antigen
   presentation matched DESCENDANT to the MHC-I child), PD 2/6 (OXPHOS + ubiquitin
   broader-only, mitochondrion CC, neuron apoptosis).
+- Correction (per @cmungall): `conforms_to` is **not** an import — conformance
+  duplicates module content into the disorder node, so the aligner correctly uses
+  only the disorder's own BPs; importing module BPs would mask conformance gaps.
+  Dropped that as a proposed knob.
