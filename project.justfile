@@ -424,7 +424,7 @@ check-enum-cache:
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter validate-all validate-modules validate-groupings qc-deep-research
+qc: check-reference-cache-frontmatter check-folded-hyphens validate-all validate-modules validate-groupings qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -574,6 +574,19 @@ validate-references file:
 check-reference-cache-frontmatter:
     @just fix-references-cache
     uv run python -m dismech.reference_cache_frontmatter references_cache
+
+# Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
+# '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
+# A baseline grandfathers the pre-existing backlog; this fails only on new ones.
+[group('QC')]
+check-folded-hyphens:
+    uv run python scripts/check_folded_hyphens.py
+
+# Regenerate the folded-scalar hyphen baseline after intentionally changing the
+# set (e.g. fixing backlog entries). Review the diff before committing.
+[group('QC')]
+update-folded-hyphen-baseline:
+    uv run python scripts/check_folded_hyphens.py --update-baseline
 
 # Validate ALL snippet/reference pairs against PubMed across all disorder files
 # Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed
@@ -758,6 +771,11 @@ gen-grouping-pages:
 gen-research-index:
     uv run python -m dismech.render --research
     @echo "Generated pages/research/index.html"
+
+# Regenerate the deep-research provider table in details/index.html from the registry
+[group('Pages')]
+gen-provider-docs:
+    uv run python -m dismech.render --provider-docs
 
 # Generate a single comorbidity page
 [group('Pages')]
