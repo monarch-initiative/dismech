@@ -65,9 +65,12 @@ follow-on for the same generic source.
    exactly as it does for ORPHA/ClinGen rows (verified: a wrong snippet fails,
    the exact row passes).
 
-2. **Completeness checking.** `scripts/ncit_p302_audit.py` maps every P302
-   indication onto dismech disorders and flags, per (drug, disorder):
-   `COVERED` / `MISSING_TREATMENT` / `NO_DISORDER`.
+2. **Completeness checking.** The P302 indication string is **left verbatim**
+   as the evidence snippet — it is *not* parsed. `scripts/ncit_p302_audit.py`
+   therefore does a pure **identifier join on the drug** (NCIT concept id, or
+   its ChEBI cross-reference via NCIT `P368`) against dismech
+   `therapeutic_agent` ids, flagging each P302 drug
+   `PRESENT_WITH_EVIDENCE` / `PRESENT_NO_EVIDENCE` / `ABSENT`.
 
 ## How it is built
 
@@ -88,30 +91,30 @@ just ncit-p302-audit --format tsv --out output/ncit_p302_audit.tsv
 
 ## Audit snapshot (NCIT 26.02d)
 
-Counts are **advisory** — indication→disorder matching is conservative
-free-text phrase matching (normalized name / synonym / MONDO label). Contiguous
-near-miss matches remain possible (e.g. "small cell lung cancer" inside
-"non-small cell lung cancer"), so every `MISSING_TREATMENT` row needs a curator
-to confirm the indication truly corresponds to the matched disorder before
-citing it. A committed snapshot of the full row set lives at
-`research/ncit_p302_audit.tsv`.
+The join is on **drug identity only** (no parsing of the indication text), so
+these counts are exact, not heuristic. A committed snapshot of all 796 rows
+lives at `research/ncit_p302_audit.tsv`.
 
-- P302 drug assertions examined: **796**
-- (drug, disorder) match rows: **1,284**
-- `COVERED`: 144 · `MISSING_TREATMENT`: 776 · `NO_DISORDER`: 364
-- Drugs already covered by ≥1 disorder: **~112**
-- Drugs whose indication matched **no** dismech disorder: **~352** — these are
-  candidate new-disorder / curation-backlog leads (frequent leads include
-  Alzheimer disease, insomnia, hypertension, depression, several breast-cancer
-  receptor subtypes).
+- P302 drug assertions: **796**
+- `PRESENT_WITH_EVIDENCE`: 0 — no dismech treatment cites a P302 assertion yet
+  (this source is new).
+- `PRESENT_NO_EVIDENCE`: **176** — drug already used as a dismech
+  `therapeutic_agent`, P302 evidence not yet cited. **Immediately actionable**:
+  drop `reference: NCIT:<drug>` + the verbatim P302 snippet onto the matching
+  treatment record(s). E.g. Arsenic Trioxide (`NCIT:C1005`) → Acute
+  Promyelocytic Leukemia; Pembrolizumab (`NCIT:C106432`) → its many
+  carcinoma entries.
+- `ABSENT`: **620** — drug carries an accepted-use assertion but is not a
+  `therapeutic_agent` in any disorder (treatment/disorder curation leads).
 
 ## Goal / "be complete"
 
 - [x] Ingest all 796 P302 assertions as citable `NCIT:` cache files.
 - [x] Generic `OntologyEdgeSource` + manifest + CLI + justfile.
-- [x] Advisory completeness audit (treatment gaps + missing-disorder leads).
-- [ ] Curate `MISSING_TREATMENT` rows into existing disorder `treatments`,
-      citing `NCIT:<drug>` (start with high-confidence oncology matches).
-- [ ] Triage `NO_DISORDER` leads against the priority dashboard for new entries.
+- [x] Identifier-join completeness audit (drug id / ChEBI xref, no NER).
+- [ ] Add the verbatim P302 evidence to the **176 PRESENT_NO_EVIDENCE** drugs'
+      existing treatment records (start with the oncology biologics).
+- [ ] Triage the **620 ABSENT** drugs against the priority dashboard for new
+      treatment / disorder curation.
 - [ ] Follow-on: add the coded `NCIT:A7` `Has_Target` predicate to the manifest
       so drug→molecular-target edges back target-based modules.
