@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms241311200
+reference_id: "DOI:10.3390/ijms241311200"
 title: cGMP Signaling in Photoreceptor Degeneration
 authors:
 - Shujuan Li
