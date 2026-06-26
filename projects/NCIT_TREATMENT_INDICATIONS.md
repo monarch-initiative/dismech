@@ -93,7 +93,7 @@ just ncit-p302-audit --format tsv --out output/ncit_p302_audit.tsv
 
 The join is on **drug identity only** (no parsing of the indication text), so
 these counts are exact, not heuristic. A committed snapshot of all 796 rows
-lives at `research/ncit_p302_audit.tsv`.
+lives at `projects/NCIT_TREATMENT_INDICATIONS_audit.tsv`.
 
 - P302 drug assertions: **796**
 - `PRESENT_WITH_EVIDENCE`: 0 — no dismech treatment cites a P302 assertion yet
