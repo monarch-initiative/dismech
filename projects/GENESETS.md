@@ -2,9 +2,9 @@
 title: Gene Sets ↔ dismech Integration
 status: IN_PROGRESS
 description: >-
-  Brainstorm for moving named gene-set curation (MSigDB/KEGG/Hallmark/cell-type
-  signatures) and their curated GO interpretations into the genesets-rs repo,
-  and wiring two-way feedback with dismech disease pathographs.
+  Plan for sourcing named gene-set curation (MSigDB/KEGG/Hallmark/cell-type
+  signatures) and their curated GO interpretations from the monarch-initiative/genesets
+  repo, and wiring two-way feedback with dismech disease pathographs.
 tags: [INFRASTRUCTURE, CROSS_REPO, GENE_SETS, GO, ENRICHMENT]
 diseases:
   - Asthma
@@ -21,26 +21,28 @@ diseases:
 
 # Gene Sets ↔ dismech Integration
 
-> **Status:** brainstorm / design proposal. Nothing here is built yet. The goal is
-> to decide *where gene-set curation lives* and *how dismech and the
-> [`genesets-rs`](https://github.com/cmungall/genesets-rs) repo feed each other*.
-> Companion: [`genesets-rs` PR #3](https://github.com/cmungall/genesets-rs/pull/3)
-> ("Curated GO Interpretations for Gene Sets").
+> **Status:** decisions taken; import not yet built. The gene-set GO-interpretation
+> curation lives in **[`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets)**
+> (formerly `cmungall/genesets-rs`; the interpretation PR is **merged** to `main`).
+> dismech's duplicated `genesets/` membership dir has been **retired** (this branch).
+> Remaining work is the dismech-side *import* (structured source) + the two-way
+> feedback tooling.
 
 ## TL;DR
 
-We currently keep a small pile of raw gene sets **inside** dismech
-(`genesets/`), and a richer **GO-interpretation** layer is being built **in
-`genesets-rs`** (PR #3). These are the same underlying objects viewed from two
-angles. Proposal:
+We used to keep a small pile of raw gene sets **inside** dismech (`genesets/`),
+while the richer **GO-interpretation** layer lives **in
+`monarch-initiative/genesets`**. These are the same underlying objects viewed
+from two angles. Decisions taken:
 
-1. **Make `genesets-rs` the single source of truth** for named, reusable gene
-   sets and their curated GO interpretations. Retire the duplicated raw
-   membership lists in dismech's `genesets/`.
-2. **Have dismech consume gene-set interpretations as a structured reference
-   source** (a new `MSIGDB:` / `GENESET:` cache prefix, exactly like `ORPHA:`,
-   `CGGV:`, `CGDS:`), so a disease curator can cite a gene set and quote its
-   curated GO interpretation as a *lead*.
+1. **`monarch-initiative/genesets` is the single source of truth** for named,
+   reusable gene sets and their curated GO interpretations. dismech's duplicated
+   `genesets/` membership dir is **retired** (done, this branch).
+2. **dismech consumes gene-set interpretations as a structured reference source**
+   (a new `MYGENESET:` cache prefix, exactly like `ORPHA:`, `CGGV:`, `CGDS:`), so
+   a disease curator can cite a gene set and quote its curated GO interpretation
+   as a *lead*. Identifier scheme keyed on **mygeneset.info** — see
+   [Identifier / prefix decision](#identifier--prefix-decision).
 3. **Close the loop both directions:** dismech disease pathographs are a
    hand-curated gold standard of "which GO processes matter for disease X";
    gene-set GO interpretations are a hand-curated gold standard of "which GO
@@ -49,23 +51,18 @@ angles. Proposal:
 
 ## What exists today
 
-### A. dismech `genesets/` — raw membership (13 sets)
+### A. dismech `genesets/` — raw membership (RETIRED)
 
-`genesets/<NAME>/` holds one directory per MSigDB set, each with:
+dismech *used to* hold one directory per MSigDB set under `genesets/<NAME>/`
+(`DESCRIPTION.md` + `genes.csv` + `PAPER.md`), membership-only and never wired
+into `src/`/`scripts/`/`justfile`. **These 13 dirs are now deleted** —
+membership is owned by `monarch-initiative/genesets`. The 13 sets were:
+Alzheimer's, Asthma, Autoimmune Thyroid, Colorectal Cancer, Graft-vs-Host,
+Huntington's, IL6→JAK/STAT (MEDICUS), Parkinson's, Prion, SLE, Type I Diabetes,
+ALS (WP), Dravet (WP). See [Coverage backlog](#coverage-backlog) for which of
+these still need a GO interpretation upstream.
 
-- `DESCRIPTION.md` — frontmatter with `reference_id: MSIGDB:KEGG_ASTHMA`,
-  `msigdb_collection`, `source_pathway_id: hsa05310`, `n_genes`, keywords.
-- `genes.csv` — `species/code,symbol` membership (KEGG_ASTHMA = 30 genes).
-- `PAPER.md` — citation stub.
-
-These are **membership only** — no GO interpretation, no link to a dismech
-disease. They look like they were staged to become a structured source but were
-never wired in (nothing in `src/`, `scripts/`, `justfile` references
-`genesets/`). The 13 sets: Alzheimer's, Asthma, Autoimmune Thyroid, Colorectal
-Cancer, Graft-vs-Host, Huntington's, IL6→JAK/STAT (MEDICUS), Parkinson's, Prion,
-SLE, Type I Diabetes, ALS (WP), Dravet (WP).
-
-### B. `genesets-rs` PR #3 — curated GO interpretation layer
+### B. `monarch-initiative/genesets` — curated GO interpretation layer
 
 A LinkML curation system (mirroring dismech's own validation stack) that records
 the "correct/reasonable" GO interpretation of a gene set:
@@ -346,12 +343,69 @@ synaptic). Only modest adds (explicit neuronal Ca²⁺ transport).
 `Metastatic_Colorectal_Cancer` (7) are better annotated — the generic base entry
 is the one to enrich.)
 
-## The duplication problem to resolve first
+## Identifier / prefix decision
 
-`genesets/` (dismech) and `curation/genesets/` (genesets-rs) both hold MSigDB
-membership. Two diverging copies of the same upstream data is a maintenance
-hazard and a provenance ambiguity. Decide single ownership (recommended:
-genesets-rs) before building any tooling on top.
+**Source of identity = [mygeneset.info](https://mygeneset.info)** (the upstream
+aggregator: MSigDB, GO, KEGG, Reactome, WikiPathways, DO, CTD, user sets …).
+mygeneset's `_id` is the bare set name with a separate `source` field — e.g.
+`{_id: KEGG_ASTHMA, source: msigdb}`, or the pathological
+`{_id: TSANG_PBMC_FLUVIRIN_..._POSITIVE, source: msigdb}`.
+
+**Decision:** adopt a single generic structured-source prefix **`MYGENESET:`**,
+local-id = the mygeneset `_id` **verbatim** (`MYGENESET:KEGG_ASTHMA`,
+`MYGENESET:TSANG_PBMC_..._POSITIVE`). One prefix then covers *anything* in
+mygeneset.info, not just MSigDB. Rationale + handling of the "crazy IDs":
+
+- **Long / unusual ids are fine in the CURIE.** dismech already cites long
+  structured ids (`CGGV:assertion_<uuid>-<timestamp>`). The reference_id stays
+  the exact `MYGENESET:<_id>`.
+- **Cache filename uses a safe encoding.** `references_cache/MYGENESET_<id>.md`
+  where `<id>` is the `_id` with non-`[A-Za-z0-9_]` chars replaced. For ids that
+  are too long (> ~180 chars) or collide after sanitizing, fall back to a
+  content-addressed name `MYGENESET_<sha1(_id)[:16]>.md`. The exact CURIE always
+  lives in the cache **frontmatter** (`reference_id:`), so the filename never
+  needs to be human-perfect — the dismech cache contract maps filename↔id via
+  frontmatter, exactly as for `CGGV_*`.
+- **Version lives in metadata, not the id.** mygeneset `_id` is version-less; pin
+  `source` + `msigdb_release` (`v2025.1.Hs`) in the cache body for deterministic
+  CI, not in the CURIE.
+- **Carry `source` to disambiguate.** mygeneset treats `_id` as a primary key, but
+  cross-source name collisions are theoretically possible; store `source`
+  alongside and flag any collision at build time.
+
+> **Upstream alignment to confirm with @cmungall:** the `monarch-initiative/genesets`
+> interpretation files currently set `gene_set_id: MSIGDB:KEGG_ASTHMA`. For a 1:1
+> import join, either (a) switch upstream `gene_set_id` to `MYGENESET:<_id>` (keep
+> `MSIGDB:` as an xref), or (b) have the dismech importer remap `MSIGDB:` → `MYGENESET:`.
+> Option (a) is cleaner and future-proofs non-MSigDB sources.
+
+## Coverage backlog
+
+Of the 13 sets dismech had staged, **5 now have an upstream GO interpretation**
+in `monarch-initiative/genesets` (Alzheimer's, Asthma, Colorectal Cancer,
+Parkinson's, Type I Diabetes). The **8 not yet interpreted** — candidates to
+curate upstream, ranked by dismech two-way value (does a rich dismech pathograph
+exist to cross-check against?):
+
+| MSigDB set (`_id`) | dismech entry to cross-check | Value |
+|---|---|---|
+| `KEGG_HUNTINGTONS_DISEASE` | `Huntington_Disease` | high — rich pathograph |
+| `KEGG_SYSTEMIC_LUPUS_ERYTHEMATOSUS` | `Systemic_Lupus_Erythematosus` | high — rich pathograph |
+| `WP_AMYOTROPHIC_LATERAL_SCLEROSIS_ALS` | `Amyotrophic_Lateral_Sclerosis` | high — rich pathograph |
+| `KEGG_AUTOIMMUNE_THYROID_DISEASE` | `Graves_Disease` + `Hashimotos_Thyroiditis` | high — two conformers |
+| `WP_DRAVET_SYNDROME` | `Dravet_syndrome` | medium — entry exists |
+| `KEGG_GRAFT_VERSUS_HOST_DISEASE` | *(no dismech entry)* | low now — would seed a new entry |
+| `KEGG_PRION_DISEASES` | *(no dismech prion entry)* | low now — would seed a new entry |
+| `KEGG_MEDICUS_REFERENCE_IL6_FAMILY_TO_JAK_STAT_SIGNALING_PATHWAY` | *(not a disease — a signaling pathway)* | special — maps to a *module*, not a disorder |
+
+The MEDICUS IL6→JAK/STAT set is a **signaling pathway, not a disease**; its
+natural dismech counterpart is a mechanism *module* (cf. the JAK/STAT arms of RA,
+Castleman, etc.), not a single disorder — worth a distinct interpretation
+`context_type` discussion upstream.
+
+The merged repo also carries 15 non-disease interpretations (cell-type C8
+signatures, Hallmark, Reactome, TCA) that were never staged in dismech — those
+feed the cell-type / process side of the import, not this disease backlog.
 
 ## Open decisions
 
@@ -359,17 +413,17 @@ Record the chosen answers in
 [`docs/explanation/design-decisions.md`](../docs/explanation/design-decisions.md);
 these touch scope, structured-source policy, and cross-repo governance.
 
-1. **Source of truth for membership** — genesets-rs only, or mirrored? *(Recommend
-   genesets-rs; dismech keeps a pinned manifest, not copies.)*
-2. **Cache prefix & shape** — `MSIGDB:` vs a neutral `GENESET:`; what rows are
-   quotable; how to pin a release (`v2025.1.Hs`) for deterministic CI.
+1. ~~**Source of truth for membership**~~ — **RESOLVED:** `monarch-initiative/genesets`
+   owns membership + interpretation; dismech `genesets/` retired.
+2. ~~**Cache prefix**~~ — **RESOLVED:** `MYGENESET:<_id>` (see above). Still open:
+   exact quotable-row shape, and confirming the upstream `gene_set_id` alignment.
 3. **Are gene-set GO interpretations admissible as dismech evidence?** Likely
    **no** as standalone support (membership ≠ mechanism) — only as a *lead* that
    must be backed by a primary PMID, consistent with the DR/NEC anti-hallucination
    SOP. Confirm and document.
 4. **Disease ↔ gene-set mapping table** — which dismech diseases have a canonical
-   pathway gene set, and the MONDO/DOID ↔ MSigDB crosswalk (seed: the 13 sets in
-   `genesets/`).
+   pathway gene set, and the MONDO/DOID ↔ mygeneset crosswalk (the interpretation
+   files already carry the disease `context` MONDO, so the join is mostly free).
 5. **Where does the diff/enrichment tooling run** — a `just` recipe in dismech
    that calls genesets-rs, or a genesets-rs command that reads dismech exports?
 6. **Round-trip cadence** — manual, or a CI job that re-scores the benchmark when
@@ -382,15 +436,14 @@ these touch scope, structured-source policy, and cross-repo governance.
       done; see worked-examples section.
 - [ ] File the concrete gaps as curation issues: PD OXPHOS + ubiquitin/mitophagy;
       T1D MHC-class-II presentation; CRC `Colon_Adenocarcinoma` GO scaffold.
-- [ ] Decide membership ownership; if genesets-rs wins, open a dismech issue to
-      retire/repoint `genesets/`.
-- [ ] Prototype the `MSigDB`/`GeneSet` structured source
-      (`src/dismech/structured_sources/`) + `references_cache/MSIGDB_*.md`
+- [x] Retire dismech's `genesets/` dir (membership owned upstream) — done.
+- [ ] Confirm upstream `gene_set_id` alignment with @cmungall (`MYGENESET:` vs
+      `MSIGDB:`); curate the 8 backlog interpretations upstream (value-ranked above).
+- [ ] Prototype the `MyGeneset`/`GeneSet` structured source
+      (`src/dismech/structured_sources/`) + `references_cache/MYGENESET_*.md`
       generator, following `OrphanetSource`.
 - [ ] Add an exporter: dismech disease → (a) curated GO list, (b) union gene set,
-      (c) causal-edge GO ordering — as a benchmark artifact for
-      `genesets-rs report`.
-- [ ] Write the disease ↔ gene-set crosswalk for the 13 existing sets.
+      (c) causal-edge GO ordering — as a benchmark artifact for `genesets report`.
 - [ ] Record decisions 1–6 in the design-decisions register.
 
 ## Notes / log
@@ -408,5 +461,15 @@ these touch scope, structured-source policy, and cross-repo governance.
   mitophagy) and T1D (MHC class II). Noted the neuron-death modeling divergence
   (genesets apoptosis vs dismech ferroptosis) — the diff tool must reconcile
   parent/child + mechanism substitution, not flag them as missing.
-</content>
-</invoke>
+
+### 2026-06-26
+- genesets repo renamed `cmungall/genesets-rs` → `monarch-initiative/genesets`;
+  interpretation PR **merged** to `main` (23 interpretation files). Confirmed the
+  merge picked up `evidence_source` with dismech's exact enum; `supports` stayed
+  3-valued (`SUPPORT`/`REFUTE`/`NEUTRAL`) — lossless for the import direction.
+- **Retired** dismech's `genesets/` dir (13 membership-only sets deleted); nothing
+  in `src/`/`tests/`/`conf/` referenced it.
+- Computed the [coverage backlog](#coverage-backlog): 5 of the 13 staged sets now
+  have upstream interpretations; 8 do not.
+- Settled the identifier scheme on **mygeneset.info** (`MYGENESET:<_id>`) after
+  confirming mygeneset's `_id` is the bare set name + a `source` field.
