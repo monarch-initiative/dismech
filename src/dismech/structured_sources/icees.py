@@ -70,8 +70,6 @@ _PREDICATE_SIGN = {
     "biolink:correlated_with": "UNSIGNED",
 }
 
-_YEAR_RE = re.compile(r"(?:^|[^0-9])((?:19|20)\d{2})(?:[^0-9]|$)")
-
 
 @dataclass(frozen=True)
 class _CohortStat:
