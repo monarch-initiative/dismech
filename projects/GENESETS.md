@@ -474,14 +474,33 @@ pathograph; PD's `neuron apoptotic process` (set) vs the pathograph's
 **mechanism substitution** to ferroptosis (which hierarchy alone won't bridge —
 surface it for human reconcile rather than scoring it as missing).
 
-Net: this **automates the manual 5-disease GO gap analysis** in the worked-examples
-section. It is buildable today from the cache file + the disorder's BPs and does
-**not** require the schema element (the `gene_sets` slot would just give the link a
-durable home + an audit badge on the rendered page). Open choice: whether the
-aligner lives in dismech (`just genesets-align <disease>`) or in `genesets-rs`'s
-eval harness; and whether to weight by the set's `confidence` in addition to role.
 A gene-level signal, if wanted at all, should be **asymmetric containment**
-(`|P∩G|/|P|`), never symmetric Jaccard. (See Open decisions.)
+(`|P∩G|/|P|`), never symmetric Jaccard.
+
+### Built: `just genesets-align <disease> <set>`
+
+`src/dismech/genesets_align.py` (+ the `align` CLI command) implements exactly the
+above. It reads the set BPs from the committed `references_cache/MYGENESET_*.md`
+file (no refresh needed) and the pathograph BPs from the disorder YAML, matches
+them over GO via OAK, and prints per-BP status + corroboration + the core-BP gap
+list. **Matching counts EXACT and DESCENDANT** (pathograph term more specific) as
+represented; an **ANCESTOR** match (pathograph has only a *more general* term —
+e.g. `metabolic process`) is shown but **does not count**, which avoids the
+over-general false positive. It **does not need the schema element**; the
+`gene_sets` slot would just give the link a durable home + an audit badge.
+
+It reproduces the manual gap analysis:
+
+| Disease ↔ set | Corroboration | Core-BP gaps surfaced |
+|---|---|---|
+| Asthma ↔ KEGG_ASTHMA | 2/3 | `MHC class II protein complex` (the antigen-presentation arm) |
+| Type I Diabetes ↔ KEGG_T1D | 2/3 | `MHC class II protein complex` (vs the pathograph's MHC-class-I child, matched as DESCENDANT) |
+| Parkinson's ↔ KEGG_PD | 2/6 | OXPHOS + ubiquitin-catabolism (broader-only), `mitochondrion` (CC), `neuron apoptotic process` |
+
+(The PD apoptosis-vs-ferroptosis divergence I flagged earlier got reconciled
+*upstream* — `ferroptosis` is now a curated set BP and matches EXACT.) Open
+choice: whether to additionally weight by the set's `confidence`, and whether to
+also pull module BPs (via `conforms_to`) into the pathograph side.
 
 ## Coverage backlog
 
@@ -547,10 +566,10 @@ these touch scope, structured-source policy, and cross-repo governance.
       `MSIGDB:`); curate the 8 backlog interpretations upstream (value-ranked above).
 - [ ] Decide on the `gene_sets` schema element (scope) and wire the first disease
       to cite its canonical set (Asthma ↔ `MYGENESET:KEGG_ASTHMA`).
-- [ ] Build the BP aligner (`genesets-align <disease>`): hierarchy-aware,
+- [x] Build the BP aligner (`just genesets-align <disease> <set>`): hierarchy-aware,
       role-weighted match of a set's curated BPs vs the pathograph's
       `biological_processes` (OAK over GO) → corroboration score + core-BP gap list.
-      Automates the manual 5-disease gap analysis.
+      Reproduces the manual gap analysis (see below).
 - [ ] Record decisions 1–6 in the design-decisions register.
 
 ## Notes / log
@@ -605,3 +624,9 @@ these touch scope, structured-source policy, and cross-repo governance.
   role-weighted (core BPs should be covered; nonspecific/false expected absent)
   and hierarchy-aware (OAK over GO, to bridge parent/child + surface mechanism
   substitutions). Updated the proposal accordingly.
+- Built the aligner (`src/dismech/genesets_align.py` + `just genesets-align`,
+  tests). Counts EXACT/DESCENDANT as represented; ANCESTOR is "broader-only" and
+  not counted (kills the `metabolic process` false positive seen in PD).
+  Reproduces the manual gaps: Asthma 2/3 (MHC-II), T1D 2/3 (MHC-II; antigen
+  presentation matched DESCENDANT to the MHC-I child), PD 2/6 (OXPHOS + ubiquitin
+  broader-only, mitochondrion CC, neuron apoptosis).

@@ -134,6 +134,63 @@ def list_cmd(
         typer.echo(f"  {ident}")
 
 
+@app.command("align")
+def align_cmd(
+    disease: str = typer.Argument(..., help="Disorder name or path to its YAML"),
+    gene_set: str = typer.Argument(..., help="Gene set id, e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA"),
+    kb_dir: Path = typer.Option(
+        _REPO_ROOT / "kb" / "disorders", "--kb-dir", help="Disorder YAML directory"
+    ),
+    cache_dir: Path = typer.Option(
+        _DEFAULT_CACHE_DIR, "--cache-dir", help="Reference cache directory"
+    ),
+    no_hierarchy: bool = typer.Option(
+        False, "--no-hierarchy", help="Exact GO-id match only (skip the OAK GO adapter)"
+    ),
+) -> None:
+    """Align a gene set's curated BPs to a disorder's pathograph BPs."""
+    from dismech import genesets_align as ga
+
+    # Resolve the disorder file (accept a name or a path).
+    disease_path = Path(disease)
+    if not disease_path.exists():
+        disease_path = kb_dir / f"{disease}.yaml"
+    if not disease_path.exists():
+        raise typer.BadParameter(f"disorder not found: {disease}")
+    disease_name = disease_path.stem
+
+    local_id = ga_local_id(gene_set)
+    cache_path = cache_dir / f"MYGENESET_{local_id}.md"
+    if not cache_path.exists():
+        raise typer.BadParameter(
+            f"no cache file {cache_path.name}; run `just genesets-rebuild` first"
+        )
+
+    set_bps = ga.read_set_bps(cache_path)
+    pathograph_bps = ga.extract_pathograph_bps(disease_path)
+
+    adapter = None
+    if not no_hierarchy:
+        try:
+            from oaklib import get_adapter
+
+            adapter = get_adapter("sqlite:obo:go")
+        except Exception as exc:  # pragma: no cover - degrade to exact match
+            typer.echo(f"(GO adapter unavailable, exact-match only: {exc})", err=True)
+
+    result = ga.align(
+        f"MYGENESET:{local_id}", disease_name, set_bps, pathograph_bps, adapter
+    )
+    typer.echo(ga.format_report(result))
+
+
+def ga_local_id(gene_set: str) -> str:
+    for prefix in ("MYGENESET:", "mygeneset:"):
+        if gene_set.startswith(prefix):
+            return gene_set[len(prefix):]
+    return gene_set
+
+
 @app.command("clingen-audit-yaml")
 def clingen_audit_yaml_cmd(
     kb_dir: Path = typer.Option(

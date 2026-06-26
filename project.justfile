@@ -1382,6 +1382,12 @@ genesets-rebuild *args="":
 genesets-list limit="50":
     uv run python -m dismech.structured_sources.cli list mygeneset --limit {{limit}}
 
+# Align a gene set's curated BPs to a disorder's pathograph BPs (hierarchy-aware, role-weighted)
+# e.g. `just genesets-align Asthma KEGG_ASTHMA`
+[group('Research')]
+genesets-align disease gene_set:
+    uv run python -m dismech.structured_sources.cli align {{disease}} {{gene_set}}
+
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]
 clingen-list limit="20":
