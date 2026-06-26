@@ -418,7 +418,7 @@ This validates through the real `linkml-reference-validator` (verified), and all
 a primary PMID too. 23 sets ingested on first run (3 cell-type sets have no
 mygeneset membership and serialize without a Members block).
 
-## Proposed (not built): a `gene_sets` schema element + scoring
+## Proposed (not built): a `gene_sets` schema element + BP alignment
 
 The structured-source path above makes gene sets *citable*. A complementary idea
 is a first-class **`gene_sets`** slot on `Disease` (sibling of `pathophysiology`,
@@ -434,14 +434,54 @@ gene_sets:
 
 Kept deliberately thin — membership and the GO interpretation already live
 upstream and in the cache file, so the slot just records the disease↔set link and
-its semantics (avoids re-duplicating genes in the KB). This would also be the
-natural anchor for **scoring**: with the disease's own gene set (union of
-`pathophysiology[].genes`, exportable today) and the external set both in hand,
-compute overlap / enrichment (Jaccard, hypergeometric) of *disease vs gene set*
-as an automated audit — high overlap corroborates the pathograph; a low-overlap
-"canonical" set flags a coverage gap (cf. the `Colon_Adenocarcinoma` stub).
-Decision needed before building: schema change scope + whether scoring runs in
-dismech or back in `genesets-rs`'s eval harness. (See Open decisions.)
+its semantics (avoids re-duplicating genes in the KB).
+
+### Scoring: align the curated *BPs*, not the genes
+
+The primary alignment unit is the **biological process**, not the gene. Each
+interpretation already curates a small, role-tagged list of GO BPs (the
+`TermAssociation`s); the pathograph independently curates GO BPs on its
+`pathophysiology[].biological_processes`. The audit is **set BPs ↔ pathograph
+BPs**, and the interpretation's role tags do the noise-filtering that gene-level
+overlap can't:
+
+- **`core_process` / `core_component`** set BPs → *should* be represented in the
+  pathograph. A core BP with no pathograph match is the actionable gap.
+- **`supporting_process`** → nice-to-have; informational.
+- **`nonspecific` / `false_association`** → *expected absent*; if one shows up in
+  the pathograph that's a lint warning, not a gap. (Validated: `GO:0006412
+  translation` is `nonspecific` in all 5 disease sets and absent from all 5
+  pathographs.)
+
+This is why **gene-level Jaccard is the wrong tool** — it's symmetric and swamped
+by the large tail of downstream set genes we never intend to node out. At the BP
+level the curated list is already the signal, and scoring is **asymmetric +
+role-weighted**:
+
+- *Corroboration* = fraction of the set's **core** BPs represented in the
+  pathograph (want high; low = review).
+- *Gap list* = the set's core BPs with **no** pathograph match — the concrete
+  curation to-do (e.g. asthma's antigen-presentation / FcεRI arms).
+- The reverse direction (pathograph BPs absent from the set) is descriptive, not
+  a penalty — disease-specific biology the generic pathway omits.
+
+Matching must be **hierarchy-aware**, not exact-id equality: a set BP counts as
+represented if a pathograph BP is the same term, an **ancestor**, or a
+**descendant** (via OAK over GO — already configured in `conf/oak_config.yaml`).
+This handles the divergences flagged in the worked examples: T1D's generic
+`antigen processing and presentation` (set) vs the MHC-class-I **child** in the
+pathograph; PD's `neuron apoptotic process` (set) vs the pathograph's
+**mechanism substitution** to ferroptosis (which hierarchy alone won't bridge —
+surface it for human reconcile rather than scoring it as missing).
+
+Net: this **automates the manual 5-disease GO gap analysis** in the worked-examples
+section. It is buildable today from the cache file + the disorder's BPs and does
+**not** require the schema element (the `gene_sets` slot would just give the link a
+durable home + an audit badge on the rendered page). Open choice: whether the
+aligner lives in dismech (`just genesets-align <disease>`) or in `genesets-rs`'s
+eval harness; and whether to weight by the set's `confidence` in addition to role.
+A gene-level signal, if wanted at all, should be **asymmetric containment**
+(`|P∩G|/|P|`), never symmetric Jaccard. (See Open decisions.)
 
 ## Coverage backlog
 
@@ -507,8 +547,10 @@ these touch scope, structured-source policy, and cross-repo governance.
       `MSIGDB:`); curate the 8 backlog interpretations upstream (value-ranked above).
 - [ ] Decide on the `gene_sets` schema element (scope) and wire the first disease
       to cite its canonical set (Asthma ↔ `MYGENESET:KEGG_ASTHMA`).
-- [ ] Add an exporter: dismech disease → (a) curated GO list, (b) union gene set,
-      (c) causal-edge GO ordering — benchmark artifact + input to disease-vs-set scoring.
+- [ ] Build the BP aligner (`genesets-align <disease>`): hierarchy-aware,
+      role-weighted match of a set's curated BPs vs the pathograph's
+      `biological_processes` (OAK over GO) → corroboration score + core-BP gap list.
+      Automates the manual 5-disease gap analysis.
 - [ ] Record decisions 1–6 in the design-decisions register.
 
 ## Notes / log
@@ -556,3 +598,10 @@ these touch scope, structured-source policy, and cross-repo governance.
   refresh; Members render as `hgnc:` (e.g. IL4 → `hgnc:6014`, matching the dismech
   Asthma entry), with NCBIGene fallback only for genes lacking an HGNC (LOC*
   loci, withdrawn symbols). Re-refreshed + rebuilt all 23 cache files.
+- Reframed scoring: the goal is **BP↔BP alignment** (the set's curated GO
+  `TermAssociation`s vs the pathograph's `biological_processes`), not gene
+  overlap. Gene-level Jaccard is symmetric and swamped by downstream set genes;
+  at the BP level the role tags filter noise, so the metric is asymmetric +
+  role-weighted (core BPs should be covered; nonspecific/false expected absent)
+  and hierarchy-aware (OAK over GO, to bridge parent/child + surface mechanism
+  substitutions). Updated the proposal accordingly.
