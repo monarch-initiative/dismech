@@ -36,6 +36,9 @@ content_type: "structured_record"
 
 DISEASE_YAML = """\
 name: Demo Disease
+gene_sets:
+- gene_set: MYGENESET:DEMO
+  relationship: CANONICAL_PATHWAY
 pathophysiology:
 - name: Node A
   biological_processes:
@@ -43,6 +46,8 @@ pathophysiology:
   - term: {id: GO:0000002CHILD, label: specific child}
   - term: {id: GO:0000009, label: noise present}
   - term: {id: GO:9999999, label: unrelated}
+  cellular_components:
+  - term: {id: GO:0042613, label: MHC class II protein complex}
 """
 
 
@@ -90,7 +95,22 @@ def test_extract_pathograph_bps(tmp_path: Path):
     p = tmp_path / "Demo.yaml"
     p.write_text(DISEASE_YAML, encoding="utf-8")
     bps = ga.extract_pathograph_bps(p)
-    assert set(bps) == {"GO:0000001", "GO:0000002CHILD", "GO:0000009", "GO:9999999"}
+    # biological_processes AND cellular_components (GO:0042613) are collected.
+    assert set(bps) == {
+        "GO:0000001",
+        "GO:0000002CHILD",
+        "GO:0000009",
+        "GO:9999999",
+        "GO:0042613",
+    }
+
+
+def test_collect_declared_gene_sets(tmp_path: Path):
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    (kb / "Demo.yaml").write_text(DISEASE_YAML, encoding="utf-8")
+    declared = ga.collect_declared_gene_sets(kb)
+    assert declared == {"DEMO": ["Demo"]}
 
 
 def test_alignment_statuses_and_scoring(tmp_path: Path):
@@ -177,6 +197,21 @@ def test_build_mondo_index_and_sweep(tmp_path: Path):
     assert e.set_id == "DEMO" and e.disorder == "Demo"
     assert e.result is not None and e.result.core_covered == 1
     assert "Demo" in ga.format_sweep(entries)
+
+
+def test_sweep_prefers_declared_link(tmp_path: Path):
+    kb = tmp_path / "kb"
+    cache = tmp_path / "cache"
+    kb.mkdir()
+    cache.mkdir()
+    # DISEASE_YAML declares gene_sets: MYGENESET:DEMO; the cache set is DEMO.
+    (kb / "Demo.yaml").write_text(DISEASE_YAML, encoding="utf-8")
+    (cache / "MYGENESET_DEMO.md").write_text(CACHE_WITH_CONTEXT, encoding="utf-8")
+
+    entries = ga.sweep(cache, kb, adapter=None)
+    assert len(entries) == 1
+    assert entries[0].source == "declared"
+    assert entries[0].disorder == "Demo"
 
 
 def test_exact_only_without_adapter(tmp_path: Path):

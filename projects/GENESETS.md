@@ -423,21 +423,40 @@ a primary PMID too. **100 sets ingested** (pin `08115aa0`, 2026-06-26 — upstre
 grew from 23 → 100); a few cell-type sets have no mygeneset membership and
 serialize without a Members block.
 
-## Proposed (not built): a `gene_sets` schema element + BP alignment
+## Built: the `gene_sets` schema element
 
-The structured-source path above makes gene sets *citable*. A complementary idea
-is a first-class **`gene_sets`** slot on `Disease` (sibling of `pathophysiology`,
-**not** under computational models — it's a reference object, not a model) that
-points at an external gene set and optionally carries a short interpretation:
+A first-class **`gene_sets`** slot on `Disease` (sibling of `pathophysiology`,
+**not** under computational models — it's a reference object, not a model) records
+the precise disease↔set link. Schema additions: the `gene_sets` slot, a
+`GeneSetAssociation` class (`gene_set` uriorcurie + `relationship` + `note`), and
+`GeneSetRelationshipEnum` (`CANONICAL_PATHWAY`, `CELL_TYPE_SIGNATURE`,
+`PERTURBATION_SIGNATURE`, `DISEASE_SIGNATURE`, `OTHER`). Worked examples:
+`Asthma` and `Colon_Adenocarcinoma`.
 
 ```yaml
 gene_sets:
-- reference: MYGENESET:KEGG_ASTHMA          # resolves to the cache file above
-  relationship: CANONICAL_PATHWAY           # or CELL_TYPE_SIGNATURE, PERTURBATION, ...
-  note: KEGG legacy asthma pathway; overlaps the Th2 + antigen-presentation arms.
+- gene_set: MYGENESET:KEGG_ASTHMA            # resolves to references_cache/MYGENESET_KEGG_ASTHMA.md
+  relationship: CANONICAL_PATHWAY
+  note: KEGG legacy asthma pathway; overlaps the Th2 + inflammatory arms.
 ```
 
-Kept deliberately thin — membership and the GO interpretation already live
+**This is also the precise-mapping mechanism.** `genesets-align-all` now prefers
+explicit `gene_sets` declarations over the MONDO guess: a declared set aligns
+against exactly the disorder that declares it (marked `declared`); only
+undeclared sets fall back to the one-disorder-per-MONDO heuristic (marked
+`mondo?`). This fixes the colon case — `KEGG_COLORECTAL_CANCER` (`MONDO:0005575`)
+now aligns to `Colon_Adenocarcinoma` (`MONDO:0002271`) because that entry
+declares it, instead of being auto-mapped to `Metastatic_Colorectal_Cancer`;
+EMT/invasion BPs belong on the metastatic entry, which would declare its own sets.
+
+**CC alignment.** The aligner now reads `cellular_components` and
+`protein_complexes` (GO CC terms) in addition to `biological_processes`, so a
+set's CC term (e.g. `MHC class II protein complex`, `GO:0042613`) matches once a
+disorder models it. CCs were already in the schema (`Pathophysiology` carries
+`cellular_components`); the recurring MHC-II "gap" is therefore a genuine
+*curation* gap (Asthma has no antigen-presentation node yet), not a schema gap.
+
+The slot stays deliberately thin — membership and the GO interpretation already live
 upstream and in the cache file, so the slot just records the disease↔set link and
 its semantics (avoids re-duplicating genes in the KB).
 
@@ -609,13 +628,16 @@ these touch scope, structured-source policy, and cross-repo governance.
       generator (following `OrphanetSource`); 23 sets ingested, evidence-validated.
 - [ ] Confirm upstream `gene_set_id` alignment with @cmungall (`MYGENESET:` vs
       `MSIGDB:`); curate the 8 backlog interpretations upstream (value-ranked above).
-- [ ] Decide on the `gene_sets` schema element (scope) and wire the first disease
-      to cite its canonical set (Asthma ↔ `MYGENESET:KEGG_ASTHMA`).
+- [x] Add the `gene_sets` schema element (slot + `GeneSetAssociation` +
+      `GeneSetRelationshipEnum`); wired `Asthma` and `Colon_Adenocarcinoma`.
 - [x] Build the BP aligner (`just genesets-align <disease> <set>`): hierarchy-aware,
       role-weighted match of a set's curated BPs vs the pathograph's
       `biological_processes` (OAK over GO) → corroboration score + core-BP gap list.
-      Reproduces the manual gap analysis (see below).
-- [ ] Record decisions 1–6 in the design-decisions register.
+      Reads `cellular_components`/`protein_complexes` too. Reproduces the manual analysis.
+- [x] Precise mapping: `align-all` prefers explicit `gene_sets` links over the MONDO guess.
+- [ ] Curate `gene_sets` links into more disorders (precise, per-entry) and add the
+      antigen-presentation/MHC-II `cellular_components` where it's a real mechanism.
+- [ ] Record decisions in the design-decisions register.
 
 ## Notes / log
 
@@ -685,3 +707,16 @@ these touch scope, structured-source policy, and cross-repo governance.
   dismech disorder by MONDO and aligns catalog-wide: 56 disease sets, 37 mapped.
   Recurring gaps: MHC-class-II (CC) in Asthma/RA/T1D, mitochondrion + neuron
   apoptosis across neurodegeneration, generic proliferation across cancers.
+
+### 2026-06-26 (schema + precise mapping)
+- Added the **`gene_sets`** schema element (slot on `Disease` + `GeneSetAssociation`
+  class + `GeneSetRelationshipEnum`); validated; wired `Asthma` →
+  `MYGENESET:KEGG_ASTHMA` and `Colon_Adenocarcinoma` → `MYGENESET:KEGG_COLORECTAL_CANCER`.
+- **Precise mapping** (per @cmungall): `align-all` now prefers explicit `gene_sets`
+  links over the MONDO guess, so `KEGG_COLORECTAL_CANCER` aligns to
+  `Colon_Adenocarcinoma` (not the metastatic entry) — EMT/invasion BPs belong on
+  the metastatic entry. Undeclared sets still fall back to MONDO (marked `mondo?`).
+- **CCs**: already in the schema (`Pathophysiology.cellular_components`); made the
+  aligner read `cellular_components`/`protein_complexes` so GO CC set terms (e.g.
+  MHC class II protein complex) can match. The MHC-II "gap" is thus a curation gap,
+  not a schema gap.

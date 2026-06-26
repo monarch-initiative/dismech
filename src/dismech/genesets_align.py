@@ -170,8 +170,21 @@ def _primary_mondo(data: dict) -> Optional[str]:
     return None
 
 
+# Descriptor lists whose GO terms count as pathograph terms for alignment.
+# Includes cellular_components / protein_complexes so a set's GO CC term
+# (e.g. MHC class II protein complex) can match when the disorder models it.
+_TERM_BEARING_KEYS = frozenset(
+    {
+        "biological_processes",
+        "cellular_components",
+        "protein_complexes",
+        "molecular_functions",
+    }
+)
+
+
 def extract_pathograph_bps(disease_path: Path) -> dict[str, str]:
-    """Collect every GO id -> label under any ``biological_processes`` list."""
+    """Collect every GO id -> label under any term-bearing descriptor list."""
     from ruamel.yaml import YAML
 
     yaml = YAML(typ="safe")
@@ -181,7 +194,7 @@ def extract_pathograph_bps(disease_path: Path) -> dict[str, str]:
     def walk(node: object) -> None:
         if isinstance(node, dict):
             for key, val in node.items():
-                if key == "biological_processes" and isinstance(val, list):
+                if key in _TERM_BEARING_KEYS and isinstance(val, list):
                     for item in val:
                         term = (item or {}).get("term") if isinstance(item, dict) else None
                         if isinstance(term, dict) and term.get("id"):
@@ -252,48 +265,91 @@ def align(
 @dataclass
 class SweepEntry:
     set_id: str  # local id, e.g. KEGG_ASTHMA
-    mondo: str
+    mondo: Optional[str]
     disorder: Optional[str]  # slug, or None if no dismech entry
     result: Optional[AlignmentResult] = None
+    source: str = ""  # "declared" (precise gene_sets link) or "mondo" (guess)
+
+
+def collect_declared_gene_sets(kb_dir: Path) -> dict[str, list[str]]:
+    """Map a set's local id -> the disorder slugs that explicitly declare it.
+
+    Reads each disorder's ``gene_sets[].gene_set`` slot, so the disease<->set
+    link is curated (precise), not guessed from a shared MONDO id.
+    """
+    from ruamel.yaml import YAML
+
+    yaml = YAML(typ="safe")
+    declared: dict[str, list[str]] = {}
+    for path in sorted(kb_dir.glob("*.yaml")):
+        try:
+            data = yaml.load(path)
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
+        for assoc in data.get("gene_sets", []) or []:
+            ref = str((assoc or {}).get("gene_set", ""))
+            if not ref:
+                continue
+            local_id = ref.split(":", 1)[1] if ref.upper().startswith("MYGENESET:") else ref
+            declared.setdefault(local_id, []).append(path.stem)
+    return declared
 
 
 def sweep(cache_dir: Path, kb_dir: Path, adapter: object = None) -> list[SweepEntry]:
-    """Align every disease-context MYGENESET set to its dismech disorder (by MONDO)."""
+    """Align disease-context sets to disorders.
+
+    Precise first: a set explicitly declared by a disorder's ``gene_sets`` slot
+    aligns against that disorder. Sets with no declaration fall back to a
+    MONDO-based guess (one disorder per disease-context MONDO), flagged as such.
+    """
+    declared = collect_declared_gene_sets(kb_dir)
     mondo_index = build_mondo_index(kb_dir)
     entries: list[SweepEntry] = []
-    for cache in sorted(cache_dir.glob("MYGENESET_*.md")):
-        mondo = disease_context_mondo(cache)
-        if not mondo:
-            continue  # not a disease-context set (cell type / process)
-        local_id = cache.stem.removeprefix("MYGENESET_")
-        slug = mondo_index.get(mondo)
+
+    def _align(local_id: str, slug: str, mondo: Optional[str], source: str) -> SweepEntry:
         result = None
         if slug and (kb_dir / f"{slug}.yaml").exists():
-            set_bps = read_set_bps(cache)
+            set_bps = read_set_bps(cache_dir / f"MYGENESET_{local_id}.md")
             pathograph = extract_pathograph_bps(kb_dir / f"{slug}.yaml")
             result = align(f"MYGENESET:{local_id}", slug, set_bps, pathograph, adapter)
-        entries.append(SweepEntry(local_id, mondo, slug, result))
+        return SweepEntry(local_id, mondo, slug, result, source)
+
+    for cache in sorted(cache_dir.glob("MYGENESET_*.md")):
+        local_id = cache.stem.removeprefix("MYGENESET_")
+        if local_id in declared:
+            for slug in declared[local_id]:
+                entries.append(_align(local_id, slug, disease_context_mondo(cache), "declared"))
+            continue
+        mondo = disease_context_mondo(cache)
+        if not mondo:
+            continue  # not a disease-context set and not explicitly declared
+        entries.append(_align(local_id, mondo_index.get(mondo), mondo, "mondo"))
     return entries
 
 
 def format_sweep(entries: list[SweepEntry]) -> str:
+    n_declared = sum(1 for e in entries if e.source == "declared")
     out = [
-        f"{len(entries)} disease-context sets "
-        f"({sum(1 for e in entries if e.result)} mapped to a dismech disorder)",
+        f"{len(entries)} alignments "
+        f"({sum(1 for e in entries if e.result)} mapped to a dismech disorder; "
+        f"{n_declared} via explicit gene_sets link, rest MONDO-guess)",
         "",
-        "| Gene set | dismech disorder | Corroboration | Core-BP gaps |",
-        "|---|---|---|---|",
+        "| Gene set | dismech disorder | Map | Corroboration | Core-BP gaps |",
+        "|---|---|---|---|---|",
     ]
     for e in entries:
+        mark = "declared" if e.source == "declared" else "mondo?"
         if e.result is None:
-            out.append(f"| {e.set_id} | — (no entry for {e.mondo}) |  |  |")
+            out.append(f"| {e.set_id} | — (no entry for {e.mondo}) | {mark} |  |  |")
             continue
         r = e.result
         corr = f"{r.core_covered}/{r.core_total}"
         if r.corroboration is not None:
             corr += f" ({round(100 * r.corroboration)}%)"
         gaps = "; ".join(g.bp.label for g in r.gaps) or "—"
-        out.append(f"| {e.set_id} | {e.disorder} | {corr} | {gaps} |")
+        out.append(f"| {e.set_id} | {e.disorder} | {mark} | {corr} | {gaps} |")
     return "\n".join(out)
 
 
