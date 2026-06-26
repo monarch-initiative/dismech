@@ -191,10 +191,7 @@ def align_cmd(
 
 
 def ga_local_id(gene_set: str) -> str:
-    for prefix in ("MYGENESET:", "mygeneset:"):
-        if gene_set.startswith(prefix):
-            return gene_set[len(prefix):]
-    return gene_set
+    return MyGenesetSource.local_id_from_gene_set_id(gene_set)
 
 
 @app.command("align-all")

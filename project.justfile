@@ -1410,6 +1410,7 @@ genesets-align disease gene_set:
 [group('Research')]
 genesets-align-all *args="":
     uv run python -m dismech.structured_sources.cli align-all {{args}}
+
 # Refresh ICEES KG node/edge JSON-Lines (pinned by data/icees-kg/MANIFEST.yaml)
 [group('Research')]
 icees-refresh:

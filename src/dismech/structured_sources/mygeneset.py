@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -158,7 +159,11 @@ class MyGenesetSource(StructuredSource):
             f"https://api.github.com/repos/{self._repo}/git/trees/"
             f"{self._ref}?recursive=1"
         )
-        resp = requests.get(api, timeout=60)
+        # Use a token when available (CI / repeated refreshes): unauthenticated
+        # GitHub API is limited to 60 req/hr; a token raises it to 5000.
+        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        resp = requests.get(api, headers=headers, timeout=60)
         resp.raise_for_status()
         tree = resp.json().get("tree", [])
         prefix = self._interpretation_dir.rstrip("/") + "/"
@@ -206,28 +211,33 @@ class MyGenesetSource(StructuredSource):
             if hgnc:
                 m["hgnc"] = hgnc
 
+    # mygene.info POST /gene caps each request at 1000 ids; chunk to stay under it.
+    _MYGENE_BATCH = 1000
+
     def _resolve_hgnc(self, ncbigene_ids: list[str]) -> dict[str, str]:
         """Batch-map NCBIGene ids -> numeric HGNC ids via mygene.info."""
+        out: dict[str, str] = {}
         try:
-            resp = requests.post(
-                f"{self._mygene_base}/gene",
-                data={"ids": ",".join(ncbigene_ids), "fields": "HGNC"},
-                timeout=60,
-            )
-            resp.raise_for_status()
-            out: dict[str, str] = {}
-            for rec in resp.json():
-                if rec.get("notfound"):
-                    continue
-                hgnc = rec.get("HGNC")
-                if isinstance(hgnc, list):
-                    hgnc = hgnc[0] if hgnc else None
-                if hgnc:
-                    out[str(rec.get("query"))] = str(hgnc)
+            for start in range(0, len(ncbigene_ids), self._MYGENE_BATCH):
+                chunk = ncbigene_ids[start:start + self._MYGENE_BATCH]
+                resp = requests.post(
+                    f"{self._mygene_base}/gene",
+                    data={"ids": ",".join(chunk), "fields": "HGNC"},
+                    timeout=60,
+                )
+                resp.raise_for_status()
+                for rec in resp.json():
+                    if rec.get("notfound"):
+                        continue
+                    hgnc = rec.get("HGNC")
+                    if isinstance(hgnc, list):
+                        hgnc = hgnc[0] if hgnc else None
+                    if hgnc:
+                        out[str(rec.get("query"))] = str(hgnc)
             return out
         except requests.RequestException as exc:  # pragma: no cover - network
             logger.warning("mygene HGNC resolution failed: %s", exc)
-            return {}
+            return out
 
     # ----- indexing -----
 
