@@ -1384,6 +1384,22 @@ clingen-dosage-rebuild *args="":
 civic-rebuild *args="":
     uv run python -m dismech.structured_sources.cli rebuild civic {{args}}
 
+# Refresh ICEES KG node/edge JSON-Lines (pinned by data/icees-kg/MANIFEST.yaml)
+[group('Research')]
+icees-refresh:
+    uv run python -m dismech.structured_sources.cli refresh icees
+
+# Rebuild every references_cache/ICEES_*.md from the current ICEES KG snapshot.
+# Use --id to limit to a specific ICEES pair id or a "CURIE,CURIE" disease pair.
+[group('Research')]
+icees-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild icees {{args}}
+
+# List the first N ICEES KG disease-pair identifiers
+[group('Research')]
+icees-list limit="20":
+    uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
+
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]
 clingen-list limit="20":

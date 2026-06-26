@@ -119,6 +119,10 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 - `ClinGenSource` — pre-caches ClinGen Gene-Disease Validity assertions from
   the public CSV so curators can cite `CGGV:<assertion_id>` and quote the
   gene-disease validity row
+- `ICEESSource` — pre-caches disease-disease comorbidity pairs from the ICEES
+  Knowledge Graph (RENCI/UNC; the MONDO/HP-coded EHR sibling of COHD) so curators
+  can cite `ICEES:<A>__<B>` and quote a per-cohort chi-square row in a comorbidity
+  entry's `association_signals`
 - See "Structured-Database Reference Sources" below
 
 ### Validation Stack
@@ -1105,6 +1109,7 @@ as evidence `snippet:` values.
 | `CGGV:` | ClinGen Gene-Disease Validity CSV | One record per gene-disease validity assertion | ClinGen terms |
 | `CGDS:` | ClinGen Dosage Sensitivity downloads | One record per dosage-sensitive gene | ClinGen terms |
 | `CIVIC_ASSERTION:`, `CIVIC_EID:` | CIViC accepted assertion and clinical evidence TSVs | One record per accepted CIViC assertion or evidence item | CIViC |
+| `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 
 **Citing an Orphanet entry:**
 
@@ -1175,6 +1180,47 @@ ClinGen dosage cache bodies contain a `## Gene dosage sensitivity` table and,
 when available, report-page narrative for haploinsufficiency and
 triplosensitivity evidence.
 
+**Citing an ICEES KG comorbidity pair:**
+
+ICEES (Integrated Clinical and Environmental Exposures Service, RENCI/UNC) is
+the EHR sibling of COHD: it exposes chi-square disease-disease co-occurrence
+from single-site UNC Health EHR data, but its nodes are already MONDO/HP-coded.
+The `ICEES:` prefix is the structured-source counterpart of the live COHD API
+(`scripts/cohd_pair_to_signal.py`) — use ICEES when you want to **quote a cohort
+statistic as a snippet-validated evidence row**, and use the COHD script when
+you want hospital-wide co-occurrence metrics generated on the fly. A pair id is
+`ICEES:<A>__<B>` with the two disease/phenotype CURIEs sorted and `:` → `_`:
+
+```yaml
+association_signals:
+- source: ICEES
+  method: EHR_COHORT_ASSOCIATION
+  signal_disorder_a_id: MONDO:0004979
+  signal_disorder_b_id: MONDO:0005002
+  population: >-
+    ICEES KG 8-20-2024, UNC Health primary-ciliary-dyskinesia cohort
+    (condition-specific base population), chi-square contingency.
+  statistics:
+    metrics:
+    - metric_type: CHI_SQUARE
+      metric_value: 168.58533016733276
+      p_value: 1.5071340388291068e-38
+      notes: ICEES PCD 2016 cohort co-occurrence of asthma and COPD.
+  evidence:
+  - reference: ICEES:MONDO_0004979__MONDO_0005002
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: "PCD_UNC_patient_2016_v6_binned_deidentified | 168.58533016733276 | 1 | 1.5071340388291068e-38 | 5688"
+    explanation: ICEES EHR cohort shows significant asthma-COPD co-occurrence.
+```
+
+Each `## Cohort statistics` row (`| cohort | chi-square | dof | p-value | N |`)
+is a stable quotable substring. **Interpretation caveats:** ICEES cohorts are
+*condition-specific* patient sets (asthma, PCD), so a statistic is conditioned
+on that base population — not hospital-wide like COHD; and the chi-square values
+are **not multiple-testing corrected** and are inflated by very large cohort N,
+so apply the same FDR skepticism used for COHD signals.
+
 **How the cache is built:**
 
 ```bash
@@ -1201,6 +1247,12 @@ just clingen-dosage-refresh
 just clingen-dosage-list
 just clingen-dosage-rebuild
 just clingen-dosage-rebuild --id CGDS:HGNC_9585
+
+# ICEES KG (pinned by data/icees-kg/MANIFEST.yaml; emits MONDO/HP disease pairs)
+just icees-refresh
+just icees-list
+just icees-rebuild
+just icees-rebuild --id MONDO:0004979,MONDO:0005002
 ```
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
