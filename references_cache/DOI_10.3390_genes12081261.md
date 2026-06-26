@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes12081261
+reference_id: "DOI:10.3390/genes12081261"
 title: "Leber’s Congenital Amaurosis: Current Concepts of Genotype-Phenotype Correlations"
 authors:
 - Chu-Hsuan Huang

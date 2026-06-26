@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03920007
+reference_id: "clinicaltrials:NCT03920007"
 title: A Phase 1/2 Dose Escalation Study of Subretinally Injected ATSN-101 Administered in Patients With Leber Congenital Amaurosis Caused by Biallelic Mutations in GUCY2D
 content_type: summary
 ---
