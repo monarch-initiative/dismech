@@ -106,7 +106,7 @@ KEGG legacy colorectal cancer pathway gene set (MSigDB C2 curated gene set). Thi
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/KEGG_COLORECTAL_CANCER.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/KEGG_COLORECTAL_CANCER.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/KEGG_COLORECTAL_CANCER) (source: msigdb).
 

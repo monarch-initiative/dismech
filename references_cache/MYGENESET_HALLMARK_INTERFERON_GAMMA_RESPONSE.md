@@ -248,7 +248,7 @@ MSigDB Hallmark gene set of genes up-regulated in response to interferon-gamma (
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HALLMARK_INTERFERON_GAMMA_RESPONSE.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HALLMARK_INTERFERON_GAMMA_RESPONSE.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/HALLMARK_INTERFERON_GAMMA_RESPONSE) (source: msigdb).
 

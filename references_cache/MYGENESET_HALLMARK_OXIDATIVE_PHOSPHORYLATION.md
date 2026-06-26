@@ -250,7 +250,7 @@ MSigDB Hallmark gene set of genes encoding proteins of the mitochondrial oxidati
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HALLMARK_OXIDATIVE_PHOSPHORYLATION.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HALLMARK_OXIDATIVE_PHOSPHORYLATION.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/HALLMARK_OXIDATIVE_PHOSPHORYLATION) (source: msigdb).
 

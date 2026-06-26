@@ -259,7 +259,7 @@ MSigDB Hallmark gene set defining epithelial-to-mesenchymal transition (EMT). Th
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION) (source: msigdb).
 

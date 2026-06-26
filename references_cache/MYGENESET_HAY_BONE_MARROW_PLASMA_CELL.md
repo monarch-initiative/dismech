@@ -202,7 +202,7 @@ Single-cell marker signature of plasma cells (antibody-secreting B-lineage cells
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HAY_BONE_MARROW_PLASMA_CELL.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HAY_BONE_MARROW_PLASMA_CELL.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/HAY_BONE_MARROW_PLASMA_CELL) (source: msigdb).
 

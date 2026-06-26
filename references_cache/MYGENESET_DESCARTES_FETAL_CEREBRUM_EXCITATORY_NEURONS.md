@@ -70,7 +70,7 @@ Single-cell marker signature of excitatory (glutamatergic) neurons from human fe
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/DESCARTES_FETAL_CEREBRUM_EXCITATORY_NEURONS.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/DESCARTES_FETAL_CEREBRUM_EXCITATORY_NEURONS.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/DESCARTES_FETAL_CEREBRUM_EXCITATORY_NEURONS) (source: msigdb).
 

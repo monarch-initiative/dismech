@@ -34,7 +34,7 @@ Single-cell marker signature of ventricular cardiomyocytes from human heart (Tuc
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/TUCKER_HEART_VENTRICULAR_CARDIOMYOCYTE.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/TUCKER_HEART_VENTRICULAR_CARDIOMYOCYTE.yaml` @ `08115aa072e2`).
 
 Upstream identifier: `MSIGDB:TUCKER_HEART_VENTRICULAR_CARDIOMYOCYTE`.
 

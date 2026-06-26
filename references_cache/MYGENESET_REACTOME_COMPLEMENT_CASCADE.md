@@ -199,7 +199,7 @@ Reactome complement cascade pathway gene set (MSigDB C2 curated pathway set). Th
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/REACTOME_COMPLEMENT_CASCADE.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/REACTOME_COMPLEMENT_CASCADE.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/REACTOME_COMPLEMENT_CASCADE) (source: msigdb).
 

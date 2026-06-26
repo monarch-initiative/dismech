@@ -439,7 +439,7 @@ Single-cell marker signature of natural killer (NK) cells from human bone marrow
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HAY_BONE_MARROW_NK_CELLS.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HAY_BONE_MARROW_NK_CELLS.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/HAY_BONE_MARROW_NK_CELLS) (source: msigdb).
 

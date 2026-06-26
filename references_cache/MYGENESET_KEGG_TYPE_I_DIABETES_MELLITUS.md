@@ -85,7 +85,7 @@ KEGG legacy type 1 diabetes mellitus pathway gene set (MSigDB C2 curated gene se
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/KEGG_TYPE_I_DIABETES_MELLITUS.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/KEGG_TYPE_I_DIABETES_MELLITUS.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/KEGG_TYPE_I_DIABETES_MELLITUS) (source: msigdb).
 

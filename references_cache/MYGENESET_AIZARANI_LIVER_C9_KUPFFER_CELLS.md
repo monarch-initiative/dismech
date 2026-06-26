@@ -35,7 +35,7 @@ Single-cell marker signature of Kupffer cells (resident liver macrophages) from 
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/AIZARANI_LIVER_C9_KUPFFER_CELLS.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/AIZARANI_LIVER_C9_KUPFFER_CELLS.yaml` @ `08115aa072e2`).
 
 Upstream identifier: `MSIGDB:AIZARANI_LIVER_C9_KUPFFER_CELLS`.
 

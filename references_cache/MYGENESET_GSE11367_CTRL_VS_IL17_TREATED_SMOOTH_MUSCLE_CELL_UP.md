@@ -185,7 +185,7 @@ Genes upregulated in human smooth muscle cells treated with interleukin-17 (IL-1
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/GSE11367_CTRL_VS_IL17_TREATED_SMOOTH_MUSCLE_CELL_UP.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/GSE11367_CTRL_VS_IL17_TREATED_SMOOTH_MUSCLE_CELL_UP.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/GSE11367_CTRL_VS_IL17_TREATED_SMOOTH_MUSCLE_CELL_UP) (source: msigdb).
 

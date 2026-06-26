@@ -180,7 +180,7 @@ KEGG legacy Parkinson's disease pathway gene set (MSigDB C2 curated gene set). T
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/KEGG_PARKINSONS_DISEASE.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/KEGG_PARKINSONS_DISEASE.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/KEGG_PARKINSONS_DISEASE) (source: msigdb).
 

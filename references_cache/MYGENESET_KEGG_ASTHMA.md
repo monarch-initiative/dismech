@@ -71,7 +71,7 @@ KEGG legacy asthma pathway gene set (MSigDB C2 curated gene set). This is a dise
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/KEGG_ASTHMA.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/KEGG_ASTHMA.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/KEGG_ASTHMA) (source: msigdb).
 

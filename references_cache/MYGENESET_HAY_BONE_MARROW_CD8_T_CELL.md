@@ -113,7 +113,7 @@ Single-cell marker signature of CD8-positive, alpha-beta T cells from human bone
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HAY_BONE_MARROW_CD8_T_CELL.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HAY_BONE_MARROW_CD8_T_CELL.yaml` @ `08115aa072e2`).
 
 Gene membership from [mygeneset.info](https://mygeneset.info/geneset/HAY_BONE_MARROW_CD8_T_CELL) (source: msigdb).
 

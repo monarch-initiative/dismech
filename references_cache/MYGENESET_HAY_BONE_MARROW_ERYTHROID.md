@@ -34,7 +34,7 @@ Single-cell marker signature of erythroid-lineage cells (red blood cell precurso
 
 ## Source
 
-Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HAY_BONE_MARROW_ERYTHROID.yaml` @ `c9af95e92cdd`).
+Curated GO interpretation from [`monarch-initiative/genesets`](https://github.com/monarch-initiative/genesets) (`curation/genesets/HAY_BONE_MARROW_ERYTHROID.yaml` @ `08115aa072e2`).
 
 Upstream identifier: `MSIGDB:HAY_BONE_MARROW_ERYTHROID`.
 
