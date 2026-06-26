@@ -48,9 +48,10 @@ associations:
 """
 
 MEMBERSHIP = [
-    {"symbol": "IL4", "ncbigene": "3565"},
-    {"symbol": "IL13", "ncbigene": "3596"},
-    {"symbol": "CCL11", "ncbigene": "6356"},
+    {"symbol": "IL4", "ncbigene": "3565", "hgnc": "6014"},
+    {"symbol": "IL13", "ncbigene": "3596", "hgnc": "5973"},
+    # No HGNC -> should fall back to NCBIGene in the rendered table.
+    {"symbol": "LOC123", "ncbigene": "999999"},
 ]
 
 
@@ -80,7 +81,8 @@ def test_index_reads_interpretation_and_membership(geneset_source: MyGenesetSour
     assert rec.source == "msigdb"
     assert rec.collection == "C2:CP:KEGG_LEGACY"
     assert [a.go_id for a in rec.associations] == ["GO:0045064", "GO:0006412"]
-    assert [g.symbol for g in rec.genes] == ["IL4", "IL13", "CCL11"]
+    assert [g.symbol for g in rec.genes] == ["IL4", "IL13", "LOC123"]
+    assert rec.genes[0].hgnc == "6014"
 
 
 def test_identifiers(geneset_source: MyGenesetSource):
@@ -101,7 +103,8 @@ def test_serialize_blocks_and_frontmatter(geneset_source: MyGenesetSource):
         "| GO:0045064 | T-helper 2 cell differentiation | biological_process | "
         "core_process | high |"
     ) in text
-    assert "| IL4 | NCBIGene:3565 |" in text
+    assert "| IL4 | hgnc:6014 |" in text  # NCBIGene resolved to HGNC
+    assert "| LOC123 | NCBIGene:999999 |" in text  # no HGNC -> NCBIGene fallback
     assert "| disease | MONDO:0004979 | asthma |" in text
     assert "## Members (3 genes)" in text
     assert "Upstream identifier: `MSIGDB:KEGG_ASTHMA`." in text

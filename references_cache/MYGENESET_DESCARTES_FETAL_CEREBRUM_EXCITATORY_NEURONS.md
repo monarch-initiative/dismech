@@ -34,39 +34,39 @@ Single-cell marker signature of excitatory (glutamatergic) neurons from human fe
 
 ## Members (31 genes)
 
-| Symbol | NCBI Gene |
+| Symbol | Gene ID |
 |---|---|
-| ABCA15P | NCBIGene:400508 |
+| ABCA15P | hgnc:34405 |
 | ABCA15P | - |
-| ALOX15 | NCBIGene:246 |
+| ALOX15 | hgnc:433 |
 | FABP7P1 | - |
-| FABP7P1 | NCBIGene:100506953 |
-| FEZF2 | NCBIGene:55079 |
-| GALNT5 | NCBIGene:11227 |
+| FABP7P1 | hgnc:41951 |
+| FEZF2 | hgnc:13506 |
+| GALNT5 | hgnc:4127 |
 | GSCAR | - |
-| GSCAR | NCBIGene:124901024 |
-| HMGN1P14 | NCBIGene:100874440 |
-| IQCF3 | NCBIGene:401067 |
-| ITPRID1 | NCBIGene:223075 |
-| LINC01435 | NCBIGene:103695365 |
+| GSCAR | hgnc:56879 |
+| HMGN1P14 | hgnc:39358 |
+| IQCF3 | hgnc:31816 |
+| ITPRID1 | hgnc:27363 |
+| LINC01435 | hgnc:50753 |
 | LINC01965 | - |
-| LINC01965 | NCBIGene:107985928 |
-| LINC02232 | NCBIGene:401134 |
-| MPPED1 | NCBIGene:758 |
-| MTATP6P15 | NCBIGene:107075273 |
+| LINC01965 | hgnc:52790 |
+| LINC02232 | hgnc:53103 |
+| MPPED1 | hgnc:1306 |
+| MTATP6P15 | hgnc:52060 |
 | NAV2-AS2 | - |
-| NAV2-AS2 | NCBIGene:100874014 |
-| NEUROD2 | NCBIGene:4761 |
-| NPR3 | NCBIGene:4883 |
-| NPRL3 | NCBIGene:8131 |
-| PPEF1 | NCBIGene:5475 |
-| PROKR1 | NCBIGene:10887 |
-| RGS21 | NCBIGene:431704 |
-| SATB2 | NCBIGene:23314 |
-| SLC17A7 | NCBIGene:57030 |
-| SLC26A4 | NCBIGene:5172 |
-| SMIM34 | NCBIGene:388820 |
-| TBR1 | NCBIGene:10716 |
+| NAV2-AS2 | hgnc:40743 |
+| NEUROD2 | hgnc:7763 |
+| NPR3 | hgnc:7945 |
+| NPRL3 | hgnc:14124 |
+| PPEF1 | hgnc:9243 |
+| PROKR1 | hgnc:4524 |
+| RGS21 | hgnc:26839 |
+| SATB2 | hgnc:21637 |
+| SLC17A7 | hgnc:16704 |
+| SLC26A4 | hgnc:8818 |
+| SMIM34 | hgnc:39601 |
+| TBR1 | hgnc:11590 |
 
 ## Source
 

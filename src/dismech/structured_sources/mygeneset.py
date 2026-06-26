@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class _GeneMember:
     symbol: str
+    hgnc: str = ""  # numeric HGNC id, no prefix (e.g. "6014")
     ncbigene: str = ""
 
 
@@ -86,6 +87,9 @@ class MyGenesetSource(StructuredSource):
     _ref: ClassVar[str] = "main"
     _interpretation_dir: ClassVar[str] = "curation/genesets"
     _mygeneset_base: ClassVar[str] = "https://mygeneset.info/v1"
+    # mygeneset.info does not expose HGNC, so membership is fetched as NCBIGene
+    # and resolved to HGNC via mygene.info (dismech's canonical gene namespace).
+    _mygene_base: ClassVar[str] = "https://mygene.info/v3"
     _snapshot_date: ClassVar[str] = ""
     _licence: ClassVar[str] = ""
 
@@ -102,6 +106,7 @@ class MyGenesetSource(StructuredSource):
             data.get("interpretation_dir", cls._interpretation_dir)
         )
         cls._mygeneset_base = str(data.get("mygeneset_base", cls._mygeneset_base))
+        cls._mygene_base = str(data.get("mygene_base", cls._mygene_base))
         cls._snapshot_date = str(data.get("snapshot_date", ""))
         cls._licence = str(data.get("licence", ""))
 
@@ -144,6 +149,7 @@ class MyGenesetSource(StructuredSource):
                 continue
             members = self._fetch_membership(rec.local_id)
             if members is not None:
+                self._attach_hgnc(members)
                 out.write_text(json.dumps(members), encoding="utf-8")
 
     def _list_interpretation_paths(self) -> list[str]:
@@ -184,6 +190,45 @@ class MyGenesetSource(StructuredSource):
             logger.warning("mygeneset fetch failed for %s: %s", local_id, exc)
             return None
 
+    def _attach_hgnc(self, members: list[dict]) -> None:
+        """Resolve NCBIGene -> HGNC (via mygene.info) and annotate ``members``.
+
+        mygeneset.info exposes ``ncbigene`` but not HGNC; dismech's canonical
+        gene namespace is HGNC, so we map each member's NCBIGene id in one
+        batched mygene.info call and stash the numeric HGNC id under ``hgnc``.
+        """
+        ncbigene_ids = sorted({str(m.get("ncbigene")) for m in members if m.get("ncbigene")})
+        if not ncbigene_ids:
+            return
+        mapping = self._resolve_hgnc(ncbigene_ids)
+        for m in members:
+            hgnc = mapping.get(str(m.get("ncbigene")))
+            if hgnc:
+                m["hgnc"] = hgnc
+
+    def _resolve_hgnc(self, ncbigene_ids: list[str]) -> dict[str, str]:
+        """Batch-map NCBIGene ids -> numeric HGNC ids via mygene.info."""
+        try:
+            resp = requests.post(
+                f"{self._mygene_base}/gene",
+                data={"ids": ",".join(ncbigene_ids), "fields": "HGNC"},
+                timeout=60,
+            )
+            resp.raise_for_status()
+            out: dict[str, str] = {}
+            for rec in resp.json():
+                if rec.get("notfound"):
+                    continue
+                hgnc = rec.get("HGNC")
+                if isinstance(hgnc, list):
+                    hgnc = hgnc[0] if hgnc else None
+                if hgnc:
+                    out[str(rec.get("query"))] = str(hgnc)
+            return out
+        except requests.RequestException as exc:  # pragma: no cover - network
+            logger.warning("mygene HGNC resolution failed: %s", exc)
+            return {}
+
     # ----- indexing -----
 
     def build_index(self) -> dict[str, _GeneSetRecord]:
@@ -203,6 +248,7 @@ class MyGenesetSource(StructuredSource):
                 rec.genes = [
                     _GeneMember(
                         symbol=str(m.get("symbol", "")),
+                        hgnc=str(m.get("hgnc", "")),
                         ncbigene=str(m.get("ncbigene", "")),
                     )
                     for m in members
@@ -331,11 +377,8 @@ class MyGenesetSource(StructuredSource):
             yield ""
             rows = sorted(rec.genes, key=lambda g: g.symbol)
             yield from _md_table(
-                ["Symbol", "NCBI Gene"],
-                [
-                    (g.symbol, f"NCBIGene:{g.ncbigene}" if g.ncbigene else "-")
-                    for g in rows
-                ],
+                ["Symbol", "Gene ID"],
+                [(g.symbol, _gene_id(g)) for g in rows],
             )
             yield ""
 
@@ -382,6 +425,15 @@ def _md_table(headers: list[str], rows: list[tuple[str, ...]]) -> Iterator[str]:
     yield "|" + "|".join(["---"] * len(headers)) + "|"
     for row in rows:
         yield "| " + " | ".join(_esc(cell) for cell in row) + " |"
+
+
+def _gene_id(g: _GeneMember) -> str:
+    """Prefer HGNC (dismech's canonical gene namespace); fall back to NCBIGene."""
+    if g.hgnc:
+        return f"hgnc:{g.hgnc}"
+    if g.ncbigene:
+        return f"NCBIGene:{g.ncbigene}"
+    return "-"
 
 
 def _collapse(s: str) -> str:

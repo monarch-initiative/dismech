@@ -34,54 +34,54 @@ KEGG legacy type 1 diabetes mellitus pathway gene set (MSigDB C2 curated gene se
 
 ## Members (46 genes)
 
-| Symbol | NCBI Gene |
+| Symbol | Gene ID |
 |---|---|
-| CD28 | NCBIGene:940 |
-| CD80 | NCBIGene:941 |
-| CD86 | NCBIGene:942 |
-| CPE | NCBIGene:1363 |
-| FAS | NCBIGene:355 |
-| FASLG | NCBIGene:356 |
-| FASN | NCBIGene:2194 |
-| GAD1 | NCBIGene:2571 |
-| GAD2 | NCBIGene:2572 |
-| GZMB | NCBIGene:3002 |
-| HLA-A | NCBIGene:3105 |
-| HLA-B | NCBIGene:3106 |
-| HLA-C | NCBIGene:3107 |
-| HLA-DMA | NCBIGene:3108 |
-| HLA-DMB | NCBIGene:3109 |
-| HLA-DOA | NCBIGene:3111 |
-| HLA-DOB | NCBIGene:3112 |
-| HLA-DPA1 | NCBIGene:3113 |
-| HLA-DPB1 | NCBIGene:3115 |
-| HLA-DQA1 | NCBIGene:3117 |
-| HLA-DQA2 | NCBIGene:3118 |
-| HLA-DQB1 | NCBIGene:3119 |
-| HLA-DQB2 | NCBIGene:3120 |
-| HLA-DRA | NCBIGene:3122 |
-| HLA-DRB1 | NCBIGene:3123 |
-| HLA-DRB3 | NCBIGene:3125 |
-| HLA-DRB4 | NCBIGene:3126 |
-| HLA-DRB5 | NCBIGene:3127 |
-| HLA-E | NCBIGene:3133 |
-| HLA-F | NCBIGene:3134 |
-| HLA-G | NCBIGene:3135 |
-| HSPD1 | NCBIGene:3329 |
-| ICA1 | NCBIGene:3382 |
-| IFNG | NCBIGene:3458 |
-| IL12A | NCBIGene:3592 |
-| IL12B | NCBIGene:3593 |
-| IL1A | NCBIGene:3552 |
-| IL1B | NCBIGene:3553 |
-| IL2 | NCBIGene:3558 |
-| INS | NCBIGene:3630 |
-| LTA | NCBIGene:4049 |
-| PRF1 | NCBIGene:5551 |
-| PTPRN | NCBIGene:5798 |
-| PTPRN2 | NCBIGene:5799 |
-| TNF | NCBIGene:7124 |
-| ZNF395 | NCBIGene:55893 |
+| CD28 | hgnc:1653 |
+| CD80 | hgnc:1700 |
+| CD86 | hgnc:1705 |
+| CPE | hgnc:2303 |
+| FAS | hgnc:11920 |
+| FASLG | hgnc:11936 |
+| FASN | hgnc:3594 |
+| GAD1 | hgnc:4092 |
+| GAD2 | hgnc:4093 |
+| GZMB | hgnc:4709 |
+| HLA-A | hgnc:4931 |
+| HLA-B | hgnc:4932 |
+| HLA-C | hgnc:4933 |
+| HLA-DMA | hgnc:4934 |
+| HLA-DMB | hgnc:4935 |
+| HLA-DOA | hgnc:4936 |
+| HLA-DOB | hgnc:4937 |
+| HLA-DPA1 | hgnc:4938 |
+| HLA-DPB1 | hgnc:4940 |
+| HLA-DQA1 | hgnc:4942 |
+| HLA-DQA2 | hgnc:4943 |
+| HLA-DQB1 | hgnc:4944 |
+| HLA-DQB2 | hgnc:4945 |
+| HLA-DRA | hgnc:4947 |
+| HLA-DRB1 | hgnc:4948 |
+| HLA-DRB3 | hgnc:4951 |
+| HLA-DRB4 | hgnc:4952 |
+| HLA-DRB5 | hgnc:4953 |
+| HLA-E | hgnc:4962 |
+| HLA-F | hgnc:4963 |
+| HLA-G | hgnc:4964 |
+| HSPD1 | hgnc:5261 |
+| ICA1 | hgnc:5343 |
+| IFNG | hgnc:5438 |
+| IL12A | hgnc:5969 |
+| IL12B | hgnc:5970 |
+| IL1A | hgnc:5991 |
+| IL1B | hgnc:5992 |
+| IL2 | hgnc:6001 |
+| INS | hgnc:6081 |
+| LTA | hgnc:6709 |
+| PRF1 | hgnc:9360 |
+| PTPRN | hgnc:9676 |
+| PTPRN2 | hgnc:9677 |
+| TNF | hgnc:11892 |
+| ZNF395 | hgnc:18737 |
 
 ## Source
 

@@ -399,7 +399,8 @@ the CLI as `mygeneset`) ingests gene sets exactly like `OrphanetSource`/`ClinGen
   ```
 - **Cache body sections:** Description · Context (disease/tissue MONDO/UBERON) ·
   Curated GO interpretation (`GO id | label | aspect | role | confidence`) ·
-  Members (`symbol | NCBIGene:id`) · Source (genesets commit + mygeneset + upstream `gene_set_id` xref).
+  Members (`symbol | hgnc:id`, dismech's canonical gene namespace) · Source
+  (genesets commit + mygeneset + upstream `gene_set_id` xref).
 
 **It acts as evidence today.** A disorder can cite e.g.:
 
@@ -542,7 +543,16 @@ these touch scope, structured-source policy, and cross-repo governance.
   recipes (`genesets-refresh|rebuild|list`), and tests. Ran refresh+rebuild → 23
   `references_cache/MYGENESET_*.md`. Confirmed a `MYGENESET:` citation validates
   through the real `linkml-reference-validator` and the whole cache passes the
-  frontmatter contract. Membership comes from mygeneset (symbol + NCBIGene); the
+  frontmatter contract. Membership comes from mygeneset (symbol + NCBIGene,
+  resolved to `hgnc:` via mygene.info — mygeneset has no HGNC field); the
   curated GO interpretation + evidence come from the genesets repo.
 - Wrote up the `gene_sets` schema-element + disease-vs-set scoring idea as a
   documented proposal (not built) — see the "Proposed" section.
+
+### 2026-06-26 (cont.)
+- Decision: HGNC resolution lives in dismech's ingest (not upstream — mygeneset
+  has no HGNC field, and `monarch-initiative/genesets` is out of push scope).
+  `MyGenesetSource` now resolves NCBIGene→HGNC via mygene.info (batched) during
+  refresh; Members render as `hgnc:` (e.g. IL4 → `hgnc:6014`, matching the dismech
+  Asthma entry), with NCBIGene fallback only for genes lacking an HGNC (LOC*
+  loci, withdrawn symbols). Re-refreshed + rebuilt all 23 cache files.

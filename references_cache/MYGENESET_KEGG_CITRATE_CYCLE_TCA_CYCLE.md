@@ -33,47 +33,47 @@ MSigDB C2 KEGG legacy gene set representing the enzymes of the tricarboxylic aci
 
 ## Members (39 genes)
 
-| Symbol | NCBI Gene |
+| Symbol | Gene ID |
 |---|---|
-| ACLY | NCBIGene:47 |
-| ACO1 | NCBIGene:48 |
-| ACO2 | NCBIGene:50 |
-| CFH | NCBIGene:3075 |
-| CS | NCBIGene:1431 |
-| DLAT | NCBIGene:1737 |
-| DLD | NCBIGene:1738 |
-| DLST | NCBIGene:1743 |
-| FAM3A | NCBIGene:60343 |
-| FH | NCBIGene:2271 |
-| IDH1 | NCBIGene:3417 |
-| IDH2 | NCBIGene:3418 |
-| IDH3A | NCBIGene:3419 |
-| IDH3B | NCBIGene:3420 |
-| IDH3G | NCBIGene:3421 |
-| LDLR | NCBIGene:3949 |
-| MDH1 | NCBIGene:4190 |
-| MDH2 | NCBIGene:4191 |
-| OGDH | NCBIGene:4967 |
-| OGDHL | NCBIGene:55753 |
-| PC | NCBIGene:5091 |
-| PCK1 | NCBIGene:5105 |
-| PCK2 | NCBIGene:5106 |
-| PDHA1 | NCBIGene:5160 |
-| PDHA2 | NCBIGene:5161 |
-| PDHB | NCBIGene:5162 |
-| PODXL | NCBIGene:5420 |
-| PROC | NCBIGene:5624 |
-| SDHA | NCBIGene:6389 |
-| SDHB | NCBIGene:6390 |
-| SDHC | NCBIGene:6391 |
+| ACLY | hgnc:115 |
+| ACO1 | hgnc:117 |
+| ACO2 | hgnc:118 |
+| CFH | hgnc:4883 |
+| CS | hgnc:2422 |
+| DLAT | hgnc:2896 |
+| DLD | hgnc:2898 |
+| DLST | hgnc:2911 |
+| FAM3A | hgnc:13749 |
+| FH | hgnc:3700 |
+| IDH1 | hgnc:5382 |
+| IDH2 | hgnc:5383 |
+| IDH3A | hgnc:5384 |
+| IDH3B | hgnc:5385 |
+| IDH3G | hgnc:5386 |
+| LDLR | hgnc:6547 |
+| MDH1 | hgnc:6970 |
+| MDH2 | hgnc:6971 |
+| OGDH | hgnc:8124 |
+| OGDHL | hgnc:25590 |
+| PC | hgnc:8636 |
+| PCK1 | hgnc:8724 |
+| PCK2 | hgnc:8725 |
+| PDHA1 | hgnc:8806 |
+| PDHA2 | hgnc:8807 |
+| PDHB | hgnc:8808 |
+| PODXL | hgnc:9171 |
+| PROC | hgnc:9451 |
+| SDHA | hgnc:10680 |
+| SDHB | hgnc:10681 |
+| SDHC | hgnc:10682 |
 | SDHCP5 | - |
-| SDHCP5 | NCBIGene:642502 |
-| SDHD | NCBIGene:6392 |
-| SUCLA2 | NCBIGene:8803 |
-| SUCLG1 | NCBIGene:8802 |
-| SUCLG2 | NCBIGene:8801 |
+| SDHCP5 | hgnc:57039 |
+| SDHD | hgnc:10683 |
+| SUCLA2 | hgnc:11448 |
+| SUCLG1 | hgnc:11449 |
+| SUCLG2 | hgnc:11450 |
 | SUCLG2P2 | - |
-| SUCLG2P2 | NCBIGene:283398 |
+| SUCLG2P2 | hgnc:43997 |
 
 ## Source
 

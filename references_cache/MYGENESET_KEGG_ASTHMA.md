@@ -33,41 +33,41 @@ KEGG legacy asthma pathway gene set (MSigDB C2 curated gene set). This is a dise
 
 ## Members (33 genes)
 
-| Symbol | NCBI Gene |
+| Symbol | Gene ID |
 |---|---|
-| CCL11 | NCBIGene:6356 |
-| CD40 | NCBIGene:958 |
-| CD40LG | NCBIGene:959 |
-| EPX | NCBIGene:8288 |
-| FCER1A | NCBIGene:2205 |
-| FCER1G | NCBIGene:2207 |
-| HLA-DMA | NCBIGene:3108 |
-| HLA-DMB | NCBIGene:3109 |
-| HLA-DOA | NCBIGene:3111 |
-| HLA-DOB | NCBIGene:3112 |
-| HLA-DPA1 | NCBIGene:3113 |
-| HLA-DPB1 | NCBIGene:3115 |
-| HLA-DQA1 | NCBIGene:3117 |
-| HLA-DQA2 | NCBIGene:3118 |
-| HLA-DQB1 | NCBIGene:3119 |
-| HLA-DQB2 | NCBIGene:3120 |
-| HLA-DRA | NCBIGene:3122 |
-| HLA-DRB1 | NCBIGene:3123 |
-| HLA-DRB3 | NCBIGene:3125 |
-| HLA-DRB4 | NCBIGene:3126 |
-| HLA-DRB5 | NCBIGene:3127 |
-| IL10 | NCBIGene:3586 |
-| IL13 | NCBIGene:3596 |
-| IL3 | NCBIGene:3562 |
-| IL4 | NCBIGene:3565 |
-| IL5 | NCBIGene:3567 |
-| IL9 | NCBIGene:3578 |
-| MS4A2 | NCBIGene:2206 |
-| PLPPR3 | NCBIGene:79948 |
-| PRG2 | NCBIGene:5553 |
-| PXDN | NCBIGene:7837 |
-| RNASE3 | NCBIGene:6037 |
-| TNF | NCBIGene:7124 |
+| CCL11 | hgnc:10610 |
+| CD40 | hgnc:11919 |
+| CD40LG | hgnc:11935 |
+| EPX | hgnc:3423 |
+| FCER1A | hgnc:3609 |
+| FCER1G | hgnc:3611 |
+| HLA-DMA | hgnc:4934 |
+| HLA-DMB | hgnc:4935 |
+| HLA-DOA | hgnc:4936 |
+| HLA-DOB | hgnc:4937 |
+| HLA-DPA1 | hgnc:4938 |
+| HLA-DPB1 | hgnc:4940 |
+| HLA-DQA1 | hgnc:4942 |
+| HLA-DQA2 | hgnc:4943 |
+| HLA-DQB1 | hgnc:4944 |
+| HLA-DQB2 | hgnc:4945 |
+| HLA-DRA | hgnc:4947 |
+| HLA-DRB1 | hgnc:4948 |
+| HLA-DRB3 | hgnc:4951 |
+| HLA-DRB4 | hgnc:4952 |
+| HLA-DRB5 | hgnc:4953 |
+| IL10 | hgnc:5962 |
+| IL13 | hgnc:5973 |
+| IL3 | hgnc:6011 |
+| IL4 | hgnc:6014 |
+| IL5 | hgnc:6016 |
+| IL9 | hgnc:6029 |
+| MS4A2 | hgnc:7316 |
+| PLPPR3 | hgnc:23497 |
+| PRG2 | hgnc:9362 |
+| PXDN | hgnc:14966 |
+| RNASE3 | hgnc:10046 |
+| TNF | hgnc:11892 |
 
 ## Source
 
