@@ -78,14 +78,20 @@ def find_violations_in_text(text: str):
                 if block_folded:
                     content = raw.rstrip()
                     if EOL_HYPHEN_RE.search(content):
+                        # Only a folding bug if the compound continues on a line
+                        # still INSIDE this block. If the next content line
+                        # de-indents out of the block, the scalar simply ends in
+                        # 'word-' and folding inserts no space (not a bug).
                         nxt = ""
+                        nxt_in_block = False
                         for j in range(i + 1, n):
                             if lines[j].strip() == "":
                                 continue
                             if _leading_spaces(lines[j]) > block_indent:
                                 nxt = lines[j].strip()
+                                nxt_in_block = True
                             break
-                        if not COORD_RE.match(nxt):
+                        if nxt_in_block and not COORD_RE.match(nxt):
                             yield (i + 1, content.strip())
                 continue
             in_block = False  # de-indented: block ended; re-evaluate this line

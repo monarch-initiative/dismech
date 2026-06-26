@@ -41,3 +41,19 @@ def test_detector_catches_split_and_ignores_suspended_and_literal():
     assert list(find_violations_in_text(bug)), "should flag a folded split"
     assert not list(find_violations_in_text(suspended)), "suspended hyphen is OK"
     assert not list(find_violations_in_text(literal)), "literal block is not folded"
+
+
+def test_detector_edge_cases():
+    # Nested folded scalar under a list item (the common kb/ pattern).
+    nested = "items:\n  - d: >-\n      pro-\n      inflammatory\n"
+    assert list(find_violations_in_text(nested)), "should flag nested folded split"
+
+    # Block-final hyphen: the next content line de-indents out of the block, so
+    # folding inserts no space and this is NOT a bug.
+    end_of_block = "d: >-\n  some word-\nnext_key: value\n"
+    assert not list(find_violations_in_text(end_of_block)), \
+        "block-final hyphen is not folded"
+
+    # Multiple distinct splits within one block scalar.
+    multi = "d: >-\n  relapsing-\n  remitting and chronic-\n  progressive\n"
+    assert len(list(find_violations_in_text(multi))) == 2
