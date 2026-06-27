@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tumor Microenvironment Modeling - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Tumor Microenvironment Modeling</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Tumor Microenvironment Modeling</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (18)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/BRAF_V600E-Mutant_Colorectal_Cancer.html">BRAF V600E Mutant Colorectal Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Clear_Cell_Renal_Cell_Carcinoma.html">Clear Cell Renal Cell Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Colon_Adenocarcinoma.html">Colon Adenocarcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/EGFR-Mutant_Non-Small_Cell_Lung_Cancer.html">EGFR Mutant NSCLC</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Glioblastoma,_IDH-Wildtype.html">Glioblastoma IDH Wildtype</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/HER2-Positive_Breast_Cancer.html">HER2 Positive Breast Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/HER2-Positive_Colorectal_Cancer.html">HER2 Positive Colorectal Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/KRAS_G12C-Mutant_Non-Small_Cell_Lung_Cancer.html">KRAS G12C Mutant NSCLC</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/MSI-High_Colorectal_Cancer.html">MSI High Colorectal Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Metastatic_Colorectal_Cancer.html">Metastatic Colorectal Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Metastatic_Non-Small_Cell_Lung_Cancer.html">Metastatic NSCLC</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Metastatic_Pancreatic_Adenocarcinoma.html">Metastatic Pancreatic Adenocarcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Metastatic_Renal_Cell_Carcinoma.html">Metastatic Renal Cell Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Non-Small_Cell_Lung_Cancer.html">Non-Small Cell Lung Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ovarian_High-Grade_Serous_Carcinoma.html">Ovarian High-Grade Serous Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pancreatic_Ductal_Adenocarcinoma.html">Pancreatic Ductal Adenocarcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Triple-Negative_Breast_Cancer.html">Triple Negative Breast Cancer</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (2)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/fibrotic_response.html">fibrotic response</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/immune_checkpoint_blockade.html">immune checkpoint blockade</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/TUMOR_MICROENVIRONMENT_MODELING.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="tumor-microenvironment-modeling">Tumor Microenvironment Modeling</h1>
+<h2 id="overview">Overview</h2>
+<p>Explore how dismech's structured mechanism models can serve as a knowledge
+substrate for computational tumor microenvironment (TME) modeling, especially
+multiscale agent-based simulators, reinforcement-learning-guided therapy
+optimization, and cancer digital twin frameworks.</p>
+<p>The core idea is straightforward: dismech already encodes disease mechanisms as
+cell types, biological processes, and downstream causal effects. Those graphs
+are close to the rule systems that agent-based tumor simulators need, but they
+are currently optimized for human-readable disease explanation rather than for
+machine-actionable simulation. This project asks what is missing to bridge that
+gap.</p>
+<h2 id="status">STATUS</h2>
+<ul>
+<li>[ ] Define a TME completeness rubric for existing cancer entries: immune, stromal, vascular, metabolic, spatial, macroenvironment</li>
+<li>[ ] Review the colorectal cancer entries against that rubric and document concrete missing mechanism actors</li>
+<li>[ ] Design a reusable <code>tumor_ecosystem</code> module analogous to <code>fibrotic_response</code> and <code>immune_checkpoint_blockade</code></li>
+<li>[ ] Decide whether claim extraction in issue <code>#1100</code> should be the canonical interchange layer for simulation exports</li>
+<li>[ ] Specify a minimal simulator-facing rule schema beyond raw triples</li>
+<li>[ ] Prototype export of dismech mechanism graphs into a neutral <code>interaction_rules</code> format</li>
+<li>[ ] Map existing <code>immune_checkpoint_blockade</code> nodes into the broader tumor ecosystem module</li>
+<li>[ ] Identify high-value CRC additions: CAFs, TAMs, MDSCs, endothelial cells, hypoxia, angiogenesis, metabolic suppression, spatial niches</li>
+<li>[ ] Select 2-3 non-CRC cancer entries for the next TME-enrichment pilot</li>
+<li>[ ] Draft a small PhysiCell-oriented proof of concept showing how one curated mechanism chain becomes executable cell-cell rules</li>
+</ul>
+<h2 id="scientific-thesis">Scientific Thesis</h2>
+<p>Cancer outcome depends on the interaction of four layers:</p>
+<ol>
+<li>Tumor cells</li>
+<li>The immune microenvironment</li>
+<li>The stromal microenvironment</li>
+<li>The systemic macroenvironment</li>
+</ol>
+<p>The working thesis for this project is that tumor-targeted monotherapy fails
+because genomic and epigenomic instability generate resistance heterogeneity
+faster than tolerable tumor-cell-only drug combinations can suppress it.
+Therapeutic strategy therefore has to shift from "kill the clone" to
+"re-engineer the ecosystem."</p>
+<p>Three motivating principles:</p>
+<ol>
+<li>Tumor heterogeneity creates heterogeneous treatment response and resistance
+   that cannot be managed with tumor-targeted combinations alone.</li>
+<li>Drugs aimed at tumor cells also reshape immune, stromal, and systemic
+   environments, sometimes in pro-tumor and sometimes in anti-tumor directions.</li>
+<li>Better efficacy and tolerability should come from combination strategies that
+   jointly target tumor cell state, the TME, and the macroenvironment to push
+   the whole system toward a globally anti-tumor equilibrium.</li>
+</ol>
+<h2 id="why-dismech-fits-this-problem">Why dismech Fits This Problem</h2>
+<p>dismech is already closer to simulator-ready knowledge than a literature review
+or pathway diagram:</p>
+<ul>
+<li>Pathophysiology entries are structured causal chains rather than prose blobs.</li>
+<li>Mechanism modules already capture reusable cross-cell programs.</li>
+<li>Treatments can already point back to mechanism nodes through
+  <code>target_mechanisms</code>.</li>
+<li>The planned claim-extraction work in issue <code>#1100</code> should make these chains
+  serializable as machine-queryable interaction statements.</li>
+</ul>
+<p>In other words, dismech can potentially become the mechanistic prior layer that
+many TME simulators currently hand-author.</p>
+<h2 id="existing-dismech-anchors">Existing dismech Anchors</h2>
+<table>
+<thead>
+<tr>
+<th>Asset</th>
+<th>Why it matters for this project</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kb/disorders/Colon_Adenocarcinoma.yaml</code></td>
+<td>Baseline tumor-intrinsic CRC entry; useful control case for what is currently tumor-centric</td>
+</tr>
+<tr>
+<td><code>kb/disorders/MSI_High_Colorectal_Cancer.yaml</code></td>
+<td>Already models inflamed CRC biology and conforms to <code>immune_checkpoint_blockade</code></td>
+</tr>
+<tr>
+<td><code>kb/disorders/Metastatic_Colorectal_Cancer.yaml</code></td>
+<td>Already mentions angiogenesis, stromal cooperation, hepatic seed-and-soil biology</td>
+</tr>
+<tr>
+<td><code>kb/disorders/BRAF_V600E_Mutant_Colorectal_Cancer.yaml</code> and <code>kb/disorders/HER2_Positive_Colorectal_Cancer.yaml</code></td>
+<td>Existing molecular subtype coverage enables subtype-specific TME extension rather than starting from scratch</td>
+</tr>
+<tr>
+<td><code>kb/modules/immune_checkpoint_blockade.yaml</code></td>
+<td>Direct precedent for a reusable tumor-immune mechanism module</td>
+</tr>
+<tr>
+<td><code>kb/modules/fibrotic_response.yaml</code></td>
+<td>Strong precedent for a cross-disease conserved module with organ-specific substitution in conforming entries</td>
+</tr>
+</tbody>
+</table>
+<p>CRC is therefore the natural pilot. The KB already has subtype-level disease
+coverage, at least one explicit tumor-immune module, and a metastatic entry that
+starts to gesture toward stromal and vascular ecology.</p>
+<h2 id="active-computational-landscape">Active Computational Landscape</h2>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>What it contributes</th>
+<th>Why it matters to dismech</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://physicell.org/">PhysiCell</a> and recent <a href="https://connect.biorxiv.org/archive/show_cat.php?cat=scientific+communication+and+education">PhysiGym</a> work</td>
+<td>Large-scale 3D agent-based multicellular simulation, now with a Gymnasium-style RL bridge</td>
+<td>dismech mechanism graphs could seed cell-cell interaction rules instead of writing them manually</td>
+</tr>
+<tr>
+<td><a href="https://www.microsoft.com/en-us/research/publication/multimodal-ai-generates-virtual-population-for-tumor-microenvironment-modeling/">GigaTIME</a></td>
+<td>Virtual multiplex immunofluorescence from routine H&amp;E at population scale</td>
+<td>Solves TME state initialization and cohort-scale observation, not causal forward simulation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40342863/">TumorTwin</a> and the broader <a href="https://computational.cancer.gov/Community">Computational Cancer Community</a></td>
+<td>Modular patient-specific digital twin infrastructure and NCI-DOE ecosystem building</td>
+<td>dismech could supply curated mechanistic priors and reusable disease modules into digital twin pipelines</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40779623/">M4RL</a></td>
+<td>Multiscale mathematical model-informed RL for glioblastoma treatment scheduling</td>
+<td>Shows that therapy optimization becomes more powerful once tumor-TME dynamics are explicit</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33772089/">SMMART</a></td>
+<td>Serial biopsies and multi-omic analysis of treatment-driven tumor ecosystem adaptation</td>
+<td>Supplies the empirical framing: tumors and their ecosystems adapt under therapy, so simulators need dynamic, not static, mechanism rules</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gap-analysis-for-current-crc-coverage">Gap Analysis for Current CRC Coverage</h2>
+<p>The existing colorectal entries are a strong start, but they are not yet rich
+enough to drive TME simulation without substantial hand engineering.</p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Current dismech CRC coverage</th>
+<th>Major gaps for TME modeling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tumor-intrinsic programs</td>
+<td>Strong: APC/WNT, KRAS/BRAF, HER2, MSI, metastasis</td>
+<td>Needs tighter linkage from tumor genotype to secreted factors and phenotype switching</td>
+</tr>
+<tr>
+<td>Adaptive immunity</td>
+<td>Moderate: MSI-high CRC already models CD8 T-cell response and PD-L1-mediated adaptive resistance</td>
+<td>Missing dendritic cell priming, Treg suppression, NK-cell activity, antigen presentation failure, immune exclusion states</td>
+</tr>
+<tr>
+<td>Myeloid compartment</td>
+<td>Weak</td>
+<td>Need TAMs, MDSCs, neutrophils, inflammatory monocytes, cytokine loops, macrophage polarization logic</td>
+</tr>
+<tr>
+<td>Stromal compartment</td>
+<td>Weak to moderate: metastatic CRC mentions stromal cooperation and CAF-like support</td>
+<td>Need explicit CAF states, ECM remodeling, stiffness, TGF-beta loops, fibroblast-immune crosstalk</td>
+</tr>
+<tr>
+<td>Vasculature and hypoxia</td>
+<td>Weak to moderate: metastatic CRC includes angiogenesis</td>
+<td>Need endothelial cells, pericytes, perfusion failure, VEGF signaling, hypoxia-driven phenotype change</td>
+</tr>
+<tr>
+<td>Metabolic suppression</td>
+<td>Minimal</td>
+<td>Need lactate, adenosine, glutamine competition, acidification, macrophage/T-cell metabolic rewiring</td>
+</tr>
+<tr>
+<td>Spatial organization</td>
+<td>Minimal</td>
+<td>Need invasive margin vs core, immune-excluded vs inflamed vs desert states, liver metastatic niche geography</td>
+</tr>
+<tr>
+<td>Macroenvironment</td>
+<td>Minimal</td>
+<td>Need microbiome, obesity/metabolic inflammation, liver systemic tolerance, bone marrow myelopoiesis, circulating mediators</td>
+</tr>
+</tbody>
+</table>
+<h3 id="immediate-crc-priorities">Immediate CRC priorities</h3>
+<ol>
+<li>Add explicit immune suppressor and stromal effector cell types to the
+   colorectal entries: CAFs, TAMs, MDSCs, Tregs, endothelial cells, pericytes.</li>
+<li>Add missing processes that are central to simulator behavior:
+   angiogenesis, hypoxia response, extracellular matrix remodeling, leukocyte
+   trafficking, metabolic competition, and immune exclusion.</li>
+<li>Represent organ-specific metastatic ecology in metastatic CRC, especially the
+   liver niche, rather than treating metastasis as a tumor-cell-only phenotype.</li>
+<li>Capture subtype-specific TME distinctions instead of one generic CRC
+   environment. MSI-high, BRAF-mutant, HER2-positive, and metastatic CRC should
+   not share the same default ecosystem logic.</li>
+</ol>
+<h2 id="proposed-tumor_ecosystem-module">Proposed <code>tumor_ecosystem</code> Module</h2>
+<p>This should be a reusable mechanism module in <code>kb/modules/</code> using the same
+schema as existing disorder entries.</p>
+<h3 id="design-principles">Design principles</h3>
+<ol>
+<li>Keep the module generic enough to reuse across solid tumors.</li>
+<li>Let conforming entries substitute organ- and tumor-specific cell types.</li>
+<li>Reuse existing module nodes where possible instead of duplicating them.</li>
+<li>Separate minimal conserved logic from disease-specific specialization.</li>
+</ol>
+<h3 id="candidate-conserved-nodes">Candidate conserved nodes</h3>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Role</th>
+<th>Typical actors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tumor Cell Diversification and Plasticity</td>
+<td>trigger</td>
+<td>tumor cell, cancer stem-like cell</td>
+</tr>
+<tr>
+<td>Antigenicity and Immune Priming</td>
+<td>early immune engagement</td>
+<td>tumor cell, dendritic cell, CD8 T cell</td>
+</tr>
+<tr>
+<td>Adaptive Immune Resistance</td>
+<td>conserved immune evasion</td>
+<td>tumor cell, exhausted T cell</td>
+</tr>
+<tr>
+<td>Myeloid Recruitment and Immunosuppression</td>
+<td>amplifier</td>
+<td>TAM, MDSC, neutrophil</td>
+</tr>
+<tr>
+<td>Stromal Activation and ECM Remodeling</td>
+<td>amplifier</td>
+<td>CAF, fibroblast, myofibroblast-like stromal cell</td>
+</tr>
+<tr>
+<td>Angiogenesis and Hypoxic Adaptation</td>
+<td>amplifier</td>
+<td>endothelial cell, pericyte, tumor cell</td>
+</tr>
+<tr>
+<td>Metabolic Competition and Immunosuppressive Metabolites</td>
+<td>amplifier</td>
+<td>tumor cell, T cell, macrophage</td>
+</tr>
+<tr>
+<td>Spatial Exclusion / Barrier Formation</td>
+<td>state-shaping</td>
+<td>CAF, endothelial cell, ECM, T cell</td>
+</tr>
+<tr>
+<td>Metastatic Niche Conditioning</td>
+<td>dissemination support</td>
+<td>tumor cell, organ-resident stromal/immune cells</td>
+</tr>
+<tr>
+<td>Macroenvironmental Reinforcement</td>
+<td>systemic feedback</td>
+<td>bone marrow, liver, microbiome-linked immune tone, circulating cytokines</td>
+</tr>
+</tbody>
+</table>
+<h3 id="relationship-to-existing-modules">Relationship to existing modules</h3>
+<ul>
+<li><code>immune_checkpoint_blockade#Adaptive Immune Resistance</code> should remain a
+  reusable conformance target inside the broader tumor ecosystem model.</li>
+<li><code>fibrotic_response</code> is a useful design precedent for stromal remodeling and
+  myofibroblast-like state transitions.</li>
+<li>A future <code>angiogenesis_inhibition</code> module would likely plug into this same
+  ecosystem architecture.</li>
+</ul>
+<h2 id="export-format-for-agent-based-models-and-digital-twins">Export Format for Agent-Based Models and Digital Twins</h2>
+<p>Raw triples are necessary but not sufficient.</p>
+<p>The claim-extraction roadmap in issue <code>#1100</code> is important because it should
+produce machine-queryable statements such as:</p>
+<p><code>(cell_type_A, process_X, cell_type_B)</code></p>
+<p>However, a simulator needs more than that. It also needs direction, sign,
+conditions, spatial scope, and action semantics.</p>
+<h3 id="recommended-layered-export">Recommended layered export</h3>
+<ol>
+<li><strong>Claim triples</strong>
+   Minimal extraction layer for indexing and search.</li>
+<li><strong>Rule objects</strong>
+   Simulator-neutral mechanism objects with enough fields to execute or compile.</li>
+<li><strong>Backend adapters</strong>
+   Translators from the neutral rule objects into PhysiCell, TumorTwin, or other
+   framework-specific inputs.</li>
+</ol>
+<h3 id="minimal-simulator-neutral-rule-schema">Minimal simulator-neutral rule schema</h3>
+<pre><code class="language-json">{
+  &quot;disease&quot;: &quot;MSI_High_Colorectal_Cancer&quot;,
+  &quot;module_node&quot;: &quot;immune_checkpoint_blockade#Adaptive Immune Resistance&quot;,
+  &quot;source_cell_type&quot;: &quot;tumor cell&quot;,
+  &quot;signal_or_process&quot;: &quot;PD-L1 upregulation&quot;,
+  &quot;target_cell_type&quot;: &quot;CD8-positive, alpha-beta T cell&quot;,
+  &quot;target_process&quot;: &quot;T cell mediated cytotoxicity&quot;,
+  &quot;effect&quot;: &quot;decrease&quot;,
+  &quot;context&quot;: {
+    &quot;anatomical_site&quot;: &quot;colon tumor&quot;,
+    &quot;spatial_region&quot;: &quot;tumor-immune interface&quot;,
+    &quot;disease_subtype&quot;: &quot;MSI-high&quot;
+  },
+  &quot;evidence_weight&quot;: &quot;high&quot;,
+  &quot;references&quot;: [&quot;PMID:38762484&quot;]
+}
+</code></pre>
+<h3 id="what-a-physicell-style-importer-would-need">What a PhysiCell-style importer would need</h3>
+<ul>
+<li>Cell definitions derived from dismech cell type descriptors</li>
+<li>Secreted substrates or state variables derived from cytokines, metabolites, or
+  signaling processes</li>
+<li>Update rules mapping mechanism objects to proliferation, death, motility,
+  exhaustion, recruitment, or secretion parameter changes</li>
+<li>Therapy actions that toggle or attenuate specific mechanism nodes</li>
+<li>Spatial constraints that distinguish core, invasive margin, vasculature, and
+  metastatic niche compartments</li>
+</ul>
+<h3 id="key-point">Key point</h3>
+<p>dismech does not need to become the simulator. It needs to become the
+mechanistic interchange layer between curation and simulation.</p>
+<h2 id="key-references">Key References</h2>
+<ul>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5841829/">PhysiCell: An open source physics-based cell simulator for 3-D multicellular systems</a></li>
+<li><a href="https://physicell.org/">PhysiCell project website</a></li>
+<li><a href="https://connect.biorxiv.org/archive/show_cat.php?cat=scientific+communication+and+education">PhysiGym: bridging the gap between the Gymnasium reinforcement learning application interface and the PhysiCell agent-based model software</a></li>
+<li><a href="https://www.microsoft.com/en-us/research/publication/multimodal-ai-generates-virtual-population-for-tumor-microenvironment-modeling/">GigaTIME: multimodal AI generates virtual population for tumor microenvironment modeling</a></li>
+<li><a href="https://www.microsoft.com/en-us/research/story/microsoft-research-2025-a-year-in-review/">GigaTIME coverage in Microsoft Research 2025 year in review</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40342863/">TumorTwin: A python framework for patient-specific digital twins in oncology</a></li>
+<li><a href="https://computational.cancer.gov/">Computational Resources for Cancer Research portal</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40779623/">M4RL: multiscale mathematical model-informed reinforcement learning optimizes combination treatment scheduling in glioblastoma evolution</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33772089/">SMMART serial-biopsy ecosystem analysis in advanced breast cancer</a></li>
+<li><a href="https://www.ohsu.edu/knight-cancer-institute/smmart-clinical-trials-research">SMMART clinical trials research at OHSU</a></li>
+</ul>
+<h2 id="candidate-diseases-for-expansion-beyond-crc">Candidate Diseases for Expansion Beyond CRC</h2>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th>Why TME enrichment is especially valuable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Pancreatic_Ductal_Adenocarcinoma.yaml</code> and <code>Metastatic_Pancreatic_Adenocarcinoma.yaml</code></td>
+<td>Canonical desmoplastic, CAF-rich, immune-excluded tumor ecosystem</td>
+</tr>
+<tr>
+<td><code>Glioblastoma_IDH_Wildtype.yaml</code></td>
+<td>Direct fit for M4RL-style TAM-driven scheduling models and TumorTwin-style digital twins</td>
+</tr>
+<tr>
+<td><code>Hepatocellular_Carcinoma.yaml</code></td>
+<td>Strong interplay among tumor cells, fibrosis, angiogenesis, and the tolerogenic liver macroenvironment</td>
+</tr>
+<tr>
+<td><code>Non-Small_Cell_Lung_Cancer.yaml</code>, <code>EGFR_Mutant_NSCLC.yaml</code>, <code>KRAS_G12C_Mutant_NSCLC.yaml</code>, <code>Metastatic_NSCLC.yaml</code></td>
+<td>Mature immunotherapy and targeted-therapy landscape with clear TME-mediated response heterogeneity</td>
+</tr>
+<tr>
+<td><code>Triple_Negative_Breast_Cancer.yaml</code> and <code>HER2_Positive_Breast_Cancer.yaml</code></td>
+<td>Strong SMMART relevance and rich literature on subtype-specific immune and stromal response states</td>
+</tr>
+<tr>
+<td><code>Ovarian_High-Grade_Serous_Carcinoma.yaml</code></td>
+<td>Ascites, mesothelial interaction, immune dysfunction, and metastatic niche biology are central</td>
+</tr>
+<tr>
+<td><code>Clear_Cell_Renal_Cell_Carcinoma.yaml</code> and <code>Metastatic_Renal_Cell_Carcinoma.yaml</code></td>
+<td>Angiogenesis and immunotherapy are already central clinical levers, making ecosystem modeling highly actionable</td>
+</tr>
+</tbody>
+</table>
+<h2 id="deliverables-this-project-should-produce">Deliverables This Project Should Produce</h2>
+<ol>
+<li>A TME gap-analysis rubric for cancer entries in dismech</li>
+<li>A reusable <code>tumor_ecosystem</code> mechanism module</li>
+<li>A simulator-neutral interaction rule export format</li>
+<li>A CRC pilot that shows the curation-to-simulation workflow end to end</li>
+<li>A short list of next cancers where TME enrichment has the highest payoff</li>
+</ol>
+<h2 id="notes">Notes</h2>
+<h3 id="2026-04-12">2026-04-12</h3>
+<p>Project created to evaluate dismech as a mechanistic layer for tumor ecosystem
+modeling.</p>
+<p>Key observations:</p>
+<ol>
+<li>CRC is the right pilot because the KB already contains a spectrum from
+   baseline adenocarcinoma to MSI-high immune-responsive disease to metastatic
+   seed-and-soil biology.</li>
+<li>The existing <code>immune_checkpoint_blockade</code> module is already a genuine TME
+   module, just a narrow one centered on adaptive immune resistance.</li>
+<li>The biggest missing piece is not literature volume but representation:
+   simulators need explicit actors, signals, states, and spatial context.</li>
+<li>GigaTIME-like systems can help initialize or infer TME state from routine
+   pathology, while PhysiCell, M4RL, and digital twin frameworks can use
+   dismech-derived rules for forward simulation and intervention search.</li>
+<li>The project should treat raw claim triples as an intermediate product, not
+   the final export. Executable simulation rules need richer structure.</li>
+<li>First high-confidence attachable PhysiCell anchors for dismech are already
+   available in the official <code>grammar_samples</code> release: <code>epi_caf_invasion</code> and
+   <code>pdac_therapy</code> for PDAC, plus <code>tumor_immune_base</code> and
+   <code>tumor_immune_extended</code> as reusable tumor-immune exemplars.</li>
+</ol>
+        </article>
+    </div>
+</body>
+</html>

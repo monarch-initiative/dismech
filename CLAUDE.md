@@ -97,6 +97,17 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 - Generates browsable HTML pages in `pages/disorders/`
 - Links ontology terms to external browsers (HPO JAX, MONDO Monarch, OLS, etc.)
 
+### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
+The cron cadence of the scheduled "agent" workflows (curation-scanner,
+pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
+weekly-compliance, stale-pr-reassign, post-review-agent) is centralized in
+`.github/cron-profiles.yaml` as named profiles (`slow`/`medium`/`fast`/`fast-weekend`).
+Switch with `just cron-profile <name>` (preview with `just cron-profile-preview <name>`,
+list with `just cron-profiles`), which rewrites the `on.schedule` cron lines in
+each workflow and commits. Do NOT hand-edit those cron lines — edit the profile
+config instead. Page/build crons are intentionally unmanaged. See
+[`docs/cron-profiles.md`](docs/cron-profiles.md).
+
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
   frontmatter (`title`, `status`, `tags`, `description`, and entity lists:
@@ -119,6 +130,10 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 - `ClinGenSource` — pre-caches ClinGen Gene-Disease Validity assertions from
   the public CSV so curators can cite `CGGV:<assertion_id>` and quote the
   gene-disease validity row
+- `ICEESSource` — pre-caches disease-disease comorbidity pairs from the ICEES
+  Knowledge Graph (RENCI/UNC; the MONDO/HP-coded EHR sibling of COHD) so curators
+  can cite `ICEES:<A>__<B>` and quote a per-cohort chi-square row in a comorbidity
+  entry's `association_signals`
 - See "Structured-Database Reference Sources" below
 
 ### Validation Stack
@@ -167,6 +182,8 @@ pathophysiology:
 
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
+- `cellular_senescence` — Conserved cellular senescence: senescence-inducing stress → p16INK4a/Rb and p53/p21 cell-cycle arrest → senescence-associated secretory phenotype (SASP) → senescent cell accumulation (when immune clearance is outpaced) → chronic inflammation and tissue dysfunction driving age-related disease. Carries the two canonical senescence biomarkers (p16INK4a/CDKN2A and senescence-associated beta-galactosidase) as `biochemical` readouts, plus the senolytic drug-target pattern (treatments use `target_mechanisms` to link back to "Senescent Cell Accumulation"). Intentionally lean: disease-specific or context-dependent downstream theories (e.g. the age-contextualized accelerated-aging/early-onset-cancer association) are NOT embedded — they belong on the relevant disorder or comorbidity/trajectory entry, which can `conforms_to`/reference this module. Worked conformers: Osteoarthritis (senescent chondrocytes), pulmonary fibrosis (senescent fibroblasts). Key conformance target: `cellular_senescence#Senescent Cell Accumulation`. Complemented by `senescence_tumor_suppression` (the protective arm).
+- `senescence_tumor_suppression` — Conserved tumor-SUPPRESSIVE arm of senescence/aging, the deliberate complement of `cellular_senescence`: oncogenic/replicative/genotoxic stress in at-risk cells → p16INK4a/Rb and p53/p21 senescence-associated arrest → barrier to malignant transformation, with a convergent later-life thread (aging-associated loss of stemness, PMID:39633048) limiting tumor-initiating capacity. Carries the pro-senescent (senescence-inducing) drug-target pattern (treatments use `target_mechanisms` with `ACTIVATES` to reinforce the arrest), the conceptual inverse of the senolytic pattern. Together the two senescence modules capture the antagonistic pleiotropy of senescence as two modules rather than one effect-reversing edge. Framing guardrail: does NOT assert net age-protection (older people have higher overall cancer incidence); models specific conserved barriers. Key conformance target: `senescence_tumor_suppression#Barrier to Malignant Transformation`
 - `immune_checkpoint_blockade` — Conserved tumor-immune evasion pattern: neoantigen generation → anti-tumor T cell response → adaptive immune resistance (PD-L1 upregulation) → T cell exhaustion and immune escape. Drug mechanism design pattern: checkpoint inhibitor treatments use `target_mechanisms` to link back to the "Adaptive Immune Resistance" node they inhibit. Key conformance target: `immune_checkpoint_blockade#Adaptive Immune Resistance`
 - `bacterial_cell_wall_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for cell-wall-active antibiotics: peptidoglycan precursor/lipid II synthesis (fosfomycin, cycloserine, bacitracin, glycopeptide targets) → PBP transpeptidase cross-linking (the beta-lactam target) → cell-envelope integrity failure and bactericidal autolysis, with two resistance branches that gate drug choice: acquired resistance/drug inactivation (beta-lactamase, PBP2a, D-Ala-D-Lac remodeling) and intrinsic resistance in cell-wall-deficient organisms (Mycoplasma/Mollicutes have no target). Drug mechanism design pattern: cell-wall-active treatments use `target_mechanisms` to link back to the inhibited node. Key conformance / treatment target: `bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins`. See `projects/ANTIMICROBIAL.md` for the broader drug–bug strategy.
 - `bacterial_protein_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for ribosome-targeting antibiotics: bacterial mRNA translation by the 70S ribosome (the shared target of 30S-acting tetracyclines/aminoglycosides and 50S-acting macrolides, lincosamides, chloramphenicol, oxazolidinones) → suppression of toxin and exoprotein synthesis (the anti-toxin rationale for adjunctive clindamycin/linezolid in toxin-mediated streptococcal/staphylococcal disease, beyond bacterial killing) → ribosomal target resistance (erm rRNA methylation/MLSb, ribosomal mutation, drug-modifying enzymes, efflux). Key conformance / treatment targets: `bacterial_protein_synthesis_inhibition#Bacterial mRNA Translation by the Ribosome` and `#Suppression of Toxin and Exoprotein Synthesis`.
@@ -181,6 +198,12 @@ pathophysiology:
 - `aortopathy_tgfbeta_dysregulation` — Conserved heritable thoracic aortic aneurysm/dissection (TAAD) pattern: aortic-wall ECM or smooth-muscle contractile-apparatus defect → paradoxically increased TGF-beta signaling dysregulation → medial degeneration (smooth muscle cell depletion + elastic fiber fragmentation) and wall weakening → progressive aortic dilation/aneurysm → aortic dissection and rupture. Conforming disorder nodes substitute the disorder-specific primary lesion (FBN1 microfibril deficiency in Marfan/Shprintzen-Goldberg; TGFBR1/2, SMAD3, TGFB2/3 in Loeys-Dietz; COL3A1 in vascular Ehlers-Danlos; SLC2A10 in arterial tortuosity; ACTA2/MYH11/MYLK/PRKG1 in nonsyndromic familial TAAD). Key conformance target: `aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation`
 - `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
 - `cardiac_ion_channel_repolarization` — Conserved cardiac channelopathy pattern: cardiac ion-channel or calcium-handling variant → altered action-potential duration / Ca²⁺ handling → arrhythmogenic substrate and triggered activity (EADs/DADs, dispersion of repolarization, reentry) → ventricular tachyarrhythmia → syncope and sudden cardiac death, with a parallel sinoatrial-node automaticity-failure branch producing bradyarrhythmia. For inherited arrhythmia syndromes in structurally normal hearts (Long QT, Short QT, Brugada, RYR2-CPVT, Timothy, torsade/short-coupled VF, familial sick sinus). Key conformance target: `cardiac_ion_channel_repolarization#Arrhythmogenic Substrate and Triggered Activity`
+
+The following modules capture conserved **treatment-toxicity / "side effect as mechanism"** patterns — adverse-drug-reaction pathophysiology that recurs across many culprit drugs, so a drug-toxicity entry can declare conformance rather than re-deriving the chain (the same insult-agnostic convergence logic the `intestinal_barrier_dysfunction` module already applies to drug-induced and disease-intrinsic diarrhea). Note that several mechanism modules above (`peripheral_axonal_degeneration` for chemo-induced peripheral neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT) already double as toxicity targets without a separate "side effect" class:
+- `myelosuppression` — Conserved cytotoxic bone-marrow-toxicity pattern (chemotherapy, radiation, other antiproliferative exposures): cytotoxic insult to proliferating hematopoietic stem/progenitor cells → bone marrow hematopoietic suppression → multilineage peripheral cytopenias (neutropenia/anemia/thrombocytopenia) → cytopenia-related clinical complications (infection/febrile neutropenia, fatigue, bleeding) and dose-limiting toxicity. Conforming disorder nodes substitute the disorder-specific cytotoxic driver and may specialize the cytopenia node to a predominant lineage. Key conformance target: `myelosuppression#Multilineage Peripheral Cytopenias`
+- `drug_induced_liver_injury` — Conserved hepatotoxicity pattern (DILI) across hepatotoxic drugs: reactive drug-metabolite formation / BSEP inhibition and hepatocellular stress (the acetaminophen → NAPQI archetype) → mitochondrial dysfunction and oxidative stress → hepatocyte cell death (necrosis/apoptosis) → sterile and immune-mediated inflammatory amplification (innate/adaptive immunity in idiosyncratic DILI) → liver injury (hepatocellular/cholestatic/mixed) progressing to acute liver failure. Conforming disorder nodes substitute the drug-specific proximal mechanism (reactive metabolite, BSEP inhibition, or immune-mediated idiosyncratic injury). Key conformance target: `drug_induced_liver_injury#Hepatocyte Cell Death`. Worked conformer: `Acetaminophen_Hepatotoxicity`.
+- `drug_induced_nephrotoxicity` — Conserved nephrotoxicity pattern (dose-dependent acute tubular injury) across nephrotoxic drugs (cisplatin, aminoglycosides, vancomycin, tenofovir, amphotericin B, contrast, NSAIDs): nephrotoxic drug exposure and proximal tubular uptake (apical endocytosis / OAT-OCT transport with intracellular accumulation) → tubular oxidative stress and mitochondrial injury → proximal tubular epithelial cell death (apoptosis/acute tubular necrosis) → tubulointerstitial inflammation → acute kidney injury (falling GFR), frequently dose-limiting. Models the dose-dependent ATN arm; crystal/cast obstruction and immune interstitial nephritis are distinct arms. Conforming disorder nodes substitute the drug-specific uptake route. Key conformance target: `drug_induced_nephrotoxicity#Proximal Tubular Epithelial Cell Death`. Worked conformer: the `Nephrotoxic Injury` node of `Hospital-Acquired_Acute_Kidney_Injury`.
+- `drug_hypersensitivity_scar` — Conserved immune-mediated (type IV hypersensitivity) toxicity pattern for severe cutaneous adverse reactions (SCARs), with SJS/TEN as prototype, across allopurinol, aromatic antiepileptics, sulfonamides, abacavir, NSAIDs: HLA class I-restricted drug/metabolite presentation to drug-specific T cells → drug-specific cytotoxic T-cell and NK-cell activation → cytotoxic mediator release (granulysin, FasL, perforin/granzyme) and keratinocyte death (apoptosis/necroptosis) → epidermal necrolysis and detachment → mucocutaneous failure with high mortality. The immune-mediated counterpart to the cytotoxic/metabolic/transport toxicity modules; HLA risk alleles gate susceptibility. DRESS/AGEP share the logic but are not the evidence focus. Key conformance target: `drug_hypersensitivity_scar#Cytotoxic Mediator Release and Keratinocyte Death`. Worked conformer: `Allopurinol_Induced_SJS_TEN` (HLA-B*58:01).
 
 The following modules capture conserved final-common-pathway mechanisms of **"disease-like phenotypes"** — phenotypes that are themselves diseases, carrying both an HP and a MONDO identifier (e.g. osteoporosis, glaucoma). Each is a recurrent downstream convergence point across many disorders:
 - `osteoporosis_bone_resorption` — Conserved low-bone-mass pattern (HP:0000939): bone remodeling imbalance → RANKL-driven osteoclastogenesis → increased osteoclastic bone resorption → impaired osteoblastic formation → net bone loss and skeletal fragility. Key conformance target: `osteoporosis_bone_resorption#Increased Osteoclastic Bone Resorption`
@@ -1097,6 +1120,54 @@ as evidence `snippet:` values.
 | `CGGV:` | ClinGen Gene-Disease Validity CSV | One record per gene-disease validity assertion | ClinGen terms |
 | `CGDS:` | ClinGen Dosage Sensitivity downloads | One record per dosage-sensitive gene | ClinGen terms |
 | `CIVIC_ASSERTION:`, `CIVIC_EID:` | CIViC accepted assertion and clinical evidence TSVs | One record per accepted CIViC assertion or evidence item | CIViC |
+| `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
+| `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
+
+**Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
+
+`NCIT:P302` links a drug to the free-text disease/condition it is an accepted
+treatment for. It is ingested by the generic, manifest-driven
+`OntologyEdgeSource` (`src/dismech/structured_sources/ontology_edges.py`), which
+selects predicate edges out of the OAK-managed NCIT SQLite — the multi-hundred-MB
+`.db` is **never committed**, only the selectively generated per-subject cache
+files. Each `references_cache/NCIT_<Cxxxx>.md` body holds a unified edge table
+(`| ID | LABEL | PRED | TARGET_ID | TARGET_LABEL | METADATA |`); for the string
+predicate P302 the indication text is in the METADATA column:
+
+```yaml
+treatments:
+- name: Midostaurin
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: midostaurin
+      term:
+        id: NCIT:C1872
+        label: Midostaurin
+  evidence:
+  - reference: NCIT:C1872
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: "Midostaurin | Accepted_Therapeutic_Use_For | - | - | acute myeloid leukemia (AML) who are FLT3 mutation-positive (FLT3+)"
+    explanation: NCI Thesaurus asserts accepted therapeutic use for FLT3+ AML.
+```
+
+As with ORPHA/ICEES rows, a quoted snippet may include or omit the leading and
+trailing pipes. Build/refresh and audit coverage with:
+
+```bash
+just ncit-edges-refresh                 # ensure OAK NCIT db present, check pinned version
+just ncit-edges-rebuild                 # rebuild all references_cache/NCIT_*.md
+just ncit-edges-rebuild --id NCIT:C1872 # one drug
+just ncit-p302-audit --format summary   # advisory treatment-coverage audit
+```
+
+See `projects/NCIT_TREATMENT_INDICATIONS.md` for the completeness project. The
+coded molecular-target relation `NCIT:A7` (`Has_Target`) is a natural follow-on
+predicate for the same source but is not yet ingested.
 
 **Citing an Orphanet entry:**
 
@@ -1167,6 +1238,47 @@ ClinGen dosage cache bodies contain a `## Gene dosage sensitivity` table and,
 when available, report-page narrative for haploinsufficiency and
 triplosensitivity evidence.
 
+**Citing an ICEES KG comorbidity pair:**
+
+ICEES (Integrated Clinical and Environmental Exposures Service, RENCI/UNC) is
+the EHR sibling of COHD: it exposes chi-square disease-disease co-occurrence
+from single-site UNC Health EHR data, but its nodes are already MONDO/HP-coded.
+The `ICEES:` prefix is the structured-source counterpart of the live COHD API
+(`scripts/cohd_pair_to_signal.py`) — use ICEES when you want to **quote a cohort
+statistic as a snippet-validated evidence row**, and use the COHD script when
+you want hospital-wide co-occurrence metrics generated on the fly. A pair id is
+`ICEES:<A>__<B>` with the two disease/phenotype CURIEs sorted and `:` → `_`:
+
+```yaml
+association_signals:
+- source: ICEES
+  method: EHR_COHORT_ASSOCIATION
+  signal_disorder_a_id: MONDO:0004979
+  signal_disorder_b_id: MONDO:0005002
+  population: >-
+    ICEES KG 8-20-2024, UNC Health primary-ciliary-dyskinesia cohort
+    (condition-specific base population), chi-square contingency.
+  statistics:
+    metrics:
+    - metric_type: CHI_SQUARE
+      metric_value: 168.58533016733276
+      p_value: 1.5071340388291068e-38
+      notes: ICEES PCD 2016 cohort co-occurrence of asthma and COPD.
+  evidence:
+  - reference: ICEES:MONDO_0004979__MONDO_0005002
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: "PCD_UNC_patient_2016_v6_binned_deidentified | 168.58533016733276 | 1 | 1.5071340388291068e-38 | 5688"
+    explanation: ICEES EHR cohort shows significant asthma-COPD co-occurrence.
+```
+
+Each `## Cohort statistics` row (`| cohort | chi-square | dof | p-value | N |`)
+is a stable quotable substring. **Interpretation caveats:** ICEES cohorts are
+*condition-specific* patient sets (asthma, PCD), so a statistic is conditioned
+on that base population — not hospital-wide like COHD; and the chi-square values
+are **not multiple-testing corrected** and are inflated by very large cohort N,
+so apply the same FDR skepticism used for COHD signals.
+
 **How the cache is built:**
 
 ```bash
@@ -1193,6 +1305,12 @@ just clingen-dosage-refresh
 just clingen-dosage-list
 just clingen-dosage-rebuild
 just clingen-dosage-rebuild --id CGDS:HGNC_9585
+
+# ICEES KG (pinned by data/icees-kg/MANIFEST.yaml; emits MONDO/HP disease pairs)
+just icees-refresh
+just icees-list
+just icees-rebuild
+just icees-rebuild --id MONDO:0004979,MONDO:0005002
 ```
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is

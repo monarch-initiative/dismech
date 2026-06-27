@@ -121,8 +121,23 @@ Depending on user preference, use one or more of the following commands
 - `just research-disorder openai DISORDER_NAME`
 - `just research-disorder cyberian DISORDER_NAME`
 - `just research-disorder openscientist DISORDER_NAME`
+- `just research-disorder claude_code DISORDER_NAME`
 
 Use the filesystem-friendly name here.
+
+`claude_code` needs **no separate API key**. It wraps the local `claude` CLI as
+a subprocess (`claude --print --output-format json`), reusing the Claude Code
+credential that is already present — `CLAUDE_CODE_OAUTH_TOKEN` is exported in
+both `dragon-ai.yml` and `curation-scanner.yml`, so it works in CI with no new
+secret. The provider **auto-enables whenever `claude` is on PATH** (disable it
+with `DISABLE_CLAUDE_CODE_PROVIDER=true`). For security it restricts the
+subprocess to read-only research tools (`WebSearch`, `WebFetch`) — no
+filesystem mutations from the research prompt. It captures run provenance (the
+model used, cost, turn count, web-search count) in a `run_metadata` field and
+forces the report inline rather than deferring to a background workflow
+artifact. This makes it the natural default when you are already inside a Claude
+Code agentic session and just want a web-grounded report without standing up
+extra credentials. Requires `deep-research-client >= 0.2.7`.
 
 `falcon` requires `EDISON_API_KEY` **or** `FUTUREHOUSE_API_KEY` to be exported
 in the environment — both names refer to the same key and are accepted
@@ -180,6 +195,14 @@ Timing varies by provider. As a rule of thumb:
 - `falcon` may take 20 minutes or longer
 - `cyberian` runtime varies with workflow complexity and can also be long-running
 - `openscientist` typically takes 10–30 minutes depending on queue depth and iteration count
+- `claude_code` typically completes in a few minutes — it runs a single bounded
+  agentic session of web searches/fetches rather than a long iterative pipeline,
+  so it is usually faster than `falcon`/`openscientist` but with web-grounded
+  (not exhaustive bibliographic) coverage. A representative run (Sarcoidosis,
+  #4761) took ~4m50s, did 11 web searches over 13 turns, returned 24 citations,
+  and cost ~$2 in Claude Code usage. The report's YAML frontmatter records this
+  provenance under `run_metadata` (models used, `web_search_requests`,
+  `num_turns`, `total_cost_usd`, `session_id`).
 
 On completion, this will create a file here:
 

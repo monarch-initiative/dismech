@@ -424,7 +424,7 @@ check-enum-cache:
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter validate-all validate-modules validate-groupings qc-deep-research
+qc: check-reference-cache-frontmatter check-folded-hyphens validate-all validate-modules validate-groupings qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -574,6 +574,19 @@ validate-references file:
 check-reference-cache-frontmatter:
     @just fix-references-cache
     uv run python -m dismech.reference_cache_frontmatter references_cache
+
+# Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
+# '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
+# A baseline grandfathers the pre-existing backlog; this fails only on new ones.
+[group('QC')]
+check-folded-hyphens:
+    uv run python scripts/check_folded_hyphens.py
+
+# Regenerate the folded-scalar hyphen baseline after intentionally changing the
+# set (e.g. fixing backlog entries). Review the diff before committing.
+[group('QC')]
+update-folded-hyphen-baseline:
+    uv run python scripts/check_folded_hyphens.py --update-baseline
 
 # Validate ALL snippet/reference pairs against PubMed across all disorder files
 # Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed
@@ -758,6 +771,11 @@ gen-grouping-pages:
 gen-research-index:
     uv run python -m dismech.render --research
     @echo "Generated pages/research/index.html"
+
+# Regenerate the deep-research provider table in details/index.html from the registry
+[group('Pages')]
+gen-provider-docs:
+    uv run python -m dismech.render --provider-docs
 
 # Generate a single comorbidity page
 [group('Pages')]
@@ -948,6 +966,7 @@ templates_dir := "templates"
 #   just research-disorder asta Liver_Cirrhosis
 #   just research-disorder openai Huntingtons_Disease --model gpt-4o
 #   just research-disorder cborg Crohn_Disease
+#   just research-disorder claude_code Sarcoidosis   # no extra key; reuses Claude Code creds
 [group('Research')]
 research-disorder provider disorder *args="":
     #!/usr/bin/env bash
@@ -1341,6 +1360,11 @@ clingen-dosage-refresh:
 civic-refresh:
     uv run python -m dismech.structured_sources.cli refresh civic
 
+# Refresh curated gene-set GO interpretations + membership (pinned by data/genesets/MANIFEST.yaml)
+[group('Research')]
+genesets-refresh:
+    uv run python -m dismech.structured_sources.cli refresh mygeneset
+
 # Rebuild every references_cache/ORPHA_*.md from current bulk XML
 # Use --id to limit to specific ORPHA codes.
 [group('Research')]
@@ -1365,6 +1389,44 @@ clingen-dosage-rebuild *args="":
 civic-rebuild *args="":
     uv run python -m dismech.structured_sources.cli rebuild civic {{args}}
 
+# Rebuild every references_cache/MYGENESET_*.md from current interpretations + membership
+# Use --id to limit to specific gene-set ids (e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA).
+[group('Research')]
+genesets-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild mygeneset {{args}}
+
+# List the first N gene-set identifiers available to ingest
+[group('Research')]
+genesets-list limit="50":
+    uv run python -m dismech.structured_sources.cli list mygeneset --limit {{limit}}
+
+# Align a gene set's curated BPs to a disorder's pathograph BPs (hierarchy-aware, role-weighted)
+# e.g. `just genesets-align Asthma KEGG_ASTHMA`
+[group('Research')]
+genesets-align disease gene_set:
+    uv run python -m dismech.structured_sources.cli align {{disease}} {{gene_set}}
+
+# Align every disease-context gene set to its dismech disorder (by MONDO) — catalog-wide audit
+[group('Research')]
+genesets-align-all *args="":
+    uv run python -m dismech.structured_sources.cli align-all {{args}}
+
+# Refresh ICEES KG node/edge JSON-Lines (pinned by data/icees-kg/MANIFEST.yaml)
+[group('Research')]
+icees-refresh:
+    uv run python -m dismech.structured_sources.cli refresh icees
+
+# Rebuild every references_cache/ICEES_*.md from the current ICEES KG snapshot.
+# Use --id to limit to a specific ICEES pair id or a "CURIE,CURIE" disease pair.
+[group('Research')]
+icees-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild icees {{args}}
+
+# List the first N ICEES KG disease-pair identifiers
+[group('Research')]
+icees-list limit="20":
+    uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
+
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]
 clingen-list limit="20":
@@ -1384,6 +1446,29 @@ clingen-audit-yaml *args="":
 [group('Research')]
 structured-list source="orphanet" limit="20":
     uv run python -m dismech.structured_sources.cli list {{source}} --limit {{limit}}
+
+# Ensure the OAK-managed NCIT SQLite is present and check pinned version
+# (data/ncit-edges/MANIFEST.yaml). The .db is downloaded by OAK, never committed.
+[group('Research')]
+ncit-edges-refresh:
+    uv run python -m dismech.structured_sources.cli refresh ncit
+
+# Rebuild every references_cache/NCIT_*.md from selected NCIT predicate edges
+# (NCIT:P302 Accepted_Therapeutic_Use_For). Use --id NCIT:Cxxxx to limit.
+[group('Research')]
+ncit-edges-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild ncit {{args}}
+
+# List the first N NCIT subjects carrying a selected predicate edge
+[group('Research')]
+ncit-edges-list limit="20":
+    uv run python -m dismech.structured_sources.cli list ncit --limit {{limit}}
+
+# Audit NCIT P302 (Accepted_Therapeutic_Use_For) treatment-indication coverage
+# against dismech disorders. Writes a TSV; --format summary for a digest.
+[group('Research')]
+ncit-p302-audit *args="":
+    uv run python scripts/ncit_p302_audit.py {{args}}
 
 # ============== Classification Schemas ==============
 
@@ -1834,3 +1919,22 @@ disorder-report file:
     else
         echo "  (pandoc not found — skipping PDF generation)"
     fi
+
+# ============== Scheduled-workflow cron profiles ==============
+
+# List the available cron cadence profiles and show the active one.
+[group('Cron profiles')]
+cron-profiles:
+    uv run python scripts/apply_cron_profile.py --list
+
+# Show what a profile would change without writing anything.
+# Example: just cron-profile-preview fast
+[group('Cron profiles')]
+cron-profile-preview name:
+    uv run python scripts/apply_cron_profile.py {{name}} --dry-run
+
+# Apply a cron cadence profile to the scheduled workflows and commit.
+# Example: just cron-profile slow
+[group('Cron profiles')]
+cron-profile name:
+    uv run python scripts/apply_cron_profile.py {{name}}
