@@ -26,6 +26,7 @@ from dismech.structured_sources.clingen_yaml_audit import (
     format_tsv,
 )
 from dismech.structured_sources.civic import CivicSource
+from dismech.structured_sources.mygeneset import MyGenesetSource
 from dismech.structured_sources.icees import ICEESSource
 from dismech.structured_sources.orphanet import OrphanetSource
 
@@ -58,6 +59,11 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             CivicSource.load_manifest(manifest)
         return CivicSource(_DEFAULT_DATA_DIR / "civic")
+    if name in {"mygeneset", "genesets", "geneset"}:
+        manifest = _DEFAULT_DATA_DIR / "genesets" / "MANIFEST.yaml"
+        if manifest.exists():
+            MyGenesetSource.load_manifest(manifest)
+        return MyGenesetSource(_DEFAULT_DATA_DIR / "genesets")
     if name in {"icees", "icees-kg", "icees_kg"}:
         manifest = _DEFAULT_DATA_DIR / "icees-kg" / "MANIFEST.yaml"
         if manifest.exists():
@@ -132,6 +138,88 @@ def list_cmd(
     typer.echo(f"{len(ids)} identifiers in {source}")
     for ident in ids[:limit]:
         typer.echo(f"  {ident}")
+
+
+@app.command("align")
+def align_cmd(
+    disease: str = typer.Argument(..., help="Disorder name or path to its YAML"),
+    gene_set: str = typer.Argument(..., help="Gene set id, e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA"),
+    kb_dir: Path = typer.Option(
+        _REPO_ROOT / "kb" / "disorders", "--kb-dir", help="Disorder YAML directory"
+    ),
+    cache_dir: Path = typer.Option(
+        _DEFAULT_CACHE_DIR, "--cache-dir", help="Reference cache directory"
+    ),
+    no_hierarchy: bool = typer.Option(
+        False, "--no-hierarchy", help="Exact GO-id match only (skip the OAK GO adapter)"
+    ),
+) -> None:
+    """Align a gene set's curated BPs to a disorder's pathograph BPs."""
+    from dismech import genesets_align as ga
+
+    # Resolve the disorder file (accept a name or a path).
+    disease_path = Path(disease)
+    if not disease_path.exists():
+        disease_path = kb_dir / f"{disease}.yaml"
+    if not disease_path.exists():
+        raise typer.BadParameter(f"disorder not found: {disease}")
+    disease_name = disease_path.stem
+
+    local_id = ga_local_id(gene_set)
+    cache_path = cache_dir / f"MYGENESET_{local_id}.md"
+    if not cache_path.exists():
+        raise typer.BadParameter(
+            f"no cache file {cache_path.name}; run `just genesets-rebuild` first"
+        )
+
+    set_bps = ga.read_set_bps(cache_path)
+    pathograph_bps = ga.extract_pathograph_bps(disease_path)
+
+    adapter = None
+    if not no_hierarchy:
+        try:
+            from oaklib import get_adapter
+
+            adapter = get_adapter("sqlite:obo:go")
+        except Exception as exc:  # pragma: no cover - degrade to exact match
+            typer.echo(f"(GO adapter unavailable, exact-match only: {exc})", err=True)
+
+    result = ga.align(
+        f"MYGENESET:{local_id}", disease_name, set_bps, pathograph_bps, adapter
+    )
+    typer.echo(ga.format_report(result))
+
+
+def ga_local_id(gene_set: str) -> str:
+    return MyGenesetSource.local_id_from_gene_set_id(gene_set)
+
+
+@app.command("align-all")
+def align_all_cmd(
+    kb_dir: Path = typer.Option(
+        _REPO_ROOT / "kb" / "disorders", "--kb-dir", help="Disorder YAML directory"
+    ),
+    cache_dir: Path = typer.Option(
+        _DEFAULT_CACHE_DIR, "--cache-dir", help="Reference cache directory"
+    ),
+    no_hierarchy: bool = typer.Option(
+        False, "--no-hierarchy", help="Exact GO-id match only (skip the OAK GO adapter)"
+    ),
+) -> None:
+    """Align every disease-context gene set to its dismech disorder (by MONDO)."""
+    from dismech import genesets_align as ga
+
+    adapter = None
+    if not no_hierarchy:
+        try:
+            from oaklib import get_adapter
+
+            adapter = get_adapter("sqlite:obo:go")
+        except Exception as exc:  # pragma: no cover - degrade to exact match
+            typer.echo(f"(GO adapter unavailable, exact-match only: {exc})", err=True)
+
+    entries = ga.sweep(cache_dir, kb_dir, adapter)
+    typer.echo(ga.format_sweep(entries))
 
 
 @app.command("clingen-audit-yaml")

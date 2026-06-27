@@ -1360,6 +1360,11 @@ clingen-dosage-refresh:
 civic-refresh:
     uv run python -m dismech.structured_sources.cli refresh civic
 
+# Refresh curated gene-set GO interpretations + membership (pinned by data/genesets/MANIFEST.yaml)
+[group('Research')]
+genesets-refresh:
+    uv run python -m dismech.structured_sources.cli refresh mygeneset
+
 # Rebuild every references_cache/ORPHA_*.md from current bulk XML
 # Use --id to limit to specific ORPHA codes.
 [group('Research')]
@@ -1383,6 +1388,28 @@ clingen-dosage-rebuild *args="":
 [group('Research')]
 civic-rebuild *args="":
     uv run python -m dismech.structured_sources.cli rebuild civic {{args}}
+
+# Rebuild every references_cache/MYGENESET_*.md from current interpretations + membership
+# Use --id to limit to specific gene-set ids (e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA).
+[group('Research')]
+genesets-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild mygeneset {{args}}
+
+# List the first N gene-set identifiers available to ingest
+[group('Research')]
+genesets-list limit="50":
+    uv run python -m dismech.structured_sources.cli list mygeneset --limit {{limit}}
+
+# Align a gene set's curated BPs to a disorder's pathograph BPs (hierarchy-aware, role-weighted)
+# e.g. `just genesets-align Asthma KEGG_ASTHMA`
+[group('Research')]
+genesets-align disease gene_set:
+    uv run python -m dismech.structured_sources.cli align {{disease}} {{gene_set}}
+
+# Align every disease-context gene set to its dismech disorder (by MONDO) — catalog-wide audit
+[group('Research')]
+genesets-align-all *args="":
+    uv run python -m dismech.structured_sources.cli align-all {{args}}
 
 # Refresh ICEES KG node/edge JSON-Lines (pinned by data/icees-kg/MANIFEST.yaml)
 [group('Research')]

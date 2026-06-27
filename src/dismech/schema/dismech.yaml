@@ -1835,7 +1835,41 @@ enums:
           expert-authored, peer-reviewed summaries updated on a rolling basis;
           they are the gold-standard narrative resource for rare Mendelian
           disease phenotyping and management.
+
+  GeneSetRelationshipEnum:
+    description: >-
+      How an external gene set (e.g. an MSigDB/KEGG pathway, a cell-type
+      signature, or an expression-perturbation signature) relates to a disease
+      entry. Records the semantics of a curated disease<->gene-set link so the
+      link is auditable and the right kind of alignment can be applied.
+    permissible_values:
+      CANONICAL_PATHWAY:
+        description: >-
+          A curated pathway gene set representing the disease's canonical
+          mechanism (e.g. KEGG_ASTHMA for asthma). The primary target for
+          BP alignment against the pathograph.
+      CELL_TYPE_SIGNATURE:
+        description: A marker gene set for a cell type relevant to the disease.
+      PERTURBATION_SIGNATURE:
+        description: >-
+          An up/down expression signature from a perturbation or contrast
+          (e.g. drug response, knockout) relevant to the disease.
+      DISEASE_SIGNATURE:
+        description: A differential-expression signature derived from the disease itself.
+      OTHER:
+        description: A related gene set that does not fit the categories above.
 slots:
+  gene_sets:
+    description: >-
+      Curated links from this disease to external gene sets, each referenced by
+      its structured-source id (MYGENESET:<id>, resolving to
+      references_cache/MYGENESET_<id>.md). Membership and the curated GO
+      interpretation live upstream / in the cache file; this slot records only
+      the precise disease<->set link and its semantics, and is the anchor for
+      BP alignment (`just genesets-align`).
+    multivalued: true
+    range: GeneSetAssociation
+    inlined_as_list: true
   name:
     examples:
       - value: Adolescent Nephronophthisis
@@ -3832,6 +3866,30 @@ classes:
             range: ProteinComplexTerm
             obligation_level: REQUIRED
 
+  GeneSetAssociation:
+    description: >-
+      A curated link between this disease and an external gene set, referenced
+      by its structured-source id (MYGENESET:<id>, resolving to
+      references_cache/MYGENESET_<id>.md). The gene set's membership and curated
+      GO interpretation live upstream / in the cache file; this object records
+      only the precise disease<->set link and its semantics, avoiding
+      re-duplication of genes in the KB. It is the anchor for BP alignment
+      (`just genesets-align`): the set's curated biological processes are scored
+      against this disease's pathograph.
+    attributes:
+      gene_set:
+        description: >-
+          Structured-source id of the gene set, e.g. MYGENESET:KEGG_ASTHMA.
+          Resolves to references_cache/MYGENESET_<id>.md.
+        range: uriorcurie
+        required: true
+      relationship:
+        description: How the gene set relates to this disease.
+        range: GeneSetRelationshipEnum
+      note:
+        description: Free-text curator note on the link (e.g. which arms overlap).
+        range: string
+
   AssayDescriptor:
     is_a: Descriptor
     description: A descriptor for assays, bindable to OBI
@@ -5075,6 +5133,7 @@ classes:
       - computational_models
       - classifications
       - definitions
+      - gene_sets
       - mappings
       - external_assertions
       - tracked_issues
