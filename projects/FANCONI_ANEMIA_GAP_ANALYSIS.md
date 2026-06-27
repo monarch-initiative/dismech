@@ -70,6 +70,7 @@ absence.
 | `projects/FANCONI_ANEMIA_GAP_ANALYSIS/custom_profile_comparison.tsv` | Full 446-term OMIM/Orphanet/custom comparison with anatomical system | 446 |
 | `projects/FANCONI_ANEMIA_GAP_ANALYSIS/missing_terms_by_system.tsv` | The 203 profile terms missing from dismech, with system, prior source, status, batch-1 evidence | 203 |
 | `projects/FANCONI_ANEMIA_GAP_ANALYSIS/batch1_added.tsv` | The 17 phenotypes added in batch 1 with evidence sources | 17 |
+| `projects/FANCONI_ANEMIA_GAP_ANALYSIS/batch2_added.tsv` | The 32 phenotypes added in batch 2 (Orphanet record) | 32 |
 | `projects/FANCONI_ANEMIA_GAP_ANALYSIS/custom_profile.hpoa` | Verbatim mirror of the published 264-term `.hpoa` | 264 |
 
 ## Batch 1 — added (raises `Fanconi_Anemia` from 98 → 115 HP terms)
@@ -88,6 +89,29 @@ snippet-verified (see `batch1_added.tsv`).
   ossicles (HP:0005473), Aplastic clavicle (HP:0006660), Oligozoospermia
   (HP:0000798), Obesity (HP:0001513), Abnormal circulating lipid concentration
   (HP:0003119).
+
+## Batch 2 — added (raises `Fanconi_Anemia` from 115 → 147 HP terms)
+
+Curating phenotypes **as recorded in the authoritative Orphanet record**
+(`ORPHA:84`): every uncovered phenotype-table row was added, skipping only
+top-of-hierarchy "Abnormality of the [system]" umbrellas, exact concept
+duplicates of existing entries, and one clinically implausible Orphanet
+annotation (pyridoxine-responsive sideroblastic anemia — not characteristic of
+FA, likely a mapping artifact). All 32 carry an exact `ORPHA:84` row snippet
+(see `batch2_added.tsv`). Spans renal/GU (recurrent UTI, renal
+insufficiency/hypoplasia, abnormal kidney position, decreased male fertility,
+preputial anomaly), craniofacial (dolichocephaly, facial asymmetry, sloping
+forehead, choanal atresia, uvular hypoplasia), ocular (astigmatism, visual
+impairment, proptosis, upslanted fissures, nystagmus, iris hypoplasia), cardiac/
+vascular (HCM, carotid anomaly, AVM), skeletal/limb (hip dislocation, finger
+syndactyly, finger aplasia/hypoplasia, pes planus, toe clubbing), GI (umbilical
+hernia, Meckel diverticulum, Hirschsprung, duodenal stenosis), plus cranial
+nerve paralysis, weight loss, and oligohydramnios.
+
+**Cross-source finding:** **none** of these 32 Orphanet-recorded phenotypes
+appear in the Connelly 264-term custom profile — a direct illustration of the
+paper's thesis that no single source is complete. The custom profile and the
+Orphanet record are *complementary*, not nested.
 
 ## Remaining work — ~186 unmapped profile terms
 
