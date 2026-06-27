@@ -85,7 +85,8 @@ selection is pinned in `data/ncit-edges/MANIFEST.yaml` (ontology version
 just ncit-edges-refresh                 # ensure OAK NCIT db present, check version
 just ncit-edges-rebuild                 # regenerate all references_cache/NCIT_*.md
 just ncit-edges-rebuild --id NCIT:C1872 # one drug
-just ncit-p302-audit --format summary   # coverage digest
+just ncit-p302-audit --format summary             # per-drug coverage digest
+just ncit-p302-audit --format summary --by-class  # rolled up by NCIT is-a class
 just ncit-p302-audit --format tsv --out output/ncit_p302_audit.tsv
 ```
 
@@ -107,6 +108,29 @@ lives at `projects/NCIT_TREATMENT_INDICATIONS_audit.tsv`.
 - `ABSENT`: **620** — drug carries an accepted-use assertion but is not a
   `therapeutic_agent` in any disorder (treatment/disorder curation leads).
 
+### Rolled up by NCIT is-a drug class (`--by-class`)
+
+The flat list is more actionable rolled up by the NCIT `rdfs:subClassOf` drug
+class (transitive named ancestors; anonymous OWL restrictions and universal
+roots dropped). `present` = used as a dismech `therapeutic_agent`. This turns
+"796 drugs" into class-level coverage and aligns mechanism classes to existing
+modules via an advisory `module_hint`. Full table:
+`projects/NCIT_TREATMENT_INDICATIONS_class_audit.tsv`. Examples:
+
+| NCIT class | total | present | absent | module hint |
+|---|--:|--:|--:|---|
+| Immune Checkpoint Inhibitor (`NCIT:C143250`) | 14 | 9 | 5 | `immune_checkpoint_blockade` |
+| Monoclonal Antibody (`NCIT:C20401`) | 87 | 33 | 54 | |
+| Protein Kinase Inhibitor (`NCIT:C1404`) | 89 | 22 | 67 | |
+| Macrolide Antibiotic (`NCIT:C261`) | 3 | 2 | 1 | `bacterial_protein_synthesis_inhibition` |
+| Beta-Lactam Antibiotic (`NCIT:C260`) | 4 | 0 | 4 | `bacterial_cell_wall_synthesis_inhibition` |
+
+87 classes with ≥3 drugs have **zero** dismech coverage (e.g. radiopharmaceuticals,
+5-HT3/serotonin antagonists, bisphosphonates, anthracyclines) — class-level gaps.
+The is-a rollup is a completeness/grouping lens only; is-a is **not** added to the
+evidence cache files (it is classification metadata, not a therapeutic-use
+assertion).
+
 ## Goal / "be complete"
 
 - [x] Ingest all 796 P302 assertions as citable `NCIT:` cache files.
@@ -115,6 +139,8 @@ lives at `projects/NCIT_TREATMENT_INDICATIONS_audit.tsv`.
 - [ ] Add the verbatim P302 evidence to the **176 PRESENT_NO_EVIDENCE** drugs'
       existing treatment records (start with the oncology biologics).
 - [ ] Triage the **620 ABSENT** drugs against the priority dashboard for new
-      treatment / disorder curation.
+      treatment / disorder curation, prioritising by is-a class gaps.
+- [ ] Use `module_hint` classes to suggest `conforms_to` / `therapeutic_modality`
+      for the matching treatments.
 - [ ] Follow-on: add the coded `NCIT:A7` `Has_Target` predicate to the manifest
       so drug→molecular-target edges back target-based modules.

@@ -114,6 +114,38 @@ def _load_chebi_xrefs(ncit_ids: list[str]) -> dict[str, str]:
     return out
 
 
+# NCIT classes too broad to be useful rollup buckets (every drug is under them).
+_ROOT_CLASS_LABELS = frozenset(
+    {
+        "Drug, Food, Chemical or Biomedical Material",
+        "Pharmacologic Substance",
+        "Conceptual Entity",
+        "Chemical Viewed Functionally",
+        "Chemical Viewed Structurally",
+        "Organic Chemical",
+        "Biological Agent",
+        "Substance",
+    }
+)
+
+# Advisory, hand-curated NCIT-class -> dismech mechanism-module hints. Extend as
+# needed; absence of a hint is not meaningful. Keyed on the NCIT class label.
+_MODULE_HINTS = {
+    "Immune Checkpoint Inhibitor": "immune_checkpoint_blockade",
+    "Immune Checkpoint Modulator": "immune_checkpoint_blockade",
+    "Protein Synthesis Inhibitor": "bacterial_protein_synthesis_inhibition",
+    "Macrolide Antibiotic": "bacterial_protein_synthesis_inhibition",
+    "Tetracycline Antibiotic": "bacterial_protein_synthesis_inhibition",
+    "Aminoglycoside Antibiotic": "bacterial_protein_synthesis_inhibition",
+    "Beta-Lactam Antibiotic": "bacterial_cell_wall_synthesis_inhibition",
+    "Glycopeptide Antibiotic": "bacterial_cell_wall_synthesis_inhibition",
+    "Fluoroquinolone Antimicrobial": "bacterial_dna_topoisomerase_inhibition",
+    "Rifamycin Antibiotic": "bacterial_rna_polymerase_inhibition",
+    "Sulfonamide Antibacterial Agent": "bacterial_folate_synthesis_inhibition",
+    "PARP Inhibitor": "dna_repair_synthetic_lethality",
+}
+
+
 @dataclass
 class _Row:
     drug_id: str
@@ -121,6 +153,23 @@ class _Row:
     chebi_id: str
     status: str
     disorders: list[str]
+
+
+@dataclass
+class _ClassRollup:
+    class_id: str
+    label: str
+    total: int = 0
+    present: int = 0
+    with_evidence: int = 0
+
+    @property
+    def absent(self) -> int:
+        return self.total - self.present
+
+    @property
+    def coverage(self) -> float:
+        return self.present / self.total if self.total else 0.0
 
 
 def audit() -> list[_Row]:
@@ -161,6 +210,135 @@ def audit() -> list[_Row]:
             )
         )
     return rows
+
+
+def _load_isa(ncit_ids: list[str]) -> tuple[dict[str, set[str]], dict[str, str]]:
+    """Return (drug_id -> named NCIT ancestor class ids, class_id -> label).
+
+    Only named ``NCIT:C*`` superclasses are followed; anonymous OWL restriction
+    superclasses (``_:`` blank nodes, e.g. role/target restrictions) are
+    dropped. Universal root classes are pruned by the caller via
+    ``_ROOT_CLASS_LABELS``.
+    """
+    from oaklib import get_adapter
+    from sqlalchemy import text
+
+    adapter = get_adapter("sqlite:obo:ncit")
+    # Bulk-load every named is-a edge once, then close transitively in memory.
+    parents: dict[str, list[str]] = defaultdict(list)
+    with adapter.engine.connect() as conn:
+        for subject, obj in conn.execute(
+            text(
+                "SELECT subject, object FROM statements "
+                "WHERE predicate='rdfs:subClassOf' "
+                "AND object LIKE 'NCIT:%'"
+            )
+        ).fetchall():
+            parents[subject].append(obj)
+
+    ancestors: dict[str, set[str]] = {}
+    for drug in ncit_ids:
+        seen: set[str] = set()
+        stack = list(parents.get(drug, []))
+        while stack:
+            cur = stack.pop()
+            if cur in seen:
+                continue
+            seen.add(cur)
+            stack.extend(parents.get(cur, []))
+        ancestors[drug] = seen
+
+    needed: set[str] = set()
+    for s in ancestors.values():
+        needed |= s
+    labels = _fetch_labels(adapter, needed)
+    return ancestors, labels
+
+
+def _fetch_labels(adapter, ids: set[str]) -> dict[str, str]:
+    from sqlalchemy import text
+
+    ids = [i for i in ids if i]
+    out: dict[str, str] = {}
+    with adapter.engine.connect() as conn:
+        for i in range(0, len(ids), 400):
+            chunk = ids[i : i + 400]
+            placeholders = ",".join(f":s{j}" for j in range(len(chunk)))
+            params = {f"s{j}": cid for j, cid in enumerate(chunk)}
+            stmt = text(
+                "SELECT subject, value FROM statements "
+                f"WHERE predicate='rdfs:label' AND subject IN ({placeholders})"
+            )
+            for subject, value in conn.execute(stmt, params).fetchall():
+                if value and subject not in out:
+                    out[subject] = str(value)
+    return out
+
+
+def rollup_by_class(rows: list[_Row]) -> list[_ClassRollup]:
+    """Aggregate drug-level coverage by NCIT is-a drug class."""
+    ancestors, labels = _load_isa([r.drug_id for r in rows])
+    buckets: dict[str, _ClassRollup] = {}
+    for r in rows:
+        present = r.status != "ABSENT"
+        with_ev = r.status == "PRESENT_WITH_EVIDENCE"
+        for cid in ancestors.get(r.drug_id, set()):
+            label = labels.get(cid, cid)
+            if label in _ROOT_CLASS_LABELS:
+                continue
+            b = buckets.get(cid)
+            if b is None:
+                b = buckets[cid] = _ClassRollup(class_id=cid, label=label)
+            b.total += 1
+            b.present += int(present)
+            b.with_evidence += int(with_ev)
+    # Most-populated, least-covered classes first.
+    return sorted(
+        buckets.values(), key=lambda b: (-b.total, b.coverage, b.label)
+    )
+
+
+def format_class_tsv(buckets: list[_ClassRollup]) -> str:
+    lines = ["class_id\tclass_label\ttotal\tpresent\tabsent\tcoverage_pct\tmodule_hint"]
+    for b in buckets:
+        lines.append(
+            f"{b.class_id}\t{b.label}\t{b.total}\t{b.present}\t{b.absent}\t"
+            f"{b.coverage * 100:.0f}\t{_MODULE_HINTS.get(b.label, '-')}"
+        )
+    return "\n".join(lines)
+
+
+def format_class_summary(buckets: list[_ClassRollup], limit: int = 30) -> str:
+    out: list[str] = []
+    out.append("# NCIT P302 coverage rolled up by is-a drug class")
+    out.append("")
+    out.append(
+        "Each P302 drug counts toward every named NCIT class it is-a (transitive; "
+        "anonymous restrictions and universal roots dropped). `present` = drug is "
+        "used as a dismech `therapeutic_agent`."
+    )
+    out.append("")
+    out.append(f"- Distinct drug classes: **{len(buckets)}**")
+    out.append("")
+    out.append("## Largest classes (total drugs, dismech coverage)")
+    out.append("")
+    out.append("| NCIT class | total | present | absent | cov% | module hint |")
+    out.append("|---|--:|--:|--:|--:|---|")
+    for b in buckets[:limit]:
+        out.append(
+            f"| {b.label} (`{b.class_id}`) | {b.total} | {b.present} | "
+            f"{b.absent} | {b.coverage * 100:.0f} | "
+            f"{_MODULE_HINTS.get(b.label, '')} |"
+        )
+    out.append("")
+    gaps = [b for b in buckets if b.total >= 3 and b.present == 0]
+    out.append(
+        f"## Fully-uncovered classes (>=3 drugs, 0 in dismech): {len(gaps)}"
+    )
+    out.append("")
+    for b in gaps[:limit]:
+        out.append(f"- {b.label} (`{b.class_id}`): {b.total} drugs")
+    return "\n".join(out)
 
 
 def format_tsv(rows: list[_Row]) -> str:
@@ -228,20 +406,35 @@ def format_summary(rows: list[_Row], limit: int = 30) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--format", choices=["summary", "tsv"], default="summary")
+    ap.add_argument(
+        "--by-class",
+        action="store_true",
+        help="Roll up coverage by NCIT is-a drug class instead of per-drug",
+    )
     ap.add_argument("--out", type=Path, help="Write output to a file instead of stdout")
     ap.add_argument("--limit", type=int, default=30, help="Examples in summary mode")
     args = ap.parse_args()
 
     rows = audit()
-    text = (
-        format_tsv(rows)
-        if args.format == "tsv"
-        else format_summary(rows, limit=args.limit)
-    )
+    if args.by_class:
+        buckets = rollup_by_class(rows)
+        text = (
+            format_class_tsv(buckets)
+            if args.format == "tsv"
+            else format_class_summary(buckets, limit=args.limit)
+        )
+        unit = f"{len(buckets)} classes"
+    else:
+        text = (
+            format_tsv(rows)
+            if args.format == "tsv"
+            else format_summary(rows, limit=args.limit)
+        )
+        unit = f"{len(rows)} drugs"
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(text + "\n", encoding="utf-8")
-        print(f"wrote {args.out} ({len(rows)} drugs)")
+        print(f"wrote {args.out} ({unit})")
     else:
         print(text)
 
