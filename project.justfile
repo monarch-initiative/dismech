@@ -1447,6 +1447,29 @@ clingen-audit-yaml *args="":
 structured-list source="orphanet" limit="20":
     uv run python -m dismech.structured_sources.cli list {{source}} --limit {{limit}}
 
+# Ensure the OAK-managed NCIT SQLite is present and check pinned version
+# (data/ncit-edges/MANIFEST.yaml). The .db is downloaded by OAK, never committed.
+[group('Research')]
+ncit-edges-refresh:
+    uv run python -m dismech.structured_sources.cli refresh ncit
+
+# Rebuild every references_cache/NCIT_*.md from selected NCIT predicate edges
+# (NCIT:P302 Accepted_Therapeutic_Use_For). Use --id NCIT:Cxxxx to limit.
+[group('Research')]
+ncit-edges-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild ncit {{args}}
+
+# List the first N NCIT subjects carrying a selected predicate edge
+[group('Research')]
+ncit-edges-list limit="20":
+    uv run python -m dismech.structured_sources.cli list ncit --limit {{limit}}
+
+# Audit NCIT P302 (Accepted_Therapeutic_Use_For) treatment-indication coverage
+# against dismech disorders. Writes a TSV; --format summary for a digest.
+[group('Research')]
+ncit-p302-audit *args="":
+    uv run python scripts/ncit_p302_audit.py {{args}}
+
 # ============== Classification Schemas ==============
 
 classifications_dir := "src/dismech/schema/classifications"

@@ -28,6 +28,7 @@ from dismech.structured_sources.clingen_yaml_audit import (
 from dismech.structured_sources.civic import CivicSource
 from dismech.structured_sources.mygeneset import MyGenesetSource
 from dismech.structured_sources.icees import ICEESSource
+from dismech.structured_sources.ontology_edges import OntologyEdgeSource
 from dismech.structured_sources.orphanet import OrphanetSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
@@ -69,6 +70,12 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             ICEESSource.load_manifest(manifest)
         return ICEESSource(_DEFAULT_DATA_DIR / "icees-kg")
+    if name in {"ncit", "ncit-edges", "ncit_edges"}:
+        manifest = _DEFAULT_DATA_DIR / "ncit-edges" / "MANIFEST.yaml"
+        if not manifest.exists():
+            raise typer.BadParameter(f"manifest not found: {manifest}")
+        OntologyEdgeSource.load_manifest(manifest)
+        return OntologyEdgeSource(_DEFAULT_DATA_DIR / "ncit-edges")
     raise typer.BadParameter(f"unknown source: {name}")
 
 
