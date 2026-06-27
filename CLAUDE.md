@@ -1110,6 +1110,7 @@ as evidence `snippet:` values.
 | `CGDS:` | ClinGen Dosage Sensitivity downloads | One record per dosage-sensitive gene | ClinGen terms |
 | `CIVIC_ASSERTION:`, `CIVIC_EID:` | CIViC accepted assertion and clinical evidence TSVs | One record per accepted CIViC assertion or evidence item | CIViC |
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
+| `PANELAPP:` | Genomics England PanelApp REST API | One record per gene-on-panel association (~32k), with Green/Amber/Red confidence, MOI, phenotypes, and source PMIDs | PanelApp terms (publicly available; verify accuracy) |
 
 **Citing an Orphanet entry:**
 
@@ -1221,6 +1222,37 @@ on that base population — not hospital-wide like COHD; and the chi-square valu
 are **not multiple-testing corrected** and are inflated by very large cohort N,
 so apply the same FDR skepticism used for COHD signals.
 
+**Citing a PanelApp gene-panel rating (disease-to-gene):**
+
+PanelApp (Genomics England) supplies broad expert-curated disease-to-gene panel
+ratings. Use it as a **complementary d2g signal** with mode of inheritance and a
+Green/Amber/Red confidence rating — *not* as an independent second confirmation
+alongside ClinGen (`CGGV:`) or Gene2Phenotype, since PanelApp re-aggregates many
+of the same expert sources. A gene-panel id is `PANELAPP:<panel_id>_<gene_symbol>`:
+
+```yaml
+genetic:
+- name: HMBS
+  association: CAUSATIVE
+  gene_term:
+    preferred_term: HMBS
+    term:
+      id: hgnc:4982
+      label: HMBS
+  evidence:
+  - reference: PANELAPP:1207_HMBS
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: "HMBS | HGNC:4982 | Acute intermittent porphyria | 1207 | 2.2 | Green (3) | BOTH monoallelic and biallelic"
+    explanation: PanelApp rates HMBS Green (diagnostic-grade) on the acute intermittent porphyria panel.
+```
+
+The `## Gene-panel association` row (`| gene | HGNC | panel | panel_id | version
+| confidence | MOI |`) is the d2g evidence substring; `## Phenotypes` rows carry
+embedded OMIM/MONDO ids and are also quotable. Confidence codes: `3`=Green
+(diagnostic-grade), `2`=Amber, `1`=Red, `0`=no list. As with the leading/trailing
+pipes of an Orphanet row, a snippet may include or omit them.
+
 **How the cache is built:**
 
 ```bash
@@ -1253,6 +1285,13 @@ just icees-refresh
 just icees-list
 just icees-rebuild
 just icees-rebuild --id MONDO:0004979,MONDO:0005002
+
+# PanelApp (pinned by data/panelapp/MANIFEST.yaml; walks the REST API once into
+# a gitignored JSONL snapshot, then emits per-gene-panel cache files on demand)
+just panelapp-refresh          # walk the API into data/panelapp/panelapp_snapshot.jsonl
+just panelapp-refresh --force  # re-walk (snapshot drifts as panels are versioned)
+just panelapp-list
+just panelapp-rebuild --id PANELAPP:1207_HMBS
 ```
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is

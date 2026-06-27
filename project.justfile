@@ -1400,6 +1400,23 @@ icees-rebuild *args="":
 icees-list limit="20":
     uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
 
+# Refresh the Genomics England PanelApp gene-panel snapshot by walking the
+# REST API (pinned by data/panelapp/MANIFEST.yaml). Use --force to re-walk.
+[group('Research')]
+panelapp-refresh *args="":
+    uv run python -m dismech.structured_sources.cli refresh panelapp {{args}}
+
+# Rebuild references_cache/PANELAPP_*.md from the current PanelApp snapshot.
+# Use --id to limit to specific PANELAPP:<panel_id>_<gene> identifiers.
+[group('Research')]
+panelapp-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild panelapp {{args}}
+
+# List the first N PanelApp gene-panel association identifiers
+[group('Research')]
+panelapp-list limit="20":
+    uv run python -m dismech.structured_sources.cli list panelapp --limit {{limit}}
+
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]
 clingen-list limit="20":

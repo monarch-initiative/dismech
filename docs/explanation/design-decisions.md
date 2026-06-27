@@ -213,7 +213,15 @@ exactly.
 
 - **Accepted reference types**: PMID, DOI, NCT (ClinicalTrials.gov), and structured-source
   IDs `ORPHA:` (Orphanet), `CGGV:`/`CGDS:` (ClinGen), `CIVIC_ASSERTION:`/`CIVIC_EID:`
-  (CIViC).
+  (CIViC), `ICEES:` (ICEES KG comorbidity pairs), and `PANELAPP:` (Genomics England
+  PanelApp gene-panel ratings).
+- **PanelApp is a complementary d2g signal, not independent evidence.** PanelApp
+  (`PANELAPP:<panel_id>_<gene>`) supplies broad expert-curated disease-to-gene panel
+  ratings (Green/Amber/Red) plus mode of inheritance, and is the panel-level companion to
+  ClinGen Gene-Disease Validity (`CGGV:`) and the EBI Gene2Phenotype audit
+  (`dismech.compare.g2p`). Because PanelApp re-aggregates several of the same expert
+  sources, it must **not** be cited alongside ClinGen or G2P as a second, independent
+  confirmation of the same gene-disease link. Each cache entry carries this caveat inline.
 - **Exact-snippet rule**: `snippet` values must be exact substring quotes from the cited
   reference, enforced by `linkml-reference-validator`. Paraphrase fails validation.
 - **Cache files are tool-generated**: `references_cache/*.md` are created exclusively by

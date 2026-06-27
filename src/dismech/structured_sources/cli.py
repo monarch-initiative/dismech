@@ -28,6 +28,7 @@ from dismech.structured_sources.clingen_yaml_audit import (
 from dismech.structured_sources.civic import CivicSource
 from dismech.structured_sources.icees import ICEESSource
 from dismech.structured_sources.orphanet import OrphanetSource
+from dismech.structured_sources.panelapp import PanelAppSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
 
@@ -63,6 +64,11 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             ICEESSource.load_manifest(manifest)
         return ICEESSource(_DEFAULT_DATA_DIR / "icees-kg")
+    if name in {"panelapp", "gel", "pa"}:
+        manifest = _DEFAULT_DATA_DIR / "panelapp" / "MANIFEST.yaml"
+        if manifest.exists():
+            PanelAppSource.load_manifest(manifest)
+        return PanelAppSource(_DEFAULT_DATA_DIR / "panelapp")
     raise typer.BadParameter(f"unknown source: {name}")
 
 
