@@ -97,6 +97,17 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 - Generates browsable HTML pages in `pages/disorders/`
 - Links ontology terms to external browsers (HPO JAX, MONDO Monarch, OLS, etc.)
 
+### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
+The cron cadence of the scheduled "agent" workflows (curation-scanner,
+pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
+weekly-compliance, stale-pr-reassign, post-review-agent) is centralized in
+`.github/cron-profiles.yaml` as named profiles (`slow`/`medium`/`fast`/`fast-weekend`).
+Switch with `just cron-profile <name>` (preview with `just cron-profile-preview <name>`,
+list with `just cron-profiles`), which rewrites the `on.schedule` cron lines in
+each workflow and commits. Do NOT hand-edit those cron lines — edit the profile
+config instead. Page/build crons are intentionally unmanaged. See
+[`docs/cron-profiles.md`](docs/cron-profiles.md).
+
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
   frontmatter (`title`, `status`, `tags`, `description`, and entity lists:
@@ -1110,6 +1121,53 @@ as evidence `snippet:` values.
 | `CGDS:` | ClinGen Dosage Sensitivity downloads | One record per dosage-sensitive gene | ClinGen terms |
 | `CIVIC_ASSERTION:`, `CIVIC_EID:` | CIViC accepted assertion and clinical evidence TSVs | One record per accepted CIViC assertion or evidence item | CIViC |
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
+| `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
+
+**Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
+
+`NCIT:P302` links a drug to the free-text disease/condition it is an accepted
+treatment for. It is ingested by the generic, manifest-driven
+`OntologyEdgeSource` (`src/dismech/structured_sources/ontology_edges.py`), which
+selects predicate edges out of the OAK-managed NCIT SQLite — the multi-hundred-MB
+`.db` is **never committed**, only the selectively generated per-subject cache
+files. Each `references_cache/NCIT_<Cxxxx>.md` body holds a unified edge table
+(`| ID | LABEL | PRED | TARGET_ID | TARGET_LABEL | METADATA |`); for the string
+predicate P302 the indication text is in the METADATA column:
+
+```yaml
+treatments:
+- name: Midostaurin
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: midostaurin
+      term:
+        id: NCIT:C1872
+        label: Midostaurin
+  evidence:
+  - reference: NCIT:C1872
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: "Midostaurin | Accepted_Therapeutic_Use_For | - | - | acute myeloid leukemia (AML) who are FLT3 mutation-positive (FLT3+)"
+    explanation: NCI Thesaurus asserts accepted therapeutic use for FLT3+ AML.
+```
+
+As with ORPHA/ICEES rows, a quoted snippet may include or omit the leading and
+trailing pipes. Build/refresh and audit coverage with:
+
+```bash
+just ncit-edges-refresh                 # ensure OAK NCIT db present, check pinned version
+just ncit-edges-rebuild                 # rebuild all references_cache/NCIT_*.md
+just ncit-edges-rebuild --id NCIT:C1872 # one drug
+just ncit-p302-audit --format summary   # advisory treatment-coverage audit
+```
+
+See `projects/NCIT_TREATMENT_INDICATIONS.md` for the completeness project. The
+coded molecular-target relation `NCIT:A7` (`Has_Target`) is a natural follow-on
+predicate for the same source but is not yet ingested.
 
 **Citing an Orphanet entry:**
 
