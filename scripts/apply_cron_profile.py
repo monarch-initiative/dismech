@@ -132,7 +132,6 @@ def rewrite_schedule(text: str, entries: list[dict], *, wf_name: str) -> str:
     end = start
     saw_cron = False
     while end < len(lines):
-        stripped = lines[end].strip()
         if CRON_LINE_RE.match(lines[end]):
             saw_cron = True
             end += 1
