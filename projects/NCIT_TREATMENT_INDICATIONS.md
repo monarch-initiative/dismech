@@ -137,6 +137,20 @@ The is-a rollup is a completeness/grouping lens only; is-a is **not** added to t
 evidence cache files (it is classification metadata, not a therapeutic-use
 assertion).
 
+## Data-quality caveat: P302 itself can be wrong
+
+P302 is curated NCI editorial text and occasionally carries **upstream errors**.
+A confirmed example in NCIT 26.02d: Ramucirumab (`NCIT:C70792`, an anti-VEGFR2
+antibody for gastric/colorectal/HCC) carries a second P302 value
+`"multicentric Castleman's disease (MCD)"` — clinically wrong (MCD is treated
+with the anti-IL-6 antibody siltuximab, `NCIT:C61084`). The cache faithfully
+records both rows verbatim; the error is in NCIT, not the extraction. dismech
+therefore cites only ramucirumab's gastric row and does **not** propagate the
+Castleman's row onto `Castleman_Disease.yaml`. This is why the curator
+confirmation step (does the indication string actually match the disorder?) is
+mandatory and not skippable: it guards against over-broad indications *and*
+genuine upstream data errors, not just NER mismatches.
+
 ## Goal / "be complete"
 
 - [x] Ingest all 796 P302 assertions as citable `NCIT:` cache files.
