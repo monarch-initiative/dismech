@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00999609
+reference_id: "clinicaltrials:NCT00999609"
 title: "A Safety and Efficacy Study in Subjects With Leber Congenital Amaurosis (LCA) Using Adeno-Associated Viral Vector to Deliver the Gene for Human RPE65 to the Retinal Pigment Epithelium (RPE) [AAV2-hRPE65v2-301]"
 content_type: summary
 ---
