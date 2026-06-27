@@ -60,7 +60,8 @@ def _load_disorders() -> list[_Disorder]:
     out: list[_Disorder] = []
     for path in sorted(glob.glob(str(_KB_DIR / "*.yaml"))):
         try:
-            d = yaml.safe_load(open(path, encoding="utf-8"))
+            with open(path, encoding="utf-8") as fh:
+                d = yaml.safe_load(fh)
         except Exception:
             continue
         if not isinstance(d, dict) or not d.get("name"):
