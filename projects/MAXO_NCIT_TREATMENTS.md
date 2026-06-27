@@ -137,7 +137,7 @@ Build a curation queue from `tmp/ncit_treatment_candidates_casefix.tsv`:
 
 I started a term-by-term manual curation pass using command-line OAK and explicit query trails in:
 
-- `projects/MAXO_NCIT_TREATMENTS_MANUAL.tsv`
+- `projects/MAXO_NCIT_TREATMENTS/MANUAL.tsv`
 
 Current progress:
 
