@@ -97,6 +97,17 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 - Generates browsable HTML pages in `pages/disorders/`
 - Links ontology terms to external browsers (HPO JAX, MONDO Monarch, OLS, etc.)
 
+### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
+The cron cadence of the scheduled "agent" workflows (curation-scanner,
+pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
+weekly-compliance, stale-pr-reassign, post-review-agent) is centralized in
+`.github/cron-profiles.yaml` as named profiles (`slow`/`medium`/`fast`/`fast-weekend`).
+Switch with `just cron-profile <name>` (preview with `just cron-profile-preview <name>`,
+list with `just cron-profiles`), which rewrites the `on.schedule` cron lines in
+each workflow and commits. Do NOT hand-edit those cron lines — edit the profile
+config instead. Page/build crons are intentionally unmanaged. See
+[`docs/cron-profiles.md`](docs/cron-profiles.md).
+
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
   frontmatter (`title`, `status`, `tags`, `description`, and entity lists:

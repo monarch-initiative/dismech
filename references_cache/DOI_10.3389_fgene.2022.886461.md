@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2022.886461
+reference_id: "DOI:10.3389/fgene.2022.886461"
 title: New Insights on the Regulatory Gene Network Disturbed in Central Areolar Choroidal Dystrophy—Beyond Classical Gene Candidates
 authors:
 - João Paulo Kazmierczak de Camargo

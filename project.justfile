@@ -1869,3 +1869,22 @@ disorder-report file:
     else
         echo "  (pandoc not found — skipping PDF generation)"
     fi
+
+# ============== Scheduled-workflow cron profiles ==============
+
+# List the available cron cadence profiles and show the active one.
+[group('Cron profiles')]
+cron-profiles:
+    uv run python scripts/apply_cron_profile.py --list
+
+# Show what a profile would change without writing anything.
+# Example: just cron-profile-preview fast
+[group('Cron profiles')]
+cron-profile-preview name:
+    uv run python scripts/apply_cron_profile.py {{name}} --dry-run
+
+# Apply a cron cadence profile to the scheduled workflows and commit.
+# Example: just cron-profile slow
+[group('Cron profiles')]
+cron-profile name:
+    uv run python scripts/apply_cron_profile.py {{name}}
