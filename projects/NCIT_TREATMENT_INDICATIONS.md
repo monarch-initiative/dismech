@@ -97,18 +97,20 @@ these counts are exact, not heuristic. A committed snapshot of all 796 rows
 lives at `projects/NCIT_TREATMENT_INDICATIONS/audit.tsv`.
 
 - P302 drug assertions: **796**
-- `PRESENT_WITH_EVIDENCE`: **18** — curated in two batches (e.g.
-  Temozolomide/Glioblastoma, Avelumab/Merkel cell carcinoma, Gefitinib & Amivantamab/
-  EGFR-mutant NSCLC, Adagrasib/KRAS G12C NSCLC, Pemigatinib & Futibatinib/
-  FGFR-altered cholangiocarcinoma, Polatuzumab vedotin/DLBCL, Tovorafenib/pilocytic
-  astrocytoma, Bezlotoxumab/C. difficile, Valganciclovir/CMV retinitis).
-- `PRESENT_NO_EVIDENCE`: **158** — drug already used as a dismech
+- `PRESENT_WITH_EVIDENCE`: **29** — curated in three batches (oncology targeted
+  agents and biologics plus e.g. Paricalcitol/CKD-MBD, Dacarbazine/Hodgkin,
+  BCG/bladder, Siltuximab/Castleman, Olaparib/BRCA ovarian, Enzalutamide/prostate,
+  Sacrosidase/sucrase-isomaltase deficiency, Omega-3/hyperlipidemia).
+- `PRESENT_NO_EVIDENCE`: **147** — drug already used as a dismech
   `therapeutic_agent`, P302 evidence not yet cited. **Immediately actionable**:
   drop `reference: NCIT:<drug>` + the verbatim P302 snippet onto the matching
   treatment record(s). Curator must confirm the indication string matches the
   disorder — e.g. Arsenic Trioxide's string says "acute myelocytic leukemia",
-  *not* promyelocytic, so it does **not** support the APL entry; ~10 of 23
-  reviewed candidates in the second batch were such mismatches and were skipped.
+  *not* promyelocytic, so it does **not** support the APL entry; roughly a third
+  of reviewed candidates are such mismatches and are skipped. Two recurring
+  edit hazards: some treatments place `evidence:` *before* `treatment_term` (so
+  append into the existing block, do not add a second `evidence:` key), and some
+  are combination records or carry nested `evidence:` under `target_mechanisms`.
 - `ABSENT`: **620** — drug carries an accepted-use assertion but is not a
   `therapeutic_agent` in any disorder (treatment/disorder curation leads).
 
@@ -141,8 +143,10 @@ assertion).
 - [x] Generic `OntologyEdgeSource` + manifest + CLI + justfile.
 - [x] Identifier-join completeness audit (drug id / ChEBI xref, no NER).
 - [~] Add the verbatim P302 evidence to the **PRESENT_NO_EVIDENCE** drugs'
-      existing treatment records (18 done, 158 remaining; confirm each
-      indication string matches the disorder before citing).
+      existing treatment records (29 done, 147 remaining; confirm each
+      indication string matches the disorder before citing). Deferred trickier
+      structures (nested-evidence/combination records): Tremelimumab, Ganciclovir,
+      Methylene Blue, Idursulfase, Penicillamine, Adapalene, Calcium Carbonate.
 - [ ] Triage the **620 ABSENT** drugs against the priority dashboard for new
       treatment / disorder curation, prioritising by is-a class gaps.
 - [ ] Use `module_hint` classes to suggest `conforms_to` / `therapeutic_modality`
