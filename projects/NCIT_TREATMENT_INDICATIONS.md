@@ -94,7 +94,7 @@ just ncit-p302-audit --format tsv --out output/ncit_p302_audit.tsv
 
 The join is on **drug identity only** (no parsing of the indication text), so
 these counts are exact, not heuristic. A committed snapshot of all 796 rows
-lives at `projects/NCIT_TREATMENT_INDICATIONS_audit.tsv`.
+lives at `projects/NCIT_TREATMENT_INDICATIONS/audit.tsv`.
 
 - P302 drug assertions: **796**
 - `PRESENT_WITH_EVIDENCE`: 0 — no dismech treatment cites a P302 assertion yet
@@ -115,7 +115,7 @@ class (transitive named ancestors; anonymous OWL restrictions and universal
 roots dropped). `present` = used as a dismech `therapeutic_agent`. This turns
 "796 drugs" into class-level coverage and aligns mechanism classes to existing
 modules via an advisory `module_hint`. Full table:
-`projects/NCIT_TREATMENT_INDICATIONS_class_audit.tsv`. Examples:
+`projects/NCIT_TREATMENT_INDICATIONS/class_audit.tsv`. Examples:
 
 | NCIT class | total | present | absent | module hint |
 |---|--:|--:|--:|---|
