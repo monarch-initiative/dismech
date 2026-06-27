@@ -131,9 +131,13 @@ Counts per anatomical system (from `missing_terms_by_system.tsv`, status `TODO`)
 
 ### Next batches (proposed)
 
-- [ ] **Batch 2 — renal/genitourinary structural** (horseshoe/ectopic kidney,
-      hydronephrosis, renal dysplasia/hypoplasia, chordee, phimosis): source
-      from GeneReviews/IFAR and Orphanet xref literature.
+- [x] **Batch 2 — Orphanet-record sweep (incl. renal/genitourinary)** — done:
+      32 ORPHA:84-recorded phenotypes added (recurrent UTI, renal insufficiency,
+      renal hypoplasia/aplasia, abnormal kidney position, decreased male fertility,
+      preputial anomaly, plus craniofacial/ocular/cardiac/skeletal/GI rows).
+- [ ] **Full-text-only structural specifics** (horseshoe/ectopic kidney,
+      hydronephrosis, chordee, phimosis): documented only in full-text results,
+      not snippet-validatable against abstract-only cache — blocked by #4884.
 - [ ] **Batch 3 — radial-ray granularity** (absent radius/scaphoid/trapezium,
       thumb-hypoplasia grading, carpal hypoplasia, ulnar bowing): map to the
       existing generic radial-ray nodes.
