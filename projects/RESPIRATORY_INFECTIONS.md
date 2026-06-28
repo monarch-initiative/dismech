@@ -24,6 +24,9 @@ diseases:
 - Scarlet_Fever
 - Chickenpox
 - Bronchiectasis
+modules:
+- host_directed_antiviral_dependency
+- innate_antiviral_interferon_response
 ---
 
 # Respiratory Infections Curation Project
@@ -73,19 +76,31 @@ Intercept funds two product classes:
 2. **Air Cleaning Technologies** (far-UVC, filtration, antimicrobial vapors) —
    environmental interventions, **out of dismech's disease-mechanism scope**.
 
-### Intercept-aligned module gaps
+### Intercept-aligned mechanism modules
 
 dismech already has seven *direct-acting* antiviral mechanism modules (polymerase,
 protease, entry/fusion, integrase, assembly/release, latency, PARP-macrodomain).
-Two of Intercept's BSP tracks have **no module yet** and are genuinely conserved
-cross-virus mechanisms worth a `kb/modules/` design pattern:
+Two of Intercept's BSP tracks previously had no module; both are now **built and
+validated** (schema + terms + independent snippet-substring verification of every
+evidence quote):
 
-- **`host_directed_antiviral_dependency`** (proposed) — host dependency factors a
-  virus requires (ACE2/TMPRSS2 for SARS-CoV-2, sialic-acid receptors / α2,6-linkage
-  for influenza, etc.). Target of the host-directed and receptor-decoy tracks; high
-  broad-spectrum value because host factors are conserved where viral proteins are not.
-- **`innate_antiviral_interferon_response`** (proposed) — type I/III interferon,
-  cGAS-STING, and RIG-I/MDA5 signaling. Target of the innate-immunity-modulator track.
+- **`host_directed_antiviral_dependency`** ✓ — host dependency factors a virus
+  requires (ACE2 receptor + TMPRSS2 protease for SARS-CoV-2 as the worked example).
+  Target of the host-directed and receptor-decoy tracks; high broad-spectrum value
+  because host factors are conserved where viral proteins are not. Captures the
+  higher resistance barrier, the broad-spectrum consequence, and the host-route-escape
+  / on-target-toxicity limits. Key conformance/treatment target:
+  `host_directed_antiviral_dependency#Host Receptor and Protease Engagement`.
+- **`innate_antiviral_interferon_response`** ✓ — viral PAMP sensing (RIG-I/MDA5,
+  cGAS-STING, TLRs) → type I/III interferon induction and JAK-STAT signaling →
+  ISG antiviral state → restriction of replication, with the viral-interferon-
+  antagonism evasion branch (influenza NS1). Target of the innate-immunity-modulator
+  track; the worked therapeutic is peginterferon lambda. Key conformance/treatment
+  target: `innate_antiviral_interferon_response#Interferon-Stimulated Gene Antiviral State`.
+
+Remaining wiring work: add `conforms_to` edges from the core virus entries to these
+modules and point innate-immunity-modulator / host-directed treatments at the
+conformance targets via `target_mechanisms`.
 
 ## Scope
 
@@ -191,9 +206,9 @@ thesis (broad-spectrum protection across viral families) and are prioritized acc
 
 Beyond filling gaps, deepen the already-curated core viruses along Intercept's thesis:
 
-- **Build the two proposed modules** (`host_directed_antiviral_dependency`,
-  `innate_antiviral_interferon_response`) and add `conforms_to` edges from the
-  core virus entries.
+- **Wire the two new modules** (`host_directed_antiviral_dependency`,
+  `innate_antiviral_interferon_response`, both built) — add `conforms_to` edges
+  from the core virus entries to the module conformance targets.
 - **Enrich broad-spectrum-preventative treatments** on Influenza, COVID-19,
   Respiratory_Syncytial_Virus_Infection, and Rhinovirus_Infection — tag each with
   the right `therapeutic_modality` (`VACCINE`, `MONOCLONAL_ANTIBODY`, `SIRNA`,
