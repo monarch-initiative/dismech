@@ -24,6 +24,8 @@ diseases:
 - Scarlet_Fever
 - Chickenpox
 - Bronchiectasis
+- Parainfluenza_Virus_Infection
+- Middle_East_Respiratory_Syndrome
 modules:
 - host_directed_antiviral_dependency
 - innate_antiviral_interferon_response
@@ -104,7 +106,11 @@ evidence quote):
 - `innate_antiviral_interferon_response#Viral PAMP Sensing by Pattern-Recognition Receptors`
   ← Influenza (TLR sensing / innate activation).
 - `innate_antiviral_interferon_response#Interferon-Stimulated Gene Antiviral State`
-  ← Rhinovirus_Infection (epithelial innate/interferon antiviral response).
+  ← Rhinovirus_Infection and Parainfluenza_Virus_Infection (epithelial innate/
+  interferon antiviral response).
+- `host_directed_antiviral_dependency#Host Receptor and Protease Engagement` ←
+  Middle_East_Respiratory_Syndrome (MERS-CoV spike entry via the DPP4 host
+  receptor — the coronavirus parallel to SARS-CoV-2/ACE2).
 
 **Treatment enrichment (wired):**
 - COVID-19 — Peginterferon Lambda (NCIT:C166435), an interferon-based
@@ -180,11 +186,13 @@ Items tagged **[Intercept]** broaden coverage of Intercept's endemic-respiratory
 thesis (broad-spectrum protection across viral families) and are prioritized accordingly.
 
 **Endemic respiratory viruses [Intercept] — highest priority**
-- Human metapneumovirus infection [Intercept]
-- Parainfluenza virus infection [Intercept]
+- Parainfluenza_Virus_Infection [Intercept] — ✓ created (de novo)
+- Middle_East_Respiratory_Syndrome [Intercept] — ✓ created (de novo)
+- Human metapneumovirus infection [Intercept] — deferred: MONDO currently has no
+  human-metapneumovirus infection term (only the NCBITaxon organism), so a
+  MONDO-anchored entry is blocked pending an ontology term.
 - Seasonal/endemic coronaviruses (229E, OC43, NL63, HKU1) [Intercept]
 - Adenovirus respiratory infection [Intercept]
-- MERS-CoV (pandemic-potential coronavirus) [Intercept]
 
 **Bacterial pneumonia & atypicals**
 - Community-acquired pneumonia / pneumococcal pneumonia (*Streptococcus pneumoniae*)
