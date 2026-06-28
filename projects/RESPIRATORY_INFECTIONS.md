@@ -98,9 +98,27 @@ evidence quote):
   track; the worked therapeutic is peginterferon lambda. Key conformance/treatment
   target: `innate_antiviral_interferon_response#Interferon-Stimulated Gene Antiviral State`.
 
-Remaining wiring work: add `conforms_to` edges from the core virus entries to these
-modules and point innate-immunity-modulator / host-directed treatments at the
-conformance targets via `target_mechanisms`.
+**Worked conformers (wired):**
+- `host_directed_antiviral_dependency#Host Receptor and Protease Engagement` ←
+  COVID-19 (SARS-CoV-2 spike entry via ACE2/TMPRSS2).
+- `innate_antiviral_interferon_response#Viral PAMP Sensing by Pattern-Recognition Receptors`
+  ← Influenza (TLR sensing / innate activation).
+- `innate_antiviral_interferon_response#Interferon-Stimulated Gene Antiviral State`
+  ← Rhinovirus_Infection (epithelial innate/interferon antiviral response).
+
+**Treatment enrichment (wired):**
+- COVID-19 — Peginterferon Lambda (NCIT:C166435), an interferon-based
+  innate-immunity modulator, `target_mechanisms`→ the interferon node
+  (`ACTIVATES`), TOGETHER-trial evidence (PMID:36780676).
+- Respiratory_Syncytial_Virus_Infection — Nirsevimab (NCIT:C170224), a
+  long-acting anti-RSV-F monoclonal antibody for passive immunoprophylaxis,
+  `target_mechanisms`→ the epithelial-infection node (`INHIBITS`), MELODY-trial
+  evidence (PMID:35235726).
+
+Remaining wiring work: extend `conforms_to`/treatment edges to the rest of the
+core/endemic viruses as their entries grow (e.g. a dedicated influenza host-
+protease-cleavage entry node, an RSV interferon node), and add host-directed
+agents where clinically established.
 
 ## Scope
 
