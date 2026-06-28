@@ -45,6 +45,48 @@ drug-mechanism module(s) for its treatments; this project tracks the *clinical
 entities* and their coverage, and the drug-mechanism projects track the
 treatment wiring.
 
+## Funding alignment: the Intercept initiative
+
+[Intercept](https://www.interceptfund.com/) is a $500M philanthropic fund whose
+stated goal is to *radically reduce and ultimately eliminate endemic respiratory
+infections* — pushing the effective reproduction number below 1 for viruses with
+R₀ < 3. Its scientific thesis directly shapes the priorities of this project.
+
+Intercept's **four core target viruses are all already curated in dismech** and
+seeded above: Influenza, COVID-19 (SARS-CoV-2), Respiratory_Syncytial_Virus_Infection,
+and Rhinovirus_Infection. So Intercept-aligned work here is primarily about
+**deepening mechanism and treatment coverage**, not creating the core entries.
+
+Intercept funds two product classes:
+
+1. **Broad-Spectrum Preventatives (BSPs)** across five mechanistic tracks:
+   - *Adaptive immunity* — universal vaccines, broadly-neutralizing antibodies,
+     tissue-resident CD8 T cells (dismech: `VACCINE` / `MONOCLONAL_ANTIBODY` modalities)
+   - *Direct-acting antivirals* — siRNA, broad-spectrum RdRp inhibitors, mAbs,
+     receptor decoys (dismech: existing `viral_polymerase_inhibition`,
+     `viral_entry_fusion_inhibition` modules)
+   - *Innate-immunity modulators* — engineered interferon, cGAS/RIG-I agonists
+     (**module gap** — see below)
+   - *Host-directed antivirals* — targeting host dependency factors
+     (**module gap** — see below)
+   - *Physical-barrier formulations* — lectin/mucin nasal sprays (a treatment modality)
+2. **Air Cleaning Technologies** (far-UVC, filtration, antimicrobial vapors) —
+   environmental interventions, **out of dismech's disease-mechanism scope**.
+
+### Intercept-aligned module gaps
+
+dismech already has seven *direct-acting* antiviral mechanism modules (polymerase,
+protease, entry/fusion, integrase, assembly/release, latency, PARP-macrodomain).
+Two of Intercept's BSP tracks have **no module yet** and are genuinely conserved
+cross-virus mechanisms worth a `kb/modules/` design pattern:
+
+- **`host_directed_antiviral_dependency`** (proposed) — host dependency factors a
+  virus requires (ACE2/TMPRSS2 for SARS-CoV-2, sialic-acid receptors / α2,6-linkage
+  for influenza, etc.). Target of the host-directed and receptor-decoy tracks; high
+  broad-spectrum value because host factors are conserved where viral proteins are not.
+- **`innate_antiviral_interferon_response`** (proposed) — type I/III interferon,
+  cGAS-STING, and RIG-I/MDA5 signaling. Target of the innate-immunity-modulator track.
+
 ## Scope
 
 **In scope:** infections whose primary disease is in the respiratory tract —
@@ -100,7 +142,16 @@ into.
 
 ## Coverage gaps (curation backlog)
 
-High-value respiratory infections **not yet in the KB**, roughly priority-ordered:
+High-value respiratory infections **not yet in the KB**, roughly priority-ordered.
+Items tagged **[Intercept]** broaden coverage of Intercept's endemic-respiratory-virus
+thesis (broad-spectrum protection across viral families) and are prioritized accordingly.
+
+**Endemic respiratory viruses [Intercept] — highest priority**
+- Human metapneumovirus infection [Intercept]
+- Parainfluenza virus infection [Intercept]
+- Seasonal/endemic coronaviruses (229E, OC43, NL63, HKU1) [Intercept]
+- Adenovirus respiratory infection [Intercept]
+- MERS-CoV (pandemic-potential coronavirus) [Intercept]
 
 **Bacterial pneumonia & atypicals**
 - Community-acquired pneumonia / pneumococcal pneumonia (*Streptococcus pneumoniae*)
@@ -119,12 +170,6 @@ High-value respiratory infections **not yet in the KB**, roughly priority-ordere
 - Streptococcal pharyngitis (as an entity distinct from Scarlet_Fever)
 - Croup (laryngotracheobronchitis), epiglottitis
 
-**Other viral**
-- MERS-CoV
-- Parainfluenza virus infection
-- Human metapneumovirus infection
-- Adenovirus respiratory infection
-
 **Fungal & opportunistic**
 - *Pneumocystis jirovecii* pneumonia (PCP)
 - Pulmonary aspergillosis
@@ -141,6 +186,19 @@ High-value respiratory infections **not yet in the KB**, roughly priority-ordere
    `target_mechanisms` / `conforms_to` (see ANTIMICROBIAL / ANTIVIRAL /
    ANTIFUNGAL).
 4. Validate: `just validate`, `just validate-references`, `just validate-terms-file`.
+
+### Intercept-aligned deepening track (core 4 already curated)
+
+Beyond filling gaps, deepen the already-curated core viruses along Intercept's thesis:
+
+- **Build the two proposed modules** (`host_directed_antiviral_dependency`,
+  `innate_antiviral_interferon_response`) and add `conforms_to` edges from the
+  core virus entries.
+- **Enrich broad-spectrum-preventative treatments** on Influenza, COVID-19,
+  Respiratory_Syncytial_Virus_Infection, and Rhinovirus_Infection — tag each with
+  the right `therapeutic_modality` (`VACCINE`, `MONOCLONAL_ANTIBODY`, `SIRNA`,
+  `SMALL_MOLECULE`) and wire via `target_mechanisms` (e.g. RSV nirsevimab + RSVpreF
+  vaccine; influenza baloxavir cap-dependent-endonuclease inhibitor).
 5. Add the new slug to the `diseases:` frontmatter list here.
 
 ## Related
