@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05107921
+reference_id: "clinicaltrials:NCT05107921"
 title: Efficacy of Bromfenac Sodium Hydrate Eye Drops in Children With Familial Exudative Vitreoretinopathy After Diode Laser Photocoagulation
 content_type: summary
 ---
