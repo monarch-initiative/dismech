@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT03252535"
+reference_id: clinicaltrials:NCT03252535
 title: "Dose-Response Evaluation of the Investigational Product Cellavita HD After Intravenous Administration in Patients With Huntington's Disease"
 content_type: summary
 ---
