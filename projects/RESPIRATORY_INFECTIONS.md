@@ -32,6 +32,8 @@ diseases:
 - Seasonal_Coronavirus_Infection
 - Adenovirus_Respiratory_Infection
 - Pertussis
+- Pneumococcal_Pneumonia
+- Q_Fever
 modules:
 - host_directed_antiviral_dependency
 - innate_antiviral_interferon_response
@@ -125,6 +127,11 @@ evidence quote):
   Mycoplasma_Pneumoniae_Pneumonia (the flagship cell-wall-deficient conformer).
 - `bacterial_protein_synthesis_inhibition` (ribosomal macrolide target + resistance)
   ← Pertussis (toxin-mediated whooping cough; macrolide therapy).
+- `bacterial_cell_wall_synthesis_inhibition` (PBP beta-lactam target + acquired
+  resistance) ← Pneumococcal_Pneumonia (the typical/cell-walled counterpart to the
+  cell-wall-deficient Mycoplasma).
+- `intracellular_pathogen_persistence` + `bacterial_protein_synthesis_inhibition`
+  (tetracycline target) ← Q_Fever (intracellular; doxycycline, mirroring Murine_Typhus).
 
 **Treatment enrichment (wired):**
 - COVID-19 — Peginterferon Lambda (NCIT:C166435), an interferon-based
@@ -185,6 +192,8 @@ into.
 | Entry | Pathogen / note |
 |---|---|
 | Tuberculosis | *Mycobacterium tuberculosis*; pulmonary + extrapulmonary |
+| Pneumococcal_Pneumonia | *Streptococcus pneumoniae* — typical lobar CAP |
+| Q_Fever | *Coxiella burnetii* — zoonotic intracellular atypical pneumonia |
 | Legionnaires_Disease | *Legionella pneumophila* — severe pneumonia (intracellular) |
 | Pontiac_Fever | *Legionella* (mild, self-limited febrile form) |
 | Mycoplasma_Pneumoniae_Pneumonia | *M. pneumoniae* — atypical/"walking" pneumonia |
@@ -216,11 +225,9 @@ thesis (broad-spectrum protection across viral families) and are prioritized acc
   disease_term — MONDO has only "adenovirus renal infection", flagged for a term request).
 
 **Bacterial pneumonia & atypicals**
-- Community-acquired pneumonia / pneumococcal pneumonia (*Streptococcus pneumoniae*)
 - *Chlamydophila pneumoniae* / psittacosis (*C. psittaci*)
 - *Haemophilus influenzae* and *Moraxella catarrhalis* LRTI
 - Hospital-acquired / ventilator-associated pneumonia
-- Q fever (*Coxiella burnetii*) pulmonary form
 
 **Vaccine-preventable / classic URT & airway**
 - Diphtheria
