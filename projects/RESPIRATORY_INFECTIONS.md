@@ -28,6 +28,8 @@ diseases:
 - Middle_East_Respiratory_Syndrome
 - Legionnaires_Disease
 - Mycoplasma_Pneumoniae_Pneumonia
+- Human_Metapneumovirus_Infection
+- Seasonal_Coronavirus_Infection
 modules:
 - host_directed_antiviral_dependency
 - innate_antiviral_interferon_response
@@ -108,8 +110,9 @@ evidence quote):
 - `innate_antiviral_interferon_response#Viral PAMP Sensing by Pattern-Recognition Receptors`
   ← Influenza (TLR sensing / innate activation).
 - `innate_antiviral_interferon_response#Interferon-Stimulated Gene Antiviral State`
-  ← Rhinovirus_Infection and Parainfluenza_Virus_Infection (epithelial innate/
-  interferon antiviral response).
+  ← Rhinovirus_Infection, Parainfluenza_Virus_Infection,
+  Human_Metapneumovirus_Infection, and Seasonal_Coronavirus_Infection (epithelial
+  innate/interferon antiviral response).
 - `host_directed_antiviral_dependency#Host Receptor and Protease Engagement` ←
   Middle_East_Respiratory_Syndrome (MERS-CoV spike entry via the DPP4 host
   receptor — the coronavirus parallel to SARS-CoV-2/ACE2).
@@ -168,6 +171,8 @@ into.
 | Long_COVID | Post-acute SARS-CoV-2 sequelae |
 | Respiratory_Syncytial_Virus_Infection | RSV bronchiolitis/pneumonia |
 | Rhinovirus_Infection | Common cold (URTI) |
+| Human_Metapneumovirus_Infection | hMPV; RSV-like bronchiolitis/pneumonia |
+| Seasonal_Coronavirus_Infection | endemic HCoV 229E/NL63/OC43/HKU1; common cold |
 | Hantavirus_Pulmonary_Syndrome | Hantavirus (HPS) |
 | Chickenpox | VZV; respiratory-droplet transmission, varicella pneumonia |
 
@@ -197,13 +202,12 @@ thesis (broad-spectrum protection across viral families) and are prioritized acc
 **Endemic respiratory viruses [Intercept] — highest priority**
 - Parainfluenza_Virus_Infection [Intercept] — ✓ created (de novo)
 - Middle_East_Respiratory_Syndrome [Intercept] — ✓ created (de novo)
-- Human metapneumovirus infection [Intercept] — deferred: MONDO currently has no
-  human-metapneumovirus infection term (only the NCBITaxon organism), so a
-  MONDO-anchored entry is blocked pending an ontology term.
-- Seasonal/endemic coronaviruses (229E, OC43, NL63, HKU1) [Intercept] — deferred:
-  no usable MONDO term to anchor a disease_term (only an obsolete sensitivity term).
-- Adenovirus respiratory infection [Intercept] — deferred: MONDO has only
-  "adenovirus renal infection", no respiratory-adenovirus term to anchor.
+- Human_Metapneumovirus_Infection [Intercept] — ✓ created (de novo; no MONDO
+  disease_term — MONDO lacks an hMPV infection term, flagged for a term request).
+- Seasonal_Coronavirus_Infection [Intercept] — ✓ created (de novo; no MONDO
+  disease_term — MONDO lacks an endemic-HCoV term, flagged for a term request).
+- Adenovirus respiratory infection [Intercept] — MONDO has only "adenovirus renal
+  infection"; can be created without a disease_term if prioritized.
 
 **Bacterial pneumonia & atypicals**
 - Community-acquired pneumonia / pneumococcal pneumonia (*Streptococcus pneumoniae*)
