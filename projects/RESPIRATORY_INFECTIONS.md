@@ -30,6 +30,7 @@ diseases:
 - Mycoplasma_Pneumoniae_Pneumonia
 - Human_Metapneumovirus_Infection
 - Seasonal_Coronavirus_Infection
+- Adenovirus_Respiratory_Infection
 modules:
 - host_directed_antiviral_dependency
 - innate_antiviral_interferon_response
@@ -111,8 +112,8 @@ evidence quote):
   ← Influenza (TLR sensing / innate activation).
 - `innate_antiviral_interferon_response#Interferon-Stimulated Gene Antiviral State`
   ← Rhinovirus_Infection, Parainfluenza_Virus_Infection,
-  Human_Metapneumovirus_Infection, and Seasonal_Coronavirus_Infection (epithelial
-  innate/interferon antiviral response).
+  Human_Metapneumovirus_Infection, Seasonal_Coronavirus_Infection, and
+  Adenovirus_Respiratory_Infection (epithelial innate/interferon antiviral response).
 - `host_directed_antiviral_dependency#Host Receptor and Protease Engagement` ←
   Middle_East_Respiratory_Syndrome (MERS-CoV spike entry via the DPP4 host
   receptor — the coronavirus parallel to SARS-CoV-2/ACE2).
@@ -173,6 +174,7 @@ into.
 | Rhinovirus_Infection | Common cold (URTI) |
 | Human_Metapneumovirus_Infection | hMPV; RSV-like bronchiolitis/pneumonia |
 | Seasonal_Coronavirus_Infection | endemic HCoV 229E/NL63/OC43/HKU1; common cold |
+| Adenovirus_Respiratory_Infection | HAdV; pharyngoconjunctival fever, military pneumonia |
 | Hantavirus_Pulmonary_Syndrome | Hantavirus (HPS) |
 | Chickenpox | VZV; respiratory-droplet transmission, varicella pneumonia |
 
@@ -206,8 +208,8 @@ thesis (broad-spectrum protection across viral families) and are prioritized acc
   disease_term — MONDO lacks an hMPV infection term, flagged for a term request).
 - Seasonal_Coronavirus_Infection [Intercept] — ✓ created (de novo; no MONDO
   disease_term — MONDO lacks an endemic-HCoV term, flagged for a term request).
-- Adenovirus respiratory infection [Intercept] — MONDO has only "adenovirus renal
-  infection"; can be created without a disease_term if prioritized.
+- Adenovirus_Respiratory_Infection [Intercept] — ✓ created (de novo; no MONDO
+  disease_term — MONDO has only "adenovirus renal infection", flagged for a term request).
 
 **Bacterial pneumonia & atypicals**
 - Community-acquired pneumonia / pneumococcal pneumonia (*Streptococcus pneumoniae*)
