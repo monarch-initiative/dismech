@@ -75,7 +75,31 @@ scattering independently — biologically faithful co-occurrence for free.
 
 1. **Standalone sampler** for cold-start / rare diseases (no real cases to train on).
 2. **Structured prior** to regularize the VAE where case data are sparse.
-3. **Plausibility check**: score VAE output by pathograph-branch coherence
-   (reusing the IDF/overlap machinery in `scripts/pathograph_overlap.py`).
+3. **Plausibility check**: score VAE output by pathograph-branch coherence — see
+   the QC layer below.
 
-Both outputs land under the gitignored `output/synthvae/`.
+## QC layer (non-invasive plausibility check)
+
+`scripts/synthvae_qc.py` implements Milestone 1 of
+[synthetic_vae_generator#4](https://github.com/justaddcoffee/synthetic_vae_generator/issues/4):
+score any phenopacket cohort (VAE output, the sampler above, or real
+phenopacket-store cases) against the pathograph **without touching model
+training**. It reports, per patient and per cohort:
+
+* the matched disease pathograph (by MONDO id, else by causal gene);
+* **on-graph** HPO terms (mechanistically explainable for that disease) vs
+  **off-graph** terms (no curated mechanism — the plausibility red flag);
+* which mechanistic **branches** the on-graph terms activate.
+
+```bash
+uv run python scripts/synthvae_qc.py output/synthvae/synthetic_patients.jsonl
+# -> output/synthvae/qc_report.json + a printed summary
+```
+
+This is *disease-mechanism* plausibility, complementary to HPO ontology logical
+checks: ontology checks catch impossible term combinations; this catches
+phenotype sets that don't hang together on the curated causal graph. Exact-term
+matching today; HPO ancestor/descendant expansion (via OAK, as in
+`scripts/pathograph_overlap.py`) is the natural refinement.
+
+All outputs land under the gitignored `output/synthvae/`.
