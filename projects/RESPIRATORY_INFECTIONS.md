@@ -34,6 +34,8 @@ diseases:
 - Pertussis
 - Pneumococcal_Pneumonia
 - Q_Fever
+- Psittacosis
+- Pneumocystis_Pneumonia
 modules:
 - host_directed_antiviral_dependency
 - innate_antiviral_interferon_response
@@ -132,6 +134,8 @@ evidence quote):
   cell-wall-deficient Mycoplasma).
 - `intracellular_pathogen_persistence` + `bacterial_protein_synthesis_inhibition`
   (tetracycline target) ← Q_Fever (intracellular; doxycycline, mirroring Murine_Typhus).
+- `intracellular_pathogen_persistence` + `bacterial_protein_synthesis_inhibition`
+  (tetracycline target) ← Psittacosis (avian zoonotic intracellular chlamydial pneumonia).
 
 **Treatment enrichment (wired):**
 - COVID-19 — Peginterferon Lambda (NCIT:C166435), an interferon-based
@@ -194,6 +198,7 @@ into.
 | Tuberculosis | *Mycobacterium tuberculosis*; pulmonary + extrapulmonary |
 | Pneumococcal_Pneumonia | *Streptococcus pneumoniae* — typical lobar CAP |
 | Q_Fever | *Coxiella burnetii* — zoonotic intracellular atypical pneumonia |
+| Psittacosis | *Chlamydia psittaci* — avian zoonotic intracellular pneumonia |
 | Legionnaires_Disease | *Legionella pneumophila* — severe pneumonia (intracellular) |
 | Pontiac_Fever | *Legionella* (mild, self-limited febrile form) |
 | Mycoplasma_Pneumoniae_Pneumonia | *M. pneumoniae* — atypical/"walking" pneumonia |
@@ -207,6 +212,7 @@ into.
 | Entry | Pathogen / note |
 |---|---|
 | Coccidioidomycosis | *Coccidioides* — pulmonary mycosis |
+| Pneumocystis_Pneumonia | *Pneumocystis jirovecii* — opportunistic fungal pneumonia (PCP) |
 
 ## Coverage gaps (curation backlog)
 
@@ -225,7 +231,7 @@ thesis (broad-spectrum protection across viral families) and are prioritized acc
   disease_term — MONDO has only "adenovirus renal infection", flagged for a term request).
 
 **Bacterial pneumonia & atypicals**
-- *Chlamydophila pneumoniae* / psittacosis (*C. psittaci*)
+- *Chlamydophila pneumoniae* (atypical pneumonia)
 - *Haemophilus influenzae* and *Moraxella catarrhalis* LRTI
 - Hospital-acquired / ventilator-associated pneumonia
 
