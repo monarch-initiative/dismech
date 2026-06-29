@@ -2,8 +2,18 @@
 
 Spike for a possible "preprint-scan" action, sibling to the literature-scan /
 knowledge-gap-scan (kgscan) workflows. All numbers below were verified against
-live services on 2026-06-28; see `scripts/preprint_fulltext_prototype.py` for the
-working full-text fetcher.
+live services on 2026-06-28.
+
+> **Status update (2026-06-28):** the Europe PMC `fulltextRepo` full-text route
+> below is now provided natively by **`linkml-reference-validator` ≥ 0.2.1rc2**
+> ([#54](https://github.com/linkml/linkml-reference-validator/pull/54),
+> `feat(preprints): add preprint reference support with EPMC full-text route`).
+> dismech's pin was bumped accordingly, and the standalone prototype
+> (`scripts/preprint_fulltext_prototype.py`) was removed as redundant. Fetch a
+> preprint with `just fetch-reference PPR:<pprid>` (or a preprint DOI); it caches
+> the full-text PDF body (verified: `PPR:PPR640507` → 87,271 chars,
+> `content_type: full_text_pdf`). This note is retained as design provenance for
+> the two-universe analysis and the scanner recommendation.
 
 ## Question
 
@@ -80,10 +90,11 @@ are not yet in PMC/Europe PMC.
 
 - **Scanner:** build the PubMed PMID route (`"preprint"[Publication Type]`),
   leads-only, `preprint` label — abstracts are universal and pipeline-native.
-- **Full text:** use the Europe PMC `fulltextRepo` PDF route as the pragmatic 80%
-  (`scripts/preprint_fulltext_prototype.py`); treat S3 JATS as phase 2 for full
-  openRxiv coverage and cleaner snippet validation, once requester-pays creds are
-  wired into the Action as secrets.
+- **Full text:** the Europe PMC `fulltextRepo` PDF route is the pragmatic 80% and
+  is now built into `linkml-reference-validator` ≥ 0.2.1rc2 (`PPR:<pprid>` /
+  preprint-DOI references). Treat S3 JATS as phase 2 for full openRxiv coverage
+  and cleaner snippet validation, once requester-pays creds are wired into the
+  Action as secrets.
 - **Evidence policy:** record the preprint stance in
   `docs/explanation/design-decisions.md` §6 — preprints are not peer-reviewed and
   should not be the sole support for a mechanism claim.
