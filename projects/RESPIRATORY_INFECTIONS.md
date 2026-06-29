@@ -26,6 +26,8 @@ diseases:
 - Bronchiectasis
 - Parainfluenza_Virus_Infection
 - Middle_East_Respiratory_Syndrome
+- Legionnaires_Disease
+- Mycoplasma_Pneumoniae_Pneumonia
 modules:
 - host_directed_antiviral_dependency
 - innate_antiviral_interferon_response
@@ -111,6 +113,11 @@ evidence quote):
 - `host_directed_antiviral_dependency#Host Receptor and Protease Engagement` ←
   Middle_East_Respiratory_Syndrome (MERS-CoV spike entry via the DPP4 host
   receptor — the coronavirus parallel to SARS-CoV-2/ACE2).
+- `intracellular_pathogen_persistence` (Intracellular Niche + Cell-Penetrant
+  Antimicrobial nodes) ← Legionnaires_Disease (macrolide/fluoroquinolone therapy).
+- `bacterial_cell_wall_synthesis_inhibition#Intrinsic Resistance in Cell-Wall-Deficient Organisms`
+  and `bacterial_protein_synthesis_inhibition` (ribosome target + resistance) ←
+  Mycoplasma_Pneumoniae_Pneumonia (the flagship cell-wall-deficient conformer).
 
 **Treatment enrichment (wired):**
 - COVID-19 — Peginterferon Lambda (NCIT:C166435), an interferon-based
@@ -168,7 +175,9 @@ into.
 | Entry | Pathogen / note |
 |---|---|
 | Tuberculosis | *Mycobacterium tuberculosis*; pulmonary + extrapulmonary |
+| Legionnaires_Disease | *Legionella pneumophila* — severe pneumonia (intracellular) |
 | Pontiac_Fever | *Legionella* (mild, self-limited febrile form) |
+| Mycoplasma_Pneumoniae_Pneumonia | *M. pneumoniae* — atypical/"walking" pneumonia |
 | Scarlet_Fever | Group A *Streptococcus* pharyngitis (URT portal) |
 | Plague | *Yersinia pestis* — pneumonic form |
 | Tularemia | *Francisella tularensis* — pneumonic form |
@@ -191,13 +200,13 @@ thesis (broad-spectrum protection across viral families) and are prioritized acc
 - Human metapneumovirus infection [Intercept] — deferred: MONDO currently has no
   human-metapneumovirus infection term (only the NCBITaxon organism), so a
   MONDO-anchored entry is blocked pending an ontology term.
-- Seasonal/endemic coronaviruses (229E, OC43, NL63, HKU1) [Intercept]
-- Adenovirus respiratory infection [Intercept]
+- Seasonal/endemic coronaviruses (229E, OC43, NL63, HKU1) [Intercept] — deferred:
+  no usable MONDO term to anchor a disease_term (only an obsolete sensitivity term).
+- Adenovirus respiratory infection [Intercept] — deferred: MONDO has only
+  "adenovirus renal infection", no respiratory-adenovirus term to anchor.
 
 **Bacterial pneumonia & atypicals**
 - Community-acquired pneumonia / pneumococcal pneumonia (*Streptococcus pneumoniae*)
-- Legionnaires' disease (*Legionella pneumophila* pneumonia — the severe sibling of Pontiac_Fever)
-- *Mycoplasma pneumoniae* pneumonia (atypical)
 - *Chlamydophila pneumoniae* / psittacosis (*C. psittaci*)
 - *Haemophilus influenzae* and *Moraxella catarrhalis* LRTI
 - Hospital-acquired / ventilator-associated pneumonia
