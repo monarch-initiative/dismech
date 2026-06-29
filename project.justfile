@@ -110,7 +110,7 @@ validate-history-all:
     printf 'Validating %s history record(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{history_schema_path}} --target-class HistoryRecord "${files[@]}"
 
-# Schema validation for all files
+# Schema validation for all files (batched: one process startup for all files)
 [group('QC')]
 validate-schema-all:
     #!/usr/bin/env bash
@@ -124,10 +124,8 @@ validate-schema-all:
         echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
-    for f in "${files[@]}"; do
-        echo "Validating: $f"
-        uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f"
-    done
+    echo "Validating ${#files[@]} disorder files (schema)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${files[@]}"
 
 # Schema validation for all comorbidity YAML files
 [group('QC')]
@@ -384,15 +382,17 @@ validate-terms-all:
     #!/usr/bin/env bash
     set -e
     just check-enum-cache
-    echo "Validating terms in all disorder files..."
-    for f in {{kb_dir}}/*.yaml; do
-        if [[ "$f" == *.history.yaml ]]; then
-            continue
-        fi
-        echo "Validating: $(basename $f)"
-        {{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
-    done
-    echo "✓ All terms valid!"
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
+    else
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
+        exit 1
+    fi
+    echo "Validating terms in ${#files[@]} disorder files (batched)..."
+    {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
 # Validate terms in a single file
 [group('QC')]
