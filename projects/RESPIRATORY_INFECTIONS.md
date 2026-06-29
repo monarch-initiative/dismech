@@ -31,6 +31,7 @@ diseases:
 - Human_Metapneumovirus_Infection
 - Seasonal_Coronavirus_Infection
 - Adenovirus_Respiratory_Infection
+- Pertussis
 modules:
 - host_directed_antiviral_dependency
 - innate_antiviral_interferon_response
@@ -122,6 +123,8 @@ evidence quote):
 - `bacterial_cell_wall_synthesis_inhibition#Intrinsic Resistance in Cell-Wall-Deficient Organisms`
   and `bacterial_protein_synthesis_inhibition` (ribosome target + resistance) ←
   Mycoplasma_Pneumoniae_Pneumonia (the flagship cell-wall-deficient conformer).
+- `bacterial_protein_synthesis_inhibition` (ribosomal macrolide target + resistance)
+  ← Pertussis (toxin-mediated whooping cough; macrolide therapy).
 
 **Treatment enrichment (wired):**
 - COVID-19 — Peginterferon Lambda (NCIT:C166435), an interferon-based
@@ -185,6 +188,7 @@ into.
 | Legionnaires_Disease | *Legionella pneumophila* — severe pneumonia (intracellular) |
 | Pontiac_Fever | *Legionella* (mild, self-limited febrile form) |
 | Mycoplasma_Pneumoniae_Pneumonia | *M. pneumoniae* — atypical/"walking" pneumonia |
+| Pertussis | *Bordetella pertussis* — whooping cough (toxin-mediated) |
 | Scarlet_Fever | Group A *Streptococcus* pharyngitis (URT portal) |
 | Plague | *Yersinia pestis* — pneumonic form |
 | Tularemia | *Francisella tularensis* — pneumonic form |
@@ -219,7 +223,6 @@ thesis (broad-spectrum protection across viral families) and are prioritized acc
 - Q fever (*Coxiella burnetii*) pulmonary form
 
 **Vaccine-preventable / classic URT & airway**
-- Pertussis (whooping cough)
 - Diphtheria
 - Acute bacterial/viral bronchitis
 - Acute sinusitis / rhinosinusitis
