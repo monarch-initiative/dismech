@@ -299,6 +299,21 @@ rate gives a value that is always fillable (the band), precise when the source s
 (the rate), and never conflates incompatible epidemiological measures. Because prevalence
 is not yet rendered on disorder pages, the remodel carries no display-breakage risk.
 
+**Per-gene case fractions (the genetic-spectrum analog).** For a genetically
+heterogeneous disease, "what share of cases does each gene explain?" is a *different axis*
+from population occurrence — it is cohort/ancestry-dependent (e.g. BBS1 dominates European
+Bardet-Biedl cohorts, BBS10 others) and needs its own population + evidence per estimate.
+It was previously handled only by the overloaded free-text `Genetic.frequency` field
+(qualitative prose such as "one of the most prevalent BBS genes") with the actual numbers
+trapped inside evidence `snippet:` text. It now has a structured home: `Genetic.case_fractions`
+(multivalued `GeneCaseFraction`), mirroring the Prevalence remodel — `population` (cohort)
++ `case_fraction_percent` (with `case_fraction_low`/`case_fraction_high` and optional
+`cohort_size`) + `evidence` + `notes`, while `frequency` is retained as the coarse,
+always-fillable qualitative band. This keeps the relative genetic spectrum distinct from
+population occurrence (`Prevalence`) and from population allele frequency. Worked example:
+the BBS1/BBS10 entries of `Bardet-Biedl_Syndrome` carry per-cohort case fractions
+(BBS1 24.6%/27%, BBS10 32.8%/30%) sourced to the German and metabolic cohorts.
+
 
 ## 9. Gaps
 
@@ -310,6 +325,7 @@ This section details decisions we have **not yet made or formalized**.
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | `updated_date` field | Deprecated in favor of git history; legacy entries may retain it pending bulk cleanup | — |
 | Deprecated `prevalence.percentage` cleanup | `percentage` superseded by structured prevalence slots (§8) and deprecated; ~185 unit-ambiguous bare-number records plus ~8 free-prose head-counts were left unconverted and need manual resolution (see `research/prevalence_migration_report.md`). Field removal is deferred until the backlog clears. | migration follow-up |
+| Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8) with a worked example on `Bardet-Biedl_Syndrome` (BBS1/BBS10). Other genetically heterogeneous entries still carry per-gene shares only as free-text `Genetic.frequency` plus numbers trapped in evidence snippets; a backfill (and a decision on whether to deprecate the overloaded `frequency` field) is outstanding. No automated extractor yet. | schema follow-up |
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |

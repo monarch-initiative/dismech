@@ -854,6 +854,39 @@ prevalence:
 `scripts/migrate_prevalence.py` backfilled existing entries; do not populate
 `percentage` on new records.
 
+#### Per-gene case fractions (genetically heterogeneous diseases)
+
+For a disease where multiple genes each explain some share of cases, record that
+share with structured `Genetic.case_fractions` (multivalued `GeneCaseFraction`),
+**not** the free-text `Genetic.frequency` field. This is the genetic-spectrum
+analog of a `Prevalence` record and is distinct from population occurrence and
+from allele frequency — the share is cohort/ancestry-dependent, so each estimate
+carries its own `population` and `evidence`:
+
+```yaml
+genetic:
+- name: BBS1
+  gene_term:
+    preferred_term: BBS1
+    term:
+      id: hgnc:966
+      label: BBS1
+  frequency: one of the most prevalent BBS genes   # coarse qualitative band (kept)
+  case_fractions:
+  - population: German BBS cohort
+    case_fraction_percent: 24.6
+    notes: Second most common gene in a contemporary German clinical series.
+    evidence:
+    - reference: PMID:35886001
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: "The most common associated genes were BBS10 (32.8%) and BBS1 (24.6%)"
+      explanation: Quantifies the BBS1 share of cases in the German cohort.
+```
+
+Use `case_fraction_low`/`case_fraction_high` for ranges and `cohort_size` when the
+proband count is reported. `Bardet-Biedl_Syndrome` (BBS1/BBS10) is the worked example.
+
 ### Clinical Trials
 
 Clinical trials can be added to disease entries with evidence validated against ClinicalTrials.gov:
