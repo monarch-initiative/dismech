@@ -1939,9 +1939,31 @@ cron-profile-preview name:
 cron-profile name:
     uv run python scripts/apply_cron_profile.py {{name}}
 
-# ============== Phenoagent: phenopacket eval ==============
+# ============== Phenoagent: case-to-disease matching ==============
 
-# Deterministic phenopacket match-quality eval against dismech disorders.
+# Step 1 - Deterministic init: build an initial matching YAML from a phenopacket
+# and a single dismech disease (slug, MONDO id, name, or YAML path).
+# Example: just matching-init tests/phenoagent/data/phenopackets/PMID_35451551_proband.min.json Fanconi_Anemia
+[group('Phenoagent')]
+matching-init phenopacket disease *flags:
+    uv run python -m phenoagent.matching_cli {{phenopacket}} {{disease}} {{flags}}
+
+# Step 2 - Agentic explanation loop: run init, then drive cyberian + Claude to
+# fill explanations for every non-exact row (requires cyberian + a running agent
+# server on --host/--port). Add --dry-run to print the cyberian command only.
+# Example: just matching-agent tests/phenoagent/data/phenopackets/PMID_35451551_proband.min.json Fanconi_Anemia --dry-run
+[group('Phenoagent')]
+matching-agent phenopacket disease *flags:
+    uv run python -m phenoagent.cyberian_wrapper {{phenopacket}} {{disease}} {{flags}}
+
+# Step 3 - Match-aware causal graph: render an HTML report (embedded Mermaid +
+# metadata) from a dismech disease model and a matching report YAML.
+# Example: just matching-graph Fanconi_Anemia output/matching/<case>__Fanconi_Anemia.yaml
+[group('Phenoagent')]
+matching-graph disease matching_report *flags:
+    uv run python -m phenoagent.match_graph {{disease}} {{matching_report}} {{flags}}
+
+# Step 4 - Deterministic phenopacket match-quality eval against dismech disorders.
 # Defaults to the bundled fixtures; pass a phenopacket-store checkout to scale up.
 # Example: just phenopacket-eval
 # Example: just phenopacket-eval projects/PHENOPACKETS/files/phenopacket-store
