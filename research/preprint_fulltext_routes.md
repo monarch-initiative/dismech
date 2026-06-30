@@ -88,13 +88,20 @@ are not yet in PMC/Europe PMC.
 
 ## Recommendation
 
-- **Scanner:** build the PubMed PMID route (`"preprint"[Publication Type]`),
-  leads-only, `preprint` label — abstracts are universal and pipeline-native.
+- **Scanner (shipped):** `scripts/preprint_scan.py` + `.github/workflows/preprint-scan.yml`
+  scan the **Europe PMC `SRC:PPR`** route (not the PubMed PMID route the earlier
+  draft favoured). The `linkml-reference-validator` >= 0.2.1rc2 bump made `PPR:`
+  a first-class, full-text-capable reference, so a `SRC:PPR` candidate is directly
+  citable and the scanner reuses the `literature_scan` Europe PMC machinery
+  wholesale. Leads-only, `preprint` label. No `HAS_FT:Y` filter — full-text
+  ingestion lags publication by months (a full-text-only weekly window returns
+  ~0), so the scanner surfaces fresh preprints and the validator fetches full
+  text when available, else the abstract.
 - **Full text:** the Europe PMC `fulltextRepo` PDF route is the pragmatic 80% and
-  is now built into `linkml-reference-validator` ≥ 0.2.1rc2 (`PPR:<pprid>` /
+  is built into `linkml-reference-validator` >= 0.2.1rc2 (`PPR:<pprid>` /
   preprint-DOI references). Treat S3 JATS as phase 2 for full openRxiv coverage
   and cleaner snippet validation, once requester-pays creds are wired into the
   Action as secrets.
-- **Evidence policy:** record the preprint stance in
-  `docs/explanation/design-decisions.md` §6 — preprints are not peer-reviewed and
-  should not be the sole support for a mechanism claim.
+- **Evidence policy:** preprints are not peer-reviewed and must not be the sole
+  support for a mechanism claim; the scanner's handoff issues state this. A
+  durable note in `docs/explanation/design-decisions.md` §6 is still worthwhile.
