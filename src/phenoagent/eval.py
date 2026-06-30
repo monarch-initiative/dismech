@@ -417,7 +417,7 @@ def render_markdown(report: dict[str, Any]) -> str:
                 "## Mean match quality (scored packets)",
                 "",
                 f"- Exact recall: **{summary['mean_exact_recall']:.2%}**",
-                f"- Related recall (exact + broader/narrower): **{summary['mean_related_recall']:.2%}**",
+                f"- Related recall (exact + broader/narrower + close): **{summary['mean_related_recall']:.2%}**",
                 f"- Model coverage: **{summary['mean_model_coverage']:.2%}**",
                 f"- Weighted model coverage: **{summary['mean_weighted_model_coverage']:.2%}**",
                 f"- Mean pr_is_diagnosis (deterministic): {summary['mean_pr_is_diagnosis']}",
