@@ -1938,3 +1938,13 @@ cron-profile-preview name:
 [group('Cron profiles')]
 cron-profile name:
     uv run python scripts/apply_cron_profile.py {{name}}
+
+# ============== Phenoagent: phenopacket eval ==============
+
+# Deterministic phenopacket match-quality eval against dismech disorders.
+# Defaults to the bundled fixtures; pass a phenopacket-store checkout to scale up.
+# Example: just phenopacket-eval
+# Example: just phenopacket-eval projects/PHENOPACKETS/files/phenopacket-store
+[group('Phenoagent')]
+phenopacket-eval paths="tests/phenoagent/data/phenopackets":
+    uv run python -m phenoagent.eval {{paths}} --json workdirs/eval/phenopacket-eval.json --markdown workdirs/eval/phenopacket-eval.md
