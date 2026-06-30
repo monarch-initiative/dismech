@@ -359,8 +359,13 @@ def migrate_text(text, records_fields):
     `records_fields` is the per-record fields dict in document order, restricted
     to records that carry a `percentage` key (1:1 with `percentage:` lines in the
     prevalence block). Returns (new_text, n_records_modified) or (text, 0).
+
+    CRLF-safe: a file's existing newline style is detected and reused so a
+    CRLF-terminated file is not silently normalized to LF (which would diff the
+    whole file).
     """
-    lines = text.split("\n")
+    newline = "\r\n" if "\r\n" in text else "\n"
+    lines = text.split(newline)
     blk = find_prevalence_block(lines)
     if blk is None:
         return text, 0
@@ -411,7 +416,7 @@ def migrate_text(text, records_fields):
         if i in insertions:
             out.extend(insertions[i])
         out.append(line)
-    return "\n".join(out), modified
+    return newline.join(out), modified
 
 
 def main():
@@ -423,7 +428,8 @@ def main():
     files_changed = 0
 
     for path in sorted(DISORDERS.glob("*.yaml")):
-        text = path.read_text()
+        with open(path, "r", encoding="utf-8", newline="") as _fh:
+            text = _fh.read()  # preserve CRLF/LF; never normalize
         try:
             data = _pyyaml.safe_load(text)
         except Exception as e:  # noqa
@@ -459,7 +465,8 @@ def main():
         if args.apply and records_fields:
             new_text, n = migrate_text(text, records_fields)
             if n:
-                path.write_text(new_text)
+                with open(path, "w", encoding="utf-8", newline="") as _fh:
+                    _fh.write(new_text)  # write bytes as-is
                 files_changed += 1
 
     write_report(rows, applied=args.apply, files_changed=files_changed)
