@@ -2118,6 +2118,10 @@ class AssociationSignalSourceEnum(str, Enum):
     """
     Columbia Open Health Data (COHD)
     """
+    ICEES = "ICEES"
+    """
+    Integrated Clinical and Environmental Exposures Service KG (RENCI/UNC)
+    """
     LITERATURE = "LITERATURE"
     """
     Published literature source

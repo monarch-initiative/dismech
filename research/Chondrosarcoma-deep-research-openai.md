@@ -27,7 +27,7 @@
 
 ## Subtype Grounding Chosen For The Disease Slice
 
-| Facet role | Dismech subtype | MONDO grounding | NCIT grounding used in file | Rationale |
+| Facet role | DisMech subtype | MONDO grounding | NCIT grounding used in file | Rationale |
 | --- | --- | --- | --- | --- |
 | Histology | Conventional | none exact used | general disease NCIT plus primary central context | common dominant pattern; kept as a facet, not a page |
 | Histology | Dedifferentiated | `MONDO:0005013` | `NCIT:C6476` | distinct aggressive histology, but still inside one chondrosarcoma graph |

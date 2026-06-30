@@ -2,7 +2,19 @@ from pathlib import Path
 
 import yaml
 
-from dismech.render import _collect_research_index_rows, render_research_index
+import pytest
+
+from dismech.render import (
+    DEEP_RESEARCH_PROVIDERS,
+    DETAILS_PROVIDER_BLOCK_BEGIN,
+    DETAILS_PROVIDER_BLOCK_END,
+    _collect_research_index_rows,
+    _display_name_from_provider,
+    _humanize_provider,
+    render_provider_docs_table,
+    render_research_index,
+    update_details_provider_docs,
+)
 
 
 def _write_disorder(path: Path, data: dict) -> None:
@@ -25,6 +37,7 @@ def test_collect_research_index_rows_normalizes_provider_categories(
         "Test_Disorder-deep-research-openscientist-review.md",
         "Test_Disorder-deep-research-codex.md",
         "Test_Disorder-deep-research-fallback.md",
+        "Test_Disorder-deep-research-claude_code.md",
         "Test_Disorder-deep-research-claudeweb.md",
     ]
     for filename in valid_reports:
@@ -45,6 +58,7 @@ def test_collect_research_index_rows_normalizes_provider_categories(
 
     providers = {provider["key"]: provider for provider in row["providers"]}
     assert set(providers) == {
+        "claude-code",
         "cyberian",
         "edison",
         "fallback",
@@ -56,6 +70,7 @@ def test_collect_research_index_rows_normalizes_provider_categories(
     assert providers["cyberian"]["name"] == "Cyberian"
     assert providers["openscientist"]["name"] == "OpenScientist"
     assert providers["openai"]["name"] == "OpenAI"
+    assert providers["claude-code"]["name"] == "Claude Code"
     assert providers["fallback"]["name"] == "Fallback"
     assert providers["other"]["name"] == "Other"
 
@@ -87,6 +102,7 @@ def test_render_research_index_exposes_fixed_provider_filters(tmp_path: Path) ->
         "openai",
         "cyberian",
         "perplexity",
+        "claude-code",
         "fallback",
         "openscientist",
         "other",
@@ -95,3 +111,114 @@ def test_render_research_index_exposes_fixed_provider_filters(tmp_path: Path) ->
 
     assert "OpenScientist" in html
     assert "Other" in html
+
+
+def test_registry_drives_filter_chips_in_order(tmp_path: Path) -> None:
+    """Every filter chip is generated from the registry, in registry order."""
+    output_path = tmp_path / "pages" / "research" / "index.html"
+    render_research_index([], output_path=output_path)
+    html = output_path.read_text()
+
+    # The filter checkboxes appear in the same order as the registry.
+    chip_positions = [
+        html.index(f'provider-filter-{entry["key"]}"')
+        for entry in DEEP_RESEARCH_PROVIDERS
+    ]
+    assert chip_positions == sorted(chip_positions)
+    assert len(chip_positions) == len(DEEP_RESEARCH_PROVIDERS)
+
+
+def test_registry_drives_legend_and_pill_colors(tmp_path: Path) -> None:
+    """The legend, pill CSS, and link/description all come from the registry."""
+    output_path = tmp_path / "pages" / "research" / "index.html"
+    render_research_index([], output_path=output_path)
+    html = output_path.read_text()
+
+    for entry in DEEP_RESEARCH_PROVIDERS:
+        # Legend category name and description text.
+        assert entry["name"] in html
+        assert entry["description"] in html
+        # Pill CSS rule generated per key.
+        assert f'.provider-pill.provider-{entry["key"]}' in html
+        assert entry["pill"]["background"] in html
+        # Product link only for entries that carry one.
+        if entry["url"]:
+            assert entry["url"] in html
+
+
+def test_display_name_matches_registry_categories() -> None:
+    """_display_name_from_provider returns the registry category for each slug."""
+    for entry in DEEP_RESEARCH_PROVIDERS:
+        for match_key in entry["match_keys"]:
+            assert _display_name_from_provider(match_key) == entry["name"]
+    # Unknown slugs fall through to the catch-all category.
+    assert _display_name_from_provider("totally-unknown-provider") == "Other"
+
+
+def test_humanize_provider_uses_registry_overrides() -> None:
+    """_humanize_provider honors registry overrides, else title-cases the slug."""
+    assert _humanize_provider("openai") == "OpenAI"
+    assert _humanize_provider("openscientist") == "OpenScientist"
+    assert _humanize_provider("falcon") == "Falcon"
+    assert _humanize_provider("cyberian-codex") == "Cyberian Codex"
+    assert _humanize_provider("claude_code") == "Claude Code"
+    # Slugs without an override fall back to title-casing.
+    assert _humanize_provider("codex") == "Codex"
+    assert _humanize_provider("some_new-provider") == "Some New Provider"
+    assert _humanize_provider(None) is None
+
+
+def test_provider_docs_table_covers_whole_registry() -> None:
+    """The docs table lists every registry provider with its description/link."""
+    table = render_provider_docs_table()
+
+    for entry in DEEP_RESEARCH_PROVIDERS:
+        assert entry["name"] in table
+        assert entry["description"] in table
+        if entry["url"]:
+            assert entry["url"] in table
+        if entry["prefix"]:
+            assert entry["prefix"] in table  # e.g. the fallback warning glyph
+
+    # One table row per provider.
+    assert table.count("<tr>") == len(DEEP_RESEARCH_PROVIDERS) + 1  # + header row
+
+
+def _details_stub() -> str:
+    return (
+        "<html><body>\n"
+        "            <h3>Deep Research Providers</h3>\n"
+        f"            {DETAILS_PROVIDER_BLOCK_BEGIN}\n"
+        "            <table><tbody>STALE</tbody></table>\n"
+        f"            {DETAILS_PROVIDER_BLOCK_END}\n"
+        "            <h3>Next section</h3>\n"
+        "</body></html>\n"
+    )
+
+
+def test_update_details_provider_docs_replaces_block_idempotently(
+    tmp_path: Path,
+) -> None:
+    details = tmp_path / "index.html"
+    details.write_text(_details_stub())
+
+    update_details_provider_docs(details)
+    once = details.read_text()
+
+    # Stale content is gone; registry content and surrounding page are intact.
+    assert "STALE" not in once
+    assert "Edison" in once
+    assert "<h3>Next section</h3>" in once
+    assert once.count(DETAILS_PROVIDER_BLOCK_BEGIN) == 1
+    assert once.count(DETAILS_PROVIDER_BLOCK_END) == 1
+
+    # Re-running is a no-op (safe to wire into a generation pipeline).
+    update_details_provider_docs(details)
+    assert details.read_text() == once
+
+
+def test_update_details_provider_docs_requires_markers(tmp_path: Path) -> None:
+    details = tmp_path / "index.html"
+    details.write_text("<html><body>no markers here</body></html>")
+    with pytest.raises(SystemExit):
+        update_details_provider_docs(details)

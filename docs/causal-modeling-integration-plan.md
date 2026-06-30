@@ -1,10 +1,10 @@
-# Plan: Dismech as Validation Resource for Causal Gene-to-Trait Analyses
+# Plan: DisMech as Validation Resource for Causal Gene-to-Trait Analyses
 
 ## The Idea
 
-Given outputs from causal modeling pipelines (GWAS + Perturb-seq → gene programs → traits), can Dismech's curated pathophysiology knowledge **explain, validate, or contextualize** the discovered relationships?
+Given outputs from causal modeling pipelines (GWAS + Perturb-seq → gene programs → traits), can DisMech's curated pathophysiology knowledge **explain, validate, or contextualize** the discovered relationships?
 
-This positions Dismech as a **benchmark/interpretation layer** rather than a data store.
+This positions DisMech as a **benchmark/interpretation layer** rather than a data store.
 
 ## Background: The Ota et al. Methodology
 
@@ -27,13 +27,13 @@ Gene (member) ----[γ]----/
 - Causal chains explaining how genes affect traits via biological programs
 - 73% accuracy in predicting effect directions for top GWAS hits
 
-## Use Cases for Dismech
+## Use Cases for DisMech
 
 ### 1. Validate Discovered Gene-Program-Trait Relationships
 
 **Question**: Does a computationally discovered pathway match curated knowledge?
 
-| Pipeline Output | Dismech Query |
+| Pipeline Output | DisMech Query |
 |-----------------|---------------|
 | GATA1 → erythroid program → MCH | Do blood disorders document GATA1 affecting hemoglobin via erythropoiesis? |
 | BCL2 → apoptosis program → lymphocyte count | Do immune disorders link BCL2 to apoptosis affecting lymphocytes? |
@@ -41,16 +41,16 @@ Gene (member) ----[γ]----/
 **Validation levels:**
 - CONFIRMED: Gene, process, and phenotype all documented with evidence
 - PARTIAL: Some elements present but incomplete chain
-- NOVEL: Not in Dismech (curation candidate)
-- CONTRADICTED: Dismech documents opposite effect
+- NOVEL: Not in DisMech (curation candidate)
+- CONTRADICTED: DisMech documents opposite effect
 
 ### 2. Explain Programs via Pathophysiology
 
 **Question**: What does "Program 17" actually mean in disease context?
 
-Pipeline outputs are anonymous gene modules (Program 1, Program 2, ...). Dismech can provide clinical/mechanistic context:
+Pipeline outputs are anonymous gene modules (Program 1, Program 2, ...). DisMech can provide clinical/mechanistic context:
 
-| Program GO Annotation | Dismech Diseases | Clinical Context |
+| Program GO Annotation | DisMech Diseases | Clinical Context |
 |-----------------------|------------------|------------------|
 | GO:0007049 (cell cycle) | CML, Retinoblastoma | "Uncontrolled proliferation drives tumor growth" |
 | GO:0006915 (apoptosis) | SLE, Autoimmune diseases | "Defective clearance of apoptotic cells triggers autoimmunity" |
@@ -60,18 +60,18 @@ Pipeline outputs are anonymous gene modules (Program 1, Program 2, ...). Dismech
 
 **Question**: Which discovered relationships are genuinely novel vs. already known?
 
-Given 500 gene-trait associations from a pipeline, Dismech can partition into:
+Given 500 gene-trait associations from a pipeline, DisMech can partition into:
 - **Known**: Already documented (low priority for follow-up)
 - **Novel**: Not in literature (high priority for experimental validation)
 - **Contradicted**: Conflicts with literature (needs investigation)
 
-### 4. Identify Mechanistic Gaps in Dismech
+### 4. Identify Mechanistic Gaps in DisMech
 
 **Question**: Where does computational analysis find things missing from curated knowledge?
 
-If pipeline discovers "Gene X → autophagy → Trait Y" but Dismech's Disease Y entry lacks autophagy in pathophysiology, this flags a curation gap.
+If pipeline discovers "Gene X → autophagy → Trait Y" but DisMech's Disease Y entry lacks autophagy in pathophysiology, this flags a curation gap.
 
-**Feedback loop**: Pipeline discoveries improve Dismech coverage.
+**Feedback loop**: Pipeline discoveries improve DisMech coverage.
 
 ### 5. Cross-Disease Program Analysis
 
@@ -93,7 +93,7 @@ If pipeline discovers "Gene X → autophagy → Trait Y" but Dismech's Disease Y
 
 *Note: Check if supplementary tables from paper are publicly available.*
 
-### From Dismech
+### From DisMech
 
 1. **Gene mentions**: Genes in `genetic` and `pathophysiology.genes` sections
 2. **Process annotations**: GO terms in `pathophysiology.biological_processes`
@@ -103,7 +103,7 @@ If pipeline discovers "Gene X → autophagy → Trait Y" but Dismech's Disease Y
 
 ### Mapping Requirements
 
-| Pipeline Entity | Dismech Entity | Mapping Strategy |
+| Pipeline Entity | DisMech Entity | Mapping Strategy |
 |-----------------|----------------|------------------|
 | Gene symbol | GeneDescriptor | Direct match or HGNC lookup |
 | Program GO term | BiologicalProcessTerm | Exact or ancestor match via GO hierarchy |
@@ -114,18 +114,18 @@ If pipeline discovers "Gene X → autophagy → Trait Y" but Dismech's Disease Y
 
 ### Quantitative Metrics
 
-1. **Coverage**: % of pipeline gene-trait pairs that Dismech can evaluate
-2. **Confirmation rate**: % of top pipeline hits confirmed by Dismech
-3. **Novelty rate**: % of pipeline discoveries not in Dismech
-4. **Contradiction rate**: % of pipeline results conflicting with Dismech
+1. **Coverage**: % of pipeline gene-trait pairs that DisMech can evaluate
+2. **Confirmation rate**: % of top pipeline hits confirmed by DisMech
+3. **Novelty rate**: % of pipeline discoveries not in DisMech
+4. **Contradiction rate**: % of pipeline results conflicting with DisMech
 
 ### Qualitative Assessment
 
 1. Do confirmed findings have strong evidence (experimental PMIDs)?
-2. Are novel findings biologically plausible given Dismech context?
+2. Are novel findings biologically plausible given DisMech context?
 3. Can contradictions be resolved by examining evidence quality?
 
-## Dismech Gaps to Address
+## DisMech Gaps to Address
 
 ### Current Strengths
 - 55+ disorders with curated pathophysiology
@@ -149,7 +149,7 @@ The Ota et al. paper focuses on three blood traits:
 - RDW (red cell distribution width)
 - IRF (immature reticulocyte fraction)
 
-### Relevant Dismech Disorders
+### Relevant DisMech Disorders
 
 | Disorder | Relevance | Current Coverage |
 |----------|-----------|------------------|
@@ -208,23 +208,23 @@ Coverage by program type:
 
 ### 3. Curation Candidates
 
-Ranked list of novel findings with high effect sizes that warrant adding to Dismech.
+Ranked list of novel findings with high effect sizes that warrant adding to DisMech.
 
 ### 4. Gap Report
 
-Which GO terms from programs lack Dismech coverage, prioritized by frequency in pipeline results.
+Which GO terms from programs lack DisMech coverage, prioritized by frequency in pipeline results.
 
 ## Implementation Phases
 
 ### Phase 1: Data Assembly
 - Obtain Ota et al. supplementary data
-- Export Dismech blood disorders to queryable format
+- Export DisMech blood disorders to queryable format
 - Create trait-to-HPO mapping for MCH, RDW, IRF
 
 ### Phase 2: Proof of Concept
 - Manual validation of 20 top gene-program-trait relationships
 - Document matching logic and edge cases
-- Assess Dismech coverage and gaps
+- Assess DisMech coverage and gaps
 
 ### Phase 3: Systematic Evaluation
 - Automate matching across all pipeline outputs
@@ -232,7 +232,7 @@ Which GO terms from programs lack Dismech coverage, prioritized by frequency in 
 - Quantify confirmation/novelty/contradiction rates
 
 ### Phase 4: Bidirectional Improvement
-- Use novel findings to improve Dismech coverage
+- Use novel findings to improve DisMech coverage
 - Re-run validation to measure improvement
 - Publish methodology and results
 
@@ -240,13 +240,13 @@ Which GO terms from programs lack Dismech coverage, prioritized by frequency in 
 
 1. **Trait mapping**: How to map blood lab values (MCH) to HPO terms? Direct terms exist (HP:0025066 "Decreased mean corpuscular hemoglobin") but may need expert review.
 
-2. **Cell type specificity**: Ota et al. used K562 (erythroleukemia line). How generalizable are programs to other cell types in Dismech pathophysiology?
+2. **Cell type specificity**: Ota et al. used K562 (erythroleukemia line). How generalizable are programs to other cell types in DisMech pathophysiology?
 
-3. **Effect direction validation**: Dismech has `modifier` but it's underused. How much curation effort to systematically add directions?
+3. **Effect direction validation**: DisMech has `modifier` but it's underused. How much curation effort to systematically add directions?
 
 4. **Semantic matching depth**: Should GO term matching use exact match, or traverse hierarchy (e.g., "erythrocyte differentiation" matches "hematopoiesis")?
 
-5. **Evidence quality weighting**: Should we weight Dismech evidence by experimental type (IDA > TAS > NAS)?
+5. **Evidence quality weighting**: Should we weight DisMech evidence by experimental type (IDA > TAS > NAS)?
 
 ## References
 
@@ -270,7 +270,7 @@ Which GO terms from programs lack Dismech coverage, prioritized by frequency in 
 
 ### Key Programs for Blood Trait Validation
 
-| Program | Annotation | GO Term | Relevance to Dismech |
+| Program | Annotation | GO Term | Relevance to DisMech |
 |---------|------------|---------|----------------------|
 | P4 | Cell cycle (S phase, DNA replication) | DNA replication | CML, Retinoblastoma |
 | P6 | Cell cycle (G2M checkpoint) | G2M checkpoint | Cancers |
