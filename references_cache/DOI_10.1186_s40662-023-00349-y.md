@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40662-023-00349-y
+reference_id: "DOI:10.1186/s40662-023-00349-y"
 title: "Central serous chorioretinopathy: updates in the pathogenesis, diagnosis and therapeutic strategies"
 authors:
 - Xinyuan Zhang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.xops.2025.101043
+reference_id: "DOI:10.1016/j.xops.2025.101043"
 title: "The CFH–CFHR5 Locus in Wet Age-Related Macular Degeneration, Polypoidal Choroidal Vasculopathy, and Central Serous Chorioretinopathy"
 authors:
 - Zhen Ji Chen
