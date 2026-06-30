@@ -150,6 +150,7 @@ def detect_measure_from_evidence(snippets) -> str | None:
 
 def _band_from_rate(r: float) -> str:
     """Bucket a per-100,000 rate into an Orphanet-aligned class."""
+    r = round(float(r), 6)  # avoid float-boundary artifacts (1e-6*1e5 -> 0.0999...)
     if r >= 100:
         return "ABOVE_1_IN_1000"
     if r >= 10:
@@ -168,15 +169,27 @@ def parse_rate(raw: str):
     """
     s = " ".join(str(raw).split())
 
-    # --- Orphanet open-ended bands: ">1 / 1,000", "<1 / 1,000,000" ----------
-    m = re.search(r"([<>])\s*1\s*/\s*([\d ,]+)", s)
+    # --- Open-ended bands: ">1 / 1,000", "<1 / 1,000,000", "<1 per 1,000,000",
+    #     "Less than 1 per 1,000,000", "more than 1 per 1,000". The bound may use
+    #     "/", "per", or ":" and may be written with a comparator OR with words.
+    m = re.search(
+        r"(?:([<>])|\b(less than|fewer than|under|below)\b|\b(more than|greater than|over|at least)\b)"
+        r"\s*([\d.]+)\s*(?:/|per|:)\s*([\d ,]+|million|thousand|billion)",
+        s, re.I,
+    )
     if m:
-        denom = _to_float(m.group(2))
-        if denom:
-            rate = 100_000.0 / denom
-            if m.group(1) == ">":
-                return {"low": rate, "high": None, "point": None, "klass": "ABOVE_1_IN_1000"}
-            return {"low": None, "high": rate, "point": None, "klass": "BELOW_1_IN_1000000"}
+        denom = DENOM_WORDS.get((m.group(5) or "").lower()) or _to_float(m.group(5))
+        num = _to_float(m.group(4))
+        if denom and num is not None:
+            rate = num / denom * 1e5
+            less = m.group(1) == "<" or bool(m.group(2))
+            more = m.group(1) == ">" or bool(m.group(3))
+            if less:
+                klass = "BELOW_1_IN_1000000" if rate <= 0.1 else _band_from_rate(rate)
+                return {"low": None, "high": rate, "point": None, "klass": klass}
+            if more:
+                klass = "ABOVE_1_IN_1000" if rate >= 100 else _band_from_rate(rate)
+                return {"low": rate, "high": None, "point": None, "klass": klass}
 
     # --- "N / M" or "N-M / M" Orphanet band, integer numerator -------------
     m = re.search(r"\b(\d+)\s*-\s*(\d+)\s*/\s*([\d ,]+)", s)
