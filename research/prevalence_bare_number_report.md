@@ -1,11 +1,10 @@
 # Bare-number prevalence resolution
 
-Mode: APPLIED  
-Files changed: 58  
-- CONFIRMED: 91
+Mode: DRY-RUN  
+- CONFIRMED: 0
 - CONFIRMED_HIGH: 51
 - NO_EVIDENCE: 12
-- DISAGREE: 10
+- DISAGREE: 1
 - MISPLACED_STAT: 35
 - SKIP_GT100: 0
 
@@ -105,20 +104,11 @@ Files changed: 58
 | Taurodontism.yaml | `8` | 8000.0 | [8000.0, 3900.0] |
 | Twin_to_Twin_Transfusion_Syndrome.yaml | `10-15` | (10000.0, 15000.0) | [15000.0, 15000.0, 50.0] |
 
-## DISAGREE — needs manual review (10)
+## DISAGREE — needs manual review (1)
 
 | File | percentage | percent-reading /100k | evidence /100k |
 |------|-----------|----------------------|----------------|
-| Axenfeld-Rieger_syndrome.yaml | `0.001-0.002` | (1.0, 2.0) | [260.0, 390.0] |
-| Cockayne_Syndrome.yaml | `4e-06` | 0.004 | [0.4, 0.3] |
-| Crohn_Disease.yaml | `0.2-0.3` | (200.0, 300.0) | [47000.0] |
-| Ehlers-Danlos_Syndrome_COL5A1-related.yaml | `0.002-0.01` | (2.0, 10.0) | [50000.0] |
-| Epidermolysis_Bullosa.yaml | `0.0008` | 0.8 | [822000.0] |
-| Familial_Mediterranean_Fever.yaml | `0.1-0.2` | (100.0, 200.0) | [41800.0, 15800.0, 6500.0] |
-| Hirschsprung_Disease.yaml | `0.0001-0.001` | (0.1, 1.0) | [95000.0] |
 | Nephronophthisis.yaml | `0.1-1.0` | (100.0, 1000.0) | [10000.0, 20000.0, 6000.0] |
-| Neuromyelitis_Optica.yaml | `0.00154` | 1.54 | [54.0, 16.0, 99553.3] |
-| Tuberculosis.yaml | `0.1` | 100.0 | [30660.0, 23670.0, 900.0] |
 
 ## NO_EVIDENCE — needs manual review (12)
 

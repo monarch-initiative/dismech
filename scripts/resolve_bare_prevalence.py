@@ -177,6 +177,12 @@ def main():
                 continue
             if "percentage" not in rec:
                 continue
+            # Already resolved (by the migration or a manual fix): keep as-is so
+            # the report reflects current state, not a re-derivation from the
+            # bare percentage.
+            if any(k in rec for k in M.NEW_KEYS):
+                records_fields.append({k: rec[k] for k in M.NEW_KEYS if k in rec})
+                continue
             pct = rec.get("percentage")
             pop = str(rec.get("population") or "")
             notes = str(rec.get("notes") or "")
