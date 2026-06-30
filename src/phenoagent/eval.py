@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from phenoagent.matching import (
+    _FREQUENCY_PRIORITY,
     _default_kb_dir,
     _disease_term_id,
     _iter_disease_files,
@@ -46,15 +47,9 @@ from phenoagent.matching import (
     resolve_disease_reference,
 )
 
-# Frequency weights for weighted model coverage. Mirrors matching._FREQUENCY_PRIORITY
-# but floors unknown/missing frequencies at 1 so untyped model terms still count.
-_FREQUENCY_WEIGHT = {
-    "OBLIGATE": 5,
-    "VERY_FREQUENT": 4,
-    "FREQUENT": 3,
-    "OCCASIONAL": 2,
-    "VERY_RARE": 1,
-}
+# Weighted model coverage reuses matching._FREQUENCY_PRIORITY directly (so the two
+# can't drift), flooring unknown/missing frequencies at 1 so untyped model terms
+# still contribute.
 _DEFAULT_FREQUENCY_WEIGHT = 1
 
 
@@ -160,7 +155,7 @@ def _classify_rows(matches: list[dict[str, Any]]) -> dict[str, Any]:
     terms -- a single model phenotype can be hit by several case rows (e.g. an
     exact term plus a broader parent term), and must not be counted twice.
     """
-    case_total = case_exact = case_related = case_unmatched = 0
+    case_total = case_exact = case_related = case_close = case_unmatched = 0
     matched_model: dict[str, int] = {}  # term id -> frequency weight
     model_only: dict[str, int] = {}
 
@@ -171,7 +166,7 @@ def _classify_rows(matches: list[dict[str, Any]]) -> dict[str, Any]:
         model_term_id = row.get("model_term_id")
 
         if model_term_id:
-            weight = _FREQUENCY_WEIGHT.get(
+            weight = _FREQUENCY_PRIORITY.get(
                 str(row.get("model_frequency") or ""), _DEFAULT_FREQUENCY_WEIGHT
             )
             if has_case:
@@ -186,6 +181,11 @@ def _classify_rows(matches: list[dict[str, Any]]) -> dict[str, Any]:
                     case_exact += 1
                 elif row.get("case_is_broader") or row.get("case_is_narrower"):
                     case_related += 1
+                elif row.get("case_is_close"):
+                    # Close matches (produced once the agentic loop runs) are still
+                    # matches to the model -- bucket them so they aren't silently
+                    # dropped from recall.
+                    case_close += 1
             else:
                 case_unmatched += 1
 
@@ -207,12 +207,14 @@ def _classify_rows(matches: list[dict[str, Any]]) -> dict[str, Any]:
         "case_total": case_total,
         "case_exact": case_exact,
         "case_related": case_related,
+        "case_close": case_close,
         "case_unmatched": case_unmatched,
         "model_total": model_total,
         "model_matched": model_matched,
         "model_only": model_only_count,
         "exact_recall": _ratio(case_exact, case_total),
-        "related_recall": _ratio(case_exact + case_related, case_total),
+        # related_recall = any match to the model: exact + broader/narrower + close.
+        "related_recall": _ratio(case_exact + case_related + case_close, case_total),
         "model_coverage": _ratio(model_matched, model_total),
         "weighted_model_coverage": _ratio(matched_weight, total_weight),
     }

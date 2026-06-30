@@ -18,6 +18,7 @@ from phenoagent.eval import (
     main,
     render_markdown,
     run_eval,
+    score_matching_run,
 )
 from phenoagent.matching import load_phenopacket
 
@@ -166,6 +167,27 @@ def test_pr_is_diagnosis_is_degenerate_zero_on_deterministic_run(index, kb_dir):
     # Ventriculomegaly is a model-only row -> NO_EXPLANATION (0.0) -> product is 0.0.
     assert result.metrics["pr_is_diagnosis"] == 0.0
     assert result.metrics["model_only"] >= 1
+
+
+def test_close_match_rows_are_bucketed_into_related_recall():
+    """A close (non-exact, non-broader/narrower) row must count toward recall."""
+    run = {
+        "explanations": [
+            {"explanation_id": "NO_EXPLANATION", "estimated_probability": 0.0,
+             "description": "stub"},
+        ],
+        "matches": [
+            {"case_term_id": "HP:0000001", "model_term_id": "HP:0000001", "exact": True},
+            {"case_term_id": "HP:0001649", "model_term_id": "HP:0001979", "exact": False,
+             "case_is_broader": False, "case_is_narrower": False, "case_is_close": True},
+        ],
+    }
+    metrics = score_matching_run(run)
+    assert metrics["case_close"] == 1
+    assert metrics["case_exact"] == 1
+    # Without bucketing close, related_recall would understate at 0.5; it should be 1.0.
+    assert metrics["related_recall"] == pytest.approx(1.0)
+    assert metrics["exact_recall"] == pytest.approx(0.5)
 
 
 # --- aggregation / reporting ------------------------------------------------

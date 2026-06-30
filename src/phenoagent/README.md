@@ -219,7 +219,7 @@ Example summary (bundled fixtures, run against the live KB):
 
 **Metrics** (per scored packet, averaged in the summary):
 - `exact_recall` — case terms with an exact model match / case terms
-- `related_recall` — exact + broader/narrower matches / case terms
+- `related_recall` — any match to the model (exact + broader/narrower + close) / case terms
 - `model_coverage` / `weighted_model_coverage` — distinct modelled phenotypes hit
   by the case (the weighted form scores by frequency: OBLIGATE > VERY_FREQUENT > …)
 
