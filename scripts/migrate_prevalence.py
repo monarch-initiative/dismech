@@ -117,6 +117,37 @@ def detect_measure(text: str) -> tuple[str | None, bool]:
     return None, True
 
 
+# Controlled measure-type labels as they appear verbatim in Orphanet structured
+# evidence snippets ("N / M | Region | <label> | PMID..."). These are validated
+# exact quotes, so matching them is high-precision — unlike free-text notes.
+ORPHA_MEASURE_LABELS = [
+    ("prevalence at birth", "BIRTH_PREVALENCE"),
+    ("annual incidence", "ANNUAL_INCIDENCE"),
+    ("lifetime prevalence", "LIFETIME_PREVALENCE"),
+    ("period prevalence", "PERIOD_PREVALENCE"),
+    ("point prevalence", "POINT_PREVALENCE"),
+    ("cases/families in the literature", "CASES_IN_LITERATURE"),
+    ("cases in the literature", "CASES_IN_LITERATURE"),
+]
+
+
+def detect_measure_from_evidence(snippets) -> str | None:
+    """
+    Read the measure type from a controlled Orphanet snippet label, but ONLY when
+    it appears as a pipe-delimited table cell (the Orphanet structured-row format
+    `N / M | Region | <Measure> | PMID`). Requiring the leading pipe binds the
+    label to that row's rate and avoids the multi-measure-prose trap: a free-text
+    snippet such as "(prevalence: 1.5/100000) with an annual incidence of
+    0.19/100000" names two measures, and a bare substring match would wrongly tag
+    the prevalence value as an incidence.
+    """
+    text = " ".join(str(s) for s in snippets).lower()
+    for label, measure in ORPHA_MEASURE_LABELS:
+        if re.search(r"\|\s*" + re.escape(label) + r"\b", text):
+            return measure
+    return None
+
+
 def _band_from_rate(r: float) -> str:
     """Bucket a per-100,000 rate into an Orphanet-aligned class."""
     if r >= 100:
@@ -221,7 +252,7 @@ def qualitative_class(text: str) -> str | None:
     return None
 
 
-def classify(pct, population: str, notes: str):
+def classify(pct, population: str, notes: str, evidence_snippets=()):
     """
     Returns (fields_dict, flag) where fields_dict holds the new slot values to
     write and flag is a short category string for the report.
@@ -265,7 +296,15 @@ def classify(pct, population: str, notes: str):
             return fields, "AMBIGUOUS_BARE_NUMBER"
         return fields, "UNPARSED_PROSE"
 
-    # numeric recognized
+    # numeric recognized. If the value/population gave no measure, fall back to
+    # the controlled Orphanet measure label in this record's own (validated-quote)
+    # evidence snippet before defaulting to POINT_PREVALENCE. This is
+    # high-precision and only applied where a real rate exists (never on
+    # Unknown/qualitative records, where a measure_type would be incoherent).
+    if not measure:
+        ev_measure = detect_measure_from_evidence(evidence_snippets)
+        if ev_measure:
+            measure, inferred = ev_measure, False
     if measure:
         fields["measure_type"] = measure
     elif inferred:
@@ -340,28 +379,39 @@ def migrate_text(text, records_fields):
         )
         return text, 0
 
-    insertions = {}  # abs line idx -> list of new text lines
+    insertions = {}  # abs pct-line idx -> list of fresh new-key text lines
+    drop = set()      # abs indices of stale new-key lines to remove (upsert)
+    new_key_re = re.compile(rf"^\s*(?:{'|'.join(NEW_KEYS)}):")
+    modified = 0
     for idx, fields in zip(pct_line_idxs, records_fields):
-        if not fields:
-            continue
         indent = lines[idx][: len(lines[idx]) - len(lines[idx].lstrip())]
-        # Idempotency: skip if any new key already present just above.
-        window = lines[max(start, idx - len(NEW_KEYS)) : idx]
-        if any(re.match(rf"^\s*{k}:", w) for w in window for k in NEW_KEYS):
-            continue
-        new = [f"{indent}{k}: {fmt_value(k, fields[k])}" for k in NEW_KEYS if k in fields]
-        if new:
-            insertions[idx] = new
+        # Find any existing new-key lines directly above this percentage line
+        # (a prior migration run) so we can replace rather than duplicate them.
+        existing = []
+        j = idx - 1
+        while j >= start and new_key_re.match(lines[j]):
+            existing.append(j)
+            j -= 1
+        old_block = [lines[k] for k in sorted(existing)]
+        new_block = [f"{indent}{k}: {fmt_value(k, fields[k])}" for k in NEW_KEYS if k in fields]
+        if old_block == new_block:
+            continue  # no change
+        drop.update(existing)
+        if new_block:
+            insertions[idx] = new_block
+        modified += 1
 
-    if not insertions:
+    if not modified:
         return text, 0
 
     out = []
     for i, line in enumerate(lines):
+        if i in drop:
+            continue
         if i in insertions:
             out.extend(insertions[i])
         out.append(line)
-    return "\n".join(out), len(insertions)
+    return "\n".join(out), modified
 
 
 def main():
@@ -394,8 +444,14 @@ def main():
             pct = rec.get("percentage")
             pop = rec.get("population")
             notes = rec.get("notes")
+            snippets = [
+                e.get("snippet", "")
+                for e in (rec.get("evidence") or [])
+                if isinstance(e, dict)
+            ]
             fields, flag = classify(pct, str(pop) if pop is not None else "",
-                                    str(notes) if notes is not None else "")
+                                    str(notes) if notes is not None else "",
+                                    evidence_snippets=snippets)
             rows.append((path.name, pop, pct, fields, flag))
             if has_pct_key:
                 records_fields.append(fields)

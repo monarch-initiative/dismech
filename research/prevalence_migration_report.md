@@ -2,17 +2,17 @@
 
 Mode: APPLIED (files written)  
 Total prevalence records: **834**  
-Files changed: **363**  
+Files changed: **11**  
 
 ## Outcome breakdown
 
 | Flag | Count | Meaning |
 |------|------:|---------|
-| OK_MEASURE_INFERRED | 209 | Numeric rate parsed; measure type defaulted to POINT_PREVALENCE (verify). |
 | AMBIGUOUS_BARE_NUMBER | 199 | Bare number/range with no unit — NOT converted, needs manual unit. |
+| OK | 194 | Numeric rate parsed; measure type stated. |
 | NO_PERCENTAGE | 154 | Record had no percentage value; left untouched. |
 | QUALITATIVE | 149 | No number; mapped to a qualitative prevalence_class. |
-| OK | 112 | Numeric rate parsed; measure type stated. |
+| OK_MEASURE_INFERRED | 127 | Numeric rate parsed; measure type defaulted to POINT_PREVALENCE (verify). |
 | UNPARSED_PROSE | 11 | Free prose / head-count not auto-convertible — needs manual review. |
 
 ## Records needing manual review — ambiguous bare numbers (199)
@@ -237,100 +237,50 @@ Files changed: **363**
 | Spinal_Muscular_Atrophy.yaml | 'United States modeled prevalence and published birth-prevalence literature' | 'approximately 9,429 people living with SMA in the United States' |
 | Van_Buchem_Disease.yaml | 'Dutch founder population and published clinical cohorts' | '15 of 18 known Dutch patients in 2013 cohort' |
 
-## Measure type inferred (defaulted to POINT_PREVALENCE) — verify (209)
+## Measure type inferred (defaulted to POINT_PREVALENCE) — verify (127)
 
 | File | population | percentage (raw) |
 |------|------------|------------------|
 | 15q11q13_Microduplication_Syndrome.yaml | 'Pregnant women undergoing genome-wide NIPS' | '0.0069%' |
-| 3-Hydroxy-3-Methylglutaryl-CoA_Synthase_Deficiency.yaml | 'Worldwide' | '<1 per 1,000,000' |
-| 3-Methylcrotonyl-CoA_Carboxylase_Deficiency.yaml | 'Europe, Taiwan, Germany, United States' | '1-9 per 100,000' |
 | 46_XX_Testicular_DSD.yaml | 'General male population' | '~1:20,000' |
-| 46_XY_DSD_Due_to_17_Beta_Hydroxysteroid_Dehydrogenase_3_Deficiency.yaml | 'Netherlands' | '1-9 / 1,000,000' |
-| 5-Oxoprolinase_Deficiency.yaml | 'Worldwide' | 'Less than 1 per 1,000,000' |
-| AGAT_Deficiency.yaml | 'Worldwide' | 'Less than 1 per 1,000,000' |
-| Abetalipoproteinemia.yaml | 'Worldwide' | '<1 per 1,000,000' |
 | Achromatopsia.yaml | 'General population' | '1 in 30,000-50,000' |
 | Acquired_Angioedema.yaml | 'Czech Republic' | '1:760,000' |
-| Adenine_Phosphoribosyltransferase_Deficiency.yaml | 'Europe' | '1-9 per 100,000' |
-| Adenine_Phosphoribosyltransferase_Deficiency.yaml | 'Iceland and Japan founder populations' | '1-9 per 100,000' |
-| Adenylosuccinate_Lyase_Deficiency.yaml | 'Worldwide' | 'Less than 1 per 1,000,000' |
-| Adult_Onset_Dystonia_Parkinsonism.yaml | 'Worldwide' | '<1 / 1 000 000' |
-| Adult_Refsum_Disease.yaml | 'Europe' | '1-9 per 1,000,000' |
-| Agenesis_of_the_Corpus_Callosum_with_Peripheral_Neuropathy.yaml | 'Saguenay-Lac-Saint-Jean region of Quebec' | '1-5 / 10 000' |
-| Agenesis_of_the_Corpus_Callosum_with_Peripheral_Neuropathy.yaml | 'Worldwide' | '<1 / 1 000 000' |
-| Aicardi_Goutieres_Syndrome.yaml | 'Europe' | '1-5 per 10,000' |
-| Alkaptonuria.yaml | 'Worldwide' | '1-9 per 1,000,000' |
 | Alpha_1_Antitrypsin_Deficiency.yaml | 'Western Europe and the United States' | '1 in 2,500-5,000' |
 | Alstrom_Syndrome.yaml | 'Global' | '1 in 1,000,000' |
 | Alternating_Hemiplegia_of_Childhood.yaml | 'Pediatric patients' | 'Approximately 1 in 1,000,000' |
 | Aortitis.yaml | 'Single-center major aortic surgery cohort with high histology sampling' | '10.6%' |
-| Aromatic_L_Amino_Acid_Decarboxylase_Deficiency.yaml | 'Worldwide' | 'Less than 1 per 1,000,000' |
 | Autoimmune_Polyendocrine_Syndrome_Type_1.yaml | 'General (worldwide)' | '1 in 100,000-200,000' |
-| Autosomal_Dominant_Dopa_Responsive_Dystonia.yaml | 'Europe' | '1-9 / 1 000 000' |
 | Autosomal_Dominant_Polycystic_Kidney_Disease.yaml | 'United States' | '9.3 per 10,000' |
-| Autosomal_Dominant_Polycystic_Liver_Disease.yaml | 'Europe' | '1-9 / 100,000' |
-| Autosomal_Dominant_Striatal_Neurodegeneration.yaml | 'Worldwide' | '<1 / 1,000,000' |
-| Autosomal_Recessive_Dopa_Responsive_Dystonia.yaml | 'Europe' | '1-9 / 1 000 000' |
-| Bardet-Biedl_Syndrome.yaml | 'European populations' | '1 in 160,000' |
-| Bardet-Biedl_Syndrome.yaml | 'Specific populations (Bedouin, Newfoundland)' | '1 in 13,000 to 1 in 17,000' |
-| Bardet-Biedl_Syndrome.yaml | 'United States' | '1 in 100,000' |
-| Bazex_Dupre_Christol_Syndrome.yaml | 'Worldwide' | '<1 per 1,000,000' |
-| Berardinelli_Seip_Congenital_Lipodystrophy.yaml | 'Worldwide' | '1-9 per 1,000,000' |
-| Biotin_Thiamine_Responsive_Basal_Ganglia_Disease.yaml | 'Worldwide' | '<1 per 1,000,000' |
-| Bosma_Arhinia_Microphthalmia_Syndrome.yaml | 'Worldwide' | '<1 per 1,000,000' |
-| Boutonneuse_Fever.yaml | 'Europe' | '1-5 per 10,000' |
-| Boutonneuse_Fever.yaml | 'France' | '1-5 per 10,000' |
-| Boutonneuse_Fever.yaml | 'Portugal' | '1-9 per 100,000' |
 | Brucellosis.yaml | 'Global literature meta-analysis' | '15.49% pooled prevalence among included study populations' |
 | CADASIL_Type_1.yaml | 'General population' | '1.3-4.1 per 100,000 adults' |
 | Cardiofaciocutaneous_Syndrome.yaml | 'Japanese nationwide survey' | '1 in 810,000' |
 | Carotid_Stenosis.yaml | 'Adults aged 45-80 years in the REACH-derived validation cohort without prior carotid procedures' | '6.3% severe baseline asymptomatic carotid artery stenosis' |
 | Central_Core_Myopathy.yaml | 'All-age populations' | '0.37 per 100,000' |
 | Coffin_Siris_Syndrome.yaml | 'Published literature cohorts' | 'approximately 1:10,000 to 1:100,000' |
-| Complete_Androgen_Insensitivity_Syndrome.yaml | 'Europe' | '1-9 / 100,000' |
-| Complete_Androgen_Insensitivity_Syndrome.yaml | 'Worldwide' | '1-9 / 1,000,000' |
 | Cori_Forbes_Disease.yaml | 'Global and founder populations' | '1 in 100,000 globally; 1 in 5,400 in North African Jews; 1 in 3,100-3,600 in the Faroe Islands' |
 | Costello_Syndrome.yaml | 'Japanese nationwide survey' | '1 in 1,290,000' |
 | Cowden_Syndrome.yaml | 'Global clinically recognized populations' | '1 in 200,000' |
 | Crouzon_Syndrome.yaml | 'Birth prevalence' | '16.5 per 1,000,000' |
 | Danon_disease.yaml | 'Patients with unexplained LVH and ventricular preexcitation' | '30%' |
 | Dentatorubral-Pallidoluysian_Atrophy.yaml | 'Japanese ancestry' | '2-7 per million' |
-| Dermatomyositis.yaml | 'United States' | '1.1 per 100,000 person-years (incidence); 13 per 100,000 (prevalence)' |
-| Dravet_syndrome.yaml | 'Europe' | '1-9 / 100 000' |
 | Duchenne_Muscular_Dystrophy.yaml | 'Global male population' | '7.1 per 100,000 males' |
-| Duchenne_Muscular_Dystrophy.yaml | 'Worldwide population' | '1-9 per 100,000' |
 | Dystroglycanopathy.yaml | 'Chinese congenital muscular dystrophy cohort' | '21.0% of CMD cases' |
 | Dystroglycanopathy.yaml | 'UK genetically confirmed congenital muscular dystrophy cohort' | '26.5% of CMD cases' |
-| Ehlers-Danlos_Syndrome.yaml | 'Worldwide' | '1-9 / 100 000' |
 | Epilepsy.yaml | 'Drug-Resistant Epilepsy' | '30% of epilepsy patients' |
 | Epilepsy.yaml | 'Global' | '6.38 per 1,000 (active epilepsy)' |
 | Epilepsy.yaml | 'Juvenile Myoclonic Epilepsy (Norway)' | '5.6 per 10,000' |
-| Esophageal_Atresia.yaml | 'Europe' | '1-5 per 10,000' |
 | Fabry_Disease.yaml | 'Global clinically recognized populations' | '1 in 100,000' |
 | Facioscapulohumeral_Muscular_Dystrophy.yaml | 'Symptomatic population in the Netherlands' | '12 per 100,000' |
-| Fanconi_Anemia.yaml | 'China' | '1-9 / 1 000 000' |
-| Fanconi_Anemia.yaml | 'Europe' | '1-9 / 1 000 000' |
-| Fanconi_Anemia.yaml | 'Israel' | '1-9 / 100 000' |
-| Fanconi_Anemia.yaml | 'Specific population' | '1-9 / 100 000' |
 | Fibrodysplasia_Ossificans_Progressiva.yaml | 'France residents' | '1.36 per million inhabitants' |
 | Fibrodysplasia_Ossificans_Progressiva.yaml | 'United States residents' | '0.88 per million' |
-| Fontaine_Progeroid_Syndrome.yaml | 'Worldwide' | '<1 per 1,000,000' |
-| Fontaine_Progeroid_Syndrome.yaml | 'Worldwide' | '<1 per 1,000,000' |
 | Fragile_X_Syndrome.yaml | 'General population' | '1.4 per 10,000 males; 0.9 per 10,000 females' |
-| Friedreich_Ataxia.yaml | 'Europe (Orphanet)' | '1-9 / 100 000' |
 | Furunculosis.yaml | 'German village outbreak participants (2002-2004)' | '36%' |
 | Furunculosis.yaml | 'Recurrent furunculosis cohorts' | '60%' |
-| Gaucher_Disease.yaml | 'Europe' | '1-9 / 100 000' |
-| Gaucher_Disease.yaml | 'Worldwide' | '1-9 / 100 000' |
-| Giant_Cell_Arteritis.yaml | 'Europe' | '0.01-0.05%' |
-| Glycogen_Storage_Disease_Type_VII.yaml | 'Worldwide' | '<1 / 1 000 000' |
 | Gorlin_Syndrome.yaml | 'Global' | '1 in 57,000 to 1 in 256,000' |
-| Gorlin_Syndrome.yaml | 'Worldwide (Orphanet)' | '1-9 / 100 000' |
 | Green_Tobacco_Sickness.yaml | 'Female tobacco farmers in southern Brazil' | '11.9%' |
 | Green_Tobacco_Sickness.yaml | 'Global tobacco harvesters' | '8.2-47%' |
 | Green_Tobacco_Sickness.yaml | 'Latino farmworkers in North Carolina, USA' | '24.2%' |
 | Green_Tobacco_Sickness.yaml | 'Male tobacco farmers in southern Brazil' | '6.6%' |
-| Hartnup_Disease.yaml | 'Worldwide' | '1-9 per 100,000' |
 | Hashimoto_Encephalopathy.yaml | 'General population' | '2.1 / 100,000' |
 | Hemochromatosis.yaml | 'Northern European ancestry (C282Y homozygosity prevalence)' | '1 in 200' |
 | Hemochromatosis.yaml | 'UK Biobank male C282Y homozygotes' | '56.4% diagnosed by age 80' |
@@ -338,8 +288,6 @@ Files changed: **363**
 | Hemophilia_A.yaml | 'Males in high-income-country registry meta-analysis' | '17.1 per 100,000 males' |
 | Hemophilia_A.yaml | 'United States males' | '12 per 100,000 males' |
 | Hemophilia_B.yaml | 'Males' | '3.8 per 100,000' |
-| Hereditary_Hyperekplexia.yaml | 'Worldwide' | '<1 per 1,000,000' |
-| Hereditary_Orotic_Aciduria.yaml | 'Worldwide' | '<1 / 1 000 000' |
 | Hereditary_von_Willebrand_Disease.yaml | 'Registry or regional diagnosed cohorts' | '<1 to 450 per million' |
 | Heritable_Pulmonary_Arterial_Hypertension.yaml | 'Adults in recent national PAH registries' | '47.6-54.7 per million' |
 | Homocystinuria.yaml | 'Global clinically recognized populations' | '0.82 per 100,000' |
@@ -348,24 +296,16 @@ Files changed: **363**
 | Hospital-Acquired_Acute_Kidney_Injury.yaml | 'Hospitalized adults (general)' | '10-25%' |
 | Hospital-Acquired_Acute_Kidney_Injury.yaml | 'ICU patients' | '16-59%' |
 | Huntington_Disease.yaml | 'Western populations (USA, Canada, Europe)' | '8.2-9.0 per 100,000' |
-| Hyperornithinemia_Hyperammonemia_Homocitrullinuria_Syndrome.yaml | 'Europe' | '<1 / 1 000 000' |
-| Hyperornithinemia_Hyperammonemia_Homocitrullinuria_Syndrome.yaml | 'United States' | '<1 / 1 000 000' |
 | Hypokalemic_Periodic_Paralysis.yaml | 'General population' | '1 per 100,000' |
 | Hypophosphatasia.yaml | 'Less severe adult forms in Europe' | '1 in 3,100 to 1 in 508' |
 | IKBKG_Ectodermal_Dysplasia_with_Immunodeficiency.yaml | 'General population' | '0.00237%' |
-| Immunodeficiency_Centromeric_Instability_Facial_Anomalies_Syndrome.yaml | 'Worldwide' | '<1 / 1,000,000' |
 | Inborn_Disorder_of_Methionine_Cycle_and_Sulfur_Amino_Acid_Metabolism.yaml | 'United States claims-based classical homocystinuria cohort' | '1.04 per 100,000 under a strict case definition' |
-| Inclusion_Body_Myopathy_with_Paget_Disease_of_Bone_and_Frontotemporal_Dementia.yaml | 'Worldwide' | '<1/1,000,000' |
-| Infantile_Hypercalcemia.yaml | 'Worldwide' | 'Less than 1 per 1,000,000' |
 | Inherited_Porphyria.yaml | 'Clinically manifest acute intermittent porphyria' | '5-10 cases per 100,000 persons' |
 | Inherited_Retinal_Dystrophy.yaml | 'Global, all inherited retinal dystrophies combined' | '1 in 2,000 to 1 in 4,000' |
-| Joubert_syndrome.yaml | 'Italy' | '0.47 per 100,000 (overall); 1.7 per 100,000 in 0-19 year olds' |
 | Joubert_syndrome.yaml | 'Reported prevalence' | '1:80,000-1:100,000' |
 | Kennedy_Disease.yaml | 'Italy (nationwide estimate)' | '1.5 per 100,000' |
-| Keratosis_Follicularis_Spinulosa_Decalvans.yaml | 'Europe' | '<1 / 1,000,000' |
 | Kleefstra_Syndrome.yaml | 'Global reported literature and intellectual disability cohorts' | 'Unknown (estimated 1 in 200,000 among cases with intellectual disability)' |
 | Koolen_de_Vries_syndrome.yaml | 'Historically estimated general population prevalence' | '~1 in 16,000' |
-| Lesch-Nyhan_Syndrome.yaml | 'Europe' | '1-9 per 1,000,000' |
 | Loeys-Dietz_Syndrome.yaml | 'General population' | 'less than 1 in 100,000' |
 | Long_COVID.yaml | 'Adults with prior SARS-CoV-2 infection (Victoria, Australia)' | '14.2% clinical long COVID' |
 | Long_COVID.yaml | 'COVID-19 survivors (mixed hospitalization status)' | '~45% with at least one unresolved symptom at mean follow-up of 126 days' |
@@ -374,19 +314,12 @@ Files changed: **363**
 | Lymphangioleiomyomatosis.yaml | 'Adult women with tuberous sclerosis complex' | '~30-40%' |
 | MECP2_Duplication_Syndrome.yaml | 'Global' | '1-9 / 1 000 000' |
 | MELAS_Syndrome.yaml | 'Adults in Southwest Finland (2022, m.3243A>G-related disease)' | '4.2/100,000' |
-| MHC_Class_II_Deficiency.yaml | 'Worldwide' | '<1 per 1,000,000' |
 | Machado_Joseph_Disease.yaml | 'Global (most common dominant SCA worldwide)' | '1-9/100,000' |
 | Malignant_Hyperthermia_of_Anesthesia.yaml | 'Genetic susceptibility' | 'as great as one in 400 individuals' |
 | Methylmalonic_Acidemia.yaml | 'Conventional clinical estimates' | '~1 in 50,000' |
 | Minimal_Change_Disease.yaml | 'Adults' | 'approximately 10%-25% of idiopathic nephrotic syndrome cases' |
 | Minimal_Change_Disease.yaml | 'Children' | '70-90% of idiopathic nephrotic syndrome cases after age 1 year' |
-| Mosaic_Variegated_Aneuploidy_Syndrome.yaml | 'Worldwide' | '<1 per 1,000,000' |
-| Multiple_Sulfatase_Deficiency.yaml | 'Worldwide' | '1-9 per 1,000,000' |
-| Myoclonus_Dystonia_Syndrome.yaml | 'Europe' | '1-9 / 1,000,000' |
-| Myopathy_Lactic_Acidosis_and_Sideroblastic_Anemia.yaml | 'Worldwide' | '<1 / 1,000,000' |
 | Nemaline_Myopathy.yaml | 'muscle-biopsy cohort in India' | '0.53% of all muscle diseases; 22.6% of congenital myopathies' |
-| Neurofibromatosis_Type_1.yaml | 'Europe' | '1-5 / 10 000' |
-| Neurofibromatosis_Type_1.yaml | 'Worldwide' | '1-5 / 10 000' |
 | Neurosarcoidosis.yaml | 'Olmsted County sarcoidosis cohort' | '3% of patients with sarcoidosis' |
 | Oculocutaneous_Albinism.yaml | 'General population (all OCA forms, worldwide)' | 'Approximately 1 in 17,000' |
 | Orofaciodigital_Syndrome_Type_I.yaml | 'Published clinical estimates' | '1 in 50,000 to 1 in 250,000' |
@@ -399,21 +332,17 @@ Files changed: **363**
 | PRPH2-Related_Retinopathy.yaml | 'Foundation Fighting Blindness Consortium inherited retinal disease cohort' | '5%' |
 | PRPH2-Related_Retinopathy.yaml | 'International inherited macular dystrophy cohort' | '6.7%' |
 | PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome.yaml | 'General nevoid basal cell carcinoma syndrome populations' | '1 in 100,000' |
-| PTEN_Hamartoma_Tumor_Syndrome.yaml | 'Worldwide' | '1-9 / 100,000' |
 | Pallister-Hall_Syndrome.yaml | 'GLI3 mutation-positive GCPS/PHS diagnostic cohort' | '27.6%' |
 | Paraneoplastic_Neurological_Syndromes.yaml | 'Northeastern Italy population-based cohort, 2009-2017' | '4.37 per 100,000 prevalence; 0.89 per 100,000 person-years incidence' |
 | Paraneoplastic_Neurological_Syndromes.yaml | 'Olmsted County, Minnesota population-based cohort, 1987-2018' | '5.4 per 100,000 prevalence; 0.6 per 100,000 person-years incidence' |
 | Paratyphoid_Fever.yaml | 'South Delhi suspected enteric fever patients' | '16.74% of typhoidal Salmonella isolates were S. Paratyphi A and B in this cohort' |
 | Pelizaeus_Merzbacher_Disease.yaml | 'Global' | '1 in 200,000 to 500,000' |
-| Peutz_Jeghers_Syndrome.yaml | 'Europe' | '1-9 per 1,000,000' |
 | Peutz_Jeghers_Syndrome.yaml | 'Review-based estimates' | '1 in 8,300 to 1 in 280,000' |
 | Peutz_Jeghers_polyp.yaml | 'Japan, nationwide 2022 Peutz-Jeghers syndrome survey' | '0.6 per 100,000' |
 | Peutz_Jeghers_polyp.yaml | 'Review-based global estimates for Peutz-Jeghers syndrome' | '1 in 8,300 to 1 in 280,000' |
 | Phenylketonuria.yaml | 'Global neonatal screening cohorts' | '6.002 per 100,000 neonates' |
-| Phenylketonuria.yaml | 'Worldwide Orphanet registry synthesis' | '1-9 per 100,000' |
 | Platelet-Type_von_Willebrand_Disease.yaml | 'Global population genetics estimate from gnomAD v4.1' | '136 per million' |
 | Polycystic_Kidney_Disease.yaml | 'United States ADPKD populations' | '9.3 per 10,000' |
-| Porphyria_due_to_ALA_Dehydratase_Deficiency.yaml | 'Europe' | 'Less than 1 per 1,000,000' |
 | Primary_Coenzyme_Q10_Deficiency.yaml | 'General population' | '<0.001%' |
 | Pycnodysostosis.yaml | 'Global population' | 'Approximately 1 per million' |
 | RHO-Related_Retinopathy.yaml | 'IRD clinical genetics cohort (Foundation Fighting Blindness Consortium, 41 international centers, 33,834 patients)' | '4%' |
@@ -422,31 +351,20 @@ Files changed: **363**
 | SUFU-related_Nevoid_Basal_Cell_Carcinoma_Syndrome.yaml | 'Derived from nevoid basal cell carcinoma syndrome cohorts' | 'Approximately 1 in 800,000-3,600,000 individuals' |
 | Sarcoidosis.yaml | 'Europe (Germany)' | '44-48 per 100,000' |
 | Sclerosteosis.yaml | 'South African Afrikaner founder population' | '1 in 75,000' |
-| Senior-Loken_Syndrome.yaml | 'Worldwide' | '1-9 per 1,000,000' |
 | Smith-Lemli-Opitz_syndrome.yaml | 'Populations of European origin' | '1 in 15,000-60,000' |
 | Spasmodic_Dysphonia.yaml | 'Japan' | '3.5-7.0 / 100,000' |
 | Spinocerebellar_Ataxia_Type_17.yaml | 'North East England' | '0.16/100,000' |
 | Spondyloepiphyseal_Dysplasia_Congenita.yaml | 'General population' | '3.4 per million' |
 | Stargardt_Disease.yaml | 'Israeli nationwide inherited retinal disease cohort' | 'approximately 1 in 16,000' |
-| Stiff_Person_Syndrome.yaml | 'Europe' | '1-9 per 1,000,000' |
-| Stiff_Person_Syndrome.yaml | 'Sub-Saharan Africa' | '<1 per 1,000,000' |
-| Stromme_Syndrome.yaml | 'Worldwide' | '<1 per 1,000,000' |
-| Succinic_Semialdehyde_Dehydrogenase_Deficiency.yaml | 'Worldwide' | '1-9 / 1 000 000' |
 | Systemic_Lupus_Erythematosus.yaml | 'North America' | '23.2 per 100,000 person-years incidence; 241 per 100,000 prevalence' |
 | TBX6-Associated_Congenital_Scoliosis.yaml | 'Sporadic congenital scoliosis (Han Chinese series)' | '~11%' |
-| Tangier_Disease.yaml | 'Worldwide' | '<1 per 1,000,000' |
 | Tetrahydrobiopterin_Deficiency.yaml | 'Hyperphenylalaninemia worldwide' | '1-2% of HPA cases' |
-| Transaldolase_Deficiency.yaml | 'Worldwide' | '<1 per 1,000,000' |
-| Ullrich_Congenital_Muscular_Dystrophy.yaml | 'Europe' | '1-9 per 1,000,000' |
 | Usher_Syndrome.yaml | 'General population (worldwide)' | '4-17 per 100,000' |
 | VCP-associated_Multisystem_Proteinopathy.yaml | 'General population' | '0.66/100,000' |
 | VEXAS_Syndrome.yaml | 'Men older than 50 years (US regional health system, genome-first ascertainment)' | '1 in 4269' |
 | VEXAS_Syndrome.yaml | 'Women older than 50 years (US regional health system, genome-first ascertainment)' | '1 in 26238' |
-| Wieacker_Wolff_Syndrome.yaml | 'Worldwide' | '<1 per 1,000,000' |
 | Wilsons_Disease.yaml | 'Global clinically diagnosed populations' | '1 in 30,000' |
 | Wilsons_Disease.yaml | 'Global population sequencing datasets' | '13.9 per 100,000' |
-| Wilsons_Disease.yaml | 'Orphanet worldwide and regional estimates' | '1-9 per 100,000 worldwide; 1-5 per 10,000 in China, Japan, and some specific populations' |
-| Wiskott_Aldrich_Syndrome.yaml | 'Europe' | '1-9 per 1,000,000' |
 | X-Linked_Hypophosphatemia.yaml | 'Australian and New Zealand pediatric populations' | '1.33-1.60 per 100,000 children' |
 | X-Linked_Hypophosphatemia.yaml | 'General populations' | '1 in 20,000' |
 | X-linked_Nonsyndromic_Hearing_Loss.yaml | 'Hereditary hearing loss' | 'Up to 2%' |
