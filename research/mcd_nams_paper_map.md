@@ -63,6 +63,7 @@ on the validity of the model system rather than a disease-specific finding.
 | [16904174](https://pubmed.ncbi.nlm.nih.gov/16904174/) | Induction of pluripotent stem cells from mouse embryonic and adult fibroblast cultures by defined factors. | Takahashi K et al., *Cell*, 2006 | iPSC reprogramming (foundational) | foundational platform reference (fetch-reference-verified; not yet cited in the cluster) |
 | [18035408](https://pubmed.ncbi.nlm.nih.gov/18035408/) | Induction of pluripotent stem cells from adult human fibroblasts by defined factors. | Takahashi K et al., *Cell*, 2007 | human iPSC reprogramming (foundational) | foundational platform reference (fetch-reference-verified; not yet cited in the cluster) |
 | [23995685](https://pubmed.ncbi.nlm.nih.gov/23995685/) | Cerebral organoids model human brain development and microcephaly. | Lancaster MA et al., *Nature*, 2013 | cerebral organoid corticogenesis | already in repo cache; cited by `microtubule_dependent_neuronal_migration_failure`, `apical_neuroependyma_integrity_failure`, `pial_basement_membrane_radial_glial_endfoot_failure`, `reelin_terminal_translocation_lamination_failure` |
+| [26644564](https://pubmed.ncbi.nlm.nih.gov/26644564/) | Human cerebral organoids recapitulate gene expression programs of fetal neocortex development. | Camp JG et al., *Proc Natl Acad Sci U S A*, 2015 | cerebral organoid single-cell corticogenesis validation | already in repo cache (`IN_VITRO`); cited by `microtubule_dependent_neuronal_migration_failure` |
 
 ---
 
@@ -140,9 +141,16 @@ single PMID could be identity-verified against the cache in this pass. Resolve
 each with `just fetch-reference` + cached-title confirmation before citing:
 
 - Neural rosette / neural-precursor model papers `[285–287]`.
-- The remaining individual cerebral-organoid corticogenesis / single-cell
+- ~~The remaining individual cerebral-organoid corticogenesis / single-cell
   validation papers in `[288–291]` beyond Lancaster 23995685 (e.g. organoid
-  single-cell transcriptomic validation of corticogenesis pathways).
+  single-cell transcriptomic validation of corticogenesis pathways).~~
+  **Partially resolved (2026-06-30):** the canonical single-cell organoid
+  corticogenesis-validation paper — Camp JG et al. 2015 (`PMID:26644564`,
+  *Human cerebral organoids recapitulate gene expression programs of fetal
+  neocortex development*) — was already cache-verified and already cited
+  (`IN_VITRO`) in `microtubule_dependent_neuronal_migration_failure`; it is now
+  recorded in the platform table above. Any further `[288–291]` organoid
+  validation papers beyond Lancaster 23995685 and Camp 26644564 remain open.
 - Any additional ZIKV `[309–311]` papers (e.g. further AXL / Sofosbuvir rescue
   reports) beyond the seven verified above.
 
