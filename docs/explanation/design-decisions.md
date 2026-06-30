@@ -311,8 +311,11 @@ trapped inside evidence `snippet:` text. It now has a structured home: `Genetic.
 `cohort_size`) + `evidence` + `notes`, while `frequency` is retained as the coarse,
 always-fillable qualitative band. This keeps the relative genetic spectrum distinct from
 population occurrence (`Prevalence`) and from population allele frequency. Worked example:
-the BBS1/BBS10 entries of `Bardet-Biedl_Syndrome` carry per-cohort case fractions
-(BBS1 24.6%/27%, BBS10 32.8%/30%) sourced to the German and metabolic cohorts.
+`Bardet-Biedl_Syndrome` carries per-cohort case fractions across five genes — BBS1
+(24.6% German / 27% metabolic / 7% Indian), BBS10 (32.8% / 30% / 10%), and the minor
+genes ARL6/BBS3 (14%), MKKS/BBS6 (10%), and BBS9 (10%) in an Indian cohort — making the
+ancestry-dependence of the genetic spectrum explicit (BBS1 falls from ~25% in Europeans
+to 7% in the Indian cohort).
 
 
 ## 9. Gaps
@@ -325,7 +328,7 @@ This section details decisions we have **not yet made or formalized**.
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | `updated_date` field | Deprecated in favor of git history; legacy entries may retain it pending bulk cleanup | — |
 | Deprecated `prevalence.percentage` cleanup | `percentage` superseded by structured prevalence slots (§8) and deprecated; ~185 unit-ambiguous bare-number records plus ~8 free-prose head-counts were left unconverted and need manual resolution (see `research/prevalence_migration_report.md`). Field removal is deferred until the backlog clears. | migration follow-up |
-| Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8) with a worked example on `Bardet-Biedl_Syndrome`. **Source-availability caveat (verified for BBS):** only the dominant genes (BBS1, BBS10) have a per-gene case fraction stated in a citable *abstract*; the minor-gene shares (BBS2, BBS4, BBS5, …) exist only in full-text tables of cohort papers/meta-analyses (e.g. Niederlová 2019, PMID:31283077, and GeneReviews NBK1363 Table 3), which the snippet validator cannot confirm against the cached abstract. Backfilling minor genes is therefore gated on locating sources whose cached text contains the figure — it must **not** be filled from memory of full-text tables (anti-hallucination policy, §6). Whether to deprecate the overloaded `frequency` field is also outstanding. No automated extractor yet. | schema follow-up |
+| Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8). `Bardet-Biedl_Syndrome` backfilled for five genes (BBS1, BBS10, ARL6/BBS3, MKKS/BBS6, BBS9) across European, metabolic, and Indian cohorts. **Method/caveat:** dominant-gene fractions (BBS1, BBS10) appear in citable abstracts; minor-gene fractions are recoverable only from **open-access full-text** cohort papers/reviews whose cache is `full_text_xml` (the Indian-cohort figures came from PMID:27853007), since abstracts and the GeneReviews table (NBK1363 T3) and the Niederlová meta-analysis abstract (PMID:31283077) do not carry them. Backfilling the remaining minor genes is gated on finding such full-text-cacheable sources — figures must **not** be filled from memory (anti-hallucination policy, §6). Whether to deprecate the overloaded `frequency` field is also outstanding; no automated extractor yet. | schema follow-up |
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
