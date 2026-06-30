@@ -249,7 +249,58 @@ See [`CONTRIBUTING.md`](https://github.com/monarch-initiative/dismech/blob/main/
 and the workflow definitions in `.github/workflows/`.
 
 
-## 8. Gaps
+## 8. Prevalence representation
+
+**Decision.** Disease occurrence is modeled with **structured, separated slots** on the
+`Prevalence` class rather than the single overloaded `percentage` field that preceded
+them. The strategy mirrors how phenotype frequency is banded (`FrequencyEnum`), but at
+population scale and without discarding the underlying number.
+
+`Prevalence` now carries:
+
+- **`population`** — cohort / geography only (e.g. "Worldwide", "Ashkenazi Jewish
+  population"). Measure-type qualifiers that used to be jammed in here (e.g. "(Orphanet
+  point prevalence)") belong in `measure_type`.
+- **`measure_type`** (`PrevalenceMeasureEnum`) — which epidemiological measure the record
+  reports: `POINT_PREVALENCE`, `BIRTH_PREVALENCE`, `LIFETIME_PREVALENCE`,
+  `PERIOD_PREVALENCE`, `ANNUAL_INCIDENCE`, `CARRIER_FREQUENCY`, `CASES_IN_LITERATURE`,
+  `UNKNOWN`. This prevents a point prevalence from being silently compared with an
+  incidence rate or a literature head-count.
+- **`prevalence_class`** (`PrevalenceClassEnum`) — the coarse, always-fillable, queryable
+  band. Numeric tiers are the **Orphanet prevalence classes** (`>1/1,000`, `1-5/10,000`,
+  `1-9/100,000`, `1-9/1,000,000`, `<1/1,000,000`, `Not yet documented`), so records that
+  quote Orphanet (and the `ORPHA:` structured source) map directly; qualitative tiers
+  (`COMMON`, `RARE`, `ULTRA_RARE`, `UNKNOWN`) cover prose-only records with no numeric
+  estimate. This is the population-rate analog of phenotype `FrequencyEnum`.
+- **`rate_per_100000`** (+ **`rate_low`** / **`rate_high`** for ranges) — one normalized,
+  machine-comparable number in cases per 100,000. Every source notation (`%`,
+  `per 100,000`, `per million`, `1 in N`, Orphanet `N / M`) converts losslessly into it.
+- **`notes`** retains the verbatim source phrasing; **`evidence`** is unchanged.
+- **`percentage`** is **deprecated** (kept read-only during transition). It was an `Any`
+  (float | int | string) field that, across the KB, conflated measure type, rate, unit,
+  uncertainty, and a qualitative fallback in ~six mutually incompatible notations
+  (audited: of 834 records, only ~5% were an actual percentage; ~18% were unit-ambiguous
+  bare numbers, ~18% qualitative prose, the rest split across `per N` / `1 in N` /
+  Orphanet bands / explicit `%`). Do not populate `percentage` on new records.
+
+**Migration.** `scripts/migrate_prevalence.py` performs a non-destructive,
+idempotent backfill: it parses the deterministic notations into the structured slots and
+**leaves genuinely ambiguous records (bare unit-less numbers, free-text head-counts)
+unconverted**, listing them for manual resolution in
+`research/prevalence_migration_report.md`. Measure type is inferred only from the
+`percentage` value and `population` label, never from prose `notes` (which routinely
+mention "newborn screening" / "carrier frequency" / "incidence" as background and would
+otherwise mislabel ordinary point-prevalence records); auto-defaulted measure types are
+flagged for verification in the same report.
+
+**Rationale.** One field cannot be both honest about imprecision and machine-queryable.
+Splitting the measure out, banding coarsely (Orphanet-aligned), and keeping one normalized
+rate gives a value that is always fillable (the band), precise when the source supports it
+(the rate), and never conflates incompatible epidemiological measures. Because prevalence
+is not yet rendered on disorder pages, the remodel carries no display-breakage risk.
+
+
+## 9. Gaps
 
 This section details decisions we have **not yet made or formalized**.
 
@@ -258,6 +309,7 @@ This section details decisions we have **not yet made or formalized**.
 | Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | `updated_date` field | Deprecated in favor of git history; legacy entries may retain it pending bulk cleanup | — |
+| Deprecated `prevalence.percentage` cleanup | `percentage` superseded by structured prevalence slots (§8) and deprecated; ~185 unit-ambiguous bare-number records plus ~8 free-prose head-counts were left unconverted and need manual resolution (see `research/prevalence_migration_report.md`). Field removal is deferred until the backlog clears. | migration follow-up |
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |

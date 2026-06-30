@@ -817,6 +817,43 @@ phenotype-activation points); use reference ranges for measured lab analytes.
 
 The CKD-Mineral Bone Disorder entry is the worked example.
 
+### Prevalence (disease occurrence)
+
+Model disease occurrence with the **structured** `Prevalence` slots, not the
+deprecated free-text `percentage` field (see design decision §8). Each prevalence
+record should separate the four dimensions the old field conflated:
+
+- `population` — cohort / geography only (e.g. `Worldwide`, `Ashkenazi Jewish
+  population`). Do **not** put the measure type here.
+- `measure_type` (`PrevalenceMeasureEnum`) — `POINT_PREVALENCE`, `BIRTH_PREVALENCE`,
+  `LIFETIME_PREVALENCE`, `PERIOD_PREVALENCE`, `ANNUAL_INCIDENCE`, `CARRIER_FREQUENCY`,
+  `CASES_IN_LITERATURE`, or `UNKNOWN`. Never compare a prevalence with an incidence.
+- `prevalence_class` (`PrevalenceClassEnum`) — the coarse, always-fillable band
+  (the population-rate analog of phenotype `FrequencyEnum`). Numeric tiers are the
+  Orphanet classes (`ABOVE_1_IN_1000`, `BAND_1_5_PER_10000`, `BAND_1_9_PER_100000`,
+  `BAND_1_9_PER_1000000`, `BELOW_1_IN_1000000`, `NOT_YET_DOCUMENTED`); qualitative
+  tiers (`COMMON`, `RARE`, `ULTRA_RARE`, `UNKNOWN`) cover prose-only sources.
+- `rate_per_100000` (+ `rate_low` / `rate_high` for ranges) — one normalized number
+  in cases per 100,000 (`% × 1000`; `per million ÷ 10`; `1 in N → 100000/N`).
+- `notes` keeps the verbatim source phrasing; `evidence` is unchanged.
+
+```yaml
+prevalence:
+- population: Worldwide
+  measure_type: POINT_PREVALENCE
+  prevalence_class: BAND_1_5_PER_10000
+  rate_per_100000: 20.0
+  notes: Orphanet worldwide point-prevalence class 1-5 / 10,000.
+  evidence:
+  - reference: ORPHA:558
+    supports: SUPPORT
+    snippet: "1-5 / 10 000 | Worldwide | Point prevalence | PMID:20301510"
+    explanation: Orphanet epidemiology table.
+```
+
+`scripts/migrate_prevalence.py` backfilled existing entries; do not populate
+`percentage` on new records.
+
 ### Clinical Trials
 
 Clinical trials can be added to disease entries with evidence validated against ClinicalTrials.gov:
