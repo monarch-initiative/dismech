@@ -89,6 +89,8 @@ NONPREV_RE = re.compile(
     r"share\s+of|dominant\s+share|represents?\s+the|"
     r"occur(?:s|red)?\s+in|affect[s]?\s+up\s+to|develop[s]?\s+in|"
     r"of\s+all\s+\w+\s+(?:cancers?|tumou?rs?|lymphomas?|cases)|"
+    r"lymphoma\s+diagnoses|lymphoid\s+neoplasms|ovarian\s+cancers|"
+    r"acute\s+coronary\s+syndrome|domestic\s+origin|"
     r"5-?year\s+survival|overall\s+survival)\b",
     re.I,
 )
