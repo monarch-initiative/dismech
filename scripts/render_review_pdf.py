@@ -2,8 +2,10 @@
 """Render a disorder YAML file to a clean PDF for expert review."""
 
 import argparse
+import re
 import subprocess
 import tempfile
+import textwrap
 from datetime import datetime
 from pathlib import Path
 
@@ -24,15 +26,16 @@ TEMPLATE = r"""
 
 ### How to read this report
 
-The report follows a fixed 18-section structure (Identity → Provenance). Where a claim is
+The report follows a fixed 17-section structure (Identity → Provenance). Where a claim is
 backed by literature you will see an **Evidence** block giving the reference
 (PubMed/DOI/trial ID), whether the source **supports** or refutes the claim, the **type**
 of evidence (human clinical, model organism, in vitro, etc.), an **exact quote** from the
 source, and a short **interpretation**. Superscript numbers (e.g. ^1^) refer to the
-**Glossary** in §18. Sections marked *Not curated for this disease* are part of the
+**Glossary** in §17. Sections marked *Not curated for this disease* are part of the
 standard template but currently hold no data for this entry — pointers are welcome.
+Sections marked *Not yet modeled in the dismech schema* are gaps in the data model itself.
 *Please flag anything wrong, overstated, out of date, or missing — especially in
-**§6 Pathophysiology** and **§16 Open questions**, where expert judgement is most valuable.*
+**§6 Pathophysiology** and **§15 Open questions**, where expert judgement is most valuable.*
 
 ---
 
@@ -88,14 +91,14 @@ standard template but currently hold no data for this entry — pointers are wel
 {% if not (cls and (cls.harrisons_chapter or cls.mechanistic_category or cls.iuis_category or cls.channelopathy_category or cls.lysosomal_storage_category or cls.icdo_morphology)) and not d.has_subtypes %}*Not curated for this disease.*
 {% endif %}
 {% if cls and (cls.harrisons_chapter or cls.mechanistic_category or cls.iuis_category or cls.channelopathy_category or cls.lysosomal_storage_category or cls.icdo_morphology) %}
-**Nosological axes:**
+### Nosological placement
 {% if cls.harrisons_chapter %}
-- *Harrison's chapter:* {{ cls.harrisons_chapter }}
-{% endif %}{% if cls.mechanistic_category %}- *Mechanistic category:* {{ cls.mechanistic_category }}
-{% endif %}{% if cls.iuis_category %}- *IUIS immunodeficiency category:* {{ cls.iuis_category }}
-{% endif %}{% if cls.channelopathy_category %}- *Channelopathy category:* {{ cls.channelopathy_category }}
-{% endif %}{% if cls.lysosomal_storage_category %}- *Lysosomal storage category:* {{ cls.lysosomal_storage_category }}
-{% endif %}{% if cls.icdo_morphology %}- *ICD-O morphology:* {{ cls.icdo_morphology }}
+- *Harrison's chapter:* {{ cls_val(cls.harrisons_chapter) }}
+{% endif %}{% if cls.mechanistic_category %}- *Mechanistic category:* {{ cls_val(cls.mechanistic_category) }}
+{% endif %}{% if cls.iuis_category %}- *IUIS immunodeficiency category:* {{ cls_val(cls.iuis_category) }}
+{% endif %}{% if cls.channelopathy_category %}- *Channelopathy category:* {{ cls_val(cls.channelopathy_category) }}
+{% endif %}{% if cls.lysosomal_storage_category %}- *Lysosomal storage category:* {{ cls_val(cls.lysosomal_storage_category) }}
+{% endif %}{% if cls.icdo_morphology %}- *ICD-O morphology:* {{ cls_val(cls.icdo_morphology) }}
 {% endif %}
 {% endif %}
 {% if d.has_subtypes %}
@@ -329,12 +332,12 @@ alternatives credible, and is anything missing?*
 
 ### Digital biomarkers
 
-*Not yet modeled in the dismech schema (e.g., wearable/sensor, accelerometry, and
-speech-derived markers — an active area of interest in ALS).*
+*Not yet modeled in the dismech schema (e.g., wearable/sensor-derived,
+accelerometry, or digital speech markers).*
 
 ## 9. Diagnosis
 
-{% if not (d.diagnosis or d.definitions or d.histopathology) %}*Not curated for this disease.*
+{% if not (d.diagnosis or d.definitions or d.histopathology or d.differential_diagnoses) %}*Not curated for this disease.*
 {% endif %}
 {% if d.diagnosis %}
 ### Diagnostic criteria
@@ -378,11 +381,10 @@ speech-derived markers — an active area of interest in ALS).*
 {% endfor %}
 {% endif %}
 
-## 10. Differential diagnosis
-
 {% if d.differential_diagnoses %}
+### Differential diagnosis
 {% for dd in d.differential_diagnoses %}
-### {{ dd.name }}
+#### {{ dd.name }}
 {{ dd.description | default('', true) | wordwrap(90) }}
 {% if dd.distinguishing_features %}
 **Distinguishing features:**
@@ -392,10 +394,9 @@ speech-derived markers — an active area of interest in ALS).*
 {% endif %}
 {{ evidence_block(dd.evidence, claim=dd.name + " is a differential diagnosis for " + d.name) }}
 {% endfor %}
-{% else %}*Not curated for this disease.*
 {% endif %}
 
-## 11. Natural history
+## 10. Natural history
 
 {% if d.progression or d.stages %}
 {% if d.progression %}
@@ -415,7 +416,7 @@ speech-derived markers — an active area of interest in ALS).*
 {% else %}*Not curated for this disease.*
 {% endif %}
 
-## 12. Management
+## 11. Management
 
 {% if not (d.treatments or d.clinical_trials or d.surrogate_endpoints) %}*Not curated for this disease.*
 {% endif %}
@@ -449,21 +450,21 @@ description. See the cover note for the proposed schema additions.*
 {% endfor %}
 {% endif %}
 
-## 13. Complications
+## 12. Complications
 
 *Not yet modeled in the dismech schema for this disease (complications are partly captured
 as downstream causal edges in §6 and as separate comorbidity/trajectory entries).*
 
-## 14. Prevention
+## 13. Prevention
 
 *Not yet modeled in the dismech schema.*
 
-## 15. Special populations
+## 14. Special populations
 
 *Not yet modeled in the dismech schema (genetic counseling, pediatric, pregnancy, and
 other special-population notes are not yet first-class fields).*
 
-## 16. Open questions
+## 15. Open questions
 
 {% if d.discussions %}
 *This section captures unresolved questions and areas of active investigation — not
@@ -491,7 +492,7 @@ input on the categories that matter most to you is very welcome.*
 {% else %}*Not curated for this disease.*
 {% endif %}
 
-## 17. Data resources
+## 16. Data and model resources
 
 {% if not (d.datasets or d.computational_models or d.animal_models or d.experimental_models) %}*Not curated for this disease.*
 {% endif %}
@@ -540,7 +541,7 @@ input on the categories that matter most to you is very welcome.*
 {% endfor %}
 {% endif %}
 
-## 18. Provenance and references
+## 17. Provenance and references
 
 {% if d.notes %}
 **Curation notes:** {{ d.notes | wordwrap(90) }}
@@ -727,8 +728,6 @@ def _safe_wordwrap(text, width=79):
     """None-tolerant word wrap that preserves existing paragraph breaks."""
     if not text:
         return ""
-    import textwrap
-
     out = []
     for line in str(text).splitlines():
         out.append(textwrap.fill(line, width=width) if line.strip() else line)
@@ -744,8 +743,6 @@ def _superscripts_to_unicode(text):
     Google Docs' markdown paste does not understand pandoc superscript syntax, so the
     raw ``^1^`` would appear literally. Real superscript characters paste cleanly.
     """
-    import re
-
     return re.sub(
         r"\^(\d+)\^",
         lambda m: m.group(1).translate(_SUPERSCRIPT_DIGITS),
@@ -830,6 +827,23 @@ def ev_cell(evidence):
             seg += f" — *{explanation}*"
         parts.append(_cell(seg))
     return "<br><br>".join(parts)
+
+
+def cls_val(value):
+    """Extract the classification_value(s) from a classification assignment.
+
+    Each axis (Harrison's chapter, mechanistic category, etc.) is a
+    ``ClassificationAssignment`` object — or, for the multivalued axes, a list of
+    them — carrying ``classification_value`` plus evidence. Render just the value(s);
+    without this the template would dump the raw object/dict.
+    """
+    if not value:
+        return ""
+    if isinstance(value, list):
+        return ", ".join(v for v in (cls_val(v) for v in value) if v)
+    if isinstance(value, dict):
+        return str(value.get("classification_value") or "")
+    return str(value)
 
 
 def tx_agents(t):
@@ -928,6 +942,7 @@ def main():
     env.globals["ev_cell"] = ev_cell
     env.globals["tx_agents"] = tx_agents
     env.globals["tx_targets"] = tx_targets
+    env.globals["cls_val"] = cls_val
     env.globals["glossary"] = lambda: _glossary.render_glossary()
     template = env.from_string(TEMPLATE)
 
@@ -1056,7 +1071,9 @@ REVIEW_CSS = """
   table {
     border-collapse: collapse;
     width: 100%;
-    table-layout: fixed;
+    /* Auto layout (not table-layout: fixed) so the content-heavy Evidence column
+       in the wide phenotype/treatment tables gets proportionally more width than
+       short columns like Modality; word-break below stops long tokens overflowing. */
     font-size: 8.5pt;
     margin: 0.8em 0;
   }
@@ -1069,6 +1086,10 @@ REVIEW_CSS = """
     word-break: break-word;
   }
   th { background: #f0fdfa; color: #0f766e; }
+  /* Evidence inside table cells is rendered inline by ev_cell(), not as Markdown
+     blockquotes. This hides any stray blockquote that a future template change
+     might route through a cell (e.g. evidence_block output) so it can't break the
+     table layout — if you ever *want* blockquotes in cells, remove this rule. */
   td blockquote { display: none; }
 </style>
 """
