@@ -8,10 +8,14 @@ from dismech.render import (
     DEEP_RESEARCH_PROVIDERS,
     DETAILS_PROVIDER_BLOCK_BEGIN,
     DETAILS_PROVIDER_BLOCK_END,
+    _autolink_report_html,
+    _collapse_report_tables,
     _collect_research_index_rows,
+    _curie_url,
     _display_name_from_provider,
     _format_report_date,
     _humanize_provider,
+    _link_report_citations,
     _scan_research_reports,
     render_provider_docs_table,
     render_research_index,
@@ -246,7 +250,15 @@ def _seed_research_dirs(tmp_path: Path) -> tuple[Path, Path]:
         "---\nprovider: falcon\nmodel: falcon-1\ncitation_count: 12\n"
         "end_time: '2025-05-01T09:30:00.123456'\n---\n"
         "# Asthma Pathophysiology Report\n\n## Executive Summary\n\n"
-        "Asthma is chronic airway inflammation.\n"
+        "Asthma is chronic airway inflammation "
+        "(smith2020airwayinflammation pages 3-4). Type 2 inflammation involves "
+        "GO:0005125, is reviewed in PMID:12345678 and doi:10.1000/example.abc, "
+        "with more at https://example.org/asthma.\n\n"
+        "| Marker | Role |\n|---|---|\n| IL13 | Th2 |\n\n"
+        "References\n\n"
+        "1. (smith2020airwayinflammation pages 3-4): A. Smith. Airway "
+        "inflammation. Journal, 2020. URL: https://doi.org/10.1000/example.abc, "
+        "doi:10.1000/example.abc.\n"
     )
     (research_dir / "Asthma-deep-research-cyberian-codex.md").write_text(
         "# Asthma\n\n## Key Findings\n\nBronchial hyperresponsiveness.\n"
@@ -363,6 +375,22 @@ def test_render_research_index_page_writes_index_and_report_pages(
     # Source-of-truth link points at the markdown in the repo.
     assert "blob/main/research/Asthma-deep-research-falcon.md" in report_html
 
+    # MONDO id in the header resolves to its OBO PURL.
+    assert (
+        'href="http://purl.obolibrary.org/obo/MONDO_0004979"' in report_html
+    )
+    # Inline citation links to an anchored reference entry, text preserved.
+    assert 'id="ref-smith2020airwayinflammation-pages-3-4"' in report_html
+    assert 'href="#ref-smith2020airwayinflammation-pages-3-4"' in report_html
+    assert "smith2020airwayinflammation pages 3-4" in report_html
+    # Identifiers in the prose are linkified.
+    assert "http://purl.obolibrary.org/obo/GO_0005125" in report_html
+    assert "https://pubmed.ncbi.nlm.nih.gov/12345678/" in report_html
+    assert "https://doi.org/10.1000/example.abc" in report_html
+    assert 'href="https://example.org/asthma"' in report_html
+    # The table is wrapped in a collapsed <details>.
+    assert 'details class="report-table"' in report_html
+
 
 def test_format_report_date_reduces_to_date_only() -> None:
     import datetime
@@ -374,6 +402,69 @@ def test_format_report_date_reduces_to_date_only() -> None:
     assert _format_report_date(datetime.date(2025, 5, 1)) == "2025-05-01"
     assert _format_report_date(None) is None
     assert _format_report_date("") is None
+
+
+def test_curie_url_resolves_prefixes() -> None:
+    assert (
+        _curie_url("MONDO:0004979")
+        == "http://purl.obolibrary.org/obo/MONDO_0004979"
+    )
+    assert _curie_url("GO:0005125") == "http://purl.obolibrary.org/obo/GO_0005125"
+    assert (
+        _curie_url("NCBITaxon:9606")
+        == "http://purl.obolibrary.org/obo/NCBITaxon_9606"
+    )
+    assert _curie_url("PMID:12345678") == "https://pubmed.ncbi.nlm.nih.gov/12345678/"
+    assert _curie_url("DOI:10.1/x") == "https://doi.org/10.1/x"
+    # Unknown prefixes fall back to the Bioregistry resolver.
+    assert _curie_url("HGNC:746") == "https://bioregistry.io/HGNC:746"
+    assert _curie_url(None) is None
+    assert _curie_url("not-a-curie") is None
+
+
+def test_autolink_report_html_targets_text_nodes_only() -> None:
+    html = _autolink_report_html(
+        "<p>See PMID:12345678, doi:10.1000/x, GO:0005125 and "
+        "https://example.org/a.</p>"
+    )
+    assert 'href="https://pubmed.ncbi.nlm.nih.gov/12345678/"' in html
+    assert 'href="https://doi.org/10.1000/x"' in html
+    # The bare "doi:" prefix must be stripped from the resolved href.
+    assert "doi.org/doi:" not in html
+    assert 'href="http://purl.obolibrary.org/obo/GO_0005125"' in html
+    assert 'href="https://example.org/a"' in html
+
+    # Existing links and code spans are left untouched (no nested anchors).
+    unchanged = _autolink_report_html(
+        '<a href="https://x.test">PMID:999999</a><code>GO:0005125</code>'
+    )
+    assert unchanged.count("<a ") == 1
+    assert "<code>GO:0005125</code>" in unchanged
+
+
+def test_link_report_citations_anchors_and_links() -> None:
+    body = (
+        "Airway inflammation (smith2020airwayinflammation pages 3-4).\n\n"
+        "References\n\n"
+        "1. (smith2020airwayinflammation pages 3-4): A. Smith. Journal, 2020.\n"
+    )
+    linked = _link_report_citations(body)
+    assert "[smith2020airwayinflammation pages 3-4]" in linked
+    assert "(#ref-smith2020airwayinflammation-pages-3-4)" in linked
+    assert '<a id="ref-smith2020airwayinflammation-pages-3-4"></a>' in linked
+
+    # No References section => body returned unchanged.
+    plain = "Airway inflammation (smith2020airwayinflammation pages 3-4)."
+    assert _link_report_citations(plain) == plain
+
+
+def test_collapse_report_tables_wraps_tables() -> None:
+    wrapped = _collapse_report_tables("<p>x</p><table><tr><td>a</td></tr></table>")
+    assert wrapped.startswith("<p>x</p><details class=\"report-table\">")
+    assert "<summary>Table (click to expand)</summary>" in wrapped
+    assert "<table><tr><td>a</td></tr></table>" in wrapped
+    # Content without a table is left alone.
+    assert _collapse_report_tables("<p>no table</p>") == "<p>no table</p>"
 
 
 def test_render_research_report_page_orphan_has_no_disorder_link(

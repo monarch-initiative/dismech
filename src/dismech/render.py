@@ -2178,6 +2178,7 @@ def _index_rows_from_reports(reports: list[dict]) -> list[dict]:
             {
                 "name": row["name"],
                 "mondo_id": row["mondo_id"],
+                "mondo_url": _curie_url(row["mondo_id"]),
                 "href": row["href"],
                 "report_count": row["report_count"],
                 "provider_count": len(providers),
@@ -2229,30 +2230,211 @@ def render_research_index(
     return output_path
 
 
+# ---------------------------------------------------------------------------
+# Report-body enrichment: identifier autolinking, citation cross-refs, tables
+# ---------------------------------------------------------------------------
+# OBO Foundry PURL prefixes we resolve to http://purl.obolibrary.org/obo/<ID>.
+# Canonical namespace casing differs from the CURIE prefix only for NCBITaxon.
+_OBO_CURIE_PREFIXES: dict[str, str] = {
+    prefix: prefix
+    for prefix in (
+        "MONDO", "HP", "GO", "CL", "UBERON", "CHEBI", "MAXO", "DOID", "GENO",
+        "NCIT", "PATO", "SO", "MP", "PR", "OBA", "UPHENO", "ECO", "RO", "BFO",
+    )
+}
+_OBO_CURIE_PREFIXES["NCBITAXON"] = "NCBITaxon"
+
+# Autolink target: a bare URL, a PMID, a DOI, or an OBO/other CURIE in prose.
+_REPORT_AUTOLINK_RE = re.compile(
+    r"(?P<url>https?://[^\s<>\"']+)"
+    r"|(?P<pmid>PMID:?\s?\d+)"
+    r"|(?P<doi>[Dd][Oo][Ii]:\s?10\.\d{4,9}/[^\s<>\"'),;]+)"
+    r"|(?P<curie>[A-Z][A-Z0-9]{1,9}:\d{2,})"
+)
+_REPORT_AUTOLINK_SKIP_TAGS = {"a", "code", "pre", "script", "style"}
+
+# Inline citation token, e.g. "russell2024theairwayepithelium pages 6-7".
+_REPORT_CITE_TOKEN_RE = re.compile(
+    r"[A-Za-z][A-Za-z0-9]*\d{4}[A-Za-z0-9]*\s+pages?\s+"
+    r"[\dIVXLCivxlc]+(?:[-–][\dIVXLCivxlc]+)?"
+)
+# A numbered reference entry, e.g. "1. (russell2024... pages 6-7): ...".
+_REPORT_REF_ENTRY_RE = re.compile(
+    r"^(?P<pre>\s*\d+\.\s*)\((?P<tag>[^)]+)\)(?P<post>\s*:)",
+    re.MULTILINE,
+)
+_REPORT_REFERENCES_HEADING_RE = re.compile(
+    r"(?mi)^[ \t]*#{0,6}[ \t]*references[ \t]*$"
+)
+
+
+def _curie_url(curie: str | None) -> str | None:
+    """Resolve a CURIE to a browsable URL (OBO PURL, PubMed, doi.org, or Bioregistry)."""
+    if not curie or ":" not in curie:
+        return None
+    prefix, local = curie.split(":", 1)
+    prefix, local = prefix.strip(), local.strip()
+    if not prefix or not local:
+        return None
+    upper = prefix.upper()
+    if upper == "PMID":
+        return f"https://pubmed.ncbi.nlm.nih.gov/{local}/"
+    if upper == "DOI":
+        return f"https://doi.org/{local}"
+    if upper in _OBO_CURIE_PREFIXES:
+        return f"http://purl.obolibrary.org/obo/{_OBO_CURIE_PREFIXES[upper]}_{local}"
+    return f"https://bioregistry.io/{prefix}:{local}"
+
+
+def _external_link(href: str, label: str) -> str:
+    """Build an external anchor tag (labels are already HTML-escaped text nodes)."""
+    return f'<a href="{href}" target="_blank" rel="noopener noreferrer">{label}</a>'
+
+
+def _autolink_report_text(text: str) -> str:
+    """Autolink URLs, PMIDs, DOIs, and CURIEs within a single HTML text node."""
+
+    def _replace(match: re.Match[str]) -> str:
+        kind = match.lastgroup
+        token = match.group(0)
+        trail = ""
+        if kind in {"url", "doi"}:
+            while token and token[-1] in ".,;:":
+                trail = token[-1] + trail
+                token = token[:-1]
+            if token.endswith(")") and "(" not in token:
+                trail = ")" + trail
+                token = token[:-1]
+        if kind == "url":
+            href = token
+        elif kind == "pmid":
+            digits = re.search(r"\d+", token).group(0)
+            href = f"https://pubmed.ncbi.nlm.nih.gov/{digits}/"
+        elif kind == "doi":
+            doi = re.sub(r"(?i)^doi:\s?", "", token)
+            href = f"https://doi.org/{doi}"
+        else:  # curie
+            href = _curie_url(token) or token
+        return _external_link(href, token) + trail
+
+    return _REPORT_AUTOLINK_RE.sub(_replace, text)
+
+
+def _autolink_report_html(html_doc: str) -> str:
+    """Autolink identifiers in text nodes only, skipping links and code spans."""
+    parts = re.split(r"(<[^>]+>)", html_doc)
+    skip_depth = 0
+    out: list[str] = []
+    for part in parts:
+        if part.startswith("<") and part.endswith(">"):
+            name_match = re.match(r"</?\s*([a-zA-Z0-9]+)", part)
+            name = name_match.group(1).lower() if name_match else ""
+            if name in _REPORT_AUTOLINK_SKIP_TAGS:
+                if part.startswith("</"):
+                    skip_depth = max(0, skip_depth - 1)
+                elif not part.endswith("/>"):
+                    skip_depth += 1
+            out.append(part)
+        elif part and skip_depth == 0:
+            out.append(_autolink_report_text(part))
+        else:
+            out.append(part)
+    return "".join(out)
+
+
+def _cite_slug(text: str) -> str:
+    """Stable anchor slug shared by a citation token and its reference entry."""
+    return re.sub(r"[^a-z0-9]+", "-", text.strip().lower()).strip("-")
+
+
+def _link_report_citations(body_md: str) -> str:
+    """Turn inline citation tokens into links to anchored reference entries.
+
+    Reports carry a trailing ``References`` section whose entries are tagged
+    ``N. (key pages X-Y): ...``. We anchor each entry and rewrite the matching
+    inline ``key pages X-Y`` tokens (in the body above the section) into links
+    to that anchor, preserving the visible text (including page numbers).
+    """
+    heading = _REPORT_REFERENCES_HEADING_RE.search(body_md)
+    if not heading:
+        return body_md
+
+    main_md, refs_md = body_md[: heading.start()], body_md[heading.start() :]
+    ref_slugs: set[str] = set()
+
+    def _anchor(match: re.Match[str]) -> str:
+        slug = _cite_slug(match.group("tag"))
+        ref_slugs.add(slug)
+        return (
+            f'{match.group("pre")}<a id="ref-{slug}"></a>'
+            f'({match.group("tag")}){match.group("post")}'
+        )
+
+    refs_md = _REPORT_REF_ENTRY_RE.sub(_anchor, refs_md)
+    if not ref_slugs:
+        return body_md
+
+    def _link(match: re.Match[str]) -> str:
+        token = match.group(0)
+        slug = _cite_slug(token)
+        return f"[{token}](#ref-{slug})" if slug in ref_slugs else token
+
+    return _REPORT_CITE_TOKEN_RE.sub(_link, main_md) + refs_md
+
+
+def _collapse_report_tables(html_doc: str) -> str:
+    """Wrap each rendered table in a collapsed <details> so wide tables don't overflow."""
+
+    def _wrap(match: re.Match[str]) -> str:
+        return (
+            '<details class="report-table">'
+            "<summary>Table (click to expand)</summary>"
+            f'<div class="report-table-scroll">{match.group(0)}</div>'
+            "</details>"
+        )
+
+    return re.sub(r"(?is)<table\b.*?</table>", _wrap, html_doc)
+
+
+def _render_report_body_html(body_md: str, base_prefix: str) -> str:
+    """Convert a report's markdown body to enriched, self-contained HTML."""
+    if not body_md:
+        return ""
+    md = markdown_lib.Markdown(extensions=["tables", "fenced_code"])
+    body_html = md.convert(_link_report_citations(body_md))
+    body_html = _rebase_relative_html_urls(body_html, base_prefix)
+    body_html = _autolink_report_html(body_html)
+    body_html = _collapse_report_tables(body_html)
+    return body_html
+
+
+def _research_report_template():
+    """Load the per-report Jinja2 template (shared across a render batch)."""
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    return env.get_template("research_report.html.j2")
+
+
 def render_research_report(
     report: dict,
     siblings: list[dict],
     prev_report: dict | None,
     next_report: dict | None,
     output_dir: Path = Path("pages/research"),
+    template=None,
 ) -> Path:
     """Render a single deep-research markdown report to a standalone HTML page."""
-    template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
-    template = env.get_template("research_report.html.j2")
+    if template is None:
+        template = _research_report_template()
 
     report_path: Path = report["path"]
     metadata, body = _extract_literature_body(report_path.read_text())
 
-    md = markdown_lib.Markdown(extensions=["tables", "fenced_code"])
-    body_html = md.convert(body) if body else ""
-    base_prefix = os.path.relpath(
-        report_path.parent.resolve(), output_dir.resolve()
-    )
-    body_html = _rebase_relative_html_urls(body_html, base_prefix)
+    base_prefix = os.path.relpath(report_path.parent.resolve(), output_dir.resolve())
+    body_html = _render_report_body_html(body, base_prefix)
 
     subtitle = _extract_display_title(body, "")
     if subtitle.casefold() in {"", "disorder", str(report["disorder_name"]).casefold()}:
@@ -2263,6 +2445,7 @@ def render_research_report(
         {
             "subtitle": subtitle,
             "body_html": body_html,
+            "mondo_url": _curie_url(report.get("mondo_id")),
             "model": metadata.get("model"),
             "citation_count": metadata.get("citation_count"),
             "date": _format_report_date(
@@ -2295,6 +2478,7 @@ def render_all_research_reports(
     for report in reports:
         siblings_by_row[report["row_key"]].append(report)
 
+    template = _research_report_template()
     output_paths: list[Path] = []
     for index, report in enumerate(reports):
         prev_report = reports[index - 1] if index > 0 else None
@@ -2306,6 +2490,7 @@ def render_all_research_reports(
                 prev_report=prev_report,
                 next_report=next_report,
                 output_dir=output_dir,
+                template=template,
             )
         )
     return output_paths
