@@ -84,6 +84,17 @@ CASE_COUNT_RE = re.compile(
 )
 
 
+# Percentage values that are a fraction of a category / conditional cohort
+# ("N% of all X", "N% of patients with Y") rather than a population rate.
+# Deliberately does NOT match legitimate denominators ("of the population",
+# "of live births", "of neonates").
+FRACTION_OF_CATEGORY_RE = re.compile(
+    r"of\s+(?:all\s+\w+|patients\b|those\b|cases\b|individuals\s+with|"
+    r"persons\s+with|people\s+with|\w+\s+(?:cases|patients|diagnoses|malignancies|tumou?rs|cancers|lymphomas))",
+    re.I,
+)
+
+
 def _to_float(token: str) -> float | None:
     """Parse a number with comma/space thousands separators."""
     token = token.strip().replace(",", "").replace(" ", "")
@@ -280,6 +291,14 @@ def classify(pct, population: str, notes: str, evidence_snippets=()):
         return fields, "NO_PERCENTAGE"
 
     raw = str(pct).strip()
+    # Fraction-of-category / conditional-prevalence guard: values like
+    # "0.53% of all muscle diseases" or "3% of patients with sarcoidosis" carry a
+    # percent that parse_rate() would happily convert to a population rate, but
+    # they are diagnostic proportions within a cohort, not population prevalence.
+    # Route them out as misplaced (no conversion). "of the population" / "of live
+    # births" are legitimate denominators and are NOT matched here.
+    if FRACTION_OF_CATEGORY_RE.search(raw):
+        return fields, "MISPLACED_CATEGORY"
     # Measure type and qualitative class are detected from the percentage value
     # and the population label ONLY. The free-text `notes` field is deliberately
     # excluded: it routinely mentions "newborn screening", "carrier frequency",
