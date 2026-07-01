@@ -348,6 +348,43 @@ candidate discovery), `Heritable_Thoracic_Aortic_Disease` (NECESSARY with a
 nested AND/OR phenotype branch), and `Lysosomal_Storage_Disorders` (defining
 module criterion + a nested GROUPING member).
 
+### Pathophysiology Biological Scale Tag
+
+Each `Pathophysiology` node may carry an optional `biological_scale:` value
+tagging the node with the primary biological scale of its substrate. The
+enum is small and closed — one of `MOLECULAR`, `CELLULAR`, `TISSUE`, or
+`ORGANISM`. Each value covers both ongoing processes and persistent states
+at that scale (e.g. `MOLECULAR` includes both a kinase's activity and a
+fusion protein's existence; `ORGANISM` includes both cytokine storm and
+chronic hyperphenylalaninemia).
+
+```yaml
+pathophysiology:
+- name: SHP2 Gain-of-Function Activation
+  biological_scale: MOLECULAR
+  molecular_functions:
+  - preferred_term: protein tyrosine phosphatase activity
+    term: {id: GO:0004725, label: protein tyrosine phosphatase activity}
+- name: ERK Cascade Hyperactivation
+  biological_scale: CELLULAR
+- name: Pulmonary Valve Dysplasia
+  biological_scale: TISSUE
+- name: Coagulopathy
+  biological_scale: ORGANISM
+```
+
+**When to use:** on any pathophysiology node when the primary scale is
+clear. Legacy nodes without the tag validate unchanged — it is optional.
+
+**Single-value discipline.** Pick one value. If a node would naturally take
+two (e.g. a fusion protein event bundled with its cellular consequence),
+that is a signal the node bundles two mechanistic claims and should be
+split into atomic nodes.
+
+**Reference.** `projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md` records the
+survey that fixed the enum at these four values and the bundle patterns
+curators should watch for.
+
 ### Evidence Items
 All evidence must have PMID references and support classification:
 ```yaml
