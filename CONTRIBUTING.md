@@ -18,7 +18,7 @@ be about anything.
 
 ## General philosophy
 
-Dismech curation is currently running in heavily agent-forward mode. This may change in future.
+DisMech curation is currently running in heavily agent-forward mode. This may change in future.
 
 - dismech is alpha stage and experimental. AI may make mistakes.
 - agent activities are initiated by humans or by github actions

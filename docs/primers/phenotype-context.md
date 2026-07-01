@@ -5,7 +5,7 @@ different rates (or not at all) depending on *which gene*, *which mutation type*
 *which population*, or *which subtype* you're looking at. How do you record that
 without flattening it into a single misleading number?
 
-This is the canonical Dismech use case — not risk modeling, but **scoped
+This is the canonical DisMech use case — not risk modeling, but **scoped
 phenotype assertions**: one source is OMIM-like (gene-scoped, single-gene
 disease), another is Orphanet-like (rolled up across the whole rare disease).
 

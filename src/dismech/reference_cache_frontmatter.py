@@ -15,7 +15,9 @@ It validates only structural facts:
 - the filename matches the normalized ``reference_id``
 - ``PMID:`` caches carry at least one of ``authors`` / ``journal`` (issue
   #1737 defense-in-depth — the documented fabrication fingerprint had
-  neither field populated)
+  neither field populated), *except* genuine NCBI Bookshelf records
+  (LiverTox, GeneReviews, StatPearls, …) which efetch renders as a book
+  citation carrying neither field
 
 The heavier last line of defence remains the existing
 ``linkml-reference-validator`` run inside ``just qc``.
@@ -38,6 +40,15 @@ _FRONTMATTER_RE = re.compile(
     r"\A---[ \t]*\r?\n(?P<frontmatter>.*?)(?:\r?\n)---[ \t]*(?:\r?\n|\Z)",
     re.DOTALL,
 )
+# NCBI Bookshelf records (LiverTox, GeneReviews, StatPearls, …) are real
+# PubMed-indexed references that legitimately carry neither ``authors:`` nor
+# ``journal:``: efetch renders them as a book citation, not a journal article.
+# The "[Internet]." token is the distinctive Bookshelf citation marker and
+# does not appear in journal abstracts, so we use it to exempt these records
+# from the #1737 fabrication-fingerprint check. Re-fetching such a record
+# reproduces the same file byte-for-byte, the ground-truth signal that it is
+# not a hand-crafted fabrication.
+_NCBI_BOOKSHELF_RE = re.compile(r"\[Internet\]\.")
 
 
 class SupplementaryFileFrontmatter(BaseModel):
@@ -69,6 +80,17 @@ class ReferenceCacheFrontmatter(BaseModel):
     keywords: list[Any] | str | None = None
     extra_fields_captured: list[Any] | str | None = None
     supplementary_files: list[SupplementaryFileFrontmatter] | None = None
+    # Preprint / full-text fields written by linkml-reference-validator
+    # >=0.2.1rc2 (preprint support + Europe PMC full-text route). Present on
+    # records the fetcher attempted full text for; absent on older cache files.
+    is_preprint: bool | None = None
+    peer_review_status: str | None = None
+    full_text_attempted: bool | None = None
+    full_text_provider: str | None = None
+    full_text_url: str | None = None
+    oa_status: str | None = None
+    license: str | None = None
+    local_pdf_path: str | None = None
     # Local extension (dismech): identifies the source database for cache
     # files derived from a structured knowledge base (Orphanet, OMIM, MONDO,
     # …) rather than from a literature reference. The upstream
@@ -114,7 +136,14 @@ def _load_frontmatter(path: Path) -> dict[str, Any]:
     return data
 
 
-def _validate_contract(path: Path, data: dict[str, Any]) -> list[str]:
+def _looks_like_ncbi_bookshelf(text: str) -> bool:
+    """True if the cache body is an NCBI Bookshelf book citation."""
+    return _NCBI_BOOKSHELF_RE.search(text) is not None
+
+
+def _validate_contract(
+    path: Path, data: dict[str, Any], *, is_book: bool = False
+) -> list[str]:
     try:
         frontmatter = ReferenceCacheFrontmatter.model_validate(data)
     except ValidationError as exc:
@@ -147,9 +176,12 @@ def _validate_contract(path: Path, data: dict[str, Any]) -> list[str]:
     # in linkml-reference-validator. All legitimate PMID caches in the
     # current corpus carry at least one of authors / journal — including
     # pre-abstract-era papers, foreign-language abstracts, and minimal
-    # PubMed records.
-    if frontmatter.reference_id.startswith("PMID:") and not (
-        frontmatter.authors or frontmatter.journal
+    # PubMed records. Genuine NCBI Bookshelf records (``is_book``) are the
+    # one legitimate exception and are exempted.
+    if (
+        frontmatter.reference_id.startswith("PMID:")
+        and not is_book
+        and not (frontmatter.authors or frontmatter.journal)
     ):
         reasons.append(
             "PMID cache files must carry at least one of `authors:` or "
@@ -170,7 +202,11 @@ def check_cache_file(path: Path) -> Finding | None:
             reasons=(f"invalid YAML frontmatter: {exc}",),
         )
 
-    reasons = _validate_contract(path, data)
+    try:
+        is_book = _looks_like_ncbi_bookshelf(path.read_text(encoding="utf-8"))
+    except OSError:
+        is_book = False
+    reasons = _validate_contract(path, data, is_book=is_book)
     if not reasons:
         return None
 

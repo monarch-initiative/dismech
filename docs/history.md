@@ -1,6 +1,6 @@
 # History Records
 
-Dismech history records are append-only YAML files for curation, review, and
+DisMech history records are append-only YAML files for curation, review, and
 audit sessions. They replace the old pattern of colocating
 `*.history.yaml` files beside KB entries and avoid putting provenance inside the
 KB object itself.

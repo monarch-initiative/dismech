@@ -138,6 +138,34 @@ def test_check_cache_file_accepts_database_field(tmp_path: Path):
     assert check_cache_file(good) is None
 
 
+def test_check_cache_file_accepts_preprint_fulltext_fields(tmp_path: Path):
+    """linkml-reference-validator >=0.2.1rc2 writes preprint / full-text fields
+    (is_preprint, peer_review_status, full_text_*, oa_status, license,
+    local_pdf_path) when it resolves a preprint via the Europe PMC full-text
+    route. The frontmatter contract must accept them."""
+    good = tmp_path / "PPR_PPR640507.md"
+    good.write_text(
+        "---\n"
+        "reference_id: PPR:PPR640507\n"
+        'title: "Beyond gene-disease validity"\n'
+        "authors:\n"
+        "- Josephs KS\n"
+        "content_type: full_text_pdf\n"
+        "is_preprint: true\n"
+        "peer_review_status: preprint\n"
+        "full_text_attempted: true\n"
+        "full_text_provider: epmc_preprint\n"
+        'full_text_url: "https://europepmc.org/api/fulltextRepo?pprId=PPR640507"\n'
+        "oa_status: green\n"
+        "license: cc by\n"
+        "local_pdf_path: files/PPR_PPR640507.pdf\n"
+        "---\n\n"
+        "# Beyond gene-disease validity\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
 def test_pmid_cache_missing_both_authors_and_journal_is_rejected(tmp_path: Path):
     """Fabrication-fingerprint defense (#1737): a hand-crafted PMID cache
     with neither ``authors`` nor ``journal`` and a paraphrastic title was
@@ -158,6 +186,28 @@ def test_pmid_cache_missing_both_authors_and_journal_is_rejected(tmp_path: Path)
     assert any(
         "authors" in reason and "journal" in reason for reason in finding.reasons
     )
+
+
+def test_pmid_cache_ncbi_bookshelf_record_is_accepted(tmp_path: Path):
+    """NCBI Bookshelf records (LiverTox, GeneReviews, StatPearls, …) are real
+    PubMed-indexed references that efetch renders as a book citation, so they
+    legitimately carry neither ``authors`` nor ``journal``. The "[Internet]."
+    Bookshelf marker in the body exempts them from the #1737 fingerprint."""
+    good = tmp_path / "PMID_31643801.md"
+    good.write_text(
+        "---\n"
+        'reference_id: "PMID:31643801"\n'
+        "title: Rilonacept.\n"
+        "year: '2012'\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Rilonacept.\n\n"
+        "LiverTox: Clinical and Research Information on Drug-Induced Liver "
+        "Injury [Internet]. Bethesda (MD): National Institute of Diabetes and "
+        "Digestive and Kidney Diseases; 2012-.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
 
 
 def test_pmid_cache_with_only_journal_is_accepted(tmp_path: Path):

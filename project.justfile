@@ -110,7 +110,7 @@ validate-history-all:
     printf 'Validating %s history record(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{history_schema_path}} --target-class HistoryRecord "${files[@]}"
 
-# Schema validation for all files
+# Schema validation for all files (batched: one process startup for all files)
 [group('QC')]
 validate-schema-all:
     #!/usr/bin/env bash
@@ -124,10 +124,8 @@ validate-schema-all:
         echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
-    for f in "${files[@]}"; do
-        echo "Validating: $f"
-        uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f"
-    done
+    echo "Validating ${#files[@]} disorder files (schema)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${files[@]}"
 
 # Schema validation for all comorbidity YAML files
 [group('QC')]
@@ -384,15 +382,17 @@ validate-terms-all:
     #!/usr/bin/env bash
     set -e
     just check-enum-cache
-    echo "Validating terms in all disorder files..."
-    for f in {{kb_dir}}/*.yaml; do
-        if [[ "$f" == *.history.yaml ]]; then
-            continue
-        fi
-        echo "Validating: $(basename $f)"
-        {{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
-    done
-    echo "✓ All terms valid!"
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
+    else
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
+        exit 1
+    fi
+    echo "Validating terms in ${#files[@]} disorder files (batched)..."
+    {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
 # Validate terms in a single file
 [group('QC')]
@@ -424,7 +424,7 @@ check-enum-cache:
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter validate-all validate-modules validate-groupings qc-deep-research
+qc: check-reference-cache-frontmatter check-folded-hyphens validate-all validate-modules validate-groupings qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -574,6 +574,19 @@ validate-references file:
 check-reference-cache-frontmatter:
     @just fix-references-cache
     uv run python -m dismech.reference_cache_frontmatter references_cache
+
+# Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
+# '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
+# A baseline grandfathers the pre-existing backlog; this fails only on new ones.
+[group('QC')]
+check-folded-hyphens:
+    uv run python scripts/check_folded_hyphens.py
+
+# Regenerate the folded-scalar hyphen baseline after intentionally changing the
+# set (e.g. fixing backlog entries). Review the diff before committing.
+[group('QC')]
+update-folded-hyphen-baseline:
+    uv run python scripts/check_folded_hyphens.py --update-baseline
 
 # Validate ALL snippet/reference pairs against PubMed across all disorder files
 # Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed
@@ -758,6 +771,11 @@ gen-grouping-pages:
 gen-research-index:
     uv run python -m dismech.render --research
     @echo "Generated pages/research/index.html"
+
+# Regenerate the deep-research provider table in details/index.html from the registry
+[group('Pages')]
+gen-provider-docs:
+    uv run python -m dismech.render --provider-docs
 
 # Generate a single comorbidity page
 [group('Pages')]
@@ -956,6 +974,7 @@ templates_dir := "templates"
 #   just research-disorder asta Liver_Cirrhosis
 #   just research-disorder openai Huntingtons_Disease --model gpt-4o
 #   just research-disorder cborg Crohn_Disease
+#   just research-disorder claude_code Sarcoidosis   # no extra key; reuses Claude Code creds
 [group('Research')]
 research-disorder provider disorder *args="":
     #!/usr/bin/env bash
@@ -1349,6 +1368,11 @@ clingen-dosage-refresh:
 civic-refresh:
     uv run python -m dismech.structured_sources.cli refresh civic
 
+# Refresh curated gene-set GO interpretations + membership (pinned by data/genesets/MANIFEST.yaml)
+[group('Research')]
+genesets-refresh:
+    uv run python -m dismech.structured_sources.cli refresh mygeneset
+
 # Rebuild every references_cache/ORPHA_*.md from current bulk XML
 # Use --id to limit to specific ORPHA codes.
 [group('Research')]
@@ -1373,6 +1397,44 @@ clingen-dosage-rebuild *args="":
 civic-rebuild *args="":
     uv run python -m dismech.structured_sources.cli rebuild civic {{args}}
 
+# Rebuild every references_cache/MYGENESET_*.md from current interpretations + membership
+# Use --id to limit to specific gene-set ids (e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA).
+[group('Research')]
+genesets-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild mygeneset {{args}}
+
+# List the first N gene-set identifiers available to ingest
+[group('Research')]
+genesets-list limit="50":
+    uv run python -m dismech.structured_sources.cli list mygeneset --limit {{limit}}
+
+# Align a gene set's curated BPs to a disorder's pathograph BPs (hierarchy-aware, role-weighted)
+# e.g. `just genesets-align Asthma KEGG_ASTHMA`
+[group('Research')]
+genesets-align disease gene_set:
+    uv run python -m dismech.structured_sources.cli align {{disease}} {{gene_set}}
+
+# Align every disease-context gene set to its dismech disorder (by MONDO) — catalog-wide audit
+[group('Research')]
+genesets-align-all *args="":
+    uv run python -m dismech.structured_sources.cli align-all {{args}}
+
+# Refresh ICEES KG node/edge JSON-Lines (pinned by data/icees-kg/MANIFEST.yaml)
+[group('Research')]
+icees-refresh:
+    uv run python -m dismech.structured_sources.cli refresh icees
+
+# Rebuild every references_cache/ICEES_*.md from the current ICEES KG snapshot.
+# Use --id to limit to a specific ICEES pair id or a "CURIE,CURIE" disease pair.
+[group('Research')]
+icees-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild icees {{args}}
+
+# List the first N ICEES KG disease-pair identifiers
+[group('Research')]
+icees-list limit="20":
+    uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
+
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]
 clingen-list limit="20":
@@ -1392,6 +1454,29 @@ clingen-audit-yaml *args="":
 [group('Research')]
 structured-list source="orphanet" limit="20":
     uv run python -m dismech.structured_sources.cli list {{source}} --limit {{limit}}
+
+# Ensure the OAK-managed NCIT SQLite is present and check pinned version
+# (data/ncit-edges/MANIFEST.yaml). The .db is downloaded by OAK, never committed.
+[group('Research')]
+ncit-edges-refresh:
+    uv run python -m dismech.structured_sources.cli refresh ncit
+
+# Rebuild every references_cache/NCIT_*.md from selected NCIT predicate edges
+# (NCIT:P302 Accepted_Therapeutic_Use_For). Use --id NCIT:Cxxxx to limit.
+[group('Research')]
+ncit-edges-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild ncit {{args}}
+
+# List the first N NCIT subjects carrying a selected predicate edge
+[group('Research')]
+ncit-edges-list limit="20":
+    uv run python -m dismech.structured_sources.cli list ncit --limit {{limit}}
+
+# Audit NCIT P302 (Accepted_Therapeutic_Use_For) treatment-indication coverage
+# against dismech disorders. Writes a TSV; --format summary for a digest.
+[group('Research')]
+ncit-p302-audit *args="":
+    uv run python scripts/ncit_p302_audit.py {{args}}
 
 # ============== Classification Schemas ==============
 
@@ -1842,3 +1927,54 @@ disorder-report file:
     else
         echo "  (pandoc not found — skipping PDF generation)"
     fi
+
+# ============== Scheduled-workflow cron profiles ==============
+
+# List the available cron cadence profiles and show the active one.
+[group('Cron profiles')]
+cron-profiles:
+    uv run python scripts/apply_cron_profile.py --list
+
+# Show what a profile would change without writing anything.
+# Example: just cron-profile-preview fast
+[group('Cron profiles')]
+cron-profile-preview name:
+    uv run python scripts/apply_cron_profile.py {{name}} --dry-run
+
+# Apply a cron cadence profile to the scheduled workflows and commit.
+# Example: just cron-profile slow
+[group('Cron profiles')]
+cron-profile name:
+    uv run python scripts/apply_cron_profile.py {{name}}
+
+# ============== Phenoagent: case-to-disease matching ==============
+
+# Step 1 - Deterministic init: build an initial matching YAML from a phenopacket
+# and a single dismech disease (slug, MONDO id, name, or YAML path).
+# Example: just matching-init tests/phenoagent/data/phenopackets/PMID_35451551_proband.min.json Fanconi_Anemia
+[group('Phenoagent')]
+matching-init phenopacket disease *flags:
+    uv run python -m phenoagent.matching_cli {{phenopacket}} {{disease}} {{flags}}
+
+# Step 2 - Agentic explanation loop: run init, then drive cyberian + Claude to
+# fill explanations for every non-exact row (requires cyberian + a running agent
+# server on --host/--port). Add --dry-run to print the cyberian command only.
+# Example: just matching-agent tests/phenoagent/data/phenopackets/PMID_35451551_proband.min.json Fanconi_Anemia --dry-run
+[group('Phenoagent')]
+matching-agent phenopacket disease *flags:
+    uv run python -m phenoagent.cyberian_wrapper {{phenopacket}} {{disease}} {{flags}}
+
+# Step 3 - Match-aware causal graph: render an HTML report (embedded Mermaid +
+# metadata) from a dismech disease model and a matching report YAML.
+# Example: just matching-graph Fanconi_Anemia output/matching/<case>__Fanconi_Anemia.yaml
+[group('Phenoagent')]
+matching-graph disease matching_report *flags:
+    uv run python -m phenoagent.match_graph {{disease}} {{matching_report}} {{flags}}
+
+# Step 4 - Deterministic phenopacket match-quality eval against dismech disorders.
+# Defaults to the bundled fixtures; pass a phenopacket-store checkout to scale up.
+# Example: just phenopacket-eval
+# Example: just phenopacket-eval projects/PHENOPACKETS/files/phenopacket-store
+[group('Phenoagent')]
+phenopacket-eval paths="tests/phenoagent/data/phenopackets":
+    uv run python -m phenoagent.eval {{paths}} --json workdirs/eval/phenopacket-eval.json --markdown workdirs/eval/phenopacket-eval.md

@@ -1,4 +1,4 @@
-# Dismech History Records
+# DisMech History Records
 
 This directory stores append-only curation session history outside the KB files.
 New files should follow:

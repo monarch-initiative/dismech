@@ -15,6 +15,16 @@ diseases:
 modules:
   - dna_repair_synthetic_lethality
   - rtk_grb2_signaling_adaptation
+  - immune_checkpoint_blockade
+  - sustaining_proliferative_signaling
+  - evading_growth_suppressors
+  - resisting_cell_death
+  - enabling_replicative_immortality
+  - tumor_angiogenesis
+  - invasion_and_metastasis
+  - deregulated_cellular_energetics
+  - genome_instability_mutation
+  - tumor_promoting_inflammation
 drugs:
   - id: CHEBI:45783
     label: imatinib

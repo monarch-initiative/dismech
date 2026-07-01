@@ -1,6 +1,6 @@
 # Post-Composition Term Strategy
 
-This document explains the strategies for representing complex concepts in Dismech when a single precoordinated ontology term doesn't exist.
+This document explains the strategies for representing complex concepts in DisMech when a single precoordinated ontology term doesn't exist.
 
 ## Background: Precoordination vs Post-Composition
 
@@ -13,7 +13,7 @@ This document explains the strategies for representing complex concepts in Disme
 2. You need to express directionality (increased/decreased) not captured in the term
 3. You need to specify additional context (location, laterality)
 
-## Post-Composition Slots in Dismech
+## Post-Composition Slots in DisMech
 
 The Descriptor base class provides explicit slots for post-composition:
 
