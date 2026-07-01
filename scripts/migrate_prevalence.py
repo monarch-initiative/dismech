@@ -103,8 +103,9 @@ def detect_measure(text: str) -> tuple[str | None, bool]:
     if CASE_COUNT_RE.search(t):
         return "CASES_IN_LITERATURE", False
     # Any word-boundary "birth" (birth prevalence/cohort/estimate, at birth,
-    # live birth, births) or "newborn" signals a birth-denominator measure.
-    if re.search(r"\bbirth", t) or "newborn" in t:
+    # live birth, births), "newborn", or "neonat"(al/e/es) signals a
+    # birth-denominator measure (neonatal-screening prevalence ~ birth prevalence).
+    if re.search(r"\bbirth", t) or "newborn" in t or "neonat" in t:
         return "BIRTH_PREVALENCE", False
     if "point prevalence" in t:
         return "POINT_PREVALENCE", False
