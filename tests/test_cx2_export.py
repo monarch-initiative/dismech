@@ -191,9 +191,54 @@ def test_disorder_to_cx2_exports_event_location_links() -> None:
     assert "CL:0000836" in event_node["v"]["cell_type_links"]
 
 
-def test_disorder_to_cx2_uses_top_level_references_for_network_header() -> None:
-    repo_root = Path(__file__).resolve().parents[1]
-    disorder_path = repo_root / "kb" / "disorders" / "Spinal_Muscular_Atrophy.yaml"
+def test_disorder_to_cx2_uses_top_level_references_for_network_header(
+    tmp_path: Path,
+) -> None:
+    # Use a small synthetic disorder with a fixed top-level `references` list
+    # rather than depending on the live, frequently-edited SMA KB file, whose
+    # reference ordering (and the exporter's limit=3 window) is not stable
+    # across curation edits (see issue #5074). This keeps the test asserting
+    # the intended behavior — top-level `references` populate the NDEx network
+    # header — without coupling to any single KB file's reference order.
+    disorder_path = tmp_path / "Synthetic_Reference_Header.yaml"
+    _write_yaml(
+        disorder_path,
+        {
+            "name": "Synthetic Reference Header Disorder",
+            "references": [
+                {
+                    "reference": "PMID:29290580",
+                    "title": "Top-level PMID reference",
+                },
+                {
+                    "reference": "DOI:10.1007/s00415-024-12724-3",
+                    "title": "Cytoskeleton dysfunction of motor neuron",
+                },
+                {
+                    "reference": "DOI:10.1016/j.ejpn.2024.06.001",
+                    "title": "Third top-level reference within the limit=3 window",
+                },
+            ],
+            # A minimal causal edge so the pathograph has at least one edge to
+            # export. The evidence-only reference must NOT appear in the header,
+            # because the three top-level references already fill the limit.
+            "pathophysiology": [
+                {
+                    "name": "Upstream Process",
+                    "downstream": [{"target": "Downstream Process"}],
+                    "evidence": [
+                        {
+                            "reference": "PMID:99999999",
+                            "reference_title": "Evidence-only reference",
+                            "supports": "SUPPORT",
+                            "snippet": "irrelevant",
+                        }
+                    ],
+                },
+                {"name": "Downstream Process"},
+            ],
+        },
+    )
 
     cx2 = disorder_to_cx2(
         load_disorder(disorder_path),
@@ -202,10 +247,14 @@ def test_disorder_to_cx2_uses_top_level_references_for_network_header() -> None:
     aspects = _aspect_map(cx2)
 
     reference_html = aspects["networkAttributes"][0]["reference"]
+    # Top-level references (both PMID and DOI CURIEs) populate the header...
+    assert "PMID:29290580" in reference_html
     assert "DOI:10.1007/s00415-024-12724-3" in reference_html
-    assert "Cytoskeleton dysfunction of motor neuron in spinal muscular atrophy" in (
-        reference_html
-    )
+    assert "Cytoskeleton dysfunction of motor neuron" in reference_html
+    assert "DOI:10.1016/j.ejpn.2024.06.001" in reference_html
+    # ...and the evidence-only reference is excluded once the top-level
+    # references have filled the limit=3 window.
+    assert "PMID:99999999" not in reference_html
 
 
 def test_cx2_export_cli_writes_json_file(tmp_path: Path) -> None:
