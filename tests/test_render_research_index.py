@@ -10,6 +10,7 @@ from dismech.render import (
     DETAILS_PROVIDER_BLOCK_END,
     _collect_research_index_rows,
     _display_name_from_provider,
+    _format_report_date,
     _humanize_provider,
     _scan_research_reports,
     render_provider_docs_table,
@@ -243,7 +244,7 @@ def _seed_research_dirs(tmp_path: Path) -> tuple[Path, Path]:
 
     (research_dir / "Asthma-deep-research-falcon.md").write_text(
         "---\nprovider: falcon\nmodel: falcon-1\ncitation_count: 12\n"
-        "end_time: '2025-05-01'\n---\n"
+        "end_time: '2025-05-01T09:30:00.123456'\n---\n"
         "# Asthma Pathophysiology Report\n\n## Executive Summary\n\n"
         "Asthma is chronic airway inflammation.\n"
     )
@@ -352,12 +353,27 @@ def test_render_research_index_page_writes_index_and_report_pages(
     assert "MONDO:0004979" in report_html
     assert "Model: falcon-1" in report_html
     assert "12 citations" in report_html
+    # The date is rendered above the pills, date-only (time component dropped).
+    assert '<div class="report-date">2025-05-01</div>' in report_html
+    assert "09:30" not in report_html
     # Breadcrumb / links back to the index and the disorder page.
     assert "../disorders/Asthma.html#literature-summaries" in report_html
     # "Other Reports" sidebar links to the sibling report.
     assert 'href="Asthma-cyberian-codex.html"' in report_html
     # Source-of-truth link points at the markdown in the repo.
     assert "blob/main/research/Asthma-deep-research-falcon.md" in report_html
+
+
+def test_format_report_date_reduces_to_date_only() -> None:
+    import datetime
+
+    assert _format_report_date("2025-05-01T09:30:00.123456") == "2025-05-01"
+    assert _format_report_date("2025-05-01 09:30:00") == "2025-05-01"
+    assert _format_report_date("2025-05-01") == "2025-05-01"
+    assert _format_report_date(datetime.datetime(2025, 5, 1, 9, 30)) == "2025-05-01"
+    assert _format_report_date(datetime.date(2025, 5, 1)) == "2025-05-01"
+    assert _format_report_date(None) is None
+    assert _format_report_date("") is None
 
 
 def test_render_research_report_page_orphan_has_no_disorder_link(

@@ -2,6 +2,7 @@
 Render disorder YAML files to HTML pages using Jinja2 templates.
 """
 
+import datetime
 import hashlib
 import html
 import json
@@ -2035,6 +2036,22 @@ def _research_report_output_name(report_path: Path) -> str:
     return f"{report_path.stem.replace('-deep-research-', '-', 1)}.html"
 
 
+def _format_report_date(value: object) -> str | None:
+    """Reduce a report timestamp to a bare ``YYYY-MM-DD`` date, dropping the time."""
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value.date().isoformat()
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    text = str(value).strip()
+    if not text:
+        return None
+    # Split off any time component (ISO "T" separator or a plain space).
+    date_part = re.split(r"[T ]", text, maxsplit=1)[0]
+    return date_part or None
+
+
 def _scan_research_reports(
     research_dir: Path,
     disorders_dir: Path,
@@ -2248,7 +2265,9 @@ def render_research_report(
             "body_html": body_html,
             "model": metadata.get("model"),
             "citation_count": metadata.get("citation_count"),
-            "date": metadata.get("end_time") or metadata.get("start_time"),
+            "date": _format_report_date(
+                metadata.get("end_time") or metadata.get("start_time")
+            ),
             "source_url": _github_blob_url(Path("research") / report_path.name),
         }
     )
