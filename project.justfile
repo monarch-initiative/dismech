@@ -766,11 +766,11 @@ gen-grouping-pages:
     uv run python -m dismech.render --grouping {{groupings_dir}}
     @echo "Generated $(ls -1 pages/groupings/*.html 2>/dev/null | wc -l | tr -d ' ') grouping pages"
 
-# Generate deep-research index page
+# Generate deep-research index page plus a standalone page per report
 [group('Pages')]
 gen-research-index:
     uv run python -m dismech.render --research
-    @echo "Generated pages/research/index.html"
+    @echo "Generated pages/research/index.html and $(ls -1 pages/research/*.html 2>/dev/null | grep -v '/index.html$' | wc -l | tr -d ' ') per-report pages"
 
 # Regenerate the deep-research provider table in details/index.html from the registry
 [group('Pages')]
@@ -836,6 +836,14 @@ export-hpoa:
 [group('Export')]
 export-disease-inventory output="output/disease_inventory.csv":
     uv run dismech-disease-inventory -i {{kb_dir}} -o {{output}}
+
+# Generate a Mondo EMC (Externally Managed Content) TSV for downstream Mondo ingest.
+# One row per disorder with a MONDO CURIE in disease_term.term.id; columns: mondo_id,
+# mondo_label, dismech_url, dismech_definition, dismech_exact_synonyms, dismech_pmids.
+# The output is committed to exports/mondo_emc.tsv so Mondo can pin to a release tag.
+[group('Export')]
+export-mondo-tsv output="exports/mondo_emc.tsv":
+    uv run python -m dismech.export.mondo_emc_export --kb-dir {{kb_dir}} --output {{output}}
 
 # ============== CX2 Export ==============
 
