@@ -2024,62 +2024,118 @@ def _display_name_from_provider(provider: str) -> str:
     )
 
 
-def _collect_research_index_rows(
+_RESEARCH_REPORT_PATTERN = re.compile(
+    r"^(?P<slug>.+)-deep-research-(?P<provider>[^.]+)\.md$",
+    re.IGNORECASE,
+)
+
+
+def _research_report_output_name(report_path: Path) -> str:
+    """Per-report HTML filename, e.g. ``Asthma-deep-research-falcon.md`` -> ``Asthma-falcon.html``."""
+    return f"{report_path.stem.replace('-deep-research-', '-', 1)}.html"
+
+
+def _scan_research_reports(
     research_dir: Path,
     disorders_dir: Path,
 ) -> list[dict]:
-    """Collect report-count and provider metadata per disorder for index rendering."""
+    """Scan the research directory and return one metadata dict per deep-research report.
+
+    Shared by both the index (aggregated per disorder) and the per-report pages,
+    so the two views stay in lock-step. The report body is *not* rendered here —
+    that is done lazily at report-page render time to avoid parsing every markdown
+    file when only the index is needed.
+    """
     if not research_dir.exists():
         return []
 
     _, disorder_pages_by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
 
-    page_name_by_filename: dict[str, str] = {}
+    disorder_meta_by_filename: dict[str, dict] = {}
     for yaml_path in sorted(disorders_dir.glob("*.yaml")):
         if yaml_path.name.endswith(".history.yaml"):
             continue
         disorder = load_disorder(yaml_path) or {}
         disorder_name = disorder.get("name") or yaml_path.stem
-        page_name_by_filename[f"{slugify(str(disorder_name))}.html"] = str(
-            disorder_name
-        )
+        disorder_meta_by_filename[f"{slugify(str(disorder_name))}.html"] = {
+            "name": str(disorder_name),
+            "mondo_id": _extract_disorder_term_id(disorder),
+        }
 
-    rows: dict[str, dict] = {}
-    report_pattern = re.compile(
-        r"^(?P<slug>.+)-deep-research-(?P<provider>[^.]+)\.md$",
-        re.IGNORECASE,
-    )
-
+    reports: list[dict] = []
     for report_path in sorted(research_dir.glob("*.md")):
-        match = report_pattern.match(report_path.name)
+        match = _RESEARCH_REPORT_PATTERN.match(report_path.name)
         if not match:
             continue
 
         slug = match.group("slug")
-        provider = _display_name_from_provider(match.group("provider"))
+        provider_raw = match.group("provider")
+        category = _display_name_from_provider(provider_raw)
+        key = _normalize_provider_key(category)
         lookup = _normalize_disorder_lookup(_display_name_from_slug(slug))
         page_filename = disorder_pages_by_name.get(lookup)
-        row_key = page_filename or slug
+        meta = disorder_meta_by_filename.get(page_filename) if page_filename else None
 
-        if row_key not in rows:
-            disorder_name = (
-                page_name_by_filename.get(page_filename)
-                if page_filename
-                else _display_name_from_slug(slug)
-            )
-            rows[row_key] = {
-                "name": disorder_name,
-                "report_count": 0,
-                "provider_counts": defaultdict(int),
-                "href": (
+        reports.append(
+            {
+                "path": report_path,
+                "slug": slug,
+                "provider_raw": provider_raw,
+                "provider_category": category,
+                "provider_key": key,
+                "provider_label": _humanize_provider(provider_raw) or category,
+                "prefix": _PROVIDER_PREFIX_BY_KEY.get(key, ""),
+                "disorder_name": (
+                    meta["name"] if meta else _display_name_from_slug(slug)
+                ),
+                "disorder_page_filename": page_filename,
+                "disorder_page_href": (
                     f"../disorders/{page_filename}#literature-summaries"
                     if page_filename
                     else None
                 ),
+                "mondo_id": meta["mondo_id"] if meta else None,
+                "output_name": _research_report_output_name(report_path),
+                "row_key": page_filename or slug,
             }
+        )
 
-        rows[row_key]["report_count"] += 1
-        rows[row_key]["provider_counts"][provider] += 1
+    reports.sort(
+        key=lambda report: (
+            str(report["disorder_name"]).casefold(),
+            str(report["provider_label"]).casefold(),
+            report["path"].name.casefold(),
+        )
+    )
+    return reports
+
+
+def _index_rows_from_reports(reports: list[dict]) -> list[dict]:
+    """Aggregate scanned reports into one index row per disorder."""
+    rows: dict[str, dict] = {}
+    for report in reports:
+        row_key = report["row_key"]
+        if row_key not in rows:
+            rows[row_key] = {
+                "name": report["disorder_name"],
+                "mondo_id": report["mondo_id"],
+                "href": report["disorder_page_href"],
+                "report_count": 0,
+                "provider_counts": defaultdict(int),
+                "reports": [],
+            }
+        row = rows[row_key]
+        row["report_count"] += 1
+        row["provider_counts"][report["provider_category"]] += 1
+        row["reports"].append(
+            {
+                "label": report["provider_label"],
+                "key": report["provider_key"],
+                "prefix": report["prefix"],
+                "href": report["output_name"],
+                "category": report["provider_category"],
+            }
+        )
 
     normalized_rows: list[dict] = []
     for row in rows.values():
@@ -2097,18 +2153,32 @@ def _collect_research_index_rows(
                     "prefix": _PROVIDER_PREFIX_BY_KEY.get(key, ""),
                 }
             )
+        report_links = sorted(
+            row["reports"],
+            key=lambda item: str(item.get("label") or "").casefold(),
+        )
         normalized_rows.append(
             {
                 "name": row["name"],
+                "mondo_id": row["mondo_id"],
                 "href": row["href"],
                 "report_count": row["report_count"],
                 "provider_count": len(providers),
                 "providers": providers,
+                "reports": report_links,
             }
         )
 
     normalized_rows.sort(key=lambda row: str(row.get("name") or "").casefold())
     return normalized_rows
+
+
+def _collect_research_index_rows(
+    research_dir: Path,
+    disorders_dir: Path,
+) -> list[dict]:
+    """Collect report-count and provider metadata per disorder for index rendering."""
+    return _index_rows_from_reports(_scan_research_reports(research_dir, disorders_dir))
 
 
 def render_research_index(
@@ -2142,15 +2212,100 @@ def render_research_index(
     return output_path
 
 
+def render_research_report(
+    report: dict,
+    siblings: list[dict],
+    prev_report: dict | None,
+    next_report: dict | None,
+    output_dir: Path = Path("pages/research"),
+) -> Path:
+    """Render a single deep-research markdown report to a standalone HTML page."""
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("research_report.html.j2")
+
+    report_path: Path = report["path"]
+    metadata, body = _extract_literature_body(report_path.read_text())
+
+    md = markdown_lib.Markdown(extensions=["tables", "fenced_code"])
+    body_html = md.convert(body) if body else ""
+    base_prefix = os.path.relpath(
+        report_path.parent.resolve(), output_dir.resolve()
+    )
+    body_html = _rebase_relative_html_urls(body_html, base_prefix)
+
+    subtitle = _extract_display_title(body, "")
+    if subtitle.casefold() in {"", "disorder", str(report["disorder_name"]).casefold()}:
+        subtitle = None
+
+    context = dict(report)
+    context.update(
+        {
+            "subtitle": subtitle,
+            "body_html": body_html,
+            "model": metadata.get("model"),
+            "citation_count": metadata.get("citation_count"),
+            "date": metadata.get("end_time") or metadata.get("start_time"),
+            "source_url": _github_blob_url(Path("research") / report_path.name),
+        }
+    )
+
+    html = template.render(
+        report=context,
+        siblings=siblings,
+        prev_report=prev_report,
+        next_report=next_report,
+        provider_registry=DEEP_RESEARCH_PROVIDERS,
+    )
+
+    output_path = output_dir / report["output_name"]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_research_reports(
+    reports: list[dict],
+    output_dir: Path = Path("pages/research"),
+) -> list[Path]:
+    """Render standalone HTML pages for every scanned deep-research report."""
+    siblings_by_row: dict[str, list[dict]] = defaultdict(list)
+    for report in reports:
+        siblings_by_row[report["row_key"]].append(report)
+
+    output_paths: list[Path] = []
+    for index, report in enumerate(reports):
+        prev_report = reports[index - 1] if index > 0 else None
+        next_report = reports[index + 1] if index + 1 < len(reports) else None
+        output_paths.append(
+            render_research_report(
+                report,
+                siblings=siblings_by_row[report["row_key"]],
+                prev_report=prev_report,
+                next_report=next_report,
+                output_dir=output_dir,
+            )
+        )
+    return output_paths
+
+
 def render_research_index_page(
     research_dir: Path = Path("research"),
     disorders_dir: Path = Path("kb/disorders"),
     output_path: Path = Path("pages/research/index.html"),
 ) -> Path:
-    """Collect and render a browsable deep-research index page."""
-    rows = _collect_research_index_rows(research_dir, disorders_dir)
+    """Collect and render the browsable index plus every per-report page."""
+    reports = _scan_research_reports(research_dir, disorders_dir)
+    rows = _index_rows_from_reports(reports)
     rendered_path = render_research_index(rows, output_path)
-    print(f"Rendered research index -> {rendered_path}")
+    report_pages = render_all_research_reports(reports, output_dir=output_path.parent)
+    print(
+        f"Rendered research index -> {rendered_path} "
+        f"({len(report_pages)} per-report pages)"
+    )
     return rendered_path
 
 

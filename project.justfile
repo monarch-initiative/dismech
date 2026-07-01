@@ -766,11 +766,11 @@ gen-grouping-pages:
     uv run python -m dismech.render --grouping {{groupings_dir}}
     @echo "Generated $(ls -1 pages/groupings/*.html 2>/dev/null | wc -l | tr -d ' ') grouping pages"
 
-# Generate deep-research index page
+# Generate deep-research index page plus a standalone page per report
 [group('Pages')]
 gen-research-index:
     uv run python -m dismech.render --research
-    @echo "Generated pages/research/index.html"
+    @echo "Generated pages/research/index.html and $(ls -1 pages/research/*.html 2>/dev/null | grep -v '/index.html$' | wc -l | tr -d ' ') per-report pages"
 
 # Regenerate the deep-research provider table in details/index.html from the registry
 [group('Pages')]

@@ -11,8 +11,10 @@ from dismech.render import (
     _collect_research_index_rows,
     _display_name_from_provider,
     _humanize_provider,
+    _scan_research_reports,
     render_provider_docs_table,
     render_research_index,
+    render_research_index_page,
     update_details_provider_docs,
 )
 
@@ -222,3 +224,157 @@ def test_update_details_provider_docs_requires_markers(tmp_path: Path) -> None:
     details.write_text("<html><body>no markers here</body></html>")
     with pytest.raises(SystemExit):
         update_details_provider_docs(details)
+
+
+def _seed_research_dirs(tmp_path: Path) -> tuple[Path, Path]:
+    """Create a small research + disorders fixture and return their paths."""
+    research_dir = tmp_path / "research"
+    disorders_dir = tmp_path / "disorders"
+    research_dir.mkdir()
+    disorders_dir.mkdir()
+
+    _write_disorder(
+        disorders_dir / "Asthma.yaml",
+        {
+            "name": "Asthma",
+            "disease_term": {"term": {"id": "MONDO:0004979", "label": "asthma"}},
+        },
+    )
+
+    (research_dir / "Asthma-deep-research-falcon.md").write_text(
+        "---\nprovider: falcon\nmodel: falcon-1\ncitation_count: 12\n"
+        "end_time: '2025-05-01'\n---\n"
+        "# Asthma Pathophysiology Report\n\n## Executive Summary\n\n"
+        "Asthma is chronic airway inflammation.\n"
+    )
+    (research_dir / "Asthma-deep-research-cyberian-codex.md").write_text(
+        "# Asthma\n\n## Key Findings\n\nBronchial hyperresponsiveness.\n"
+    )
+    # An orphan report whose slug has no matching disorder YAML page.
+    (research_dir / "Mystery_Disease-deep-research-openscientist.md").write_text(
+        "# Mystery\n\n## Key Findings\n\nUnknown.\n"
+    )
+    # These must be ignored by the scanner.
+    (research_dir / "Asthma-deep-research-falcon.md.citations.md").write_text("# c\n")
+    (research_dir / "Asthma-research-synthesis.md").write_text("# s\n")
+    return research_dir, disorders_dir
+
+
+def test_scan_research_reports_extracts_per_report_metadata(tmp_path: Path) -> None:
+    research_dir, disorders_dir = _seed_research_dirs(tmp_path)
+
+    reports = _scan_research_reports(research_dir, disorders_dir)
+
+    # Citation and synthesis files are excluded; three real reports remain.
+    assert len(reports) == 3
+
+    by_output = {report["output_name"]: report for report in reports}
+    assert set(by_output) == {
+        "Asthma-falcon.html",
+        "Asthma-cyberian-codex.html",
+        "Mystery_Disease-openscientist.html",
+    }
+
+    falcon = by_output["Asthma-falcon.html"]
+    assert falcon["disorder_name"] == "Asthma"
+    assert falcon["provider_key"] == "edison"  # falcon collapses into the Edison pill
+    assert falcon["provider_label"] == "Falcon"  # per-report label keeps the raw name
+    assert falcon["mondo_id"] == "MONDO:0004979"
+    assert falcon["disorder_page_href"] == (
+        "../disorders/Asthma.html#literature-summaries"
+    )
+    assert falcon["row_key"] == "Asthma.html"
+
+    # An orphan report (no disorder page) still scans, without a disorder link.
+    orphan = by_output["Mystery_Disease-openscientist.html"]
+    assert orphan["disorder_name"] == "Mystery Disease"
+    assert orphan["disorder_page_href"] is None
+
+    # Reports are sorted by disorder name, then provider label.
+    assert [report["output_name"] for report in reports] == [
+        "Asthma-cyberian-codex.html",
+        "Asthma-falcon.html",
+        "Mystery_Disease-openscientist.html",
+    ]
+
+
+def test_collect_index_rows_carries_report_links_and_mondo(tmp_path: Path) -> None:
+    research_dir, disorders_dir = _seed_research_dirs(tmp_path)
+
+    rows = _collect_research_index_rows(research_dir, disorders_dir)
+    by_name = {row["name"]: row for row in rows}
+
+    asthma = by_name["Asthma"]
+    assert asthma["report_count"] == 2
+    assert asthma["mondo_id"] == "MONDO:0004979"
+    # Two per-report links, each pointing at its standalone page.
+    report_hrefs = {report["href"] for report in asthma["reports"]}
+    assert report_hrefs == {"Asthma-falcon.html", "Asthma-cyberian-codex.html"}
+    labels = {report["label"] for report in asthma["reports"]}
+    assert labels == {"Falcon", "Cyberian Codex"}
+
+    # The category-aggregated provider pills are still present for filtering.
+    provider_keys = {provider["key"] for provider in asthma["providers"]}
+    assert provider_keys == {"edison", "cyberian"}
+
+
+def test_render_research_index_page_writes_index_and_report_pages(
+    tmp_path: Path,
+) -> None:
+    research_dir, disorders_dir = _seed_research_dirs(tmp_path)
+    output_path = tmp_path / "pages" / "research" / "index.html"
+
+    render_research_index_page(
+        research_dir=research_dir,
+        disorders_dir=disorders_dir,
+        output_path=output_path,
+    )
+
+    generated = {p.name for p in output_path.parent.glob("*.html")}
+    assert generated == {
+        "index.html",
+        "Asthma-falcon.html",
+        "Asthma-cyberian-codex.html",
+        "Mystery_Disease-openscientist.html",
+    }
+
+    # Index uses the card layout, exposes the name search, and links to reports.
+    index_html = output_path.read_text()
+    assert "report-card" in index_html
+    assert 'id="disorder-search"' in index_html
+    assert "MONDO:0004979" in index_html
+    assert 'href="Asthma-falcon.html"' in index_html
+
+    # A per-report page renders the markdown body and the disorder metadata.
+    report_html = (output_path.parent / "Asthma-falcon.html").read_text()
+    assert "Asthma Pathophysiology Report" in report_html
+    assert "Executive Summary" in report_html
+    assert "MONDO:0004979" in report_html
+    assert "Model: falcon-1" in report_html
+    assert "12 citations" in report_html
+    # Breadcrumb / links back to the index and the disorder page.
+    assert "../disorders/Asthma.html#literature-summaries" in report_html
+    # "Other Reports" sidebar links to the sibling report.
+    assert 'href="Asthma-cyberian-codex.html"' in report_html
+    # Source-of-truth link points at the markdown in the repo.
+    assert "blob/main/research/Asthma-deep-research-falcon.md" in report_html
+
+
+def test_render_research_report_page_orphan_has_no_disorder_link(
+    tmp_path: Path,
+) -> None:
+    research_dir, disorders_dir = _seed_research_dirs(tmp_path)
+    output_path = tmp_path / "pages" / "research" / "index.html"
+
+    render_research_index_page(
+        research_dir=research_dir,
+        disorders_dir=disorders_dir,
+        output_path=output_path,
+    )
+
+    orphan_html = (
+        output_path.parent / "Mystery_Disease-openscientist.html"
+    ).read_text()
+    assert "Mystery Disease" in orphan_html
+    # No disorder page exists, so no relative disorder link should be emitted.
+    assert "../disorders/" not in orphan_html

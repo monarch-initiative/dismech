@@ -376,10 +376,103 @@
         }
         {% endfor %}
 
+        .search-box {
+            width: 100%;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.5rem 0.7rem;
+            font-size: 0.9rem;
+            font-family: var(--font);
+            color: var(--gray-800);
+            margin-top: 0.7rem;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--teal-light);
+            box-shadow: 0 0 0 3px var(--teal-50);
+        }
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .report-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .report-card-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.6rem;
+        }
+
+        .report-card-title {
+            font-size: 1.02rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            line-height: 1.25;
+        }
+
+        .report-card-title a {
+            color: var(--gray-900);
+        }
+
+        .report-card-title a:hover {
+            color: var(--teal);
+        }
+
+        .report-card-count {
+            flex-shrink: 0;
+            font-size: 0.78rem;
+            color: var(--teal);
+            font-weight: 600;
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 0.15rem 0.55rem;
+            white-space: nowrap;
+        }
+
+        .report-card-mondo {
+            font-size: 0.78rem;
+            color: var(--gray-500);
+        }
+
+        .report-card-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .report-card-links a:hover {
+            text-decoration: none;
+        }
+
+        .report-card-foot {
+            font-size: 0.82rem;
+        }
+
         .empty {
             color: var(--gray-600);
             font-size: 0.95rem;
             padding: 20px;
+        }
+
+        .no-matches {
+            display: none;
+            color: var(--gray-600);
+            font-size: 0.95rem;
+            padding: 20px 4px;
         }
 
         @media (max-width: 900px) {
@@ -436,8 +529,8 @@
                 <h1>Deep Research Reports</h1>
                 <p class="hero-tagline">Integrated literature summaries for every curated disorder</p>
                 <p class="hero-sub">
-                    Browse deep-research reports by disorder and jump straight into each disorder page's
-                    integrated literature summaries section.
+                    Browse deep-research reports by disorder, open each report on its own page, and
+                    jump straight into a disorder page's integrated literature summaries.
                 </p>
                 <div class="stats">
                     <span class="stat">{{ disorder_count }} disorders</span>
@@ -448,8 +541,8 @@
             <aside class="hero-card">
                 <h2>What You Can Do Here</h2>
                 <ul>
-                    <li>See which disorders currently have deep research reports.</li>
-                    <li>See which provider generated each report set.</li>
+                    <li>Search disorders and filter by the provider that generated each report.</li>
+                    <li>Open any individual report on its own standalone page.</li>
                     <li>Jump directly to each disorder page's literature summaries section.</li>
                 </ul>
             </aside>
@@ -493,60 +586,74 @@
                 </label>
                 {% endfor %}
             </div>
+            <label for="disorder-search" class="provider-filter-note">Search disorders by name</label>
+            <input
+                type="search"
+                id="disorder-search"
+                class="search-box"
+                placeholder="Type a disorder name…"
+                autocomplete="off"
+            >
             <div class="provider-filter-actions">
                 <button type="button" id="provider-filter-clear" class="provider-filter-btn">Clear</button>
                 <div id="provider-filter-status" class="provider-filter-status">Showing all disorders.</div>
             </div>
         </section>
 
-        <section class="table-wrap">
-            {% if disorders %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Disorder</th>
-                        <th>Reports</th>
-                        <th>Providers</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for disorder in disorders %}
-                    <tr class="disorder-row" data-provider-keys="{% for provider in disorder.providers %}{{ provider.key }}{% if not loop.last %},{% endif %}{% endfor %}">
-                        <td>
-                            {% if disorder.href %}
-                            <a href="{{ disorder.href }}">{{ disorder.name }}</a>
-                            {% else %}
-                            {{ disorder.name }}
-                            {% endif %}
-                        </td>
-                        <td>{{ disorder.report_count }}</td>
-                        <td>
-                            <div class="providers">
-                                {% for provider in disorder.providers %}
-                                <span class="provider-pill provider-{{ provider.key }}">
-                                    {{ provider.prefix }}{{ provider.name }}
-                                </span>
-                                {% endfor %}
-                            </div>
-                        </td>
-                    </tr>
+        {% if disorders %}
+        <section class="report-grid" id="report-grid">
+            {% for disorder in disorders %}
+            <article
+                class="report-card"
+                data-name="{{ disorder.name | lower }}"
+                data-provider-keys="{% for provider in disorder.providers %}{{ provider.key }}{% if not loop.last %},{% endif %}{% endfor %}"
+            >
+                <div class="report-card-head">
+                    <div class="report-card-title">
+                        {% if disorder.href %}
+                        <a href="{{ disorder.href }}">{{ disorder.name }}</a>
+                        {% else %}
+                        {{ disorder.name }}
+                        {% endif %}
+                    </div>
+                    <span class="report-card-count">{{ disorder.report_count }} report{{ '' if disorder.report_count == 1 else 's' }}</span>
+                </div>
+                {% if disorder.mondo_id %}
+                <div class="report-card-mondo">{{ disorder.mondo_id }}</div>
+                {% endif %}
+                <div class="report-card-links providers">
+                    {% for report in disorder.reports %}
+                    <a href="{{ report.href }}" title="Open the {{ report.label }} report">
+                        <span class="provider-pill provider-{{ report.key }}">{{ report.prefix }}{{ report.label }}</span>
+                    </a>
                     {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="empty">No deep-research reports were found in the research directory.</div>
-            {% endif %}
+                </div>
+                {% if disorder.href %}
+                <div class="report-card-foot">
+                    <a href="{{ disorder.href }}">On the disorder page →</a>
+                </div>
+                {% endif %}
+            </article>
+            {% endfor %}
         </section>
+        <div class="no-matches" id="no-matches">No disorders match the current filters.</div>
+        {% else %}
+        <section class="table-wrap">
+            <div class="empty">No deep-research reports were found in the research directory.</div>
+        </section>
+        {% endif %}
     </main>
 
     <script>
         (function () {
             const checkboxes = Array.from(document.querySelectorAll('.provider-filter-checkbox'));
-            const rows = Array.from(document.querySelectorAll('tr.disorder-row'));
+            const cards = Array.from(document.querySelectorAll('.report-card'));
             const statusEl = document.getElementById('provider-filter-status');
             const clearBtn = document.getElementById('provider-filter-clear');
+            const searchEl = document.getElementById('disorder-search');
+            const noMatchesEl = document.getElementById('no-matches');
 
-            if (!checkboxes.length || !rows.length || !statusEl || !clearBtn) {
+            if (!checkboxes.length || !cards.length || !statusEl || !clearBtn) {
                 return;
             }
 
@@ -554,41 +661,63 @@
 
             const applyFilters = () => {
                 const selected = getSelected();
+                const query = (searchEl?.value || '').trim().toLowerCase();
                 let visible = 0;
 
-                for (const row of rows) {
-                    const keys = (row.dataset.providerKeys || '')
+                for (const card of cards) {
+                    const keys = (card.dataset.providerKeys || '')
                         .split(',')
                         .map((x) => x.trim())
                         .filter(Boolean);
+                    const name = card.dataset.name || '';
 
-                    const matches = selected.length === 0 || selected.some((key) => keys.includes(key));
-                    row.style.display = matches ? '' : 'none';
+                    const providerMatch = selected.length === 0 || selected.some((key) => keys.includes(key));
+                    const searchMatch = query === '' || name.includes(query);
+                    const matches = providerMatch && searchMatch;
+                    card.style.display = matches ? '' : 'none';
                     if (matches) {
                         visible += 1;
                     }
                 }
 
-                if (selected.length === 0) {
-                    statusEl.textContent = `Showing all disorders (${visible}).`;
-                    return;
+                if (noMatchesEl) {
+                    noMatchesEl.style.display = visible === 0 ? 'block' : 'none';
                 }
 
-                const selectedNames = checkboxes
-                    .filter((cb) => cb.checked)
-                    .map((cb) => cb.closest('label')?.textContent?.trim())
-                    .filter(Boolean)
-                    .join(', ');
-                statusEl.textContent = `Showing ${visible} disorder(s) matching: ${selectedNames}.`;
+                const parts = [];
+                if (selected.length) {
+                    const selectedNames = checkboxes
+                        .filter((cb) => cb.checked)
+                        .map((cb) => cb.closest('label')?.textContent?.trim())
+                        .filter(Boolean)
+                        .join(', ');
+                    parts.push(`provider: ${selectedNames}`);
+                }
+                if (query) {
+                    parts.push(`name contains "${query}"`);
+                }
+
+                if (parts.length === 0) {
+                    statusEl.textContent = `Showing all disorders (${visible}).`;
+                } else {
+                    statusEl.textContent = `Showing ${visible} disorder(s) matching ${parts.join('; ')}.`;
+                }
             };
 
             for (const cb of checkboxes) {
                 cb.addEventListener('change', applyFilters);
             }
 
+            if (searchEl) {
+                searchEl.addEventListener('input', applyFilters);
+            }
+
             clearBtn.addEventListener('click', () => {
                 for (const cb of checkboxes) {
                     cb.checked = false;
+                }
+                if (searchEl) {
+                    searchEl.value = '';
                 }
                 applyFilters();
             });
