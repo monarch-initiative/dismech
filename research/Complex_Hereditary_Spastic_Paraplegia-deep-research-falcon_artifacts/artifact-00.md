@@ -1,0 +1,21 @@
+| Phenotype/Feature | Frequency (%) | HPO Term | Severity | Notes |
+|---|---:|---|---|---|
+| Lower limb spasticity | ~98% | HP:0001257 Spasticity; HP:0002061 Lower limb spasticity | Core; often progressive | Hallmark feature of complex HSP; in SPG15, lower-limb spasticity/pyramidal signs were nearly universal and typically progressed from distal to proximal involvement (pqac-00000018, pqac-00000015) |
+| Cognitive impairment / decline | ~89%; progressive decline ~69% | HP:0100543 Cognitive impairment; HP:0001268 Mental deterioration | Moderate-severe; progressive in many | Common in SPG15 and other complex forms; may include learning disability and later decline (pqac-00000018, pqac-00000015) |
+| Thin corpus callosum | ~100% in SPG15 cohort; classic for SPG11/SPG15 | HP:0002079 Thin corpus callosum | Imaging marker; often prominent | Highly characteristic neuroimaging feature of SPG15 and a major clue in SPG11/SPG15 diagnosis (pqac-00000018, pqac-00000051, pqac-00000048) |
+| Cerebellar ataxia | ~64% | HP:0001251 Ataxia | Moderate-severe | Common extrapyramidal/cerebellar manifestation in SPG15 and many complex genotypes (pqac-00000015, pqac-00000020) |
+| Dysarthria | ~68% | HP:0001260 Dysarthria | Mild-moderate; progressive | Often accompanies cerebellar dysfunction and contributes to disability (pqac-00000018, pqac-00000017) |
+| Developmental delay | ~68% | HP:0001263 Global developmental delay | Variable; often early-onset | Often precedes overt motor syndrome by years in early-onset complex HSP such as SPG15 and AP-4 deficiency disorders (pqac-00000018, pqac-00000015) |
+| Peripheral neuropathy / polyneuropathy | ~38% | HP:0009830 Peripheral neuropathy | Variable | More frequent in some genotypes such as SPG11; nerve conduction studies may show sensorimotor polyneuropathy (pqac-00000018, pqac-00000020, pqac-00000048) |
+| Epilepsy / seizures | ~18% in pediatric complex HSP cohort; variable by genotype | HP:0001250 Seizure | Variable; can be severe | Seen in pediatric complex HSP and AP-4 deficiency/SPG50; not universal across all complex HSPs (pqac-00000016, pqac-00000023) |
+| Dystonia | ~11% | HP:0001332 Dystonia | Variable | Recognized movement-disorder component of complex HSP, especially selected genotypes (pqac-00000015, pqac-00000020) |
+| Parkinsonism | ~16% | HP:0001300 Parkinsonism | Variable; usually minority feature | Reported in a subset of SPG15 and particularly enriched in some SPG11-related phenotypes (pqac-00000015, pqac-00000020) |
+| Urinary dysfunction / neurogenic bladder | ~54% | HP:0000009 Functional urinary incontinence; HP:0000013 Hypoplasia of the bladder not appropriate; prefer HP:0000508 Neurogenic bladder | Moderate; progressive in many | Includes urgency/incontinence; common non-motor burden in complex HSP (pqac-00000018, pqac-00000015) |
+| Upper limb spasticity | ~64% | HP:0001258 Spasticity of upper limbs | Moderate | Reflects spread beyond lower-limb-predominant syndrome in more advanced/complex disease (pqac-00000015, pqac-00000018) |
+| Intellectual disability | ~76% in pediatric-onset complex HSP | HP:0001249 Intellectual disability | Moderate-severe | Particularly common in pediatric complex HSP cohorts and AP-4 deficiency disorders (pqac-00000016, pqac-00000055) |
+| Scoliosis | ~21% | HP:0002650 Scoliosis | Mild-moderate | Orthopedic complication seen in complex HSP cohorts such as SPG15 (pqac-00000018) |
+| Foot deformity | ~28% | HP:0001760 Pes planus / HP:0001761 Pes cavus / HP:0001824 Foot deformity | Mild-moderate | Deformities vary; relevant to gait impairment and rehabilitation planning (pqac-00000018) |
+| Visual abnormalities / optic pathway involvement | Variable | HP:0000505 Visual impairment; HP:0000648 Optic atrophy | Variable | Optic atrophy/retinal abnormalities occur in some complex HSP forms; visual findings are genotype-dependent rather than universal (pqac-00000021, pqac-00000020) |
+
+
+*Table: This table summarizes major clinical and imaging features reported in complex hereditary spastic paraplegia, emphasizing frequencies from recent cohorts—especially SPG15 and pediatric-onset complex HSP. It is useful for phenotype-driven diagnosis, ontology mapping, and genotype-phenotype curation.*
