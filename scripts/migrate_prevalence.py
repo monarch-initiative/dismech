@@ -273,7 +273,6 @@ def classify(pct, population: str, notes: str, evidence_snippets=()):
     write and flag is a short category string for the report.
     """
     pop = population or ""
-    nts = notes or ""
     fields: dict = {}
 
     if pct is None:
@@ -360,8 +359,8 @@ def find_prevalence_block(lines):
         return None
     end = len(lines)
     for j in range(start, len(lines)):
-        l = lines[j]
-        if l and not l[0].isspace() and not l.startswith("-"):
+        line = lines[j]
+        if line and not line[0].isspace() and not line.startswith("-"):
             end = j
             break
     return start, end
