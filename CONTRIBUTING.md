@@ -311,6 +311,57 @@ Disease entries should also maintain lifecycle metadata timestamps:
 
 Use ISO 8601/RFC 3339 datetime strings (for example, `2025-06-12T20:16:27Z`), and keep `creation_date` unchanged after initial creation.
 
+### Ontology databases and constrained environments
+
+Term validation is backed by OAK's `sqlite:obo:*` databases (mapped in
+`conf/oak_config.yaml`). When a database is missing, OAK downloads it on demand
+from the public [`bbop-sqlite`](https://s3.amazonaws.com/bbop-sqlite) bucket into
+`~/.data/oaklib/`. Some of these are large:
+
+| Ontology | Approx. size (unpacked) |
+|----------|-------------------------|
+| `ncbitaxon` | ~13.5 GB (2.1 GB gzipped) |
+| `ncit` | ~2.7 GB |
+| `mondo`, `chebi`, `uberon`, `hp`, `go` | tens–hundreds of MB each |
+
+In network- or disk-constrained environments (Claude Code on the web, sandboxed
+agents, metered connections) an interrupted big-file download can abort a
+validation run. Two things make this manageable:
+
+- **Single-file validation does not force these downloads.** `just validate`,
+  `just validate-terms`, `just validate-module`, `just validate-grouping`, and
+  `just validate-comorbidity` trust the committed `cache/*.csv` and only query
+  OAK for CURIEs that are *not* already cached (typically only when you add a
+  brand-new term). They deliberately skip the whole-cache `check-enum-cache`
+  integrity step, which re-derives every dynamic enum from OAK (and would pull
+  `ncbitaxon`/`ncit`). That integrity check still runs in whole-KB commands
+  (`just validate-all`, `just qc`) and in CI.
+
+- **Pre-provision the databases when you do need them** (e.g. before a full
+  `just qc`, or when adding a novel organism/NCIT term). This fetches with
+  resume + retry and reports the disk footprint, instead of failing mid-run:
+
+  ```bash
+  just fetch-ontology-dbs                 # all sqlite:obo:* DBs in oak_config.yaml
+  just fetch-ontology-dbs ncbitaxon hp    # only the ones you need
+  ```
+
+  Unpacking `ncbitaxon` needs ~16 GB free; the full OAK cache can reach ~26 GB.
+
+- **Offline structural check.** `just check-enum-cache-offline` audits the
+  committed enum caches (stale files, malformed headers, duplicate rows) without
+  any OAK access or downloads; only the CURIE-membership re-derivation is
+  skipped.
+
+To stop OAK from repeatedly re-attempting a download once the DBs are present,
+you can set a no-refresh cache policy at
+`~/.config/ontology-access-kit/cache.conf`:
+
+```
+[default]
+default = no-refresh
+```
+
 ## Pull Request Process
 
 1. Create a branch for your changes on `origin`, not on a fork
