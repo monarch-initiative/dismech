@@ -228,3 +228,54 @@ original MAXO id/label/preferred_term, `linkml-validate` re-passed on all 14
 files, and the corresponding `MANUAL.tsv` rows were changed from
 `NEAR_MATCH` to `NO_MATCH` with notes explaining the reversion. Updated
 counts: `MATCH` 125, `NEAR_MATCH` 64, `NO_MATCH` 44, `PENDING` 475.
+
+## Systematic TreatmentActionTerm enum audit (2026-07-02, same day)
+
+CI's real `linkml-term-validator` pass (with the OAK-backed dynamic enum
+expansion the earlier local `linkml-validate`-only check did not exercise)
+failed on `NCIT:C210732` (Vitamin Supplement, not reachable from
+`NCIT:C25218`). Since the CI loop stops at the first validation failure, a
+full proactive audit was run instead of fixing files one CI failure at a
+time: every unique NCIT id then in use across the `MATCH`/`NEAR_MATCH` rows
+(155 ids after the prior correction) was checked via OAK
+(`adapter.ancestors(id, predicates=["rdfs:subClassOf"], reflexive=True)`)
+against the schema's `TreatmentActionTerm` `reachable_from` roots
+(`NCIT:C25218` / `MAXO:0000001`).
+
+**93 of 155 unique NCIT ids (101 of 189 MATCH/NEAR_MATCH rows) failed** —
+overwhelmingly cases where a treatment's *name* happened to be a specific
+drug/agent (e.g. "Rituximab", "Imatinib", "Trifarotene") and the curation
+queue matched it to the NCIT concept for that drug/substance itself, rather
+than the clinical-intervention *action* the `treatment_term` slot requires.
+Per the dismech convention, the specific agent belongs in
+`therapeutic_agent` (already correctly populated in most of these entries
+before the swap), while `treatment_term` should stay on the generic action
+(`NCIT:C15986` Pharmacotherapy, `MAXO:0000647` chemotherapy, etc.). A
+smaller set were drug-class/substance/device concepts (Corticosteroid,
+Beta-Adrenergic Agonist, Hearing Aid, Sunglasses, Brace, Vitamin Supplement,
+Actinotherapy, ...).
+
+All 57 affected KB treatment entries (45 files) were reverted to their
+original pre-swap MAXO id/label/preferred_term (sourced from the pristine
+git blob before the first swap commit, not re-derived from `maxo_label`
+text, to guarantee exactness). The corresponding 101 `MANUAL.tsv` rows were
+changed to `NO_MATCH` with notes recording the failed reachability check.
+
+One collateral bug surfaced and was fixed during this pass: a handful of
+entries (`Acne_Vulgaris.yaml` x3, `Glioblastoma_IDH_Wildtype.yaml` x1) had a
+pre-existing `therapeutic_agent` that already correctly cited the same NCIT
+drug id the treatment_term swap had also (incorrectly) copied in; a
+regex-based revert pass matched the *first* occurrence of that id in the
+entry block, which was ambiguous when both fields shared it. These 4
+`therapeutic_agent` values were restored from the pristine pre-swap blob and
+verified against it programmatically (0 discrepancies across all 45 touched
+files). `linkml-term-validator` (the real CI check, not the schema-only
+`linkml-validate`) was re-run per-file to confirm.
+
+Updated counts: `MATCH` 59, `NEAR_MATCH` 29, `NO_MATCH` 145, `PENDING` 475.
+
+**Lesson for future passes on this queue:** verify `reachable_from`
+reachability via OAK for every candidate NCIT id *before* applying it, and
+prefer `just validate` / `linkml-term-validator` (which exercises the real
+dynamic enum expansion) over bare `linkml-validate` for local pre-push
+checks — the two can disagree on dynamic-enum-constrained fields.
