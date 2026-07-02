@@ -172,3 +172,37 @@ No-match patterns (so far) are mostly free-text composition rather than ontology
 - service/support formulations lacking direct NCIT treatment classes.
 
 Case/format variants (e.g., capitalization-only differences) are being propagated from already-manualized rows and explicitly marked in `queries_tried` as `propagated_case_variant_from:<label>`.
+
+## Applied to the KB (2026-07-02)
+
+The `MATCH` and `NEAR_MATCH` rows curated in `MANUAL.tsv` so far were applied
+to every `kb/disorders/*.yaml` and `kb/modules/*.yaml` treatment whose `name`
+matched a curated `section_name` and whose `treatment_term.term` still held
+the original MAXO id/label recorded as `maxo_label`:
+
+- Curated names eligible (`MATCH` + `NEAR_MATCH`): **194**
+- Treatment entries updated: **848** across **640** files
+- Only `treatment_term.term.id` / `term.label` were changed to the curated
+  NCIT id/label. `preferred_term` was updated to the new NCIT label only when
+  it previously mirrored the generic MAXO label verbatim (781 entries); the
+  67 entries where a curator had already written a more specific
+  `preferred_term` (e.g. "Foramen magnum decompression", "Cranial Vault
+  Surgery") were left untouched, since `preferred_term` is allowed to be more
+  specific than `term.label` per the curation conventions.
+- All 159 unique NCIT ids used were spot-checked against
+  `sqlite:obo:ncit` (`runoak -i sqlite:obo:ncit labels <ids>`); every id/label
+  pair matched the canonical NCIT label except one (`NCIT:C98085`, corrected
+  in `MANUAL.tsv` from "GLP-1 Mimetics" to the canonical "GLP-1 Mimetic" —
+  this row was never actually applied to a KB file, since its `maxo_label`
+  ("pharmacotherapy") does not correspond to an actual MAXO id used in the
+  KB).
+- `NO_MATCH` (39) and `PENDING` (475) rows were **not** touched — MAXO
+  remains the term for those treatment names, consistent with the
+  recommendation above to keep MAXO primary except where a clearly better
+  NCIT concept exists.
+- Schema (`linkml-validate --target-class Disease`) was re-run on all 640
+  changed files after the swap: **640/640 passed, 0 failures**.
+
+Remaining work: continue the manual OAK curation pass on the 475 `PENDING`
+names, then re-run this apply step to pick up newly curated `MATCH`/
+`NEAR_MATCH` rows.
