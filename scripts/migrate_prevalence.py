@@ -90,9 +90,22 @@ CASE_COUNT_RE = re.compile(
 # "of live births", "of neonates").
 FRACTION_OF_CATEGORY_RE = re.compile(
     r"of\s+(?:all\s+\w+|patients\b|those\b|cases\b|individuals\s+with|"
-    r"persons\s+with|people\s+with|\w+\s+(?:cases|patients|diagnoses|malignancies|tumou?rs|cancers|lymphomas))",
+    r"persons\s+with|people\s+with|\w+\s+(?:cases|patients|diagnoses|malignancies|tumou?rs|cancers|lymphomas))"
+    # cohort head-count fractions stated in the percentage field itself,
+    # e.g. "4 of 283 (~1.4%)", "3 (3/10)"
+    r"|\b\d[\d,]*\s+of\s+\d[\d,]*\b"
+    # "N% of <clinical/genetic category>" (solved-gene series, idiopathic NS,
+    # sporadic/typhoidal cohorts, probands, isolates) — not population denominators
+    r"|of\s+(?:solved|genetically\s+solved|idiopathic\s+nephrotic|sporadic\b|"
+    r"typhoidal\s+Salmonella|OI\s+probands|autosomal\s+dominant\b|isolates\b|probands\b)",
     re.I,
 )
+
+# Conditional-risk qualifiers that mark a percentage as penetrance / lifetime
+# risk within carriers rather than a population occurrence rate. These terms do
+# not appear in legitimate population-prevalence records, so — unlike the general
+# fraction guard — this one is safe to run against the free-text notes field.
+PENETRANCE_RE = re.compile(r"\bpenetranc\w*|\blifetime\s+(?:risk|penetrance)\b", re.I)
 
 
 def _to_float(token: str) -> float | None:
@@ -298,6 +311,10 @@ def classify(pct, population: str, notes: str, evidence_snippets=()):
     # Route them out as misplaced (no conversion). "of the population" / "of live
     # births" are legitimate denominators and are NOT matched here.
     if FRACTION_OF_CATEGORY_RE.search(raw):
+        return fields, "MISPLACED_CATEGORY"
+    # Penetrance / lifetime-risk qualifier (safe to check notes too — these words
+    # never appear in legitimate population-prevalence prose).
+    if PENETRANCE_RE.search(raw) or PENETRANCE_RE.search(notes or ""):
         return fields, "MISPLACED_CATEGORY"
     # Measure type and qualitative class are detected from the percentage value
     # and the population label ONLY. The free-text `notes` field is deliberately
