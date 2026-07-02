@@ -2531,6 +2531,9 @@ enums:
       COHD:
         text: COHD
         description: Columbia Open Health Data (COHD)
+      ICEES:
+        text: ICEES
+        description: Integrated Clinical and Environmental Exposures Service KG (RENCI/UNC)
       LITERATURE:
         text: LITERATURE
         description: Published literature source
@@ -2814,6 +2817,34 @@ enums:
           peer-reviewed summaries updated on a rolling basis; they are the gold-standard
           narrative resource for rare Mendelian disease phenotyping and management.
         title: GeneReviews
+  GeneSetRelationshipEnum:
+    name: GeneSetRelationshipEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/GeneSetRelationshipEnum
+    description: How an external gene set (e.g. an MSigDB/KEGG pathway, a cell-type
+      signature, or an expression-perturbation signature) relates to a disease entry.
+      Records the semantics of a curated disease<->gene-set link so the link is auditable
+      and the right kind of alignment can be applied.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      CANONICAL_PATHWAY:
+        text: CANONICAL_PATHWAY
+        description: A curated pathway gene set representing the disease's canonical
+          mechanism (e.g. KEGG_ASTHMA for asthma). The primary target for BP alignment
+          against the pathograph.
+      CELL_TYPE_SIGNATURE:
+        text: CELL_TYPE_SIGNATURE
+        description: A marker gene set for a cell type relevant to the disease.
+      PERTURBATION_SIGNATURE:
+        text: PERTURBATION_SIGNATURE
+        description: An up/down expression signature from a perturbation or contrast
+          (e.g. drug response, knockout) relevant to the disease.
+      DISEASE_SIGNATURE:
+        text: DISEASE_SIGNATURE
+        description: A differential-expression signature derived from the disease
+          itself.
+      OTHER:
+        text: OTHER
+        description: A related gene set that does not fit the categories above.
   ICDOMorphologyEnum:
     name: ICDOMorphologyEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ICDOMorphologyEnum
@@ -3390,6 +3421,23 @@ enums:
         meaning: HP:0002664
         title: Neoplasm
 slots:
+  gene_sets:
+    name: gene_sets
+    definition_uri: https://w3id.org/monarch-initiative/dismech/gene_sets
+    description: Curated links from this disease to external gene sets, each referenced
+      by its structured-source id (MYGENESET:<id>, resolving to references_cache/MYGENESET_<id>.md).
+      Membership and the curated GO interpretation live upstream / in the cache file;
+      this slot records only the precise disease<->set link and its semantics, and
+      is the anchor for BP alignment (`just genesets-align`).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:gene_sets
+    owner: Disease
+    domain_of:
+    - Disease
+    range: GeneSetAssociation
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   name:
     name: name
     definition_uri: https://w3id.org/monarch-initiative/dismech/name
@@ -8364,6 +8412,38 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  geneSetAssociation__gene_set:
+    name: geneSetAssociation__gene_set
+    description: Structured-source id of the gene set, e.g. MYGENESET:KEGG_ASTHMA.
+      Resolves to references_cache/MYGENESET_<id>.md.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:gene_set
+    alias: gene_set
+    owner: GeneSetAssociation
+    domain_of:
+    - GeneSetAssociation
+    range: uriorcurie
+    required: true
+  geneSetAssociation__relationship:
+    name: geneSetAssociation__relationship
+    description: How the gene set relates to this disease.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:relationship
+    alias: relationship
+    owner: GeneSetAssociation
+    domain_of:
+    - GeneSetAssociation
+    range: GeneSetRelationshipEnum
+  geneSetAssociation__note:
+    name: geneSetAssociation__note
+    description: Free-text curator note on the link (e.g. which arms overlap).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:note
+    alias: note
+    owner: GeneSetAssociation
+    domain_of:
+    - GeneSetAssociation
+    range: string
   proteinStructure__pdb_id:
     name: proteinStructure__pdb_id
     description: PDB accession code (e.g., 3TCT) or AlphaFold identifier (e.g., AF-P02766-F1).
@@ -11631,6 +11711,37 @@ classes:
             description: The metadata element is required to be present in the model
           binds_value_of: id
     class_uri: dismech:ProteinComplexDescriptor
+  GeneSetAssociation:
+    name: GeneSetAssociation
+    definition_uri: https://w3id.org/monarch-initiative/dismech/GeneSetAssociation
+    description: 'A curated link between this disease and an external gene set, referenced
+      by its structured-source id (MYGENESET:<id>, resolving to references_cache/MYGENESET_<id>.md).
+      The gene set''s membership and curated GO interpretation live upstream / in
+      the cache file; this object records only the precise disease<->set link and
+      its semantics, avoiding re-duplication of genes in the KB. It is the anchor
+      for BP alignment (`just genesets-align`): the set''s curated biological processes
+      are scored against this disease''s pathograph.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - geneSetAssociation__gene_set
+    - geneSetAssociation__relationship
+    - geneSetAssociation__note
+    attributes:
+      gene_set:
+        name: gene_set
+        description: Structured-source id of the gene set, e.g. MYGENESET:KEGG_ASTHMA.
+          Resolves to references_cache/MYGENESET_<id>.md.
+        range: uriorcurie
+        required: true
+      relationship:
+        name: relationship
+        description: How the gene set relates to this disease.
+        range: GeneSetRelationshipEnum
+      note:
+        name: note
+        description: Free-text curator note on the link (e.g. which arms overlap).
+        range: string
+    class_uri: dismech:GeneSetAssociation
   AssayDescriptor:
     name: AssayDescriptor
     definition_uri: https://w3id.org/monarch-initiative/dismech/AssayDescriptor
@@ -13430,6 +13541,7 @@ classes:
     - computational_models
     - classifications
     - definitions
+    - gene_sets
     - mappings
     - external_assertions
     - tracked_issues
@@ -14399,7 +14511,7 @@ classes:
     class_uri: dismech:DifferentiatingMechanism
 metamodel_version: 1.7.0
 source_file: dismech.yaml
-source_file_date: '2026-06-20T00:33:07'
-source_file_size: 208093
-generation_date: '2026-06-20T01:22:48'
+source_file_date: '2026-07-02T11:16:18'
+source_file_size: 210961
+generation_date: '2026-07-02T12:11:13'
 
