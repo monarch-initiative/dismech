@@ -53,6 +53,10 @@ jobs:
               - 'tests/**'
               - 'pyproject.toml'
               - 'uv.lock'
+            schema:
+              - 'src/dismech/schema/**'
+              - 'src/dismech/groupings.py'
+              - 'tests/test_data.py'
             kb_disorders:
               - 'kb/disorders/**/*.yaml'
               - '!kb/disorders/**/*.history.yaml'
@@ -186,6 +190,17 @@ jobs:
         if: steps.changes.outputs.app == 'true' || steps.changes.outputs.src == 'true'
         run: npm ci
 
-      - name: Run test suite
+      # Fast code/logic tests run on any src/tests/app change. The whole-KB
+      # schema-conformance sweep (kb_data) is intentionally excluded here — a
+      # code-only change cannot invalidate a previously-valid KB file against
+      # the schema, and changed KB files are already validated per-file above.
+      - name: Run code/logic tests
         if: steps.changes.outputs.src == 'true' || steps.changes.outputs.app == 'true'
-        run: just test
+        run: just test-code
+
+      # The whole-KB conformance sweep runs only when the schema itself (or the
+      # conformance-test logic) changes — the only edits that can flip a KB
+      # file's validity. Parallelized with xdist inside `just test-kb`.
+      - name: Run whole-KB schema-conformance sweep
+        if: steps.changes.outputs.schema == 'true'
+        run: just test-kb
