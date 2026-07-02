@@ -65,6 +65,10 @@ validate-all:
     fi
 
 # Full validation of a single disorder file (schema + terms + references)
+# Note: does NOT run `check-enum-cache` — that whole-cache integrity check
+# re-derives every dynamic enum from OAK and can pull multi-GB sqlite:obo:*
+# DBs (e.g. ncbitaxon ~13.5 GB). Single-file validation trusts the committed
+# cache/*.csv; the integrity check still runs in `validate-all`/`qc` (CI).
 [group('QC')]
 validate file:
     #!/usr/bin/env bash
@@ -72,7 +76,6 @@ validate file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
     echo "Term validation..."
-    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
@@ -144,6 +147,7 @@ validate-comorbidities:
     done
 
 # Full validation of a single comorbidity file (schema + terms + references)
+# Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
 validate-comorbidity file:
     #!/usr/bin/env bash
@@ -151,7 +155,6 @@ validate-comorbidity file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation {{file}}
     echo "Term validation..."
-    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
@@ -277,6 +280,7 @@ validate-modules:
     fi
 
 # Validate a single mechanism module file
+# Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
 validate-module file:
     #!/usr/bin/env bash
@@ -284,7 +288,6 @@ validate-module file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
     echo "Term validation..."
-    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
@@ -292,6 +295,7 @@ validate-module file:
     echo "✓ All validations passed for {{file}}"
 
 # Validate a single disease grouping file (schema + terms + references)
+# Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
 validate-grouping file:
     #!/usr/bin/env bash
@@ -299,7 +303,6 @@ validate-grouping file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class Grouping {{file}}
     echo "Term validation..."
-    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Grouping --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
@@ -395,9 +398,9 @@ validate-terms-all:
     {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
 # Validate terms in a single file
+# Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
 validate-terms file:
-    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
 # Run legacy custom term validation (faster, but less thorough)
@@ -418,9 +421,27 @@ compliance-connectivity *ARGS:
     uv run python -m dismech.qc_plugins {{kb_dir}} -c conf/qc_config.yaml {{ARGS}}
 
 # Validate dynamic enum membership caches against current schema definitions.
+# Re-derives every dynamic enum from OAK, so it may pull large sqlite:obo:* DBs
+# (run `just fetch-ontology-dbs` first in constrained environments).
 [group('QC')]
 check-enum-cache:
     uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}}
+
+# Offline structural check of the enum caches (no OAK / no downloads): catches
+# stale files, malformed headers, and duplicate rows while trusting the
+# committed cache/*.csv for membership. Use in network-constrained environments.
+[group('QC')]
+check-enum-cache-offline:
+    uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}} --offline
+
+# Pre-provision the sqlite:obo:* ontology DBs (with resume/retry) that term
+# validation needs, so a flaky/blocked download does not abort validation
+# mid-run. Fetch all, or only the named ontologies:
+#   just fetch-ontology-dbs
+#   just fetch-ontology-dbs ncbitaxon hp
+[group('QC')]
+fetch-ontology-dbs *names="":
+    OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
