@@ -94,9 +94,18 @@ site: gen-project gen-doc
 deploy: site
   mkd-gh-deploy
 
-# Run all tests
+# Run all tests (fast code/logic checks + the whole-KB conformance sweep)
 [group('model development')]
-test: _test-schema _test-python _test-examples test-search
+test: test-code test-kb
+
+# Fast code/logic tests: everything except the whole-KB `kb_data` conformance sweep
+[group('model development')]
+test-code: _test-schema _test-python-code _test-examples test-search
+
+# Whole-KB schema-conformance sweep (parametrized over every KB file), parallelized.
+# In CI this is gated on schema / conformance-test changes; run on demand locally.
+[group('model development')]
+test-kb: _test-python-kb
 
 # Run linting
 [group('model development')]
@@ -192,9 +201,13 @@ _update-linkml:
 _test-schema:
   uv run gen-project {{config_yaml}} -d tmp {{source_schema_path}}
 
-# Run Python unit tests with pytest
-_test-python: gen-python
-  uv run python -m pytest
+# Run the fast Python unit tests (excludes the whole-KB `kb_data` sweep)
+_test-python-code: gen-python
+  uv run python -m pytest -m "not kb_data"
+
+# Run the whole-KB schema-conformance sweep (`kb_data`), parallelized with xdist
+_test-python-kb: gen-python
+  uv run python -m pytest -m "kb_data" -n auto
 
 # Run example tests
 _test-examples: _ensure_examples_output
