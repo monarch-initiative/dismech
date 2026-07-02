@@ -105,6 +105,61 @@ jobs:
             fi
           fi
 
+      # Advisory-only nudge (never fails the build): if a PR edits a KB entry
+      # (disorder/module/comorbidity) but adds no matching history/ record, warn
+      # so curation provenance keeps pace with content. See docs/history.md and
+      # `just new-history`.
+      - name: Check curation history coverage
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          ADDED_HISTORY=$(git diff --name-only --diff-filter=A "$BASE_SHA" "$HEAD_SHA" \
+            | grep -E '^history/.*\.yaml$' || true)
+
+          # KB entries touched by this PR (exclude legacy *.history.yaml).
+          KB_ENTRIES=$(echo "$CHANGED" \
+            | grep -E '^kb/(disorders|modules|comorbidities)/[^/]+\.yaml$' \
+            | grep -v '\.history\.yaml$' || true)
+
+          if [ -z "$KB_ENTRIES" ]; then
+            echo "No KB entry changes; skipping history-coverage nudge."
+            exit 0
+          fi
+
+          MISSING=""
+          while IFS= read -r entry; do
+            [ -z "$entry" ] && continue
+            subdir=$(echo "$entry" | cut -d/ -f2)          # disorders|modules|comorbidities
+            slug=$(basename "$entry" .yaml)
+            if ! echo "$ADDED_HISTORY" | grep -q "^history/${subdir}/${slug}/"; then
+              MISSING="${MISSING}  ${entry}"$'\n'
+            fi
+          done <<< "$KB_ENTRIES"
+
+          if [ -n "$MISSING" ]; then
+            echo "::warning::This PR changes KB entries without adding a history/ record for them:"
+            printf '%s' "$MISSING"
+            {
+              echo "### ⚠️ Curation history coverage"
+              echo ""
+              echo "This PR modifies KB entries but adds no \`history/\` record for:"
+              echo ""
+              echo '```'
+              printf '%s' "$MISSING"
+              echo '```'
+              echo ""
+              echo "Add one with \`just new-history\` (see \`docs/history.md\`). Advisory only — this does not block merge."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "History records present for all changed KB entries. 👍"
+          fi
+
       # https://github.com/astral-sh/setup-uv
       - name: Install uv
         uses: astral-sh/setup-uv@v7

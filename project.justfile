@@ -85,6 +85,15 @@ validate file:
 validate-schema file:
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
 
+# Scaffold a new append-only history record (pass-through to scripts/new_history.py).
+# Run `just new-history --help` for all options. Prints the created path.
+# Example:
+#   just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
+#     --summary "Create: Asthma" --agent-tool claude-code --pr 5123 --details "..."
+[group('QC')]
+new-history *ARGS:
+    uv run python scripts/new_history.py {{ARGS}}
+
 # Validate a single history record
 [group('QC')]
 validate-history file:

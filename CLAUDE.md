@@ -405,6 +405,19 @@ issues, PRs, and other URLs, keep `summary` short, and put rich review/curation
 notes in the required `details` field. For AI-assisted curation, include the
 model plus agent tool/version fields when they are known.
 
+**Any PR that creates or edits a KB entry (`kb/disorders/`, `kb/modules/`,
+`kb/comorbidities/`) should add a matching history record.** CI posts an advisory
+(non-blocking) warning when a KB entry changes without one. Do not hand-write the
+filename/timestamp — scaffold a schema-valid skeleton and edit its `details`:
+
+```bash
+just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
+  --summary "Create: Asthma" --agent-tool claude-code --model claude-opus-4-8 \
+  --sections phenotypes,pathophysiology,evidence --pr 5123 \
+  --details "What was curated and how it was validated."
+# run `just new-history --help` for all options; it prints the created path
+```
+
 Validate history records with:
 
 ```bash

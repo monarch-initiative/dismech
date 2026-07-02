@@ -1,5 +1,7 @@
 """Tests for standalone dismech history records."""
 
+import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
@@ -12,12 +14,21 @@ ROOT_DIR = Path(__file__).parent.parent
 HISTORY_SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "history.yaml"
 HISTORY_DIR = ROOT_DIR / "history"
 KB_DISORDERS_DIR = ROOT_DIR / "kb" / "disorders"
+NEW_HISTORY_SCRIPT = ROOT_DIR / "scripts" / "new_history.py"
 KIND_DIRS = {
     "disorder": "disorders",
     "module": "modules",
     "comorbidity": "comorbidities",
     "schema": "schema",
 }
+
+
+def _load_new_history_module():
+    spec = importlib.util.spec_from_file_location("new_history", NEW_HISTORY_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 @pytest.fixture(scope="module")
@@ -180,6 +191,66 @@ def test_committed_history_records_follow_layout():
         if kind in KIND_DIRS:
             expected_parent = HISTORY_DIR / KIND_DIRS[kind] / slug
             assert path.parent == expected_parent
+
+
+@pytest.mark.parametrize(
+    "argv, expected_parent, expected_stem_contains",
+    [
+        (
+            [
+                "--kind", "disorder", "--slug", "Asthma",
+                "--event", "CREATE", "--outcome", "changed",
+                "--summary", "Create: Asthma",
+                "--agent-tool", "claude-code", "--model", "claude-opus-4-8",
+                "--sections", "phenotypes,evidence",
+                "--pr", "5123", "--issue", "2892",
+                "--details", "Scaffolder smoke test.",
+            ],
+            "history/disorders/Asthma",
+            "claude-code",
+        ),
+        (
+            [
+                "--kind", "module", "--slug", "fibrotic_response",
+                "--event", "EDIT", "--outcome", "changed",
+                "--summary", "Edit: fibrotic_response",
+                "--actor-name", "cjm", "--actor-type", "human",
+                "--details", "x",
+            ],
+            "history/modules/fibrotic_response",
+            "cjm",
+        ),
+    ],
+)
+def test_new_history_scaffolder_emits_valid_record(
+    validator, argv, expected_parent, expected_stem_contains
+):
+    module = _load_new_history_module()
+    args = module.parse_args(argv)
+    record, out_path = module.build_record(args)
+
+    # Path layout matches the committed convention.
+    assert out_path.parent.as_posix().endswith(expected_parent)
+    assert expected_stem_contains in out_path.stem
+    assert out_path.stem == record["session"]["id"]
+
+    # Bare issue/PR numbers are expanded to full repo URLs.
+    for url in record["links"]["issues"] + record["links"]["prs"]:
+        assert url.startswith("https://github.com/monarch-initiative/dismech/")
+
+    report = validator.validate(record, target_class="HistoryRecord")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Scaffolded record failed validation: {[str(e) for e in errors]}"
+
+
+def test_new_history_scaffolder_requires_slug_for_kb_kinds():
+    module = _load_new_history_module()
+    args = module.parse_args(
+        ["--kind", "disorder", "--event", "EDIT", "--outcome", "changed",
+         "--summary", "x", "--details", "y"]
+    )
+    with pytest.raises(SystemExit):
+        module.build_record(args)
 
 
 def test_committed_history_records_do_not_use_migration_event():
