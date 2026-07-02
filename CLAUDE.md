@@ -121,6 +121,33 @@ config instead. Page/build crons are intentionally unmanaged. See
 ### Scripts (`scripts/`)
 - `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
 
+### Research Artifacts (`research/`)
+
+**`research/` is ONLY for deep-research outputs — do not hand-place files here.**
+The directory holds the raw, per-disease outputs of deep-research runs (the
+`/deep-research` skill and DR providers such as Falcon, Asta, OpenScientist,
+Perplexity): the `*-deep-research-*.md` reports, their `*.citations.md`
+sidecars, `*_artifacts/` image folders, `*-research-synthesis.md` roll-ups, and
+Claude Code literature sweeps. These are consumed by curation as first-class
+inputs and indexed by `scripts/index_research_artifacts.py`; evidence `images:`
+paths and DR provenance resolve relative to this directory.
+
+Rules:
+- **Do not manually write ad-hoc research or analysis markdown into `research/`.**
+  Notes about the code internals, project investigations, landscape surveys,
+  pilots, registries, and paper maps do **not** belong here — put them under
+  `docs/` instead (e.g. `docs/superpowers/` for agent investigations/plans/specs,
+  `docs/reports/` for analysis reports, `docs/research/` for research provenance,
+  `docs/curation-notes/` for per-disease curation notes). Everything under `docs/`
+  should also be surfaced in the `mkdocs.yml` nav.
+- **Exception — deterministic script outputs may live in `research/`.** A handful
+  of scripts write generated data here by design (e.g.
+  `scripts/nec_risk_audit.py` → `research/nec_risk_disease_classes.md`,
+  `scripts/grouping_mondo_gaps.py` → `research/grouping_mondo_gaps.md`, the
+  node-embedding worklist, `conforms_to_suggestions.tsv`, `cebm_pilot_*.json`).
+  These are generated, not "manually touched"; regenerate them via their script
+  rather than hand-editing, and leave them in place.
+
 ### Structured-Database Sources (`src/dismech/structured_sources/`)
 - Framework for ingesting structured knowledge bases (Orphanet, ClinGen; OMIM /
   MONDO / HGNC pluggable) into `references_cache/` as line-oriented markdown
@@ -1375,7 +1402,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `kb/disorders/*.yaml`, `kb/modules/*.yaml` | YES | Core content |
 | `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
-| `research/*.md` | YES | Useful provenance |
+| `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `src/`, `scripts/`, `tests/`, `conf/` | YES | Source code |
 
 ### What NOT to commit
