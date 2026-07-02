@@ -80,6 +80,17 @@ class ReferenceCacheFrontmatter(BaseModel):
     keywords: list[Any] | str | None = None
     extra_fields_captured: list[Any] | str | None = None
     supplementary_files: list[SupplementaryFileFrontmatter] | None = None
+    # Preprint / full-text fields written by linkml-reference-validator
+    # >=0.2.1rc2 (preprint support + Europe PMC full-text route). Present on
+    # records the fetcher attempted full text for; absent on older cache files.
+    is_preprint: bool | None = None
+    peer_review_status: str | None = None
+    full_text_attempted: bool | None = None
+    full_text_provider: str | None = None
+    full_text_url: str | None = None
+    oa_status: str | None = None
+    license: str | None = None
+    local_pdf_path: str | None = None
     # Local extension (dismech): identifies the source database for cache
     # files derived from a structured knowledge base (Orphanet, OMIM, MONDO,
     # …) rather than from a literature reference. The upstream

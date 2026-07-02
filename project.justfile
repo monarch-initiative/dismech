@@ -766,11 +766,11 @@ gen-grouping-pages:
     uv run python -m dismech.render --grouping {{groupings_dir}}
     @echo "Generated $(ls -1 pages/groupings/*.html 2>/dev/null | wc -l | tr -d ' ') grouping pages"
 
-# Generate deep-research index page
+# Generate deep-research index page plus a standalone page per report
 [group('Pages')]
 gen-research-index:
     uv run python -m dismech.render --research
-    @echo "Generated pages/research/index.html"
+    @echo "Generated pages/research/index.html and $(ls -1 pages/research/*.html 2>/dev/null | grep -v '/index.html$' | wc -l | tr -d ' ') per-report pages"
 
 # Regenerate the deep-research provider table in details/index.html from the registry
 [group('Pages')]
@@ -836,6 +836,14 @@ export-hpoa:
 [group('Export')]
 export-disease-inventory output="output/disease_inventory.csv":
     uv run dismech-disease-inventory -i {{kb_dir}} -o {{output}}
+
+# Generate a Mondo EMC (Externally Managed Content) TSV for downstream Mondo ingest.
+# One row per disorder with a MONDO CURIE in disease_term.term.id; columns: mondo_id,
+# mondo_label, dismech_url, dismech_definition, dismech_exact_synonyms, dismech_pmids.
+# The output is committed to exports/mondo_emc.tsv so Mondo can pin to a release tag.
+[group('Export')]
+export-mondo-tsv output="exports/mondo_emc.tsv":
+    uv run python -m dismech.export.mondo_emc_export --kb-dir {{kb_dir}} --output {{output}}
 
 # ============== CX2 Export ==============
 
@@ -1938,3 +1946,35 @@ cron-profile-preview name:
 [group('Cron profiles')]
 cron-profile name:
     uv run python scripts/apply_cron_profile.py {{name}}
+
+# ============== Phenoagent: case-to-disease matching ==============
+
+# Step 1 - Deterministic init: build an initial matching YAML from a phenopacket
+# and a single dismech disease (slug, MONDO id, name, or YAML path).
+# Example: just matching-init tests/phenoagent/data/phenopackets/PMID_35451551_proband.min.json Fanconi_Anemia
+[group('Phenoagent')]
+matching-init phenopacket disease *flags:
+    uv run python -m phenoagent.matching_cli {{phenopacket}} {{disease}} {{flags}}
+
+# Step 2 - Agentic explanation loop: run init, then drive cyberian + Claude to
+# fill explanations for every non-exact row (requires cyberian + a running agent
+# server on --host/--port). Add --dry-run to print the cyberian command only.
+# Example: just matching-agent tests/phenoagent/data/phenopackets/PMID_35451551_proband.min.json Fanconi_Anemia --dry-run
+[group('Phenoagent')]
+matching-agent phenopacket disease *flags:
+    uv run python -m phenoagent.cyberian_wrapper {{phenopacket}} {{disease}} {{flags}}
+
+# Step 3 - Match-aware causal graph: render an HTML report (embedded Mermaid +
+# metadata) from a dismech disease model and a matching report YAML.
+# Example: just matching-graph Fanconi_Anemia output/matching/<case>__Fanconi_Anemia.yaml
+[group('Phenoagent')]
+matching-graph disease matching_report *flags:
+    uv run python -m phenoagent.match_graph {{disease}} {{matching_report}} {{flags}}
+
+# Step 4 - Deterministic phenopacket match-quality eval against dismech disorders.
+# Defaults to the bundled fixtures; pass a phenopacket-store checkout to scale up.
+# Example: just phenopacket-eval
+# Example: just phenopacket-eval projects/PHENOPACKETS/files/phenopacket-store
+[group('Phenoagent')]
+phenopacket-eval paths="tests/phenoagent/data/phenopackets":
+    uv run python -m phenoagent.eval {{paths}} --json workdirs/eval/phenopacket-eval.json --markdown workdirs/eval/phenopacket-eval.md
