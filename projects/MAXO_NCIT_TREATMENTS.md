@@ -206,3 +206,25 @@ the original MAXO id/label recorded as `maxo_label`:
 Remaining work: continue the manual OAK curation pass on the 475 `PENDING`
 names, then re-run this apply step to pick up newly curated `MATCH`/
 `NEAR_MATCH` rows.
+
+## Post-review correction (2026-07-02)
+
+The automated PR review (ai4c-agent) on PR #5135 flagged 4 `NEAR_MATCH` rows
+whose NCIT concept is a substance or qualifier/adjective rather than a
+clinical-intervention action, and therefore likely does not satisfy the
+`TreatmentActionTerm` dynamic enum's `reachable_from NCIT:C25218` constraint:
+
+- `Leukotriene Modifier` -> `NCIT:C608` (Leukotriene) is the endogenous
+  mediator being *blocked*, not the modifier action — semantically inverted.
+- `Platinum Chemotherapy` / `Platinum-Based Chemotherapy` -> `NCIT:C25620`
+  (Platinum-Based) is a qualifier/adjective, not an action (9 entries, 9 files).
+- `Multidisciplinary Care` -> `NCIT:C94845` (Multidisciplinary) is an
+  adjective, not a care action (3 entries).
+- `Salt Supplementation` -> `NCIT:C29974` (Sodium Chloride) is the chemical
+  agent, not the supplementation action (1 entry).
+
+All 14 affected treatment entries (across 13 files) were reverted to their
+original MAXO id/label/preferred_term, `linkml-validate` re-passed on all 14
+files, and the corresponding `MANUAL.tsv` rows were changed from
+`NEAR_MATCH` to `NO_MATCH` with notes explaining the reversion. Updated
+counts: `MATCH` 125, `NEAR_MATCH` 64, `NO_MATCH` 44, `PENDING` 475.
