@@ -102,10 +102,18 @@ FRACTION_OF_CATEGORY_RE = re.compile(
 )
 
 # Conditional-risk qualifiers that mark a percentage as penetrance / lifetime
-# risk within carriers rather than a population occurrence rate. These terms do
-# not appear in legitimate population-prevalence records, so — unlike the general
-# fraction guard — this one is safe to run against the free-text notes field.
-PENETRANCE_RE = re.compile(r"\bpenetranc\w*|\blifetime\s+(?:risk|penetrance)\b", re.I)
+# risk / genotype-conditional cumulative incidence within carriers rather than a
+# population occurrence rate (e.g. "56.4% diagnosed by age 80" in male C282Y
+# homozygotes). These terms do not appear in legitimate population-prevalence
+# records, so — unlike the general fraction guard — this one is safe to run
+# against the free-text notes field.
+PENETRANCE_RE = re.compile(
+    r"\bpenetranc\w*"
+    r"|\blifetime\s+(?:risk|penetrance)\b"
+    r"|\bcumulative\s+(?:incidence|risk)\b"
+    r"|\bdiagnosed\s+by\s+age\b",
+    re.I,
+)
 
 
 def _to_float(token: str) -> float | None:
