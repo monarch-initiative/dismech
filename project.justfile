@@ -410,9 +410,10 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Report phenotype causal-connectivity coverage (graph-derived QC metric):
-# fraction of phenotype nodes wired into the pathograph. Pass --list-unconnected
-# to see the floating phenotype names per file.
+# Report graph-derived pathograph-wiring coverage (QC metrics): phenotype
+# causal-connectivity (fraction of phenotype nodes reached by a causal edge) and
+# gene-to-mechanism wiring (fraction of causal genes wired into a mechanism).
+# Pass --list-unconnected to see floating phenotype / unwired gene names per file.
 [group('QC')]
 compliance-connectivity *ARGS:
     uv run python -m dismech.qc_plugins {{kb_dir}} -c conf/qc_config.yaml {{ARGS}}

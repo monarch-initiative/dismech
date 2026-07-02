@@ -21,9 +21,12 @@ scores 75% on the ``phenotypes[].causal_inlink`` path, and that rolls into
 
 The :class:`QCMetricPlugin` protocol is the generic seam: any plugin takes the
 parsed disorder dict plus the active :class:`QCConfig` and returns extra
-``AggregatedPathScore`` records. Connectivity is the first plugin; the same hook
-generically covers other graph-derived coverage metrics (orphan-target rate,
-gene-to-mechanism wiring, dead-end pathophysiology nodes, ...).
+``AggregatedPathScore`` records. Phenotype connectivity was the first plugin;
+gene-to-mechanism wiring (:class:`GeneMechanismWiringPlugin`) is the source-side
+complement, rewarding a causal gene being wired into the pathograph rather than
+floating as an isolated genetic node. The same hook generically covers further
+graph-derived coverage metrics (orphan-target rate, dead-end pathophysiology
+nodes, ...).
 """
 
 from __future__ import annotations
@@ -33,13 +36,18 @@ from typing import Any, Protocol, runtime_checkable
 from linkml_data_qc.config import QCConfig
 from linkml_data_qc.models import AggregatedPathScore, ComplianceReport, ThresholdViolation
 
-from dismech.graph import build_causal_graph
+from dismech.graph import _genetic_item_infers_mechanism_edges, build_causal_graph
 
 # Predicates that mechanistically *explain* a downstream node. A phenotype is
 # considered "wired in" only when something causes it via one of these. A
 # ``treats`` edge (treatment -> phenotype) or a ``models`` edge does not
 # mechanistically explain the phenotype, so those are intentionally excluded.
 CAUSAL_PREDICATES: frozenset[str] = frozenset({"causes", "leads_to"})
+
+# Predicates that wire a genetic node *into* the mechanism pathograph. A genetic
+# node reaches the mechanism graph when it ``contributes_to`` a pathophysiology
+# node (the gene->mechanism edge that graph.py infers from a shared gene key).
+GENE_WIRING_PREDICATES: frozenset[str] = frozenset({"contributes_to"})
 
 
 @runtime_checkable
@@ -122,7 +130,101 @@ class PhenotypeConnectivityPlugin:
         ]
 
 
-DEFAULT_PLUGINS: tuple[QCMetricPlugin, ...] = (PhenotypeConnectivityPlugin(),)
+def gene_mechanism_wiring_coverage(
+    data: dict[str, Any],
+    predicates: frozenset[str] = GENE_WIRING_PREDICATES,
+) -> tuple[int, int, list[str]]:
+    """Return ``(wired, total, unwired_names)`` for causal genetic nodes.
+
+    Measures whether a Mendelian/causal gene is actually *wired into the
+    pathograph*: a top-level ``genetic`` node counts as wired when it is the
+    source of at least one mechanism edge (predicate in ``predicates``) that
+    reaches a pathophysiology node -- i.e. graph.py matched its gene key to a
+    pathophysiology node carrying the same ``gene``/``genes`` descriptor.
+
+    Only *mechanism-relevant* genetic items are counted in the denominator:
+    items whose relationship/association marks them as BIOMARKER, PROTECTIVE,
+    MODIFIER, DISPUTED, or UNKNOWN are intentionally not expected to explain a
+    mechanism (see :func:`dismech.graph._genetic_item_infers_mechanism_edges`),
+    so they neither help nor hurt coverage. Variant-level nodes are excluded;
+    this scores the gene-level assertion, the parallel of the phenotype
+    ``causal_inlink`` metric on the source side of the graph.
+    """
+    genetic_items = data.get("genetic", []) or []
+    candidates = [
+        item["name"]
+        for item in genetic_items
+        if isinstance(item, dict)
+        and item.get("name")
+        and _genetic_item_infers_mechanism_edges(item)
+    ]
+    total = len(candidates)
+    if total == 0:
+        return 0, 0, []
+
+    graph = build_causal_graph(data)
+    candidate_set = set(candidates)
+
+    wired_sources: set[str] = set()
+    for edge in graph.edges:
+        if edge.predicate not in predicates:
+            continue
+        if edge.source == edge.target:
+            continue
+        if edge.source not in candidate_set:
+            continue
+        target = graph.nodes.get(edge.target)
+        if target is not None and target.node_type == "pathophysiology":
+            wired_sources.add(edge.source)
+
+    unwired = [name for name in candidates if name not in wired_sources]
+    wired = total - len(unwired)
+    return wired, total, unwired
+
+
+class GeneMechanismWiringPlugin:
+    """Coverage of causal genetic nodes wired into the mechanism pathograph.
+
+    Emits a single ``genetic[].mechanism_outlink`` score whose ``populated`` /
+    ``total`` are the wired / mechanism-relevant genetic-node counts. This is the
+    source-side complement of :class:`PhenotypeConnectivityPlugin`: it rewards a
+    gene being connected to a pathophysiology node (via a shared ``gene``/
+    ``genes`` descriptor) rather than floating as an isolated genetic node.
+    """
+
+    path = "genetic[]"
+    slot_name = "mechanism_outlink"
+    parent_class = "Genetic"
+
+    def __init__(
+        self, predicates: frozenset[str] = GENE_WIRING_PREDICATES
+    ) -> None:
+        self.predicates = predicates
+
+    def evaluate(
+        self, data: dict[str, Any], config: QCConfig
+    ) -> list[AggregatedPathScore]:
+        wired, total, _ = gene_mechanism_wiring_coverage(data, self.predicates)
+        if total == 0:
+            return []
+        return [
+            AggregatedPathScore(
+                path=self.path,
+                slot_name=self.slot_name,
+                parent_class=self.parent_class,
+                populated=wired,
+                total=total,
+                percentage=wired / total * 100,
+                weight=config.get_weight(self.path, self.slot_name),
+                min_compliance=config.get_min_compliance(self.path, self.slot_name),
+            )
+        ]
+
+
+DEFAULT_PLUGINS: tuple[QCMetricPlugin, ...] = (
+    PhenotypeConnectivityPlugin(),
+    GeneMechanismWiringPlugin(),
+)
 
 
 def _weighted_compliance(scores: list[AggregatedPathScore]) -> float:
@@ -186,8 +288,9 @@ def _main() -> None:
 
     parser = argparse.ArgumentParser(
         description=(
-            "Report phenotype causal-connectivity coverage (graph-derived QC "
-            "metric) across dismech disorder files."
+            "Report graph-derived pathograph-wiring coverage across dismech "
+            "disorder files: phenotype causal-connectivity (inbound) and "
+            "gene-to-mechanism wiring (outbound)."
         )
     )
     parser.add_argument(
@@ -199,18 +302,24 @@ def _main() -> None:
         "-c",
         "--config",
         default="conf/qc_config.yaml",
-        help="QC config YAML (for weight / min_compliance on the metric).",
+        help="QC config YAML (for weight / min_compliance on the metrics).",
     )
     parser.add_argument(
         "--fail-under",
         type=float,
         default=None,
-        help="Exit non-zero if aggregate connectivity coverage falls below this percent.",
+        help="Exit non-zero if aggregate phenotype connectivity falls below this percent.",
+    )
+    parser.add_argument(
+        "--genes-fail-under",
+        type=float,
+        default=None,
+        help="Exit non-zero if aggregate gene-to-mechanism wiring falls below this percent.",
     )
     parser.add_argument(
         "--list-unconnected",
         action="store_true",
-        help="List the disconnected phenotype node names per file.",
+        help="List the disconnected phenotype and unwired genetic node names per file.",
     )
     args = parser.parse_args()
 
@@ -219,12 +328,18 @@ def _main() -> None:
         if Path(args.config).exists()
         else QCConfig.default()
     )
-    # Effective threshold: explicit --fail-under wins, otherwise fall back to the
-    # min_compliance configured for the metric in qc_config.yaml (may be None).
-    plugin = PhenotypeConnectivityPlugin()
+    # Effective thresholds: explicit CLI flags win, otherwise fall back to the
+    # min_compliance configured for each metric in qc_config.yaml (may be None).
+    pheno_plugin = PhenotypeConnectivityPlugin()
+    gene_plugin = GeneMechanismWiringPlugin()
     fail_under = args.fail_under
     if fail_under is None:
-        fail_under = config.get_min_compliance(plugin.path, plugin.slot_name)
+        fail_under = config.get_min_compliance(pheno_plugin.path, pheno_plugin.slot_name)
+    genes_fail_under = args.genes_fail_under
+    if genes_fail_under is None:
+        genes_fail_under = config.get_min_compliance(
+            gene_plugin.path, gene_plugin.slot_name
+        )
 
     files: list[Path] = []
     for raw in args.paths:
@@ -240,37 +355,76 @@ def _main() -> None:
 
     total_connected = 0
     total_phenotypes = 0
-    files_with_gaps = 0
+    pheno_files_with_gaps = 0
+    total_wired = 0
+    total_genes = 0
+    gene_files_with_gaps = 0
 
     for path in files:
         with open(path) as fh:
             data = yaml.safe_load(fh)
         if not isinstance(data, dict):
             continue
+
         connected, total, unconnected = causal_inlink_coverage(data)
-        if total == 0:
-            continue
-        total_connected += connected
-        total_phenotypes += total
-        pct = connected / total * 100
-        if unconnected:
-            files_with_gaps += 1
-            print(f"{path.name}: {connected}/{total} phenotypes connected ({pct:.0f}%)")
-            if args.list_unconnected:
-                for name in unconnected:
-                    print(f"    - {name}")
+        if total:
+            total_connected += connected
+            total_phenotypes += total
+            if unconnected:
+                pheno_files_with_gaps += 1
+                pct = connected / total * 100
+                print(
+                    f"{path.name}: {connected}/{total} phenotypes connected ({pct:.0f}%)"
+                )
+                if args.list_unconnected:
+                    for name in unconnected:
+                        print(f"    - phenotype: {name}")
+
+        wired, gtotal, unwired = gene_mechanism_wiring_coverage(data)
+        if gtotal:
+            total_wired += wired
+            total_genes += gtotal
+            if unwired:
+                gene_files_with_gaps += 1
+                gpct = wired / gtotal * 100
+                print(
+                    f"{path.name}: {wired}/{gtotal} causal genes wired to mechanism "
+                    f"({gpct:.0f}%)"
+                )
+                if args.list_unconnected:
+                    for name in unwired:
+                        print(f"    - gene: {name}")
+
+    failed = False
 
     if total_phenotypes:
         agg = total_connected / total_phenotypes * 100
         print(
-            f"\nAggregate: {total_connected}/{total_phenotypes} phenotype nodes "
-            f"causally connected ({agg:.1f}%); {files_with_gaps} file(s) with gaps."
+            f"\nPhenotype connectivity: {total_connected}/{total_phenotypes} nodes "
+            f"causally connected ({agg:.1f}%); {pheno_files_with_gaps} file(s) with gaps."
         )
         if fail_under is not None and agg < fail_under:
-            print(f"FAIL: below threshold {fail_under:.1f}%")
-            raise SystemExit(1)
+            print(f"FAIL: phenotype connectivity below threshold {fail_under:.1f}%")
+            failed = True
     else:
-        print("No phenotype nodes found.")
+        print("\nNo phenotype nodes found.")
+
+    if total_genes:
+        gagg = total_wired / total_genes * 100
+        print(
+            f"Gene-to-mechanism wiring: {total_wired}/{total_genes} causal genes "
+            f"wired to a mechanism ({gagg:.1f}%); {gene_files_with_gaps} file(s) with gaps."
+        )
+        if genes_fail_under is not None and gagg < genes_fail_under:
+            print(
+                f"FAIL: gene-to-mechanism wiring below threshold {genes_fail_under:.1f}%"
+            )
+            failed = True
+    else:
+        print("No mechanism-relevant genetic nodes found.")
+
+    if failed:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
