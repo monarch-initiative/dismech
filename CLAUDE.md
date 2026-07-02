@@ -818,6 +818,76 @@ phenotype-activation points); use reference ranges for measured lab analytes.
 
 The CKD-Mineral Bone Disorder entry is the worked example.
 
+### Prevalence (disease occurrence)
+
+Model disease occurrence with the **structured** `Prevalence` slots, not the
+deprecated free-text `percentage` field (see design decision §8). Each prevalence
+record should separate the four dimensions the old field conflated:
+
+- `population` — cohort / geography only (e.g. `Worldwide`, `Ashkenazi Jewish
+  population`). Do **not** put the measure type here.
+- `measure_type` (`PrevalenceMeasureEnum`) — `POINT_PREVALENCE`, `BIRTH_PREVALENCE`,
+  `LIFETIME_PREVALENCE`, `PERIOD_PREVALENCE`, `ANNUAL_INCIDENCE`, `CARRIER_FREQUENCY`,
+  `CASES_IN_LITERATURE`, or `UNKNOWN`. Never compare a prevalence with an incidence.
+- `prevalence_class` (`PrevalenceClassEnum`) — the coarse, always-fillable band
+  (the population-rate analog of phenotype `FrequencyEnum`). Numeric tiers are the
+  Orphanet classes (`ABOVE_1_IN_1000`, `BAND_1_5_PER_10000`, `BAND_1_9_PER_100000`,
+  `BAND_1_9_PER_1000000`, `BELOW_1_IN_1000000`, `NOT_YET_DOCUMENTED`); qualitative
+  tiers (`COMMON`, `RARE`, `ULTRA_RARE`, `UNKNOWN`) cover prose-only sources.
+- `rate_per_100000` (+ `rate_low` / `rate_high` for ranges) — one normalized number
+  in cases per 100,000 (`% × 1000`; `per million ÷ 10`; `1 in N → 100000/N`).
+- `notes` keeps the verbatim source phrasing; `evidence` is unchanged.
+
+```yaml
+prevalence:
+- population: Worldwide
+  measure_type: POINT_PREVALENCE
+  prevalence_class: BAND_1_5_PER_10000
+  rate_per_100000: 20.0
+  notes: Orphanet worldwide point-prevalence class 1-5 / 10,000.
+  evidence:
+  - reference: ORPHA:558
+    supports: SUPPORT
+    snippet: "1-5 / 10 000 | Worldwide | Point prevalence | PMID:20301510"
+    explanation: Orphanet epidemiology table.
+```
+
+`scripts/migrate_prevalence.py` backfilled existing entries; do not populate
+`percentage` on new records.
+
+#### Per-gene case fractions (genetically heterogeneous diseases)
+
+For a disease where multiple genes each explain some share of cases, record that
+share with structured `Genetic.case_fractions` (multivalued `GeneCaseFraction`),
+**not** the free-text `Genetic.frequency` field. This is the genetic-spectrum
+analog of a `Prevalence` record and is distinct from population occurrence and
+from allele frequency — the share is cohort/ancestry-dependent, so each estimate
+carries its own `population` and `evidence`:
+
+```yaml
+genetic:
+- name: BBS1
+  gene_term:
+    preferred_term: BBS1
+    term:
+      id: hgnc:966
+      label: BBS1
+  frequency: one of the most prevalent BBS genes   # coarse qualitative band (kept)
+  case_fractions:
+  - population: German BBS cohort
+    case_fraction_percent: 24.6
+    notes: Second most common gene in a contemporary German clinical series.
+    evidence:
+    - reference: PMID:35886001
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: "The most common associated genes were BBS10 (32.8%) and BBS1 (24.6%)"
+      explanation: Quantifies the BBS1 share of cases in the German cohort.
+```
+
+Use `case_fraction_low`/`case_fraction_high` for ranges and `cohort_size` when the
+proband count is reported. `Bardet-Biedl_Syndrome` (BBS1/BBS10) is the worked example.
+
 ### Clinical Trials
 
 Clinical trials can be added to disease entries with evidence validated against ClinicalTrials.gov:

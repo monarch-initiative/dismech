@@ -177,6 +177,100 @@ enums:
         aliases:
           - Very rare
         meaning: HP:0040284
+  PrevalenceMeasureEnum:
+    description: >-
+      The kind of epidemiological measure a Prevalence record reports. Disease
+      occurrence is reported in several non-interchangeable ways; this enum makes
+      the measure explicit so a point prevalence is never silently compared with
+      an incidence rate or a literature case-count. Mirrors the "type" column of
+      the Orphanet epidemiology table.
+    permissible_values:
+      POINT_PREVALENCE:
+        title: Point prevalence
+        description: Proportion of a population affected at a single point in time.
+      BIRTH_PREVALENCE:
+        title: Prevalence at birth
+        description: Proportion of live births (or births) affected; common for congenital disorders.
+        aliases:
+          - Prevalence at birth
+      LIFETIME_PREVALENCE:
+        title: Lifetime prevalence
+        description: Proportion of a population affected at some point during their lifetime.
+      PERIOD_PREVALENCE:
+        title: Period prevalence
+        description: Proportion of a population affected during a defined interval (e.g., five-year period prevalence).
+      ANNUAL_INCIDENCE:
+        title: Annual incidence
+        description: Rate of new cases arising in a population per year (an incidence, not a prevalence).
+        aliases:
+          - Incidence
+          - Annual incidence
+      CARRIER_FREQUENCY:
+        title: Carrier frequency
+        description: Frequency of heterozygous carriers in a population (not affected individuals).
+      CASES_IN_LITERATURE:
+        title: Cases/families reported in the literature
+        description: >-
+          Count of reported cases or families rather than a population rate; used for
+          ultra-rare disorders where no denominator-based estimate exists.
+        aliases:
+          - Cases/families in the literature
+      UNKNOWN:
+        title: Unknown
+        description: The measure type is not stated or cannot be determined from the source.
+  PrevalenceClassEnum:
+    description: >-
+      Coarse, always-fillable band for disease occurrence — the population-rate
+      analog of the HPO-style FrequencyEnum used for phenotype frequency. The
+      numeric bands are the Orphanet prevalence classes (so the ~7% of records
+      already quoting Orphanet map directly and the ICEES/ORPHA structured sources
+      stay aligned); the qualitative tiers cover records that report only
+      prose ("rare", "common") with no numeric estimate. When a numeric estimate
+      exists, also populate rate_per_100000 (or rate_low/rate_high); the band is
+      the queryable summary, the rate carries the precision.
+    permissible_values:
+      ABOVE_1_IN_1000:
+        title: ">1 / 1,000"
+        description: More than 1 in 1,000 (more than 100 per 100,000). Orphanet class.
+      BAND_1_5_PER_10000:
+        title: 1-9 / 10,000
+        description: 1 to 9 per 10,000 (10-99 per 100,000). Combines the Orphanet
+          1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching
+          the other per-decade bands and the _band_from_rate() boundaries.
+      BAND_1_9_PER_100000:
+        title: 1-9 / 100,000
+        description: 1 to 9 per 100,000. Orphanet class.
+      BAND_1_9_PER_1000000:
+        title: 1-9 / 1,000,000
+        description: 1 to 9 per 1,000,000 (0.1-0.9 per 100,000). Orphanet class.
+      BELOW_1_IN_1000000:
+        title: "<1 / 1,000,000"
+        description: Fewer than 1 in 1,000,000 (less than 0.1 per 100,000). Orphanet class.
+      COMMON:
+        title: Common
+        description: >-
+          Qualitative tier for disorders described as common/endemic with no numeric
+          estimate captured. Roughly corresponds to the >1/1,000 region but asserted
+          only qualitatively.
+      RARE:
+        title: Rare
+        description: >-
+          Qualitative tier for disorders described as "rare" in the source without a
+          numeric estimate (the EU rare-disease threshold is <1 in 2,000).
+      ULTRA_RARE:
+        title: Ultra-rare
+        description: >-
+          Qualitative tier for disorders described as ultra-rare / only a handful of
+          reported cases, with no population rate available. Often paired with
+          measure_type CASES_IN_LITERATURE.
+      NOT_YET_DOCUMENTED:
+        title: Not yet documented
+        description: Source states prevalence is not yet documented. Orphanet class.
+        aliases:
+          - Not yet documented
+      UNKNOWN:
+        title: Unknown
+        description: Prevalence is unknown or not stated.
   ClinicalSignificanceEnum:
     description: The clinical significance of a variant for a condition (ACMG guidelines)
     permissible_values:
@@ -2082,6 +2176,12 @@ slots:
       - value: Global
     range: string
   percentage:
+    deprecated: >-
+      Overloaded free-text/Any field that conflated measure type, rate, unit, and
+      qualitative bands in incompatible notations. Superseded by the structured
+      prevalence slots: measure_type, prevalence_class, and rate_per_100000
+      (with rate_low/rate_high for ranges). Retained read-only during migration;
+      do not populate on new records.
     examples:
       - value: '0.1'
     range: Any
@@ -2090,6 +2190,74 @@ slots:
       - range: integer
       - range: string
         description: for ranges
+  measure_type:
+    description: >-
+      Which epidemiological measure this Prevalence record reports (point
+      prevalence, birth prevalence, annual incidence, literature case-count, etc.).
+      Makes explicit a dimension that was previously leaking into population/notes.
+    range: PrevalenceMeasureEnum
+    examples:
+      - value: POINT_PREVALENCE
+  prevalence_class:
+    description: >-
+      Coarse occurrence band (Orphanet prevalence class or qualitative tier) — the
+      always-fillable, queryable summary, analogous to phenotype FrequencyEnum.
+    range: PrevalenceClassEnum
+    examples:
+      - value: BAND_1_9_PER_100000
+  rate_per_100000:
+    description: >-
+      Normalized point estimate of occurrence expressed as cases per 100,000, for
+      machine comparison across records. Convert from any source notation
+      (% -> x1000; "per million" -> /10; "1 in N" -> 100000/N). Leave absent for
+      band-only or qualitative records; use rate_low/rate_high for ranges.
+    range: float
+    examples:
+      - value: '0.82'
+  rate_low:
+    description: Lower bound of the occurrence rate per 100,000 when the source gives a range or a band.
+    range: float
+    examples:
+      - value: '1.0'
+  rate_high:
+    description: Upper bound of the occurrence rate per 100,000 when the source gives a range or a band.
+    range: float
+    examples:
+      - value: '9.0'
+  case_fractions:
+    description: >-
+      Per-cohort estimates of the fraction of cases of a genetically
+      heterogeneous disease attributable to this gene (the genetic-spectrum
+      analog of population Prevalence records). Multivalued because the share
+      varies by cohort/ancestry.
+    multivalued: true
+    inlined_as_list: true
+    range: GeneCaseFraction
+  case_fraction_percent:
+    description: >-
+      Point estimate of the percentage of cases attributable to this gene in the
+      stated cohort (0-100). The structured, queryable counterpart of the
+      free-text genetic `frequency` band. Use case_fraction_low/high for ranges.
+    range: float
+    examples:
+      - value: '24.6'
+  case_fraction_low:
+    description: Lower bound of the case fraction (percent) when the source gives a range.
+    range: float
+    examples:
+      - value: '27.0'
+  case_fraction_high:
+    description: Upper bound of the case fraction (percent) when the source gives a range.
+    range: float
+    examples:
+      - value: '32.8'
+  cohort_size:
+    description: >-
+      Number of probands/cases in the cohort the case fraction was computed in,
+      when reported. Helps weight competing per-gene estimates.
+    range: integer
+    examples:
+      - value: '61'
   phase:
     examples:
       - value: Active TB
@@ -4932,7 +5100,30 @@ classes:
     slots:
       - subtype
       - population
+      - measure_type
+      - prevalence_class
+      - rate_per_100000
+      - rate_low
+      - rate_high
       - percentage
+      - evidence
+      - notes
+  GeneCaseFraction:
+    description: >-
+      A structured estimate of the fraction of cases of a genetically
+      heterogeneous disease attributable to one gene, in a defined cohort. The
+      genetic-spectrum analog of a population Prevalence record: it pairs a
+      cohort/population with a normalized percentage (plus optional range bounds
+      and cohort size), source notes, and citable evidence. Distinct from
+      population occurrence (Prevalence) and from population allele frequency;
+      this is "what share of patients have their disease explained by this gene".
+      Complements the coarse free-text `frequency` band on the Genetic entry.
+    slots:
+      - population
+      - case_fraction_percent
+      - case_fraction_low
+      - case_fraction_high
+      - cohort_size
       - evidence
       - notes
   ProgressionInfo:
@@ -5071,6 +5262,7 @@ classes:
       - review_notes
       - subtype
       - frequency
+      - case_fractions
       - inheritance
       - variants
       - features

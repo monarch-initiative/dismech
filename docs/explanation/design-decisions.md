@@ -249,7 +249,76 @@ See [`CONTRIBUTING.md`](https://github.com/monarch-initiative/dismech/blob/main/
 and the workflow definitions in `.github/workflows/`.
 
 
-## 8. Gaps
+## 8. Prevalence representation
+
+**Decision.** Disease occurrence is modeled with **structured, separated slots** on the
+`Prevalence` class rather than the single overloaded `percentage` field that preceded
+them. The strategy mirrors how phenotype frequency is banded (`FrequencyEnum`), but at
+population scale and without discarding the underlying number.
+
+`Prevalence` now carries:
+
+- **`population`** — cohort / geography only (e.g. "Worldwide", "Ashkenazi Jewish
+  population"). Measure-type qualifiers that used to be jammed in here (e.g. "(Orphanet
+  point prevalence)") belong in `measure_type`.
+- **`measure_type`** (`PrevalenceMeasureEnum`) — which epidemiological measure the record
+  reports: `POINT_PREVALENCE`, `BIRTH_PREVALENCE`, `LIFETIME_PREVALENCE`,
+  `PERIOD_PREVALENCE`, `ANNUAL_INCIDENCE`, `CARRIER_FREQUENCY`, `CASES_IN_LITERATURE`,
+  `UNKNOWN`. This prevents a point prevalence from being silently compared with an
+  incidence rate or a literature head-count.
+- **`prevalence_class`** (`PrevalenceClassEnum`) — the coarse, always-fillable, queryable
+  band. Numeric tiers are the **Orphanet prevalence classes** (`>1/1,000`, `1-5/10,000`,
+  `1-9/100,000`, `1-9/1,000,000`, `<1/1,000,000`, `Not yet documented`), so records that
+  quote Orphanet (and the `ORPHA:` structured source) map directly; qualitative tiers
+  (`COMMON`, `RARE`, `ULTRA_RARE`, `UNKNOWN`) cover prose-only records with no numeric
+  estimate. This is the population-rate analog of phenotype `FrequencyEnum`.
+- **`rate_per_100000`** (+ **`rate_low`** / **`rate_high`** for ranges) — one normalized,
+  machine-comparable number in cases per 100,000. Every source notation (`%`,
+  `per 100,000`, `per million`, `1 in N`, Orphanet `N / M`) converts losslessly into it.
+- **`notes`** retains the verbatim source phrasing; **`evidence`** is unchanged.
+- **`percentage`** is **deprecated** (kept read-only during transition). It was an `Any`
+  (float | int | string) field that, across the KB, conflated measure type, rate, unit,
+  uncertainty, and a qualitative fallback in ~six mutually incompatible notations
+  (audited: of 834 records, only ~5% were an actual percentage; ~18% were unit-ambiguous
+  bare numbers, ~18% qualitative prose, the rest split across `per N` / `1 in N` /
+  Orphanet bands / explicit `%`). Do not populate `percentage` on new records.
+
+**Migration.** `scripts/migrate_prevalence.py` performs a non-destructive,
+idempotent backfill: it parses the deterministic notations into the structured slots and
+**leaves genuinely ambiguous records (bare unit-less numbers, free-text head-counts)
+unconverted**, listing them for manual resolution in
+`research/prevalence_migration_report.md`. Measure type is inferred only from the
+`percentage` value and `population` label, never from prose `notes` (which routinely
+mention "newborn screening" / "carrier frequency" / "incidence" as background and would
+otherwise mislabel ordinary point-prevalence records); auto-defaulted measure types are
+flagged for verification in the same report.
+
+**Rationale.** One field cannot be both honest about imprecision and machine-queryable.
+Splitting the measure out, banding coarsely (Orphanet-aligned), and keeping one normalized
+rate gives a value that is always fillable (the band), precise when the source supports it
+(the rate), and never conflates incompatible epidemiological measures. Because prevalence
+is not yet rendered on disorder pages, the remodel carries no display-breakage risk.
+
+**Per-gene case fractions (the genetic-spectrum analog).** For a genetically
+heterogeneous disease, "what share of cases does each gene explain?" is a *different axis*
+from population occurrence — it is cohort/ancestry-dependent (e.g. BBS1 dominates European
+Bardet-Biedl cohorts, BBS10 others) and needs its own population + evidence per estimate.
+It was previously handled only by the overloaded free-text `Genetic.frequency` field
+(qualitative prose such as "one of the most prevalent BBS genes") with the actual numbers
+trapped inside evidence `snippet:` text. It now has a structured home: `Genetic.case_fractions`
+(multivalued `GeneCaseFraction`), mirroring the Prevalence remodel — `population` (cohort)
++ `case_fraction_percent` (with `case_fraction_low`/`case_fraction_high` and optional
+`cohort_size`) + `evidence` + `notes`, while `frequency` is retained as the coarse,
+always-fillable qualitative band. This keeps the relative genetic spectrum distinct from
+population occurrence (`Prevalence`) and from population allele frequency. Worked example:
+`Bardet-Biedl_Syndrome` carries per-cohort case fractions across five genes — BBS1
+(24.6% German / 27% metabolic / 7% Indian), BBS10 (32.8% / 30% / 10%), and the minor
+genes ARL6/BBS3 (14%), MKKS/BBS6 (10%), and BBS9 (10%) in an Indian cohort — making the
+ancestry-dependence of the genetic spectrum explicit (BBS1 falls from ~25% in Europeans
+to 7% in the Indian cohort).
+
+
+## 9. Gaps
 
 This section details decisions we have **not yet made or formalized**.
 
@@ -258,6 +327,8 @@ This section details decisions we have **not yet made or formalized**.
 | Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | `updated_date` field | Deprecated in favor of git history; legacy entries may retain it pending bulk cleanup | — |
+| Deprecated `prevalence.percentage` cleanup | `percentage` superseded by structured prevalence slots (§8) and deprecated. The bare-number unit-ambiguity backlog is effectively resolved: of 199 records, **166 are converted** via `scripts/resolve_bare_prevalence.py` plus reviewed batches — 91 low-value rare-disease prevalences, 47 high-percent population/cohort prevalences (conditional ones qualified by their `population` field), 9 hand-fixed `DISAGREE`, and 19 final records (12 uncorroborated-but-legit + 7 filter false-positives) using the rule **decimal = percent, scientific-notation = proportion** (e.g. CHIME `1e-06` = 1/million; Cockayne `4e-06` = 1/250,000; carrier/birth measures set where stated). All additive; `percentage` preserved. The **33 not converted are not a unit problem**: 32 are records that are *not population prevalence at all* (`MISPLACED_STAT` in `research/prevalence_bare_number_report.md` — metastatic-cancer 5-year survival, staging fractions, complication rates, and fraction-of-category such as "X% of all lymphomas/leukemias/cancers"), which belong in a different slot and need **relocation, not unit-fixing** — a distinct data-quality task pending a schema home for survival/staging/subtype-share data; plus 1 genuinely-ambiguous record (Nephronophthisis `0.1-1.0`, neither a clean percent nor proportion with no corroborating evidence). Plus ~8 free-prose head-counts. `percentage` field removal is deferred until the misplaced-data relocation lands. **Post-migration correction (PR review):** a systematic scan found **19 records across 16 files** where a *fraction-of-category* or *penetrance* value (with the qualifier living in `notes`, so the percentage-only guard missed it) had been wrongly converted to a population `rate_per_100000` — e.g. Osteogenesis_Imperfecta_Type_II `50%` (half of prenatal-onset OI cases → 50,000/100k), HPAH/FXTAS carrier **penetrance** (~40% → 40,000/100k), Minimal_Change_Disease (70–90% of idiopathic NS), Cholesteatoma (419/1710 otitis-media patients). These had their `measure_type`/`prevalence_class`/`rate_*` slots stripped (bare `percentage` preserved). The migration guard was hardened accordingly: `FRACTION_OF_CATEGORY_RE` now also matches cohort head-counts (`N of M`) and `% of <solved/idiopathic/sporadic/typhoidal/…>` categories stated in the percentage, and a new `PENETRANCE_RE` (safe to run against `notes`) catches penetrance/lifetime-risk qualifiers. Bare-percentage cohort fractions whose qualifier is *only* in prose remain inherently ambiguous from the value alone and are corrected by hand rather than by an aggressive notes scan (which would false-positive on records like Lathyrism, whose notes cite a cohort count but whose `percentage` is a genuine population estimate). **Second correction batch (PR review):** a follow-up KB-wide scan surfaced a further class of measure-type/conditional errors on rate-bearing records — (a) **genotype-conditional cumulative incidence / penetrance** stated as "N% diagnosed by age X" (Hemochromatosis male C282Y homozygotes 56.4% by age 80) or "cumulative risk of new cases up to age N" (Oppositional_Defiant_Disorder), which were stripped like the penetrance records; (b) **wrong measure_type** where the type lived only in `notes`/snippet — lifetime prevalence tagged POINT (Anorexia_Nervosa, Migraine_with_Aura → LIFETIME_PREVALENCE) and 12-month prevalence tagged POINT (Obsessive-Compulsive_Disorder → PERIOD_PREVALENCE); (c) **cohort-conditional risk-factor rates** (Furunculosis S. aureus nasal-carriage 60%/36%, Acute_Hypotension 88% intraoperative-event rate in ASA 3–4 surgical patients), stripped; and (d) a **two-figure percentage** where the parser captured the incidence not the prevalence (Systemic_Lupus_Erythematosus North America "23.2/100k incidence; 241/100k prevalence"), split into separate POINT_PREVALENCE (241) and ANNUAL_INCIDENCE (23.2) records. `PENETRANCE_RE` was extended with `cumulative incidence/risk` and `diagnosed by age` (verified against the KB to add no false positives on legitimate rate-bearing records). **Third correction batch (PR review):** a further scan found cohort-conditional / diagnostic-procedure rates whose qualifier lives only in the **`population` label** (not `percentage`/`notes`), which the guards do not parse: e.g. FICUS_syndrome (PICS-F among ICU family members), Coronary_Vasospasm (spasm among ANOCA patients), Refeeding_Syndrome (event rate in hospitalized/PN patients), Aortitis (histology among aortic-surgery patients), Brucellosis (pooled prevalence among included study populations), Silent_Sinus_Syndrome (radiologic finding among head-CT patients), Laryngotracheoesophageal_Cleft (proportion among endoscopy referrals) — structured slots stripped. Plus three `measure_type` corrections to BIRTH_PREVALENCE (Klinefelter_Syndrome, Wolf-Hirschhorn_Syndrome, MECP2_Duplication_Syndrome) where the birth-prevalence language was in the snippet only. Population-label conditionality is deliberately **not** auto-guarded: the label alone cannot separate a selected referral cohort ("adults undergoing head CT") from a legitimate large-scale screening population that approximates the general rate ("Pregnant women undergoing genome-wide NIPS", 333,187 women → 6.9/100,000), so this class stays manual-review. | migration follow-up + schema follow-up (destination for survival/staging/subtype-share) |
+| Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8). `Bardet-Biedl_Syndrome` backfilled for five genes (BBS1, BBS10, ARL6/BBS3, MKKS/BBS6, BBS9) across European, metabolic, and Indian cohorts. **Method/caveat:** dominant-gene fractions (BBS1, BBS10) appear in citable abstracts; minor-gene fractions are recoverable only from **open-access full-text** cohort papers/reviews whose cache is `full_text_xml` (the Indian-cohort figures came from PMID:27853007), since abstracts and the GeneReviews table (NBK1363 T3) and the Niederlová meta-analysis abstract (PMID:31283077) do not carry them. Backfilling the remaining minor genes is gated on finding such full-text-cacheable sources — figures must **not** be filled from memory (anti-hallucination policy, §6). Whether to deprecate the overloaded `frequency` field is also outstanding; no automated extractor yet. | schema follow-up |
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
