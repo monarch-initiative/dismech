@@ -204,6 +204,57 @@ def test_schema_validity(validator):
     assert validator is not None
 
 
+def test_biological_scale_enum_and_pathophysiology_slot():
+    """BiologicalScaleEnum has exactly the 4 expected scale values, and the
+    biological_scale slot is wired into Pathophysiology.
+
+    Guards against silent enum drift — the value set is load-bearing for the
+    feasibility analysis in projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md and
+    should only change with a corresponding design update.
+    """
+    from linkml_runtime.utils.schemaview import SchemaView
+
+    sv = SchemaView(str(SCHEMA_PATH))
+
+    enum = sv.get_enum("BiologicalScaleEnum")
+    assert enum is not None, "BiologicalScaleEnum missing from schema"
+    assert set(enum.permissible_values.keys()) == {
+        "MOLECULAR",
+        "CELLULAR",
+        "TISSUE",
+        "ORGANISM",
+    }, (
+        "BiologicalScaleEnum values changed unexpectedly; if intentional, update "
+        "this test and projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md"
+    )
+
+    slot = sv.get_slot("biological_scale")
+    assert slot is not None, "biological_scale slot missing from schema"
+    assert slot.range == "BiologicalScaleEnum", (
+        f"biological_scale slot range should be BiologicalScaleEnum, got {slot.range}"
+    )
+
+    assert "biological_scale" in sv.class_slots("Pathophysiology"), (
+        "biological_scale slot not wired into Pathophysiology class"
+    )
+
+
+def test_biological_scale_pathophysiology_accepts_enum_value(validator):
+    """A Pathophysiology entry with a biological_scale value should validate."""
+    data = {
+        "name": "Test Disease",
+        "pathophysiology": [
+            {
+                "name": "Test node",
+                "biological_scale": "MOLECULAR",
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
 def test_environmental_food_source_slot_validates(validator):
     """Environmental entries may annotate a specific food, beverage, or nutrient source."""
     data = {
