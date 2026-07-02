@@ -80,6 +80,38 @@ validate file:
     just normalize-cache
     echo "✓ All validations passed for {{file}}"
 
+# Batch validate a list of disorder KB files (schema + terms + references).
+# Runs each validator once over the full file list — O(1) schema/OAK loads
+# instead of O(N). Designed for CI to validate the changed-file list efficiently.
+# Usage: just validate-batch f1.yaml f2.yaml ...
+[group('QC')]
+validate-batch +files:
+    #!/usr/bin/env bash
+    set -e
+    valid_files=()
+    for f in {{files}}; do
+        if [[ ! -f "$f" ]]; then
+            echo "Skipping deleted or missing file: $f"
+            continue
+        fi
+        valid_files+=("$f")
+    done
+    if [ ${#valid_files[@]} -eq 0 ]; then
+        echo "No disorder files to validate."
+        exit 0
+    fi
+    echo "Batch validating ${#valid_files[@]} disorder file(s)..."
+    echo "Schema validation (batched)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${valid_files[@]}"
+    echo "Term validation (batched)..."
+    just check-enum-cache
+    {{term_validator}} validate-data "${valid_files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+    echo "Reference validation (batched)..."
+    just fix-references-cache
+    {{ref_validator}} validate data "${valid_files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    just normalize-cache
+    echo "✓ All validations passed for ${#valid_files[@]} disorder file(s)."
+
 # Schema-only validation (fast, structure check)
 [group('QC')]
 validate-schema file:
@@ -157,6 +189,36 @@ validate-comorbidity file:
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
+
+# Batch validate a list of comorbidity KB files (schema + terms + references).
+# Runs each validator once over the full file list — O(1) schema/OAK loads.
+# Usage: just validate-comorbidity-batch f1.yaml f2.yaml ...
+[group('QC')]
+validate-comorbidity-batch +files:
+    #!/usr/bin/env bash
+    set -e
+    valid_files=()
+    for f in {{files}}; do
+        if [[ ! -f "$f" ]]; then
+            echo "Skipping deleted or missing file: $f"
+            continue
+        fi
+        valid_files+=("$f")
+    done
+    if [ ${#valid_files[@]} -eq 0 ]; then
+        echo "No comorbidity files to validate."
+        exit 0
+    fi
+    echo "Batch validating ${#valid_files[@]} comorbidity file(s)..."
+    echo "Schema validation (batched)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "${valid_files[@]}"
+    echo "Term validation (batched)..."
+    just check-enum-cache
+    {{term_validator}} validate-data "${valid_files[@]}" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}}
+    echo "Reference validation (batched)..."
+    just fix-references-cache
+    {{ref_validator}} validate data "${valid_files[@]}" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
+    echo "✓ All validations passed for ${#valid_files[@]} comorbidity file(s)."
 
 # Full validation of all comorbidity YAML files (schema + terms + references)
 [group('QC')]
