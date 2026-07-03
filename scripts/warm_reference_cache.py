@@ -174,7 +174,9 @@ def main(argv: list[str] | None = None) -> int:
     for i, (path, ref_id) in enumerate(targets, 1):
         processed += 1
         try:
-            result = fetcher.fetch(ref_id)
+            # Return value is intentionally discarded; we re-read the persisted
+            # frontmatter below to report the true on-disk outcome.
+            fetcher.fetch(ref_id)
         except Exception as exc:  # a single bad record must not abort the sweep
             errors += 1
             logger.warning("fetch() raised for %s: %s: %s", ref_id, type(exc).__name__, exc)
