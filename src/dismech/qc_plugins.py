@@ -46,7 +46,9 @@ CAUSAL_PREDICATES: frozenset[str] = frozenset({"causes", "leads_to"})
 
 # Predicates that wire a genetic node *into* the mechanism pathograph. A genetic
 # node reaches the mechanism graph when it ``contributes_to`` a pathophysiology
-# node (the gene->mechanism edge that graph.py infers from a shared gene key).
+# node -- the gene->mechanism edge graph.py infers when a shared gene key on the
+# ``genetic[].gene_term`` (or the genetic node's bare-symbol ``name``) matches a
+# ``gene``/``genes`` descriptor on a ``pathophysiology`` node.
 GENE_WIRING_PREDICATES: frozenset[str] = frozenset({"contributes_to"})
 
 
