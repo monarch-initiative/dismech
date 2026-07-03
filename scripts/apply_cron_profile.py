@@ -161,8 +161,10 @@ def rewrite_schedule(text: str, entries: list[dict], *, wf_name: str) -> str:
 
 
 def set_active(config_text: str, profile: str) -> str:
+    # Quote the value so profile names that YAML 1.1 would coerce to a boolean
+    # (e.g. `off`, `on`, `no`, `yes`) round-trip back as the string profile name.
     new_text, n = re.subn(
-        r"^active:.*$", f"active: {profile}", config_text, count=1, flags=re.MULTILINE
+        r"^active:.*$", f'active: "{profile}"', config_text, count=1, flags=re.MULTILINE
     )
     if n == 0:
         raise ConfigError("config has no top-level `active:` line to update")
