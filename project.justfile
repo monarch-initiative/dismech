@@ -21,7 +21,7 @@ term_validator := "scripts/run_term_validator.sh"
 validate-all:
     #!/usr/bin/env bash
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all disorder files..."
     for f in {{kb_dir}}/*.yaml; do
@@ -65,10 +65,10 @@ validate-all:
     fi
 
 # Full validation of a single disorder file (schema + terms + references)
-# Note: does NOT run `check-enum-cache` — that whole-cache integrity check
-# re-derives every dynamic enum from OAK and can pull multi-GB sqlite:obo:*
-# DBs (e.g. ncbitaxon ~13.5 GB). Single-file validation trusts the committed
-# cache/*.csv; the integrity check still runs in `validate-all`/`qc` (CI).
+# Note: default validation runs only the offline enum-cache structural check.
+# The full OAK-backed `check-enum-cache` audit re-derives every dynamic enum and
+# can pull multi-GB sqlite:obo:* DBs (e.g. ncbitaxon ~13.5 GB), so run it
+# explicitly only when refreshing/auditing enum cache membership.
 [group('QC')]
 validate file:
     #!/usr/bin/env bash
@@ -181,7 +181,7 @@ validate-comorbidities-all:
         exit 0
     fi
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all comorbidity files..."
     for f in "${files[@]}"; do
@@ -249,7 +249,7 @@ validate-modules:
         exit 0
     fi
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all mechanism module files..."
     for f in "${files[@]}"; do
@@ -329,7 +329,7 @@ validate-groupings:
         exit 0
     fi
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all disease grouping files..."
     for f in "${files[@]}"; do
@@ -393,7 +393,7 @@ oak_config := "conf/oak_config.yaml"
 validate-terms-all:
     #!/usr/bin/env bash
     set -e
-    just check-enum-cache
+    just check-enum-cache-offline
     if command -v rg >/dev/null 2>&1; then
         mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
     else
