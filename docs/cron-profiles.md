@@ -39,6 +39,7 @@ half-configured).
 | `medium` | Baseline — mirrors the historical live schedules. |
 | `fast` | Aggressive cadence — maximise responsiveness. |
 | `fast-weekend` | Weekday cadence at the `medium` level, weekend boosted. |
+| `off` | Kill switch — no scheduled agent runs at any time (manual dispatch still works). |
 
 `medium` reproduces the cadence the repo ran historically, so applying it is
 behaviour-preserving (cosmetic normalisation only). `slow`/`fast` dial the
@@ -48,6 +49,15 @@ knowledge-gap-scan, preprint-scan, weekly-compliance, stale-pr-reassign,
 post-review-agent) are
 intentionally the same across all profiles — they are not the cost driver. Edit
 them in the config if you want a profile to move them too.
+
+`off` disables *every* managed workflow's schedule at once. Because GitHub
+Actions has no native "never" schedule and the applier requires each workflow to
+keep a valid, non-empty cron list, `off` points every workflow at the sentinel
+`0 0 30 2 *` — the 30th of February, a calendar date that never occurs, so the
+cron never matches. The `schedule:` trigger stays in place but never fires;
+`workflow_dispatch` is untouched, so you can still run any agent by hand from the
+Actions tab while `off` is active. To turn the agents back on, apply another
+profile (`just cron-profile medium`).
 
 ## Adding or editing a profile
 
