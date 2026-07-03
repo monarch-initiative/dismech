@@ -197,6 +197,39 @@ def test_validate_all_batches_expensive_validators() -> None:
     )
 
 
+def test_validate_disorders_batches_expensive_validators() -> None:
+    """Changed-file disorder validation should also reuse validator processes."""
+    justfile = (Path(__file__).parent.parent / "project.justfile").read_text()
+    body = _recipe_body(justfile, "validate-disorders *files")
+
+    assert "for f in {{files}}; do" in body
+    assert (
+        'uv run linkml-validate --schema {{schema_path}} --target-class Disease "${existing[@]}"'
+        in body
+    )
+    assert (
+        '{{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t Disease'
+        in body
+    )
+    assert (
+        '{{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}}'
+        in body
+    )
+    assert "--no-full-text" in body
+
+
+def test_ci_changed_disorder_validation_uses_batched_recipe() -> None:
+    workflow = (
+        Path(__file__).parent.parent / ".github" / "workflows" / "main.yaml"
+    ).read_text()
+    changed_step = workflow.split("- name: Validate changed disorder KB files", 1)[
+        1
+    ].split("- name: Validate changed comorbidity KB files", 1)[0]
+
+    assert "just validate-disorders" in changed_step
+    assert 'just validate "$f"' not in changed_step
+
+
 def test_normalize_cache_uses_repo_local_temp_files() -> None:
     justfile = (Path(__file__).parent.parent / "project.justfile").read_text()
     assert "/tmp/_sorted_enum.csv" not in justfile

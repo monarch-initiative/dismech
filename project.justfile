@@ -75,6 +75,52 @@ validate file:
     just normalize-cache
     echo "✓ All validations passed for {{file}}"
 
+# Full validation of one or more disorder files, batched by validator phase.
+# This is intended for CI changed-file validation, where a PR may touch hundreds
+# of disorder YAMLs but still should avoid full-corpus validation. Reference
+# validation stays cache-bound (`--no-full-text`) so CI does not expand the
+# reference cache or download PDFs.
+[group('QC')]
+validate-disorders *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    for f in {{files}}; do
+        if [[ "$f" == {{kb_dir}}/*.yaml && "$f" != *.history.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
+        else
+            echo "Skipping non-disorder file: $f"
+        fi
+    done
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing disorder YAML files to validate."
+        exit 0
+    fi
+
+    exit_code=0
+    echo "Validating ${#existing[@]} disorder file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    just normalize-cache || exit_code=1
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more disorder files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} disorder file(s) passed validation."
+
 # Schema-only validation (fast, structure check)
 [group('QC')]
 validate-schema file:
