@@ -922,16 +922,24 @@ enums:
         - rdfs:subClassOf
   HistopathologyFindingTerm:
     description: >-
-      A histopathologic finding term from NCIT. Includes morphologic findings,
-      architectural patterns, growth patterns, cellular features, and grading.
-      Rooted at NCIT:C35867 (Morphologic Finding) and NCIT:C18000 (Histologic Grade).
+      A histopathologic finding term from NCIT. Covers the full NCIT Histopathology
+      Result branch (NCIT:C83490): morphologic findings, architectural/growth patterns,
+      cellular features, grading, immunophenotype (IHC/flow markers), ultrastructure,
+      and staining intensity.
     comments:
       - NCIT:C35867 Morphologic Finding - architectural patterns, dysplasia, necrosis, etc.
       - NCIT:C18000 Histologic Grade - Fuhrman, Nottingham, WHO grades, etc.
+      - NCIT:C40998 Immunophenotypic Finding - IHC/flow markers (e.g., ER-positive by IHC, CD20-positive cells, loss of SDHB expression)
+      - NCIT:C43265 Ultrastructural Finding - electron-microscopy features (e.g., Weibel-Palade bodies, foot process effacement)
+      - NCIT:C127762 Staining Intensity - graded stain intensity readouts
       - Also includes HP terms for rosettes (HP:0031925-HP:0031930)
     reachable_from:
       source_nodes:
+        - NCIT:C83490  ## Histopathology Result (parent of the whole branch)
         - NCIT:C35867  ## Morphologic Finding
+        - NCIT:C40998  ## Immunophenotypic Finding (IHC/flow markers)
+        - NCIT:C43265  ## Ultrastructural Finding (electron microscopy)
+        - NCIT:C127762 ## Staining Intensity
         - NCIT:C18000  ## Histologic Grade
         - NCIT:C4741   ## Neoplasm by Morphology
         - NCIT:C7062   ## Neoplasm by Special Category
@@ -1588,6 +1596,47 @@ enums:
         description: Co-incident or same-time association
       UNKNOWN:
         description: Directionality is unknown or not established
+
+  ComorbidityEffectDirectionEnum:
+    description: >-
+      The sign (effect direction) of a comorbidity/trajectory association -
+      whether the presence of one condition raises or lowers the risk,
+      incidence, or severity of the other. This is orthogonal to
+      ComorbidityDirectionEnum, which captures only the temporal ordering
+      (which condition comes first), not whether the effect is positive or
+      inverse. A conventional risk comorbidity (A increases risk of B) is
+      RISK; the cancer/Alzheimer's-disease inverse correlation is PROTECTIVE.
+    permissible_values:
+      RISK:
+        title: Risk (positive) association
+        description: >-
+          Positive association: the presence of one condition increases the
+          risk, incidence, or severity of the other. This is the conventional
+          comorbidity direction and the default for most curated pairs.
+      PROTECTIVE:
+        title: Protective (inverse) association
+        description: >-
+          Inverse association: the presence of one condition is associated with
+          a reduced risk or incidence of the other (e.g., the reciprocal
+          cancer/Alzheimer's-disease inverse correlation, atopy and glioma,
+          balancing-selection heterozygote advantage). Quantitatively an odds
+          ratio / hazard ratio / relative risk below 1.
+      MIXED:
+        title: Mixed / direction-dependent association
+        description: >-
+          The effect direction is not uniform: it is protective in some
+          contexts (subtype, direction, population) and risk-conferring in
+          others (e.g., Parkinson's disease shows an inverse association with
+          most cancers but a positive association with melanoma). Use the
+          per-signal effect_direction and notes to record the split.
+      NO_ASSOCIATION:
+        title: No association
+        description: >-
+          Evidence indicates no significant association in either direction
+          (a null result). Useful for recording examined-but-refuted pairs.
+      UNKNOWN:
+        description: >-
+          The effect direction (risk vs. protective) has not been established.
 
   CurationStatusEnum:
     description: Curation workflow status for an association
@@ -2430,7 +2479,7 @@ slots:
     range: HistopathologyFindingDescriptor
     inlined: true
     comments:
-      - Use NCIT terms from Morphologic Finding (C35867) or Histologic Grade (C18000)
+      - Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), or Histologic Grade (C18000)
       - Use HP terms for rosettes and cell morphology abnormalities (HP:0025461 descendants)
   diagnosis_term:
     description: The MAXO term for this diagnostic procedure
@@ -2615,13 +2664,13 @@ slots:
   histopathology:
     description: >-
       Histopathologic findings including microscopic morphology, architectural patterns,
-      cellular features, growth patterns, and histologic grading.
+      cellular features, growth patterns, histologic grading, and immunophenotype.
     multivalued: true
     inlined_as_list: true
     range: HistopathologyFinding
     comments:
       - Separate from phenotypes as these are tissue-level microscopic observations
-      - Use NCIT Morphologic Finding (C35867) or Histologic Grade (C18000) terms
+      - Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), or Histologic Grade (C18000)
       - For cancer: includes grade, differentiation, growth patterns, necrosis
       - For other diseases: may include architectural changes, cellular infiltrates
   biochemical:
@@ -3380,6 +3429,15 @@ slots:
   directionality:
     description: Direction of a comorbidity/trajectory association
     range: ComorbidityDirectionEnum
+  effect_direction:
+    description: >-
+      The sign of the association - whether one condition raises (RISK) or
+      lowers (PROTECTIVE) the risk/incidence/severity of the other, is
+      context-dependent (MIXED), null, or unknown. Orthogonal to
+      `directionality` (temporal ordering). Defaults conceptually to RISK for
+      conventional comorbidities; set PROTECTIVE for inverse associations such
+      as the cancer/Alzheimer's-disease paradox.
+    range: ComorbidityEffectDirectionEnum
   composition:
     description: Composition type for a composite condition descriptor
     range: ConditionCompositionEnum
@@ -3963,12 +4021,15 @@ classes:
   HistopathologyFindingDescriptor:
     is_a: Descriptor
     description: >-
-      A descriptor for histopathologic findings, bindable to NCIT Morphologic Finding
-      (C35867), Histologic Grade (C18000), or HP Abnormal cell morphology (HP:0025461)
+      A descriptor for histopathologic findings, bindable to the NCIT Histopathology
+      Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding
+      (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762),
+      Histologic Grade (C18000) - or HP Abnormal cell morphology (HP:0025461)
     comments:
       - Use for architectural patterns (spindle cell, epithelioid, nested, etc.)
       - Use for differentiation status (well/poorly differentiated)
       - Use for specific findings (rosettes, necrosis, mitotic activity)
+      - Use for immunophenotype/IHC markers (ER-positive by IHC, CD20-positive cells, loss of SDHB expression)
       - Use for histologic grades when applicable
     slot_usage:
       term:
@@ -5542,6 +5603,7 @@ classes:
       - disease_a
       - disease_b
       - directionality
+      - effect_direction
       - association_signals
       - literature_evidence
       - hypotheses
@@ -5577,6 +5639,7 @@ classes:
       - limited_precision
       - precision_count_threshold
       - directionality
+      - effect_direction
       - a_before_b
       - b_before_a
       - same_time

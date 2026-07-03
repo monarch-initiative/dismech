@@ -16,55 +16,51 @@ ref_validator := "scripts/run_reference_validator.sh"
 term_validator := "scripts/run_term_validator.sh"
 
 # Validate all disorder YAML files (schema + terms + references)
-# Runs all validations and reports ALL errors at the end
+# Runs each validator once over all files so in-memory schema, ontology, and
+# reference caches are reused within that phase.
 [group('QC')]
 validate-all:
     #!/usr/bin/env bash
+    set -u
     just fix-references-cache
-    just check-enum-cache
-    failed_files=()
-    echo "Validating all disorder files..."
-    for f in {{kb_dir}}/*.yaml; do
-        if [[ "$f" == *.history.yaml ]]; then
-            continue
-        fi
-        echo "=== $(basename $f) ==="
-        errors=""
-        # Schema validation
-        if ! uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -q "No issues found"; then
-            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
-        fi
-        # Term validation
-        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
-        if ! echo "$term_output" | grep -q "Validation passed"; then
-            errors+="  [TERMS] $term_output\n"
-        fi
-        # Reference validation
-        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
-        if echo "$ref_output" | grep -q "\[ERROR\]"; then
-            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
-        fi
-        if [ -n "$errors" ]; then
-            failed_files+=("$f")
-            echo -e "$errors"
-        else
-            echo "  ✓ OK"
-        fi
-    done
-    just normalize-cache
-    echo ""
-    echo "================================"
-    if [ ${#failed_files[@]} -eq 0 ]; then
-        echo "✓ All files validated successfully!"
+    just check-enum-cache-offline
+
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}} | sort)
     else
-        echo "✗ ${#failed_files[@]} file(s) with errors:"
-        for f in "${failed_files[@]}"; do
-            echo "  - $f"
-        done
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
 
+    exit_code=0
+    echo "Validating ${#files[@]} disorder files (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${files[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} || exit_code=1
+    echo ""
+
+    just normalize-cache || exit_code=1
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation completed with errors (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All files validated successfully!"
+
 # Full validation of a single disorder file (schema + terms + references)
+# Note: default validation runs only the offline enum-cache structural check.
+# The full OAK-backed `check-enum-cache` audit re-derives every dynamic enum and
+# can pull multi-GB sqlite:obo:* DBs (e.g. ncbitaxon ~13.5 GB), so run it
+# explicitly only when refreshing/auditing enum cache membership.
 [group('QC')]
 validate file:
     #!/usr/bin/env bash
@@ -72,7 +68,6 @@ validate file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
     echo "Term validation..."
-    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
@@ -80,10 +75,65 @@ validate file:
     just normalize-cache
     echo "✓ All validations passed for {{file}}"
 
+# Full validation of one or more disorder files, batched by validator phase.
+# This is intended for CI changed-file validation, where a PR may touch hundreds
+# of disorder YAMLs but still should avoid full-corpus validation. Reference
+# validation stays cache-bound (`--no-full-text`) so CI does not expand the
+# reference cache or download PDFs.
+[group('QC')]
+validate-disorders *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    for f in {{files}}; do
+        if [[ "$f" == {{kb_dir}}/*.yaml && "$f" != *.history.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
+        else
+            echo "Skipping non-disorder file: $f"
+        fi
+    done
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing disorder YAML files to validate."
+        exit 0
+    fi
+
+    exit_code=0
+    echo "Validating ${#existing[@]} disorder file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    just normalize-cache || exit_code=1
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more disorder files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} disorder file(s) passed validation."
+
 # Schema-only validation (fast, structure check)
 [group('QC')]
 validate-schema file:
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+
+# Scaffold a new append-only history record (pass-through to scripts/new_history.py).
+# Run `just new-history --help` for all options. Prints the created path.
+# Example:
+#   just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
+#     --summary "Create: Asthma" --agent-tool claude-code --pr 5123 --details "..."
+[group('QC')]
+new-history *ARGS:
+    uv run python scripts/new_history.py {{ARGS}}
 
 # Validate a single history record
 [group('QC')]
@@ -144,6 +194,7 @@ validate-comorbidities:
     done
 
 # Full validation of a single comorbidity file (schema + terms + references)
+# Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
 validate-comorbidity file:
     #!/usr/bin/env bash
@@ -151,7 +202,6 @@ validate-comorbidity file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation {{file}}
     echo "Term validation..."
-    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
@@ -169,7 +219,7 @@ validate-comorbidities-all:
         exit 0
     fi
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all comorbidity files..."
     for f in "${files[@]}"; do
@@ -237,7 +287,7 @@ validate-modules:
         exit 0
     fi
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all mechanism module files..."
     for f in "${files[@]}"; do
@@ -277,6 +327,7 @@ validate-modules:
     fi
 
 # Validate a single mechanism module file
+# Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
 validate-module file:
     #!/usr/bin/env bash
@@ -284,7 +335,6 @@ validate-module file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
     echo "Term validation..."
-    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
@@ -292,6 +342,7 @@ validate-module file:
     echo "✓ All validations passed for {{file}}"
 
 # Validate a single disease grouping file (schema + terms + references)
+# Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
 validate-grouping file:
     #!/usr/bin/env bash
@@ -299,7 +350,6 @@ validate-grouping file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class Grouping {{file}}
     echo "Term validation..."
-    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Grouping --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
@@ -317,7 +367,7 @@ validate-groupings:
         exit 0
     fi
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all disease grouping files..."
     for f in "${files[@]}"; do
@@ -381,7 +431,7 @@ oak_config := "conf/oak_config.yaml"
 validate-terms-all:
     #!/usr/bin/env bash
     set -e
-    just check-enum-cache
+    just check-enum-cache-offline
     if command -v rg >/dev/null 2>&1; then
         mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
     else
@@ -395,9 +445,9 @@ validate-terms-all:
     {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
 # Validate terms in a single file
+# Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
 validate-terms file:
-    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
 # Run legacy custom term validation (faster, but less thorough)
@@ -410,17 +460,36 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Report phenotype causal-connectivity coverage (graph-derived QC metric):
-# fraction of phenotype nodes wired into the pathograph. Pass --list-unconnected
-# to see the floating phenotype names per file.
+# Report graph-derived pathograph-wiring coverage (QC metrics): phenotype
+# causal-connectivity (fraction of phenotype nodes reached by a causal edge) and
+# gene-to-mechanism wiring (fraction of causal genes wired into a mechanism).
+# Pass --list-unconnected to see floating phenotype / unwired gene names per file.
 [group('QC')]
 compliance-connectivity *ARGS:
     uv run python -m dismech.qc_plugins {{kb_dir}} -c conf/qc_config.yaml {{ARGS}}
 
 # Validate dynamic enum membership caches against current schema definitions.
+# Re-derives every dynamic enum from OAK, so it may pull large sqlite:obo:* DBs
+# (run `just fetch-ontology-dbs` first in constrained environments).
 [group('QC')]
 check-enum-cache:
     uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}}
+
+# Offline structural check of the enum caches (no OAK / no downloads): catches
+# stale files, malformed headers, and duplicate rows while trusting the
+# committed cache/*.csv for membership. Use in network-constrained environments.
+[group('QC')]
+check-enum-cache-offline:
+    uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}} --offline
+
+# Pre-provision the sqlite:obo:* ontology DBs (with resume/retry) that term
+# validation needs, so a flaky/blocked download does not abort validation
+# mid-run. Fetch all, or only the named ontologies:
+#   just fetch-ontology-dbs
+#   just fetch-ontology-dbs ncbitaxon hp
+[group('QC')]
+fetch-ontology-dbs *names="":
+    OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
@@ -588,31 +657,24 @@ check-folded-hyphens:
 update-folded-hyphen-baseline:
     uv run python scripts/check_folded_hyphens.py --update-baseline
 
-# Validate ALL snippet/reference pairs against PubMed across all disorder files
-# Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed
+# Validate ALL snippet/reference pairs across all disorder files.
+# Warning: First run may take a while if references are not already cached.
 [group('QC')]
 validate-references-all:
     #!/usr/bin/env bash
     set -e
     just fix-references-cache
-    echo "Validating references in all disorder files..."
-    total_errors=0
-    for f in {{kb_dir}}/*.yaml; do
-        echo "Checking: $f"
-        if ! {{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1 | grep -q "All validations passed"; then
-            errors=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1 | grep -c "ERROR" || true)
-            if [ "$errors" -gt 0 ]; then
-                echo "  Found $errors errors in $f"
-                total_errors=$((total_errors + errors))
-            fi
-        fi
-    done
-    if [ $total_errors -eq 0 ]; then
-        echo "All reference validations passed!"
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}} | sort)
     else
-        echo "Total reference validation errors: $total_errors"
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
+    echo "Validating references in ${#files[@]} disorder files (batched)..."
+    {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
 # Fix YAML quoting issues in references cache (workaround for upstream bug)
 [group('QC')]
@@ -648,6 +710,18 @@ fix-references-cache:
             new_lines.append(line)
         if modified:
             md_file.write_text(f"---{chr(10).join(new_lines)}---{body}", encoding="utf-8")
+
+# Warm the reference cache's full-text-attempt state (stops repeated PDF
+# re-downloads during `just validate`). Idempotent + resumable: only touches
+# records that still lack `full_text_attempted`, so a bounded LIMIT drains the
+# backlog incrementally and steady-state runs only warm newly-added references.
+# LIMIT defaults to 0 (no cap); pass a number for a bounded/periodic sweep.
+warm-reference-cache limit="0":
+    uv run python scripts/warm_reference_cache.py --config {{ref_validator_config}} --limit {{limit}}
+
+# Preview which reference-cache records the warm sweep would process, no network.
+warm-reference-cache-preview limit="0":
+    uv run python scripts/warm_reference_cache.py --config {{ref_validator_config}} --limit {{limit}} --dry-run
 
 # Run browser search tests (JavaScript, uses Node.js + MiniSearch)
 [group('QC')]
@@ -766,11 +840,11 @@ gen-grouping-pages:
     uv run python -m dismech.render --grouping {{groupings_dir}}
     @echo "Generated $(ls -1 pages/groupings/*.html 2>/dev/null | wc -l | tr -d ' ') grouping pages"
 
-# Generate deep-research index page
+# Generate deep-research index page plus a standalone page per report
 [group('Pages')]
 gen-research-index:
     uv run python -m dismech.render --research
-    @echo "Generated pages/research/index.html"
+    @echo "Generated pages/research/index.html and $(ls -1 pages/research/*.html 2>/dev/null | grep -v '/index.html$' | wc -l | tr -d ' ') per-report pages"
 
 # Regenerate the deep-research provider table in details/index.html from the registry
 [group('Pages')]
@@ -836,6 +910,14 @@ export-hpoa:
 [group('Export')]
 export-disease-inventory output="output/disease_inventory.csv":
     uv run dismech-disease-inventory -i {{kb_dir}} -o {{output}}
+
+# Generate a Mondo EMC (Externally Managed Content) TSV for downstream Mondo ingest.
+# One row per disorder with a MONDO CURIE in disease_term.term.id; columns: mondo_id,
+# mondo_label, dismech_url, dismech_definition, dismech_exact_synonyms, dismech_pmids.
+# The output is committed to exports/mondo_emc.tsv so Mondo can pin to a release tag.
+[group('Export')]
+export-mondo-tsv output="exports/mondo_emc.tsv":
+    uv run python -m dismech.export.mondo_emc_export --kb-dir {{kb_dir}} --output {{output}}
 
 # ============== CX2 Export ==============
 

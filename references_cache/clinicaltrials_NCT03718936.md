@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT03718936"
 title: The Seaver Autism Center for Research and Treatment - Assessment Core
 content_type: summary
+full_text_attempted: true
 ---
 
 # The Seaver Autism Center for Research and Treatment - Assessment Core
