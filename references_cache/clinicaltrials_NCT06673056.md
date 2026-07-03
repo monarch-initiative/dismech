@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT06673056"
 title: "Effects of N-Acetyl-L-Leucine on Ataxia-Telangiectasia (A-T: A Phase III, Randomized, Placebo-controlled, Double-blind, Crossover Study"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Effects of N-Acetyl-L-Leucine on Ataxia-Telangiectasia (A-T: A Phase III, Randomized, Placebo-controlled, Double-blind, Crossover Study
