@@ -670,6 +670,18 @@ fix-references-cache:
         if modified:
             md_file.write_text(f"---{chr(10).join(new_lines)}---{body}", encoding="utf-8")
 
+# Warm the reference cache's full-text-attempt state (stops repeated PDF
+# re-downloads during `just validate`). Idempotent + resumable: only touches
+# records that still lack `full_text_attempted`, so a bounded LIMIT drains the
+# backlog incrementally and steady-state runs only warm newly-added references.
+# LIMIT defaults to 0 (no cap); pass a number for a bounded/periodic sweep.
+warm-reference-cache limit="0":
+    uv run python scripts/warm_reference_cache.py --config {{ref_validator_config}} --limit {{limit}}
+
+# Preview which reference-cache records the warm sweep would process, no network.
+warm-reference-cache-preview limit="0":
+    uv run python scripts/warm_reference_cache.py --config {{ref_validator_config}} --limit {{limit}} --dry-run
+
 # Run browser search tests (JavaScript, uses Node.js + MiniSearch)
 [group('QC')]
 test-search:
