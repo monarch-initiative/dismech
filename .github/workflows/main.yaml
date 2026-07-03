@@ -48,15 +48,36 @@ jobs:
         with:
           list-files: shell
           filters: |
-            src:
+            python:
               - 'src/**'
-              - 'tests/**'
+              - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
+              - 'justfile'
+              - 'project.justfile'
             schema:
               - 'src/dismech/schema/**'
               - 'src/dismech/groupings.py'
               - 'tests/test_data.py'
+            schema_generation:
+              - 'src/dismech/schema/**'
+              - 'config.yaml'
+              - 'config.public.mk'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'justfile'
+            schema_terms:
+              - 'src/dismech/schema/**'
+              - 'conf/oak_config.yaml'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'project.justfile'
+            examples:
+              - 'src/dismech/schema/**'
+              - 'tests/data/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'justfile'
             kb_disorders:
               - 'kb/disorders/**/*.yaml'
               - '!kb/disorders/**/*.history.yaml'
@@ -186,6 +207,7 @@ jobs:
         run: uv sync --dev --group export
 
       - name: Validate schema term references
+        if: steps.changes.outputs.schema_terms == 'true'
         run: just validate-terms-schema
 
       - name: Lint with ruff
@@ -236,22 +258,32 @@ jobs:
         run: just validate-history-all
 
       - name: Set up Node.js
-        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.src == 'true'
+        if: steps.changes.outputs.app == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Node.js dependencies
-        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.src == 'true'
+        if: steps.changes.outputs.app == 'true'
         run: npm ci
 
-      # Fast code/logic tests run on any src/tests/app change. The whole-KB
-      # schema-conformance sweep (kb_data) is intentionally excluded here — a
-      # code-only change cannot invalidate a previously-valid KB file against
-      # the schema, and changed KB files are already validated per-file above.
-      - name: Run code/logic tests
-        if: steps.changes.outputs.src == 'true' || steps.changes.outputs.app == 'true'
-        run: just test-code
+      # CI runs narrower slices of `just test-code` so unrelated test-only
+      # changes do not pay for full LinkML project generation or Node setup.
+      - name: Run schema generation smoke test
+        if: steps.changes.outputs.schema_generation == 'true'
+        run: just test-schema
+
+      - name: Run Python code/logic tests
+        if: steps.changes.outputs.python == 'true'
+        run: just test-python-code
+
+      - name: Run LinkML example tests
+        if: steps.changes.outputs.examples == 'true'
+        run: just test-examples
+
+      - name: Run browser search tests
+        if: steps.changes.outputs.app == 'true'
+        run: just test-search
 
       # The whole-KB conformance sweep runs only when the schema itself (or the
       # conformance-test logic) changes — the only edits that can flip a KB
