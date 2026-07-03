@@ -48,11 +48,36 @@ jobs:
         with:
           list-files: shell
           filters: |
-            src:
+            python:
               - 'src/**'
-              - 'tests/**'
+              - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
+              - 'justfile'
+              - 'project.justfile'
+            schema:
+              - 'src/dismech/schema/**'
+              - 'src/dismech/groupings.py'
+              - 'tests/test_data.py'
+            schema_generation:
+              - 'src/dismech/schema/**'
+              - 'config.yaml'
+              - 'config.public.mk'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'justfile'
+            schema_terms:
+              - 'src/dismech/schema/**'
+              - 'conf/oak_config.yaml'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'project.justfile'
+            examples:
+              - 'src/dismech/schema/**'
+              - 'tests/data/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'justfile'
             kb_disorders:
               - 'kb/disorders/**/*.yaml'
               - '!kb/disorders/**/*.history.yaml'
@@ -105,6 +130,61 @@ jobs:
             fi
           fi
 
+      # Advisory-only nudge (never fails the build): if a PR edits a KB entry
+      # (disorder/module/comorbidity) but adds no matching history/ record, warn
+      # so curation provenance keeps pace with content. See docs/history.md and
+      # `just new-history`.
+      - name: Check curation history coverage
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          ADDED_HISTORY=$(git diff --name-only --diff-filter=A "$BASE_SHA" "$HEAD_SHA" \
+            | grep -E '^history/.*\.yaml$' || true)
+
+          # KB entries touched by this PR (exclude legacy *.history.yaml).
+          KB_ENTRIES=$(echo "$CHANGED" \
+            | grep -E '^kb/(disorders|modules|comorbidities)/[^/]+\.yaml$' \
+            | grep -v '\.history\.yaml$' || true)
+
+          if [ -z "$KB_ENTRIES" ]; then
+            echo "No KB entry changes; skipping history-coverage nudge."
+            exit 0
+          fi
+
+          MISSING=""
+          while IFS= read -r entry; do
+            [ -z "$entry" ] && continue
+            subdir=$(echo "$entry" | cut -d/ -f2)          # disorders|modules|comorbidities
+            slug=$(basename "$entry" .yaml)
+            if ! echo "$ADDED_HISTORY" | grep -q "^history/${subdir}/${slug}/"; then
+              MISSING="${MISSING}  ${entry}"$'\n'
+            fi
+          done <<< "$KB_ENTRIES"
+
+          if [ -n "$MISSING" ]; then
+            echo "::warning::This PR changes KB entries without adding a history/ record for them:"
+            printf '%s' "$MISSING"
+            {
+              echo "### ⚠️ Curation history coverage"
+              echo ""
+              echo "This PR modifies KB entries but adds no \`history/\` record for:"
+              echo ""
+              echo '```'
+              printf '%s' "$MISSING"
+              echo '```'
+              echo ""
+              echo "Add one with \`just new-history\` (see \`docs/history.md\`). Advisory only — this does not block merge."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "History records present for all changed KB entries. 👍"
+          fi
+
       # https://github.com/astral-sh/setup-uv
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -127,6 +207,7 @@ jobs:
         run: uv sync --dev --group export
 
       - name: Validate schema term references
+        if: steps.changes.outputs.schema_terms == 'true'
         run: just validate-terms-schema
 
       - name: Lint with ruff
@@ -177,15 +258,36 @@ jobs:
         run: just validate-history-all
 
       - name: Set up Node.js
-        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.src == 'true'
+        if: steps.changes.outputs.app == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Node.js dependencies
-        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.src == 'true'
+        if: steps.changes.outputs.app == 'true'
         run: npm ci
 
-      - name: Run test suite
-        if: steps.changes.outputs.src == 'true' || steps.changes.outputs.app == 'true'
-        run: just test
+      # CI runs narrower slices of `just test-code` so unrelated test-only
+      # changes do not pay for full LinkML project generation or Node setup.
+      - name: Run schema generation smoke test
+        if: steps.changes.outputs.schema_generation == 'true'
+        run: just test-schema
+
+      - name: Run Python code/logic tests
+        if: steps.changes.outputs.python == 'true'
+        run: just test-python-code
+
+      - name: Run LinkML example tests
+        if: steps.changes.outputs.examples == 'true'
+        run: just test-examples
+
+      - name: Run browser search tests
+        if: steps.changes.outputs.app == 'true'
+        run: just test-search
+
+      # The whole-KB conformance sweep runs only when the schema itself (or the
+      # conformance-test logic) changes — the only edits that can flip a KB
+      # file's validity. Parallelized with xdist inside `just test-kb`.
+      - name: Run whole-KB schema-conformance sweep
+        if: steps.changes.outputs.schema == 'true'
+        run: just test-kb
