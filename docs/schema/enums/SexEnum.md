@@ -10,7 +10,6 @@ _Sex-specific stratum_
 URI: [dismech:enum/SexEnum](https://w3id.org/monarch-initiative/dismech/enum/SexEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | MALE | None | Male |
@@ -31,8 +30,12 @@ URI: [dismech:enum/SexEnum](https://w3id.org/monarch-initiative/dismech/enum/Sex
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

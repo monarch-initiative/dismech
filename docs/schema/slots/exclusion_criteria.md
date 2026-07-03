@@ -22,8 +22,8 @@ Alias: exclusion_criteria
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Definition](../classes/Definition.md) | A diagnostic or phenotype definition for the disease |  no  |
 | [CriteriaSet](../classes/CriteriaSet.md) | A named criteria grouping within a definition |  no  |
+| [Definition](../classes/Definition.md) | A diagnostic or phenotype definition for the disease |  no  |
 
 
 
@@ -32,15 +32,29 @@ Alias: exclusion_criteria
 
 ## Properties
 
-* Range: [CriteriaItem](../classes/CriteriaItem.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [CriteriaItem](../classes/CriteriaItem.md) |
+| Domain Of | [Definition](../classes/Definition.md), [CriteriaSet](../classes/CriteriaSet.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

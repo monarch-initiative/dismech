@@ -10,7 +10,6 @@ _Consistency of a mapping relative to another reference source_
 URI: [dismech:enum/MappingConsistencyEnum](https://w3id.org/monarch-initiative/dismech/enum/MappingConsistencyEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | CONSISTENT | None | Mapping is consistent with the reference source |
@@ -31,8 +30,12 @@ URI: [dismech:enum/MappingConsistencyEnum](https://w3id.org/monarch-initiative/d
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

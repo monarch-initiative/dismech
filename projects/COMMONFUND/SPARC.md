@@ -16,7 +16,7 @@ For dismech, SPARC can turn neuromodulation from a treatment label into a
 mechanism chain: neural target -> circuit activity -> organ process -> symptom
 or physiologic endpoint.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use SPARC as a nerve-organ mechanism layer:
 
@@ -87,7 +87,7 @@ an anatomical target, circuit effect, organ response, and phenotype endpoint.
 3. Draft one neuromodulation treatment mechanism in dismech form: target,
    circuit effect, organ physiology, symptom/endpoint, and caveat.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How SPARC helps |
 |---------|--------------------------------|-----------------|

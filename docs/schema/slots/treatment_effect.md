@@ -31,13 +31,28 @@ Alias: treatment_effect
 
 ## Properties
 
-* Range: [TreatmentEffectEnum](../enums/TreatmentEffectEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [TreatmentEffectEnum](../enums/TreatmentEffectEnum.md) |
+| Domain Of | [TreatmentMechanismTarget](../classes/TreatmentMechanismTarget.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

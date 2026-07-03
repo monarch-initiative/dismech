@@ -26,9 +26,22 @@ Alias: parents
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: parents
 | --- |
 | ['Bacterial Infection'] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

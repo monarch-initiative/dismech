@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkpoint Inhibitors: Drug Mechanism Design Pattern - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Checkpoint Inhibitors: Drug Mechanism Design Pattern</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Checkpoint Inhibitors: Drug Mechanism Design Pattern</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (1)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/MSI-High_Colorectal_Cancer.html">MSI High Colorectal Cancer</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (2)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/fibrotic_response.html">fibrotic response</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/immune_checkpoint_blockade.html">immune checkpoint blockade</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/CHECKPOINT_INHIBITORS.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="checkpoint-inhibitors-drug-mechanism-design-pattern">Checkpoint Inhibitors: Drug Mechanism Design Pattern</h1>
+<h2 id="status-phase-1-complete-module-5-pilot-entries">Status: Phase 1 Complete -- Module + 5 Pilot Entries</h2>
+<h2 id="1-landscape-which-diseases-are-treated-by-checkpoint-inhibitors">1. Landscape: Which Diseases Are Treated by Checkpoint Inhibitors?</h2>
+<h3 id="diseases-with-checkpoint-inhibitor-treatments-currently-in-dismech">Diseases with checkpoint inhibitor treatments currently in dismech</h3>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th>Drugs Referenced</th>
+<th>Has <code>target_mechanisms</code>?</th>
+<th>Has Immune Evasion Pathophys Node?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MSI-High Colorectal Cancer</td>
+<td>pembrolizumab, nivolumab, ipilimumab, dostarlimab</td>
+<td>Yes</td>
+<td>Yes ("PD-L1 Upregulation and Immune Evasion")</td>
+</tr>
+<tr>
+<td>Clear Cell Renal Cell Carcinoma</td>
+<td>nivolumab, pembrolizumab, ipilimumab</td>
+<td>Yes</td>
+<td>Yes ("Immune Evasion via PD-L1 and Immunosuppressive Microenvironment")</td>
+</tr>
+<tr>
+<td>Hepatocellular Carcinoma</td>
+<td>atezolizumab, durvalumab, tremelimumab</td>
+<td>Yes</td>
+<td>Yes ("Immune Evasion via PD-L1 and Immunosuppressive Microenvironment")</td>
+</tr>
+<tr>
+<td>BRAF V600 Mutant Melanoma</td>
+<td>pembrolizumab, nivolumab, ipilimumab</td>
+<td>Yes</td>
+<td>Yes ("Immune Evasion via PD-L1 Upregulation")</td>
+</tr>
+<tr>
+<td>NRAS Mutant Melanoma</td>
+<td>checkpoint inhibitors (narrative)</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>KIT Mutant Melanoma</td>
+<td>checkpoint inhibitors (narrative)</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>Cutaneous Squamous Cell Carcinoma</td>
+<td>cemiplimab</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>Non-Small Cell Lung Cancer</td>
+<td>checkpoint inhibitors (narrative)</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>Small Cell Lung Cancer</td>
+<td>checkpoint inhibitors (narrative)</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>KRAS G12C Mutant NSCLC</td>
+<td>checkpoint inhibitors (narrative)</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>Cervical Cancer</td>
+<td>pembrolizumab</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>Triple-Negative Breast Cancer</td>
+<td>atezolizumab/pembrolizumab (narrative)</td>
+<td>No</td>
+<td>Yes (immunomodulatory subtype)</td>
+</tr>
+<tr>
+<td>Nasopharyngeal Carcinoma</td>
+<td>PD-1 inhibitors</td>
+<td>Yes</td>
+<td>Yes ("Immune Evasion")</td>
+</tr>
+<tr>
+<td>HPV-Positive Head and Neck Cancer</td>
+<td>checkpoint inhibitors (narrative)</td>
+<td>No</td>
+<td>Yes ("Immune Evasion")</td>
+</tr>
+<tr>
+<td>Merkel Cell Carcinoma</td>
+<td>avelumab (narrative)</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>MSI-High Endometrial Cancer</td>
+<td>checkpoint inhibitors (narrative)</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>FGFR-Altered Cholangiocarcinoma</td>
+<td>durvalumab</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>IDH-Mutant Cholangiocarcinoma</td>
+<td>durvalumab</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Malignant Mesothelioma</td>
+<td>checkpoint inhibitors (narrative)</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>Basal Cell Carcinoma</td>
+<td>cemiplimab (narrative)</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>EBV-Associated Gastric Cancer</td>
+<td>checkpoint inhibitors (narrative)</td>
+<td>No</td>
+<td>Partial</td>
+</tr>
+<tr>
+<td>Osteosarcoma</td>
+<td>checkpoint inhibitors (narrative)</td>
+<td>No</td>
+<td>Yes ("Tumor Immune Microenvironment Remodeling")</td>
+</tr>
+<tr>
+<td>Uveal Melanoma</td>
+<td>checkpoint inhibitors (noted as poor response)</td>
+<td>No</td>
+<td>Noted as "immunologically cold"</td>
+</tr>
+</tbody>
+</table>
+<h3 id="diseases-where-checkpoint-molecules-appear-in-pathophysiology-not-treatment">Diseases where checkpoint molecules appear in pathophysiology (not treatment)</h3>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th>Context</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hepatitis B</td>
+<td>T cell exhaustion with PD-1, CTLA-4, TIM-3 upregulation</td>
+</tr>
+<tr>
+<td>Addison's Disease</td>
+<td>CTLA4 as autoimmune susceptibility gene</td>
+</tr>
+<tr>
+<td>Diabetes Mellitus</td>
+<td>Checkpoint inhibitor exposure as disease trigger</td>
+</tr>
+<tr>
+<td>Type 1 Diabetes</td>
+<td>Immune checkpoint pathway involvement</td>
+</tr>
+<tr>
+<td>Autoimmune diseases (multiple)</td>
+<td>CTLA-4/PD-1 polymorphisms in autoimmune susceptibility</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-current-representation-gaps">2. Current Representation Gaps</h2>
+<h3 id="treatment-side">Treatment side</h3>
+<ul>
+<li><strong>No <code>target_mechanisms</code> links</strong>: Not a single checkpoint inhibitor treatment uses <code>target_mechanisms</code> to connect back to the immune evasion pathophysiology node it addresses. This is the core structural gap.</li>
+<li><strong>All mapped to generic <code>MAXO:0000058</code> (pharmacotherapy) or <code>MAXO:0001002</code> (immunotherapy procedure)</strong>: No specific MAXO term for "immune checkpoint inhibitor therapy" exists. The best available terms are <code>MAXO:0000058</code> (pharmacotherapy) and <code>MAXO:0001002</code> (immunotherapy procedure).</li>
+<li><strong>No shared mechanism-of-action concept</strong>: Each disease independently describes what PD-1/PD-L1 blockade does in its description text. There's no reusable structure.</li>
+</ul>
+<h3 id="pathophysiology-side">Pathophysiology side</h3>
+<ul>
+<li><strong>Inconsistent immune evasion modeling</strong>: Some cancers have explicit "Immune Evasion" or "PD-L1 Upregulation" pathophysiology nodes; many only mention checkpoint molecules in narrative text.</li>
+<li><strong>No shared immune evasion module</strong>: Unlike <code>fibrotic_response</code>, there is no <code>immune_evasion</code> module that defines the conserved pattern of: neoantigen presentation → T cell infiltration → adaptive PD-L1 upregulation → T cell exhaustion → immune escape.</li>
+<li><strong>Cell type and GO term inconsistency</strong>: When immune cells are annotated, the terms vary (CL:0000625 for CD8+ T cells in some, CL:0000084 for generic T cells in others).</li>
+</ul>
+<h3 id="the-disconnect">The disconnect</h3>
+<p>The treatment and pathophysiology sections describe the <strong>same biological process from opposite directions</strong> but are not structurally linked:
+- Pathophysiology says: "Tumor upregulates PD-L1 → suppresses T cells → immune evasion"
+- Treatment says: "Anti-PD-1 blocks this interaction → restores T cell function"</p>
+<p>But there's no <code>target_mechanisms</code> edge connecting the treatment to the pathophysiology node.</p>
+<h2 id="3-proposal-drug-mechanism-classes-as-design-patterns">3. Proposal: Drug Mechanism Classes as Design Patterns</h2>
+<h3 id="concept">Concept</h3>
+<p>Just as <code>kb/modules/fibrotic_response.yaml</code> defines a conserved pathological process that multiple diseases <code>conforms_to</code>, we should create <strong>mechanism-of-action modules</strong> that capture conserved drug response patterns. These would serve as design patterns for how treatments connect to pathophysiology.</p>
+<h3 id="proposed-module-immune_checkpoint_blockade">Proposed Module: <code>immune_checkpoint_blockade</code></h3>
+<pre><code>kb/modules/immune_checkpoint_blockade.yaml
+</code></pre>
+<p>This module would define the conserved pattern:</p>
+<pre><code>Pathophysiology side (the disease process being targeted):
+  1. Neoantigen Generation → high TMB produces immunogenic peptides
+  2. Anti-Tumor Immune Response → CD8+ T cells recognize and infiltrate tumor
+  3. Adaptive Immune Resistance → tumor upregulates PD-L1/PD-L2 in response to IFN-gamma
+  4. T Cell Exhaustion and Immune Escape → chronic checkpoint engagement → dysfunctional T cells → tumor evades destruction
+
+Treatment side (the therapeutic intervention):
+  Anti-PD-1/PD-L1 therapy:
+    target_mechanisms:
+      - target: &quot;Adaptive Immune Resistance&quot;
+        treatment_effect: INHIBITS
+      - target: &quot;T Cell Exhaustion&quot;
+        treatment_effect: INHIBITS
+    → downstream effect: restores &quot;Anti-Tumor Immune Response&quot;
+
+  Anti-CTLA-4 therapy:
+    target_mechanisms:
+      - target: &quot;T Cell Exhaustion&quot; (priming phase)
+        treatment_effect: INHIBITS
+    → downstream effect: expands T cell repertoire
+</code></pre>
+<h3 id="how-diseases-would-conform">How diseases would conform</h3>
+<pre><code class="language-yaml"># In kb/disorders/MSI_High_Colorectal_Cancer.yaml
+pathophysiology:
+- name: Neoantigen-Driven Immune Response
+  conforms_to: &quot;immune_checkpoint_blockade#Anti-Tumor Immune Response&quot;
+  # organ-specific: high TMB from dMMR
+  ...
+- name: PD-L1 Upregulation and Immune Evasion
+  conforms_to: &quot;immune_checkpoint_blockade#Adaptive Immune Resistance&quot;
+  ...
+
+treatments:
+- name: Pembrolizumab
+  ...
+  target_mechanisms:
+  - target: PD-L1 Upregulation and Immune Evasion
+    treatment_effect: INHIBITS
+    description: Anti-PD-1 blocks PD-1/PD-L1 interaction, restoring T cell cytotoxicity
+</code></pre>
+<h3 id="why-this-matters">Why this matters</h3>
+<ol>
+<li>
+<p><strong>Consistency</strong>: Every cancer with checkpoint inhibitor treatment would model immune evasion the same way, with organ-specific substitutions (just like <a href="../modules/fibrotic_response.html">fibrotic response</a> uses organ-specific fibroblasts).</p>
+</li>
+<li>
+<p><strong>Predictive power</strong>: If a cancer has a pathophysiology node conforming to the immune evasion pattern, it suggests checkpoint inhibitor sensitivity. Conversely, cancers like Uveal Melanoma that lack the pattern ("immunologically cold") explain treatment resistance.</p>
+</li>
+<li>
+<p><strong>Completeness checking</strong>: If a disease has a checkpoint inhibitor treatment but no immune evasion pathophysiology node (e.g., FGFR-Altered Cholangiocarcinoma), that's a curation gap.</p>
+</li>
+<li>
+<p><strong>Bidirectional linking</strong>: <code>target_mechanisms</code> formally connects treatment → pathophysiology, closing the current structural gap.</p>
+</li>
+</ol>
+<h3 id="additional-mechanism-of-action-modules-to-consider">Additional mechanism-of-action modules to consider</h3>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Diseases</th>
+<th>Pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>immune_checkpoint_blockade</code></td>
+<td>~23 cancers</td>
+<td>Neoantigen → immune infiltration → adaptive resistance → checkpoint blockade restores immunity</td>
+</tr>
+<tr>
+<td><code>kinase_inhibition</code></td>
+<td>ALK NSCLC, BRAF Melanoma, FGFR cancers, CML</td>
+<td>Constitutive kinase activation → oncogenic signaling → TKI blocks kinase → pathway shutdown</td>
+</tr>
+<tr>
+<td><code>antibody_dependent_cellular_cytotoxicity</code></td>
+<td>HER2+ cancers, lymphomas</td>
+<td>Surface antigen overexpression → antibody binding → Fc-mediated immune recruitment</td>
+</tr>
+<tr>
+<td><code>angiogenesis_inhibition</code></td>
+<td>RCC, HCC, CRC</td>
+<td>VEGF overproduction → neovascularization → anti-VEGF starves tumor</td>
+</tr>
+<tr>
+<td><code>differentiation_therapy</code></td>
+<td>APL (ATRA/ATO)</td>
+<td>Differentiation block → pharmacologic override → terminal differentiation</td>
+</tr>
+<tr>
+<td><code>synthetic_lethality</code></td>
+<td>BRCA-mutant cancers (PARP inhibitors)</td>
+<td>DNA repair deficiency → PARP inhibition → unrepaired damage → cell death</td>
+</tr>
+<tr>
+<td><code>cdk_inhibition</code></td>
+<td>HR+ breast cancer, liposarcoma</td>
+<td>Cyclin D-CDK4/6 overactivation → Rb phosphorylation → CDK4/6i arrests G1/S → senescence</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-implementation-plan">4. Implementation Plan</h2>
+<h3 id="phase-1-done">Phase 1 (DONE)</h3>
+<ul>
+<li>[x] Verify MAXO terms -- no specific "immune checkpoint inhibitor therapy" term in MAXO; <code>MAXO:0000058</code> (pharmacotherapy) and <code>MAXO:0001002</code> (immunotherapy procedure) are the best available</li>
+<li>[x] Create <code>kb/modules/immune_checkpoint_blockade.yaml</code> with 4-node conserved pattern:</li>
+<li>Neoantigen Generation (GO:0019882)</li>
+<li>Anti-Tumor T Cell Response (CL:0000625, GO:0042110, GO:0001913)</li>
+<li>Adaptive Immune Resistance (GO:0002710) -- <strong>primary conforms_to target</strong></li>
+<li>T Cell Exhaustion and Immune Escape (CL:0011025, GO:0160083)</li>
+<li>[x] Update 5 pilot cancer entries with <code>conforms_to</code> and <code>target_mechanisms</code>:</li>
+<li>MSI-High Colorectal Cancer -- 3 ICI treatments linked, 2 pathophys nodes with conforms_to</li>
+<li>Clear Cell Renal Cell Carcinoma -- new immune evasion node added, ICI treatment linked</li>
+<li>Hepatocellular Carcinoma -- new immune evasion node added, 2 ICI treatments linked (atezo+bev also targets angiogenesis)</li>
+<li>BRAF V600 Mutant Melanoma -- new immune evasion node added, ICI treatment linked</li>
+<li>Nasopharyngeal Carcinoma -- existing "Immune Evasion" node gets conforms_to, immunotherapy treatment linked</li>
+<li>[x] Standardize: all immune evasion nodes use CL:0000625 (CD8+ T cell) and GO:0002710 (negative regulation of T cell mediated immunity)</li>
+</ul>
+<h3 id="phase-2-todo">Phase 2 (TODO)</h3>
+<ul>
+<li>[ ] Extend to remaining ~18 cancers with checkpoint inhibitor treatments</li>
+<li>[ ] Add specific therapeutic_agent annotations to entries that currently lack them (NCIT/CHEBI IDs)</li>
+<li>[ ] Create additional mechanism modules: <code>kinase_inhibition</code>, <code>angiogenesis_inhibition</code>, <code>synthetic_lethality</code></li>
+<li>[ ] Document the "drug mechanism module" pattern in CLAUDE.md</li>
+<li>[ ] Consider schema evolution: <code>mechanism_class</code> slot on Treatment, <code>conforms_to</code> on Treatment</li>
+<li>[ ] Model irAE (immune-related adverse events) as cross-disease comorbidity pattern</li>
+<li>[ ] Add CDK4/6 inhibitor mechanism module (from second analysis)</li>
+</ul>
+<h2 id="5-key-questions">5. Key Questions</h2>
+<ol>
+<li><strong>Schema evolution</strong>: Should <code>conforms_to</code> on Treatment (not just pathophysiology) point to a mechanism module? Currently only pathophysiology nodes conform to modules.</li>
+<li><strong>Granularity</strong>: Should anti-PD-1 and anti-CTLA-4 be separate sub-patterns within the module, or one unified checkpoint blockade pattern?</li>
+<li><strong>Resistance modeling</strong>: How to represent acquired resistance (e.g., loss of B2M, JAK1/2 mutations) that breaks the checkpoint blockade pattern?</li>
+<li><strong>Adverse events as pattern</strong>: Checkpoint inhibitor-induced autoimmunity (irAEs) is itself a conserved pattern -- model as a separate module or within the same one?</li>
+<li><strong>Biomarker integration</strong>: PD-L1 expression, TMB, and MSI status predict checkpoint response. Should the module include biomarker nodes?</li>
+</ol>
+<h2 id="6-observations-on-autoimmune-mirror">6. Observations on Autoimmune Mirror</h2>
+<p>Checkpoint inhibitors work by <em>removing</em> immune brakes. This is the mirror image of autoimmune diseases where checkpoint pathways are <em>insufficient</em>. The same module could potentially be used bidirectionally:
+- <strong>Cancer</strong>: Checkpoint engagement = disease mechanism → blockade = treatment
+- <strong>Autoimmune</strong>: Checkpoint insufficiency = disease mechanism → checkpoint agonism = (theoretical) treatment
+- <strong>irAEs</strong>: Checkpoint blockade (cancer treatment) → autoimmune pathology (adverse event)</p>
+<p>This triangulation supports the "design pattern" framing -- the same biological pattern manifests differently depending on which direction it's perturbed.</p>
+        </article>
+    </div>
+</body>
+</html>

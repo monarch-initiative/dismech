@@ -10,7 +10,6 @@ _How a treatment affects a pathophysiology mechanism node_
 URI: [dismech:enum/TreatmentEffectEnum](https://w3id.org/monarch-initiative/dismech/enum/TreatmentEffectEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | INHIBITS | None | Blocks or decreases the mechanism (e |
@@ -32,8 +31,12 @@ URI: [dismech:enum/TreatmentEffectEnum](https://w3id.org/monarch-initiative/dism
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

@@ -1,9 +1,9 @@
 
 
-# Class: DiseaseMappings
+# Class: DiseaseMappings 
 
 
-_Container for external identifier mappings for a disease_
+_Container for external identifier mappings for a disease or subtype_
 
 
 
@@ -20,57 +20,56 @@ URI: [dismech:class/DiseaseMappings](https://w3id.org/monarch-initiative/dismech
     class DiseaseMappings
     click DiseaseMappings href "../../classes/DiseaseMappings/"
       DiseaseMappings : icd10cm_mappings
-
-
-
-
-
+        
+          
+    
+        
+        
         DiseaseMappings --> "*" ICD10CMMapping : icd10cm_mappings
         click ICD10CMMapping href "../../classes/ICD10CMMapping/"
+    
 
-
-
+        
       DiseaseMappings : icd11f_mappings
-
-
-
-
-
+        
+          
+    
+        
+        
         DiseaseMappings --> "*" ICD11FMapping : icd11f_mappings
         click ICD11FMapping href "../../classes/ICD11FMapping/"
+    
 
-
-
+        
       DiseaseMappings : mondo_mappings
-
-
-
-
-
+        
+          
+    
+        
+        
         DiseaseMappings --> "*" MondoMapping : mondo_mappings
         click MondoMapping href "../../classes/MondoMapping/"
+    
 
-
-
+        
       DiseaseMappings : ncit_mappings
-
-
-
-
-
+        
+          
+    
+        
+        
         DiseaseMappings --> "*" NCITMapping : ncit_mappings
         click NCITMapping href "../../classes/NCITMapping/"
+    
 
-
-
-
+        
+      
 ```
 
 
 
 
 <!-- no inheritance hierarchy -->
-
 
 ## Slots
 
@@ -79,7 +78,7 @@ URI: [dismech:class/DiseaseMappings](https://w3id.org/monarch-initiative/dismech
 | [icd10cm_mappings](../slots/icd10cm_mappings.md) | * <br/> [ICD10CMMapping](../classes/ICD10CMMapping.md) | ICD-10-CM code mappings for this disease | direct |
 | [icd11f_mappings](../slots/icd11f_mappings.md) | * <br/> [ICD11FMapping](../classes/ICD11FMapping.md) | ICD-11 Foundation code mappings for this disease | direct |
 | [mondo_mappings](../slots/mondo_mappings.md) | * <br/> [MondoMapping](../classes/MondoMapping.md) | MONDO disease ontology mappings for this disease | direct |
-| [ncit_mappings](../slots/ncit_mappings.md) | * <br/> [NCITMapping](../classes/NCITMapping.md) | NCIT disease or disease/finding mappings | direct |
+| [ncit_mappings](../slots/ncit_mappings.md) | * <br/> [NCITMapping](../classes/NCITMapping.md) | NCIT disease, subtype, or disease/finding mappings | direct |
 
 
 
@@ -91,6 +90,12 @@ URI: [dismech:class/DiseaseMappings](https://w3id.org/monarch-initiative/dismech
 | ---  | --- | --- | --- |
 | [Subtype](../classes/Subtype.md) | [mappings](../slots/mappings.md) | range | [DiseaseMappings](../classes/DiseaseMappings.md) |
 | [Disease](../classes/Disease.md) | [mappings](../slots/mappings.md) | range | [DiseaseMappings](../classes/DiseaseMappings.md) |
+| [Grouping](../classes/Grouping.md) | [mappings](../slots/mappings.md) | range | [DiseaseMappings](../classes/DiseaseMappings.md) |
+
+
+
+
+
 
 
 
@@ -99,7 +104,6 @@ URI: [dismech:class/DiseaseMappings](https://w3id.org/monarch-initiative/dismech
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -134,7 +138,7 @@ URI: [dismech:class/DiseaseMappings](https://w3id.org/monarch-initiative/dismech
 <details>
 ```yaml
 name: DiseaseMappings
-description: Container for external identifier mappings for a disease
+description: Container for external identifier mappings for a disease or subtype
 from_schema: https://w3id.org/monarch-initiative/dismech
 slots:
 - icd10cm_mappings
@@ -150,7 +154,7 @@ slots:
 <details>
 ```yaml
 name: DiseaseMappings
-description: Container for external identifier mappings for a disease
+description: Container for external identifier mappings for a disease or subtype
 from_schema: https://w3id.org/monarch-initiative/dismech
 attributes:
   icd10cm_mappings:
@@ -194,7 +198,7 @@ attributes:
     inlined_as_list: true
   ncit_mappings:
     name: ncit_mappings
-    description: NCIT disease or disease/finding mappings
+    description: NCIT disease, subtype, or disease/finding mappings
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: ncit_mappings

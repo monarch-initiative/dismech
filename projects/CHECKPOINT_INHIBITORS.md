@@ -1,3 +1,14 @@
+---
+title: 'Checkpoint Inhibitors: Drug Mechanism Design Pattern'
+status: IN_PROGRESS
+description: 'The treatment and pathophysiology sections describe the same biological process from opposite directions but are not structurally linked:'
+diseases:
+- MSI_High_Colorectal_Cancer
+modules:
+- fibrotic_response
+- immune_checkpoint_blockade
+---
+
 # Checkpoint Inhibitors: Drug Mechanism Design Pattern
 
 ## Status: Phase 1 Complete -- Module + 5 Pilot Entries

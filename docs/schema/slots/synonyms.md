@@ -17,11 +17,11 @@ Alias: synonyms
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Disease](../classes/Disease.md) |  |  no  |
-| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Variant](../classes/Variant.md) | A genetic variant associated with a disease, including coding and non-coding ... |  no  |
 | [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
-| [Variant](../classes/Variant.md) |  |  no  |
 | [Biochemical](../classes/Biochemical.md) |  |  no  |
+| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Disease](../classes/Disease.md) |  |  no  |
 
 
 
@@ -30,9 +30,22 @@ Alias: synonyms
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md), [Biochemical](../classes/Biochemical.md), [Environmental](../classes/Environmental.md), [Disease](../classes/Disease.md), [Variant](../classes/Variant.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -44,8 +57,9 @@ Alias: synonyms
 | --- |
 | ['CYFRA 21-1'] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

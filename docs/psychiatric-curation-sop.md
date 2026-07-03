@@ -66,12 +66,17 @@ The circuit's *topology* (which region projects to which) is then expressed
 through `downstream` edges between pathophysiology nodes, not by inventing a
 "circuit" slot. The ADHD entry's worked chain:
 
-```
-Catecholaminergic Signaling Deficit in Prefrontal Cortex   (PFC; CL:0000700, CL:0008025)
-  └─ downstream → Prefrontal Cortex Circuit Weakness        (PFC; CL:0008031)
-       └─ downstream → Frontostriatal Circuit Dysregulation (PFC + striatum; CL:0000617)
-            └─ downstream → Executive Function and Attention Regulation Impairment
-                 └─ downstream → Short Attention Span / Hyperactivity / Impulsivity (phenotypes)
+```mermaid
+flowchart TD
+    A["Catecholaminergic Signaling Deficit in Prefrontal Cortex<br/>(PFC; CL:0000700, CL:0008025)"]
+    B["Prefrontal Cortex Circuit Weakness<br/>(PFC; CL:0008031)"]
+    C["Frontostriatal Circuit Dysregulation<br/>(PFC + striatum; CL:0000617)"]
+    D["Executive Function and Attention Regulation Impairment"]
+    E["Short Attention Span / Hyperactivity / Impulsivity<br/>(phenotypes)"]
+    A -->|downstream| B
+    B -->|downstream| C
+    C -->|downstream| D
+    D -->|downstream| E
 ```
 
 Tourette syndrome demonstrates the same pattern for the

@@ -3,7 +3,7 @@
 # Slot: subtype_term 
 
 
-_The MONDO term for a disease subtype_
+_The ontology term grounding this subtype or cancer facet value. Prefer MONDO when available; use NCIT for oncology-specific subtype refinement when needed._
 
 
 
@@ -31,13 +31,28 @@ Alias: subtype_term
 
 ## Properties
 
-* Range: [DiseaseDescriptor](../classes/DiseaseDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [SubtypeDescriptor](../classes/SubtypeDescriptor.md) |
+| Domain Of | [Subtype](../classes/Subtype.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -66,13 +81,14 @@ Alias: subtype_term
 <details>
 ```yaml
 name: subtype_term
-description: The MONDO term for a disease subtype
+description: The ontology term grounding this subtype or cancer facet value. Prefer
+  MONDO when available; use NCIT for oncology-specific subtype refinement when needed.
 from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: subtype_term
 domain_of:
 - Subtype
-range: DiseaseDescriptor
+range: SubtypeDescriptor
 inlined: true
 
 ```

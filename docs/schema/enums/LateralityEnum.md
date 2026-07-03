@@ -10,12 +10,11 @@ _Laterality qualifier for anatomical structures or procedures_
 URI: [dismech:enum/LateralityEnum](https://w3id.org/monarch-initiative/dismech/enum/LateralityEnum)
 
 ## Permissible Values
-
-| Value | Meaning | Description |
-| --- | --- | --- |
-| LEFT | None | Left side of the body |
-| RIGHT | None | Right side of the body |
-| BILATERAL | None | Both sides of the body |
+| Value | Meaning | Description | Additional Info |
+| --- | --- | --- | --- |
+| LEFT | None | Left side of the body | Title: Left<br>|
+| RIGHT | None | Right side of the body | Title: Right<br>|
+| BILATERAL | None | Both sides of the body | Title: Bilateral<br>|
 
 
 
@@ -30,8 +29,12 @@ URI: [dismech:enum/LateralityEnum](https://w3id.org/monarch-initiative/dismech/e
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -59,12 +62,15 @@ permissible_values:
   LEFT:
     text: LEFT
     description: Left side of the body
+    title: Left
   RIGHT:
     text: RIGHT
     description: Right side of the body
+    title: Right
   BILATERAL:
     text: BILATERAL
     description: Both sides of the body
+    title: Bilateral
 
 ```
 </details>

@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06087757
+reference_id: "clinicaltrials:NCT06087757"
 title: Clemastine Treatment in Individuals With Williams Syndrome- a Double-blind Placebo Control to Assess the Safety and Efficacy
 content_type: summary
 ---

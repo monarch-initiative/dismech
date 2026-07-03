@@ -4,9 +4,12 @@
 
 URI: [xsd:string](http://www.w3.org/2001/XMLSchema#string)
 
-* [base](https://w3id.org/linkml/base): str
+## Type Properties
 
-* [uri](https://w3id.org/linkml/uri): xsd:string
+| Property | Value |
+| --- | --- |
+| Base | `str` |
+| Type URI | [xsd:string](http://www.w3.org/2001/XMLSchema#string) |
 
 
 
@@ -16,7 +19,6 @@ URI: [xsd:string](http://www.w3.org/2001/XMLSchema#string)
 
 
 ## Identifier and Mapping Information
-
 
 
 

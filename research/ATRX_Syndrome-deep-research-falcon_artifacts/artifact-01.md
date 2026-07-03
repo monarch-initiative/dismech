@@ -1,0 +1,11 @@
+| Phenotype | HPO term suggestion | Frequency / notes | Evidence / source |
+|---|---|---|---|
+| Intellectual disability | HP:0001249 Intellectual disability | 100% (reported as 43/43 in the reviewed cohort); described as universal in the summarized ATRX cohort. | Wang et al. 2024 review/case synthesis; cohort percentages extracted from text discussing genotype–phenotype relationships (pqac-00000006) |
+| Alpha-thalassemia / HbH inclusion | HP:0001927 Abnormal hemoglobin; HP:0005523 Hemoglobin H inclusion bodies; HP:0001878 Hemolytic anemia | 41.86% overall (18/43) in the summarized cohort; alpha-thalassemia is common but not universal, so absence does not exclude ATR-X syndrome. | Wang et al. 2024 phenotype summary (pqac-00000006) |
+| Autism / behavioral problems | HP:0000729 Autistic behavior; HP:0000708 Behavioral abnormality | 44.19% overall (19/43); reported as a recurrent neurobehavioral feature. | Wang et al. 2024 phenotype summary (pqac-00000006) |
+| Epilepsy | HP:0001250 Seizure | 23.26% overall (10/43); reported among recurrent neurologic manifestations and noted as more prevalent in frameshift variants than missense variants in the broader review. | Wang et al. 2024 phenotype summary and genotype–phenotype discussion (pqac-00000006, pqac-00000000) |
+| Congenital heart defects | HP:0001627 Abnormal heart morphology; HP:0001644 Congenital heart defect | 18.60% overall (8/43); reported as an associated but less frequent congenital manifestation. | Wang et al. 2024 phenotype summary (pqac-00000006) |
+| Mutation-type/domain stratification note | Not applicable | Full phenotype distributions stratified by mutation type are in Table 1, and genotype–phenotype relationships by affected protein domain are in Table 2 of Wang et al. 2024; these tables were identified from the page images. | Table-image extraction identifying Table 1 and Table 2 as the key frequency/genotype–phenotype tables (pqac-00000012, pqac-00000013) |
+
+
+*Table: This table summarizes key clinical features of ATR-X syndrome with cohort frequencies reported in Wang et al. 2024. It is useful for rapid phenotype curation and notes where the full mutation-type and domain-specific distributions can be found.*

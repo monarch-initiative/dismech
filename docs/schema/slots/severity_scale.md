@@ -31,15 +31,29 @@ Alias: severity_scale
 
 ## Properties
 
-* Range: [SeverityTier](../classes/SeverityTier.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [SeverityTier](../classes/SeverityTier.md) |
+| Domain Of | [ModelVariableDescriptor](../classes/ModelVariableDescriptor.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

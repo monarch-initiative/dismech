@@ -31,7 +31,21 @@ Alias: finding_term
 
 ## Properties
 
-* Range: [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md) |
+| Domain Of | [HistopathologyFinding](../classes/HistopathologyFinding.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -41,8 +55,9 @@ Alias: finding_term
 * Use NCIT terms from Morphologic Finding (C35867) or Histologic Grade (C18000)
 * Use HP terms for rosettes and cell morphology abnormalities (HP:0025461 descendants)
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

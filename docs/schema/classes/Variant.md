@@ -3,6 +3,11 @@
 # Class: Variant 
 
 
+_A genetic variant associated with a disease, including coding and non-coding regulatory variants. For regulatory variants, use regulatory_category to classify the variant's impact on gene expression (LOE/mLOE/GOE per Cheng et al. 2024)._
+
+
+
+
 
 URI: [dismech:class/Variant](https://w3id.org/monarch-initiative/dismech/class/Variant)
 
@@ -38,6 +43,17 @@ URI: [dismech:class/Variant](https://w3id.org/monarch-initiative/dismech/class/V
     
 
         
+      Variant : external_assertions
+        
+          
+    
+        
+        
+        Variant --> "*" ExternalAssertion : external_assertions
+        click ExternalAssertion href "../../classes/ExternalAssertion/"
+    
+
+        
       Variant : functional_effects
         
           
@@ -64,6 +80,17 @@ URI: [dismech:class/Variant](https://w3id.org/monarch-initiative/dismech/class/V
         
       Variant : name
         
+      Variant : regulatory_category
+        
+          
+    
+        
+        
+        Variant --> "0..1" RegulatoryVariantCategoryEnum : regulatory_category
+        click RegulatoryVariantCategoryEnum href "../../enums/RegulatoryVariantCategoryEnum/"
+    
+
+        
       Variant : sequence_length
         
       Variant : synonyms
@@ -78,7 +105,6 @@ URI: [dismech:class/Variant](https://w3id.org/monarch-initiative/dismech/class/V
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -90,9 +116,11 @@ URI: [dismech:class/Variant](https://w3id.org/monarch-initiative/dismech/class/V
 | [functional_effects](../slots/functional_effects.md) | * <br/> [FunctionalEffect](../classes/FunctionalEffect.md) |  | direct |
 | [synonyms](../slots/synonyms.md) | * <br/> [String](../types/String.md) |  | direct |
 | [identifiers](../slots/identifiers.md) | * <br/> [Uriorcurie](../types/Uriorcurie.md) |  | direct |
+| [external_assertions](../slots/external_assertions.md) | * <br/> [ExternalAssertion](../classes/ExternalAssertion.md) | External curated assertions or registry records relevant to this entity | direct |
 | [sequence_length](../slots/sequence_length.md) | 0..1 <br/> [Integer](../types/Integer.md) |  | direct |
 | [clinical_significance](../slots/clinical_significance.md) | 0..1 <br/> [ClinicalSignificanceEnum](../enums/ClinicalSignificanceEnum.md) |  | direct |
 | [type](../slots/type.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
+| [regulatory_category](../slots/regulatory_category.md) | 0..1 <br/> [RegulatoryVariantCategoryEnum](../enums/RegulatoryVariantCategoryEnum.md) | Functional classification of a variant's impact on gene expression, using the... | direct |
 
 
 
@@ -111,8 +139,12 @@ URI: [dismech:class/Variant](https://w3id.org/monarch-initiative/dismech/class/V
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -147,6 +179,9 @@ URI: [dismech:class/Variant](https://w3id.org/monarch-initiative/dismech/class/V
 <details>
 ```yaml
 name: Variant
+description: A genetic variant associated with a disease, including coding and non-coding
+  regulatory variants. For regulatory variants, use regulatory_category to classify
+  the variant's impact on gene expression (LOE/mLOE/GOE per Cheng et al. 2024).
 from_schema: https://w3id.org/monarch-initiative/dismech
 slots:
 - name
@@ -156,9 +191,11 @@ slots:
 - functional_effects
 - synonyms
 - identifiers
+- external_assertions
 - sequence_length
 - clinical_significance
 - type
+- regulatory_category
 
 ```
 </details>
@@ -168,6 +205,9 @@ slots:
 <details>
 ```yaml
 name: Variant
+description: A genetic variant associated with a disease, including coding and non-coding
+  regulatory variants. For regulatory variants, use regulatory_category to classify
+  the variant's impact on gene expression (LOE/mLOE/GOE per Cheng et al. 2024).
 from_schema: https://w3id.org/monarch-initiative/dismech
 attributes:
   name:
@@ -180,12 +220,20 @@ attributes:
     alias: name
     owner: Variant
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -208,6 +256,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   description:
@@ -218,8 +267,14 @@ attributes:
     owner: Variant
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -227,7 +282,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -255,6 +314,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   gene:
     name: gene
@@ -266,8 +329,11 @@ attributes:
     owner: Variant
     domain_of:
     - GeneticContext
+    - ExperimentalPerturbation
     - Pathophysiology
     - Variant
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: GeneDescriptor
     inlined: true
   evidence:
@@ -279,12 +345,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -314,6 +390,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -357,6 +437,21 @@ attributes:
     - Variant
     range: uriorcurie
     multivalued: true
+  external_assertions:
+    name: external_assertions
+    description: External curated assertions or registry records relevant to this
+      entity
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: external_assertions
+    owner: Variant
+    domain_of:
+    - Disease
+    - Variant
+    range: ExternalAssertion
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   sequence_length:
     name: sequence_length
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -385,6 +480,19 @@ attributes:
     - Variant
     - FunctionalEffect
     range: string
+  regulatory_category:
+    name: regulatory_category
+    description: Functional classification of a variant's impact on gene expression,
+      using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667) or traditional
+      coding categories (LOF/GOF/DN).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: regulatory_category
+    owner: Variant
+    domain_of:
+    - Variant
+    - FunctionalEffect
+    range: RegulatoryVariantCategoryEnum
 
 ```
 </details>

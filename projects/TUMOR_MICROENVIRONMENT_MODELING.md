@@ -1,3 +1,31 @@
+---
+title: Tumor Microenvironment Modeling
+status: IN_PROGRESS
+description: Explore how dismech's structured mechanism models can serve as a knowledge substrate for computational tumor microenvironment (TME) modeling, especially multiscale agent-based simulators, reinforcement-learning-guided therapy optimization, and cancer digital twin frameworks.
+diseases:
+- BRAF_V600E_Mutant_Colorectal_Cancer
+- Clear_Cell_Renal_Cell_Carcinoma
+- Colon_Adenocarcinoma
+- EGFR_Mutant_NSCLC
+- Glioblastoma_IDH_Wildtype
+- HER2_Positive_Breast_Cancer
+- HER2_Positive_Colorectal_Cancer
+- Hepatocellular_Carcinoma
+- KRAS_G12C_Mutant_NSCLC
+- MSI_High_Colorectal_Cancer
+- Metastatic_Colorectal_Cancer
+- Metastatic_NSCLC
+- Metastatic_Pancreatic_Adenocarcinoma
+- Metastatic_Renal_Cell_Carcinoma
+- Non-Small_Cell_Lung_Cancer
+- Ovarian_High-Grade_Serous_Carcinoma
+- Pancreatic_Ductal_Adenocarcinoma
+- Triple_Negative_Breast_Cancer
+modules:
+- fibrotic_response
+- immune_checkpoint_blockade
+---
+
 # Tumor Microenvironment Modeling
 
 ## Overview

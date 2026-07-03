@@ -31,13 +31,28 @@ Alias: precision_count_threshold
 
 ## Properties
 
-* Range: [Integer](../types/Integer.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Integer](../types/Integer.md) |
+| Domain Of | [AssociationSignal](../classes/AssociationSignal.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

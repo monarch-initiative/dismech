@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+{%- macro render_node(node) -%}
+{%- if node -%}
+<li class="logic-node logic-{{ node.kind | lower }}">
+    {%- if node.kind == 'BRANCH' -%}
+        <span class="op op-{{ node.operator | lower }}">{{ node.operator }}</span>
+        {% if node.description %}<span class="node-desc">{{ node.description }}</span>{% endif %}
+        <ul class="logic-list">
+            {% for child in node.operands %}{{ render_node(child) }}{% endfor %}
+        </ul>
+    {%- else -%}
+        <span class="predicate">{% if node.negated %}<span class="negate">NOT</span> {% endif %}{{ node.predicate.replace('_', ' ') }}</span>
+        {% if node.min_frequency %}<span class="freq">&ge; {{ node.min_frequency.replace('_', ' ') | title }}</span>{% endif %}
+        {% if node.module %}<a class="chip chip-module" href="{{ node.module.href }}">module: {{ node.module.stem }}{% if node.module.node %} &middot; {{ node.module.node }}{% endif %}</a>{% endif %}
+        {% for t in node.terms %}<a class="chip chip-term" href="{{ t.url }}">{{ t.label }} <span class="chip-id">{{ t.id }}</span></a>{% endfor %}
+        {% if node.description %}<div class="node-desc">{{ node.description }}</div>{% endif %}
+    {%- endif -%}
+</li>
+{%- endif -%}
+{%- endmacro -%}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ grouping.display_name or grouping.name }} - dismech Grouping</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        {% include '_palette.css.j2' %}
+
+        body { font-family: var(--font); color: var(--gray-800); line-height: 1.7; background: linear-gradient(180deg, #fff 0%, var(--gray-50) 100%); }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        nav { position: sticky; top: 0; background: rgba(255,255,255,0.96); backdrop-filter: blur(12px); border-bottom: 1px solid var(--gray-200); z-index: 100; padding: 0.75rem 1.5rem; }
+        .nav-inner { max-width: var(--max-width); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); }
+        .nav-links { display: flex; gap: 1.2rem; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 { font-size: 2.1rem; font-weight: 700; color: var(--teal); line-height: 1.14; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
+        .hero p { color: var(--gray-700); max-width: 780px; }
+        .basis-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 0.75rem 0 0.25rem; }
+        .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+        .badge-basis { background: #eef2ff; color: #4338ca; }
+        .badge-map { background: #ecfeff; color: #0369a1; }
+        .main { max-width: var(--max-width); margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+        .breadcrumb { margin-bottom: 1.5rem; font-size: 0.9rem; color: var(--gray-600); }
+        section.block { background: #fff; border: 1px solid var(--gray-200); border-radius: 12px; padding: 22px 24px; margin-bottom: 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        section.block h2 { font-size: 1.2rem; color: var(--gray-800); margin-bottom: 12px; }
+        .rationale { color: var(--gray-700); font-size: 0.97rem; }
+        .sem-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em; }
+        .sem-NECESSARY { background: #fef3c7; color: #92400e; }
+        .sem-SUFFICIENT { background: #dbeafe; color: #1e40af; }
+        .sem-NECESSARY_AND_SUFFICIENT { background: #dcfce7; color: #166534; }
+        .crit-desc { color: var(--gray-700); margin: 8px 0 12px; }
+        ul.logic-list { list-style: none; margin-left: 1.1rem; border-left: 2px solid var(--gray-200); padding-left: 1rem; }
+        ul.logic-root { margin-left: 0; border-left: none; padding-left: 0; }
+        li.logic-node { margin: 6px 0; }
+        .op { display: inline-block; font-weight: 700; font-size: 0.72rem; padding: 2px 8px; border-radius: 5px; }
+        .op-and { background: #e0e7ff; color: #3730a3; }
+        .op-or { background: #fae8ff; color: #86198f; }
+        .op-not { background: #fee2e2; color: #991b1b; }
+        .predicate { font-weight: 600; font-size: 0.85rem; color: var(--gray-700); }
+        .negate { color: #b91c1c; font-weight: 700; }
+        .freq { font-size: 0.75rem; color: var(--gray-600); margin-left: 6px; }
+        .chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; margin: 2px 4px 2px 0; border-radius: 999px; font-size: 0.76rem; font-weight: 500; border: 1px solid var(--teal-light); background: var(--teal-50); color: var(--teal); }
+        .chip-module { background: #f5f3ff; border-color: #ddd6fe; color: #5b21b6; }
+        .chip-id { font-family: ui-monospace, monospace; font-size: 0.68rem; opacity: 0.7; }
+        .node-desc { color: var(--gray-600); font-size: 0.85rem; margin-top: 2px; }
+        .coverage-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+        .coverage-stat { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 700; background: var(--teal-50); color: var(--teal); border: 1px solid var(--teal-light); }
+        .coverage-note { color: var(--gray-600); font-size: 0.86rem; margin: 8px 0 12px; }
+        .coverage-wrap { overflow-x: auto; border: 1px solid var(--gray-200); border-radius: 8px; }
+        table.coverage { width: 100%; min-width: 1080px; border-collapse: collapse; font-size: 0.82rem; line-height: 1.45; }
+        .coverage th, .coverage td { border-bottom: 1px solid var(--gray-200); padding: 9px 10px; text-align: left; vertical-align: top; }
+        .coverage th { background: var(--gray-50); color: var(--gray-700); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; }
+        .coverage tbody tr:last-child td { border-bottom: 0; }
+        .coverage .col-status { width: 130px; }
+        .coverage .col-dismech { min-width: 245px; }
+        .coverage .col-mondo { min-width: 245px; }
+        .coverage .col-presence { width: 92px; }
+        .coverage .col-scope { width: 126px; }
+        .coverage .col-state { width: 130px; }
+        .coverage .col-criterion { min-width: 150px; max-width: 190px; white-space: normal; }
+        .criterion-title { display: block; color: var(--gray-800); font-size: 0.72rem; line-height: 1.35; text-transform: none; letter-spacing: 0; margin-top: 2px; white-space: normal; }
+        .criterion-ids { display: block; color: var(--gray-500); font-family: ui-monospace, monospace; font-size: 0.64rem; line-height: 1.35; margin-top: 2px; text-transform: none; letter-spacing: 0; white-space: normal; }
+        .status { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 6px; font-size: 0.68rem; font-weight: 800; }
+        .status-mapped { background: #dcfce7; color: #166534; }
+        .status-candidate, .status-not_listed { background: #fff7ed; color: #9a3412; }
+        .status-mondo_gap { background: #fee2e2; color: #991b1b; }
+        .status-dismech_only, .status-outside_scope { background: #fef3c7; color: #92400e; }
+        .leaf-gap { display: inline-flex; margin-top: 5px; padding: 2px 7px; border-radius: 999px; background: #fee2e2; color: #991b1b; font-size: 0.64rem; font-weight: 700; }
+        .entity { margin-bottom: 8px; }
+        .entity:last-child { margin-bottom: 0; }
+        .entity-name { font-weight: 700; color: var(--gray-800); }
+        .entity-id { color: var(--gray-600); font-family: ui-monospace, monospace; font-size: 0.75rem; margin-top: 2px; }
+        .empty { color: var(--gray-500); font-style: italic; }
+        .mtype { font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 5px; background: var(--gray-100); color: var(--gray-600); }
+        .state { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 5px; font-size: 0.68rem; font-weight: 700; margin: 2px 4px 2px 0; }
+        .state-listed { background: #dcfce7; color: #166534; }
+        .state-candidate { background: #fff7ed; color: #9a3412; }
+        .state-not_listed { background: #fee2e2; color: #991b1b; }
+        .presence { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; }
+        .presence.yes { background: #dcfce7; color: #166534; }
+        .presence.no { background: #fee2e2; color: #991b1b; }
+        .presence.na { background: var(--gray-100); color: var(--gray-600); }
+        .audit { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 5px; }
+        .audit-SATISFIED { background: #dcfce7; color: #166534; }
+        .audit-NOT_SATISFIED { background: #fee2e2; color: #991b1b; }
+        .audit-UNKNOWN { background: var(--gray-100); color: var(--gray-600); }
+        .audit-empty { background: transparent; color: var(--gray-500); padding: 0; }
+        .mech { color: var(--gray-700); font-size: 0.92rem; margin: 4px 0; }
+        details.mech-details { margin-top: 4px; color: var(--gray-700); }
+        details.mech-details summary { cursor: pointer; color: var(--gray-600); font-size: 0.75rem; font-weight: 700; }
+        .unmet { font-size: 0.78rem; color: #991b1b; margin-top: 4px; }
+        details.yaml { margin-top: 10px; }
+        details.yaml pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; font-size: 0.8rem; }
+        .source-link { font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../pages/modules/">Modules</a>
+                <a href="index.html">Groupings</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="{{ source_file }}">Source</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>{{ grouping.display_name or grouping.name }}</h1>
+            {% if grouping.description %}<p>{{ grouping.description }}</p>{% endif %}
+            <div class="basis-row">
+                {% for basis in grouping.grouping_basis or [] %}
+                <span class="badge badge-basis">{{ basis.replace('_', ' ') | title }}</span>
+                {% endfor %}
+                {% for m in (grouping.mappings.mondo_mappings if grouping.mappings else []) or [] %}
+                <a class="badge badge-map" href="{{ m.term.id | curie_to_url }}">{{ m.mapping_predicate }} {{ m.term.id }} &middot; {{ m.term.label }}</a>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+
+    <main class="main">
+        <div class="breadcrumb">
+            <a href="../../">Home</a> <span>/</span> <a href="index.html">Groupings</a> <span>/</span> {{ grouping.name }}
+        </div>
+
+        {% if grouping.grouping_rationale %}
+        <section class="block">
+            <h2>Why this grouping</h2>
+            <div class="rationale">{{ grouping.grouping_rationale }}</div>
+        </section>
+        {% endif %}
+
+        {% set mondo_maps = (grouping.mappings.mondo_mappings if grouping.mappings else []) or [] %}
+        {% if mondo_maps %}
+        <section class="block">
+            <h2>MONDO alignment &amp; provenance</h2>
+            {% for m in mondo_maps %}
+            <div class="rationale" style="margin-bottom: 14px;">
+                <div>
+                    <span class="predicate">{{ m.mapping_predicate }}</span>
+                    <a href="{{ m.term.id | curie_to_url }}">{{ m.term.id }} &middot; {{ m.term.label }}</a>
+                </div>
+                {% if m.mapping_justification %}<p style="margin:6px 0;">{{ m.mapping_justification }}</p>{% endif %}
+                {% for c in m.consistency or [] %}
+                <p style="margin:4px 0; font-size:0.9rem;">
+                    <strong>{{ c.reference }} consistency:</strong>
+                    <span class="badge {{ 'badge-basis' if c.consistent == 'CONSISTENT' else 'badge-map' }}">{{ (c.consistent or '') | lower }}</span>
+                    {% if c.notes %}{{ c.notes }}{% endif %}
+                </p>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        <section class="block">
+            <h2>Membership criteria</h2>
+            {% for criteria in grouping.membership_criteria or [] %}
+            <div style="margin-bottom: 18px;">
+                {% if criteria.criteria_semantics %}
+                <span class="sem-badge sem-{{ criteria.criteria_semantics }}">
+                    {{ criteria.criteria_semantics.replace('_', ' ') }}
+                    {%- if criteria.criteria_semantics == 'NECESSARY' %} &nbsp;(member &rArr; criteria){% elif criteria.criteria_semantics == 'SUFFICIENT' %} &nbsp;(criteria &rArr; member){% elif criteria.criteria_semantics == 'NECESSARY_AND_SUFFICIENT' %} &nbsp;(member &hArr; criteria){% endif %}
+                </span>
+                {% endif %}
+                {% if criteria.description %}<div class="crit-desc">{{ criteria.description }}</div>{% endif %}
+                {% if criteria._logic_view %}
+                <ul class="logic-list logic-root">{{ render_node(criteria._logic_view) }}</ul>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </section>
+
+        <section class="block">
+            <h2>Coverage and gaps</h2>
+            <div class="coverage-summary">
+                <span class="coverage-stat">{{ grouping._coverage.counts.rows }} row{{ '' if grouping._coverage.counts.rows == 1 else 's' }}</span>
+                {% if grouping._coverage.completeness.available %}
+                <span class="coverage-stat">DisMech coverage of exact MONDO scope: {{ grouping._coverage.completeness.label }}</span>
+                {% if grouping._coverage.completeness.dismech_covered > grouping._coverage.completeness.covered %}
+                <span class="coverage-stat">{{ grouping._coverage.completeness.dismech_covered }} DisMech IDs in scope</span>
+                {% endif %}
+                {% else %}
+                <span class="coverage-stat">Exact MONDO scope not assessed</span>
+                {% endif %}
+                <span class="coverage-stat">{{ grouping._coverage.counts.mapped }} {{ 'listed in scope' if grouping._coverage.exact_roots else 'listed with MONDO ID' }}</span>
+                {% if grouping._coverage.exact_roots or grouping._coverage.counts.mondo_gap %}
+                <span class="coverage-stat">{{ grouping._coverage.counts.mondo_gap }} MONDO gap{{ '' if grouping._coverage.counts.mondo_gap == 1 else 's' }}</span>
+                {% endif %}
+                {% if grouping._coverage.counts.not_listed %}<span class="coverage-stat">{{ grouping._coverage.counts.not_listed }} DisMech not listed</span>{% endif %}
+                {% if grouping._coverage.counts.dismech_only %}<span class="coverage-stat">{{ grouping._coverage.counts.dismech_only }} DisMech outside/no MONDO</span>{% endif %}
+            </div>
+            {% if grouping._coverage.exact_roots %}
+            <p class="coverage-note">
+                Exact MONDO scope:
+                {% for root in grouping._coverage.exact_roots %}
+                <a href="{{ root.url }}">{{ root.id }} &middot; {{ root.label }}</a>{% if not loop.last %}; {% endif %}
+                {% endfor %}
+                {% if grouping._coverage.completeness.available %}Completeness is counted over rows inside this exact MONDO scope that are listed in this grouping.{% endif %}
+                {% if grouping._coverage.shadowed_count %}Finer MONDO descendants under already-covered DisMech concepts are suppressed ({{ grouping._coverage.shadowed_count }}).{% endif %}
+            </p>
+            {% else %}
+            <p class="coverage-note">No exact MONDO mapping is declared, so MONDO descendant gaps are not inferred for this grouping.</p>
+            {% endif %}
+            {% if grouping._coverage.note %}<p class="coverage-note">{{ grouping._coverage.note }}</p>{% endif %}
+
+            {% if grouping._coverage_rows %}
+            <div class="coverage-wrap">
+                <table class="coverage">
+                    <thead>
+                        <tr>
+                            <th class="col-status">Status</th>
+                            <th class="col-dismech">DisMech entry</th>
+                            <th class="col-mondo">MONDO concept</th>
+                            <th class="col-presence">In DisMech</th>
+                            <th class="col-presence">Has MONDO ID</th>
+                            <th class="col-scope">In grouping MONDO</th>
+                            <th class="col-state">Member state</th>
+                            {% for column in grouping._criteria_columns %}
+                            <th class="col-criterion" title="{{ column.title }}">
+                                {{ column.short_label }}
+                                <span class="criterion-title">{{ column.label }}</span>
+                                {% if column.term_ids %}<span class="criterion-ids">{{ column.term_ids | join(', ') }}</span>{% endif %}
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in grouping._coverage_rows %}
+                        <tr class="row-{{ row.status }}">
+                            <td>
+                                <span class="status status-{{ row.status }}">{{ row.status_label }}</span>
+                                {% if row.is_leaf_gap %}<span class="leaf-gap">leaf gap</span>{% endif %}
+                            </td>
+                            <td>
+                                {% if row.dismech_entries %}
+                                {% for entry in row.dismech_entries %}
+                                <div class="entity">
+                                    {% if entry.href %}<a class="entity-name" href="{{ entry.href }}">{{ entry.display_name }}</a>{% else %}<span class="entity-name">{{ entry.display_name }}</span>{% endif %}
+                                    <span class="mtype">{{ entry.member_type }}</span>
+                                    {% if entry.mechanisms %}
+                                    <details class="mech-details">
+                                        <summary>Differentiating mechanism</summary>
+                                        {% for mech in entry.mechanisms %}
+                                        <div class="mech">{{ mech.description }}
+                                            {% if mech._module %}<a class="chip chip-module" href="{{ mech._module.href }}">module: {{ mech._module.stem }}</a>{% endif %}
+                                            {% for c in mech._chips %}<a class="chip chip-term" href="{{ c.url }}">{{ c.label }} <span class="chip-id">{{ c.id }}</span></a>{% endfor %}
+                                        </div>
+                                        {% endfor %}
+                                    </details>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                                {% else %}
+                                <span class="empty">No DisMech entry</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.mondo %}
+                                <a class="entity-name" href="{{ row.mondo.url }}">{{ row.mondo.label }}</a>
+                                <div class="entity-id">{{ row.mondo.id }}</div>
+                                {% else %}
+                                <span class="empty">No MONDO identity</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="presence {{ 'yes' if row.dismech_entries else 'no' }}">{{ 'yes' if row.dismech_entries else 'no' }}</span></td>
+                            <td><span class="presence {{ 'yes' if row.mondo else 'no' }}">{{ 'yes' if row.mondo else 'no' }}</span></td>
+                            <td><span class="presence {{ row.mondo_scope.class }}" title="{{ row.mondo_scope.title }}">{{ row.mondo_scope.label }}</span></td>
+                            <td>
+                                {% if row.dismech_entries %}
+                                {% for entry in row.dismech_entries %}
+                                <span class="state state-{{ entry.member_state }}">{{ entry.member_state.replace('_', ' ') }}</span>
+                                {% endfor %}
+                                {% else %}
+                                <span class="empty">not curated</span>
+                                {% endif %}
+                            </td>
+                            {% for cell in row.criteria_cells %}
+                            <td>
+                                {% if cell.result %}
+                                <span class="audit audit-{{ cell.result }}" title="{{ cell.title }}">{{ cell.label.replace('_', ' ') }}</span>
+                                {% else %}
+                                <span class="audit audit-empty" title="{{ cell.title }}">not evaluated</span>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="coverage-note">No coverage rows could be derived for this grouping.</p>
+            {% endif %}
+        </section>
+
+        <section class="block">
+            <h2>Source</h2>
+            <a class="source-link" href="{{ source_file }}">View YAML on GitHub</a>
+            <details class="yaml">
+                <summary>Raw YAML</summary>
+                <pre>{{ yaml_content }}</pre>
+            </details>
+        </section>
+    </main>
+</body>
+</html>

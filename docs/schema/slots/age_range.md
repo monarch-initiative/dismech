@@ -22,9 +22,10 @@ Alias: age_range
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Demographics](../classes/Demographics.md) | Demographic stratification for an association signal |  no  |
-| [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
 | [ProgressionInfo](../classes/ProgressionInfo.md) |  |  no  |
+| [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
+| [SurrogateEndpoint](../classes/SurrogateEndpoint.md) | A regulatory surrogate endpoint assertion curated from FDA's surrogate endpoi... |  no  |
+| [Demographics](../classes/Demographics.md) | Demographic stratification for an association signal |  no  |
 
 
 
@@ -33,7 +34,21 @@ Alias: age_range
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [PhenotypeContext](../classes/PhenotypeContext.md), [SurrogateEndpoint](../classes/SurrogateEndpoint.md), [ProgressionInfo](../classes/ProgressionInfo.md), [Demographics](../classes/Demographics.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -45,8 +60,9 @@ Alias: age_range
 | --- |
 | Childhood-Adolescence |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -83,6 +99,7 @@ rank: 1000
 alias: age_range
 domain_of:
 - PhenotypeContext
+- SurrogateEndpoint
 - ProgressionInfo
 - Demographics
 range: string

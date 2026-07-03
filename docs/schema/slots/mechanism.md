@@ -26,15 +26,29 @@ Alias: mechanism
 
 ## Properties
 
-* Range: [Mechanism](../classes/Mechanism.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Mechanism](../classes/Mechanism.md) |
+| Domain Of | [Treatment](../classes/Treatment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -1,0 +1,13 @@
+| Gene | Typical inheritance in FEVR | Mechanistic note | Key support |
+|---|---|---|---|
+| **FZD4** | Usually autosomal dominant; recurrent cause in multiple cohorts | Encodes Frizzled-4, the Norrin receptor in retinal endothelial cells; core **Norrin/Wnt/β-catenin** pathway gene required for retinal vascularization and iBRB development/maintenance | (pqac-00000002, pqac-00000003, pqac-00000006, pqac-00000007) |
+| **LRP5** | Autosomal dominant or autosomal recessive | Wnt co-receptor partnering with FZD4/Norrin signaling; core **Norrin/Wnt/β-catenin** pathway gene; disruption impairs retinal angiogenesis | (pqac-00000000, pqac-00000002, pqac-00000003, pqac-00000007) |
+| **NDP** | X-linked | Encodes Norrin ligand; activates FZD4/LRP5 signaling in retinal endothelial cells; core **Norrin/Wnt/β-catenin** pathway gene; often associated with more severe phenotypes in infant cohorts | (pqac-00000002, pqac-00000003, pqac-00000006, pqac-00000001) |
+| **TSPAN12** | Usually autosomal dominant | Tetraspanin that amplifies/stabilizes Norrin-FZD4-LRP5 signaling; core **Norrin/Wnt/β-catenin** pathway gene | (pqac-00000000, pqac-00000003, pqac-00000006, pqac-00000007) |
+| **ZNF408** | Autosomal dominant (reported) | FEVR-associated gene generally considered **outside the canonical Norrin/Wnt core module**; linked to retinal vascular development with typically milder phenotype in one infant cohort | (pqac-00000000, pqac-00000001, pqac-00000006, pqac-00000007) |
+| **KIF11** | Autosomal dominant | Non-Wnt motor protein gene; associated with syndromic/non-syndromic FEVR and variable expressivity, often severe retinal detachment in probands; mechanism considered **outside core Norrin/Wnt pathway** | (pqac-00000000, pqac-00000006, pqac-00000007) |
+| **CTNNB1** | Reported in dominant and syndromic FEVR-spectrum disease | Encodes **β-catenin**, the central downstream effector of canonical Wnt signaling; therefore part of the **Norrin/Wnt/β-catenin** axis rather than an upstream ligand/receptor component | (pqac-00000003, pqac-00000006) |
+| **CTNNA1** | Reported as FEVR-linked / candidate in recent literature | Encodes α-catenin 1; recent evidence places it among newer FEVR-associated genes, likely affecting vascular development/cell-adhesion biology and interacting with catenin signaling; not a classic core Norrin ligand-receptor gene | (pqac-00000003, pqac-00000006) |
+
+
+*Table: This table summarizes major genes implicated in familial exudative vitreoretinopathy, their usual inheritance patterns, and whether they map to the core Norrin/Wnt/β-catenin pathway or to other mechanisms. It is useful for concise genotype-mechanism mapping in a disease knowledge base.*

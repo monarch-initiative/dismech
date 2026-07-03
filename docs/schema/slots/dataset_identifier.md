@@ -31,7 +31,21 @@ Alias: dataset_identifier
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [ModelVariable](../classes/ModelVariable.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -44,8 +58,9 @@ Alias: dataset_identifier
 | ECCPhos |
 | Qbone |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

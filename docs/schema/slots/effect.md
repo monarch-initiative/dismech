@@ -17,8 +17,9 @@ Alias: effect
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
 | [Transmission](../classes/Transmission.md) |  |  no  |
+| [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | A structured perturbation, intervention, or exposure used in an experiment |  no  |
+| [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
 
 
 
@@ -27,7 +28,21 @@ Alias: effect
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md), [Environmental](../classes/Environmental.md), [Transmission](../classes/Transmission.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -39,8 +54,9 @@ Alias: effect
 | --- |
 | Potential trigger for flare-ups |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -75,6 +91,7 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: effect
 domain_of:
+- ExperimentalPerturbation
 - Environmental
 - Transmission
 range: string

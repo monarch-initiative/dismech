@@ -31,13 +31,28 @@ Alias: limited_precision
 
 ## Properties
 
-* Range: [Boolean](../types/Boolean.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Boolean](../types/Boolean.md) |
+| Domain Of | [AssociationSignal](../classes/AssociationSignal.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

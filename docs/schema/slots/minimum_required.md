@@ -31,13 +31,28 @@ Alias: minimum_required
 
 ## Properties
 
-* Range: [Integer](../types/Integer.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Integer](../types/Integer.md) |
+| Domain Of | [CriteriaSet](../classes/CriteriaSet.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -23,8 +23,9 @@ Alias: population
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [AssociationSignal](../classes/AssociationSignal.md) | An association signal from EHR, registry, or computational sources, optionall... |  no  |
-| [Prevalence](../classes/Prevalence.md) |  |  no  |
 | [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
+| [ReferenceRange](../classes/ReferenceRange.md) | A population reference interval for a clinical laboratory analyte |  yes  |
+| [Prevalence](../classes/Prevalence.md) |  |  no  |
 
 
 
@@ -33,7 +34,21 @@ Alias: population
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [PhenotypeContext](../classes/PhenotypeContext.md), [ReferenceRange](../classes/ReferenceRange.md), [Prevalence](../classes/Prevalence.md), [AssociationSignal](../classes/AssociationSignal.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -45,8 +60,9 @@ Alias: population
 | --- |
 | Global |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -84,6 +100,7 @@ rank: 1000
 alias: population
 domain_of:
 - PhenotypeContext
+- ReferenceRange
 - Prevalence
 - AssociationSignal
 range: string

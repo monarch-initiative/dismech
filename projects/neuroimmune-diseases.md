@@ -1,3 +1,20 @@
+---
+title: Neuroimmune Diseases Curation Project
+status: IN_PROGRESS
+description: >-
+  Conditions where the immune system attacks the nervous system (CNS or PNS),
+  causing inflammation, demyelination, or neuronal damage.
+tags: [DISEASE_DOMAIN, NEUROLOGY, IMMUNOLOGY]
+diseases:
+  - Multiple_Sclerosis
+  - Guillain_Barre_Syndrome
+  - Myasthenia_Gravis
+  - Narcolepsy
+  - Acute_Disseminated_Encephalomyelitis
+  - CNS_Vasculitis
+  - Stiff_Person_Syndrome
+---
+
 # Neuroimmune Diseases Curation Project
 
 ## Overview

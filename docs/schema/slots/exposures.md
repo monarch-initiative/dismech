@@ -31,15 +31,29 @@ Alias: exposures
 
 ## Properties
 
-* Range: [ExposureDescriptor](../classes/ExposureDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ExposureDescriptor](../classes/ExposureDescriptor.md) |
+| Domain Of | [Dataset](../classes/Dataset.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

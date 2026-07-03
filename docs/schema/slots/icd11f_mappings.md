@@ -22,7 +22,7 @@ Alias: icd11f_mappings
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [DiseaseMappings](../classes/DiseaseMappings.md) | Container for external identifier mappings for a disease |  no  |
+| [DiseaseMappings](../classes/DiseaseMappings.md) | Container for external identifier mappings for a disease or subtype |  no  |
 
 
 
@@ -31,15 +31,29 @@ Alias: icd11f_mappings
 
 ## Properties
 
-* Range: [ICD11FMapping](../classes/ICD11FMapping.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ICD11FMapping](../classes/ICD11FMapping.md) |
+| Domain Of | [DiseaseMappings](../classes/DiseaseMappings.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

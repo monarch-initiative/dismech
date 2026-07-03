@@ -10,11 +10,11 @@ _Source of an association signal_
 URI: [dismech:enum/AssociationSignalSourceEnum](https://w3id.org/monarch-initiative/dismech/enum/AssociationSignalSourceEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | DISEASE_TRAJECTORIES | None | Disease Trajectories (CSH/Austria) |
 | COHD | None | Columbia Open Health Data (COHD) |
+| ICEES | None | Integrated Clinical and Environmental Exposures Service KG (RENCI/UNC) |
 | LITERATURE | None | Published literature source |
 | OTHER | None | Other or unspecified source |
 
@@ -31,8 +31,12 @@ URI: [dismech:enum/AssociationSignalSourceEnum](https://w3id.org/monarch-initiat
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -63,6 +67,9 @@ permissible_values:
   COHD:
     text: COHD
     description: Columbia Open Health Data (COHD)
+  ICEES:
+    text: ICEES
+    description: Integrated Clinical and Environmental Exposures Service KG (RENCI/UNC)
   LITERATURE:
     text: LITERATURE
     description: Published literature source

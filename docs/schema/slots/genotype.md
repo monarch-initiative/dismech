@@ -26,7 +26,21 @@ Alias: genotype
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [AnimalModel](../classes/AnimalModel.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -38,8 +52,9 @@ Alias: genotype
 | --- |
 | HLA-DQ2 |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

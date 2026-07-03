@@ -1,0 +1,20 @@
+| Clinical feature | Frequency/notes (with source and n/N) | Suggested HPO term(s) |
+|---|---|---|
+| Global developmental delay / developmental delay | 56/56 (100%) in literature review summarized by Wang 2020; all 17/17 had developmental delay in Platzer 2014 cohort summary (pqac-00000041, pqac-00000045) | HP:0001263 Global developmental delay; HP:0001268 Mental deterioration / developmental regression not established |
+| Intellectual disability, severe | Moderate-to-severe intellectual disability reported in Akizu families; severe ID in 11/11 cases with specified cognitive testing in Platzer 2014 (pqac-00000044, pqac-00000045) | HP:0010864 Intellectual disability, severe |
+| Epilepsy / seizures | 41/56 (73.7%) in Wang 2020 review; 41/56 (~73.2%) in Wang 2020 text; 15/17 (88%) in Platzer 2014 summary; onset by age ≤3 years in 9/9 specified cases in Platzer 2014 (pqac-00000041, pqac-00000043, pqac-00000045) | HP:0001250 Seizure; HP:0002373 EEG abnormality |
+| Refractory / difficult-to-control seizures | Historically 37.5% relatively refractory and only 15.6% seizure-free in Wang 2020 review; difficult to control in 7/9 (78%) in Platzer 2014 despite multiple AED trials (pqac-00000043, pqac-00000045) | HP:0001272 Cerebral seizure resistant to treatment |
+| Absent or very limited speech | 41/55 (74.5%) absent speech in Wang 2020 review; 15/17 had no active speech in Platzer 2014 summary (pqac-00000041, pqac-00000045) | HP:0001344 Absent speech; HP:0000750 Delayed speech and language development |
+| Generalized hypotonia | 40/56 (71.9%) in Wang 2020 review; hypotonia present in Akizu families (pqac-00000041, pqac-00000044) | HP:0001290 Generalized hypotonia |
+| Autistic behavior / autistic features | 40/55 (72.7%) in Wang 2020 review; all 10/10 affected had autistic features in Akizu families; ASD reported in 6/17 (35%) in Platzer 2014 summary (pqac-00000041, pqac-00000044, pqac-00000045) | HP:0000729 Autistic behavior |
+| Corpus callosum abnormality (hypoplasia/agenesis) | ~34/54 (61.8%) in Wang 2020 review; corpus callosum absent in 3 and hypoplastic in 5 of 8 imaged in Akizu; 12/15 (80%) in Platzer 2014 summary (pqac-00000043, pqac-00000044, pqac-00000045) | HP:0001274 Agenesis of corpus callosum; HP:0002079 Hypoplasia of the corpus callosum |
+| Ventriculomegaly / enlarged ventricles | 17/50 (35.3%) in Wang 2020 review; thalamic hypoplasia with enlarged V-shaped third ventricle described in Akizu families (pqac-00000043, pqac-00000044) | HP:0002119 Ventriculomegaly; HP:0006842 Abnormality of the third ventricle |
+| Ocular anomalies, overall | 26/56 (46.4%) in Wang 2020 review (as summarized in Wang text); visual abnormalities in 4/10 in Akizu; visual impairment in 9/17 (53%) in Platzer 2014 summary (pqac-00000041, pqac-00000044, pqac-00000045) | HP:0000478 Abnormality of the eye |
+| Coloboma / chorioretinal coloboma | 8/55 (14.5%) coloboma in Wang 2020 review; optic/chorioretinal coloboma in 5/17 (29%) in Platzer 2014 summary (pqac-00000043, pqac-00000045) | HP:0000589 Coloboma of optic disc; HP:0000490 Chorioretinal coloboma; HP:0000486 Strabismus not specifically established |
+| Dysmorphic facial features | 36/55 (66.1%) in Wang 2020 review; Wang abstract/text also notes dysmorphic craniofacial appearance as common (pqac-00000043, pqac-00000000) | HP:0001999 Facial dysmorphism |
+| Atrial septal defect / cardiac defect | 16/55 (30.4%) atrial septal defect in Wang 2020 review; cardiac defects variably reported in case literature (pqac-00000043) | HP:0001631 Atrial septal defect |
+| Spasticity | 10/17 (59%) in Platzer 2014 summary (pqac-00000045) | HP:0001257 Spasticity |
+| Visual impairment | 9/17 (53%) in Platzer 2014 summary; abnormal visual function in 4/10 in Akizu families (pqac-00000044, pqac-00000045) | HP:0000505 Visual impairment |
+
+
+*Table: This table summarizes the main reported phenotypes of C12orf57-related Temtamy syndrome using frequencies from Wang 2020 and Platzer 2014, with related HPO suggestions. It is useful for structured phenotype annotation and for comparing feature prevalence across published case series.*

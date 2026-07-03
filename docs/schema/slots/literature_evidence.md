@@ -31,15 +31,29 @@ Alias: literature_evidence
 
 ## Properties
 
-* Range: [EvidenceItem](../classes/EvidenceItem.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [EvidenceItem](../classes/EvidenceItem.md) |
+| Domain Of | [ComorbidityAssociation](../classes/ComorbidityAssociation.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

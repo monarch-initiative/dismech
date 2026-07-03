@@ -10,7 +10,6 @@ _Age of onset categories from HPO_
 URI: [dismech:enum/OnsetEnum](https://w3id.org/monarch-initiative/dismech/enum/OnsetEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | ANTENATAL | HP:0030674 | Antenatal onset |
@@ -39,8 +38,12 @@ URI: [dismech:enum/OnsetEnum](https://w3id.org/monarch-initiative/dismech/enum/O
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -113,6 +116,8 @@ permissible_values:
     text: PUERPERAL
     description: Puerperal onset
     meaning: HP:4000040
+    aliases:
+    - Puerpural onset
 
 ```
 </details>

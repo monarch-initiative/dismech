@@ -59,7 +59,6 @@ URI: [dismech:class/MechanisticHypothesis](https://w3id.org/monarch-initiative/d
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -88,8 +87,12 @@ URI: [dismech:class/MechanisticHypothesis](https://w3id.org/monarch-initiative/d
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -197,6 +200,7 @@ attributes:
     domain_of:
     - ClinicalTrial
     - MechanisticHypothesis
+    - Discussion
     range: MechanisticHypothesisStatusEnum
   description:
     name: description
@@ -206,8 +210,14 @@ attributes:
     owner: MechanisticHypothesis
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -215,7 +225,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -243,6 +257,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   applies_to_subtypes:
     name: applies_to_subtypes
@@ -264,12 +282,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -299,6 +327,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -318,10 +350,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -348,6 +390,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
 
 ```

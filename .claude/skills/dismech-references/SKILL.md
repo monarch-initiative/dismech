@@ -7,7 +7,7 @@ description: >
   evidence. Critical for ensuring scientific accuracy and preventing AI hallucinations.
 ---
 
-# Dismech Reference Validation Skill
+# DisMech Reference Validation Skill
 
 ## Overview
 

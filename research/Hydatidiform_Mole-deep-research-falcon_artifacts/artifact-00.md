@@ -1,0 +1,19 @@
+| Concept | Details | Source |
+|---|---|---|
+| Disease name | Hydatidiform mole (HM); a gestational trophoblastic disease classified into complete hydatidiform mole (CHM) and partial hydatidiform mole (PHM) | (pqac-00000008, pqac-00000004, pqac-00000012) |
+| Common synonyms / related terms | Molar pregnancy; complete mole; partial mole; HM/CHM/PHM; post-molar gestational trophoblastic neoplasia (GTN) refers to neoplastic progression after HM | (pqac-00000008, pqac-00000010, pqac-00000012) |
+| Classification framework | Genetic classification distinguishes CHM (paternal-only genome) from PHM (triploid conceptus with maternal + paternal contribution); FIGO hCG criteria are used for post-molar GTN diagnosis/risk assessment | (pqac-00000008, pqac-00000010, pqac-00000014) |
+| ICD / diagnostic codes | ICD-10 code explicitly reported: non-specified hydatidiform mole O01.9; additional GTN-related codes reported include invasive mole D39.2A, PSTT D39.2C, choriocarcinoma C58.9, ETT morphology codes 91043/91053/m91053 | (pqac-00000010) |
+| Complete hydatidiform mole (CHM): core genetics | Usually diploid, most commonly 46,XX; androgenetic/paternal-only genome; typically arises from fertilization of an empty ovum by one sperm with duplication or by two sperm | (pqac-00000008, pqac-00000004, pqac-00000005) |
+| Partial hydatidiform mole (PHM): core genetics | Usually triploid, commonly 69,XXY (also 69,XXX/69,XYY reported); diandric triploidy with maternal and paternal contribution, often from dispermy of a normal ovum | (pqac-00000008, pqac-00000004, pqac-00000005) |
+| p57 immunostaining pattern in CHM | Loss/absence of nuclear p57 expression in villous cytotrophoblast and stromal cells is characteristic of CHM because maternal genome contribution is absent | (pqac-00000005, pqac-00000012, pqac-00000014) |
+| p57 immunostaining pattern in PHM | Retained/intact nuclear p57 expression is expected in PHM because maternal genome contribution is present | (pqac-00000005, pqac-00000012, pqac-00000014) |
+| Diagnostic gold standard / definitive diagnosis | STR genotyping is explicitly described as the gold standard for correct diagnosis in one 2024 review; another review states definitive diagnosis is made by histopathologic examination, with p57 and molecular testing used as ancillary/complementary tools | (pqac-00000008, pqac-00000014) |
+| GTN progression risk after CHM | Reported progression risk to GTN is about 15–20%; some reviews cite broader ranges up to 7–30% or note post-CHM GTN risk as high as 25% in a study | (pqac-00000015, pqac-00000008, pqac-00000014, pqac-00000012) |
+| GTN progression risk after PHM | Reported progression risk to GTN is about 0.5–1%; some reviews cite broader ranges up to 2.5–7.5% | (pqac-00000015, pqac-00000008, pqac-00000012) |
+| hCG follow-up after evacuation | Serum beta-hCG should be monitored every 1–2 weeks until normal; after normalization, monthly monitoring for 6 months is recommended for CHM, while PHM requires one additional monthly normal measurement | (pqac-00000014) |
+| Epidemiology snapshot | Incidence reported at ~0.57–1.1 per 1,000 pregnancies in Europe/North America/Oceania and ~2 per 1,000 in Japan/Southeast Asia; other review data cite 1–2 per 1,000 in Europe/North America and up to 10 per 1,000 in India/Indonesia | (pqac-00000008, pqac-00000012) |
+| Prognosis / cure context | GTN is highly curable with modern management; overall cure rates are reported as exceeding 90%, and one review states cure rates approach 100% even with metastatic disease | (pqac-00000010, pqac-00000012) |
+
+
+*Table: This table summarizes key terminology, diagnostic coding, and the most clinically important distinctions between complete and partial hydatidiform mole, including genetics, p57 staining, and GTN progression risk. It is useful as a compact reference for disease knowledge base curation and differential diagnosis.*

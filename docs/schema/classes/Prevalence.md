@@ -50,14 +50,13 @@ URI: [dismech:class/Prevalence](https://w3id.org/monarch-initiative/dismech/clas
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
 | ---  | --- | --- | --- |
 | [subtype](../slots/subtype.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [population](../slots/population.md) | 0..1 <br/> [String](../types/String.md) | Population or cohort description (e | direct |
-| [percentage](../slots/percentage.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[Float](../types/Float.md)&nbsp;or&nbsp;<br />[Integer](../types/Integer.md)&nbsp;or&nbsp;<br />[String](../types/String.md) |  | direct |
+| [percentage](../slots/percentage.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[Integer](../types/Integer.md)&nbsp;or&nbsp;<br />[Float](../types/Float.md)&nbsp;or&nbsp;<br />[String](../types/String.md) |  | direct |
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) |  | direct |
 | [notes](../slots/notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 
@@ -77,8 +76,12 @@ URI: [dismech:class/Prevalence](https://w3id.org/monarch-initiative/dismech/clas
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -160,6 +163,7 @@ attributes:
     owner: Prevalence
     domain_of:
     - PhenotypeContext
+    - ReferenceRange
     - Prevalence
     - AssociationSignal
     range: string
@@ -188,12 +192,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -223,6 +237,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -242,10 +260,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -272,6 +300,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
 
 ```

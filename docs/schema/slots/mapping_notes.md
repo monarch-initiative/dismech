@@ -23,6 +23,7 @@ Alias: mapping_notes
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [AssociationSignal](../classes/AssociationSignal.md) | An association signal from EHR, registry, or computational sources, optionall... |  no  |
+| [SurrogateEndpoint](../classes/SurrogateEndpoint.md) | A regulatory surrogate endpoint assertion curated from FDA's surrogate endpoi... |  no  |
 
 
 
@@ -31,13 +32,28 @@ Alias: mapping_notes
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [SurrogateEndpoint](../classes/SurrogateEndpoint.md), [AssociationSignal](../classes/AssociationSignal.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -71,6 +87,7 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: mapping_notes
 domain_of:
+- SurrogateEndpoint
 - AssociationSignal
 range: string
 

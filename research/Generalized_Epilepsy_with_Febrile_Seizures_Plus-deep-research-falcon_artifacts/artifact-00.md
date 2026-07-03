@@ -1,0 +1,6 @@
+| Disease name | Main synonyms | MONDO ID | Orphanet ID | OMIM/MIM IDs mentioned in evidence | ICD-10 | ICD-11 | MeSH | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Generalized epilepsy with febrile seizures plus | GEFS+; genetic epilepsy with febrile seizures plus; epilepsy with febrile seizures plus | MONDO:0018214 | Orphanet:36387 | GEFS+ [MIM 604236]; GEFS+ type 1 [OMIM 604233]; GEFS+ type 2 [MIM 604236 referenced in retrieved evidence] | not retrieved in current evidence | not retrieved in current evidence | not retrieved in current evidence | MONDO and Orphanet IDs supported by Open Targets disease mapping; syndrome name/synonyms supported by recent review and classic papers; OMIM/MIM identifiers reported in classic GEFS+ literature excerpts (pqac-00000000, pqac-00000011, pqac-00000017, pqac-00000019, pqac-00000020) |
+
+
+*Table: This table summarizes the key identifiers and commonly used synonyms for generalized epilepsy with febrile seizures plus. It is useful for harmonizing disease terminology across knowledge-base, ontology, and literature sources.*

@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cancer Curation Project - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Cancer Curation Project</h1>
+            <div class="hero-meta">
+                <span class="badge status-EVERGREEN">Evergreen</span>
+                <span class="tag">DISEASE_DOMAIN</span><span class="tag">ONCOLOGY</span><span class="tag">FLAGSHIP</span>
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Cancer Curation Project</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (5)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Lynch_Syndrome.html">Lynch Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Non-Small_Cell_Lung_Cancer.html">Non-Small Cell Lung Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Primary_Tonsillar_Lymphoma.html">Primary Tonsillar Lymphoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Melanoma_in_Congenital_Melanocytic_Nevus.html">Melanoma in Congenital Melanocytic Nevus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Fanconi_Anemia.html">Fanconi Anemia</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (12)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/dna_repair_synthetic_lethality.html">dna repair synthetic lethality</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/rtk_grb2_signaling_adaptation.html">rtk grb2 signaling adaptation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/immune_checkpoint_blockade.html">immune checkpoint blockade</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/sustaining_proliferative_signaling.html">sustaining proliferative signaling</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/evading_growth_suppressors.html">evading growth suppressors</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/resisting_cell_death.html">resisting cell death</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/enabling_replicative_immortality.html">enabling replicative immortality</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/tumor_angiogenesis.html">tumor angiogenesis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/invasion_and_metastasis.html">invasion and metastasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/deregulated_cellular_energetics.html">deregulated cellular energetics</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/genome_instability_mutation.html">genome instability mutation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/tumor_promoting_inflammation.html">tumor promoting inflammation</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                <div class="panel">
+                    <h2>Drugs (1)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/CHEBI_45783">imatinib</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Phenotypes (1)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/HP_0002664">Neoplasm</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/CANCER.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="cancer-curation-project">Cancer Curation Project</h1>
+<h2 id="overview">Overview</h2>
+<p>Comprehensive curation of cancers for the dismech knowledge base, prioritizing malignancies with <strong>precise genetic etiology</strong> and <strong>well-characterized pathophysiological progression</strong>. This project focuses on cancers where:
+1. Single-gene or well-defined fusion gene drivers are established
+2. Molecular mechanisms are understood at the pathway level
+3. Genotype-phenotype correlations inform treatment decisions
+4. Progressive stages of tumorigenesis are documented</p>
+<p>This is an evergreen project: beyond the defined tiers, "Other" expansion categories capture additional molecularly-defined cancers and emerging biomarkers as the field evolves.</p>
+<h2 id="selection-criteria">Selection Criteria</h2>
+<p>Cancers are prioritized based on:
+- <strong>Genetic precision</strong>: Clear driver mutations, fusion genes, or germline predisposition
+- <strong>Pathway clarity</strong>: Well-understood molecular cascades (e.g., RAS-MAPK, Wnt/β-catenin, HIF/VHL)
+- <strong>Therapeutic relevance</strong>: Targeted therapies directly addressing genetic defects
+- <strong>Educational value</strong>: Paradigmatic examples of cancer biology (e.g., two-hit hypothesis, oncogene addiction)</p>
+<h2 id="existing-cancer-related-entries-in-kb-4">Existing Cancer-Related Entries in KB (4)</h2>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th>File</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lynch Syndrome</td>
+<td>Lynch_Syndrome.yaml</td>
+<td>MMR deficiency, hereditary CRC</td>
+</tr>
+<tr>
+<td>Non-Small Cell Lung Cancer</td>
+<td>Non-Small_Cell_Lung_Cancer.yaml</td>
+<td>EGFR/KRAS/ALK mutations</td>
+</tr>
+<tr>
+<td>Primary Tonsillar Lymphoma</td>
+<td>Primary_Tonsillar_Lymphoma.yaml</td>
+<td>Hematologic malignancy</td>
+</tr>
+<tr>
+<td>Melanoma in Congenital Melanocytic Nevus</td>
+<td>Melanoma_in_Congenital_Melanocytic_Nevus.yaml</td>
+<td>NRAS/BRAF mutations</td>
+</tr>
+<tr>
+<td>Fanconi Anemia</td>
+<td>Fanconi_Anemia.yaml</td>
+<td>DNA repair, cancer predisposition</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cancers-to-curate">Cancers to Curate</h2>
+<h3 id="tier-1-paradigmatic-single-gene-driver-cancers-highest-priority">Tier 1: Paradigmatic Single-Gene Driver Cancers (Highest Priority)</h3>
+<p>These represent textbook examples of cancer genetics with direct therapeutic implications.</p>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Gene(s)</th>
+<th>Mechanism</th>
+<th>Therapeutic Target</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chronic Myeloid Leukemia</td>
+<td>BCR-ABL1</td>
+<td>Constitutive tyrosine kinase</td>
+<td>Imatinib, TKIs</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Retinoblastoma</td>
+<td>RB1</td>
+<td>Two-hit tumor suppressor</td>
+<td>-</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Gastrointestinal Stromal Tumor</td>
+<td>KIT, PDGFRA</td>
+<td>Receptor tyrosine kinase</td>
+<td>Imatinib, Avapritinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Medullary Thyroid Carcinoma</td>
+<td>RET</td>
+<td>Oncogenic receptor activation</td>
+<td>Selpercatinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Clear Cell Renal Cell Carcinoma</td>
+<td>VHL</td>
+<td>HIF dysregulation</td>
+<td>Belzutifan (HIF-2α)</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Ewing Sarcoma</td>
+<td>EWS-FLI1</td>
+<td>Aberrant transcription factor</td>
+<td>-</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Other single-gene drivers</td>
+<td>—</td>
+<td>e.g. SMARCB1-deficient tumors, SDH-deficient GIST</td>
+<td>—</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-2-hereditary-cancer-syndromes-high-priority">Tier 2: Hereditary Cancer Syndromes (High Priority)</h3>
+<p>Well-characterized germline mutations with defined progression pathways.</p>
+<table>
+<thead>
+<tr>
+<th>Syndrome/Cancer</th>
+<th>Gene(s)</th>
+<th>Associated Cancers</th>
+<th>Mechanism</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Li-Fraumeni Syndrome</td>
+<td>TP53</td>
+<td>Sarcomas, breast, brain, adrenal</td>
+<td>p53 tumor suppressor loss</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Familial Adenomatous Polyposis</td>
+<td>APC</td>
+<td>Colorectal cancer</td>
+<td>Wnt/β-catenin activation</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Von Hippel-Lindau Disease</td>
+<td>VHL</td>
+<td>RCC, hemangioblastoma, pheochromocytoma</td>
+<td>HIF stabilization</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>MEN2A/2B</td>
+<td>RET</td>
+<td>MTC, pheochromocytoma, parathyroid</td>
+<td>RET gain-of-function</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Hereditary Breast/Ovarian Cancer</td>
+<td>BRCA1, BRCA2</td>
+<td>Breast, ovarian, pancreatic, prostate</td>
+<td>DNA repair deficiency</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Neurofibromatosis Type 1</td>
+<td>NF1</td>
+<td>MPNST, optic glioma, neurofibromas</td>
+<td>RAS-MAPK hyperactivation</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Other hereditary syndromes</td>
+<td>—</td>
+<td>e.g. Cowden, Peutz-Jeghers, MEN1, NF2, tuberous sclerosis</td>
+<td>—</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-3-cancers-with-clear-molecular-subtypes-medium-priority">Tier 3: Cancers with Clear Molecular Subtypes (Medium Priority)</h3>
+<p>Defined molecular classifications guiding precision medicine.</p>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Key Mutations/Alterations</th>
+<th>Molecular Subtypes</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Acute Myeloid Leukemia</td>
+<td>FLT3, NPM1, IDH1/2, DNMT3A</td>
+<td>ELN risk stratification</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Colorectal Cancer (Sporadic)</td>
+<td>APC, KRAS, TP53, BRAF</td>
+<td>CMS1-4 subtypes</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Breast Cancer (HER2+)</td>
+<td>ERBB2 amplification</td>
+<td>HER2-enriched</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Melanoma</td>
+<td>BRAF V600E, NRAS, NF1</td>
+<td>BRAF-mutant vs WT</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Glioblastoma</td>
+<td>IDH1/2, MGMT, EGFR</td>
+<td>IDH-mutant vs wildtype</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Pancreatic Ductal Adenocarcinoma</td>
+<td>KRAS, CDKN2A, TP53, SMAD4</td>
+<td>Classical vs basal-like</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-4-pediatric-cancers-with-fusion-genes-medium-priority">Tier 4: Pediatric Cancers with Fusion Genes (Medium Priority)</h3>
+<p>Defined by characteristic chromosomal translocations.</p>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Fusion Gene</th>
+<th>Mechanism</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ewing Sarcoma</td>
+<td>EWS-FLI1 (t(11;22))</td>
+<td>Aberrant transcription</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Alveolar Rhabdomyosarcoma</td>
+<td>PAX3-FOXO1, PAX7-FOXO1</td>
+<td>Transcription factor fusion</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Synovial Sarcoma</td>
+<td>SS18-SSX</td>
+<td>Chromatin remodeling</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Acute Lymphoblastic Leukemia (Ph+)</td>
+<td>BCR-ABL1</td>
+<td>Tyrosine kinase</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Neuroblastoma</td>
+<td>MYCN amplification</td>
+<td>Transcription factor</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-5-molecularly-defined-breast-cancer-subtypes-high-priority">Tier 5: Molecularly-Defined Breast Cancer Subtypes (High Priority)</h3>
+<p>Modern oncology treats these as distinct disease entities requiring different therapeutic approaches.</p>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Defining Feature</th>
+<th>Key Therapy</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HER2-Positive Breast Cancer</td>
+<td>ERBB2 amplification</td>
+<td>Trastuzumab, T-DXd</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Triple-Negative Breast Cancer</td>
+<td>ER-/PR-/HER2-</td>
+<td>Pembrolizumab + chemo, sacituzumab</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>ER-Positive/HER2-Negative Breast Cancer</td>
+<td>Hormone receptor+</td>
+<td>Aromatase inhibitors, CDK4/6i</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>PIK3CA-Mutant Breast Cancer</td>
+<td>PIK3CA hotspot mutations</td>
+<td>Alpelisib</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-6-molecularly-defined-lung-cancer-subtypes-high-priority">Tier 6: Molecularly-Defined Lung Cancer Subtypes (High Priority)</h3>
+<p>Lung cancer is now treated as multiple distinct molecular diseases.</p>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Defining Feature</th>
+<th>Key Therapy</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EGFR-Mutant NSCLC</td>
+<td>EGFR exon 19 del, L858R</td>
+<td>Osimertinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>ALK-Rearranged NSCLC</td>
+<td>ALK fusions (EML4-ALK)</td>
+<td>Alectinib, lorlatinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>ROS1-Rearranged NSCLC</td>
+<td>ROS1 fusions</td>
+<td>Crizotinib, entrectinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>KRAS G12C-Mutant NSCLC</td>
+<td>KRAS G12C</td>
+<td>Sotorasib, adagrasib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>MET Exon 14 Skipping NSCLC</td>
+<td>MET splice mutations</td>
+<td>Capmatinib, tepotinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>RET-Rearranged NSCLC</td>
+<td>RET fusions</td>
+<td>Selpercatinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>BRAF V600E-Mutant NSCLC</td>
+<td>BRAF V600E</td>
+<td>Dabrafenib + trametinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Small Cell Lung Cancer</td>
+<td>RB1/TP53 loss, neuroendocrine</td>
+<td>Platinum + etoposide</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-7-molecularly-defined-melanoma-and-skin-cancers-high-priority">Tier 7: Molecularly-Defined Melanoma and Skin Cancers (High Priority)</h3>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Defining Feature</th>
+<th>Key Therapy</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BRAF V600-Mutant Melanoma</td>
+<td>BRAF V600E/K</td>
+<td>Dabrafenib + trametinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>NRAS-Mutant Melanoma</td>
+<td>NRAS Q61 mutations</td>
+<td>MEK inhibitors, immunotherapy</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>KIT-Mutant Melanoma</td>
+<td>KIT mutations (acral/mucosal)</td>
+<td>Imatinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Uveal Melanoma</td>
+<td>GNAQ/GNA11 mutations</td>
+<td>Tebentafusp (HLA-A*02:01)</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Basal Cell Carcinoma</td>
+<td>PTCH1, SMO (Hedgehog)</td>
+<td>Vismodegib, sonidegib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Merkel Cell Carcinoma</td>
+<td>MCPyV, UV-induced</td>
+<td>Avelumab, pembrolizumab</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-8-molecularly-defined-gi-cancers-high-priority">Tier 8: Molecularly-Defined GI Cancers (High Priority)</h3>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Defining Feature</th>
+<th>Key Therapy</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MSI-High Colorectal Cancer</td>
+<td>MMR deficiency, high TMB</td>
+<td>Pembrolizumab</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>BRAF V600E-Mutant Colorectal Cancer</td>
+<td>BRAF V600E</td>
+<td>Encorafenib + cetuximab</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>HER2-Positive Colorectal Cancer</td>
+<td>ERBB2 amplification</td>
+<td>Trastuzumab + pertuzumab</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>HER2-Positive Gastric Cancer</td>
+<td>ERBB2 amplification</td>
+<td>Trastuzumab, T-DXd</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Claudin 18.2+ Gastric Cancer</td>
+<td>CLDN18.2 expression</td>
+<td>Zolbetuximab</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Hepatocellular Carcinoma</td>
+<td>Multiple pathways</td>
+<td>Atezolizumab + bevacizumab</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Cholangiocarcinoma, IDH-Mutant</td>
+<td>IDH1/2 mutations</td>
+<td>Ivosidenib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Cholangiocarcinoma, FGFR-Altered</td>
+<td>FGFR2 fusions</td>
+<td>Pemigatinib, futibatinib</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-9-molecularly-defined-brain-tumors-high-priority">Tier 9: Molecularly-Defined Brain Tumors (High Priority)</h3>
+<p>WHO 2021 classification requires molecular markers for diagnosis.</p>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Defining Feature</th>
+<th>Key Features</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IDH-Mutant Astrocytoma</td>
+<td>IDH1/2 mutation, no 1p/19q</td>
+<td>Better prognosis than WT</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>IDH-Mutant Oligodendroglioma</td>
+<td>IDH1/2 + 1p/19q codeletion</td>
+<td>Chemosensitive</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Glioblastoma, IDH-Wildtype</td>
+<td>IDH WT, +7/-10, TERT, EGFR</td>
+<td>Temozolomide + RT</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>H3 K27-Altered Diffuse Midline Glioma</td>
+<td>H3K27M mutation</td>
+<td>Pediatric, poor prognosis</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Medulloblastoma, WNT-Activated</td>
+<td>WNT pathway, CTNNB1</td>
+<td>Excellent prognosis</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Medulloblastoma, SHH-Activated</td>
+<td>SHH pathway, PTCH1/SMO</td>
+<td>SMO inhibitors</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-10-molecularly-defined-hematologic-malignancies-high-priority">Tier 10: Molecularly-Defined Hematologic Malignancies (High Priority)</h3>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Defining Feature</th>
+<th>Key Therapy</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FLT3-Mutant AML</td>
+<td>FLT3-ITD or TKD</td>
+<td>Midostaurin, gilteritinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>NPM1-Mutant AML</td>
+<td>NPM1 mutation</td>
+<td>Favorable risk</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>IDH-Mutant AML</td>
+<td>IDH1/2 mutations</td>
+<td>Ivosidenib, enasidenib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Core Binding Factor AML</td>
+<td>t(8;21), inv(16)</td>
+<td>Favorable, GO</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>APL (PML-RARA)</td>
+<td>t(15;17) PML-RARA</td>
+<td>ATRA + ATO (cure ~90%)</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Ph+ ALL</td>
+<td>BCR-ABL1 fusion</td>
+<td>TKIs + chemo</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Ph-like ALL</td>
+<td>ABL-class fusions, JAK/STAT</td>
+<td>TKIs, JAK inhibitors</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Chronic Lymphocytic Leukemia</td>
+<td>del(17p), TP53, IGHV</td>
+<td>BTK inhibitors, venetoclax</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Mantle Cell Lymphoma</td>
+<td>t(11;14) CCND1</td>
+<td>BTK inhibitors</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Diffuse Large B-Cell Lymphoma</td>
+<td>ABC vs GCB, MYC/BCL2</td>
+<td>R-CHOP, polatuzumab</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-11-environmental-etiology-cancers-high-priority">Tier 11: Environmental Etiology Cancers (High Priority)</h3>
+<p>Cancers with strong environmental/infectious causation - important for prevention.</p>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Environmental Factor</th>
+<th>Mechanism</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Malignant Mesothelioma</td>
+<td>Asbestos</td>
+<td>Fiber-induced inflammation</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Cervical Cancer</td>
+<td>HPV 16/18</td>
+<td>E6/E7 oncoproteins</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>HPV-Positive Head and Neck SCC</td>
+<td>HPV 16</td>
+<td>E6/E7 (oropharyngeal)</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>HPV-Negative Head and Neck SCC</td>
+<td>Tobacco, alcohol</td>
+<td>TP53, CDKN2A mutations</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Nasopharyngeal Carcinoma</td>
+<td>EBV</td>
+<td>LMP1/LMP2 oncogenes</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Gastric Cancer, H. pylori-Associated</td>
+<td>H. pylori</td>
+<td>CagA, chronic inflammation</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>EBV-Associated Gastric Cancer</td>
+<td>EBV</td>
+<td>CIMP-high, PIK3CA</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Burkitt Lymphoma</td>
+<td>EBV (endemic)</td>
+<td>MYC translocation</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Kaposi Sarcoma</td>
+<td>HHV-8/KSHV</td>
+<td>vGPCR, vFLIP</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Adult T-Cell Leukemia/Lymphoma</td>
+<td>HTLV-1</td>
+<td>Tax oncoprotein</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Aflatoxin-Related HCC</td>
+<td>Aflatoxin B1 + HBV</td>
+<td>TP53 R249S hotspot</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Arsenic-Related Cancers</td>
+<td>Arsenic in water</td>
+<td>Skin, lung, bladder</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-12-other-molecularly-defined-solid-tumors-medium-priority">Tier 12: Other Molecularly-Defined Solid Tumors (Medium Priority)</h3>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Defining Feature</th>
+<th>Key Therapy</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FGFR-Altered Urothelial Carcinoma</td>
+<td>FGFR3 mutations/fusions</td>
+<td>Erdafitinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>BRCA-Mutant Prostate Cancer</td>
+<td>BRCA1/2 somatic</td>
+<td>Olaparib, rucaparib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>MSI-High Endometrial Cancer</td>
+<td>MMR deficiency</td>
+<td>Pembrolizumab + lenvatinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>NTRK Fusion-Positive Cancers</td>
+<td>NTRK1/2/3 fusions</td>
+<td>Larotrectinib, entrectinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Thyroid Cancer, BRAF-Mutant</td>
+<td>BRAF V600E (PTC)</td>
+<td>Dabrafenib + trametinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Thyroid Cancer, RET-Fusion</td>
+<td>RET fusions (PTC)</td>
+<td>Selpercatinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Pheochromocytoma/Paraganglioma</td>
+<td>SDHx, VHL, RET</td>
+<td>Surveillance, surgery</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Polycythemia Vera</td>
+<td>JAK2 V617F</td>
+<td>Ruxolitinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Primary Myelofibrosis</td>
+<td>JAK2, CALR, MPL</td>
+<td>Ruxolitinib, fedratinib</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Essential Thrombocythemia</td>
+<td>JAK2, CALR</td>
+<td>Anagrelide, hydroxyurea</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-13-pediatricrare-sarcomas-medium-priority">Tier 13: Pediatric/Rare Sarcomas (Medium Priority)</h3>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Defining Feature</th>
+<th>Key Features</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alveolar Rhabdomyosarcoma</td>
+<td>PAX3/7-FOXO1 fusions</td>
+<td>Aggressive pediatric</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Embryonal Rhabdomyosarcoma</td>
+<td>Loss of 11p15</td>
+<td>Better prognosis</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Synovial Sarcoma</td>
+<td>SS18-SSX fusions</td>
+<td>Young adults</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Neuroblastoma</td>
+<td>MYCN amplification</td>
+<td>Risk stratification</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Wilms Tumor</td>
+<td>WT1, WTX, CTNNB1</td>
+<td>Excellent outcomes</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Desmoplastic Small Round Cell Tumor</td>
+<td>EWSR1-WT1 fusion</td>
+<td>Poor prognosis</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Clear Cell Sarcoma</td>
+<td>EWSR1-ATF1 fusion</td>
+<td>"Melanoma of soft parts"</td>
+<td>[ ]</td>
+</tr>
+<tr>
+<td>Dermatofibrosarcoma Protuberans</td>
+<td>COL1A1-PDGFB fusion</td>
+<td>Imatinib responsive</td>
+<td>[ ]</td>
+</tr>
+</tbody>
+</table>
+<h2 id="molecular-subtypes-as-discrete-entities">Molecular Subtypes as Discrete Entities</h2>
+<p>Modern precision oncology recognizes that cancers historically grouped together are actually distinct diseases requiring different treatments. This KB models them as separate entities:</p>
+<h3 id="breast-cancer-example">Breast Cancer Example</h3>
+<p>Instead of one "Breast Cancer" entry with subtypes, we have:
+- <strong>HER2-Positive Breast Cancer</strong>: Defined by ERBB2 amplification; treated with trastuzumab, pertuzumab, T-DXd
+- <strong>Triple-Negative Breast Cancer</strong>: ER-/PR-/HER2-; treated with immunotherapy + chemotherapy
+- <strong>ER-Positive Breast Cancer</strong>: Hormone receptor-driven; treated with endocrine therapy + CDK4/6 inhibitors
+- <strong>PIK3CA-Mutant Breast Cancer</strong>: Specific mutation; treated with alpelisib</p>
+<h3 id="rationale">Rationale</h3>
+<ol>
+<li><strong>Different biology</strong>: Molecular alterations drive fundamentally different tumor behavior</li>
+<li><strong>Different treatment</strong>: Each requires distinct therapeutic approaches</li>
+<li><strong>Different prognosis</strong>: Outcomes vary dramatically by molecular subtype</li>
+<li><strong>Regulatory recognition</strong>: FDA approvals are increasingly biomarker-specific</li>
+<li><strong>Clinical practice</strong>: Oncologists make treatment decisions based on molecular profile</li>
+</ol>
+<h3 id="environmental-cancers">Environmental Cancers</h3>
+<p>Cancers with strong environmental/infectious etiology demonstrate:
+- Gene-environment interactions (e.g., aflatoxin + HBV → TP53 R249S)
+- Prevention opportunities (HPV vaccination, H. pylori eradication)
+- Distinct molecular signatures from sporadic counterparts</p>
+<h2 id="key-pathways-to-document">Key Pathways to Document</h2>
+<h3 id="tumor-suppressor-pathways">Tumor Suppressor Pathways</h3>
+<ol>
+<li><strong>RB1/E2F pathway</strong> - Cell cycle checkpoint control</li>
+<li><strong>TP53 pathway</strong> - DNA damage response, apoptosis</li>
+<li><strong>APC/Wnt/β-catenin</strong> - Intestinal stem cell regulation</li>
+<li><strong>VHL/HIF</strong> - Oxygen sensing, angiogenesis</li>
+<li><strong>BRCA/DNA repair</strong> - Homologous recombination</li>
+</ol>
+<h3 id="oncogenic-signaling-cascades">Oncogenic Signaling Cascades</h3>
+<ol>
+<li><strong>RAS-RAF-MEK-ERK (MAPK)</strong> - Cell proliferation</li>
+<li><strong>PI3K-AKT-mTOR</strong> - Cell growth, survival</li>
+<li><strong>JAK-STAT</strong> - Cytokine signaling</li>
+<li><strong>Hedgehog</strong> - Developmental signaling</li>
+<li><strong>Notch</strong> - Cell fate determination</li>
+</ol>
+<h3 id="receptor-tyrosine-kinases">Receptor Tyrosine Kinases</h3>
+<ol>
+<li><strong>BCR-ABL</strong> - CML paradigm</li>
+<li><strong>KIT/PDGFRA</strong> - GIST</li>
+<li><strong>RET</strong> - MTC, MEN2</li>
+<li><strong>EGFR/HER2</strong> - Lung, breast cancer</li>
+<li><strong>ALK</strong> - Lung cancer, lymphoma</li>
+</ol>
+<h2 id="research-sources-2025-2026">Research Sources (2025-2026)</h2>
+<p>Recent developments informing this curation:
+- <a href="https://cancerprogressreport.aacr.org/progress/cpr25-contents/cpr25-understanding-the-path-to-cancer-development/">AACR Cancer Progress Report 2025</a> - ecDNA in 17% of cancers
+- <a href="https://www.biorxiv.org/content/10.1101/2025.01.13.632787v1">Genetic background sets trajectory of cancer evolution (2025)</a> - Germline-somatic interactions
+- <a href="https://www.statnews.com/2026/01/01/blood-cancer-protective-genetic-variant-found-in-study/">Blood cancer protective variant (2026)</a> - CHIP protection
+- <a href="https://www.nature.com/articles/s41585-024-00876-w">VHL signaling in ccRCC (2024)</a> - HIF-2α targeting
+- <a href="https://en.wikipedia.org/wiki/Li%E2%80%93Fraumeni_syndrome">Li-Fraumeni syndrome sperm donor case (2025)</a> - 100% female penetrance</p>
+<hr />
+<h1 id="status">STATUS</h1>
+<h2 id="tier-1-paradigmatic-single-gene-drivers-66">Tier 1: Paradigmatic Single-Gene Drivers (6/6) ✓</h2>
+<ul>
+<li>[x] Chronic Myeloid Leukemia (BCR-ABL1) - Created 2026-01-24, 60.4% compliance</li>
+<li>[x] Retinoblastoma (RB1) - Created 2026-01-24, 55.9% compliance</li>
+<li>[x] Gastrointestinal Stromal Tumor (KIT/PDGFRA) - Created 2026-01-24, 45.9% compliance</li>
+<li>[x] Medullary Thyroid Carcinoma (RET) - Created 2026-01-24</li>
+<li>[x] Clear Cell Renal Cell Carcinoma (VHL) - Created 2026-01-24</li>
+<li>[x] Ewing Sarcoma (EWS-FLI1) - Created 2026-01-24</li>
+</ul>
+<h2 id="tier-2-hereditary-cancer-syndromes-66">Tier 2: Hereditary Cancer Syndromes (6/6) ✓</h2>
+<ul>
+<li>[x] Li-Fraumeni Syndrome (TP53) - Created 2026-01-24</li>
+<li>[x] Familial Adenomatous Polyposis (APC) - Created 2026-01-24</li>
+<li>[x] Von Hippel-Lindau Disease (VHL) - Created 2026-01-24</li>
+<li>[x] Multiple Endocrine Neoplasia Type 2 (RET) - Created 2026-01-24</li>
+<li>[x] Hereditary Breast and Ovarian Cancer Syndrome (BRCA1/2) - Created 2026-01-24</li>
+<li>[x] Neurofibromatosis Type 1 (NF1) - Created 2026-01-24</li>
+</ul>
+<h2 id="tier-5-molecularly-defined-breast-cancer-04">Tier 5: Molecularly-Defined Breast Cancer (0/4)</h2>
+<ul>
+<li>[ ] HER2-Positive Breast Cancer</li>
+<li>[ ] Triple-Negative Breast Cancer</li>
+<li>[ ] ER-Positive/HER2-Negative Breast Cancer</li>
+<li>[ ] PIK3CA-Mutant Breast Cancer</li>
+</ul>
+<h2 id="tier-6-molecularly-defined-lung-cancer-08">Tier 6: Molecularly-Defined Lung Cancer (0/8)</h2>
+<ul>
+<li>[ ] EGFR-Mutant NSCLC</li>
+<li>[ ] ALK-Rearranged NSCLC</li>
+<li>[ ] ROS1-Rearranged NSCLC</li>
+<li>[ ] KRAS G12C-Mutant NSCLC</li>
+<li>[ ] MET Exon 14 Skipping NSCLC</li>
+<li>[ ] RET-Rearranged NSCLC</li>
+<li>[ ] BRAF V600E-Mutant NSCLC</li>
+<li>[ ] Small Cell Lung Cancer</li>
+</ul>
+<h2 id="tier-7-molecularly-defined-melanomaskin-06">Tier 7: Molecularly-Defined Melanoma/Skin (0/6)</h2>
+<ul>
+<li>[ ] BRAF V600-Mutant Melanoma</li>
+<li>[ ] NRAS-Mutant Melanoma</li>
+<li>[ ] KIT-Mutant Melanoma</li>
+<li>[ ] Uveal Melanoma</li>
+<li>[ ] Basal Cell Carcinoma</li>
+<li>[ ] Merkel Cell Carcinoma</li>
+</ul>
+<h2 id="tier-8-molecularly-defined-gi-cancers-08">Tier 8: Molecularly-Defined GI Cancers (0/8)</h2>
+<ul>
+<li>[ ] MSI-High Colorectal Cancer</li>
+<li>[ ] BRAF V600E-Mutant Colorectal Cancer</li>
+<li>[ ] HER2-Positive Colorectal Cancer</li>
+<li>[ ] HER2-Positive Gastric Cancer</li>
+<li>[ ] Claudin 18.2+ Gastric Cancer</li>
+<li>[ ] Hepatocellular Carcinoma</li>
+<li>[ ] Cholangiocarcinoma, IDH-Mutant</li>
+<li>[ ] Cholangiocarcinoma, FGFR-Altered</li>
+</ul>
+<h2 id="tier-9-molecularly-defined-brain-tumors-06">Tier 9: Molecularly-Defined Brain Tumors (0/6)</h2>
+<ul>
+<li>[ ] IDH-Mutant Astrocytoma</li>
+<li>[ ] IDH-Mutant Oligodendroglioma</li>
+<li>[ ] Glioblastoma, IDH-Wildtype</li>
+<li>[ ] H3 K27-Altered Diffuse Midline Glioma</li>
+<li>[ ] Medulloblastoma, WNT-Activated</li>
+<li>[ ] Medulloblastoma, SHH-Activated</li>
+</ul>
+<h2 id="tier-10-molecularly-defined-hematologic-malignancies-010">Tier 10: Molecularly-Defined Hematologic Malignancies (0/10)</h2>
+<ul>
+<li>[ ] FLT3-Mutant AML</li>
+<li>[ ] NPM1-Mutant AML</li>
+<li>[ ] IDH-Mutant AML</li>
+<li>[ ] Core Binding Factor AML</li>
+<li>[ ] APL (PML-RARA)</li>
+<li>[ ] Ph+ ALL</li>
+<li>[ ] Ph-like ALL</li>
+<li>[ ] Chronic Lymphocytic Leukemia</li>
+<li>[ ] Mantle Cell Lymphoma</li>
+<li>[ ] Diffuse Large B-Cell Lymphoma</li>
+</ul>
+<h2 id="tier-11-environmental-etiology-cancers-012">Tier 11: Environmental Etiology Cancers (0/12)</h2>
+<ul>
+<li>[ ] Malignant Mesothelioma (asbestos)</li>
+<li>[ ] Cervical Cancer (HPV)</li>
+<li>[ ] HPV-Positive Head and Neck SCC</li>
+<li>[ ] HPV-Negative Head and Neck SCC</li>
+<li>[ ] Nasopharyngeal Carcinoma (EBV)</li>
+<li>[ ] Gastric Cancer, H. pylori-Associated</li>
+<li>[ ] EBV-Associated Gastric Cancer</li>
+<li>[ ] Burkitt Lymphoma (EBV)</li>
+<li>[ ] Kaposi Sarcoma (HHV-8)</li>
+<li>[ ] Adult T-Cell Leukemia/Lymphoma (HTLV-1)</li>
+<li>[ ] Aflatoxin-Related HCC</li>
+<li>[ ] Arsenic-Related Cancers</li>
+</ul>
+<h2 id="tier-12-other-molecularly-defined-solid-tumors-010">Tier 12: Other Molecularly-Defined Solid Tumors (0/10)</h2>
+<ul>
+<li>[ ] FGFR-Altered Urothelial Carcinoma</li>
+<li>[ ] BRCA-Mutant Prostate Cancer</li>
+<li>[ ] MSI-High Endometrial Cancer</li>
+<li>[ ] NTRK Fusion-Positive Cancers</li>
+<li>[ ] Thyroid Cancer, BRAF-Mutant</li>
+<li>[ ] Thyroid Cancer, RET-Fusion</li>
+<li>[ ] Pheochromocytoma/Paraganglioma</li>
+<li>[ ] Polycythemia Vera</li>
+<li>[ ] Primary Myelofibrosis</li>
+<li>[ ] Essential Thrombocythemia</li>
+</ul>
+<h2 id="tier-13-pediatricrare-sarcomas-08">Tier 13: Pediatric/Rare Sarcomas (0/8)</h2>
+<ul>
+<li>[ ] Alveolar Rhabdomyosarcoma</li>
+<li>[ ] Embryonal Rhabdomyosarcoma</li>
+<li>[ ] Synovial Sarcoma</li>
+<li>[ ] Neuroblastoma</li>
+<li>[ ] Wilms Tumor</li>
+<li>[ ] Desmoplastic Small Round Cell Tumor</li>
+<li>[ ] Clear Cell Sarcoma</li>
+<li>[ ] Dermatofibrosarcoma Protuberans</li>
+</ul>
+<h2 id="progress-summary">Progress Summary</h2>
+<ul>
+<li><strong>Total planned</strong>: 78+ cancers (original 28 + 50 expansion + open-ended)</li>
+<li><strong>Completed</strong>: 12/78 (15.4%)</li>
+<li><strong>In progress</strong>: 0</li>
+</ul>
+<h3 id="expansion-rationale-50-new-entries">Expansion Rationale (50 new entries)</h3>
+<ol>
+<li>
+<p><strong>Molecularly-defined subtypes as discrete entities</strong> (Tiers 5-10, 12): Modern oncology recognizes that molecular markers define distinct disease entities requiring different treatments. HER2+ breast cancer is a fundamentally different disease from triple-negative breast cancer, not just a "subtype."</p>
+</li>
+<li>
+<p><strong>Environmental etiology cancers</strong> (Tier 11): Cancers with strong infectious/environmental causation demonstrate gene-environment interactions and are critical for prevention strategies.</p>
+</li>
+<li>
+<p><strong>WHO classification alignment</strong>: Brain tumors (Tier 9) now require molecular markers for diagnosis per WHO 2021 CNS classification.</p>
+</li>
+<li>
+<p><strong>Actionable alterations</strong>: Priority given to cancers with FDA-approved targeted therapies or immunotherapies linked to molecular features.</p>
+</li>
+</ol>
+<h2 id="expansion-categories">Expansion Categories</h2>
+<ul>
+<li>[ ] Other single-gene driver cancers; e.g. SMARCB1-deficient tumors, SDH-deficient GIST</li>
+<li>[ ] Other hereditary cancer syndromes; e.g. Cowden, Peutz-Jeghers, MEN1, NF2, tuberous sclerosis</li>
+<li>[ ] Other molecular breast cancer subtypes; e.g. CDH1-mutant lobular, GATA3-mutant</li>
+<li>[ ] Other molecular lung cancer subtypes; e.g. HER2-mutant, NRG1 fusion, SMARCA4-deficient</li>
+<li>[ ] Other molecularly-defined sarcomas; e.g. CIC-rearranged, BCOR-rearranged</li>
+<li>[ ] Other virus-associated cancers; e.g. HBV-associated HCC, HIV-associated lymphomas</li>
+<li>[ ] Emerging biomarker-defined cancers; e.g. TMB-high, HRD-positive agnostic</li>
+</ul>
+<h1 id="notes">NOTES</h1>
+<h2 id="2026-01-24-tier-2-evidence-integration-session">2026-01-24 (Tier 2 Evidence Integration Session)</h2>
+<p><strong>Tier 2 Evidence Integration Complete:</strong></p>
+<p>Deep research completed and PMID evidence integrated for all 6 Tier 2 hereditary cancer syndromes:</p>
+<table>
+<thead>
+<tr>
+<th>Syndrome</th>
+<th>Evidence PMIDs</th>
+<th>Key Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Li-Fraumeni Syndrome</td>
+<td>PMID:26014290, PMID:28572266</td>
+<td>French cohort tumor spectrum, Toronto Protocol surveillance</td>
+</tr>
+<tr>
+<td>Familial Adenomatous Polyposis</td>
+<td>PMID:28668823</td>
+<td>Desmoid tumors, two-hit mechanism</td>
+</tr>
+<tr>
+<td>Von Hippel-Lindau Disease</td>
+<td>PMID:34818478</td>
+<td>Belzutifan phase 2 trial results</td>
+</tr>
+<tr>
+<td>MEN2</td>
+<td>PMID:11786689, PMID:21862994</td>
+<td>RET mutations, prophylactic thyroidectomy</td>
+</tr>
+<tr>
+<td>HBOC</td>
+<td>PMID:22193408, PMID:34081848</td>
+<td>BRCA pathway, OlympiA olaparib trial</td>
+</tr>
+<tr>
+<td>NF1</td>
+<td>PMID:33395032, PMID:32234870</td>
+<td>SPRINT selumetinib trial, MPNST transformation</td>
+</tr>
+</tbody>
+</table>
+<p>Compliance improvement (weighted scores):
+- Li-Fraumeni Syndrome: 37.0% → 47.8%
+- FAP: 41.9% → 48.8%
+- VHL: 36.7% → 40.8%
+- MEN2: 43.2% → 50.0%
+- HBOC: 37.5% → 45.0%
+- NF1: 43.6% → 51.3%</p>
+<p>All 6 files pass validation (schema + terms + references).</p>
+<hr />
+<h2 id="2026-01-24-evidence-integration-session">2026-01-24 (Evidence Integration Session)</h2>
+<p><strong>Tier 1 Evidence Integration Complete:</strong></p>
+<p>Deep research completed and PMID evidence integrated for all 6 Tier 1 cancers:</p>
+<table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>Evidence PMIDs</th>
+<th>Key Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CML</td>
+<td>PMID:11287972, PMID:11423618</td>
+<td>Druker imatinib trial, T315I mutation</td>
+</tr>
+<tr>
+<td>Retinoblastoma</td>
+<td>PMID:5279523</td>
+<td>Knudson two-hit hypothesis</td>
+</tr>
+<tr>
+<td>GIST</td>
+<td>PMID:12181401</td>
+<td>Demetri imatinib NEJM 2002</td>
+</tr>
+<tr>
+<td>MTC</td>
+<td>PMID:32846061</td>
+<td>LIBRETTO-001 selpercatinib trial</td>
+</tr>
+<tr>
+<td>ccRCC</td>
+<td>PMID:37085424</td>
+<td>VHL/PBRM1/BAP1/SETD2 biomarkers</td>
+</tr>
+<tr>
+<td>Ewing Sarcoma</td>
+<td>PMID:33741715</td>
+<td>EWS-FLI1 transcriptional regulation</td>
+</tr>
+</tbody>
+</table>
+<p>All 6 files pass validation (schema + terms + references).</p>
+<hr />
+<h2 id="2026-01-24-initial-session">2026-01-24 (Initial Session)</h2>
+<p><strong>Tier 1 Complete - All 6 paradigmatic cancers curated:</strong></p>
+<ol>
+<li>
+<p><strong>Chronic Myeloid Leukemia</strong> (BCR-ABL1) - 60.4% compliance
+   - Deep research with falcon, key refs: PMID:11287972, PMID:11423618
+   - Covers BCR-ABL1 fusion, TKI therapy, disease phases</p>
+</li>
+<li>
+<p><strong>Retinoblastoma</strong> (RB1) - 55.9% compliance
+   - Key ref: PMID:5279523 (Knudson two-hit hypothesis)
+   - Paradigm for tumor suppressor gene concept</p>
+</li>
+<li>
+<p><strong>Gastrointestinal Stromal Tumor</strong> (KIT/PDGFRA) - 45.9% compliance
+   - KIT/PDGFRA mutations, imatinib, avapritinib</p>
+</li>
+<li>
+<p><strong>Medullary Thyroid Carcinoma</strong> (RET)
+   - RET proto-oncogene, MEN2 syndromes, selpercatinib/pralsetinib</p>
+</li>
+<li>
+<p><strong>Clear Cell Renal Cell Carcinoma</strong> (VHL)
+   - VHL/HIF pathway, belzutifan (HIF-2α inhibitor)</p>
+</li>
+<li>
+<p><strong>Ewing Sarcoma</strong> (EWS-FLI1)
+   - Fusion transcription factor oncogene</p>
+</li>
+</ol>
+<p>Project created with comprehensive research on cancers with precise genetic etiology.</p>
+<p><strong>Key selection rationale:</strong>
+- <strong>Tier 1</strong> represents "textbook" cancers where single genetic events drive disease (BCR-ABL in CML, KIT in GIST, etc.) - ideal for demonstrating oncogene addiction
+- <strong>Tier 2</strong> covers hereditary syndromes with germline mutations - demonstrates two-hit hypothesis and cancer predisposition
+- <strong>Tier 3</strong> includes common cancers with well-defined molecular subtypes guiding therapy
+- <strong>Tier 4</strong> focuses on pediatric cancers defined by fusion genes - often "clean" genetic drivers
+- <strong>Tier 5</strong> includes additional genetically-defined cancers for completeness</p>
+<p><strong>Pathway themes to emphasize:</strong>
+1. Tumor suppressor loss (RB1, TP53, APC, VHL)
+2. Oncogenic kinase activation (BCR-ABL, KIT, RET)
+3. Transcription factor fusions (EWS-FLI1, PAX3-FOXO1)
+4. DNA repair deficiency (BRCA1/2, MMR genes)
+5. Epigenetic dysregulation (IDH1/2 mutations)</p>
+<p><strong>Recommended curation order:</strong>
+Start with Tier 1 as these are the clearest examples of genotype-phenotype relationships and have FDA-approved targeted therapies demonstrating mechanism-based treatment.</p>
+<hr />
+<h2 id="2026-01-24-schema-enhancements">2026-01-24 (Schema Enhancements)</h2>
+<p><strong>Added NCIT term support:</strong></p>
+<ol>
+<li><strong>BiomarkerDescriptor</strong> with NCIT validation for biochemical entries</li>
+<li><strong>GeneProductDescriptor</strong> with NCIT validation (rooted at NCIT:C26548 Gene Product) for pathophysiology</li>
+<li><strong><code>gene_products</code> slot</strong> on Pathophysiology class for fusion proteins, oncoproteins, etc.</li>
+</ol>
+<p><strong>Terms added to cancer files:</strong>
+- CML: NCIT:C16325 (BCR/ABL1 Fusion Protein)
+- GIST: NCIT:C17328 (KIT receptor)
+- MTC: NCIT:C18539 (RET receptor)</p>
+<p><strong>Future work - Post-composition for complex aberrations:</strong></p>
+<p>Explore OWL-style post-composition for fusion proteins and complex molecular aberrations that aren't in NCIT:
+- EWS-FLI1 fusion protein (Ewing Sarcoma) - not currently in NCIT as protein entity
+- VHL/pVHL protein (ccRCC) - gene exists, protein entity not found
+- RB1/pRB protein (Retinoblastoma) - gene exists, protein entity not found
+- Complex fusions with variant breakpoints (e.g., BCR-ABL p190 vs p210)</p>
+<p>Consider using the <code>qualifiers</code> slot or creating a dedicated composition mechanism to express:</p>
+<pre><code class="language-yaml"># Example post-composition for missing fusion proteins
+gene_products:
+- preferred_term: EWS-FLI1 fusion protein
+  description: Fusion of EWSR1 and FLI1 gene products
+  qualifiers:
+    - predicate: has_part
+      value: {term: {id: NCIT:C17476, label: RNA-Binding Protein EWS}}
+    - predicate: has_part
+      value: {term: {id: NCIT:C17770, label: Friend Leukemia Virus Integration 1}}
+</code></pre>
+<p>This would allow precise annotation of fusion proteins even when pre-coordinated terms don't exist.</p>
+<p><strong>Added Histopathology Section (2026-01-24):</strong></p>
+<p>New dedicated <code>histopathology</code> slot on Disease class for microscopic tissue findings:</p>
+<ol>
+<li>
+<p><strong>HistopathologyFindingTerm</strong> dynamic enum - rooted at:
+   - NCIT:C35867 (Morphologic Finding) - patterns, dysplasia, necrosis
+   - NCIT:C18000 (Histologic Grade) - Fuhrman, Nottingham, GIST grades
+   - HP:0025461 (Abnormal cell morphology) - rosettes, inclusion bodies</p>
+</li>
+<li>
+<p><strong>HistopathologyFindingDescriptor</strong> class for term binding</p>
+</li>
+<li>
+<p><strong>HistopathologyFinding</strong> class with: name, finding_term, description, frequency, diagnostic, evidence, notes, context</p>
+</li>
+</ol>
+<p><strong>Example histopathology entries added:</strong>
+- Retinoblastoma: Flexner-Wintersteiner rosettes (HP:0031927), Homer Wright rosettes (HP:0031926), Fleurettes (NCIT:C35950)
+- GIST: Spindle Cell Pattern (NCIT:C53643), Low Mitotic Activity (NCIT:C35961)</p>
+<p><strong>Rationale:</strong> Histopathology findings are microscopic observations distinct from clinical phenotypes. They often define tumor subtypes, inform prognosis, and require tissue sampling. Keeping them separate from phenotypes provides cleaner data modeling.</p>
+        </article>
+    </div>
+</body>
+</html>

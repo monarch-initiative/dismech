@@ -14,6 +14,28 @@ URI: [dismech:class/Treatment](https://w3id.org/monarch-initiative/dismech/class
  classDiagram
     class Treatment
     click Treatment href "../../classes/Treatment/"
+      Treatment : action_category
+        
+          
+    
+        
+        
+        Treatment --> "0..1" MedicalActionCategoryEnum : action_category
+        click MedicalActionCategoryEnum href "../../enums/MedicalActionCategoryEnum/"
+    
+
+        
+      Treatment : aso_details
+        
+          
+    
+        
+        
+        Treatment --> "0..1" AntisenseOligonucleotideDetail : aso_details
+        click AntisenseOligonucleotideDetail href "../../classes/AntisenseOligonucleotideDetail/"
+    
+
+        
       Treatment : context
         
       Treatment : description
@@ -94,6 +116,17 @@ URI: [dismech:class/Treatment](https://w3id.org/monarch-initiative/dismech/class
     
 
         
+      Treatment : therapeutic_modality
+        
+          
+    
+        
+        
+        Treatment --> "0..1" TherapeuticModalityEnum : therapeutic_modality
+        click TherapeuticModalityEnum href "../../enums/TherapeuticModalityEnum/"
+    
+
+        
       Treatment : treatment_term
         
           
@@ -113,15 +146,17 @@ URI: [dismech:class/Treatment](https://w3id.org/monarch-initiative/dismech/class
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
 | ---  | --- | --- | --- |
 | [name](../slots/name.md) | 1 <br/> [String](../types/String.md) |  | direct |
 | [description](../slots/description.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
+| [action_category](../slots/action_category.md) | 0..1 <br/> [MedicalActionCategoryEnum](../enums/MedicalActionCategoryEnum.md) | Optional high-level category for a clinical action in the treatments section | direct |
 | [treatment_term](../slots/treatment_term.md) | 0..1 <br/> [TreatmentDescriptor](../classes/TreatmentDescriptor.md) | The MAXO term for this treatment/medical action | direct |
 | [regimen_term](../slots/regimen_term.md) | 0..1 <br/> [RegimenDescriptor](../classes/RegimenDescriptor.md) | The NCIT term for this treatment regimen | direct |
+| [therapeutic_modality](../slots/therapeutic_modality.md) | 0..1 <br/> [TherapeuticModalityEnum](../enums/TherapeuticModalityEnum.md) | Broad therapeutic platform/modality of a treatment (e | direct |
+| [aso_details](../slots/aso_details.md) | 0..1 <br/> [AntisenseOligonucleotideDetail](../classes/AntisenseOligonucleotideDetail.md) | Structured detail specific to antisense oligonucleotide treatments | direct |
 | [target_phenotypes](../slots/target_phenotypes.md) | * <br/> [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md) | Phenotypes that this treatment or trial addresses or targets | direct |
 | [target_mechanisms](../slots/target_mechanisms.md) | * <br/> [TreatmentMechanismTarget](../classes/TreatmentMechanismTarget.md) | Pathophysiology mechanism nodes that this treatment targets or modulates | direct |
 | [pdb_structures](../slots/pdb_structures.md) | * <br/> [ProteinStructure](../classes/ProteinStructure.md) | Experimental or predicted 3D protein structures relevant to this treatment's ... | direct |
@@ -149,8 +184,12 @@ URI: [dismech:class/Treatment](https://w3id.org/monarch-initiative/dismech/class
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -189,8 +228,11 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 slots:
 - name
 - description
+- action_category
 - treatment_term
 - regimen_term
+- therapeutic_modality
+- aso_details
 - target_phenotypes
 - target_mechanisms
 - pdb_structures
@@ -222,12 +264,20 @@ attributes:
     alias: name
     owner: Treatment
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -250,6 +300,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   description:
@@ -260,8 +311,14 @@ attributes:
     owner: Treatment
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -269,7 +326,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -297,7 +358,24 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
+  action_category:
+    name: action_category
+    description: Optional high-level category for a clinical action in the treatments
+      section. Use THERAPEUTIC for actions that treat, prevent, mitigate, or manage
+      disease mechanisms or symptoms; use non-therapeutic categories for screening,
+      diagnosis, monitoring, and counseling or informational interventions.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: action_category
+    owner: Treatment
+    domain_of:
+    - Treatment
+    range: MedicalActionCategoryEnum
   treatment_term:
     name: treatment_term
     description: The MAXO term for this treatment/medical action
@@ -306,6 +384,7 @@ attributes:
     alias: treatment_term
     owner: Treatment
     domain_of:
+    - ExperimentalPerturbation
     - Treatment
     range: TreatmentDescriptor
     inlined: true
@@ -320,6 +399,32 @@ attributes:
     - Treatment
     range: RegimenDescriptor
     inlined: true
+  therapeutic_modality:
+    name: therapeutic_modality
+    description: Broad therapeutic platform/modality of a treatment (e.g., small molecule,
+      monoclonal antibody, antisense oligonucleotide, gene therapy). Complements treatment_term
+      (the MAXO action) and therapeutic_agent (the specific drug) by classifying the
+      kind of therapeutic, enabling cross-disease queries by platform. Prefer this
+      enum-backed slot over the free-text role slot for modality.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: therapeutic_modality
+    owner: Treatment
+    domain_of:
+    - Treatment
+    range: TherapeuticModalityEnum
+  aso_details:
+    name: aso_details
+    description: Structured detail specific to antisense oligonucleotide treatments.
+      Populate only when therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: aso_details
+    owner: Treatment
+    domain_of:
+    - Treatment
+    range: AntisenseOligonucleotideDetail
+    inlined: true
   target_phenotypes:
     name: target_phenotypes
     description: Phenotypes that this treatment or trial addresses or targets
@@ -328,6 +433,8 @@ attributes:
     - Enables linking treatments/trials to the symptoms/manifestations they aim to
       manage
     - Each phenotype can include ontology term references (HP)
+    - Use only for THERAPEUTIC actions; non-therapeutic actions need a future dedicated
+      observation/screening link instead of treatment-style target links
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: target_phenotypes
@@ -349,6 +456,9 @@ attributes:
     - Complements target_phenotypes by explaining WHERE in the causal chain the drug
       acts
     - Analogous to DrugMechDB paths but anchored to dismech pathophysiology nodes
+    - Use only for THERAPEUTIC actions; non-therapeutic actions such as screening,
+      monitoring, diagnostics, and counseling or informational interventions should
+      not link to pathophysiology nodes
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: target_mechanisms
@@ -384,12 +494,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -419,6 +539,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -438,10 +562,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -468,6 +602,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
   context:
     name: context

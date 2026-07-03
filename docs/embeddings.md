@@ -1,6 +1,6 @@
 # Disorder Embeddings System
 
-The dismech knowledge base includes a semantic embedding system for analyzing disorder similarity across multiple dimensions. This enables:
+The DisMech knowledge base includes a semantic embedding system for analyzing disorder similarity across multiple dimensions. This enables:
 
 - Finding disorders with similar pathophysiology, phenotypes, treatments, or cell types
 - Visualizing disease relationships in 2D space
@@ -21,50 +21,17 @@ Disorders are embedded in four separate semantic spaces, each capturing a differ
 
 ### Data Flow
 
-```
-kb/disorders/*.yaml
-        │
-        ▼
-┌─────────────────────────────┐
-│   load_disorders()          │  Load YAML, serialize datetimes,
-│                             │  add _group field for visualization
-└─────────────────────────────┘
-        │
-        ▼
-┌─────────────────────────────┐
-│   Jinja2 Templates          │  Extract relevant text for each space
-│   (embed_*.j2)              │  e.g., "Disease: Asthma\nCell Types: Mast Cell..."
-└─────────────────────────────┘
-        │
-        ▼
-┌─────────────────────────────┐
-│   OpenAI Embeddings API     │  Via linkml-store LLMIndexer
-│   (text-embedding-ada-002)  │  1536-dimensional vectors
-└─────────────────────────────┘
-        │
-        ▼
-┌─────────────────────────────┐
-│   DuckDB Cache              │  Embeddings cached by text hash
-│   (cache/embeddings/*.db)   │  Avoids re-calling API for unchanged content
-└─────────────────────────────┘
-        │
-        ▼
-┌─────────────────────────────┐
-│   Dimensionality Reduction  │  UMAP or t-SNE
-│                             │  1536D → 2D coordinates
-└─────────────────────────────┘
-        │
-        ▼
-┌─────────────────────────────┐
-│   app/embeddings/data.js    │  Pre-computed coordinates + metadata
-│                             │  for interactive browser visualization
-└─────────────────────────────┘
-        │
-        ▼
-┌─────────────────────────────┐
-│   app/embeddings/index.html │  Interactive Plotly scatter plot
-│                             │  Hover, filter, color by group
-└─────────────────────────────┘
+```mermaid
+flowchart TD
+    A["<b>kb/disorders/*.yaml</b>"]
+    B["<b>load_disorders()</b><br/>Load YAML, serialize datetimes,<br/>add _group field for visualization"]
+    C["<b>Jinja2 Templates</b> (embed_*.j2)<br/>Extract relevant text for each space<br/>e.g. 'Disease: Asthma; Cell Types: Mast Cell…'"]
+    D["<b>OpenAI Embeddings API</b> (text-embedding-ada-002)<br/>Via linkml-store LLMIndexer<br/>1536-dimensional vectors"]
+    E["<b>DuckDB Cache</b> (cache/embeddings/*.db)<br/>Embeddings cached by text hash<br/>Avoids re-calling API for unchanged content"]
+    F["<b>Dimensionality Reduction</b><br/>UMAP or t-SNE<br/>1536D → 2D coordinates"]
+    G["<b>app/embeddings/data.js</b><br/>Pre-computed coordinates + metadata<br/>for interactive browser visualization"]
+    H["<b>app/embeddings/index.html</b><br/>Interactive Plotly scatter plot<br/>Hover, filter, color by group"]
+    A --> B --> C --> D --> E --> F --> G --> H
 ```
 
 ### Key Files

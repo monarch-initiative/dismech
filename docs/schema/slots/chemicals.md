@@ -26,9 +26,22 @@ Alias: chemicals
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Environmental](../classes/Environmental.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: chemicals
 | --- |
 | ['Phenol'] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

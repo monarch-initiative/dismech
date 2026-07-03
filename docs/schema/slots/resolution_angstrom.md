@@ -31,13 +31,35 @@ Alias: resolution_angstrom
 
 ## Properties
 
-* Range: [Float](../types/Float.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Float](../types/Float.md) |
+| Domain Of | [ProteinStructure](../classes/ProteinStructure.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+### Slot Characteristics
+
+| Property | Value |
+| --- | --- |
+| Owner | [ProteinStructure](../classes/ProteinStructure.md) |
+
+
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

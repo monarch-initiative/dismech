@@ -48,7 +48,6 @@ URI: [dismech:class/ModelVariable](https://w3id.org/monarch-initiative/dismech/c
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -76,6 +75,9 @@ URI: [dismech:class/ModelVariable](https://w3id.org/monarch-initiative/dismech/c
 
 
 
+
+
+
 ## Comments
 
 * Use 'name' for human-readable display (e.g., "Plasma Calcium")
@@ -83,8 +85,9 @@ URI: [dismech:class/ModelVariable](https://w3id.org/monarch-initiative/dismech/c
 * Map to LOINC codes for clinical lab measurements to link model outputs to CDEs
 * Map to CHEBI for metabolite variables, HP for phenotypic readouts
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -168,12 +171,20 @@ attributes:
     alias: name
     owner: ModelVariable
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -196,6 +207,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   dataset_identifier:
@@ -222,8 +234,14 @@ attributes:
     owner: ModelVariable
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -231,7 +249,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -259,6 +281,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   unit:
     name: unit
@@ -270,6 +296,8 @@ attributes:
     owner: ModelVariable
     domain_of:
     - ModelVariable
+    - ReferenceRangeBand
+    - ReferenceRange
     - EpidemiologyInfo
     range: string
   mappings_list:
@@ -300,10 +328,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -330,6 +368,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
 
 ```

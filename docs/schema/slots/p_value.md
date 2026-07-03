@@ -32,13 +32,28 @@ Alias: p_value
 
 ## Properties
 
-* Range: [Float](../types/Float.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Float](../types/Float.md) |
+| Domain Of | [AssociationMetric](../classes/AssociationMetric.md), [GOEnrichmentTerm](../classes/GOEnrichmentTerm.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

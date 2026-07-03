@@ -1,3 +1,14 @@
+---
+title: Epilepsy Granularity and Mechanism Curation Project
+status: IN_PROGRESS
+description: This project records a practical curation plan for representing epilepsy in dismech at a level where mechanisms are coherent and clinically useful.
+diseases:
+- Dravet_syndrome
+- Epilepsy
+- Jeavons_Syndrome
+- Temporal_Lobe_Epilepsy
+---
+
 # Epilepsy Granularity and Mechanism Curation Project
 
 ## Active Artifacts

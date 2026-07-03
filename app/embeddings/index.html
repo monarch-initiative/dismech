@@ -404,6 +404,20 @@
             margin-top: 0.45rem;
         }
 
+        .notice-banner {
+            border: 1px solid #fed7aa;
+            background: #fff7ed;
+            color: #7c2d12;
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        .notice-banner strong {
+            color: #9a3412;
+        }
+
         code {
             font-family: var(--mono);
             font-size: 0.88em;
@@ -550,6 +564,7 @@
             </div>
         </div>
         <div class="main">
+            <div id="focus-message" class="notice-banner" role="status" aria-live="polite" hidden></div>
             <div class="plot-card">
                 <div class="plot-header">
                     <div class="plot-title">Interactive embedding map</div>
@@ -577,6 +592,9 @@
         let visibleGroups = new Set();
         let searchTerm = '';
         let showLabels = false;
+        let focusName = null;       // disorder to highlight + zoom into (from ?focus=)
+        let focusFoundInCache = false;
+        let focusZoomPending = false; // apply neighborhood zoom on the next plot only
 
         function loadData() {
             const plotElement = document.getElementById('plot');
@@ -591,15 +609,35 @@
         }
 
         function initializeApp() {
+            // Deep link: ?focus=<disorder name> highlights and zooms into that
+            // disorder's neighborhood (from the "Show in embeddings browser" link
+            // on each disorder page).
+            const params = new URLSearchParams(window.location.search);
+            const requestedFocus = params.get('focus');
+            if (requestedFocus) {
+                focusName = resolveFocusName(requestedFocus);
+                focusFoundInCache = focusExistsInAnySpace(focusName);
+                focusZoomPending = focusFoundInCache;
+                setupFocusBanner();
+                updateFocusMessage();
+            }
+            const reqSpace = params.get('space');
+            if (reqSpace && data[reqSpace]) {
+                currentSpace = reqSpace;
+                document.getElementById('space-select').value = currentSpace;
+            }
+
             // Set up event listeners
             document.getElementById('space-select').addEventListener('change', (e) => {
                 currentSpace = e.target.value;
+                if (focusName) focusZoomPending = true;
                 updateColorFilters();
                 updatePlot();
             });
 
             document.getElementById('method-select').addEventListener('change', (e) => {
                 currentMethod = e.target.value;
+                if (focusName) focusZoomPending = true;
                 updatePlot();
             });
 
@@ -633,6 +671,101 @@
 
             updateColorFilters();
             updatePlot();
+        }
+
+        // Resolve a requested focus string to the canonical metadata name
+        // (tolerant of case and slug-vs-name differences from disorder pages).
+        function resolveFocusName(requested) {
+            const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+            const target = norm(requested);
+            const seen = new Set();
+            for (const space of Object.values(data || {})) {
+                if (!space || !space.metadata) continue;
+                for (const meta of space.metadata) {
+                    if (seen.has(meta.name)) continue;
+                    seen.add(meta.name);
+                    if (meta.name === requested || norm(meta.name) === target) {
+                        return meta.name;
+                    }
+                }
+            }
+            return requested; // keep the raw value; banner will note if not found
+        }
+
+        function focusExistsInAnySpace(name) {
+            if (!name) return false;
+            for (const space of Object.values(data || {})) {
+                if (!space || !space.metadata) continue;
+                if (space.metadata.some(meta => meta.name === name)) return true;
+            }
+            return false;
+        }
+
+        function updateFocusMessage(currentSpaceFound = focusFoundInCache) {
+            const message = document.getElementById('focus-message');
+            if (!message) return;
+            message.replaceChildren();
+
+            if (!focusName) {
+                message.hidden = true;
+                return;
+            }
+
+            if (!focusFoundInCache) {
+                const strong = document.createElement('strong');
+                strong.textContent = focusName;
+                message.append(
+                    strong,
+                    ' is not yet in the embedding cache. The map is still usable, but this focus link cannot highlight or zoom to the disorder until ',
+                );
+                const code = document.createElement('code');
+                code.textContent = 'app/embeddings/data.js';
+                message.append(code, ' is regenerated after the disorder is indexed.');
+                message.hidden = false;
+                return;
+            }
+
+            if (!currentSpaceFound) {
+                const strong = document.createElement('strong');
+                strong.textContent = focusName;
+                message.append(
+                    strong,
+                    ' is in the embedding cache, but not in the currently selected embedding space.'
+                );
+                message.hidden = false;
+                return;
+            }
+
+            message.hidden = true;
+        }
+
+        function setupFocusBanner() {
+            const sidebar = document.querySelector('.sidebar');
+            if (!sidebar || document.getElementById('focus-group')) return;
+            const group = document.createElement('div');
+            group.className = 'control-group';
+            group.id = 'focus-group';
+            group.innerHTML = `
+                <label>Focused Disorder</label>
+                <div class="stats" style="background: #ede9fe; border-color: #ddd6fe;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+                        <span style="color:#5b21b6; font-weight:600;" id="focus-name"></span>
+                        <button class="btn" id="clear-focus" style="white-space:nowrap;">Clear</button>
+                    </div>
+                    <div class="section-note" id="focus-note" style="margin-top:0.4rem;">
+                        Zoomed into this disorder's neighborhood.
+                    </div>
+                </div>`;
+            sidebar.insertBefore(group, sidebar.firstChild);
+            document.getElementById('focus-name').textContent = focusName;
+            document.getElementById('clear-focus').addEventListener('click', () => {
+                focusName = null;
+                focusFoundInCache = false;
+                focusZoomPending = false;
+                group.remove();
+                updateFocusMessage();
+                updatePlot();
+            });
         }
 
         function getColorValue(metadata, field) {
@@ -773,6 +906,79 @@
             document.getElementById('stat-total').textContent = metadata.length;
             document.getElementById('stat-visible').textContent = totalVisible;
 
+            // Focused-disorder highlight + neighborhood zoom
+            let focusRange = null;
+            const annotations = [];
+            if (focusName) {
+                let focusIdx = -1;
+                for (let i = 0; i < metadata.length; i++) {
+                    if (metadata[i].name === focusName) { focusIdx = i; break; }
+                }
+                if (focusIdx >= 0) {
+                    const fx = coords[focusIdx][0];
+                    const fy = coords[focusIdx][1];
+
+                    // Always render the focused point, even if its color group is
+                    // filtered out or it does not match the current search term.
+                    traces.push({
+                        x: [fx], y: [fy],
+                        mode: 'markers',
+                        type: 'scatter',
+                        name: `★ ${focusName}`,
+                        customdata: [focusName],
+                        marker: {
+                            symbol: 'star',
+                            size: 20,
+                            color: '#6d28d9',
+                            line: { width: 1.5, color: '#fff' }
+                        },
+                        hovertemplate: `<b>${focusName}</b><br>(focused)<extra></extra>`
+                    });
+                    annotations.push({
+                        x: fx, y: fy, text: focusName,
+                        showarrow: true, arrowhead: 2, ax: 0, ay: -28,
+                        font: { size: 12, color: '#5b21b6' },
+                        bgcolor: 'rgba(237,233,254,0.9)',
+                        bordercolor: '#6d28d9', borderwidth: 1, borderpad: 3
+                    });
+
+                    if (focusZoomPending) {
+                        // Zoom to the k nearest neighbors in the projected space so
+                        // the focused disorder's neighborhood fills the viewport.
+                        const dists = [];
+                        for (let i = 0; i < coords.length; i++) {
+                            if (i === focusIdx) continue;
+                            const dx = coords[i][0] - fx;
+                            const dy = coords[i][1] - fy;
+                            dists.push(Math.hypot(dx, dy));
+                        }
+                        dists.sort((a, b) => a - b);
+                        const k = Math.min(15, dists.length);
+                        // Radius = distance to the k-th neighbor, with a floor so a
+                        // very isolated point still gets a sensible window.
+                        let radius = k > 0 ? dists[k - 1] : 0;
+                        const spanX = Math.max(...coords.map(c => c[0])) - Math.min(...coords.map(c => c[0]));
+                        if (!(radius > 0)) radius = (spanX || 1) * 0.1;
+                        const pad = radius * 1.25;
+                        focusRange = {
+                            x: [fx - pad, fx + pad],
+                            y: [fy - pad, fy + pad]
+                        };
+                    }
+                    const note = document.getElementById('focus-note');
+                    if (note) note.textContent = "Zoomed into this disorder's neighborhood.";
+                } else {
+                    const note = document.getElementById('focus-note');
+                    if (note) {
+                        note.textContent = focusFoundInCache
+                            ? 'Not found in this embedding space.'
+                            : 'Not yet in the embedding cache.';
+                    }
+                }
+                updateFocusMessage(focusIdx >= 0);
+                focusZoomPending = false;
+            }
+
             const layout = {
                 title: `${currentSpace.charAt(0).toUpperCase() + currentSpace.slice(1)} Space (${currentMethod.toUpperCase()})`,
                 hovermode: 'closest',
@@ -782,8 +988,11 @@
                 },
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: '#ffffff',
-                xaxis: { title: `${currentMethod.toUpperCase()} 1`, zeroline: false },
-                yaxis: { title: `${currentMethod.toUpperCase()} 2`, zeroline: false },
+                xaxis: { title: `${currentMethod.toUpperCase()} 1`, zeroline: false,
+                         range: focusRange ? focusRange.x : undefined },
+                yaxis: { title: `${currentMethod.toUpperCase()} 2`, zeroline: false,
+                         range: focusRange ? focusRange.y : undefined },
+                annotations: annotations,
                 legend: {
                     orientation: 'v',
                     x: 1.02,

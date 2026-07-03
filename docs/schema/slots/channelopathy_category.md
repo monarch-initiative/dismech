@@ -31,13 +31,28 @@ Alias: channelopathy_category
 
 ## Properties
 
-* Range: [ChannelopathyAssignment](../classes/ChannelopathyAssignment.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ChannelopathyAssignment](../classes/ChannelopathyAssignment.md) |
+| Domain Of | [DiseaseClassifications](../classes/DiseaseClassifications.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

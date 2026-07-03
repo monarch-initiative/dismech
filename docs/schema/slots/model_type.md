@@ -31,13 +31,28 @@ Alias: model_type
 
 ## Properties
 
-* Range: [ComputationalModelTypeEnum](../enums/ComputationalModelTypeEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ComputationalModelTypeEnum](../enums/ComputationalModelTypeEnum.md) |
+| Domain Of | [ComputationalModel](../classes/ComputationalModel.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

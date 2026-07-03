@@ -25,6 +25,8 @@ URI: [dismech:class/TermMapping](https://w3id.org/monarch-initiative/dismech/cla
         click ICD11FMapping href "../../classes/ICD11FMapping/"
       TermMapping <|-- MondoMapping
         click MondoMapping href "../../classes/MondoMapping/"
+      TermMapping <|-- NCITMapping
+        click NCITMapping href "../../classes/NCITMapping/"
       
       TermMapping : consistency
         
@@ -56,6 +58,17 @@ URI: [dismech:class/TermMapping](https://w3id.org/monarch-initiative/dismech/cla
     
 
         
+      TermMapping : tracked_issues
+        
+          
+    
+        
+        
+        TermMapping --> "*" TrackedIssue : tracked_issues
+        click TrackedIssue href "../../classes/TrackedIssue/"
+    
+
+        
       
 ```
 
@@ -68,7 +81,7 @@ URI: [dismech:class/TermMapping](https://w3id.org/monarch-initiative/dismech/cla
     * [ICD10CMMapping](../classes/ICD10CMMapping.md)
     * [ICD11FMapping](../classes/ICD11FMapping.md)
     * [MondoMapping](../classes/MondoMapping.md)
-
+    * [NCITMapping](../classes/NCITMapping.md)
 
 
 ## Slots
@@ -80,6 +93,7 @@ URI: [dismech:class/TermMapping](https://w3id.org/monarch-initiative/dismech/cla
 | [mapping_source](../slots/mapping_source.md) | 0..1 <br/> [String](../types/String.md) | Source of the mapping (e | direct |
 | [mapping_justification](../slots/mapping_justification.md) | 0..1 <br/> [String](../types/String.md) | Brief rationale or justification for the mapping | direct |
 | [consistency](../slots/consistency.md) | * <br/> [MappingConsistency](../classes/MappingConsistency.md) | Consistency assertions for this mapping against other sources | direct |
+| [tracked_issues](../slots/tracked_issues.md) | * <br/> [TrackedIssue](../classes/TrackedIssue.md) | Structured pointers to external tracker issues (e | direct |
 | [notes](../slots/notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 
 
@@ -91,8 +105,12 @@ URI: [dismech:class/TermMapping](https://w3id.org/monarch-initiative/dismech/cla
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -135,6 +153,7 @@ slots:
 - mapping_source
 - mapping_justification
 - consistency
+- tracked_issues
 - notes
 slot_usage:
   term:
@@ -222,6 +241,24 @@ attributes:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  tracked_issues:
+    name: tracked_issues
+    description: Structured pointers to external tracker issues (e.g., GitHub ontology
+      term requests, schema follow-ups) that provide curation provenance for this
+      entry or nested object. Use this in preference to stashing issue URLs inside
+      free-text `notes` fields so they can be validated, rendered, and queried consistently.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: tracked_issues
+    owner: TermMapping
+    domain_of:
+    - SurrogateEndpointCollection
+    - Disease
+    - TermMapping
+    range: TrackedIssue
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   notes:
     name: notes
     examples:
@@ -236,10 +273,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -266,6 +313,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
 
 ```

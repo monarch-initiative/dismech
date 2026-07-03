@@ -8,6 +8,12 @@ _A term representing a biological process or pathway_
 
 
 URI: [dismech:enum/BiologicalProcessTerm](https://w3id.org/monarch-initiative/dismech/enum/BiologicalProcessTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** GO:0008150
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

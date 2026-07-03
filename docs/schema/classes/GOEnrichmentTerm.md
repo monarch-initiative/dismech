@@ -46,7 +46,6 @@ URI: [dismech:class/GOEnrichmentTerm](https://w3id.org/monarch-initiative/dismec
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -73,8 +72,12 @@ URI: [dismech:class/GOEnrichmentTerm](https://w3id.org/monarch-initiative/dismec
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

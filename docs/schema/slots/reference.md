@@ -22,9 +22,9 @@ Alias: reference
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [EvidenceItem](../classes/EvidenceItem.md) |  |  no  |
 | [PublicationReference](../classes/PublicationReference.md) | A reference to a publication with associated findings |  yes  |
 | [MappingConsistency](../classes/MappingConsistency.md) | Consistency assertion for a mapping relative to another source |  yes  |
+| [EvidenceItem](../classes/EvidenceItem.md) |  |  no  |
 
 
 
@@ -33,7 +33,21 @@ Alias: reference
 
 ## Properties
 
-* Range: [PMID](../types/PMID.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [PMID](../types/PMID.md) |
+| Domain Of | [EvidenceItem](../classes/EvidenceItem.md), [PublicationReference](../classes/PublicationReference.md), [MappingConsistency](../classes/MappingConsistency.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -45,8 +59,9 @@ Alias: reference
 | --- |
 | PMID:35533128 |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

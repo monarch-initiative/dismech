@@ -17,7 +17,11 @@ Alias: biological_processes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [ExperimentalReadout](../classes/ExperimentalReadout.md) | A structured readout or outcome measured in an experiment |  no  |
 | [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [LogicalCriterion](../classes/LogicalCriterion.md) | A node in a nested boolean membership-criteria expression |  no  |
+| [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | A structured perturbation, intervention, or exposure used in an experiment |  no  |
+| [DifferentiatingMechanism](../classes/DifferentiatingMechanism.md) | A mechanism or feature that distinguishes a grouping member from its siblings... |  no  |
 
 
 
@@ -26,9 +30,22 @@ Alias: biological_processes
 
 ## Properties
 
-* Range: [BiologicalProcessDescriptor](../classes/BiologicalProcessDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [BiologicalProcessDescriptor](../classes/BiologicalProcessDescriptor.md) |
+| Domain Of | [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md), [ExperimentalReadout](../classes/ExperimentalReadout.md), [Pathophysiology](../classes/Pathophysiology.md), [LogicalCriterion](../classes/LogicalCriterion.md), [DifferentiatingMechanism](../classes/DifferentiatingMechanism.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +57,9 @@ Alias: biological_processes
 | --- |
 | [{preferred_term: TNF-alpha Production}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -76,7 +94,11 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: biological_processes
 domain_of:
+- ExperimentalPerturbation
+- ExperimentalReadout
 - Pathophysiology
+- LogicalCriterion
+- DifferentiatingMechanism
 range: BiologicalProcessDescriptor
 multivalued: true
 inlined: true

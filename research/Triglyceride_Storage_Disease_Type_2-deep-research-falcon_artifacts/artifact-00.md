@@ -1,0 +1,17 @@
+| Concept | Key data points |
+|---|---|
+| Identifier | Neutral lipid storage disease with myopathy (NLSDM); Triglyceride storage disease type 2; OMIM/MIM #610717 (pqac-00000002, pqac-00000000) |
+| Synonym | PNPLA2-related neutral lipid storage disease; ATGL deficiency; disease associated with PNPLA2 mutations can also overlap conceptually with triglyceride deposit cardiomyovasculopathy in cardiac-predominant cases (pqac-00000002, pqac-00000003, pqac-00000016) |
+| Inheritance | Autosomal recessive; homozygous or compound heterozygous PNPLA2 variants reported (33 homozygous families and 7 compound heterozygous families in Chinese cohort) (pqac-00000002, pqac-00000011) |
+| Gene | PNPLA2 encodes adipose triglyceride lipase (ATGL), the key enzyme initiating intracellular triglyceride hydrolysis (pqac-00000002, pqac-00000005) |
+| Pathogenesis | Impaired ATGL activity causes defective lipid-droplet triglyceride breakdown and neutral lipid accumulation in skeletal muscle, heart, liver, leukocytes, and other tissues; complete loss of ATGL protein documented in severe cases (pqac-00000000, pqac-00000002) |
+| Key phenotypes | In Chinese cohort: pure skeletal myopathy 18/45, skeletal myopathy + cardiomyopathy 21/45, pure cardiomyopathy 4/45, asymptomatic hyperCKemia 2/45; right upper limb weakness was early/prominent in 61.5% (pqac-00000011) |
+| Key diagnostic hallmarks | Jordan anomaly in all 31/31 tested in Chinese cohort; myopathic EMG in 39/43 (90.7%); elevated CK common (pqac-00000009, pqac-00000005) |
+| MRI pattern | Selective fatty infiltration of long head of biceps femoris, semimembranosus, adductor magnus, soleus, and medial gastrocnemius; rectus femoris, gracilis, sartorius, anterior/posterior tibialis relatively spared (pqac-00000010, pqac-00000012) |
+| Pathology stats | Lipid droplet accumulation in all biopsied patients in Chinese cohort; rimmed vacuoles in 21/42 (50.0%) in that cohort; literature summary found muscle lipid accumulation in 52/53 (98%) and rimmed vacuoles in 11/53 (21%) (pqac-00000009, pqac-00000003) |
+| Variant spectrum hotspot | Chinese cohort: 23 distinct PNPLA2 mutations; c.757+1G>T hotspot 24/80 alleles (30.0%); c.245G>A 9/80, c.187+1G>A 8/80; missense variants mostly in patatin domain (pqac-00000010, pqac-00000011) |
+| Treatment evidence | No established disease-specific therapy; low-fat + MCT diet lowered CPK from 2640 to 1424 U/L in one long-term case but myopathy still progressed; another 2024 case reported improved limb strength and resolution of dysarthria after medium-chain fatty acid diet (pqac-00000000, pqac-00000007) |
+| Clinical trials | Bezafibrate phase 4 trial NCT01527318: 400 mg/day for 28 weeks, completed, focused on muscle/cardiac/insulin-sensitivity outcomes; CNT-02 open-label study NCT02830763: 2.0 g orally three times daily up to 6 months, terminated; international registry NCT02918032 recruiting, target enrollment 120, primary outcome all-cause mortality from diagnosis (pqac-00000014, pqac-00000018, pqac-00000015) |
+
+
+*Table: This table condenses the most actionable disease knowledge for Triglyceride Storage Disease Type 2 / NLSDM, including identifiers, genetics, hallmark findings, cohort statistics, and current trial activity. It is useful as a quick-reference artifact for building a disease knowledge base entry.*

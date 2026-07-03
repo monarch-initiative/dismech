@@ -1,3 +1,9 @@
+---
+title: Structural Biology & Disease Mechanisms Project
+status: IN_PROGRESS
+description: Diseases where protein structure determination (PDB X-ray crystallography, cryo-EM) or computational structure prediction (AlphaFold) has been key to understanding pathophysiology, enabling drug design, or interpreting variant pathogenicity.
+---
+
 # Structural Biology & Disease Mechanisms Project
 
 ## Overview

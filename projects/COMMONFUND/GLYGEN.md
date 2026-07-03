@@ -15,7 +15,7 @@ community.
 GlyGen and related glycoscience resources can help dismech represent the actual
 glycoprotein, glycan, or glycosylation defect that mediates disease biology.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use glycoscience data to add the modified-molecule layer:
 
@@ -88,7 +88,7 @@ between a gene defect and a phenotype.
 3. Draft mechanism edits that say exactly what glycan processing step is
    impaired and which biomarker demonstrates it.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How GlyGen/Glycoscience helps |
 |---------|--------------------------------|-------------------------------|

@@ -42,7 +42,6 @@ URI: [dismech:class/Finding](https://w3id.org/monarch-initiative/dismech/class/F
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -60,6 +59,7 @@ URI: [dismech:class/Finding](https://w3id.org/monarch-initiative/dismech/class/F
 | used by | used in | type | used |
 | ---  | --- | --- | --- |
 | [Dataset](../classes/Dataset.md) | [findings](../slots/findings.md) | range | [Finding](../classes/Finding.md) |
+| [ExperimentalModel](../classes/ExperimentalModel.md) | [findings](../slots/findings.md) | range | [Finding](../classes/Finding.md) |
 | [ComputationalModel](../classes/ComputationalModel.md) | [findings](../slots/findings.md) | range | [Finding](../classes/Finding.md) |
 | [PublicationReference](../classes/PublicationReference.md) | [findings](../slots/findings.md) | range | [Finding](../classes/Finding.md) |
 
@@ -69,8 +69,12 @@ URI: [dismech:class/Finding](https://w3id.org/monarch-initiative/dismech/class/F
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -153,12 +157,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -188,6 +202,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true

@@ -3,7 +3,7 @@
 # Slot: functional_impact 
 
 
-_Functional consequence of the genetic variant (e.g., loss_of_function, gain_of_function, dominant_negative)._
+_Functional consequence of the genetic variant (e.g., loss_of_function, gain_of_function, dominant_negative). Free text retained for legacy values; prefer `functional_impact_category` when a controlled value applies._
 
 
 
@@ -31,13 +31,28 @@ Alias: functional_impact
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [GeneticContext](../classes/GeneticContext.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -67,7 +82,8 @@ Alias: functional_impact
 ```yaml
 name: functional_impact
 description: Functional consequence of the genetic variant (e.g., loss_of_function,
-  gain_of_function, dominant_negative).
+  gain_of_function, dominant_negative). Free text retained for legacy values; prefer
+  `functional_impact_category` when a controlled value applies.
 from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: functional_impact

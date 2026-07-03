@@ -31,15 +31,29 @@ Alias: sample_types
 
 ## Properties
 
-* Range: [SampleTypeDescriptor](../classes/SampleTypeDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [SampleTypeDescriptor](../classes/SampleTypeDescriptor.md) |
+| Domain Of | [Dataset](../classes/Dataset.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

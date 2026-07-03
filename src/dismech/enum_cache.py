@@ -100,8 +100,17 @@ def scan_enum_cache_dir(
     schema_path: Path,
     cache_dir: Path,
     oak_config: Path | None,
+    offline: bool = False,
 ) -> list[EnumCacheFinding]:
-    """Scan enum cache files for stale files, duplicate rows, and invalid rows."""
+    """Scan enum cache files for stale files, duplicate rows, and invalid rows.
+
+    When ``offline`` is true the per-CURIE membership re-derivation
+    (``is_value_in_enum``, which asks OAK to expand the enum and can trigger
+    multi-GB ``sqlite:obo:*`` downloads) is skipped. The structural checks that
+    need no ontology access — stale-file detection, malformed headers, and
+    duplicate rows — still run. Use this in network- or disk-constrained
+    environments where the committed ``cache/*.csv`` is trusted.
+    """
 
     enum_dir = cache_dir / "enums"
     if not enum_dir.is_dir():
@@ -115,7 +124,7 @@ def scan_enum_cache_dir(
 
     schema_view = SchemaView(str(schema_path))
     expected = current_enum_caches(schema_path, cache_dir, oak_config)
-    checker = _checking_plugin(cache_dir, oak_config)
+    checker = None if offline else _checking_plugin(cache_dir, oak_config)
     findings: list[EnumCacheFinding] = []
 
     for path in sorted(enum_dir.glob("*.csv")):
@@ -152,7 +161,9 @@ def scan_enum_cache_dir(
                 continue
             seen.add(curie)
 
-            if not checker.is_value_in_enum(curie, current.enum_def, schema_view):
+            if checker is not None and not checker.is_value_in_enum(
+                curie, current.enum_def, schema_view
+            ):
                 findings.append(
                     EnumCacheFinding(
                         path=path,
@@ -255,6 +266,16 @@ def main(argv: list[str] | None = None) -> int:
         "--fix", action="store_true", help="Repair cache files in place"
     )
     parser.add_argument(
+        "--offline",
+        action="store_true",
+        help=(
+            "Skip the OAK-backed membership re-derivation (which can trigger "
+            "multi-GB sqlite:obo:* downloads) and run only the structural checks "
+            "(stale files, malformed headers, duplicate rows) that trust the "
+            "committed cache. Incompatible with --fix."
+        ),
+    )
+    parser.add_argument(
         "--max-findings",
         type=int,
         default=50,
@@ -262,16 +283,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.offline and args.fix:
+        parser.error("--offline cannot be combined with --fix (repair needs OAK)")
+
     oak_config = args.oak_config if args.oak_config.exists() else None
     findings = (
         repair_enum_cache_dir(args.schema, args.cache_dir, oak_config)
         if args.fix
-        else scan_enum_cache_dir(args.schema, args.cache_dir, oak_config)
+        else scan_enum_cache_dir(
+            args.schema, args.cache_dir, oak_config, offline=args.offline
+        )
     )
 
     if not findings:
+        note = " (offline: membership re-derivation skipped)" if args.offline else ""
         print(
-            f"OK: enum cache rows match current dynamic enum definitions in {args.cache_dir}"
+            f"OK: enum cache rows match current dynamic enum definitions in "
+            f"{args.cache_dir}{note}"
         )
         return 0
 

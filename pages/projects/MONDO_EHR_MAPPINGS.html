@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MONDO-Driven EHR Rare Disease Mapping Refactor - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>MONDO-Driven EHR Rare Disease Mapping Refactor</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>MONDO-Driven EHR Rare Disease Mapping Refactor</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                <div class="panel">
+                    <h2>Scope</h2>
+                    <p style="font-size:0.85rem;color:var(--gray-500);">
+                        This project has no entity frontmatter yet. Add <code>diseases</code>,
+                        <code>modules</code>, <code>drugs</code>, or <code>phenotypes</code> keys
+                        to link entities.
+                    </p>
+                </div>
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/MONDO_EHR_MAPPINGS.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="mondo-driven-ehr-rare-disease-mapping-refactor">MONDO-Driven EHR Rare Disease Mapping Refactor</h1>
+<h2 id="overview">Overview</h2>
+<p>Replace brittle, hand-maintained SQL <code>IN (...)</code> code lists with a reproducible MONDO-driven mapping pipeline that generates versioned SNOMED/ICD concept sets for OMOP queries.</p>
+<p>Primary target: workflows currently represented in <code>~/repos/Rare-Disease-EHR-Codes</code> (class-level rare disease cohort extraction).</p>
+<h2 id="why-this-project-exists">Why This Project Exists</h2>
+<ul>
+<li>Current approach hardcodes very large SNOMED and ICD lists in SQL.</li>
+<li>Updates are manual and error-prone.</li>
+<li>Provenance and mapping quality policies are not explicit in execution artifacts.</li>
+<li>Regeneration for new ontology/vocabulary releases is expensive.</li>
+</ul>
+<h2 id="deliverables">Deliverables</h2>
+<ol>
+<li>Deterministic generator: <code>MONDO -&gt; xrefs -&gt; OMOP concepts -&gt; descendants -&gt; class concept sets</code>.</li>
+<li>Versioned outputs (CSV/TSV) with provenance metadata and mapping confidence fields.</li>
+<li>SQL refactor to read generated tables instead of hardcoded lists.</li>
+<li>Validation suite comparing legacy vs generated cohorts by class.</li>
+<li>Maintainer docs and rerun playbook.</li>
+</ol>
+<h2 id="non-goals">Non-Goals</h2>
+<ul>
+<li>Full replacement of all clinical phenotyping logic with MONDO alone.</li>
+<li>Building de novo disease definitions beyond code-based ascertainment.</li>
+<li>Rewriting all downstream analytics in this first pass.</li>
+</ul>
+<h2 id="proposed-architecture">Proposed Architecture</h2>
+<ul>
+<li>Source ontology: MONDO rare subset (<code>oio:inSubset = mondo#rare</code>), non-deprecated terms.</li>
+<li>Mapping layer: MONDO xrefs with explicit predicates (<code>exact</code>, related, narrow/broad handling).</li>
+<li>Vocabulary resolution: resolve mapped SNOMED/ICD codes to OMOP concepts.</li>
+<li>Expansion layer: controlled descendant expansion where policy allows.</li>
+<li>Classification layer: assign diseases to Orphanet/MONDO classes for class-level cohorts.</li>
+<li>Export layer: generate immutable dated artifacts consumed by SQL.</li>
+</ul>
+<h2 id="mapping-policy-initial">Mapping Policy (Initial)</h2>
+<ul>
+<li>Include: exact/equivalent mappings by default.</li>
+<li>Review queue: broad/narrow/related mappings.</li>
+<li>Exclude: obsolete/deprecated concepts.</li>
+<li>Track all mapping provenance fields in output:</li>
+<li><code>mondo_id</code>, <code>mondo_label</code></li>
+<li><code>source_prefix</code>, <code>source_code</code></li>
+<li><code>mapping_predicate</code></li>
+<li><code>omop_concept_id</code>, <code>omop_vocabulary</code></li>
+<li><code>expansion_mode</code></li>
+<li><code>generator_version</code>, <code>run_date</code></li>
+</ul>
+<hr />
+<h1 id="status">STATUS</h1>
+<h2 id="phase-0-baseline-and-design-06">Phase 0: Baseline and Design (0/6)</h2>
+<ul>
+<li>[ ] Inventory all hardcoded SNOMED/ICD lists and owning SQL transforms</li>
+<li>[ ] Snapshot baseline cohort counts by disease class</li>
+<li>[ ] Define mapping predicate policy (exact/related/broad/narrow)</li>
+<li>[ ] Define descendant expansion policy (when to include descendants)</li>
+<li>[ ] Define artifact schema and file layout</li>
+<li>[ ] Write acceptance criteria for parity and drift thresholds</li>
+</ul>
+<h2 id="phase-1-generator-mvp-07">Phase 1: Generator MVP (0/7)</h2>
+<ul>
+<li>[ ] Build MONDO rare term loader (active terms only)</li>
+<li>[ ] Extract MONDO xrefs with predicates</li>
+<li>[ ] Resolve SNOMED/ICD to OMOP concept IDs</li>
+<li>[ ] Generate class-level concept sets (neurologic, neoplastic, etc.)</li>
+<li>[ ] Emit versioned artifacts with provenance fields</li>
+<li>[ ] Add unit checks for empty/duplicate/invalid concept rows</li>
+<li>[ ] Add CLI entrypoint for reproducible reruns</li>
+</ul>
+<h2 id="phase-2-sql-integration-06">Phase 2: SQL Integration (0/6)</h2>
+<ul>
+<li>[ ] Replace one pilot class (<code>rare_neurologic_disease</code>) hardcoded SQL with artifact-driven join</li>
+<li>[ ] Validate pilot parity vs legacy query</li>
+<li>[ ] Expand to remaining classes</li>
+<li>[ ] Remove embedded hardcoded <code>IN (...)</code> lists</li>
+<li>[ ] Add guardrails for missing artifact tables</li>
+<li>[ ] Add migration notes for Foundry/N3C execution</li>
+</ul>
+<h2 id="phase-3-validation-and-qa-07">Phase 3: Validation and QA (0/7)</h2>
+<ul>
+<li>[ ] Class-level cohort count comparison (legacy vs MONDO-driven)</li>
+<li>[ ] Delta analysis by person_id for each class</li>
+<li>[ ] Top gain/loss code audit sample for each class</li>
+<li>[ ] Rare/common incidence sanity checks</li>
+<li>[ ] Regression thresholds defined and enforced</li>
+<li>[ ] Produce validation report artifact</li>
+<li>[ ] Sign-off criteria documented</li>
+</ul>
+<h2 id="phase-4-operations-and-maintenance-05">Phase 4: Operations and Maintenance (0/5)</h2>
+<ul>
+<li>[ ] Add scheduled regeneration workflow for ontology/vocabulary updates</li>
+<li>[ ] Add changelog output between runs (added/removed concepts)</li>
+<li>[ ] Add semantic versioning for artifact schema</li>
+<li>[ ] Document rollback procedure</li>
+<li>[ ] Publish maintainer runbook</li>
+</ul>
+<h2 id="phase-5-upstream-contribution-plan-04">Phase 5: Upstream Contribution Plan (0/4)</h2>
+<ul>
+<li>[ ] Split work into PR-ready branches (generator, SQL migration, docs)</li>
+<li>[ ] Open PR 1: artifact generator + tests</li>
+<li>[ ] Open PR 2: SQL migration for pilot + validation report</li>
+<li>[ ] Open PR 3: full rollout + operational docs</li>
+</ul>
+<h2 id="success-criteria">Success Criteria</h2>
+<ul>
+<li>No class-level SQL contains giant hardcoded code lists.</li>
+<li>Regeneration is one command and produces versioned artifacts.</li>
+<li>Cohort deltas are explainable and within agreed thresholds.</li>
+<li>Mapping provenance is queryable for every included concept.</li>
+<li>Update effort for new ontology release is measured in minutes, not days.</li>
+</ul>
+<h1 id="notes">NOTES</h1>
+<h2 id="2026-03-02">2026-03-02</h2>
+<ul>
+<li>Project initialized from discussion about fragility of hardcoded SQL concept lists.</li>
+<li>Scope set to MONDO-driven mapping with OMOP resolution, not MONDO-only phenotyping.</li>
+<li>Execution strategy intentionally phased: pilot one class, validate, then scale.</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>

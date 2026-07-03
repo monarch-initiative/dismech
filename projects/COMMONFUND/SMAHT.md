@@ -15,7 +15,7 @@ For dismech, SMaHT is the program that makes tissue distribution, variant
 timing, clone size, and lineage context first-class parts of a disease
 mechanism.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use SMaHT as a mosaic variant interpretation layer:
 
@@ -53,7 +53,7 @@ background mosaicism from disease-causing tissue-restricted clones.
 - For approved sequence analysis: `bcftools`, `samtools`, Mutect2, DeepVariant
   or SMaHT-recommended callers, mosaic variant filtering, VAF modeling, and
   tissue/cell-lineage annotation.
-- Dismech representation needs explicit fields in notes for VAF, tissue,
+- DisMech representation needs explicit fields in notes for VAF, tissue,
   lesion status, assay sensitivity, and inherited versus postzygotic origin.
 
 **Curation targets:**
@@ -89,7 +89,7 @@ background mosaicism from disease-causing tissue-restricted clones.
 3. Write disease memos that separate reference/background tissue mosaicism from
    disease-specific lesion sequencing evidence.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How SMaHT helps |
 |---------|--------------------------------|-----------------|

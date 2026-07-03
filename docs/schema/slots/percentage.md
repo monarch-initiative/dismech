@@ -26,7 +26,32 @@ Alias: percentage
 
 ## Properties
 
-* Range: [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[Float](../types/Float.md)&nbsp;or&nbsp;<br />[Integer](../types/Integer.md)&nbsp;or&nbsp;<br />[String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[Integer](../types/Integer.md)&nbsp;or&nbsp;<br />[Float](../types/Float.md)&nbsp;or&nbsp;<br />[String](../types/String.md) |
+| Domain Of | [Prevalence](../classes/Prevalence.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+<details>
+<summary>Expressions & Logic</summary>
+#### Any Of
+
+Value must satisfy at least one of:
+- AnonymousSlotExpression({'range': 'float'})
+- AnonymousSlotExpression({'range': 'integer'})
+- AnonymousSlotExpression({'description': 'for ranges', 'range': 'string'})
+
+</details>
+
+
+
+
+
 
 
 
@@ -38,8 +63,9 @@ Alias: percentage
 | --- |
 | 0.1 |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

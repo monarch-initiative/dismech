@@ -26,7 +26,21 @@ Alias: incubation_years
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [ProgressionInfo](../classes/ProgressionInfo.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -38,8 +52,9 @@ Alias: incubation_years
 | --- |
 | 2-15 |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

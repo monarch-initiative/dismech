@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antimicrobial Therapy: Drug–Bug Mechanism Design Pattern - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Antimicrobial Therapy: Drug–Bug Mechanism Design Pattern</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Antimicrobial Therapy: Drug–Bug Mechanism Design Pattern</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (8)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Bacterial_meningitis.html">Bacterial meningitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ludwig&#39;s_Angina.html">Ludwigs Angina</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Lyme_Disease.html">Lyme Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Murine_typhus.html">Murine Typhus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Oroya_fever.html">Oroya Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Paratyphoid_Fever.html">Paratyphoid Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Scarlet_Fever.html">Scarlet Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Whipple_Disease.html">Whipple Disease</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (8)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/bacterial_cell_wall_synthesis_inhibition.html">bacterial cell wall synthesis inhibition</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/bacterial_dna_topoisomerase_inhibition.html">bacterial dna topoisomerase inhibition</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/bacterial_folate_synthesis_inhibition.html">bacterial folate synthesis inhibition</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/bacterial_protein_synthesis_inhibition.html">bacterial protein synthesis inhibition</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/bacterial_rna_polymerase_inhibition.html">bacterial rna polymerase inhibition</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/fibrotic_response.html">fibrotic response</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/immune_checkpoint_blockade.html">immune checkpoint blockade</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/intracellular_pathogen_persistence.html">intracellular pathogen persistence</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/ANTIMICROBIAL.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="antimicrobial-therapy-drugbug-mechanism-design-pattern">Antimicrobial Therapy: Drug–Bug Mechanism Design Pattern</h1>
+<h2 id="status-phase-2-canonical-antibacterial-target-class-module-set-complete">Status: Phase 2 — Canonical Antibacterial Target-Class Module Set Complete</h2>
+<p>Six antimicrobial mechanism modules now cover the major antibacterial target
+classes plus the lifestyle-gating axis:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Target / principle</th>
+<th>Drug classes</th>
+<th>Example conformers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bacterial_cell_wall_synthesis_inhibition</code></td>
+<td>PBP transpeptidation, lipid II</td>
+<td>beta-lactams, glycopeptides</td>
+<td>Lyme, Scarlet, Bejel, Pinta, Whipple, Paratyphoid, Ludwig's, meningitis, C. diff, Furunculosis, Leptospirosis</td>
+</tr>
+<tr>
+<td><code>bacterial_protein_synthesis_inhibition</code></td>
+<td>70S ribosome; toxin-synthesis suppression</td>
+<td>tetracyclines, macrolides, aminoglycosides, lincosamides, chloramphenicol, oxazolidinones</td>
+<td>Murine Typhus, Oroya, Lyme, Leptospirosis, Yaws, Whipple, Scarlet</td>
+</tr>
+<tr>
+<td><code>bacterial_dna_topoisomerase_inhibition</code></td>
+<td>DNA gyrase / topo IV</td>
+<td>fluoroquinolones</td>
+<td>Travelers' Diarrhea</td>
+</tr>
+<tr>
+<td><code>bacterial_rna_polymerase_inhibition</code></td>
+<td>RpoB</td>
+<td>rifamycins</td>
+<td>Leprosy, Buruli Ulcer</td>
+</tr>
+<tr>
+<td><code>bacterial_folate_synthesis_inhibition</code></td>
+<td>DHPS / DHFR</td>
+<td>sulfonamides, dapsone, trimethoprim</td>
+<td>Leprosy, Whipple</td>
+</tr>
+<tr>
+<td><code>intracellular_pathogen_persistence</code></td>
+<td>PK gating (cell penetration)</td>
+<td>doxycycline/macrolide/FQ/rifamycin required</td>
+<td>Murine Typhus, Oroya, Leprosy</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Multi-module conformers</strong> (the payoff — one disease, several independent
+mechanistic constraints):
+- <strong>Leprosy</strong>: RNA polymerase (rifampicin) + folate/DHPS (dapsone) + intracellular niche (M. leprae)
+- <strong>Whipple</strong>: cell wall (ceftriaxone) + ribosome (doxycycline) + folate (TMP-SMX)
+- <strong>Murine Typhus / Oroya Fever</strong>: ribosome (doxycycline/chloramphenicol) + intracellular niche
+- <strong>Leptospirosis</strong>: ribosome (doxycycline) + cell wall (penicillin/ceftriaxone)</p>
+<h2 id="0-scope-and-positioning-what-this-is-and-is-not">0. Scope and Positioning (what this is and is NOT)</h2>
+<p>This work is an <strong>explanatory mechanism layer</strong>, not a drug–indication database and
+not a clinical decision support system (DSS):</p>
+<ul>
+<li><strong>Not duplicating drug-indication curation.</strong> Other efforts already enumerate
+  <em>which</em> drugs treat <em>which</em> conditions (drug labels, DrugBank, DrugCentral,
+  ChEMBL indications, RxNorm/NDF-RT may-treat, DailyMed). dismech does not try to
+  recapitulate that catalogue. Its contribution is to <em>explain</em> those
+  associations mechanistically — linking a treatment, via <code>target_mechanisms</code>, to
+  the specific pathophysiology node (drug target or gating principle) that makes
+  it work, and to make that explanation queryable and consistency-checkable
+  across diseases via shared modules.</li>
+<li><strong>Not a DSS — claims must stay moderated.</strong> Antibiotic decision support already
+  exists (institutional antibiograms/stewardship tools, IDSA guidelines, Sanford
+  Guide, UpToDate, local empiric-therapy pathways, CLSI/EUCAST breakpoints). We
+  should not position these modules as point-of-care prescribing guidance. At
+  most this is a <em>mechanistic substrate</em> that such tools could cite or build on;
+  the deliverable here is explanation and structured knowledge, not a
+  recommendation engine.</li>
+<li><strong>Open question worth a short survey:</strong> look at how existing DSSs and
+  knowledge bases (DrugMechDB for mechanism paths; guideline/stewardship tools
+  for drug–bug logic) represent this, to (a) borrow vocabulary and avoid
+  reinventing, and (b) sharpen where the <em>mechanistic-explanation</em> niche is
+  genuinely additive rather than overlapping. Tracked as a follow-up, not a
+  blocker.</li>
+</ul>
+<p>Recording the strategy for the treatment/action block of <strong>bacterial infectious
+disease</strong> entries. The same pattern generalizes to antifungal, antiparasitic, and
+antiviral therapy, but the worked examples here are antibacterial.</p>
+<h2 id="1-the-problem">1. The Problem</h2>
+<p>Crudely, <em>any</em> broad-spectrum antibiotic is "good against any bacterial
+infection," so the naive treatment block for every bacterial entry collapses to
+a single generic edge: <code>Pharmacotherapy → some antibiotic → disease</code>. That throws
+away the knowledge clinicians actually use: <strong>particular mechanisms in particular
+antibiotics are better (or useless) for particular diseases.</strong> We want to encode
+that depth.</p>
+<h2 id="2-the-core-principle-target-the-pathogen-mechanism-node-not-the-disease">2. The Core Principle: Target the Pathogen Mechanism Node, Not the Disease</h2>
+<p>dismech already has the machinery. A <code>Treatment</code> links to specific
+pathophysiology nodes via <code>target_mechanisms</code> (<code>TreatmentMechanismTarget</code>,
+schema). This is the same pattern as <code>immune_checkpoint_blockade</code> and
+<code>fibrotic_response</code> — describe the same biology from both the disease side and
+the treatment side, and connect them with a <code>target_mechanisms</code> edge.</p>
+<p>For antibacterials, the edge should point at the <strong>pathogen's druggable biology</strong>,
+which lives as pathophysiology nodes:</p>
+<ul>
+<li><strong>Leprosy</strong> already does this for <em>adjunctive</em> therapy: corticosteroids →
+  "Type 1 Delayed-Type Hypersensitivity Response"; thalidomide → "Immune-Complex
+  Formation in Type 2 Reaction". The antibacterial agents (rifampicin, dapsone,
+  clofazimine) currently lack <code>target_mechanisms</code> edges — that is the gap.</li>
+<li><strong>Lyme Disease</strong> is the model for laying the substrate: it already treats
+  pathogen biology as first-class pathophysiology nodes (Complement Evasion via
+  BBK32, Antigenic Variation via vlsE, Host Lipid Scavenging and Membrane
+  Biogenesis). The same entries should carry <strong>drug-target nodes</strong> (peptidoglycan
+  synthesis, ribosomal translation, RNA polymerase, folate synthesis) that the
+  antibiotic's <code>target_mechanisms</code> points at.</li>
+</ul>
+<p>A single <code>target_mechanisms</code> edge encodes <em>why this drug</em>, not just <em>that this
+drug</em> — and it predicts failure modes (a cell-wall-less organism has no PBP node,
+so β-lactams have nothing to point at).</p>
+<h2 id="3-three-tier-encoding">3. Three-Tier Encoding</h2>
+<p><strong>Tier 1 — crude baseline (already in use).</strong>
+<code>treatment_term: NCIT:C15986</code> (Pharmacotherapy) + <code>therapeutic_agent</code> (CHEBI for
+the specific drug, e.g. <code>CHEBI:28077</code> rifampicin) + <code>therapeutic_modality:
+SMALL_MOLECULE</code>. Says "rifampicin is used for leprosy."</p>
+<p><strong>Tier 2 — the mechanistic edge (the depth).</strong>
+Add a pathophysiology node for the targeted bacterial process and link
+<code>target_mechanisms</code> to it: rifampicin → "Bacterial DNA-dependent RNA Polymerase
+(rpoB)"; dapsone → "Folate Synthesis (DHPS)"; a β-lactam → "Peptidoglycan
+Transpeptidation (PBPs)". Use <code>target_phenotypes</code> for adjuncts (anti-inflammatory,
+anti-toxin), as Leprosy already does.</p>
+<p><strong>Tier 3 — conserved generalizations as modules.</strong>
+The reasons "some mechanisms are better for some diseases" are largely conserved
+<em>pathogen-property × drug-class</em> interactions — exactly what <code>kb/modules/</code> +
+<code>conforms_to</code> capture. Proposed modules:
+- <code>bacterial_cell_wall_synthesis_inhibition</code>
+- <code>bacterial_protein_synthesis_inhibition</code>
+- <code>intracellular_pathogen_persistence</code> (lifestyle gating, not a drug target)</p>
+<p>Disease nodes <code>conforms_to</code> these so a generalization ("β-lactams fail vs
+cell-wall-less organisms") lives in one place and is queryable across diseases.</p>
+<h2 id="4-the-axes-that-make-specific-drugs-better-for-specific-diseases">4. The Axes That Make Specific Drugs Better for Specific Diseases</h2>
+<p>Each row is a recurring reason drug choice deviates from "any broad-spectrum
+agent." These are the determinants worth encoding as pathophysiology nodes or
+agent properties.</p>
+<table>
+<thead>
+<tr>
+<th>Determinant</th>
+<th>Why it gates drug choice</th>
+<th>dismech examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Intracellular lifestyle</strong></td>
+<td>β-lactams penetrate cells poorly; macrolides/tetracyclines/fluoroquinolones/rifamycins accumulate intracellularly</td>
+<td><a href="../disorders/Murine_typhus.html">Murine Typhus</a> (<em>Rickettsia</em>), <a href="../disorders/Oroya_fever.html">Oroya Fever</a> (<em>Bartonella</em>) → doxycycline, <strong>not</strong> a β-lactam</td>
+</tr>
+<tr>
+<td><strong>No peptidoglycan cell wall</strong></td>
+<td>β-lactams have no target at all</td>
+<td><em>Mycoplasma</em> → macrolide/tetracycline</td>
+</tr>
+<tr>
+<td><strong>Mycobacterial cell wall + slow growth + persisters</strong></td>
+<td>mandates multidrug, long-course; specific targets (rpoB, mycolic acid, DHPS)</td>
+<td>Leprosy → rifampicin + dapsone + clofazimine</td>
+</tr>
+<tr>
+<td><strong>Toxin-mediated pathology</strong></td>
+<td>add a protein-synthesis inhibitor (clindamycin/linezolid) to shut off toxin even when a β-lactam clears the organism — the "Eagle effect" at high inoculum</td>
+<td>necrotizing strep/staph, diphtheria</td>
+</tr>
+<tr>
+<td><strong>Bactericidal vs bacteriostatic + host/site</strong></td>
+<td>immune-privileged or immune-impaired sites (endocarditis, meningitis, neutropenia) need cidal agents</td>
+<td>qualify the treatment edge with a <code>modifier</code>/<code>role</code></td>
+</tr>
+<tr>
+<td><strong>Anaerobe / O₂-dependent uptake</strong></td>
+<td>aminoglycosides need O₂-driven uptake → useless anaerobically; metronidazole needs anaerobic nitroreductase → <em>selective</em> for anaerobes</td>
+<td>C. difficile, anaerobic abscess</td>
+</tr>
+<tr>
+<td><strong>Tissue penetration (PK)</strong></td>
+<td>CSF (ceftriaxone vs 1st-gen), urine-only (nitrofurantoin/fosfomycin), bone/prostate/biliary</td>
+<td>site-specific <code>target_phenotypes</code></td>
+</tr>
+<tr>
+<td><strong>Biofilm / device / persisters</strong></td>
+<td>rifampin adjunct for staph prosthetic-device infection; cell-wall agents tolerated in biofilm</td>
+<td>add a biofilm pathophysiology node</td>
+</tr>
+<tr>
+<td><strong>Synergy</strong></td>
+<td>cell-wall agent + aminoglycoside in enterococcal endocarditis (wall disruption boosts aminoglycoside entry)</td>
+<td>two treatments, each with its own mechanism node, plus a combination treatment</td>
+</tr>
+<tr>
+<td><strong>Resistance mechanism</strong></td>
+<td>MRSA PBP2a → vancomycin/ceftaroline; ESBL/carbapenemase → carbapenem/novel inhibitor</td>
+<td>resistance as its own pathophysiology node the drug must overcome</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-recommended-encoding-pattern-per-bacterial-entry">5. Recommended Encoding Pattern (per bacterial entry)</h2>
+<ol>
+<li>Populate <code>infectious_agent</code> (<code>InfectiousAgent</code>, NCBITaxon term) — the identity anchor.</li>
+<li>In <code>pathophysiology</code>, add <strong>drug-target nodes</strong> (cell-wall synthesis, ribosome,
+   gyrase/topo, RNA pol, folate) <strong>and</strong> <strong>gating-property nodes</strong> (intracellular
+   survival, toxin production, biofilm, anaerobic metabolism) as appropriate.</li>
+<li>Each <code>Treatment</code>: Tier-1 fields <strong>plus</strong> <code>target_mechanisms</code> → the specific
+   node(s) it inhibits, and <code>target_phenotypes</code> for adjuncts.</li>
+<li>Where the mechanism recurs, <code>conforms_to</code> a shared antibiotic-mechanism module.</li>
+</ol>
+<h2 id="6-open-decision-for-the-register">6. Open Decision for the Register</h2>
+<p>Surface to <code>docs/explanation/design-decisions.md</code> before building: whether
+drug–bug mechanism knowledge lives <strong>per-disease</strong> (treatments hang off the
+<code>Disease</code>, consistent with current architecture — <strong>recommended</strong>) or whether
+antibiotic classes deserve their own module/grouping objects that diseases
+reference. The module route (Tier 3) gives both: disease-centric storage with a
+conserved-mechanism layer, no new top-level class needed.</p>
+<h2 id="7-next-steps">7. Next Steps</h2>
+<ul>
+<li>[x] Draft a <code>bacterial_cell_wall_synthesis_inhibition</code> module as proof-of-concept.
+      Built at <code>kb/modules/bacterial_cell_wall_synthesis_inhibition.yaml</code>: five
+      nodes (precursor/lipid II synthesis → PBP cross-linking → bactericidal
+      autolysis, plus acquired-resistance and intrinsic cell-wall-deficient
+      gating branches). Schema + term validation pass; all evidence snippets are
+      verified exact substrings of real abstracts (Typas 22203377, Sauvage
+      18266856, Blair 25435309, Pereyre/Tardy 34680797, Kim 18302341). Key
+      conformance/treatment target: <code>#Peptidoglycan Cross-Linking by
+      Penicillin-Binding Proteins</code>.</li>
+<li>[x] Wire conforming entries end-to-end. Ten bacterial-disease entries now carry
+      a drug-target pathophysiology node with <code>conforms_to</code> the module plus a
+      treatment <code>target_mechanisms</code> edge to that node:<ul>
+<li><strong>β-lactam → PBP cross-linking node</strong>: <a href="../disorders/Lyme_Disease.html">Lyme Disease</a> (amoxicillin,
+    ceftriaxone), <a href="../disorders/Scarlet_Fever.html">Scarlet Fever</a> (penicillin), Bejel + Pinta (benzylpenicillin),
+    <a href="../disorders/Whipple_Disease.html">Whipple Disease</a> (ceftriaxone), <a href="../disorders/Paratyphoid_Fever.html">Paratyphoid Fever</a> (ceftriaxone),
+    <a href="../disorders/Ludwig's_Angina.html">Ludwigs Angina</a> (penicillin), <a href="../disorders/Bacterial_meningitis.html">Bacterial meningitis</a> (ceftriaxone).</li>
+<li><strong>glycopeptide → lipid II / precursor node</strong>: Clostridioides_difficile
+    (oral vancomycin), <a href="../disorders/Bacterial_meningitis.html">Bacterial meningitis</a> (vancomycin, second node).</li>
+<li><strong>acquired-resistance node</strong>: Furunculosis models both the β-lactam target
+    (oxacillin/MSSA) and the <code>Acquired Resistance and Drug Inactivation</code> node
+    (PBP2a/MRSA → vancomycin substitution), the clearest drug-choice gating case.
+  All ten pass schema + term validation.</li>
+</ul>
+</li>
+<li>[ ] Deliberately <strong>excluded</strong> (primary therapy is not a cell-wall agent, so they
+      do not conform to this module): Leptospirosis, Yaws (doxycycline/azithromycin
+      first-line), Tetanus (metronidazole + antitoxin; β-lactam adjunct only),
+      <a href="../disorders/Oroya_fever.html">Oroya Fever</a> (intracellular Bartonella), Folliculitis (often topical/mixed).
+      These are candidates for the future <code>intracellular_pathogen_persistence</code>
+      and protein-synthesis-inhibitor modules instead.</li>
+<li>[x] Draft <code>bacterial_protein_synthesis_inhibition</code> module. Built at
+      <code>kb/modules/bacterial_protein_synthesis_inhibition.yaml</code>: three nodes
+      (ribosomal translation target → toxin/exoprotein-synthesis suppression →
+      ribosomal target resistance). Evidence: Wilson 24336183 (ribosome target +
+      resistance), Sawai 17101685 (clindamycin exoprotein suppression). Schema +
+      term validation pass.</li>
+<li>[x] Draft <code>intracellular_pathogen_persistence</code> module (lifestyle-gating). Built
+      at <code>kb/modules/intracellular_pathogen_persistence.yaml</code>: two nodes
+      (intracellular niche / beta-lactam exclusion → cell-penetrant-drug
+      requirement). Evidence: Maurin &amp; Raoult 18611821, Pea 28639230. Schema +
+      term validation pass.</li>
+<li>[x] Multi-module conformers wired: <strong><a href="../disorders/Murine_typhus.html">Murine Typhus</a></strong> (doxycycline) and
+      <strong><a href="../disorders/Oroya_fever.html">Oroya Fever</a></strong> (chloramphenicol) each conform to BOTH the ribosome target
+      (<code>#Bacterial mRNA Translation by the Ribosome</code>) and the intracellular gating
+      node (<code>#Intracellular Niche and Beta-Lactam Exclusion</code>), demonstrating
+      composition of a target-based module with a pharmacokinetic-gating module.</li>
+<li>[x] Built the remaining target-class modules: <code>bacterial_dna_topoisomerase_inhibition</code>
+      (fluoroquinolone), <code>bacterial_rna_polymerase_inhibition</code> (rifamycin), and
+      <code>bacterial_folate_synthesis_inhibition</code> (sulfonamide/trimethoprim/dapsone).
+      Evidence: Hooper &amp; Jacoby 27449972, Mosaei &amp; Zenkin 32342856, Capasso &amp;
+      Supuran 23627736, Bourne 27025730. All pass schema + term validation.</li>
+<li>[x] Wired remaining ribosome conformers (Lyme, Leptospirosis, Yaws, Whipple,
+      Scarlet), plus fluoroquinolone (Travelers' Diarrhea), rifamycin (Leprosy,
+      Buruli), folate (Leprosy, Whipple), and a fixed cell-wall link on Whipple
+      (its earlier node had no treatment edge — now corrected).</li>
+<li>[ ] The <code>#Suppression of Toxin and Exoprotein Synthesis</code> node has no conformer
+      yet — needs a toxin-mediated entry (necrotizing fasciitis / strep or staph
+      toxic shock), which does not currently exist in <code>kb/disorders/</code>.</li>
+<li>[ ] Short survey of existing drug-mechanism KBs / DSSs (DrugMechDB, stewardship
+      tooling) — see §0; borrow vocabulary, sharpen the explanatory niche.</li>
+<li>[ ] Record the per-disease-vs-module decision in the design register.</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>

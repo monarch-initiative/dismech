@@ -31,7 +31,6 @@ URI: [dismech:class/Term](https://w3id.org/monarch-initiative/dismech/class/Term
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -50,6 +49,7 @@ URI: [dismech:class/Term](https://w3id.org/monarch-initiative/dismech/class/Term
 | [Descriptor](../classes/Descriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [CellTypeDescriptor](../classes/CellTypeDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [BiologicalProcessDescriptor](../classes/BiologicalProcessDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
+| [MolecularFunctionDescriptor](../classes/MolecularFunctionDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [ChemicalEntityDescriptor](../classes/ChemicalEntityDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [GeneDescriptor](../classes/GeneDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
@@ -58,6 +58,7 @@ URI: [dismech:class/Term](https://w3id.org/monarch-initiative/dismech/class/Term
 | [AssayDescriptor](../classes/AssayDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [TriggerDescriptor](../classes/TriggerDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [DiseaseDescriptor](../classes/DiseaseDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
+| [SubtypeDescriptor](../classes/SubtypeDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [GeneProductDescriptor](../classes/GeneProductDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
@@ -68,15 +69,18 @@ URI: [dismech:class/Term](https://w3id.org/monarch-initiative/dismech/class/Term
 | [RegimenDescriptor](../classes/RegimenDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [ExposureDescriptor](../classes/ExposureDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [EnvironmentDescriptor](../classes/EnvironmentDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
+| [FoodDescriptor](../classes/FoodDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [OrganismDescriptor](../classes/OrganismDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [HostDescriptor](../classes/HostDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [SampleTypeDescriptor](../classes/SampleTypeDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [ModelVariableDescriptor](../classes/ModelVariableDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
+| [ReferenceRange](../classes/ReferenceRange.md) | [loinc_term](../slots/loinc_term.md) | range | [Term](../classes/Term.md) |
 | [CriteriaItem](../classes/CriteriaItem.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [TermMapping](../classes/TermMapping.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [ICD10CMMapping](../classes/ICD10CMMapping.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [ICD11FMapping](../classes/ICD11FMapping.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [MondoMapping](../classes/MondoMapping.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
+| [NCITMapping](../classes/NCITMapping.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [ConditionDescriptor](../classes/ConditionDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [GOEnrichmentTerm](../classes/GOEnrichmentTerm.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 
@@ -86,8 +90,12 @@ URI: [dismech:class/Term](https://w3id.org/monarch-initiative/dismech/class/Term
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

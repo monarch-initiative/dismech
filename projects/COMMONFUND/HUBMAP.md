@@ -14,7 +14,7 @@ For dismech, HuBMAP is the reference context for asking: which cell type,
 microenvironment, anatomic compartment, or tissue neighborhood is the disease
 mechanism perturbing?
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use HuBMAP as the healthy baseline and localization layer:
 
@@ -88,7 +88,7 @@ neighborhoods.
    terms, then explicitly mark HuBMAP as localization/baseline evidence rather
    than disease causality.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How HuBMAP helps |
 |---------|--------------------------------|------------------|

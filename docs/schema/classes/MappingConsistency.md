@@ -42,7 +42,6 @@ URI: [dismech:class/MappingConsistency](https://w3id.org/monarch-initiative/dism
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -63,6 +62,12 @@ URI: [dismech:class/MappingConsistency](https://w3id.org/monarch-initiative/dism
 | [ICD10CMMapping](../classes/ICD10CMMapping.md) | [consistency](../slots/consistency.md) | range | [MappingConsistency](../classes/MappingConsistency.md) |
 | [ICD11FMapping](../classes/ICD11FMapping.md) | [consistency](../slots/consistency.md) | range | [MappingConsistency](../classes/MappingConsistency.md) |
 | [MondoMapping](../classes/MondoMapping.md) | [consistency](../slots/consistency.md) | range | [MappingConsistency](../classes/MappingConsistency.md) |
+| [NCITMapping](../classes/NCITMapping.md) | [consistency](../slots/consistency.md) | range | [MappingConsistency](../classes/MappingConsistency.md) |
+
+
+
+
+
 
 
 
@@ -71,7 +76,6 @@ URI: [dismech:class/MappingConsistency](https://w3id.org/monarch-initiative/dism
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -184,10 +188,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -214,6 +228,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
 
 ```

@@ -31,15 +31,29 @@ Alias: shared_upstream_hypotheses
 
 ## Properties
 
-* Range: [UpstreamConditionHypothesis](../classes/UpstreamConditionHypothesis.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [UpstreamConditionHypothesis](../classes/UpstreamConditionHypothesis.md) |
+| Domain Of | [ComorbidityAssociation](../classes/ComorbidityAssociation.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

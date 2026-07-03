@@ -1,0 +1,6 @@
+| Disease | MONDO ID | OMIM | Orphanet | ICD-10 / ICD-11 | Key synonyms | Causal gene | Inheritance | Core biochemical hallmark |
+|---|---|---|---|---|---|---|---|---|
+| Galactosialidosis | MONDO:0009737 (pqac-00000000) | OMIM: 256540 (pqac-00000002, pqac-00000004, pqac-00000007) | Unknown in gathered evidence | Unknown in gathered evidence | GS; Goldberg syndrome; protective protein/cathepsin A deficiency (pqac-00000004, pqac-00000007) | **CTSA** (cathepsin A), encoding protective protein/cathepsin A, PPCA (pqac-00000001, pqac-00000004, pqac-00000007) | Autosomal recessive (pqac-00000002, pqac-00000004, pqac-00000007) | Primary CTSA/PPCA deficiency causing **secondary combined deficiency of NEU1 (neuraminidase-1) and GLB1 (β-galactosidase)**, with intralysosomal accumulation of sialyloligosaccharides and glycopeptides (pqac-00000001, pqac-00000007, pqac-00000015) |
+
+
+*Table: This table condenses the key nomenclature and normalized identifiers for galactosialidosis, along with its causal gene, inheritance pattern, and defining biochemical defect. It is useful as a quick-reference artifact for a disease knowledge base entry.*

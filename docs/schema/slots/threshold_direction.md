@@ -31,13 +31,28 @@ Alias: threshold_direction
 
 ## Properties
 
-* Range: [ThresholdDirectionEnum](../enums/ThresholdDirectionEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ThresholdDirectionEnum](../enums/ThresholdDirectionEnum.md) |
+| Domain Of | [ModelVariableDescriptor](../classes/ModelVariableDescriptor.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

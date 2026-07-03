@@ -31,7 +31,21 @@ Alias: label
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Term](../classes/Term.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -40,8 +54,9 @@ Alias: label
 
 * This is automatically validated by the linkml-term-validator tool.
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

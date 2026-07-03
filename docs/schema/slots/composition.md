@@ -31,13 +31,28 @@ Alias: composition
 
 ## Properties
 
-* Range: [ConditionCompositionEnum](../enums/ConditionCompositionEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ConditionCompositionEnum](../enums/ConditionCompositionEnum.md) |
+| Domain Of | [ConditionDescriptor](../classes/ConditionDescriptor.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

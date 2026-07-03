@@ -1,0 +1,25 @@
+| Parameter | Finding/Value | References |
+|---|---|---|
+| Global incident cases (mucinous ovarian cancer, 2020) | Estimated **35,712** new mucinous ovarian cancer cases worldwide in 2020 | (pqac-00000000, pqac-00000012) |
+| Global share among ovarian cancer histotypes | Mucinous carcinoma accounted for **11.47%** of incident ovarian cancers globally; serous remained dominant at **42.97%** | (pqac-00000012) |
+| Global age-standardized incidence rate (ASR) | Global ASR for mucinous ovarian cancer was **0.68 per 100,000** population in 2020 | (pqac-00000012) |
+| Regional incidence pattern | **Eastern Europe** had the **highest rate of mucinous carcinoma** among world regions | (pqac-00000000) |
+| Regional proportional variation | Mucinous carcinoma proportion among ovarian cancers ranged from **5.94% in North America** to **20.66% in Central America** | (pqac-00000012) |
+| Rarity among epithelial ovarian cancers | Mucinous ovarian carcinoma is rare, accounting for about **3%–5%** of epithelial ovarian cancers in some contemporary reviews; other summaries give **3%–4%** or **2–3%** | (pqac-00000003, pqac-00000006, pqac-00000014) |
+| True primary vs metastatic disease | Central pathology review literature summarized in recent reviews indicates many tumors historically labeled “ovarian mucinous” are metastatic; one review notes true primary ovarian mucinous cancer may account for only **1%–3%** of ovarian cancers, while another reports that in one series only **23%** of 52 diagnosed MOCs were primary and another study found **71%** metastatic | (pqac-00000011, pqac-00000006) |
+| Typical age group | Ovarian cancer overall is mostly a disease of **postmenopausal women**; one recent general ovarian cancer review notes peak incidence at **55–59 years** | (pqac-00000006, pqac-00000012) |
+| Average age in metastatic mucinous tumors to ovary | For ovarian metastases in mucinous tumor series, average age reported as **55 years** | (pqac-00000004) |
+| Stage at diagnosis | Mucinous ovarian carcinoma is disproportionately diagnosed early: about **65%–80%** of cases are diagnosed in **early stage** | (pqac-00000003) |
+| Early-stage prognosis | Patients with **FIGO stage I** mucinous ovarian carcinoma have a **5-year overall survival close to 90%** | (pqac-00000003) |
+| Stage I-II survival benchmark from early-stage ovarian carcinoma cohorts | Early-stage ovarian carcinoma cohorts cited in biomarker work report overall **5-year survival ~89% for stage I** and **71% for stage II**; these data are not mucinous-exclusive but are relevant context for early-stage mucinous disease | (pqac-00000003) |
+| Advanced-stage prognosis | For **advanced MOC (FIGO III–IV)**, estimated **median overall survival is 12–33 months** | (pqac-00000003) |
+| Advanced-stage survival compared with serous carcinoma | One targeted-therapy review states **median survival of stage III/IV mucinous ovarian carcinoma is <15 months**, versus **41 months** for high-grade serous ovarian carcinoma | (pqac-00000007) |
+| Response to standard chemotherapy | Advanced mucinous ovarian carcinoma has poor response to conventional platinum-based chemotherapy; one preclinical review states only about **30%** of patients respond to first-line therapy versus about **70%** of high-grade serous ovarian cancer patients | (pqac-00000003, pqac-00000015) |
+| Survival by histotype relative to serous | Population-level global incidence paper notes endometrioid, mucinous, and clear cell subtypes show **better ovarian cancer–specific survival than serous carcinoma** overall, although advanced mucinous disease performs poorly once metastatic/advanced | (pqac-00000000, pqac-00000003, pqac-00000007) |
+| Clinical presentation | Symptoms are often **non-specific**, commonly including **abdominal distension or pain**; compared with serous tumors, mucinous tumors may be less likely to cause the rapid progression and marked ascites typical of serous carcinoma | (pqac-00000006) |
+| Gross/pathologic clinical characteristic | Primary mucinous ovarian carcinoma is typically a **large, multilocular** unilateral ovarian neoplasm; tumor size **>10 cm** and unilateral presentation favor primary ovarian origin | (pqac-00000003, pqac-00000011) |
+| Demographic sex pattern | As an ovarian carcinoma, disease occurs overwhelmingly in **females/women** | (pqac-00000000, pqac-00000006) |
+| Geographic burden context | The global subtype burden study estimated ovarian cancer incidence using 67 countries with registry-derived subtype proportions and found substantial regional differences, supporting geographically tailored prevention and resource planning | (pqac-00000000, pqac-00000012) |
+
+
+*Table: This table summarizes recent evidence on the epidemiology, clinical presentation, stage distribution, and prognosis of ovarian mucinous carcinoma, emphasizing 2024 global incidence data and clinically important comparisons with serous ovarian carcinoma.*

@@ -26,7 +26,21 @@ Alias: explanation
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [EvidenceItem](../classes/EvidenceItem.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -38,8 +52,9 @@ Alias: explanation
 | --- |
 | There is no curative treatment for nephronophthisis, indicating that supportive care, including symptomatic treatment and monitoring, is currently applied to manage associated complications. |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

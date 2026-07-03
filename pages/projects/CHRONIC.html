@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronic Disease Curation Project - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Chronic Disease Curation Project</h1>
+            <div class="hero-meta">
+                <span class="badge status-EVERGREEN">Evergreen</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Chronic Disease Curation Project</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (39)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Age-Related_Macular_Degeneration.html">Age Related Macular Degeneration</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Asthma.html">Asthma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Atrial_Fibrillation.html">Atrial Fibrillation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Benign_Prostatic_Hyperplasia.html">Benign Prostatic Hyperplasia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Bipolar_Disorder.html">Bipolar Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Celiac_Disease.html">Celiac Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Kidney_Disease.html">Chronic Kidney Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Obstructive_Pulmonary_Disease.html">Chronic Obstructive Pulmonary Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Pancreatitis.html">Chronic Pancreatitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Coronary_Artery_Disease.html">Coronary Artery Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Crohn_Disease.html">Crohn Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Endometriosis.html">Endometriosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Epilepsy.html">Epilepsy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Essential_Hypertension.html">Essential Hypertension</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Fibromyalgia.html">Fibromyalgia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Gastroesophageal_Reflux_Disease.html">Gastroesophageal Reflux Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Generalized_Anxiety_Disorder.html">Generalized Anxiety Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Glaucoma.html">Glaucoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Gout.html">Gout</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hashimoto&#39;s_Thyroiditis.html">Hashimotos Thyroiditis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Heart_Failure.html">Heart Failure</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Irritable_Bowel_Syndrome.html">Irritable Bowel Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Liver_Cirrhosis.html">Liver Cirrhosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Major_Depressive_Disorder.html">Major Depressive Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Migraine.html">Migraine</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Multiple_Sclerosis.html">Multiple Sclerosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Obesity.html">Obesity</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Obstructive_Sleep_Apnea.html">Obstructive Sleep Apnea</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Osteoarthritis.html">Osteoarthritis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Osteoporosis.html">Osteoporosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Parkinson&#39;s_Disease.html">Parkinsons Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Peripheral_Artery_Disease.html">Peripheral Artery Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Polycystic_Ovary_Syndrome.html">Polycystic Ovary Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Psoriasis.html">Psoriasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rheumatoid_Arthritis.html">Rheumatoid Arthritis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Sickle_Cell_Disease.html">Sickle Cell Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Systemic_Lupus_Erythematosus.html">Systemic Lupus Erythematosus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Type_2_Diabetes_Mellitus.html">Type 2 Diabetes Mellitus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ulcerative_Colitis.html">Ulcerative Colitis</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/CHRONIC.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="chronic-disease-curation-project">Chronic Disease Curation Project</h1>
+<h2 id="overview">Overview</h2>
+<p>This project aims to curate comprehensive pathophysiology entries for major chronic diseases in the Disorder Mechanisms Knowledge Base. Chronic diseases represent long-term conditions that require ongoing management and significantly impact quality of life.</p>
+<p>This is an evergreen project: beyond the initial phases, "Other" expansion categories capture related conditions that share mechanisms and can be unfolded as curation continues.</p>
+<h2 id="goals">Goals</h2>
+<ul>
+<li>Document disease mechanisms with evidence-backed pathophysiology</li>
+<li>Map phenotypes to HPO terms</li>
+<li>Annotate treatments with MAXO terms</li>
+<li>Provide PMID-supported evidence for all claims</li>
+</ul>
+<h2 id="target-diseases-phase-1-complete">Target Diseases - Phase 1 (Complete)</h2>
+<ul>
+<li>[x] Type 2 Diabetes Mellitus - <code>Type_2_Diabetes_Mellitus.yaml</code></li>
+<li>[x] Hypertension - <code>Essential_Hypertension.yaml</code></li>
+<li>[x] Chronic Obstructive Pulmonary Disease (COPD) - <code>Chronic_Obstructive_Pulmonary_Disease.yaml</code></li>
+<li>[x] Coronary Artery Disease - <code>Coronary_Artery_Disease.yaml</code></li>
+<li>[x] Chronic Kidney Disease - <code>Chronic_Kidney_Disease.yaml</code></li>
+<li>[x] Heart Failure - <code>Heart_Failure.yaml</code></li>
+<li>[x] <a href="../disorders/Osteoarthritis.html">Osteoarthritis</a> - <code>Osteoarthritis.yaml</code></li>
+<li>[x] Rheumatoid Arthritis - <code>Rheumatoid_Arthritis.yaml</code></li>
+<li>[x] <a href="../disorders/Asthma.html">Asthma</a> - <code>Asthma.yaml</code></li>
+<li>[x] Inflammatory Bowel Disease - <code>Crohn_Disease.yaml</code> (Ulcerative Colitis pending)</li>
+<li>[x] Alzheimer's Disease - <code>Alhzeimer_Disease.yaml</code></li>
+<li>[x] Parkinson's Disease - <code>Parkinsons_Disease.yaml</code></li>
+<li>[x] Multiple Sclerosis - <code>Multiple_Sclerosis.yaml</code></li>
+<li>[x] Systemic Lupus Erythematosus - <code>Systemic_Lupus_Erythematosus.yaml</code></li>
+<li>[x] Chronic Liver Disease / Cirrhosis - <code>Liver_Cirrhosis.yaml</code></li>
+<li>[x] Atrial Fibrillation - <code>Atrial_Fibrillation.yaml</code></li>
+<li>[x] <a href="../disorders/Obesity.html">Obesity</a> - <code>Obesity.yaml</code></li>
+<li>[x] Depression (Major Depressive Disorder) - <code>Major_Depressive_Disorder.yaml</code></li>
+<li>[x] <a href="../disorders/Epilepsy.html">Epilepsy</a> - <code>Epilepsy.yaml</code></li>
+<li>[x] <a href="../disorders/Psoriasis.html">Psoriasis</a> - <code>Psoriasis.yaml</code></li>
+</ul>
+<h2 id="target-diseases-phase-2-complete">Target Diseases - Phase 2 (Complete)</h2>
+<h3 id="endocrinemetabolic">Endocrine/Metabolic</h3>
+<ul>
+<li>[x] Hypothyroidism (Hashimoto's Thyroiditis) - <code>Hashimotos_Thyroiditis.yaml</code></li>
+<li>[x] Polycystic Ovary Syndrome (PCOS) - <code>Polycystic_Ovary_Syndrome.yaml</code></li>
+<li>[x] <a href="../disorders/Gout.html">Gout</a> - <code>Gout.yaml</code></li>
+<li>[ ] Other endocrine/metabolic; e.g. Cushing syndrome, acromegaly, hyperparathyroidism</li>
+</ul>
+<h3 id="musculoskeletal">Musculoskeletal</h3>
+<ul>
+<li>[x] <a href="../disorders/Osteoporosis.html">Osteoporosis</a> - <code>Osteoporosis.yaml</code></li>
+<li>[x] <a href="../disorders/Fibromyalgia.html">Fibromyalgia</a> - <code>Fibromyalgia.yaml</code></li>
+<li>[ ] Other musculoskeletal; e.g. Paget disease, osteogenesis imperfecta, ankylosing spondylitis</li>
+</ul>
+<h3 id="gastrointestinal">Gastrointestinal</h3>
+<ul>
+<li>[x] Gastroesophageal Reflux Disease (GERD) - <code>Gastroesophageal_Reflux_Disease.yaml</code></li>
+<li>[x] Irritable Bowel Syndrome (IBS) - <code>Irritable_Bowel_Syndrome.yaml</code></li>
+<li>[x] Ulcerative Colitis - <code>Ulcerative_Colitis.yaml</code></li>
+<li>[x] Celiac Disease - <code>Celiac_Disease.yaml</code></li>
+<li>[x] Chronic Pancreatitis - <code>Chronic_Pancreatitis.yaml</code></li>
+<li>[ ] Other gastrointestinal; e.g. Barrett esophagus, diverticular disease, chronic constipation</li>
+</ul>
+<h3 id="psychiatricneurological">Psychiatric/Neurological</h3>
+<ul>
+<li>[x] Bipolar Disorder - <code>Bipolar_Disorder.yaml</code></li>
+<li>[x] Generalized Anxiety Disorder - <code>Generalized_Anxiety_Disorder.yaml</code></li>
+<li>[x] <a href="../disorders/Migraine.html">Migraine</a> - <code>Migraine.yaml</code></li>
+<li>[ ] Other psychiatric; e.g. schizophrenia, OCD, PTSD, eating disorders</li>
+<li>[ ] Other neurological; e.g. ALS, Huntington disease, essential tremor, neuropathies</li>
+</ul>
+<h3 id="cardiovascular">Cardiovascular</h3>
+<ul>
+<li>[x] Peripheral Artery Disease - <code>Peripheral_Artery_Disease.yaml</code></li>
+<li>[ ] Other cardiovascular; e.g. cardiomyopathies, valvular heart disease, aortic aneurysm</li>
+</ul>
+<h3 id="respiratory">Respiratory</h3>
+<ul>
+<li>[x] Obstructive Sleep Apnea - <code>Obstructive_Sleep_Apnea.yaml</code></li>
+<li>[ ] Other respiratory; e.g. pulmonary fibrosis, bronchiectasis, pulmonary hypertension</li>
+</ul>
+<h3 id="reproductiveurological">Reproductive/Urological</h3>
+<ul>
+<li>[x] <a href="../disorders/Endometriosis.html">Endometriosis</a> - <code>Endometriosis.yaml</code></li>
+<li>[x] Benign Prostatic Hyperplasia - <code>Benign_Prostatic_Hyperplasia.yaml</code></li>
+<li>[ ] Other reproductive/urological; e.g. chronic pelvic pain, interstitial cystitis, male infertility</li>
+</ul>
+<h3 id="ophthalmological">Ophthalmological</h3>
+<ul>
+<li>[x] <a href="../disorders/Glaucoma.html">Glaucoma</a> - <code>Glaucoma.yaml</code></li>
+<li>[x] Age-related Macular Degeneration - <code>Age_Related_Macular_Degeneration.yaml</code></li>
+<li>[ ] Other ophthalmological; e.g. diabetic retinopathy, cataracts, dry eye disease</li>
+</ul>
+<h3 id="hematological">Hematological</h3>
+<ul>
+<li>[x] Sickle Cell Disease - <code>Sickle_Cell_Disease.yaml</code></li>
+<li>[ ] Other hematological; e.g. thalassemias, hemophilia, myelodysplastic syndromes</li>
+</ul>
+<h2 id="curation-workflow">Curation Workflow</h2>
+<ol>
+<li>Research disease pathophysiology using primary literature</li>
+<li>Create YAML file in <code>kb/disorders/</code></li>
+<li>Validate with <code>just validate</code> and <code>just validate-references</code></li>
+<li>Run <code>just qc</code> before committing</li>
+</ol>
+<hr />
+<h1 id="status">STATUS</h1>
+<p><strong>Phase 1:</strong> 20/20 (100%) Complete
+<strong>Phase 2:</strong> 20/20 (100%) Complete
+<strong>Core diseases:</strong> 40/40 (100%)</p>
+<p>Both phases complete. All 40 target chronic diseases have been curated with:
+- Evidence-backed pathophysiology mechanisms
+- HPO phenotype annotations
+- PMID-supported evidence items
+- Schema-validated YAML files</p>
+<h2 id="expansion-categories">Expansion Categories</h2>
+<ul>
+<li>[ ] Other endocrine/metabolic; e.g. Cushing syndrome, acromegaly, hyperparathyroidism</li>
+<li>[ ] Other musculoskeletal; e.g. Paget disease, osteogenesis imperfecta</li>
+<li>[ ] Other gastrointestinal; e.g. Barrett esophagus, diverticular disease</li>
+<li>[ ] Other psychiatric; e.g. schizophrenia, OCD, PTSD, eating disorders</li>
+<li>[ ] Other neurological; e.g. ALS, Huntington disease, essential tremor</li>
+<li>[ ] Other cardiovascular; e.g. cardiomyopathies, valvular heart disease</li>
+<li>[ ] Other respiratory; e.g. pulmonary fibrosis, bronchiectasis, pulmonary hypertension</li>
+<li>[ ] Other reproductive/urological; e.g. chronic pelvic pain, interstitial cystitis</li>
+<li>[ ] Other ophthalmological; e.g. diabetic retinopathy, cataracts, dry eye disease</li>
+<li>[ ] Other hematological; e.g. thalassemias, hemophilia, myelodysplastic syndromes</li>
+</ul>
+<h1 id="notes">NOTES</h1>
+<h2 id="2025-12-17">2025-12-17</h2>
+<p>Initial status review completed. Cross-referenced target diseases against existing KB files:
+- 7 of 20 target diseases already have entries
+- Identified priority queue starting with Type 2 Diabetes (highest prevalence chronic disease)
+- Note: Alzheimer file has typo in name (<code>Alhzeimer_Disease.yaml</code>)</p>
+<h2 id="2025-12-17-later">2025-12-17 (later)</h2>
+<p><strong>Bulk curation completed for 13 remaining diseases:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th>File</th>
+<th>Evidence Items</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Type 2 Diabetes Mellitus</td>
+<td><code>Type_2_Diabetes_Mellitus.yaml</code></td>
+<td>14</td>
+</tr>
+<tr>
+<td>Essential Hypertension</td>
+<td><code>Essential_Hypertension.yaml</code></td>
+<td>29</td>
+</tr>
+<tr>
+<td>Coronary Artery Disease</td>
+<td><code>Coronary_Artery_Disease.yaml</code></td>
+<td>Multiple</td>
+</tr>
+<tr>
+<td>Parkinson's Disease</td>
+<td><code>Parkinsons_Disease.yaml</code></td>
+<td>13</td>
+</tr>
+<tr>
+<td>Heart Failure</td>
+<td><code>Heart_Failure.yaml</code></td>
+<td>Multiple</td>
+</tr>
+<tr>
+<td>Chronic Kidney Disease</td>
+<td><code>Chronic_Kidney_Disease.yaml</code></td>
+<td>Multiple</td>
+</tr>
+<tr>
+<td><a href="../disorders/Osteoarthritis.html">Osteoarthritis</a></td>
+<td><code>Osteoarthritis.yaml</code></td>
+<td>7</td>
+</tr>
+<tr>
+<td>Liver Cirrhosis</td>
+<td><code>Liver_Cirrhosis.yaml</code></td>
+<td>11</td>
+</tr>
+<tr>
+<td>Atrial Fibrillation</td>
+<td><code>Atrial_Fibrillation.yaml</code></td>
+<td>Multiple</td>
+</tr>
+<tr>
+<td><a href="../disorders/Obesity.html">Obesity</a></td>
+<td><code>Obesity.yaml</code></td>
+<td>Multiple</td>
+</tr>
+<tr>
+<td>Major Depressive Disorder</td>
+<td><code>Major_Depressive_Disorder.yaml</code></td>
+<td>18</td>
+</tr>
+<tr>
+<td><a href="../disorders/Epilepsy.html">Epilepsy</a></td>
+<td><code>Epilepsy.yaml</code></td>
+<td>12</td>
+</tr>
+<tr>
+<td><a href="../disorders/Psoriasis.html">Psoriasis</a></td>
+<td><code>Psoriasis.yaml</code></td>
+<td>Multiple</td>
+</tr>
+</tbody>
+</table>
+<p>Workflow used:
+1. Created initial YAML files with complete structure
+2. Ran deep research (falcon) for all 13 diseases
+3. Enhanced with PMID-backed evidence items
+4. Validated all files against schema</p>
+<p>All files pass <code>just validate</code> checks.</p>
+<h2 id="2025-12-18">2025-12-18</h2>
+<p><strong>Phase 2 bulk curation completed for 20 additional chronic diseases:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th>File</th>
+<th>Key Mechanisms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hashimoto's Thyroiditis</td>
+<td><code>Hashimotos_Thyroiditis.yaml</code></td>
+<td>Autoimmune thyroid destruction, TPO antibodies</td>
+</tr>
+<tr>
+<td>Polycystic Ovary Syndrome</td>
+<td><code>Polycystic_Ovary_Syndrome.yaml</code></td>
+<td>Hyperandrogenism, insulin resistance</td>
+</tr>
+<tr>
+<td><a href="../disorders/Gout.html">Gout</a></td>
+<td><code>Gout.yaml</code></td>
+<td>MSU crystal deposition, inflammasome activation</td>
+</tr>
+<tr>
+<td><a href="../disorders/Osteoporosis.html">Osteoporosis</a></td>
+<td><code>Osteoporosis.yaml</code></td>
+<td>RANKL/OPG imbalance, osteoclast activity</td>
+</tr>
+<tr>
+<td><a href="../disorders/Fibromyalgia.html">Fibromyalgia</a></td>
+<td><code>Fibromyalgia.yaml</code></td>
+<td>Central sensitization, neuroinflammation</td>
+</tr>
+<tr>
+<td>GERD</td>
+<td><code>Gastroesophageal_Reflux_Disease.yaml</code></td>
+<td>LES dysfunction, acid reflux</td>
+</tr>
+<tr>
+<td>IBS</td>
+<td><code>Irritable_Bowel_Syndrome.yaml</code></td>
+<td>Gut-brain axis, visceral hypersensitivity</td>
+</tr>
+<tr>
+<td>Ulcerative Colitis</td>
+<td><code>Ulcerative_Colitis.yaml</code></td>
+<td>Barrier dysfunction, mucosal inflammation</td>
+</tr>
+<tr>
+<td>Celiac Disease</td>
+<td><code>Celiac_Disease.yaml</code></td>
+<td>tTG-mediated gluten immune response</td>
+</tr>
+<tr>
+<td>Chronic Pancreatitis</td>
+<td><code>Chronic_Pancreatitis.yaml</code></td>
+<td>Pancreatic stellate cell fibrosis</td>
+</tr>
+<tr>
+<td>Bipolar Disorder</td>
+<td><code>Bipolar_Disorder.yaml</code></td>
+<td>CACNA1C/ANK3 variants, GSK3 signaling</td>
+</tr>
+<tr>
+<td>Generalized Anxiety Disorder</td>
+<td><code>Generalized_Anxiety_Disorder.yaml</code></td>
+<td>GABAergic dysfunction, amygdala hyperactivity</td>
+</tr>
+<tr>
+<td><a href="../disorders/Migraine.html">Migraine</a></td>
+<td><code>Migraine.yaml</code></td>
+<td>CSD, CGRP pathway</td>
+</tr>
+<tr>
+<td>Peripheral Artery Disease</td>
+<td><code>Peripheral_Artery_Disease.yaml</code></td>
+<td>Atherosclerosis, endothelial dysfunction</td>
+</tr>
+<tr>
+<td>Obstructive Sleep Apnea</td>
+<td><code>Obstructive_Sleep_Apnea.yaml</code></td>
+<td>Intermittent hypoxia, oxidative stress</td>
+</tr>
+<tr>
+<td><a href="../disorders/Endometriosis.html">Endometriosis</a></td>
+<td><code>Endometriosis.yaml</code></td>
+<td>Ectopic endometrium, estrogen dependence</td>
+</tr>
+<tr>
+<td>Benign Prostatic Hyperplasia</td>
+<td><code>Benign_Prostatic_Hyperplasia.yaml</code></td>
+<td>EMT, ROCK-mediated fibrosis</td>
+</tr>
+<tr>
+<td><a href="../disorders/Glaucoma.html">Glaucoma</a></td>
+<td><code>Glaucoma.yaml</code></td>
+<td>RGC death, trabecular dysfunction</td>
+</tr>
+<tr>
+<td>Age-related Macular Degeneration</td>
+<td><code>Age_Related_Macular_Degeneration.yaml</code></td>
+<td>Complement dysregulation, RPE loss</td>
+</tr>
+<tr>
+<td>Sickle Cell Disease</td>
+<td><code>Sickle_Cell_Disease.yaml</code></td>
+<td>HbS polymerization, vaso-occlusion</td>
+</tr>
+</tbody>
+</table>
+<p>Workflow:
+1. Created 20 initial YAML files with MONDO IDs and basic structure
+2. Ran deep research (falcon) for all 20 diseases
+3. Enhanced with PMID-backed evidence items using parallel agents
+4. Validated all files against schema</p>
+<p>All 20 files pass <code>just validate</code> checks with schema, term, and reference validation.</p>
+        </article>
+    </div>
+</body>
+</html>

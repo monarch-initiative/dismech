@@ -32,13 +32,28 @@ Alias: threshold
 
 ## Properties
 
-* Range: [Float](../types/Float.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Float](../types/Float.md) |
+| Domain Of | [SeverityTier](../classes/SeverityTier.md), [ModelVariableDescriptor](../classes/ModelVariableDescriptor.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

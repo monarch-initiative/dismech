@@ -26,7 +26,21 @@ Alias: specificity
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Biochemical](../classes/Biochemical.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -38,8 +52,9 @@ Alias: specificity
 | --- |
 | High |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

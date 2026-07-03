@@ -31,13 +31,28 @@ Alias: classifications
 
 ## Properties
 
-* Range: [DiseaseClassifications](../classes/DiseaseClassifications.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [DiseaseClassifications](../classes/DiseaseClassifications.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

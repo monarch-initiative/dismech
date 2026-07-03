@@ -8,6 +8,12 @@ _A term representing mode of inheritance_
 
 
 URI: [dismech:enum/InheritanceTerm](https://w3id.org/monarch-initiative/dismech/enum/InheritanceTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** HP:0000005
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

@@ -14,6 +14,7 @@ journal: Nutrients
 year: '2023'
 doi: 10.3390/nu16010013
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Long-Term Management of Patients with Mild Urea Cycle Disorders Identified through the Newborn Screening: An Expert Opinion for Clinical Practice

@@ -23,6 +23,7 @@ Alias: source
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [AssociationSignal](../classes/AssociationSignal.md) | An association signal from EHR, registry, or computational sources, optionall... |  yes  |
+| [ExternalAssertion](../classes/ExternalAssertion.md) | An externally curated assertion or registry record relevant to a disease or v... |  yes  |
 
 
 
@@ -31,13 +32,28 @@ Alias: source
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [ExternalAssertion](../classes/ExternalAssertion.md), [AssociationSignal](../classes/AssociationSignal.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -71,6 +87,7 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: source
 domain_of:
+- ExternalAssertion
 - AssociationSignal
 range: string
 

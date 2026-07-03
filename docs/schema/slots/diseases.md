@@ -26,15 +26,29 @@ Alias: diseases
 
 ## Properties
 
-* Range: [Disease](../classes/Disease.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Disease](../classes/Disease.md) |
+| Domain Of | [DiseaseCollection](../classes/DiseaseCollection.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

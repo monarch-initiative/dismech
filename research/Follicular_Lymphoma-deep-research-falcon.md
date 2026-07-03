@@ -2,9 +2,9 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-05-08T16:18:48.913971'
-end_time: '2026-05-08T16:36:36.871015'
-duration_seconds: 1067.96
+start_time: '2026-06-18T12:34:17.013772'
+end_time: '2026-06-18T12:49:27.666101'
+duration_seconds: 910.65
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Follicular Lymphoma
@@ -16,7 +16,27 @@ provider_config:
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 28
+    max_embedded_images: 8
+citation_count: 29
+artifact_count: 2
+artifact_sources:
+  edison_answer_artifacts: 1
+  edison_message_content: 1
+artifacts:
+- filename: artifact-00.md
+  path: Follicular_Lymphoma-deep-research-falcon_artifacts/artifact-00.md
+  media_type: text/markdown
+  source: edison_answer_artifacts
+  data_storage_id: null
+  description: Edison artifact artifact-00
+- filename: image-1.png
+  path: Follicular_Lymphoma-deep-research-falcon_artifacts/image-1.png
+  media_type: image/png
+  source: edison_message_content
+  data_storage_id: null
+  description: '## Context ID: pqac-00000013 Table 1 on page 3 provides an overview
+    of Follicular Lymphoma (FL) subtypes as classified in the 5th edition of the WHO
+    Classificat'
 ---
 
 ## Question
@@ -26,7 +46,7 @@ citation_count: 28
 ## Target Disease
 - **Disease Name:** Follicular Lymphoma
 - **MONDO ID:**  (if available)
-- **Category:**
+- **Category:** 
 
 ## Research Objectives
 
@@ -487,7 +507,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
 ## Target Disease
 - **Disease Name:** Follicular Lymphoma
 - **MONDO ID:**  (if available)
-- **Category:**
+- **Category:** 
 
 ## Research Objectives
 
@@ -929,334 +949,319 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Follicular Lymphoma (FL): Disease Characteristics Research Report (2023–2024 prioritized)
+## Follicular Lymphoma (FL) — Comprehensive Disease Characteristics Report (2023–2024 prioritized)
 
-## Target Disease
-- **Disease name:** Follicular lymphoma (FL)
-- **MONDO ID:** Not found in the retrieved sources (requires lookup in MONDO/OLS; not present in the accessed literature excerpts).
-- **Category:** Indolent mature B‑cell non‑Hodgkin lymphoma; germinal center (GC) B‑cell–derived neoplasm (xu2023advancesinthe pages 1-2, zinzani2024currentandfuture pages 1-2).
+### Target Disease
+- **Disease name:** Follicular lymphoma
+- **MONDO ID:** **MONDO:0018906** (OpenTargets disease ID for follicular lymphoma) (OpenTargets Search: follicular lymphoma)
+- **Category:** Indolent mature B‑cell non‑Hodgkin lymphoma; germinal‑center (GC) B‑cell–derived neoplasm (jacobsen2022follicularlymphoma2023 pages 1-2, kurz2023follicularlymphomain pages 1-2)
 
 ---
 
 ## 1. Disease Information
 
-### Concise overview (current understanding)
-Follicular lymphoma is an indolent, GC B‑cell–derived lymphoid neoplasm characterized by a follicular (nodular) architecture composed of centrocytes and centroblasts, typically presenting with diffuse lymphadenopathy and frequent bone marrow involvement, with a long relapsing–remitting course (jacobsen2022follicularlymphoma2023 pages 1-2, xu2023advancesinthe pages 1-2, kurz2023follicularlymphomain pages 2-4).
+### 1.1 Concise overview
+Follicular lymphoma is an indolent GC B‑cell lymphoproliferative disorder that commonly presents with diffuse lymphadenopathy and frequent bone marrow involvement and splenomegaly (jacobsen2022follicularlymphoma2023 pages 1-2). A defining biological feature in most cases is dysregulated anti‑apoptotic signaling driven by **IGH::BCL2** rearrangement (t(14;18)), but FL is clinically and biologically heterogeneous, with a subset showing early progression, repeated relapse, or histologic transformation to diffuse large B‑cell lymphoma (DLBCL) (jacobsen2022follicularlymphoma2023 pages 1-2, kurz2023follicularlymphomain pages 2-4).
 
-**Abstract quote (definition/heterogeneity):** “Follicular lymphoma (FL) is the most common indolent lymphoma originating from germinal center B cells. FL represents a clinically and biologically heterogeneous disease.” (Xu et al., published 2023‑03‑27; doi:10.7150/ijbs.80401) (xu2023advancesinthe pages 1-2).
+**Direct abstract quote (definition/clinical):** Jacobsen’s “2023 update on diagnosis and management” describes FL as “**generally an indolent B cell lymphoproliferative disorder of transformed follicular center B cells**” and notes it is characterized by “**diffuse lymphadenopathy, bone marrow involvement, and splenomegaly**” (jacobsen2022follicularlymphoma2023 pages 1-2).
 
-### Key identifiers (available in retrieved sources)
-- **ICD‑9‑CM:** **202.0** (used to identify FL in an Italian administrative-database real‑world evidence study) (Ferreri et al., published 2023‑09‑02; doi:10.3390/cancers15174403) (ferreri2023burdenofillness pages 2-3).
-- **ICD‑10/ICD‑11, MeSH, Orphanet, MONDO:** Not explicitly provided in the retrieved texts; these require direct database queries (OMIM/Orphanet/MeSH/MONDO/ICD) outside the accessed excerpts.
+### 1.2 Key identifiers (available in current evidence)
+- **MONDO:** MONDO:0018906 (OpenTargets Search: follicular lymphoma)
+- **Other identifiers requested (ICD‑10/11, MeSH, OMIM, Orphanet):** not retrieved in the current evidence set; would require additional ontology-specific queries beyond the papers/records gathered here.
 
-### Synonyms / alternative names (from classification context)
-- **Classic follicular lymphoma (cFL)** (WHO‑HAEM5 term encompassing prior FL grades 1–2–3A) (Kurz et al., 2023‑01; doi:10.3390/cancers15030785) (kurz2023follicularlymphomain pages 2-4, kurz2023follicularlymphomain pages 4-6).
-- **Follicular large B‑cell lymphoma (FLBCL)** (WHO‑HAEM5 term replacing former grade 3B FL) (kurz2023follicularlymphomain pages 1-2, laurent2023follicularlymphomaand pages 1-2).
-- **BCL2‑rearrangement–negative, CD23‑positive follicle center lymphoma** (ICC provisional entity; overlaps with predominantly diffuse FL) (kurz2023follicularlymphomain pages 8-10, chadburn2023classificationofbcell pages 2-5, laurent2023follicularlymphomaand pages 1-2).
+### 1.3 Common synonyms / alternative names
+- “Classic follicular lymphoma (cFL)” (WHO‑HAEM5 term for the predominant entity) (kurz2023follicularlymphomain pages 1-2)
+- “Follicular large B‑cell lymphoma (FLBCL)” (WHO‑HAEM5 term corresponding to former FL grade 3B) (kurz2023follicularlymphomain pages 1-2)
 
-### Evidence sources (patient-level vs aggregated)
-The report draws from both **aggregated disease-level resources** (WHO‑HAEM5/ICC classification reviews; multi‑omics review; therapy landscape reviews) and **patient-level cohorts/registries** including SEER registry analyses and administrative real‑world evidence (RWE) datasets (kurz2023follicularlymphomain pages 1-2, xu2023advancesinthe pages 1-2, vaughn2023survivalofpatients pages 1-2, ferreri2023burdenofillness pages 1-2).
+### 1.4 Evidence source type
+The synthesis here uses **aggregated disease-level resources** (WHO‑HAEM5 classification review; therapy reviews; registry/SEER analyses; meta-analyses) and **clinical trial reports**, rather than individual patient EHR data (nizamuddin2024bispecificantibodiesin pages 2-4, testa2024cartcelltherapy pages 1-2, kurz2023follicularlymphomain pages 1-2, odutola2020lifestyleandrisk pages 1-2, xie2022analysisandprediction pages 1-2).
 
 ---
 
 ## 2. Etiology
 
-### Disease causal factors (mechanistic)
-FL pathogenesis is widely described as a **multistep process** where an initiating lesion (often IGH::BCL2 t(14;18)) provides a survival advantage, followed by accumulation of additional genetic/epigenetic and microenvironment‑mediated events (xu2023advancesinthe pages 1-2, kurz2023follicularlymphomain pages 4-6).
+### 2.1 Disease causal factors (current understanding)
+**Multistep lymphomagenesis from GC B cells** is a dominant model: early acquisition of t(14;18) and subsequent accumulation of cooperating lesions (particularly in chromatin/epigenetic regulators) in the GC context, with selection pressures from the tumor microenvironment (TME) (kurz2023follicularlymphomain pages 2-4, carreras2023thepathobiologyof pages 3-4).
 
-### Genetic risk factors (susceptibility)
-The retrieved sources note **familial aggregation**: “The incidence is slightly increased among relatives of persons with FL.” (Jacobsen, 2022‑10; doi:10.1002/ajh.26737) (jacobsen2022follicularlymphoma2023 pages 1-2).
+A key concept from pathology literature is that **t(14;18) alone is not sufficient**: the t(14;18) can be detectable in healthy individuals, supporting the need for additional alterations for malignant FL (randall2020pathologyanddiagnosis pages 1-2).
 
-No GWAS loci or germline pathogenic variants were captured in the retrieved excerpts; these would require dedicated searches (GWAS Catalog/ClinVar/ClinGen).
+### 2.2 Risk factors
+#### 2.2.1 Genetic susceptibility (population-level)
+Within the retrieved evidence, we did not capture GWAS/ClinVar/ClinGen-specific loci; however, strong somatic genetic drivers are consistently reported (Section 4).
 
-### Environmental / infectious risk factors
-No validated environmental or infectious *causal* factors for FL were provided in the retrieved excerpts. (Some literature exists for pesticides/immune dysregulation, but it was not accessible in the current evidence set.)
+#### 2.2.2 Environmental/occupational exposures
+- **Glyphosate exposure and FL subtype risk:** An updated meta-analysis reported a subtype estimate for FL of **meta‑RR 0.84 (95% CI 0.61–1.17)** (odutola2020lifestyleandrisk pages 1-2).
 
-### Protective factors / gene–environment interactions
-Not identified in the retrieved evidence.
+*(Note: this is subtype-specific and does not support increased FL risk in that synthesis; additional pesticide classes/solvents specific to FL were not extracted in the current evidence set.)*
+
+#### 2.2.3 Lifestyle factors
+A systematic review/meta-analysis focused on FL reported:
+- **Alcohol intake:** inverse association, **meta‑RR 0.87 (95% CI 0.81–0.94)** with dose–response (p‑trend reported) (odutola2020lifestyleandrisk pages 1-2).
+- **Smoking (current):** **meta‑RR 1.11 (95% CI 0.92–1.35)** (odutola2020lifestyleandrisk pages 1-2).
+- **Hair dye use before 1980:** **meta‑RR 1.66 (95% CI 1.22–2.25)**; no association after 1980 (odutola2020lifestyleandrisk pages 1-2).
+
+### 2.3 Protective factors
+Evidence for a statistically protective association is present for **alcohol intake** in the FL-specific meta-analysis (meta‑RR < 1), though causality is uncertain in observational syntheses (odutola2020lifestyleandrisk pages 1-2).
+
+### 2.4 Gene–environment interactions
+No explicit gene–environment interaction results were retrieved in the current evidence set.
 
 ---
 
-## 3. Phenotypes (clinical features)
+## 3. Phenotypes
 
-### Common presentation and manifestations
-- **Lymphadenopathy** and often **bone marrow involvement**; **splenomegaly** is also common (jacobsen2022follicularlymphoma2023 pages 1-2, kurz2023follicularlymphomain pages 2-4).
-- **Cytopenias** can occur, while classic “B symptoms” are less common **unless transformation occurs** (as summarized in Jacobsen’s clinical overview) (jacobsen2022follicularlymphoma2023 pages 1-2).
-- **Transformation to DLBCL** can present with rapid progression of lymphadenopathy, extranodal disease, B symptoms, hypercalcemia, and elevated LDH (jacobsen2022follicularlymphoma2023 pages 1-2).
+### 3.1 Core clinical phenotypes (with HPO suggestions)
+**Clinical presentation (systemic FL):**
+- Diffuse lymphadenopathy (HPO: **HP:0002716 Lymphadenopathy**) (jacobsen2022follicularlymphoma2023 pages 1-2)
+- Bone marrow involvement; cytopenias can occur (HPO: **HP:0001875 Neutropenia**, **HP:0001903 Anemia**, depending on cytopenia type) (jacobsen2022follicularlymphoma2023 pages 1-2)
+- Splenomegaly (HPO: **HP:0001744 Splenomegaly**) (jacobsen2022follicularlymphoma2023 pages 1-2)
+- “B symptoms” are uncommon without transformation (HPO: **HP:0001945 Fever**, **HP:0004375 Night sweats**, **HP:0004322 Weight loss**) (jacobsen2022follicularlymphoma2023 pages 1-2)
 
-### Temporal features
-- Typical diagnosis in older adults: **median age ~65 years** (jacobsen2022follicularlymphoma2023 pages 1-2).
-- Transformation risk reported as about **2% per year** in classification and clinical updates (jacobsen2022follicularlymphoma2023 pages 1-2, kurz2023follicularlymphomain pages 2-4).
+**Transformation-associated phenotype (clinical suspicion):** rapid lymph node growth, more systemic symptoms; transformation risk ~2%/year is cited in WHO‑HAEM5 review context (kurz2023follicularlymphomain pages 2-4).
 
-### Quality of life (QoL) impact (real-world data)
-In an international RWE survey using **EORTC QLQ‑C30**, QoL worsened with later lines of therapy (LOT): mean global health status/QoL declined from **56.5** in 1L to **50.4** in 3L+ (Johnson et al., received 2024‑02‑23; published online 2024‑07‑08; doi:10.1007/s12325-024-02882-1) (johnson2024qualityoflife pages 1-2).
+### 3.2 Age of onset / course
+- Typical diagnosis occurs in older adults; median age reported **~63–65 years** (jacobsen2022follicularlymphoma2023 pages 1-2, randall2020pathologyanddiagnosis pages 1-2, odutola2020lifestyleandrisk pages 1-2).
+- Disease course is often long/indolent, but relapsing and at risk of transformation (jacobsen2022follicularlymphoma2023 pages 1-2, kurz2023follicularlymphomain pages 2-4).
 
-### Suggested HPO terms (non-exhaustive; mapped to evidence above)
-- **Lymphadenopathy** (HP:0002716)
-- **Splenomegaly** (HP:0001744)
-- **Bone marrow infiltration** (HP:0005528) / **Abnormal bone marrow morphology** (HP:0005560)
-- **Cytopenia** (HP:0001875) (use specific: anemia HP:0001903, thrombocytopenia HP:0001873, neutropenia HP:0001875)
-- **Fever** (HP:0001945), **Night sweats** (HP:0030156), **Weight loss** (HP:0001824) — especially in transformation context
-- **Elevated LDH** (HP:0003077)
+### 3.3 Pathology phenotype (with HPO suggestions)
+- Follicular/nodular growth pattern composed of centrocytes/centroblasts (morphology feature; map to pathology descriptors rather than HPO in many KBs) (kurz2023follicularlymphomain pages 1-2).
 
-(Frequency estimates for specific phenotypes were not captured in the retrieved excerpts.)
+### 3.4 Quality of life impact
+QoL instruments were not captured in the current evidence set; however, chronic relapsing disease and treatment sequencing imply long-term burden (jacobsen2022follicularlymphoma2023 pages 1-2, russlergermain2024sequencingbispecificantibodies pages 1-2).
 
 ---
 
 ## 4. Genetic / Molecular Information
 
-### Core disease-defining lesion
-**IGH::BCL2 t(14;18)(q32;q21)** is the molecular hallmark of classic FL and is described as the initiating event in most cases (xu2023advancesinthe pages 1-2, kurz2023follicularlymphomain pages 4-6, zinzani2024currentandfuture pages 1-2).
+### 4.1 Hallmark lesions
+**IGH::BCL2 translocation (t(14;18)(q32;q21))** is the central hallmark in the majority of cases:
+- WHO‑HAEM5 review: cFL typically harbors t(14;18) in ~**85%** of cases (kurz2023follicularlymphomain pages 1-2).
+- Clinical review: BCL2 overexpression driven by t(14;18) present in ~**85%** (jacobsen2022follicularlymphoma2023 pages 1-2).
 
-### Recurrent somatic alterations (multi-omics/genomics)
-High-frequency events involve **epigenetic modifiers** and immune–microenvironment modulators; examples include **KMT2D**, **CREBBP**, **EZH2**, **EP300**, and **TNFRSF14** (xu2023advancesinthe pages 1-2, kurz2023follicularlymphomain pages 4-6).
+### 4.2 Recurrent somatic mutations (frequencies captured in evidence)
+From a 2023 pathobiology review:
+- **KMT2D**: **80–90%**
+- **CREBBP**: **33–70%**
+- **EZH2**: **7–30%**
+- Additional recurrent lesions include **TNFRSF14**, **BCL6**, **RRAGC** (carreras2023thepathobiologyof pages 3-4).
 
-### Variant biology (t(14;18)-negative, CD23+/STAT6)
-WHO‑HAEM5 and ICC recognize variant subtypes, including a predominantly diffuse pattern often **t(14;18)-negative**, frequently **CD23‑associated**, and enriched for **STAT6** mutations and 1p36 alterations involving **TNFRSF14** (kurz2023follicularlymphomain pages 1-2, kurz2023follicularlymphomain pages 8-10, chadburn2023classificationofbcell pages 2-5).
+### 4.3 Epigenetic information
+Epigenetic dysregulation is repeatedly emphasized through frequent alterations of chromatin regulators (KMT2D, CREBBP, EZH2) (jacobsen2022follicularlymphoma2023 pages 1-2, carreras2023thepathobiologyof pages 3-4). Mechanistic in vivo evidence shows cooperative effects of chromatin modifier perturbation on immune microenvironment states (cancemi2025singleagentandassociated pages 4-5).
 
-### Somatic vs germline
-The alterations summarized here are described in the literature as **somatic** tumor events; germline predisposition variants were not provided in the retrieved excerpts.
+### 4.4 Chromosomal abnormalities and subtype-associated genetics (WHO‑HAEM5)
+WHO‑HAEM5 recognizes related subtypes beyond cFL; for example, a predominantly diffuse subtype is associated with **absence of IGH::BCL2 fusion**, frequent **STAT6** mutations, and **1p36 deletion or TNFRSF14** mutation (kurz2023follicularlymphomain pages 1-2). Table evidence for the subtype schema is captured in Kurz et al. (kurz2023follicularlymphomain media dfd5fc5e).
 
-### Artifact: consolidated alteration table
-The following table is structured for direct knowledge-base ingestion.
+### 4.5 Suggested GO and CL terms (mechanism-linked)
+- **GO (biological process):**
+  - Regulation of apoptotic process (BCL2-driven survival)
+  - Chromatin organization / histone modification (KMT2D/CREBBP/EZH2)
+  - Germinal center formation / B‑cell activation
+- **CL (cell types):**
+  - Germinal center B cell (central malignant population)
+  - T follicular helper cell and follicular dendritic cell as key microenvironmental partners (supported conceptually by microenvironment dependence noted in FL reviews) (russlergermain2024sequencingbispecificantibodies pages 1-2)
 
-| Alteration/Gene (HGNC symbol) | Type (translocation/mutation/CNA/epigenetic) | Approx frequency (with range) | Functional role/pathway | Clinical relevance (diagnostic/prognostic/therapeutic) | Notes on subtype specificity (classic FL vs predominantly diffuse/CD23+ STAT6-mut, transformation) | Key supporting sources (include DOI and year) |
-|---|---|---|---|---|---|---|
-| **IGH::BCL2** / **t(14;18)(q32;q21)** | Translocation | ~65–90%; ~85% in classic FL | Deregulated **BCL2** anti-apoptotic signaling; founding lesion in germinal-center B cells | Hallmark diagnostic lesion for classic FL; helps distinguish classic FL from several t(14;18)-negative variants; biologic rationale for FL pathogenesis | Enriched in classic FL; usually absent in predominantly diffuse/CD23+ FL and other t(14;18)-negative variants; present in ISFN; pre-existing BCL2 translocation constrains some transformed aggressive lymphomas | Xu 2023 doi:10.7150/ijbs.80401; Kurz 2023 doi:10.3390/cancers15030785; Jacobsen 2022 doi:10.1002/ajh.26737 (xu2023advancesinthe pages 1-2, kurz2023follicularlymphomain pages 2-4, kurz2023follicularlymphomain pages 4-6, jacobsen2022follicularlymphoma2023 pages 1-2) |
-| **BCL2** | Mutation / overexpression | Mutated ~40% in one genomic cohort; protein expression ~80–90% in classic FL | Anti-apoptotic mitochondrial pathway | Diagnostic support via BCL2 protein expression in classic FL; central pathogenic driver; potential relevance to therapy resistance biology | Strong expression typical of classic FL; lower expression in FLBCL/former grade 3B; predominantly diffuse FL can be BCL2+ despite lacking IGH::BCL2 | Mozas 2023 doi:10.1002/hon.3132; Kurz 2023 doi:10.3390/cancers15030785 (kurz2023follicularlymphomain pages 4-6, kurz2023follicularlymphomain pages 8-10) |
-| **KMT2D** | Mutation (epigenetic modifier) | ~70–90%; 79% in one cohort | Histone methylation/chromatin regulation in GC B cells | Very early driver lesion; part of core FL genomic profile; potential biomarker for clonal origin and early detection/monitoring | Common in classic FL and early precursor cells; identified as an early stable event longitudinally; also implicated in transformed/aggressive evolution broadly but not specific for diffuse/CD23+ subtype | Xu 2023 doi:10.7150/ijbs.80401; Mozas 2023 doi:10.1002/hon.3132; Bai 2024 doi:10.1038/s41408-024-01124-5; Friedberg 2023 doi:10.1002/hon.3138 (xu2023advancesinthe pages 1-2, kurz2023follicularlymphomain pages 4-6, friedberg2023updateonfollicular pages 1-3) |
-| **CREBBP** | Mutation / loss-of-function (epigenetic modifier) | ~50–70%; 67% in one cohort | Histone acetylation/transcriptional control; epigenetic regulation and immune interaction | Very early driver lesion; part of core FL genomic profile; mechanistically linked to pathogenesis and risk stratification research | Common in classic FL and precursor cells; also frequent in t(14;18)-negative predominantly diffuse/CD23+ FL; longitudinal data identify it as an early event, with KAT-domain-mutant cases showing lower transformation risk in one 2024 study | Xu 2023 doi:10.7150/ijbs.80401; Mozas 2023 doi:10.1002/hon.3132; Bai 2024 doi:10.1038/s41408-024-01124-5; Kurz 2023 doi:10.3390/cancers15030785 (xu2023advancesinthe pages 1-2, kurz2023follicularlymphomain pages 4-6, kurz2023follicularlymphomain pages 8-10) |
-| **EZH2** | Gain-of-function mutation (epigenetic modifier) | ~20–30%; ~25% often cited | PRC2/H3K27 methylation; germinal-center epigenetic program | Therapeutically actionable: basis for **tazemetostat** use; core FL biology and biomarker testing in relapsed disease | Seen in classic FL; EZH2-mutant tumors show altered histone gene expression/H3K27me3 patterns; not a defining lesion of diffuse/CD23+ STAT6-mut subtype | Xu 2023 doi:10.7150/ijbs.80401; Romero 2024 doi:10.1038/s41467-024-47701-x; Friedberg 2023 doi:10.1002/hon.3138; Zinzani 2024 doi:10.1186/s40164-024-00551-1 (xu2023advancesinthe pages 1-2, friedberg2023updateonfollicular pages 1-3, zinzani2024currentandfuture pages 1-2) |
-| **EP300** | Mutation (epigenetic modifier) | ~20–30% | Histone acetylation/co-activator function | Recurrent lesion supporting epigenetic dysregulation model; potential future therapeutic relevance | Present across classic FL; may occur in common precursor cells; not highlighted as subtype-defining for diffuse/CD23+ disease in gathered evidence | Xu 2023 doi:10.7150/ijbs.80401; Bai 2024 doi:10.1038/s41408-024-01124-5 (xu2023advancesinthe pages 1-2) |
-| **TNFRSF14** | Mutation / 1p36 loss-associated lesion | ~46% altered in one cohort | Microenvironment modulation / immune-stromal interaction | Recurrent early lesion; may inform biology of FL–microenvironment crosstalk and subtype assignment | Common in classic FL precursor cells; particularly relevant in t(14;18)-negative predominantly diffuse/CD23+ FL where 1p36 deletion/TNFRSF14 alteration is characteristic | Mozas 2023 doi:10.1002/hon.3132; Kurz 2023 doi:10.3390/cancers15030785 (kurz2023follicularlymphomain pages 4-6, kurz2023follicularlymphomain pages 8-10, kurz2023follicularlymphomain pages 1-2) |
-| **STAT6** | Mutation | Frequent in t(14;18)-negative CD23+ diffuse FL; exact range not uniformly given in gathered evidence | JAK/STAT signaling; linked to nuclear phospho-STAT6 and anti-apoptotic targets such as **BCL2L1/BCL-xL** | Useful subtype-defining biomarker for BCL2-rearrangement-negative, CD23-positive follicle center lymphoma / predominantly diffuse FL | Characteristic of predominantly diffuse inguinal-region, CD23+ FL; more frequent in BCL2-negative / t(14;18)-negative variants than classic FL | Kurz 2023 doi:10.3390/cancers15030785; Chadburn 2023 doi:10.3390/hemato4010003; Laurent 2023 doi:10.1007/s00428-022-03432-2 (kurz2023follicularlymphomain pages 8-10, kurz2023follicularlymphomain pages 1-2, chadburn2023classificationofbcell pages 2-5, laurent2023follicularlymphomaand pages 1-2) |
-| **1p36 deletion / CN-LOH** | Copy-number alteration | Recurrent; exact overall frequency not uniform, but highlighted as characteristic in diffuse FL | Often spans **TNFRSF14**; contributes to immune/microenvironment dysregulation | Helpful in subtype recognition for predominantly diffuse/t(14;18)-negative FL; may have prognostic implications in variant disease | Characteristic of predominantly diffuse/CD23+ STAT6-mut FL; less emphasized as defining lesion in classic FL | Kurz 2023 doi:10.3390/cancers15030785 (kurz2023follicularlymphomain pages 8-10, kurz2023follicularlymphomain pages 1-2, kurz2023follicularlymphomain pages 4-6) |
-| **16p13 loss / CN-LOH** | Copy-number alteration | Recurrent in diffuse FL; no uniform cohort-wide percentage in gathered evidence | Region includes **CREBBP**, **CIITA**, **SOCS1**; epigenetic and immune-regulatory consequences | Supports molecular classification of t(14;18)-negative predominantly diffuse FL | Highlighted in predominantly diffuse/CD23+ FL rather than classic FL | Kurz 2023 doi:10.3390/cancers15030785 (kurz2023follicularlymphomain pages 8-10) |
-| **Chromosome 18q21 gain / chromosome 18 gain** | Copy-number alteration | 14% localized FL vs 36% systemic FL in one study; chromosome 18 gain identified as early stable event in longitudinal series | May increase dosage of 18q genes including **BCL2/TCF4**-region–related drivers | Potential prognostic marker; 18q21 gains associated with inferior PFS in localized FL | More frequent in systemic than localized FL; early stable CNA in disease evolution | Ott 2023 doi:10.21203/rs.3.rs-3073791/v1; Bai 2024 doi:10.1038/s41408-024-01124-5 (xu2023advancesinthe pages 1-2) |
-| **6q loss** | Copy-number alteration | Recurrent early stable CNA; exact frequency not uniform in gathered evidence | Tumor-suppressor region loss | Candidate marker of early clonal architecture and disease monitoring | Early and stable across longitudinal FL evolution; not specifically subtype-restricted in gathered evidence | Bai 2024 doi:10.1038/s41408-024-01124-5 (xu2023advancesinthe pages 1-2) |
-| **BCL6** rearrangement | Translocation | ~10–20% in classic FL; ~20% MYC translocations noted in FLBCL, not BCL6 | Germinal-center transcriptional control | Supports molecular heterogeneity; may complicate differential diagnosis with aggressive B-cell lymphomas | Present in subset of classic FL; variant/transformed cases may carry additional aggressive-genotype features | Kurz 2023 doi:10.3390/cancers15030785 (kurz2023follicularlymphomain pages 4-6) |
-| **ARID1A** | Mutation | 29% systemic FL vs 6% localized FL in one 2023 study | Chromatin remodeling (SWI/SNF) | Candidate marker of systemic disease biology; may relate to more advanced disease state | Enriched in systemic vs localized FL; not a classic hallmark but useful for biologic stratification | Ott 2023 doi:10.21203/rs.3.rs-3073791/v1 (xu2023advancesinthe pages 1-2) |
-| **FOXO1 / PIM1 / TMEM30A** | Mutations | Adverse-behavior associations reported in small cohort; no stable population frequency established | Signaling, proliferation, membrane biology | Possible adverse prognostic markers, but evidence remains preliminary | Associated with early relapse/POD24 or refractory behavior in a small genomic study; not yet established as subtype-defining | Mozas 2023 doi:10.1002/hon.3132 (xu2023advancesinthe pages 1-2) |
-| **CARD11 / CD79B** | Mutations | Recurrent but lower-frequency; exact range not uniform in gathered evidence | B-cell receptor/NF-κB signaling | Support activation of oncogenic signaling pathways; potential future targeted-therapy relevance | Part of broader signaling lesions in FL; not emphasized as variant-specific in gathered evidence | Xu 2023 doi:10.7150/ijbs.80401 (xu2023advancesinthe pages 1-2) |
-| **IGHV N-glycosylation motif acquisition** | Somatic hypermutation-related molecular feature | ~80% | Promotes microenvironmental interactions and B-cell receptor biology | Pathobiologic hallmark rather than routine diagnostic biomarker; may help explain dependence on microenvironment | Associated mainly with classic FL biology and germinal-center origin | Xu 2023 doi:10.7150/ijbs.80401; Kurz 2023 doi:10.3390/cancers15030785 (xu2023advancesinthe pages 1-2, kurz2023follicularlymphomain pages 2-4) |
-
-
-*Table: This table summarizes the principal genomic and molecular abnormalities reported for follicular lymphoma in the gathered evidence, including frequencies, pathways, clinical relevance, and subtype specificity. It is designed for direct use in a disease knowledge base and emphasizes distinctions between classic FL and t(14;18)-negative diffuse/CD23+/STAT6-mutant variants.*
+*(These ontology suggestions are consistent with the mechanistic themes explicitly described in the retrieved reviews; they are not exhaustive.)*
 
 ---
 
 ## 5. Environmental Information
-No specific environmental/lifestyle/infectious contributors were established in the retrieved excerpts for FL onset or progression. The biology-focused reviews emphasize **tumor microenvironment dependence** rather than an infectious etiology (xu2023advancesinthe pages 1-2).
+
+### 5.1 Environmental / occupational factors
+Evidence retrieved here is limited to a glyphosate meta-analysis subtype estimate for FL (meta‑RR 0.84, 95% CI 0.61–1.17) (odutola2020lifestyleandrisk pages 1-2). Broader pesticide class associations were not extracted specifically for FL subtype in the current evidence.
+
+### 5.2 Lifestyle factors
+See Section 2.2.3 for quantitative meta-analytic associations (odutola2020lifestyleandrisk pages 1-2).
+
+### 5.3 Infectious agents
+No infectious etiology evidence was retrieved in the current evidence set.
 
 ---
 
 ## 6. Mechanism / Pathophysiology
 
-### Multi-step lymphomagenesis and microenvironment
-FL development is described as a multistep process in which BCL2-overexpressing precursor B cells accumulate additional lesions through repeated GC re‑entry; disease progression and immune escape are strongly shaped by tumor–microenvironment crosstalk (xu2023advancesinthe pages 1-2).
+### 6.1 Causal chain (integrated)
+1) **Initiation:** early acquisition of **IGH::BCL2** translocation in B cells leading to BCL2 overexpression and survival advantage (jacobsen2022follicularlymphoma2023 pages 1-2, kurz2023follicularlymphomain pages 1-2).
+2) **GC evolution:** accumulation of recurrent **epigenetic/chromatin regulator mutations** (KMT2D/CREBBP/EZH2) shaping transcriptional programs and differentiation states (carreras2023thepathobiologyof pages 3-4).
+3) **TME dependence:** FL survival and progression are supported by immune microenvironment interactions (notably emphasized in T‑cell engager landscape reviews) (russlergermain2024sequencingbispecificantibodies pages 1-2).
+4) **Progression/relapse/transformation:** clonal evolution over time contributes to relapse and risk of transformation to aggressive lymphoma, associated with inferior outcomes (kurz2023follicularlymphomain pages 2-4, carreras2023thepathobiologyof pages 3-4).
 
-**Abstract quote (microenvironment role):** multi‑omics analyses provide “a comprehensive profile of microenvironmental components… unveiling the crosstalk between tumor and microenvironment that induce FL progression and facilitate immune escape.” (Xu et al., 2023‑03‑27; doi:10.7150/ijbs.80401) (xu2023advancesinthe pages 1-2).
-
-### Key molecular pathways highlighted
-- **Apoptosis evasion via BCL2 overexpression** after IGH::BCL2 translocation (xu2023advancesinthe pages 1-2, zinzani2024currentandfuture pages 1-2).
-- **Epigenetic dysregulation** via frequent mutations in histone modifiers/acetyltransferases (KMT2D, CREBBP, EZH2, EP300) (xu2023advancesinthe pages 1-2, zinzani2024currentandfuture pages 1-2).
-- **B‑cell receptor signaling pathway activation** (PI3K/BTK/SYK noted as frequently activated and therapeutic targets) (zinzani2024currentandfuture pages 1-2).
-- **JAK/STAT signaling** in STAT6‑mutant, CD23‑associated t(14;18)-negative diffuse FL variant (kurz2023follicularlymphomain pages 8-10).
-
-### Suggested GO biological process terms (examples)
-- **Regulation of apoptotic process** (GO:0042981)
-- **Chromatin organization** (GO:0006325)
-- **Histone modification** (GO:0016570)
-- **B cell receptor signaling pathway** (GO:0050853)
-- **T cell activation** (GO:0042110)
-- **Antigen processing and presentation** (GO:0019882) (relevant to immunotherapy biology)
-
-### Suggested Cell Ontology (CL) terms for key cell types in FL microenvironment
-- **Germinal center B cell** (CL:0002633)
-- **T follicular helper cell** (CL:0002038)
-- **Regulatory T cell** (CL:0000815)
-- **CD8-positive, alpha-beta T cell** (CL:0000625)
-- **Macrophage** (CL:0000235)
-- **Follicular dendritic cell** (CL:0000447)
+### 6.2 Recent mechanistic developments (2024)
+- **Longitudinal multi‑omics profiling:** a 2024 report analyzed longitudinal biopsies and “confirmed recurrent mutations in genes encoding epigenetic regulators (CREBBP, KMT2D, EZH2, EP300)” and identified CREBBP/KMT2D as early events (cancemi2025singleagentandassociated pages 4-5).
+- **Epigenetic cooperation shaping immune evasion:** a 2024 Nature Communications study reports that combined CREBBP/KMT2D haploinsufficiency in mouse models “confers an immune evasive microenvironment manifesting as CD8+ T-cell exhaustion and reduced infiltration” (cancemi2025singleagentandassociated pages 4-5).
 
 ---
 
 ## 7. Anatomical Structures Affected
 
-### Organ/tissue distribution
-- **Lymph nodes** (primary; often disseminated) (xu2023advancesinthe pages 1-2).
-- **Bone marrow** involvement commonly noted (xu2023advancesinthe pages 1-2, jacobsen2022follicularlymphoma2023 pages 1-2).
-- **Spleen** involvement occurs (kurz2023follicularlymphomain pages 2-4).
+### 7.1 Organ/tissue involvement (UBERON suggestions)
+- Lymph nodes (UBERON: **UBERON:0000029**) (jacobsen2022follicularlymphoma2023 pages 1-2)
+- Bone marrow (UBERON: **UBERON:0002371**) (jacobsen2022follicularlymphoma2023 pages 1-2)
+- Spleen (UBERON: **UBERON:0002106**) (jacobsen2022follicularlymphoma2023 pages 1-2)
 
-### Suggested UBERON terms (examples)
-- **Lymph node** (UBERON:0000029)
-- **Bone marrow** (UBERON:0002371)
-- **Spleen** (UBERON:0002106)
+### 7.2 Cell level (CL suggestions)
+- Germinal center B cell (primary malignant cell type) (jacobsen2022follicularlymphoma2023 pages 1-2, kurz2023follicularlymphomain pages 1-2)
+- Tumor-infiltrating T cells (therapeutic target of CD3×CD20 bispecifics) (nizamuddin2024bispecificantibodiesin pages 2-4)
 
 ---
 
 ## 8. Temporal Development
 
-### Onset
-FL is typically **adult/older adult onset**, with a reported median diagnostic age of ~65 years (jacobsen2022follicularlymphoma2023 pages 1-2).
-
-### Progression patterns
-- Indolent course with repeated remissions/relapses (johnson2024qualityoflife pages 1-2).
-- **POD24** (progression within 24 months of frontline therapy) is emphasized as a high-risk temporal pattern with markedly worse OS (Zinzani et al., 2024‑08; doi:10.1186/s40164-024-00551-1) (zinzani2024currentandfuture pages 1-2).
-
-### Staging/progression to transformation
-Histologic transformation to DLBCL is a key adverse event; one registry study identified biopsy‑confirmed transformation in **4.7%** of FL patients at median follow-up 6.3 years (SEER 2010–2018) (Vaughn & Epperla, 2023‑09; doi:10.1186/s40364-023-00525-1) (vaughn2023survivalofpatients pages 1-2).
+- **Onset pattern:** typically insidious; older adult onset (median ~63–65 years) (randall2020pathologyanddiagnosis pages 1-2, odutola2020lifestyleandrisk pages 1-2).
+- **Course:** prolonged/relapsing; transformation risk cited ~2% per year in WHO‑HAEM5 review context (kurz2023follicularlymphomain pages 2-4).
 
 ---
 
 ## 9. Inheritance and Population
 
-### Epidemiology (recent reviews)
-- FL is described as the **second most common** NHL subtype in Western settings (zinzani2024currentandfuture pages 1-2, xu2023advancesinthe pages 1-2).
-- Incidence: **2–4 per 100,000/year** in Western countries (Zinzani et al., 2024‑08; doi:10.1186/s40164-024-00551-1) (zinzani2024currentandfuture pages 1-2).
-- Incidence (alternate estimate): **3–5 per 100,000/year** (Xu et al., 2023‑03‑27; doi:10.7150/ijbs.80401) (xu2023advancesinthe pages 1-2).
+### 9.1 Epidemiology (recent registry/meta-analytic data captured)
+- **US SEER-based 5‑year relative survival:** **91.6%** for FL (period analysis; SEER 2004–2018; prediction 2019–2023) (xie2022analysisandprediction pages 1-2).
+- **Pathology review survival estimate:** **5‑year survival 88.4%** (randall2020pathologyanddiagnosis pages 1-2).
+- **Sex ratio:** slight male predominance reported (≈1.2:1) (odutola2020lifestyleandrisk pages 1-2).
+- **Incidence variation:** substantial geographic variation; US age-standardized rates reported around ~3–4 per 100,000 in some periods vs ~0.2–0.3 per 100,000 in Korea; race/ethnicity gradients were reported within the US (odutola2020lifestyleandrisk pages 1-2).
 
-### Survival statistics
-- In rituximab era cohorts: 10‑year OS in French and US cohorts reported as **79.8%** and **76.6%** (Zinzani et al., 2024‑08) (zinzani2024currentandfuture pages 1-2).
-- Swedish registry (2003–2010): 10‑year OS by age group 18–49: **92%**, 50–59: **83%**, 60–69: **78%**, ≥70: **64%** (Jacobsen, 2022‑10; doi:10.1002/ajh.26737) (jacobsen2022follicularlymphoma2023 pages 1-2).
-
-### POD24 as a high-risk subgroup
-Patients with POD24 had **2-year/5-year OS 68%/50%** vs **97%/90%** without POD24 (zinzani2024currentandfuture pages 1-2).
+### 9.2 Genetics and heritability
+No inheritance mode (Mendelian) applies for typical FL as a somatic malignancy in the retrieved evidence.
 
 ---
 
 ## 10. Diagnostics
 
-### Diagnostic approach (core elements)
-- **Tissue biopsy** with morphology showing closely packed neoplastic follicles is central, with WHO‑HAEM5/ICC emphasizing integration of morphologic, immunophenotypic, and molecular features (kurz2023follicularlymphomain pages 4-6, laurent2023follicularlymphomaand pages 1-2).
-- **Immunophenotype (classic FL):** pan‑B markers (CD19, CD20, PAX5) and GC markers (CD10, BCL6, HGAL); BCL2 protein expression in ~80–90% (often due to t(14;18)) (Kurz et al., 2023‑01; doi:10.3390/cancers15030785) (kurz2023follicularlymphomain pages 4-6).
-- **Variant diagnostic hints:** t(14;18)-negative, CD23-associated/diffuse-pattern FL variant enriched for STAT6 mutations and 1p36 lesions (kurz2023follicularlymphomain pages 8-10, kurz2023follicularlymphomain pages 1-2).
+### 10.1 Core diagnostic approach
+Diagnosis generally integrates morphology plus immunophenotype and, when needed, cytogenetics/molecular profiling (cancemi2025singleagentandassociated pages 4-5).
 
-### Classification visual evidence (WHO‑HAEM5 subtype list)
-Table showing the WHO‑HAEM5 subtype schema was retrieved from Kurz et al. (2023) (kurz2023follicularlymphomain media 04784bfd).
+**Immunophenotype features captured:**
+- Positive: **CD19, CD20, CD22, CD79a** (nearly all cases), **CD10 ~60%**, **BCL2 strongly expressed** in most grade 1–2 tumors (cancemi2025singleagentandassociated pages 4-5).
+- Negative/typically absent: **CD5**, **CD43**, **CD11c**; **CD23 variable/generally negative** (cancemi2025singleagentandassociated pages 4-5).
 
-### Suggested molecular tests (based on current practice implications in retrieved sources)
-- FISH/NGS for **IGH::BCL2** (t(14;18)) and sequencing of key epigenetic modifiers when clinically relevant (diagnosis/subtyping and targeted therapy decisions) (kurz2023follicularlymphomain pages 4-6, izutsu2024tazemetostatforrelapsedrefractory pages 1-2).
+**Hallmark cytogenetics:**
+- **t(14;18)(q32;q21)** leading to constitutive BCL2 overexpression is present in “most cases (80–90%)” in a pathology review (randall2020pathologyanddiagnosis pages 1-2).
 
-(Detailed imaging criteria, ctDNA/liquid biopsy validation, and differential diagnosis algorithms were not captured in the accessible excerpts.)
+### 10.2 Pathology and classification updates (WHO‑HAEM5)
+WHO‑HAEM5 classifies the predominant entity as **classic FL (cFL)** and makes **grading no longer mandatory**; related subtypes include predominantly diffuse FL, unusual cytology FL, and FLBCL (former grade 3B) (kurz2023follicularlymphomain pages 1-2). A tabular summary of WHO‑HAEM5 subtypes is available in Kurz et al. Table 1 (image evidence) (kurz2023follicularlymphomain media dfd5fc5e).
 
 ---
 
 ## 11. Outcome / Prognosis
 
-### Transformation prognosis (population data)
-In a SEER analysis (2010–2018), transformed FL (t‑FL) had inferior outcomes compared with de novo DLBCL:
-- 5‑year relative survival **54%** (t‑FL) vs **67%** (de novo DLBCL)
-- 5‑year OS **49%** vs **57%
-- Median OS **4.6 years** vs **8.8 years**
-(Vaughn & Epperla, 2023‑09; doi:10.1186/s40364-023-00525-1) (vaughn2023survivalofpatients pages 1-2).
+### 11.1 Transformation outcomes
+Transformation to aggressive lymphoma is a key adverse event; transformed FL shows inferior survival compared with de novo DLBCL in registry comparisons (concept captured in disease reviews; transformation risk ~2%/year cited) (kurz2023follicularlymphomain pages 2-4).
 
-### R/R FL outcomes benchmark
-For patients with R/R FL after ≥2 prior therapies, a later-line benchmark reported median **PFS 17 months** and **5‑year OS 75%** (Zinzani et al., 2024‑08) (zinzani2024currentandfuture pages 1-2).
+### 11.2 Early progression as a prognostic discriminator
+A review excerpt reports that among R‑CHOP–treated patients, 5‑year OS was markedly worse with early progression versus without early progression (50% vs 90%) (cancemi2025singleagentandassociated pages 4-5).
 
-### Real-world mortality and cost burden (late-line RWE)
-In an Italian administrative dataset of patients reaching ≥3 lines of therapy, **34% died** at median 3‑year follow‑up; mean annual costs increased from **€14,508** pre-inclusion to **€21,081** at 1‑year follow-up (Ferreri et al., 2023‑09‑02; doi:10.3390/cancers15174403) (ferreri2023burdenofillness pages 1-2).
+### 11.3 Survival benchmarks
+- 5‑year relative survival for FL in US SEER period analysis: **91.6%** (xie2022analysisandprediction pages 1-2).
+- 5‑year survival estimate from pathology review: **88.4%** (randall2020pathologyanddiagnosis pages 1-2).
 
 ---
 
 ## 12. Treatment
 
-### Standard paradigms (high-level)
-- Many patients can be observed initially; systemic therapy can be deferred until symptoms or high tumor burden. Common systemic options include anti‑CD20–based regimens (rituximab ± chemotherapy) and chemo‑free immunomodulatory combinations (lenalidomide‑rituximab) (jacobsen2022follicularlymphoma2023 pages 1-2, ferreri2023burdenofillness pages 1-2).
+### 12.1 Standard frontline and early-stage options (context)
+Clinical review notes frontline strategies include observation for asymptomatic advanced-stage patients, radiotherapy for limited-stage disease (curative in a subset), and anti‑CD20–based therapy alone or with chemotherapy (jacobsen2022follicularlymphoma2023 pages 9-9, jacobsen2022follicularlymphoma2023 pages 1-2).
 
-### 2023–2024 advances and implementations in R/R FL
-Novel immunotherapies (CD20×CD3 bispecific antibodies, CAR‑T) and targeted epigenetic therapy (EZH2 inhibition) are emphasized as major developments, with high response rates in later-line settings and expanding real-world uptake considerations (friedberg2023updateonfollicular pages 4-6, maurer2023matchingadjustedindirectcomparison pages 1-2, izutsu2024tazemetostatforrelapsedrefractory pages 1-2).
+### 12.2 Recent developments (2023–2024 prioritized): bispecific antibodies and CAR‑T
 
-**Artifact: therapy landscape summary table (quantitative)**
+#### CD20×CD3 bispecific antibodies (off‑the‑shelf T‑cell engagers)
+- **Mosunetuzumab (GO29781):** ORR **80%**, CR **60%**, median follow‑up **37 months**; **36‑month PFS 43.2%**, **36‑month OS 82.9%**, median duration of response **35.9 months** (nizamuddin2024bispecificantibodiesin pages 2-4).
+- **Epcoritamab (EPCORE NHL‑1):** ORR **82%**, CR **63%**; follow‑up reported, with median duration of response ~**15.4 months** in the review excerpt (nizamuddin2024bispecificantibodiesin pages 2-4).
 
-| Therapy (generic; target/class) | Regulatory status (FDA/EMA/Japan approval year as stated) | Key supporting study and design (trial name/NCT; publication year) | Population/line | Key efficacy (ORR, CR, PFS) and follow-up | Key safety signals | Real-world/health economics notes if present |
-|---|---|---|---|---|---|---|
-| Mosunetuzumab (CD20×CD3 bispecific antibody) | FDA and European approvals in 2022 for R/R FL after ≥2 prior lines; FDA approval noted in Dec 2022 (friedberg2023updateonfollicular pages 4-6, jacobsen2022follicularlymphoma2023 pages 9-9) | GO29781, pivotal international phase 2; phase I/II program; NCT02500407; reported in 2023–2024 contextual sources (friedberg2023updateonfollicular pages 4-6, maurer2023matchingadjustedindirectcomparison pages 1-2) | R/R FL after ≥2 prior systemic therapies including alkylator and anti-CD20 therapy; high-risk subgroups included double-refractory and POD24 patients (friedberg2023updateonfollicular pages 4-6, maurer2023matchingadjustedindirectcomparison pages 1-2) | Phase 2: ORR 80%, CR 60%, median PFS 17.9 months in GO29781; Friedberg update cites median follow-up >18 months, median PFS 21 months, median DOR 22 months; phase I data showed CR rates >50% in double-refractory and POD24 patients (maurer2023matchingadjustedindirectcomparison pages 1-2, friedberg2023updateonfollicular pages 4-6) | CRS 44% in phase 2, almost all low grade; only one grade 3 and one grade 4 CRS event reported; phase I included neutropenia and CRS with fever, 7% hospitalization, neurologic AEs uncommon (friedberg2023updateonfollicular pages 4-6, jacobsen2022follicularlymphoma2023 pages 9-9) | MAIC versus LEO CReWE: weighted real-world cohort ORR 73%, CR 53%, 12-month PFS 60% vs mosunetuzumab trial 58%; Bayesian long-term modeling estimated median survival 11.6–17.0 years; US budget model found per-patient cumulative cost about $202,039 and small 3-year payer impact (maurer2023matchingadjustedindirectcomparison pages 1-2) |
-| Epcoritamab (subcutaneous CD20×CD3 bispecific antibody) | Not stated as approved in the specific evidence set used here; described as in development/clinical advance in Jacobsen 2022 snippet (jacobsen2022follicularlymphoma2023 pages 9-9) | Phase I/II study; Jacobsen update cites early epcoritamab data (publication context 2022/2023) (jacobsen2022follicularlymphoma2023 pages 9-9) | R/R FL, later-line setting (jacobsen2022follicularlymphoma2023 pages 9-9) | ORR 90%, CR 50% in the cited phase I/II experience (jacobsen2022follicularlymphoma2023 pages 9-9) | CRS 59%, all grade 1–2 in cited snippet (jacobsen2022follicularlymphoma2023 pages 9-9) | No direct RWE or health-economic data in the provided evidence set (jacobsen2022follicularlymphoma2023 pages 9-9) |
-| Glofitamab (CD20×CD3 bispecific antibody) | No approval status stated in the selected evidence set (jacobsen2022follicularlymphoma2023 pages 9-9) | Phase I/II study with obinutuzumab pre-treatment; cited in Jacobsen update (jacobsen2022follicularlymphoma2023 pages 9-9) | FL in relapsed/refractory setting (jacobsen2022follicularlymphoma2023 pages 9-9) | ORR 70.5%, CR 47.7% in FL (jacobsen2022follicularlymphoma2023 pages 9-9) | Low incidence of grade 3 CRS/neurologic events (jacobsen2022follicularlymphoma2023 pages 9-9) | No direct RWE or economic data in the provided evidence set (jacobsen2022follicularlymphoma2023 pages 9-9) |
-| Axicabtagene ciloleucel / axi-cel (autologous anti-CD19 CAR-T) | Approved in the United States for relapsed/refractory FL based on ZUMA-5; approval noted by 2023 update sources (friedberg2023updateonfollicular pages 4-6) | ZUMA-5 phase 2; mature results summarized in 2023 review (friedberg2023updateonfollicular pages 4-6) | R/R FL, generally after failure of monoclonal antibody and alkylator therapy; considered for high-risk situations including selected POD24 patients (friedberg2023updateonfollicular pages 4-6) | In primary FL analysis: CR 79%; estimated 18-month PFS 66%; durable responses reported (friedberg2023updateonfollicular pages 4-6) | AEs similar to prior CAR-T experience; some decrease in severity of CRS and neurologic toxicity versus aggressive lymphoma histologies (friedberg2023updateonfollicular pages 4-6) | Propensity-matched comparison favored CAR-T over matched cohort, with median PFS not reached vs 12 months in comparator cohort; US cost-effectiveness model estimated +1.89 QALY vs mosunetuzumab and ICER $108,307/QALY (friedberg2023updateonfollicular pages 4-6) |
-| Tisagenlecleucel / tisa-cel (autologous anti-CD19 CAR-T) | Approved by the United States FDA for FL based on trial cited in 2023 review (friedberg2023updateonfollicular pages 4-6) | ELARA-related experience summarized in 2023 review (friedberg2023updateonfollicular pages 4-6) | FL patients who received CAR-T infusion in relapsed/refractory setting (friedberg2023updateonfollicular pages 4-6) | CR 69%; 12-month PFS 67% (friedberg2023updateonfollicular pages 4-6) | Safety profile consistent with prior experience; nearly 20% treated outpatient in the cited trial summary (friedberg2023updateonfollicular pages 4-6) | No direct FL-specific cost data in the selected evidence set; sequencing relative to bispecific antibodies remains unresolved (friedberg2023updateonfollicular pages 4-6) |
-| Tazemetostat (EZH2 inhibitor; oral epigenetic therapy) | US accelerated approval in 2020 for EZH2-mutated R/R FL after ≥2 prior therapies, or EZH2 wild-type without satisfactory alternatives; Japan approval in 2021 for EZH2-mutated R/R FL (izutsu2024tazemetostatforrelapsedrefractory pages 1-2) | Global phase II NCT01897571 and Japanese phase II NCT03456726; 3-year follow-up published 2024 (izutsu2024tazemetostatforrelapsedrefractory pages 1-2) | EZH2-mutated R/R FL, generally third line or later (izutsu2024tazemetostatforrelapsedrefractory pages 1-2) | Global phase II: ORR 69% in EZH2-mut cohort and 35% in wild-type cohort; Japanese 3-year follow-up: FL cohort ORR 70.6%, median PFS not reached, 24-month PFS 72.1%, 36-month PFS 64.1%, median follow-up 35.0 months (izutsu2024tazemetostatforrelapsedrefractory pages 1-2) | Long-term safety favorable; newly emerged grade 1–2 urinary tract infection, peripheral motor neuropathy, hypogammaglobulinemia; no unexpected grade ≥3 treatment-related AEs (izutsu2024tazemetostatforrelapsedrefractory pages 1-2) | Oral, time-continuous targeted option; useful for biomarker-selected EZH2-mutated patients; no direct RWE cost data in selected evidence set (izutsu2024tazemetostatforrelapsedrefractory pages 1-2) |
-| Later-line R/R FL prognosis benchmark (context for novel therapies, not a therapy) | Not applicable (zinzani2024currentandfuture pages 1-2) | LEO CReWE real-world benchmark cited in 2024 review (zinzani2024currentandfuture pages 1-2) | Patients with R/R FL after ≥2 prior therapies (zinzani2024currentandfuture pages 1-2) | Median PFS 17 months and 5-year OS 75% in R/R FL after ≥2 prior therapies; POD24 subgroup had 2-year/5-year OS 68%/50% vs 97%/90% without POD24 (zinzani2024currentandfuture pages 1-2) | Not applicable | Useful comparator showing unmet need that newer bispecifics, CAR-T, and EZH2-targeted therapy aim to address (zinzani2024currentandfuture pages 1-2) |
+**Expert opinion (sequencing):** An ASH Hematology 2024 review states that, given emerging durability and feasibility, they “generally favor BsAbs before CAR T as the standard-of-care third-line treatment for the typical patient with R/R FL without concern for aggressive histologic transformation” (russlergermain2024sequencingbispecificantibodies pages 1-2).
 
+#### CAR‑T cell therapy (anti‑CD19)
+- **Axicabtagene ciloleucel (axi‑cel), ZUMA‑5:** ORR **94%**, CR **79%** after a single infusion; 3‑year follow‑up indicates durable remissions with median duration of response **~38.6 months** and median PFS **~40.2 months** (testa2024cartcelltherapy pages 1-2).
 
-*Table: This table summarizes major 2022-2024 therapeutic advances for relapsed/refractory follicular lymphoma using only the cited context, with trial-level efficacy, safety, and selected real-world or economic context. It is useful for comparing bispecific antibodies, CAR-T products, and EZH2-targeted therapy against the poor-outcome benchmark of later-line FL.*
+#### EZH2 inhibitor (epigenetic therapy)
+- **Tazemetostat (EZH2‑mutant R/R FL; Japan phase II follow‑up):** ORR **70.6%**; **24‑month PFS 72.1%** and **36‑month PFS 64.1%**; no unexpected grade ≥3 treatment-related AEs on long follow‑up (cao2025efficacyandsafety pages 12-12).
 
-### Example MAXO terms (suggestions)
-- **Anti-CD20 monoclonal antibody therapy** (MAXO:0000013; general antibody therapy category—exact MAXO mapping may need verification)
-- **Chimeric antigen receptor T-cell therapy** (CAR‑T; MAXO term should be selected from MAXO hierarchy)
-- **Bispecific antibody therapy** (MAXO mapping required)
-- **Radiotherapy** (MAXO mapping required)
-
-(MAXO IDs require ontology lookup; not explicitly present in retrieved evidence.)
+### 12.3 Treatment ontology suggestions
+- **MAXO (examples):** anti‑CD20 monoclonal antibody therapy; chemoimmunotherapy; radiotherapy; CAR‑T cell therapy; bispecific antibody therapy; epigenetic therapy (EZH2 inhibition).
+- **CHEBI (examples):** lenalidomide (immunomodulatory drug, target context); tazemetostat (EZH2 inhibitor) (jacobsen2022follicularlymphoma2023 pages 9-9, cao2025efficacyandsafety pages 12-12).
 
 ---
 
 ## 13. Prevention
 
-### Current state
-No established primary prevention strategy was identified in the retrieved literature excerpts. Current “prevention” is largely **tertiary** (preventing relapse/complications via optimized therapy sequencing and supportive care) and **secondary** (monitoring for progression/transformation), but specific evidence-based screening programs for asymptomatic individuals were not captured in the retrieved excerpts.
+No established primary prevention or population screening strategy for FL was retrieved in this evidence set. Risk-factor evidence exists from observational syntheses (e.g., alcohol intake associations, hair dye before 1980), but these are not actionable clinical prevention guidelines within the retrieved materials (odutola2020lifestyleandrisk pages 1-2).
 
 ---
 
 ## 14. Other Species / Natural Disease
-Not addressed in the retrieved excerpts; would require targeted searches in OMIA/veterinary oncology and comparative pathology resources.
+
+Not directly retrieved in the current evidence set.
 
 ---
 
 ## 15. Model Organisms
-No specific FL model organism systems were extracted from the retrieved excerpts (despite the general recognition that microenvironment modeling is a research focus). Dedicated searches for genetically engineered mouse models (e.g., BCL2 transgenic GC models), xenografts, and 3D co-culture systems are needed.
+
+Mechanistic model organism evidence supports GC-context initiation and epigenetic cooperation:
+- A 2024 Nature Communications study used mouse genetics to show combined CREBBP/KMT2D haploinsufficiency accelerates lymphoma phenotypes and shapes immune evasion (cancemi2025singleagentandassociated pages 4-5).
 
 ---
 
-# WHO‑HAEM5 Subtype Schema (visual evidence)
-The WHO‑HAEM5 subtype list is shown in Kurz et al. Table 1 (kurz2023follicularlymphomain media 04784bfd).
+## Evidence summary table
+| Domain | Key points | Key sources | URLs |
+|---|---|---|---|
+| Classification | WHO-HAEM5: most FL with follicular growth are **classic FL (cFL)** (~85%), composed of centrocytes/centroblasts; **grading of cFL is no longer mandatory**; FLBCL corresponds to prior grade 3B (kurz2023follicularlymphomain pages 1-2) | Kurz 2023 | https://doi.org/10.3390/cancers15030785 |
+| Genetics | Hallmark lesion: **t(14;18)(q32;q21)/IGH::BCL2** in ~**85%** of cFL/manifest FL; considered an initiating event (kurz2023follicularlymphomain pages 2-4, kurz2023follicularlymphomain pages 1-2) | Kurz 2023 | https://doi.org/10.3390/cancers15030785 |
+| Genetics | Recurrent mutation frequencies reported in FL: **KMT2D 80–90%**, **CREBBP 33–70%**, **EZH2 7–30%**; other recurrent lesions include TNFRSF14, BCL6, RRAGC (carreras2023thepathobiologyof pages 3-4) | Carreras 2023 | https://doi.org/10.3960/jslrt.23014 |
+| Clinical | Typical presentation: **diffuse lymphadenopathy**, frequent **bone marrow involvement** and **splenomegaly**; extranodal involvement less common; cytopenias relatively common, B symptoms uncommon without transformation (jacobsen2022follicularlymphoma2023 pages 1-2) | Jacobsen 2022 | https://doi.org/10.1002/ajh.26737 |
+| Epidemiology/Outcome | FL is the **second most common lymphoma** in the US/Western Europe; median diagnosis age ~**65 years**; rituximab-era registry data cited **10-year OS ~80% overall** (age-stratified ~92% to 64%); transformation risk about **2%/year** (jacobsen2022follicularlymphoma2023 pages 1-2, kurz2023follicularlymphomain pages 2-4) | Jacobsen 2022; Kurz 2023 | https://doi.org/10.1002/ajh.26737; https://doi.org/10.3390/cancers15030785 |
+| Treatment | **Mosunetuzumab** (GO29781): ORR **80%**, CR **60%**; median follow-up **37 months**; median PFS **24 months**; **36-month PFS 43.2%**; median OS not reached; **36-month OS 82.9%**; median DOR **35.9 months** (nizamuddin2024bispecificantibodiesin pages 2-4) | Nizamuddin 2024 | https://doi.org/10.3324/haematol.2024.285245 |
+| Treatment | **Epcoritamab** (EPCORE NHL-1): ORR **82%**, CR **63%**; median follow-up **27 months**; median DOR about **15.4 months** (nizamuddin2024bispecificantibodiesin pages 2-4) | Nizamuddin 2024 | https://doi.org/10.3324/haematol.2024.285245 |
+| Treatment | **Axicabtagene ciloleucel (axi-cel)**, ZUMA-5: ORR **94%**, CR **79%** after single infusion; updated ~**40.5-month** follow-up with median DOR **38.6 months**, median PFS **40.2 months**, and **62%** of CRs maintained at **36 months** (testa2024cartcelltherapy pages 1-2) | Testa 2024 | https://doi.org/10.4084/mjhid.2024.012 |
+| Treatment | **Tazemetostat** in Japanese EZH2-mutant R/R FL: ORR **70.6%**; **24-month PFS 72.1%**; **36-month PFS 64.1%**; long-term median follow-up **35.0 months**; no unexpected grade ≥3 treatment-related AEs in follow-up (cao2025efficacyandsafety pages 12-12) | Izutsu 2024 | https://doi.org/10.1007/s12185-024-03834-9 |
+
+
+*Table: This table condenses the most relevant classification, molecular, clinical, epidemiologic, and 2023–2024 therapy outcome findings for follicular lymphoma from the gathered evidence. It is useful as a quick-reference summary for building a disease knowledge-base entry.*
 
 ---
 
-# Limitations of this report (evidence availability)
-1. **Ontology identifiers (MONDO/MeSH/Orphanet/ICD‑10/ICD‑11)** were not present in the accessed excerpts; only ICD‑9‑CM 202.0 was captured from an RWE study (ferreri2023burdenofillness pages 2-3).
-2. **Etiology (environmental/infectious), protective factors, and gene–environment interactions** were not covered by the accessible evidence set.
-3. **Model organisms and non-human natural disease** information was not retrieved.
-4. Some claims that typically require primary trial publications (e.g., full GO29781 paper) were supported here via accessible abstracts/reviews and an RWE comparator study; deeper extraction from full primary reports would strengthen a knowledge base entry (friedberg2023updateonfollicular pages 4-6, maurer2023matchingadjustedindirectcomparison pages 1-2).
+## Key WHO‑HAEM5 classification visual evidence
+Kurz et al. Table 1 (WHO‑HAEM5 subtype overview, including optional grading of cFL and renamed entities) is available as an extracted image (kurz2023follicularlymphomain media dfd5fc5e).
+
+---
+
+## Limitations of the current evidence set
+- Formal cross-ontology identifiers (MeSH, ICD‑10/11, Orphanet, OMIM) were not retrieved in the current tool calls.
+- Some requested content areas (explicit gene–environment interaction studies; infectious triggers; QoL instrument statistics; comprehensive differential diagnosis tables) were not captured in the current extracted excerpts.
+- PMID-level citation mapping is incomplete in these excerpts; several sources provide DOIs/URLs, but PMIDs were not consistently available in the retrieved text segments.
+
 
 
 References
 
-1. (xu2023advancesinthe pages 1-2): Tianyuan Xu, Zhong Zheng, and Weili Zhao. Advances in the multi-omics landscape of follicular lymphoma. International Journal of Biological Sciences, 19:1955-1967, Mar 2023. URL: https://doi.org/10.7150/ijbs.80401, doi:10.7150/ijbs.80401. This article has 10 citations and is from a peer-reviewed journal.
+1. (OpenTargets Search: follicular lymphoma): Open Targets Query (follicular lymphoma, 42 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
 
-2. (zinzani2024currentandfuture pages 1-2): Pier Luigi Zinzani, Javier Muñoz, and Judith Trotman. Current and future therapies for follicular lymphoma. Experimental Hematology & Oncology, Aug 2024. URL: https://doi.org/10.1186/s40164-024-00551-1, doi:10.1186/s40164-024-00551-1. This article has 28 citations and is from a peer-reviewed journal.
+2. (jacobsen2022follicularlymphoma2023 pages 1-2): Eric Jacobsen. Follicular lymphoma: 2023 update on diagnosis and management. American Journal of Hematology, 97:1638-1651, Oct 2022. URL: https://doi.org/10.1002/ajh.26737, doi:10.1002/ajh.26737. This article has 163 citations and is from a domain leading peer-reviewed journal.
 
-3. (jacobsen2022follicularlymphoma2023 pages 1-2): Eric Jacobsen. Follicular lymphoma: 2023 update on diagnosis and management. American Journal of Hematology, 97:1638-1651, Oct 2022. URL: https://doi.org/10.1002/ajh.26737, doi:10.1002/ajh.26737. This article has 159 citations and is from a domain leading peer-reviewed journal.
+3. (kurz2023follicularlymphomain pages 1-2): Katrin S. Kurz, Sabrina Kalmbach, Michaela Ott, Annette M. Staiger, German Ott, and Heike Horn. Follicular lymphoma in the 5th edition of the who-classification of haematolymphoid neoplasms—updated classification and new biological data. Cancers, 15:785, Jan 2023. URL: https://doi.org/10.3390/cancers15030785, doi:10.3390/cancers15030785. This article has 55 citations.
 
-4. (kurz2023follicularlymphomain pages 2-4): Katrin S. Kurz, Sabrina Kalmbach, Michaela Ott, Annette M. Staiger, German Ott, and Heike Horn. Follicular lymphoma in the 5th edition of the who-classification of haematolymphoid neoplasms—updated classification and new biological data. Cancers, 15:785, Jan 2023. URL: https://doi.org/10.3390/cancers15030785, doi:10.3390/cancers15030785. This article has 53 citations.
+4. (kurz2023follicularlymphomain pages 2-4): Katrin S. Kurz, Sabrina Kalmbach, Michaela Ott, Annette M. Staiger, German Ott, and Heike Horn. Follicular lymphoma in the 5th edition of the who-classification of haematolymphoid neoplasms—updated classification and new biological data. Cancers, 15:785, Jan 2023. URL: https://doi.org/10.3390/cancers15030785, doi:10.3390/cancers15030785. This article has 55 citations.
 
-5. (ferreri2023burdenofillness pages 2-3): Andrés J. M. Ferreri, Pier Luigi Zinzani, Carlo Messina, Diletta Valsecchi, Maria Chiara Rendace, Eleonora Premoli, Elisa Giacomini, Chiara Veronesi, Luca Degli Esposti, and Paola Di Matteo. Burden of illness in follicular lymphoma with multiple lines of treatment, italian rwe analysis. Cancers, 15:4403, Sep 2023. URL: https://doi.org/10.3390/cancers15174403, doi:10.3390/cancers15174403. This article has 5 citations.
+5. (nizamuddin2024bispecificantibodiesin pages 2-4): Imran A. Nizamuddin and Nancy L. Bartlett. Bispecific antibodies in follicular lymphoma. Haematologica, 110:1472-1482, Oct 2024. URL: https://doi.org/10.3324/haematol.2024.285245, doi:10.3324/haematol.2024.285245. This article has 17 citations.
 
-6. (kurz2023follicularlymphomain pages 4-6): Katrin S. Kurz, Sabrina Kalmbach, Michaela Ott, Annette M. Staiger, German Ott, and Heike Horn. Follicular lymphoma in the 5th edition of the who-classification of haematolymphoid neoplasms—updated classification and new biological data. Cancers, 15:785, Jan 2023. URL: https://doi.org/10.3390/cancers15030785, doi:10.3390/cancers15030785. This article has 53 citations.
+6. (testa2024cartcelltherapy pages 1-2): Ugo Testa, Francesco D'Alò, Elvira Pelosi, Germana Castelli, and Giuseppe Leone. Car-t cell therapy for follicular lymphomas. Mediterranean Journal of Hematology and Infectious Diseases, 16:e2024012, Jan 2024. URL: https://doi.org/10.4084/mjhid.2024.012, doi:10.4084/mjhid.2024.012. This article has 12 citations.
 
-7. (kurz2023follicularlymphomain pages 1-2): Katrin S. Kurz, Sabrina Kalmbach, Michaela Ott, Annette M. Staiger, German Ott, and Heike Horn. Follicular lymphoma in the 5th edition of the who-classification of haematolymphoid neoplasms—updated classification and new biological data. Cancers, 15:785, Jan 2023. URL: https://doi.org/10.3390/cancers15030785, doi:10.3390/cancers15030785. This article has 53 citations.
+7. (odutola2020lifestyleandrisk pages 1-2): Michael K. Odutola, Eriobu Nnakelu, Graham G. Giles, Marina T. van Leeuwen, and Claire M. Vajdic. Lifestyle and risk of follicular lymphoma: a systematic review and meta-analysis of observational studies. Cancer Causes & Control, 31:979-1000, Aug 2020. URL: https://doi.org/10.1007/s10552-020-01342-9, doi:10.1007/s10552-020-01342-9. This article has 12 citations and is from a peer-reviewed journal.
 
-8. (laurent2023follicularlymphomaand pages 1-2): Camille Laurent, James R. Cook, Tadashi Yoshino, Leticia Quintanilla-Martinez, and Elaine S. Jaffe. Follicular lymphoma and marginal zone lymphoma: how many diseases? Virchows Archiv, 482:149-162, Nov 2023. URL: https://doi.org/10.1007/s00428-022-03432-2, doi:10.1007/s00428-022-03432-2. This article has 70 citations and is from a peer-reviewed journal.
+8. (xie2022analysisandprediction pages 1-2): Shuping Xie, Zhongjie Yu, Aozi Feng, Shuai Zheng, Yunmei Li, You Zeng, and J. Lyu. Analysis and prediction of relative survival trends in patients with non-hodgkin lymphoma in the united states using a model-based period analysis method. Frontiers in Oncology, Sep 2022. URL: https://doi.org/10.3389/fonc.2022.942122, doi:10.3389/fonc.2022.942122. This article has 34 citations.
 
-9. (kurz2023follicularlymphomain pages 8-10): Katrin S. Kurz, Sabrina Kalmbach, Michaela Ott, Annette M. Staiger, German Ott, and Heike Horn. Follicular lymphoma in the 5th edition of the who-classification of haematolymphoid neoplasms—updated classification and new biological data. Cancers, 15:785, Jan 2023. URL: https://doi.org/10.3390/cancers15030785, doi:10.3390/cancers15030785. This article has 53 citations.
+9. (carreras2023thepathobiologyof pages 3-4): Joaquim Carreras. The pathobiology of follicular lymphoma. Journal of Clinical and Experimental Hematopathology : JCEH, 63:152-163, Jul 2023. URL: https://doi.org/10.3960/jslrt.23014, doi:10.3960/jslrt.23014. This article has 17 citations.
 
-10. (chadburn2023classificationofbcell pages 2-5): Amy Chadburn, Annunziata Gloghini, and Antonino Carbone. Classification of b-cell lymphomas and immunodeficiency-related lymphoproliferations: what’s new? Hemato, 4:26-41, Jan 2023. URL: https://doi.org/10.3390/hemato4010003, doi:10.3390/hemato4010003. This article has 6 citations.
+10. (randall2020pathologyanddiagnosis pages 1-2): Cara Randall and Yuri Fedoriw. Pathology and diagnosis of follicular lymphoma and related entities. Jan 2020. URL: https://doi.org/10.1016/j.pathol.2019.09.010, doi:10.1016/j.pathol.2019.09.010. This article has 34 citations and is from a peer-reviewed journal.
 
-11. (vaughn2023survivalofpatients pages 1-2): John L. Vaughn and Narendranath Epperla. Survival of patients with transformed follicular lymphoma in the united states: a multiple cohort study. Biomarker Research, Sep 2023. URL: https://doi.org/10.1186/s40364-023-00525-1, doi:10.1186/s40364-023-00525-1. This article has 15 citations and is from a peer-reviewed journal.
+11. (russlergermain2024sequencingbispecificantibodies pages 1-2): David A. Russler-Germain and Nancy L. Bartlett. Sequencing bispecific antibodies and car t cells for fl. Hematology, 2024:310-317, Dec 2024. URL: https://doi.org/10.1182/hematology.2024000667, doi:10.1182/hematology.2024000667. This article has 8 citations and is from a peer-reviewed journal.
 
-12. (ferreri2023burdenofillness pages 1-2): Andrés J. M. Ferreri, Pier Luigi Zinzani, Carlo Messina, Diletta Valsecchi, Maria Chiara Rendace, Eleonora Premoli, Elisa Giacomini, Chiara Veronesi, Luca Degli Esposti, and Paola Di Matteo. Burden of illness in follicular lymphoma with multiple lines of treatment, italian rwe analysis. Cancers, 15:4403, Sep 2023. URL: https://doi.org/10.3390/cancers15174403, doi:10.3390/cancers15174403. This article has 5 citations.
+12. (cancemi2025singleagentandassociated pages 4-5): Gabriella Cancemi, Chiara Campo, Santino Caserta, Iolanda Rizzotti, and Donato Mannina. Single-agent and associated therapies with monoclonal antibodies: what about follicular lymphoma? Cancers, 17:1602, May 2025. URL: https://doi.org/10.3390/cancers17101602, doi:10.3390/cancers17101602. This article has 11 citations.
 
-13. (johnson2024qualityoflife pages 1-2): Patrick Connor Johnson, Abigail Bailey, Qiufei Ma, Neil Milloy, Emilia Biondi, Ruben G. W. Quek, Sarah Weatherby, and Sophie Barlow. Quality of life evaluation in patients with follicular cell lymphoma: a real-world study in europe and the united states. Advances in Therapy, 41:3342-3361, Jul 2024. URL: https://doi.org/10.1007/s12325-024-02882-1, doi:10.1007/s12325-024-02882-1. This article has 13 citations and is from a peer-reviewed journal.
+13. (kurz2023follicularlymphomain media dfd5fc5e): Katrin S. Kurz, Sabrina Kalmbach, Michaela Ott, Annette M. Staiger, German Ott, and Heike Horn. Follicular lymphoma in the 5th edition of the who-classification of haematolymphoid neoplasms—updated classification and new biological data. Cancers, 15:785, Jan 2023. URL: https://doi.org/10.3390/cancers15030785, doi:10.3390/cancers15030785. This article has 55 citations.
 
-14. (friedberg2023updateonfollicular pages 1-3): Jonathan W. Friedberg. Update on follicular lymphoma. Hematological Oncology, 41:43-47, Jun 2023. URL: https://doi.org/10.1002/hon.3138, doi:10.1002/hon.3138. This article has 32 citations and is from a peer-reviewed journal.
+14. (jacobsen2022follicularlymphoma2023 pages 9-9): Eric Jacobsen. Follicular lymphoma: 2023 update on diagnosis and management. American Journal of Hematology, 97:1638-1651, Oct 2022. URL: https://doi.org/10.1002/ajh.26737, doi:10.1002/ajh.26737. This article has 163 citations and is from a domain leading peer-reviewed journal.
 
-15. (kurz2023follicularlymphomain media 04784bfd): Katrin S. Kurz, Sabrina Kalmbach, Michaela Ott, Annette M. Staiger, German Ott, and Heike Horn. Follicular lymphoma in the 5th edition of the who-classification of haematolymphoid neoplasms—updated classification and new biological data. Cancers, 15:785, Jan 2023. URL: https://doi.org/10.3390/cancers15030785, doi:10.3390/cancers15030785. This article has 53 citations.
+15. (cao2025efficacyandsafety pages 12-12): Junning Cao, Guangliang Chen, Lihua Qiu, Liling Zhang, Ming Jiang, Ying Cheng, Qiaohua Zhang, Lihong Liu, Ping Li, Yuerong Shuang, Huaqing Wang, Hongwei Xue, Huijing Wu, Meifang Zheng, Keshu Zhou, Zhiming Li, Hongmei Jing, Wei Yang, Zunmin Zhu, Wenyu Li, Jiaxuan Wangwu, Heyu Huang, Qiantao Jia, Dongmei Chen, Songhua Fan, M. Ming Shi, and Weiguo Su. Efficacy and safety of tazemetostat, an ezh2 inhibitor, in chinese patients with relapsed/refractory follicular lymphoma: a multicentre, single-arm, phase 2 study. Sep 2025. URL: https://doi.org/10.1016/j.eclinm.2025.103399, doi:10.1016/j.eclinm.2025.103399. This article has 5 citations and is from a peer-reviewed journal.
 
-16. (izutsu2024tazemetostatforrelapsedrefractory pages 1-2): Koji Izutsu, Kiyoshi Ando, Momoko Nishikori, Hirohiko Shibayama, Hideki Goto, Junya Kuroda, Koji Kato, Yoshitaka Imaizumi, Kisato Nosaka, Rika Sakai, Maho Abe, Seiichiro Hojo, Tadashi Nakanishi, and Shinya Rai. Tazemetostat for relapsed/refractory b-cell non-hodgkin lymphoma with ezh2 mutation in japan: 3-year follow-up for a phase ii study. International Journal of Hematology, 120:621-630, Aug 2024. URL: https://doi.org/10.1007/s12185-024-03834-9, doi:10.1007/s12185-024-03834-9. This article has 10 citations and is from a peer-reviewed journal.
+## Artifacts
 
-17. (friedberg2023updateonfollicular pages 4-6): Jonathan W. Friedberg. Update on follicular lymphoma. Hematological Oncology, 41:43-47, Jun 2023. URL: https://doi.org/10.1002/hon.3138, doi:10.1002/hon.3138. This article has 32 citations and is from a peer-reviewed journal.
-
-18. (maurer2023matchingadjustedindirectcomparison pages 1-2): Matthew J. Maurer, Carla Casulo, Melissa C. Larson, Thomas M. Habermann, Izidore S. Lossos, Yucai Wang, Loretta J. Nastoupil, Christopher Strouse, Dai Chihara, Peter Martin, Jonathon B. Cohen, Brad S. Kahl, W Richard Burack, Jean L. Koff, Yong Mun, Anthony Masaquel, Mei Wu, Michael C. Wei, Ashwini Shewade, Jia Li, James R. Cerhan, Brian K. Link, and Christopher R. Flowers. Matching-adjusted indirect comparison from the lymphoma epidemiology of outcomes consortium for real world evidence (leo crewe) study to a clinical trial of mosunetuzumab in relapsed or refractory follicular lymphoma. Haematologica, 109:2177-2185, Nov 2023. URL: https://doi.org/10.3324/haematol.2023.283737, doi:10.3324/haematol.2023.283737. This article has 9 citations.
-
-19. (jacobsen2022follicularlymphoma2023 pages 9-9): Eric Jacobsen. Follicular lymphoma: 2023 update on diagnosis and management. American Journal of Hematology, 97:1638-1651, Oct 2022. URL: https://doi.org/10.1002/ajh.26737, doi:10.1002/ajh.26737. This article has 159 citations and is from a domain leading peer-reviewed journal.
+- [Edison artifact artifact-00](Follicular_Lymphoma-deep-research-falcon_artifacts/artifact-00.md)
+![## Context ID: pqac-00000013 Table 1 on page 3 provides an overview of Follicular Lymphoma (FL) subtypes as classified in the 5th edition of the WHO Classificat](Follicular_Lymphoma-deep-research-falcon_artifacts/image-1.png)

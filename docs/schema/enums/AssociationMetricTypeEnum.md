@@ -10,7 +10,6 @@ _Type of association metric_
 URI: [dismech:enum/AssociationMetricTypeEnum](https://w3id.org/monarch-initiative/dismech/enum/AssociationMetricTypeEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | OR | None | Odds ratio |
@@ -37,8 +36,12 @@ URI: [dismech:enum/AssociationMetricTypeEnum](https://w3id.org/monarch-initiativ
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

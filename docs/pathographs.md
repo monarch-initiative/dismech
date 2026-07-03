@@ -129,6 +129,80 @@ phenotypes:
 
 The `target` field must match the `name` of another entry in any section. Unresolved targets appear as orphan nodes with dashed red borders.
 
+## Node Granularity and Debundling (case study: CSAN)
+
+A pathograph is only as informative as the node boundaries the curator chooses.
+Compressing several mechanistic layers into one "gain-of-function" node produces a
+valid but shallow graph that hides the actual causal wiring, and any node that is not
+on an edge (`downstream`/`sequelae`, `target_phenotypes`/`target_mechanisms`) is
+dropped from the serialized graph entirely. Crouzon syndrome with acanthosis nigricans
+(CSAN, `MONDO:0012833`, recurrent FGFR3 p.Ala391Glu) is a compact worked example
+([issue #4158](https://github.com/monarch-initiative/dismech/issues/4158), debundled in
+[PR #4182](https://github.com/monarch-initiative/dismech/pull/4182)).
+
+**Before** — a bundled four-node chain in which one node carried the variant, the
+receptor biophysics, and two effector branches at once, and the syndrome-defining
+cutaneous phenotype was present but disconnected (so invisible in the pathograph):
+
+```text
+FGFR3 A391E Gain-of-Function
+  -> Sustained MAPK/STAT signaling in suture osteoblasts
+  -> Premature cranial suture fusion
+  -> Craniosynostosis
+```
+
+**After** — the single receptor lesion is split into its biophysical layers and then
+forked into the skeletal and cutaneous phenotypes it actually drives:
+
+```text
+FGFR3 A391E Transmembrane Dimer Stabilization
+  -> Constitutive FGFR3 Kinase Autophosphorylation        # branch point
+       -> FRS2-GRB2-SOS RAS-MAPK Signaling
+            -> Cranial Suture Osteoblast Differentiation
+                 -> Premature cranial suture fusion -> Craniosynostosis
+       -> FGFR3-STAT Signaling                            # parallel effector, kept separate
+       -> FGFR3 Signaling in Keratinocytes                # cutaneous fork
+            -> Epidermal Hyperkeratosis and Hyperpigmentation -> Acanthosis Nigricans
+```
+
+### Modeling rules this case study illustrates
+
+- **One node = one mechanistic claim.** Split a node when it bundles steps that have
+  *separable evidence*, *different cell types/locations*, or *different downstream
+  targets*. In CSAN, dimer stabilization (`PMID:21536014`, `PMID:23437153`) and
+  activation-loop autophosphorylation are distinct, separately-evidenced biophysical
+  steps, so they became two nodes rather than one "gain-of-function" node.
+- **Branch at the real branch point, not at a pathway label.** The activated receptor
+  (`Constitutive FGFR3 Kinase Autophosphorylation`) is the node from which RAS-MAPK,
+  STAT, and the keratinocyte branch all diverge. Modeling the fork at the receptor —
+  rather than inside a single "MAPK/STAT" node — makes the parallel outputs explicit.
+- **Do not merge parallel effectors under a pathway shorthand.** STAT and ERK are
+  parallel FGFR3 outputs with distinct biology; "MAPK/STAT" as one node hid that. Keep
+  them as sibling nodes unless a specific downstream phenotype edge genuinely requires
+  both inputs.
+- **Connect every syndrome-defining phenotype into the graph.** Acanthosis nigricans is
+  diagnostic for CSAN but was an orphan before debundling. Adding the keratinocyte →
+  epidermal-change → phenotype branch (and linking treatments via `target_phenotypes`)
+  is what brings these nodes into the serialized pathograph.
+- **Make edge confidence visible, and let it expose knowledge gaps.** Edge confidence
+  varies by layer: human genetics and craniosynostosis are strongly evidenced
+  (`causal_link_type: DIRECT` / `INDIRECT_KNOWN_INTERMEDIATES`), whereas the
+  keratinocyte route to flexural acanthosis is inferential
+  (`causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES`, node
+  `mechanism_confidence: PROVISIONAL`). Rather than overstate that edge, the cutaneous
+  branch carries an explicit `KNOWLEDGE_GAP` discussion
+  (`gap_csan_cutaneous_fgfr3_branch`) attached to the provisional nodes and phenotype.
+
+### When *not* to debundle
+
+Granularity has a cost: a graph that expands every canonical pathway into its textbook
+intermediates becomes pathway-heavy and harder to read without adding disease-specific
+insight. Split a node only when the finer boundary carries its own evidence, its own
+ontology annotations, or a distinct downstream target. If an intermediate has none of
+those, leave it folded into the adjacent node and capture the detail in the node
+`description` instead. The goal is a graph whose node boundaries mirror the points where
+the *causal evidence* actually changes.
+
 ## Dependencies
 
 The pathograph loads two libraries via CDN:

@@ -1,3 +1,9 @@
+---
+title: NAMO Rare-Disease Experimental Models
+status: IN_PROGRESS
+description: Bridge dismech's disease-centric curation model to Monarch NAMO without importing the full NAMO schema into dismech.
+---
+
 # NAMO Rare-Disease Experimental Models
 
 ## Goal

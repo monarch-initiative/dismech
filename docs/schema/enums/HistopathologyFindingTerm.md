@@ -8,9 +8,18 @@ _A histopathologic finding term from NCIT. Includes morphologic findings, archit
 
 
 URI: [dismech:enum/HistopathologyFindingTerm](https://w3id.org/monarch-initiative/dismech/enum/HistopathologyFindingTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** NCIT:C35867, NCIT:C18000, NCIT:C4741, NCIT:C7062, NCIT:C36289, NCIT:C19955, NCIT:C188218, NCIT:C37008, HP:0025461
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
+
+
+
 
 
 
@@ -24,8 +33,9 @@ _This is a dynamic enum_
 * NCIT:C18000 Histologic Grade - Fuhrman, Nottingham, WHO grades, etc.
 * Also includes HP terms for rosettes (HP:0031925-HP:0031930)
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -64,6 +74,7 @@ reachable_from:
   - NCIT:C36289
   - NCIT:C19955
   - NCIT:C188218
+  - NCIT:C37008
   - HP:0025461
   relationship_types:
   - rdfs:subClassOf

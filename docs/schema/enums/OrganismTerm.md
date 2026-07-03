@@ -8,6 +8,12 @@ _A term representing an organism from NCBITaxon_
 
 
 URI: [dismech:enum/OrganismTerm](https://w3id.org/monarch-initiative/dismech/enum/OrganismTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** NCBITaxon:1, NCBITaxon:10239
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

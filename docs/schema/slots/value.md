@@ -31,13 +31,28 @@ Alias: value
 
 ## Properties
 
-* Range: [Descriptor](../classes/Descriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Descriptor](../classes/Descriptor.md) |
+| Domain Of | [Qualifier](../classes/Qualifier.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

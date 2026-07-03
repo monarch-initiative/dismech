@@ -17,9 +17,9 @@ Alias: pathophysiology
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Stage](../classes/Stage.md) |  |  no  |
 | [ComorbidityHypothesis](../classes/ComorbidityHypothesis.md) | Mechanistic hypothesis for a comorbidity association, with rich text and embe... |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
+| [Stage](../classes/Stage.md) |  |  no  |
 
 
 
@@ -28,15 +28,29 @@ Alias: pathophysiology
 
 ## Properties
 
-* Range: [Pathophysiology](../classes/Pathophysiology.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Pathophysiology](../classes/Pathophysiology.md) |
+| Domain Of | [Disease](../classes/Disease.md), [Stage](../classes/Stage.md), [ComorbidityHypothesis](../classes/ComorbidityHypothesis.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

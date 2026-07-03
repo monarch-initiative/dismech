@@ -1,9 +1,9 @@
 
 
-# Class: NCITMapping
+# Class: NCITMapping 
 
 
-_NCIT disease or disease/finding ontology mapping for cancer entries_
+_NCIT disease, subtype, or disease/finding ontology mapping for cancer entries_
 
 
 
@@ -21,49 +21,49 @@ URI: [dismech:class/NCITMapping](https://w3id.org/monarch-initiative/dismech/cla
     click NCITMapping href "../../classes/NCITMapping/"
       TermMapping <|-- NCITMapping
         click TermMapping href "../../classes/TermMapping/"
-
+      
       NCITMapping : consistency
-
-
-
-
-
+        
+          
+    
+        
+        
         NCITMapping --> "*" MappingConsistency : consistency
         click MappingConsistency href "../../classes/MappingConsistency/"
+    
 
-
-
+        
       NCITMapping : mapping_justification
-
+        
       NCITMapping : mapping_predicate
-
+        
       NCITMapping : mapping_source
-
+        
       NCITMapping : notes
-
+        
       NCITMapping : term
-
-
-
-
-
+        
+          
+    
+        
+        
         NCITMapping --> "1 _recommended_" Term : term
         click Term href "../../classes/Term/"
+    
 
-
-
+        
       NCITMapping : tracked_issues
-
-
-
-
-
+        
+          
+    
+        
+        
         NCITMapping --> "*" TrackedIssue : tracked_issues
         click TrackedIssue href "../../classes/TrackedIssue/"
+    
 
-
-
-
+        
+      
 ```
 
 
@@ -73,7 +73,6 @@ URI: [dismech:class/NCITMapping](https://w3id.org/monarch-initiative/dismech/cla
 ## Inheritance
 * [TermMapping](../classes/TermMapping.md)
     * **NCITMapping**
-
 
 
 ## Slots
@@ -104,8 +103,12 @@ URI: [dismech:class/NCITMapping](https://w3id.org/monarch-initiative/dismech/cla
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -140,7 +143,8 @@ URI: [dismech:class/NCITMapping](https://w3id.org/monarch-initiative/dismech/cla
 <details>
 ```yaml
 name: NCITMapping
-description: NCIT disease or disease/finding ontology mapping for cancer entries
+description: NCIT disease, subtype, or disease/finding ontology mapping for cancer
+  entries
 from_schema: https://w3id.org/monarch-initiative/dismech
 is_a: TermMapping
 slot_usage:
@@ -159,7 +163,8 @@ slot_usage:
 <details>
 ```yaml
 name: NCITMapping
-description: NCIT disease or disease/finding ontology mapping for cancer entries
+description: NCIT disease, subtype, or disease/finding ontology mapping for cancer
+  entries
 from_schema: https://w3id.org/monarch-initiative/dismech
 is_a: TermMapping
 slot_usage:
@@ -245,6 +250,7 @@ attributes:
     alias: tracked_issues
     owner: NCITMapping
     domain_of:
+    - SurrogateEndpointCollection
     - Disease
     - TermMapping
     range: TrackedIssue
@@ -266,10 +272,17 @@ attributes:
     - PhenotypeContext
     - Dataset
     - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
@@ -298,6 +311,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
 
 ```

@@ -1,0 +1,29 @@
+| Group | Phenotype description | Suggested HPO term | Typical onset | Frequency / number reported | Key citations |
+|---|---|---|---|---|---|
+| Hepatic | Recurrent low/normal-GGT cholestasis | HP: Cholestasis | Infancy | Main hepatic presentation in 7/7 patients in the 2018 series; described as recurrent low-GGT cholestasis or acute liver failure | (pqac-00000000, pqac-00000034) |
+| Hepatic | Acute liver failure / recurrent acute liver failure, often fever-triggered | HP: Acute hepatic failure | Infancy to early childhood | 7/7 had severe cholestatic liver crises in first 18 months in Lenz 2018; recurrent ALF also documented in later case reports | (pqac-00000000, pqac-00000031, pqac-00000034) |
+| Hepatic | Febrile-illness-triggered liver crises | HP: Recurrent fever-triggered episodes (suggest phenotype annotation as recurrent acute hepatic failure triggered by febrile infection) | Infancy to childhood | Trigger emphasized across core series/case reports; in Lenz 2018 crises were triggered by febrile infections | (pqac-00000000, pqac-00000031, pqac-00000034) |
+| Hepatic | Hepatomegaly | HP: Hepatomegaly | Infancy | 7/7 in Lenz 2018; also reported in later cases | (pqac-00000000, pqac-00000031) |
+| Hepatic | Splenomegaly / hepatosplenomegaly | HP: Splenomegaly | Infancy to childhood | 4/7 in Lenz 2018; hepatosplenomegaly also reported in later single cases | (pqac-00000000, pqac-00000032) |
+| Hepatic | Neonatal jaundice | HP: Neonatal jaundice | Neonatal | 3/7 in Lenz 2018 | (pqac-00000000) |
+| Hepatic | Liver fibrosis progressing to cirrhosis in some cases | HP: Hepatic fibrosis | Infancy onward | Fibrosis developed in all 7/7 in Lenz 2018; cirrhosis documented in explant after adult liver transplant | (pqac-00000000, pqac-00000010) |
+| Neurologic | Microcephaly | HP: Microcephaly | Infancy/childhood | 6/7 in Lenz 2018 | (pqac-00000000) |
+| Neurologic | Mild language delay / speech delay | HP: Delayed speech and language development | Childhood | 6/7 in Lenz 2018; severe speech delay also reported in 2023 Bahraini case | (pqac-00000000, pqac-00000030) |
+| Neurologic | Gait abnormality / progressive difficulty walking | HP: Abnormal gait | Childhood | Motor dysfunction in 5/7 in Lenz 2018; progressive gait deterioration in 2023 case | (pqac-00000000, pqac-00000031) |
+| Neurologic | Cerebellar ataxia | HP: Cerebellar ataxia | Childhood | Reported across core series and later reviews/cases; often progressive and later-onset than liver disease | (pqac-00000006, pqac-00000015, pqac-00000032) |
+| Neurologic | Tremor / intention tremor | HP: Tremor | Childhood | Present among motor dysfunction features in Lenz 2018 and clearly documented in 2023 case | (pqac-00000000, pqac-00000030, pqac-00000032) |
+| Neurologic | Peripheral neuropathy / motor-sensory neuropathy | HP: Peripheral neuropathy | Late childhood to adolescence | Reported as part of progressive neurologic phenotype across reviews and case descriptions | (pqac-00000006, pqac-00000015) |
+| Neurologic | Cerebellar atrophy | HP: Cerebellar atrophy | Childhood to adolescence | Reported in CALFAN/SCYL1 disease and persisted after transplant in adult follow-up case | (pqac-00000008, pqac-00000015) |
+| Neurologic | Seizures | HP: Seizure | Childhood | 1/7 in Lenz 2018 required transient therapy | (pqac-00000000) |
+| Neurologic | Hypotonia | HP: Hypotonia | Childhood | Reported in broader SCYL1/CALFAN phenotype summaries | (pqac-00000006) |
+| Neurologic | Optic atrophy | HP: Optic atrophy | Childhood | Reported in broader literature review summaries, not quantified in core 7-patient series excerpt | (pqac-00000006) |
+| Skeletal/Other | Short stature / growth retardation | HP: Short stature | Childhood | Skeletal abnormalities in 5/7 in Lenz 2018 included short stature; growth retardation also noted in reviews | (pqac-00000000, pqac-00000014) |
+| Skeletal/Other | Scoliosis / kyphoscoliosis | HP: Scoliosis | Childhood to adolescence | Included among skeletal abnormalities in Lenz 2018; also prominent in rehabilitation case and trial record | (pqac-00000000, pqac-00000035, pqac-00000038) |
+| Skeletal/Other | Hip dysplasia | HP: Hip dysplasia | Childhood | Included among skeletal abnormalities in Lenz 2018; also listed in trial record phenotype summary | (pqac-00000000, pqac-00000035) |
+| Skeletal/Other | Vertebral anomalies / rib clefting | HP: Abnormality of the vertebral column | Childhood | Reported among skeletal abnormalities in Lenz 2018; vertebral anomalies also summarized in later reviews | (pqac-00000000, pqac-00000006) |
+| Skeletal/Other | Delayed bone age | HP: Delayed bone age | Childhood | Reported in later literature review summaries; not quantified in core 7-patient excerpt | (pqac-00000006) |
+| Skeletal/Other | Developmental delay / mild intellectual disability / cognitive impairment | HP: Global developmental delay | Childhood | Variable; developmental delay and cognitive issues reported in later cases and trial description, though cognition can be preserved in some patients | (pqac-00000030, pqac-00000035) |
+| Skeletal/Other | Recurrent respiratory failure / respiratory involvement | HP: Respiratory failure | Childhood | Rare/expanded phenotype reported outside initial core series; trial/case literature indicates musculoskeletal factors may affect respiratory function | (pqac-00000015, pqac-00000029) |
+
+
+*Table: This table groups reported CALFAN syndrome manifestations into hepatic, neurologic, and skeletal/other domains, with suggested HPO terms, usual timing, and frequencies where the literature provides counts. It is useful for phenotype annotation and disease knowledge base curation.*

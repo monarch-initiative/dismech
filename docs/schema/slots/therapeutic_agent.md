@@ -22,7 +22,7 @@ Alias: therapeutic_agent
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [TreatmentDescriptor](../classes/TreatmentDescriptor.md) | A descriptor for treatments/medical actions, bindable to Medical Action Ontol... |  yes  |
+| [TreatmentDescriptor](../classes/TreatmentDescriptor.md) | A descriptor for treatments/medical actions, bindable to MAXO or NCIT clinica... |  yes  |
 
 
 
@@ -31,9 +31,22 @@ Alias: therapeutic_agent
 
 ## Properties
 
-* Range: [ChemicalEntityDescriptor](../classes/ChemicalEntityDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ChemicalEntityDescriptor](../classes/ChemicalEntityDescriptor.md) |
+| Domain Of | [TreatmentDescriptor](../classes/TreatmentDescriptor.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -43,8 +56,9 @@ Alias: therapeutic_agent
 * Bind to CHEBI for specific chemicals/drugs
 * Can also use NCIT for drug classes when CHEBI term unavailable
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

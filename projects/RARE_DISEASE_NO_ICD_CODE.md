@@ -1,3 +1,9 @@
+---
+title: Rare Disease ICD Coverage Gaps (MONDO)
+status: IN_PROGRESS
+description: Catalog rare MONDO diseases that lack ICD mappings, with priority on missing ICD-11 Foundation (icd11f / icd11.foundation) mappings.
+---
+
 # Rare Disease ICD Coverage Gaps (MONDO)
 
 ## Overview

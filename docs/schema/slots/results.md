@@ -26,7 +26,21 @@ Alias: results
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Diagnosis](../classes/Diagnosis.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -38,8 +52,9 @@ Alias: results
 | --- |
 | Identifies MEFV mutations |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

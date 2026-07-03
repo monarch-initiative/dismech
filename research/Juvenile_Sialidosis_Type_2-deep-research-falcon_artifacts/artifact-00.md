@@ -1,0 +1,31 @@
+| Category | Item | Summary | Evidence |
+|---|---|---|---|
+| Disease identity | Preferred label | Juvenile sialidosis type II = juvenile/childhood-onset subtype of severe neuropathic sialidosis type II, an ultra-rare lysosomal storage disorder caused by NEU1 deficiency | (pqac-00000012, pqac-00000013) |
+| Disease identity | Identifiers | MONDO: sialidosis type 2 = MONDO_0009738; Orphanet: sialidosis type II = Orphanet_87876; OMIM: sialidosis = #256550 | (pqac-00000000, pqac-00000021) |
+| Disease identity | Synonyms/classification | Type II sialidosis; dysmorphic/severe sialidosis; type II is subdivided into congenital, infantile, juvenile forms | (pqac-00000003, pqac-00000004, pqac-00000016) |
+| Genetics | Causal gene | NEU1 (neuraminidase 1); lysosomal sialidase/α-neuraminidase deficiency | (pqac-00000012, pqac-00000016) |
+| Genetics | Inheritance | Autosomal recessive | (pqac-00000002, pqac-00000006, pqac-00000008) |
+| Temporal definition | Juvenile onset | Juvenile type II onset is defined as after age 2 years; another review gives juvenile range as ~2–20 years | (pqac-00000003, pqac-00000004, pqac-00000018) |
+| Mechanism | Core pathobiology | NEU1 deficiency impairs degradation of sialylated glycoproteins/oligosaccharides, causing lysosomal storage and urinary excretion of oversialylated metabolites | (pqac-00000013, pqac-00000018) |
+| Mechanism | NEU1-PPCA/CTSA complex | NEU1 requires the protective protein/cathepsin A (PPCA/CTSA) in a multienzyme complex for lysosomal targeting, stability, and catalytic activation; some pathogenic variants disrupt NEU1-PPCA interaction | (pqac-00000012, pqac-00000016) |
+| Genotype-phenotype | Variant classes | Severe type II often involves catalytically inactive variants; biochemically, variants may be mislocalized/inactive, lysosome-localized but inactive, or retain residual activity | (pqac-00000015, pqac-00000028) |
+| Clinical features | Visceromegaly | Hepatosplenomegaly/visceromegaly is a characteristic recurrent feature | (pqac-00000001, pqac-00000012, pqac-00000022) |
+| Clinical features | Skeletal disease | Dysostosis multiplex, vertebral deformities, scoliosis, short stature, kyphoscoliosis are common/recurring findings | (pqac-00000001, pqac-00000012, pqac-00000022, pqac-00000023) |
+| Clinical features | Dysmorphism | Coarse facies/dysmorphic facial features are characteristic; reported details include hypertelorism, broad depressed nasal bridge, prominent philtrum, prognathism | (pqac-00000011, pqac-00000023) |
+| Clinical features | Neurodevelopment | Global developmental delay/intellectual and adaptive impairment are central juvenile type II manifestations; cognitive, speech, and motor domains can all be affected | (pqac-00000012, pqac-00000013, pqac-00000024) |
+| Clinical features | Ophthalmology | Cherry-red macular spots are classic; other findings include cataract, corneal clouding, nystagmus, strabismus; rare bull's-eye maculopathy reported | (pqac-00000011, pqac-00000012, pqac-00000022, pqac-00000023) |
+| Clinical features | Hearing loss | Hearing loss is recurrent in juvenile/infantile type II cohorts | (pqac-00000004, pqac-00000022) |
+| Clinical features | Renal involvement | A subset develop nephrosialidosis with nephrotic syndrome/fulminant glomerulopathy, podocyte vacuolization, proteinuria, renal failure | (pqac-00000013, pqac-00000014, pqac-00000025, pqac-00000026) |
+| Epidemiology | Frequency | Ultra-rare; reported prevalence for sialidosis overall is <1/1,000,000 live births; type II-specific incidence not established in retrieved sources | (pqac-00000005, pqac-00000038) |
+| Cohort statistic | Seven-patient series | In a 7-patient type II series from North India: developmental delay 7/7, coarse facies 7/7, short stature 7/7, cherry-red spot 6/7, hearing loss 4/7, dysostosis 4/7, hepatomegaly 4/7, scoliosis 5/7, seizures 2/7 | (pqac-00000022) |
+| Cohort statistic | Nephrosialidosis literature | One 2018 review noted only 16 prior nephrosialidosis cases, 14 deceased; hepatomegaly in nearly all, classic ocular signs in roughly half | (pqac-00000026) |
+| Genotype example | Common cohort variant | NEU1 c.679G>A (p.Gly227Arg) was homozygous in all 7 patients of one North Indian type II cohort; proposed common/founder mutation with pre-lysosomal retention and absent effective lysosomal activity | (pqac-00000022, pqac-00000023) |
+| Key sources | Reviews and case series | 2015 Expert Opin Orphan Drugs review DOI: 10.1517/21678707.2015.1025746; 2018 Diagnostics review DOI: 10.3390/diagnostics8020029; 2020 Mol Genet Metab Rep DOI: 10.1016/j.ymgmr.2019.100561; 2023 JCI Insight DOI: 10.1172/jci.insight.166470; 2018 Kidney Int Rep DOI: 10.1016/j.ekir.2018.07.015 | (pqac-00000004, pqac-00000001, pqac-00000022, pqac-00000013, pqac-00000025) |
+
+| Study | Status | Sponsor | Start date | Purpose | Key outcomes collected | Evidence |
+|---|---|---|---|---|---|---|
+| NCT00029965 — Natural History of Glycosphingolipid Storage Disorders and Glycoprotein Disorders | Recruiting | National Human Genome Research Institute (NHGRI) | 2002-02-06 | Characterize progression of glycoprotein/glycosphingolipid disorders including sialidosis; develop monitoring tools and biomarkers for future trials | Serial natural history assessments every ~1–2 years; blood/CSF/urine biomarkers; MRI/MRS, EEG, ophthalmology, gait analysis; fibroblasts/iPSC | (pqac-00000009) |
+| NCT01891422 — Longitudinal Studies of the Glycoproteinoses | Completed | Greenwood Genetic Center | 2009-08 | Define disease frequency and progression in glycoproteinoses including sialidosis; identify early diagnostic features, assess supportive therapies, and genotype-phenotype correlations | Change in disease characteristics over time (baseline through Years 1–4); molecular/biochemical confirmation; blood and urine metabolic/genetic testing; retained biospecimens | (pqac-00000010) |
+
+
+*Table: This table condenses the key identifiers, genetics, age-of-onset definition, hallmark clinical features, and high-yield evidence for juvenile sialidosis type II, plus two relevant observational natural-history studies. It is useful as a quick-reference scaffold for disease knowledge base curation and evidence tracing.*

@@ -17,10 +17,10 @@ Alias: role
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 | [Treatment](../classes/Treatment.md) |  |  no  |
-| [Stage](../classes/Stage.md) |  |  no  |
 | [HostDescriptor](../classes/HostDescriptor.md) | A descriptor for hosts in an infectious agent life cycle |  no  |
+| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Stage](../classes/Stage.md) |  |  no  |
 
 
 
@@ -29,7 +29,21 @@ Alias: role
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [HostDescriptor](../classes/HostDescriptor.md), [Pathophysiology](../classes/Pathophysiology.md), [Stage](../classes/Stage.md), [Treatment](../classes/Treatment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -41,8 +55,9 @@ Alias: role
 | --- |
 | Primary |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

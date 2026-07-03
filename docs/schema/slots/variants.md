@@ -27,9 +27,22 @@ Alias: variants
 
 ## Properties
 
-* Range: [Variant](../classes/Variant.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Variant](../classes/Variant.md) |
+| Domain Of | [Genetic](../classes/Genetic.md), [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -38,8 +51,9 @@ Alias: variants
 
 * can currently be used at gene or disease level, TODO - decide the best level
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

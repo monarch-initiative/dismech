@@ -1,3 +1,9 @@
+---
+title: Comorbidities and Trajectories (Scoping)
+status: IN_PROGRESS
+description: 'Goal: curate comorbidity/trajectory evidence from the literature (complementary to EHR-derived signals such as Disease Trajectories / Distraj), with directionality when supported. Do not start curation yet; this is a scoping log and candidate list.'
+---
+
 # Comorbidities and Trajectories (Scoping)
 
 Goal: curate comorbidity/trajectory evidence from the literature (complementary to EHR-derived signals such as Disease Trajectories / Distraj), with directionality when supported. Do **not** start curation yet; this is a scoping log and candidate list.

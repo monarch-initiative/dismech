@@ -31,13 +31,38 @@ Alias: subtype_frequency
 
 ## Properties
 
-* Range: NONE&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | NONE&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md) |
+| Domain Of | [Subtype](../classes/Subtype.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+<details>
+<summary>Expressions & Logic</summary>
+#### Any Of
+
+Value must satisfy at least one of:
+- AnonymousSlotExpression({'range': 'FrequencyEnum'})
+- AnonymousSlotExpression({'range': 'FrequencyQuantity'})
+
+</details>
+
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

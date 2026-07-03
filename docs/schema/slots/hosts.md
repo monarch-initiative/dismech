@@ -26,9 +26,22 @@ Alias: hosts
 
 ## Properties
 
-* Range: [HostDescriptor](../classes/HostDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [HostDescriptor](../classes/HostDescriptor.md) |
+| Domain Of | [AgentLifeCycle](../classes/AgentLifeCycle.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -38,8 +51,9 @@ Alias: hosts
 * Use NCBITaxon terms for host organisms
 * Use the role slot to indicate definitive, intermediate, reservoir, or accidental host
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

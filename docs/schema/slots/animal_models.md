@@ -26,15 +26,29 @@ Alias: animal_models
 
 ## Properties
 
-* Range: [AnimalModel](../classes/AnimalModel.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [AnimalModel](../classes/AnimalModel.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

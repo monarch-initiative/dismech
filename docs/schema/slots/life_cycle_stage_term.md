@@ -31,13 +31,28 @@ Alias: life_cycle_stage_term
 
 ## Properties
 
-* Range: [LifeCycleStageDescriptor](../classes/LifeCycleStageDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [LifeCycleStageDescriptor](../classes/LifeCycleStageDescriptor.md) |
+| Domain Of | [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -1,0 +1,438 @@
+# Initial Prioritization Diseases
+
+Source: FLAT TA1_VOLUME_I-G_UNC_DISEASE_PRIORITIZATION_2025-04-23 22h23PT.xlsx (sheet "PRIORITIZED DISEASES")
+Filter: column O (Prioritization Category) == "initial". MONDO ID from column A.
+
+Total: 431 diseases
+
+- [MONDO:0008667](https://monarchinitiative.org/MONDO:0008667) — von Hippel-Lindau disease
+- [MONDO:0019003](https://monarchinitiative.org/MONDO:0019003) — multiple endocrine neoplasia type 2
+- [MONDO:0007540](https://monarchinitiative.org/MONDO:0007540) — multiple endocrine neoplasia type 1
+- [MONDO:0009904](https://monarchinitiative.org/MONDO:0009904) — Gitelman syndrome
+- [MONDO:0019349](https://monarchinitiative.org/MONDO:0019349) — Sotos syndrome
+- [MONDO:0001734](https://monarchinitiative.org/MONDO:0001734) — tuberous sclerosis
+- [MONDO:0018975](https://monarchinitiative.org/MONDO:0018975) — neurofibromatosis type 1
+- [MONDO:0017570](https://monarchinitiative.org/MONDO:0017570) — leukocyte adhesion deficiency
+- [MONDO:0008763](https://monarchinitiative.org/MONDO:0008763) — Alstrom syndrome
+- [MONDO:0019933](https://monarchinitiative.org/MONDO:0019933) — acromegaly
+- [MONDO:0008310](https://monarchinitiative.org/MONDO:0008310) — Hutchinson-Gilford progeria syndrome
+- [MONDO:0018997](https://monarchinitiative.org/MONDO:0018997) — Noonan syndrome
+- [MONDO:0010196](https://monarchinitiative.org/MONDO:0010196) — Werner syndrome
+- [MONDO:0009688](https://monarchinitiative.org/MONDO:0009688) — myasthenia gravis
+- [MONDO:0012589](https://monarchinitiative.org/MONDO:0012589) — Pitt-Hopkins syndrome
+- [MONDO:0016002](https://monarchinitiative.org/MONDO:0016002) — Ehlers-Danlos syndrome, kyphoscoliotic type 1
+- [MONDO:0005835](https://monarchinitiative.org/MONDO:0005835) — Lynch syndrome
+- [MONDO:0008564](https://monarchinitiative.org/MONDO:0008564) — 22q11.2 deletion syndrome
+- [MONDO:0010035](https://monarchinitiative.org/MONDO:0010035) — Smith-Lemli-Opitz syndrome
+- [MONDO:0017314](https://monarchinitiative.org/MONDO:0017314) — Ehlers-Danlos syndrome, vascular type
+- [MONDO:0010200](https://monarchinitiative.org/MONDO:0010200) — Wilson disease
+- [MONDO:0007727](https://monarchinitiative.org/MONDO:0007727) — autosomal dominant familial periodic fever
+- [MONDO:0019499](https://monarchinitiative.org/MONDO:0019499) — Turner syndrome
+- [MONDO:0007191](https://monarchinitiative.org/MONDO:0007191) — Behcet disease
+- [MONDO:0013433](https://monarchinitiative.org/MONDO:0013433) — primary sclerosing cholangitis
+- [MONDO:0010518](https://monarchinitiative.org/MONDO:0010518) — Wiskott-Aldrich syndrome
+- [MONDO:0005072](https://monarchinitiative.org/MONDO:0005072) — neuroblastoma
+- [MONDO:0010421](https://monarchinitiative.org/MONDO:0010421) — Bruton-type agammaglobulinemia
+- [MONDO:0016063](https://monarchinitiative.org/MONDO:0016063) — Cowden disease
+- [MONDO:0009288](https://monarchinitiative.org/MONDO:0009288) — glycogen storage disease Ib
+- [MONDO:0015253](https://monarchinitiative.org/MONDO:0015253) — Diamond-Blackfan anemia
+- [MONDO:0018875](https://monarchinitiative.org/MONDO:0018875) — Li-Fraumeni syndrome
+- [MONDO:0009411](https://monarchinitiative.org/MONDO:0009411) — autoimmune polyendocrine syndrome type 1
+- [MONDO:0007064](https://monarchinitiative.org/MONDO:0007064) — severe combined immunodeficiency, autosomal recessive, T cell-negative, B cell-negative, NK cell-negative, due to adenosine deaminase deficiency
+- [MONDO:0008523](https://monarchinitiative.org/MONDO:0008523) — Blau syndrome
+- [MONDO:0008678](https://monarchinitiative.org/MONDO:0008678) — Williams syndrome
+- [MONDO:0016367](https://monarchinitiative.org/MONDO:0016367) — dermatomyositis
+- [MONDO:0016512](https://monarchinitiative.org/MONDO:0016512) — Kabuki syndrome
+- [MONDO:0010568](https://monarchinitiative.org/MONDO:0010568) — Aicardi syndrome
+- [MONDO:0007864](https://monarchinitiative.org/MONDO:0007864) — angioosteohypertrophic syndrome
+- [MONDO:0009953](https://monarchinitiative.org/MONDO:0009953) — leukocyte adhesion deficiency type II
+- [MONDO:0019338](https://monarchinitiative.org/MONDO:0019338) — sarcoidosis
+- [MONDO:0016033](https://monarchinitiative.org/MONDO:0016033) — Cornelia de Lange syndrome
+- [MONDO:0005100](https://monarchinitiative.org/MONDO:0005100) — systemic sclerosis
+- [MONDO:0012105](https://monarchinitiative.org/MONDO:0012105) — granulomatosis with polyangiitis
+- [MONDO:0009265](https://monarchinitiative.org/MONDO:0009265) — Gaucher disease type I
+- [MONDO:0019391](https://monarchinitiative.org/MONDO:0019391) — Fanconi anemia
+- [MONDO:0008300](https://monarchinitiative.org/MONDO:0008300) — Prader-Willi syndrome
+- [MONDO:0005116](https://monarchinitiative.org/MONDO:0005116) — Whipple disease
+- [MONDO:0019019](https://monarchinitiative.org/MONDO:0019019) — osteogenesis imperfecta
+- [MONDO:0010674](https://monarchinitiative.org/MONDO:0010674) — mucopolysaccharidosis type 2
+- [MONDO:0007522](https://monarchinitiative.org/MONDO:0007522) — Ehlers-Danlos syndrome, classic type
+- [MONDO:0008840](https://monarchinitiative.org/MONDO:0008840) — ataxia telangiectasia
+- [MONDO:0010789](https://monarchinitiative.org/MONDO:0010789) — MELAS syndrome
+- [MONDO:0010543](https://monarchinitiative.org/MONDO:0010543) — Barth syndrome
+- [MONDO:0019355](https://monarchinitiative.org/MONDO:0019355) — adult-onset Still disease
+- [MONDO:0007100](https://monarchinitiative.org/MONDO:0007100) — familial amyloid neuropathy
+- [MONDO:0008056](https://monarchinitiative.org/MONDO:0008056) — myotonic dystrophy type 1
+- [MONDO:0009662](https://monarchinitiative.org/MONDO:0009662) — mucopolysaccharidosis type 7
+- [MONDO:0015104](https://monarchinitiative.org/MONDO:0015104) — porphyria cutanea tarda
+- [MONDO:0019569](https://monarchinitiative.org/MONDO:0019569) — Cockayne syndrome type 1
+- [MONDO:0007523](https://monarchinitiative.org/MONDO:0007523) — Ehlers-Danlos syndrome, hypermobility type
+- [MONDO:0010526](https://monarchinitiative.org/MONDO:0010526) — Fabry disease
+- [MONDO:0011929](https://monarchinitiative.org/MONDO:0011929) — chromosome 1p36 deletion syndrome
+- [MONDO:0007915](https://monarchinitiative.org/MONDO:0007915) — systemic lupus erythematosus
+- [MONDO:0018937](https://monarchinitiative.org/MONDO:0018937) — mucopolysaccharidosis type 3
+- [MONDO:0019125](https://monarchinitiative.org/MONDO:0019125) — relapsing polychondritis
+- [MONDO:0016486](https://monarchinitiative.org/MONDO:0016486) — beta-thalassemia major
+- [MONDO:0009723](https://monarchinitiative.org/MONDO:0009723) — Leigh syndrome
+- [MONDO:0019124](https://monarchinitiative.org/MONDO:0019124) — microscopic polyangiitis
+- [MONDO:0009290](https://monarchinitiative.org/MONDO:0009290) — glycogen storage disease II
+- [MONDO:0011382](https://monarchinitiative.org/MONDO:0011382) — sickle cell disease
+- [MONDO:0009659](https://monarchinitiative.org/MONDO:0009659) — mucopolysaccharidosis type 4A
+- [MONDO:0015943](https://monarchinitiative.org/MONDO:0015943) — eosinophilic granulomatosis with polyangiitis
+- [MONDO:0009661](https://monarchinitiative.org/MONDO:0009661) — mucopolysaccharidosis type 6
+- [MONDO:0021055](https://monarchinitiative.org/MONDO:0021055) — classic familial adenomatous polyposis
+- [MONDO:0018149](https://monarchinitiative.org/MONDO:0018149) — GM1 gangliosidosis
+- [MONDO:0010100](https://monarchinitiative.org/MONDO:0010100) — Tay-Sachs disease
+- [MONDO:0009061](https://monarchinitiative.org/MONDO:0009061) — cystic fibrosis
+- [MONDO:0010604](https://monarchinitiative.org/MONDO:0010604) — hemophilia B
+- [MONDO:0012727](https://monarchinitiative.org/MONDO:0012727) — mucocutaneous lymph node syndrome
+- [MONDO:0010651](https://monarchinitiative.org/MONDO:0010651) — Menkes disease
+- [MONDO:0010602](https://monarchinitiative.org/MONDO:0010602) — hemophilia A
+- [MONDO:0015229](https://monarchinitiative.org/MONDO:0015229) — Bardet-Biedl syndrome
+- [MONDO:0009561](https://monarchinitiative.org/MONDO:0009561) — alpha-mannosidosis
+- [MONDO:0010580](https://monarchinitiative.org/MONDO:0010580) — immune dysregulation-polyendocrinopathy-enteropathy-X-linked syndrome
+- [MONDO:0008948](https://monarchinitiative.org/MONDO:0008948) — cerebrotendinous xanthomatosis
+- [MONDO:0010161](https://monarchinitiative.org/MONDO:0010161) — tyrosinemia type I
+- [MONDO:0008815](https://monarchinitiative.org/MONDO:0008815) — argininosuccinic aciduria
+- [MONDO:0008380](https://monarchinitiative.org/MONDO:0008380) — retinoblastoma
+- [MONDO:0010315](https://monarchinitiative.org/MONDO:0010315) — T-B+ severe combined immunodeficiency due to gamma chain deficiency
+- [MONDO:0010247](https://monarchinitiative.org/MONDO:0010247) — X-linked cerebral adrenoleukodystrophy
+- [MONDO:0008294](https://monarchinitiative.org/MONDO:0008294) — acute intermittent porphyria
+- [MONDO:0008491](https://monarchinitiative.org/MONDO:0008491) — stiff-person syndrome
+- [MONDO:0008585](https://monarchinitiative.org/MONDO:0008585) — HELLP syndrome
+- [MONDO:0016264](https://monarchinitiative.org/MONDO:0016264) — autoimmune hepatitis
+- [MONDO:0009292](https://monarchinitiative.org/MONDO:0009292) — glycogen storage disease due to glycogen branching enzyme deficiency
+- [MONDO:0009833](https://monarchinitiative.org/MONDO:0009833) — Shwachman-Diamond syndrome
+- [MONDO:0009499](https://monarchinitiative.org/MONDO:0009499) — Krabbe disease
+- [MONDO:0018088](https://monarchinitiative.org/MONDO:0018088) — familial Mediterranean fever
+- [MONDO:0007947](https://monarchinitiative.org/MONDO:0007947) — Marfan syndrome
+- [MONDO:0015614](https://monarchinitiative.org/MONDO:0015614) — dermatitis herpetiformis
+- [MONDO:0011652](https://monarchinitiative.org/MONDO:0011652) — Phelan-McDermid syndrome
+- [MONDO:0007187](https://monarchinitiative.org/MONDO:0007187) — nevoid basal cell carcinoma syndrome
+- [MONDO:0009823](https://monarchinitiative.org/MONDO:0009823) — primary hyperoxaluria type 1
+- [MONDO:0005388](https://monarchinitiative.org/MONDO:0005388) — primary biliary cholangitis
+- [MONDO:0001586](https://monarchinitiative.org/MONDO:0001586) — mucopolysaccharidosis type 1
+- [MONDO:0009303](https://monarchinitiative.org/MONDO:0009303) — anti-glomerular basement membrane disease
+- [MONDO:0019600](https://monarchinitiative.org/MONDO:0019600) — xeroderma pigmentosum
+- [MONDO:0008558](https://monarchinitiative.org/MONDO:0008558) — autoimmune thrombocytopenic purpura
+- [MONDO:0019180](https://monarchinitiative.org/MONDO:0019180) — hereditary hemorrhagic telangiectasia
+- [MONDO:0100062](https://monarchinitiative.org/MONDO:0100062) — developmental and epileptic encephalopathy
+- [MONDO:0009276](https://monarchinitiative.org/MONDO:0009276) — Bernard-Soulier syndrome
+- [MONDO:0009891](https://monarchinitiative.org/MONDO:0009891) — acquired polycythemia vera
+- [MONDO:0008723](https://monarchinitiative.org/MONDO:0008723) — very long chain acyl-CoA dehydrogenase deficiency
+- [MONDO:0015517](https://monarchinitiative.org/MONDO:0015517) — common variable immunodeficiency
+- [MONDO:0100244](https://monarchinitiative.org/MONDO:0100244) — paroxysmal nocturnal hemoglobinuria
+- [MONDO:0008721](https://monarchinitiative.org/MONDO:0008721) — medium chain acyl-CoA dehydrogenase deficiency
+- [MONDO:0010383](https://monarchinitiative.org/MONDO:0010383) — fragile X syndrome
+- [MONDO:0010787](https://monarchinitiative.org/MONDO:0010787) — Kearns-Sayre syndrome
+- [MONDO:0019079](https://monarchinitiative.org/MONDO:0019079) — proximal spinal muscular atrophy
+- [MONDO:8000010](https://monarchinitiative.org/MONDO:8000010) — antiphospholipid syndrome
+- [MONDO:0007318](https://monarchinitiative.org/MONDO:0007318) — Alagille syndrome
+- [MONDO:0100339](https://monarchinitiative.org/MONDO:0100339) — Friedreich ataxia
+- [MONDO:0008988](https://monarchinitiative.org/MONDO:0008988) — citrullinemia type I
+- [MONDO:0007606](https://monarchinitiative.org/MONDO:0007606) — fibrodysplasia ossificans progressiva
+- [MONDO:0011628](https://monarchinitiative.org/MONDO:0011628) — propionic acidemia
+- [MONDO:0009665](https://monarchinitiative.org/MONDO:0009665) — biotinidase deficiency
+- [MONDO:0017575](https://monarchinitiative.org/MONDO:0017575) — mitochondrial neurogastrointestinal encephalomyopathy
+- [MONDO:0800029](https://monarchinitiative.org/MONDO:0800029) — idiopathic pulmonary fibrosis
+- [MONDO:0009319](https://monarchinitiative.org/MONDO:0009319) — pantothenate kinase-associated neurodegeneration
+- [MONDO:0001347](https://monarchinitiative.org/MONDO:0001347) — facioscapulohumeral muscular dystrophy
+- [MONDO:0007037](https://monarchinitiative.org/MONDO:0007037) — achondroplasia
+- [MONDO:0018965](https://monarchinitiative.org/MONDO:0018965) — Alport syndrome
+- [MONDO:0009958](https://monarchinitiative.org/MONDO:0009958) — adult Refsum disease
+- [MONDO:0004691](https://monarchinitiative.org/MONDO:0004691) — autosomal dominant polycystic kidney disease
+- [MONDO:0971004](https://monarchinitiative.org/MONDO:0971004) — amyloidosis, hereditary systemic 1
+- [MONDO:0009735](https://monarchinitiative.org/MONDO:0009735) — Netherton syndrome
+- [MONDO:0010726](https://monarchinitiative.org/MONDO:0010726) — Rett syndrome
+- [MONDO:0016575](https://monarchinitiative.org/MONDO:0016575) — primary ciliary dyskinesia
+- [MONDO:0007608](https://monarchinitiative.org/MONDO:0007608) — desmoid tumor
+- [MONDO:0007113](https://monarchinitiative.org/MONDO:0007113) — Angelman syndrome
+- [MONDO:0019354](https://monarchinitiative.org/MONDO:0019354) — Stickler syndrome
+- [MONDO:0018077](https://monarchinitiative.org/MONDO:0018077) — tularemia
+- [MONDO:0013282](https://monarchinitiative.org/MONDO:0013282) — alpha 1-antitrypsin deficiency
+- [MONDO:0009468](https://monarchinitiative.org/MONDO:0009468) — pseudotumor cerebri
+- [MONDO:0010600](https://monarchinitiative.org/MONDO:0010600) — granulomatous disease, chronic, X-linked
+- [MONDO:0016239](https://monarchinitiative.org/MONDO:0016239) — cystinosis
+- [MONDO:0100429](https://monarchinitiative.org/MONDO:0100429) — intrahepatic cholestasis of pregnancy
+- [MONDO:0009861](https://monarchinitiative.org/MONDO:0009861) — phenylketonuria
+- [MONDO:0007039](https://monarchinitiative.org/MONDO:0007039) — NF2-related schwannomatosis
+- [MONDO:0018800](https://monarchinitiative.org/MONDO:0018800) — Kallmann syndrome
+- [MONDO:0008234](https://monarchinitiative.org/MONDO:0008234) — multiple endocrine neoplasia type 2A
+- [MONDO:0008223](https://monarchinitiative.org/MONDO:0008223) — hypokalemic periodic paralysis
+- [MONDO:0007888](https://monarchinitiative.org/MONDO:0007888) — hereditary leiomyomatosis and renal cell cancer
+- [MONDO:0008814](https://monarchinitiative.org/MONDO:0008814) — arginase deficiency
+- [MONDO:0016241](https://monarchinitiative.org/MONDO:0016241) — alternating hemiplegia of childhood
+- [MONDO:0018920](https://monarchinitiative.org/MONDO:0018920) — peripartum cardiomyopathy
+- [MONDO:0010788](https://monarchinitiative.org/MONDO:0010788) — Leber hereditary optic neuropathy
+- [MONDO:0010079](https://monarchinitiative.org/MONDO:0010079) — Canavan disease
+- [MONDO:0015564](https://monarchinitiative.org/MONDO:0015564) — Castleman disease
+- [MONDO:0000914](https://monarchinitiative.org/MONDO:0000914) — cerebral arteriopathy, autosomal dominant, with subcortical infarcts and leukoencephalopathy, type 1
+- [MONDO:0009293](https://monarchinitiative.org/MONDO:0009293) — glycogen storage disease V
+- [MONDO:0015541](https://monarchinitiative.org/MONDO:0015541) — hereditary hemophagocytic lymphohistiocytosis
+- [MONDO:0018922](https://monarchinitiative.org/MONDO:0018922) — cold agglutinin disease
+- [MONDO:0100326](https://monarchinitiative.org/MONDO:0100326) — Glanzmann thrombasthenia
+- [MONDO:0007293](https://monarchinitiative.org/MONDO:0007293) — leukocyte adhesion deficiency 1
+- [MONDO:0008146](https://monarchinitiative.org/MONDO:0008146) — osteogenesis imperfecta type 1
+- [MONDO:0019350](https://monarchinitiative.org/MONDO:0019350) — hereditary spherocytosis
+- [MONDO:0007739](https://monarchinitiative.org/MONDO:0007739) — Huntington disease
+- [MONDO:0015515](https://monarchinitiative.org/MONDO:0015515) — carnitine palmitoyltransferase II deficiency
+- [MONDO:0018544](https://monarchinitiative.org/MONDO:0018544) — adrenoleukodystrophy
+- [MONDO:0011724](https://monarchinitiative.org/MONDO:0011724) — encephalopathy due to GLUT1 deficiency
+- [MONDO:0016030](https://monarchinitiative.org/MONDO:0016030) — Evans syndrome
+- [MONDO:0018772](https://monarchinitiative.org/MONDO:0018772) — Joubert syndrome
+- [MONDO:0009249](https://monarchinitiative.org/MONDO:0009249) — hereditary fructose intolerance
+- [MONDO:0018938](https://monarchinitiative.org/MONDO:0018938) — mucopolysaccharidosis type 4
+- [MONDO:0016383](https://monarchinitiative.org/MONDO:0016383) — nephrogenic diabetes insipidus
+- [MONDO:0010382](https://monarchinitiative.org/MONDO:0010382) — fragile X-associated tremor/ataxia syndrome
+- [MONDO:0019632](https://monarchinitiative.org/MONDO:0019632) — Lyme disease
+- [MONDO:0017287](https://monarchinitiative.org/MONDO:0017287) — immunoglobulin G4-related sclerosing disease
+- [MONDO:0018868](https://monarchinitiative.org/MONDO:0018868) — metachromatic leukodystrophy
+- [MONDO:0008116](https://monarchinitiative.org/MONDO:0008116) — oculopharyngeal muscular dystrophy
+- [MONDO:0018570](https://monarchinitiative.org/MONDO:0018570) — hypophosphatasia
+- [MONDO:0018360](https://monarchinitiative.org/MONDO:0018360) — neonatal lupus erythematosus
+- [MONDO:0013144](https://monarchinitiative.org/MONDO:0013144) — hereditary antithrombin deficiency
+- [MONDO:0009291](https://monarchinitiative.org/MONDO:0009291) — glycogen storage disease III
+- [MONDO:0019804](https://monarchinitiative.org/MONDO:0019804) — congenital tracheomalacia
+- [MONDO:0008919](https://monarchinitiative.org/MONDO:0008919) — systemic primary carnitine deficiency disease
+- [MONDO:0008224](https://monarchinitiative.org/MONDO:0008224) — hyperkalemic periodic paralysis
+- [MONDO:0011996](https://monarchinitiative.org/MONDO:0011996) — chronic myelogenous leukemia, BCR-ABL1 positive
+- [MONDO:0018896](https://monarchinitiative.org/MONDO:0018896) — thrombotic thrombocytopenic purpura
+- [MONDO:0016019](https://monarchinitiative.org/MONDO:0016019) — Rasmussen subacute encephalitis
+- [MONDO:0019501](https://monarchinitiative.org/MONDO:0019501) — Usher syndrome
+- [MONDO:0011705](https://monarchinitiative.org/MONDO:0011705) — lymphangioleiomyomatosis
+- [MONDO:0019080](https://monarchinitiative.org/MONDO:0019080) — alopecia totalis
+- [MONDO:0015612](https://monarchinitiative.org/MONDO:0015612) — Dent disease
+- [MONDO:0008947](https://monarchinitiative.org/MONDO:0008947) — bilateral striopallidodentate calcinosis
+- [MONDO:0019100](https://monarchinitiative.org/MONDO:0019100) — neuromyelitis optica
+- [MONDO:0002413](https://monarchinitiative.org/MONDO:0002413) — glycogen storage disease I
+- [MONDO:0004976](https://monarchinitiative.org/MONDO:0004976) — amyotrophic lateral sclerosis
+- [MONDO:0010679](https://monarchinitiative.org/MONDO:0010679) — Duchenne muscular dystrophy
+- [MONDO:0019200](https://monarchinitiative.org/MONDO:0019200) — retinitis pigmentosa
+- [MONDO:0019037](https://monarchinitiative.org/MONDO:0019037) — progressive supranuclear palsy
+- [MONDO:0009072](https://monarchinitiative.org/MONDO:0009072) — Dandy-Walker syndrome
+- [MONDO:0003582](https://monarchinitiative.org/MONDO:0003582) — hereditary breast ovarian cancer syndrome
+- [MONDO:0007163](https://monarchinitiative.org/MONDO:0007163) — episodic ataxia type 2
+- [MONDO:0016484](https://monarchinitiative.org/MONDO:0016484) — Usher syndrome type 2
+- [MONDO:0009509](https://monarchinitiative.org/MONDO:0009509) — Landau-Kleffner syndrome
+- [MONDO:0009067](https://monarchinitiative.org/MONDO:0009067) — cystinuria
+- [MONDO:0018309](https://monarchinitiative.org/MONDO:0018309) — Hirschsprung disease
+- [MONDO:0007492](https://monarchinitiative.org/MONDO:0007492) — early-onset generalized limb-onset dystonia
+- [MONDO:0015129](https://monarchinitiative.org/MONDO:0015129) — chronic primary adrenal insufficiency
+- [MONDO:0012173](https://monarchinitiative.org/MONDO:0012173) — long chain 3-hydroxyacyl-CoA dehydrogenase deficiency
+- [MONDO:0007534](https://monarchinitiative.org/MONDO:0007534) — Beckwith-Wiedemann syndrome
+- [MONDO:0019369](https://monarchinitiative.org/MONDO:0019369) — complex regional pain syndrome
+- [MONDO:0010311](https://monarchinitiative.org/MONDO:0010311) — Becker muscular dystrophy
+- [MONDO:0008458](https://monarchinitiative.org/MONDO:0008458) — spinocerebellar ataxia type 2
+- [MONDO:0006702](https://monarchinitiative.org/MONDO:0006702) — chronic inflammatory demyelinating polyradiculoneuropathy
+- [MONDO:0016244](https://monarchinitiative.org/MONDO:0016244) — atypical hemolytic-uremic syndrome
+- [MONDO:0018301](https://monarchinitiative.org/MONDO:0018301) — interstitial cystitis
+- [MONDO:0007452](https://monarchinitiative.org/MONDO:0007452) — maturity-onset diabetes of the young type 1
+- [MONDO:0008087](https://monarchinitiative.org/MONDO:0008087) — hereditary neuropathy with liability to pressure palsies
+- [MONDO:0018874](https://monarchinitiative.org/MONDO:0018874) — acute myeloid leukemia
+- [MONDO:0009710](https://monarchinitiative.org/MONDO:0009710) — Thomsen and Becker disease
+- [MONDO:0009563](https://monarchinitiative.org/MONDO:0009563) — maple syrup urine disease
+- [MONDO:0017380](https://monarchinitiative.org/MONDO:0017380) — juvenile polyposis syndrome
+- [MONDO:0008228](https://monarchinitiative.org/MONDO:0008228) — pernicious anemia
+- [MONDO:0016485](https://monarchinitiative.org/MONDO:0016485) — Usher syndrome type 3
+- [MONDO:0009910](https://monarchinitiative.org/MONDO:0009910) — Wiedemann-Rautenstrauch syndrome
+- [MONDO:0007453](https://monarchinitiative.org/MONDO:0007453) — maturity-onset diabetes of the young type 2
+- [MONDO:0017366](https://monarchinitiative.org/MONDO:0017366) — hereditary pheochromocytoma-paraganglioma
+- [MONDO:0010765](https://monarchinitiative.org/MONDO:0010765) — 46,XY complete gonadal dysgenesis
+- [MONDO:0019353](https://monarchinitiative.org/MONDO:0019353) — Stargardt disease
+- [MONDO:0016820](https://monarchinitiative.org/MONDO:0016820) — Moyamoya disease
+- [MONDO:0007878](https://monarchinitiative.org/MONDO:0007878) — congenital laryngomalacia
+- [MONDO:0016532](https://monarchinitiative.org/MONDO:0016532) — Lennox-Gastaut syndrome
+- [MONDO:0012817](https://monarchinitiative.org/MONDO:0012817) — Ewing sarcoma
+- [MONDO:0008062](https://monarchinitiative.org/MONDO:0008062) — narcolepsy 1
+- [MONDO:0009948](https://monarchinitiative.org/MONDO:0009948) — pyropoikilocytosis, hereditary
+- [MONDO:0008560](https://monarchinitiative.org/MONDO:0008560) — thrombophilia due to activated protein C resistance
+- [MONDO:0019696](https://monarchinitiative.org/MONDO:0019696) — acromesomelic dysplasia
+- [MONDO:0017276](https://monarchinitiative.org/MONDO:0017276) — frontotemporal dementia
+- [MONDO:0015263](https://monarchinitiative.org/MONDO:0015263) — Brugada syndrome
+- [MONDO:0007488](https://monarchinitiative.org/MONDO:0007488) — Lewy body dementia
+- [MONDO:0016006](https://monarchinitiative.org/MONDO:0016006) — Cockayne syndrome
+- [MONDO:0019064](https://monarchinitiative.org/MONDO:0019064) — hereditary spastic paraplegia
+- [MONDO:0020642](https://monarchinitiative.org/MONDO:0020642) — polycystic kidney disease
+- [MONDO:0008243](https://monarchinitiative.org/MONDO:0008243) — Pick disease
+- [MONDO:0008965](https://monarchinitiative.org/MONDO:0008965) — CHARGE syndrome
+- [MONDO:0005439](https://monarchinitiative.org/MONDO:0005439) — familial hypercholesterolemia
+- [MONDO:0014382](https://monarchinitiative.org/MONDO:0014382) — Tatton-Brown-Rahman overgrowth syndrome
+- [MONDO:0006823](https://monarchinitiative.org/MONDO:0006823) — Klinefelter syndrome
+- [MONDO:0018097](https://monarchinitiative.org/MONDO:0018097) — infantile spasms
+- [MONDO:0100135](https://monarchinitiative.org/MONDO:0100135) — Dravet syndrome
+- [MONDO:0018838](https://monarchinitiative.org/MONDO:0018838) — lissencephaly spectrum disorders
+- [MONDO:0003947](https://monarchinitiative.org/MONDO:0003947) — hyper-IgM syndrome
+- [MONDO:0015231](https://monarchinitiative.org/MONDO:0015231) — Bartter syndrome
+- [MONDO:0000437](https://monarchinitiative.org/MONDO:0000437) — cerebellar ataxia
+- [MONDO:0010457](https://monarchinitiative.org/MONDO:0010457) — Ogden syndrome
+- [MONDO:0009287](https://monarchinitiative.org/MONDO:0009287) — glycogen storage disease due to glucose-6-phosphatase deficiency type IA
+- [MONDO:0800449](https://monarchinitiative.org/MONDO:0800449) — lysosomal acid lipase deficiency
+- [MONDO:0001909](https://monarchinitiative.org/MONDO:0001909) — renal tubular acidosis
+- [MONDO:0002012](https://monarchinitiative.org/MONDO:0002012) — methylmalonic acidemia
+- [MONDO:0002479](https://monarchinitiative.org/MONDO:0002479) — Sertoli-Leydig cell tumor
+- [MONDO:0004737](https://monarchinitiative.org/MONDO:0004737) — homocystinuria
+- [MONDO:0005212](https://monarchinitiative.org/MONDO:0005212) — rhabdomyosarcoma
+- [MONDO:0005357](https://monarchinitiative.org/MONDO:0005357) — Creutzfeldt Jacob disease
+- [MONDO:0005361](https://monarchinitiative.org/MONDO:0005361) — eosinophilic esophagitis
+- [MONDO:0006033](https://monarchinitiative.org/MONDO:0006033) — diffuse intrinsic pontine glioma
+- [MONDO:0006507](https://monarchinitiative.org/MONDO:0006507) — hereditary hemochromatosis
+- [MONDO:0006543](https://monarchinitiative.org/MONDO:0006543) — epidermolysis bullosa dystrophica
+- [MONDO:0006835](https://monarchinitiative.org/MONDO:0006835) — lipoid nephrosis
+- [MONDO:0008274](https://monarchinitiative.org/MONDO:0008274) — polyostotic fibrous dysplasia
+- [MONDO:0011429](https://monarchinitiative.org/MONDO:0011429) — juvenile idiopathic arthritis
+- [MONDO:0015924](https://monarchinitiative.org/MONDO:0015924) — pulmonary arterial hypertension
+- [MONDO:0015974](https://monarchinitiative.org/MONDO:0015974) — severe combined immunodeficiency
+- [MONDO:0016218](https://monarchinitiative.org/MONDO:0016218) — Guillain-Barre syndrome
+- [MONDO:0016295](https://monarchinitiative.org/MONDO:0016295) — neuronal ceroid lipofuscinosis
+- [MONDO:0016586](https://monarchinitiative.org/MONDO:0016586) — systemic mastocytosis
+- [MONDO:0016587](https://monarchinitiative.org/MONDO:0016587) — arrhythmogenic right ventricular cardiomyopathy
+- [MONDO:0016718](https://monarchinitiative.org/MONDO:0016718) — choroid plexus carcinoma
+- [MONDO:0018479](https://monarchinitiative.org/MONDO:0018479) — congenital adrenal hyperplasia
+- [MONDO:0018646](https://monarchinitiative.org/MONDO:0018646) — sclerosing cholangitis
+- [MONDO:0020720](https://monarchinitiative.org/MONDO:0020720) — X-linked hypophosphatemic rickets
+- [MONDO:0024574](https://monarchinitiative.org/MONDO:0024574) — von Willebrand disease (hereditary or acquired)
+- [MONDO:0015626](https://monarchinitiative.org/MONDO:0015626) — Charcot-Marie-Tooth disease
+- [MONDO:0001117](https://monarchinitiative.org/MONDO:0001117) — methemoglobinemia
+- [MONDO:0017623](https://monarchinitiative.org/MONDO:0017623) — PTEN hamartoma tumor syndrome
+- [MONDO:0010627](https://monarchinitiative.org/MONDO:0010627) — X-linked lymphoproliferative syndrome
+- [MONDO:0015909](https://monarchinitiative.org/MONDO:0015909) — aplastic anemia
+- [MONDO:0017720](https://monarchinitiative.org/MONDO:0017720) — GM2 gangliosidosis
+- [MONDO:0018037](https://monarchinitiative.org/MONDO:0018037) — hyper-IgE syndrome
+- [MONDO:0100137](https://monarchinitiative.org/MONDO:0100137) — telomere syndrome
+- [MONDO:0019359](https://monarchinitiative.org/MONDO:0019359) — Rocky mountain spotted fever
+- [MONDO:0002412](https://monarchinitiative.org/MONDO:0002412) — glycogen storage disease
+- [MONDO:0007432](https://monarchinitiative.org/MONDO:0007432) — cerebral arteriopathy with subcortical infarcts and leukoencephalopathy
+- [MONDO:0016107](https://monarchinitiative.org/MONDO:0016107) — myotonic dystrophy
+- [MONDO:0020732](https://monarchinitiative.org/MONDO:0020732) — progeria
+- [MONDO:0000159](https://monarchinitiative.org/MONDO:0000159) — bone marrow failure syndrome
+- [MONDO:0005181](https://monarchinitiative.org/MONDO:0005181) — progressive external ophthalmoplegia
+- [MONDO:0024573](https://monarchinitiative.org/MONDO:0024573) — familial hypertrophic cardiomyopathy
+- [MONDO:0044210](https://monarchinitiative.org/MONDO:0044210) — thalassemia minor
+- [MONDO:0018485](https://monarchinitiative.org/MONDO:0018485) — glycogen storage disease due to acid maltase deficiency, late-onset
+- [MONDO:0019065](https://monarchinitiative.org/MONDO:0019065) — amyloidosis
+- [MONDO:0005207](https://monarchinitiative.org/MONDO:0005207) — choriocarcinoma
+- [MONDO:0004952](https://monarchinitiative.org/MONDO:0004952) — Hodgkins lymphoma
+- [MONDO:0018908](https://monarchinitiative.org/MONDO:0018908) — non-Hodgkin lymphoma
+- [MONDO:0019474](https://monarchinitiative.org/MONDO:0019474) — hepatosplenic T-cell lymphoma
+- [MONDO:0009849](https://monarchinitiative.org/MONDO:0009849) — hyperimmunoglobulinemia D with periodic fever
+- [MONDO:0009281](https://monarchinitiative.org/MONDO:0009281) — glutaryl-CoA dehydrogenase deficiency
+- [MONDO:0008998](https://monarchinitiative.org/MONDO:0008998) — Cockayne syndrome type 3
+- [MONDO:0008280](https://monarchinitiative.org/MONDO:0008280) — Peutz-Jeghers syndrome
+- [MONDO:0009666](https://monarchinitiative.org/MONDO:0009666) — holocarboxylase synthetase deficiency
+- [MONDO:0010631](https://monarchinitiative.org/MONDO:0010631) — incontinentia pigmenti
+- [MONDO:0010184](https://monarchinitiative.org/MONDO:0010184) — methylmalonic aciduria and homocystinuria type cblC
+- [MONDO:0019570](https://monarchinitiative.org/MONDO:0019570) — Cockayne syndrome type 2
+- [MONDO:0015452](https://monarchinitiative.org/MONDO:0015452) — Coffin-Siris syndrome
+- [MONDO:0017775](https://monarchinitiative.org/MONDO:0017775) — melioidosis
+- [MONDO:0009924](https://monarchinitiative.org/MONDO:0009924) — vitamin D-dependent rickets, type 1
+- [MONDO:0011399](https://monarchinitiative.org/MONDO:0011399) — alpha thalassemia spectrum
+- [MONDO:0018661](https://monarchinitiative.org/MONDO:0018661) — Zika virus infectious disease
+- [MONDO:0009757](https://monarchinitiative.org/MONDO:0009757) — Niemann-Pick disease, type C1
+- [MONDO:0009282](https://monarchinitiative.org/MONDO:0009282) — multiple acyl-CoA dehydrogenase deficiency
+- [MONDO:0011518](https://monarchinitiative.org/MONDO:0011518) — Wiedemann-Steiner syndrome
+- [MONDO:0859147](https://monarchinitiative.org/MONDO:0859147) — Marbach-Rustad progeroid syndrome
+- [MONDO:0009520](https://monarchinitiative.org/MONDO:0009520) — 3-hydroxy-3-methylglutaric aciduria
+- [MONDO:0012455](https://monarchinitiative.org/MONDO:0012455) — Kleefstra syndrome
+- [MONDO:0005508](https://monarchinitiative.org/MONDO:0005508) — hereditary multiple osteochondromas
+- [MONDO:0008278](https://monarchinitiative.org/MONDO:0008278) — juvenile polyposis/hereditary hemorrhagic telangiectasia syndrome
+- [MONDO:0007349](https://monarchinitiative.org/MONDO:0007349) — familial cold autoinflammatory syndrome 1
+- [MONDO:0013523](https://monarchinitiative.org/MONDO:0013523) — Nestor-Guillermo progeria syndrome
+- [MONDO:0018160](https://monarchinitiative.org/MONDO:0018160) — hereditary retinoblastoma
+- [MONDO:0008748](https://monarchinitiative.org/MONDO:0008748) — Hermansky-Pudlak syndrome 1
+- [MONDO:0010188](https://monarchinitiative.org/MONDO:0010188) — familial isolated deficiency of vitamin E
+- [MONDO:0010720](https://monarchinitiative.org/MONDO:0010720) — partial androgen insensitivity syndrome
+- [MONDO:0018954](https://monarchinitiative.org/MONDO:0018954) — Loeys-Dietz syndrome
+- [MONDO:0009377](https://monarchinitiative.org/MONDO:0009377) — hyperammonemia due to N-acetylglutamate synthase deficiency
+- [MONDO:0018849](https://monarchinitiative.org/MONDO:0018849) — dentinogenesis imperfecta
+- [MONDO:0009475](https://monarchinitiative.org/MONDO:0009475) — isovaleric acidemia
+- [MONDO:0009294](https://monarchinitiative.org/MONDO:0009294) — glycogen storage disease VI
+- [MONDO:0008185](https://monarchinitiative.org/MONDO:0008185) — hereditary chronic pancreatitis
+- [MONDO:0021023](https://monarchinitiative.org/MONDO:0021023) — complete androgen insensitivity syndrome
+- [MONDO:0010160](https://monarchinitiative.org/MONDO:0010160) — tyrosinemia type II
+- [MONDO:0018094](https://monarchinitiative.org/MONDO:0018094) — Waardenburg syndrome
+- [MONDO:0957953](https://monarchinitiative.org/MONDO:0957953) — Garg-Mishra progeroid syndrome
+- [MONDO:0010703](https://monarchinitiative.org/MONDO:0010703) — ornithine carbamoyltransferase deficiency
+- [MONDO:0008289](https://monarchinitiative.org/MONDO:0008289) — brain small vessel disease 1 with or without ocular anomalies
+- [MONDO:0009945](https://monarchinitiative.org/MONDO:0009945) — pyridoxine-dependent epilepsy
+- [MONDO:0010134](https://monarchinitiative.org/MONDO:0010134) — Pendred syndrome
+- [MONDO:0012116](https://monarchinitiative.org/MONDO:0012116) — spinocerebellar ataxia type 8
+- [MONDO:0009376](https://monarchinitiative.org/MONDO:0009376) — carbamoyl phosphate synthetase I deficiency disease
+- [MONDO:0011866](https://monarchinitiative.org/MONDO:0011866) — pontocerebellar hypoplasia type 1A
+- [MONDO:0009734](https://monarchinitiative.org/MONDO:0009734) — hyperinsulinemic hypoglycemia, familial, 1
+- [MONDO:0010790](https://monarchinitiative.org/MONDO:0010790) — MERRF syndrome
+- [MONDO:0008457](https://monarchinitiative.org/MONDO:0008457) — spinocerebellar ataxia type 6
+- [MONDO:0008746](https://monarchinitiative.org/MONDO:0008746) — oculocutaneous albinism type 2
+- [MONDO:0012295](https://monarchinitiative.org/MONDO:0012295) — complement component 5 deficiency
+- [MONDO:0010168](https://monarchinitiative.org/MONDO:0010168) — Usher syndrome type 1
+- [MONDO:0011748](https://monarchinitiative.org/MONDO:0011748) — Usher syndrome type 1G
+- [MONDO:0017771](https://monarchinitiative.org/MONDO:0017771) — Mayer-Rokitansky-Kuster-Hauser syndrome
+- [MONDO:0012454](https://monarchinitiative.org/MONDO:0012454) — alcohol sensitivity, acute
+- [MONDO:0011017](https://monarchinitiative.org/MONDO:0011017) — Naxos disease
+- [MONDO:0021019](https://monarchinitiative.org/MONDO:0021019) — X-linked recessive ocular albinism
+- [MONDO:0008323](https://monarchinitiative.org/MONDO:0008323) — Liddle syndrome
+- [MONDO:0008769](https://monarchinitiative.org/MONDO:0008769) — neuronal ceroid lipofuscinosis 2
+- [MONDO:0012933](https://monarchinitiative.org/MONDO:0012933) — breast-ovarian cancer, familial, susceptibility to, 2
+- [MONDO:0011450](https://monarchinitiative.org/MONDO:0011450) — breast-ovarian cancer, familial, susceptibility to, 1
+- [MONDO:0013788](https://monarchinitiative.org/MONDO:0013788) — Usher syndrome type 3B
+- [MONDO:0013512](https://monarchinitiative.org/MONDO:0013512) — hemoglobin H disease
+- [MONDO:0007810](https://monarchinitiative.org/MONDO:0007810) — autosomal dominant ichthyosis vulgaris
+- [MONDO:0011195](https://monarchinitiative.org/MONDO:0011195) — Usher syndrome type 1E
+- [MONDO:0011186](https://monarchinitiative.org/MONDO:0011186) — Usher syndrome type 1F
+- [MONDO:0009366](https://monarchinitiative.org/MONDO:0009366) — normal pressure hydrocephalus
+- [MONDO:0015140](https://monarchinitiative.org/MONDO:0015140) — early-onset autosomal dominant Alzheimer disease
+- [MONDO:0700087](https://monarchinitiative.org/MONDO:0700087) — Usher syndrome type 1B
+- [MONDO:0010171](https://monarchinitiative.org/MONDO:0010171) — Usher syndrome type 1C
+- [MONDO:0013935](https://monarchinitiative.org/MONDO:0013935) — Usher syndrome type 1J
+- [MONDO:0014001](https://monarchinitiative.org/MONDO:0014001) — Usher syndrome type 1K
+- [MONDO:0010169](https://monarchinitiative.org/MONDO:0010169) — Usher syndrome type 2A
+- [MONDO:0011558](https://monarchinitiative.org/MONDO:0011558) — Usher syndrome type 2C
+- [MONDO:0029141](https://monarchinitiative.org/MONDO:0029141) — Usher syndrome, type 4
+- [MONDO:0007215](https://monarchinitiative.org/MONDO:0007215) — brachydactyly type A1
+- [MONDO:0008247](https://monarchinitiative.org/MONDO:0008247) — Robin sequence-oligodactyly syndrome
+- [MONDO:0010170](https://monarchinitiative.org/MONDO:0010170) — Usher syndrome type 3A
+- [MONDO:0012662](https://monarchinitiative.org/MONDO:0012662) — Usher syndrome type 2D
+- [MONDO:0010984](https://monarchinitiative.org/MONDO:0010984) — Usher syndrome type 1D
+- [MONDO:0008099](https://monarchinitiative.org/MONDO:0008099) — congenital stationary night blindness autosomal dominant 2
+- [MONDO:0007184](https://monarchinitiative.org/MONDO:0007184) — alopecia, androgenetic, 1
+- [MONDO:0002442](https://monarchinitiative.org/MONDO:0002442) — long QT syndrome
+- [MONDO:0010775](https://monarchinitiative.org/MONDO:0010775) — retinitis pigmentosa-deafness syndrome
+- [MONDO:0008698](https://monarchinitiative.org/MONDO:0008698) — achalasia
+- [MONDO:0005152](https://monarchinitiative.org/MONDO:0005152) — hypopituitarism
+- [MONDO:0005387](https://monarchinitiative.org/MONDO:0005387) — primary ovarian failure
+- [MONDO:0006266](https://monarchinitiative.org/MONDO:0006266) — Leydig cell tumor
+- [MONDO:0016812](https://monarchinitiative.org/MONDO:0016812) — dopa-responsive dystonia
+- [MONDO:0018993](https://monarchinitiative.org/MONDO:0018993) — Charcot-Marie-Tooth disease type 2
+- [MONDO:0019262](https://monarchinitiative.org/MONDO:0019262) — juvenile neuronal ceroid lipofuscinosis
+- [MONDO:0022308](https://monarchinitiative.org/MONDO:0022308) — corticobasal degeneration disorder
+- [MONDO:0035663](https://monarchinitiative.org/MONDO:0035663) — neuromyelitis optica spectrum disorder with anti-AQP4 antibodies
+- [MONDO:0045047](https://monarchinitiative.org/MONDO:0045047) — neurosarcoidosis
+- [MONDO:0018151](https://monarchinitiative.org/MONDO:0018151) — coenzyme Q10 deficiency
+- [MONDO:0016113](https://monarchinitiative.org/MONDO:0016113) — bulbospinal muscular atrophy
+- [MONDO:0800188](https://monarchinitiative.org/MONDO:0800188) — malignant hyperthermia susceptibility
+- [MONDO:0800444](https://monarchinitiative.org/MONDO:0800444) — Birt-Hogg-Dube syndrome
+- [MONDO:0100464](https://monarchinitiative.org/MONDO:0100464) — acid sphingomyelinase deficiency
+- [MONDO:0020122](https://monarchinitiative.org/MONDO:0020122) — acquired idiopathic inflammatory myopathy
+- [MONDO:0019146](https://monarchinitiative.org/MONDO:0019146) — inherited susceptibility to mycobacterial diseases
+- [MONDO:0005396](https://monarchinitiative.org/MONDO:0005396) — thoracic aortic aneurysm
+- [MONDO:0005780](https://monarchinitiative.org/MONDO:0005780) — hantavirus infectious disease
+- [MONDO:0700271](https://monarchinitiative.org/MONDO:0700271) — CHEK2-related cancer predisposition
+- [MONDO:0006076](https://monarchinitiative.org/MONDO:0006076) — adrenal gland neuroblastoma
+- [MONDO:0000129](https://monarchinitiative.org/MONDO:0000129) — glutaric aciduria
+- [MONDO:0700272](https://monarchinitiative.org/MONDO:0700272) — PALB2-related cancer predisposition
+- [MONDO:0024299](https://monarchinitiative.org/MONDO:0024299) — vitamin D-dependent rickets
+- [MONDO:0012968](https://monarchinitiative.org/MONDO:0012968) — Usher syndrome type 1H
+- [MONDO:0100050](https://monarchinitiative.org/MONDO:0100050) — Usher syndrome, type 1D/F
+- [MONDO:0015333](https://monarchinitiative.org/MONDO:0015333) — progeroid syndrome
+- [MONDO:0100506](https://monarchinitiative.org/MONDO:0100506) — Cockayne spectrum with or without cerebrooculofacioskeletal syndrome
+- [MONDO:0000820](https://monarchinitiative.org/MONDO:0000820) — cerebral cavernous malformation
+- [MONDO:0002145](https://monarchinitiative.org/MONDO:0002145) — disorder of sexual differentiation
+- [MONDO:0018230](https://monarchinitiative.org/MONDO:0018230) — skeletal dysplasia
+- [MONDO:0006058](https://monarchinitiative.org/MONDO:0006058) — Wilms tumor
+- [MONDO:0005301](https://monarchinitiative.org/MONDO:0005301) — multiple sclerosis
+- [MONDO:0019287](https://monarchinitiative.org/MONDO:0019287) — ectodermal dysplasia syndrome
+- [MONDO:0700296](https://monarchinitiative.org/MONDO:0700296) — aflatoxicosis
+- [MONDO:0700284](https://monarchinitiative.org/MONDO:0700284) — carnitine palmitoyl transferase deficiency
+- [MONDO:0700285](https://monarchinitiative.org/MONDO:0700285) — DMD-related muscular dystrophy
+- [MONDO:0700291](https://monarchinitiative.org/MONDO:0700291) — glycogen storage disease IX
+- [MONDO:0700294](https://monarchinitiative.org/MONDO:0700294) — CTCF-related neurodevelopmental disorder
+- [MONDO:0700303](https://monarchinitiative.org/MONDO:0700303) — Erb palsy

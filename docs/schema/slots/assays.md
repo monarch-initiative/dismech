@@ -17,8 +17,10 @@ Alias: assays
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Experiment](../classes/Experiment.md) | A structured experiment or protocol-level study design that can be proposed t... |  yes  |
 | [Biochemical](../classes/Biochemical.md) |  |  no  |
+| [ExperimentalReadout](../classes/ExperimentalReadout.md) | A structured readout or outcome measured in an experiment |  no  |
+| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 
 
 
@@ -27,9 +29,22 @@ Alias: assays
 
 ## Properties
 
-* Range: [AssayDescriptor](../classes/AssayDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [AssayDescriptor](../classes/AssayDescriptor.md) |
+| Domain Of | [Experiment](../classes/Experiment.md), [ExperimentalReadout](../classes/ExperimentalReadout.md), [Pathophysiology](../classes/Pathophysiology.md), [Biochemical](../classes/Biochemical.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -41,8 +56,9 @@ Alias: assays
 | --- |
 | [{preferred_term: Elevated Blood Glucose}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -77,6 +93,8 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: assays
 domain_of:
+- Experiment
+- ExperimentalReadout
 - Pathophysiology
 - Biochemical
 range: AssayDescriptor

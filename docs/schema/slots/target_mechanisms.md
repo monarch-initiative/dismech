@@ -31,9 +31,22 @@ Alias: target_mechanisms
 
 ## Properties
 
-* Range: [TreatmentMechanismTarget](../classes/TreatmentMechanismTarget.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [TreatmentMechanismTarget](../classes/TreatmentMechanismTarget.md) |
+| Domain Of | [Treatment](../classes/Treatment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -43,9 +56,11 @@ Alias: target_mechanisms
 * Target names should match pathophysiology entry names in the same disease file
 * Complements target_phenotypes by explaining WHERE in the causal chain the drug acts
 * Analogous to DrugMechDB paths but anchored to dismech pathophysiology nodes
+* Use only for THERAPEUTIC actions; non-therapeutic actions such as screening, monitoring, diagnostics, and counseling or informational interventions should not link to pathophysiology nodes
+
+
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -81,6 +96,9 @@ comments:
 - Target names should match pathophysiology entry names in the same disease file
 - Complements target_phenotypes by explaining WHERE in the causal chain the drug acts
 - Analogous to DrugMechDB paths but anchored to dismech pathophysiology nodes
+- Use only for THERAPEUTIC actions; non-therapeutic actions such as screening, monitoring,
+  diagnostics, and counseling or informational interventions should not link to pathophysiology
+  nodes
 from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: target_mechanisms

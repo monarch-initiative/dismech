@@ -26,9 +26,22 @@ Alias: geography
 
 ## Properties
 
-* Range: [GeographyTerm](../enums/GeographyTerm.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [GeographyTerm](../enums/GeographyTerm.md) |
+| Domain Of | [Subtype](../classes/Subtype.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: geography
 | --- |
 | ['Philippines'] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

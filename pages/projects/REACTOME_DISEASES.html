@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reactome Disease Catalogue - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Reactome Disease Catalogue</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Reactome Disease Catalogue</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (77)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Addison&#39;s_Disease.html">Addisons Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Age-Related_Macular_Degeneration.html">Age Related Macular Degeneration</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Alopecia_Areata.html">Alopecia Areata</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ankylosing_Spondylitis.html">Ankylosing Spondylitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Argininosuccinic_Aciduria.html">Argininosuccinic Aciduria</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Atopic_Dermatitis.html">Atopic Dermatitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Atrial_Fibrillation.html">Atrial Fibrillation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Autoimmune_Hemolytic_Anemia.html">Autoimmune Hemolytic Anemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Basal_Cell_Carcinoma.html">Basal Cell Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Behcet&#39;s_Disease.html">Behcets Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Beta-Ketothiolase_Deficiency.html">Beta-Ketothiolase Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Bipolar_Disorder.html">Bipolar Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Breast_Fibroadenoma.html">Breast Fibroadenoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Burkitt_Lymphoma.html">Burkitt Lymphoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cardiofaciocutaneous_Syndrome.html">Cardiofaciocutaneous Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Celiac_Disease.html">Celiac Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cervical_Cancer.html">Cervical Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Kidney_Disease.html">Chronic Kidney Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Lymphocytic_Leukemia.html">Chronic Lymphocytic Leukemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive.html">Chronic Myeloid Leukemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Obstructive_Pulmonary_Disease.html">Chronic Obstructive Pulmonary Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Colon_Adenocarcinoma.html">Colon Adenocarcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Coronary_Artery_Disease.html">Coronary Artery Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Costello_Syndrome.html">Costello Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Crouzon_Syndrome.html">Crouzon Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cystic_Fibrosis.html">Cystic Fibrosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Diffuse_Large_B-Cell_Lymphoma.html">Diffuse Large B Cell Lymphoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Duchenne_Muscular_Dystrophy.html">Duchenne Muscular Dystrophy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ehlers-Danlos_Syndrome.html">Ehlers-Danlos Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Adenomatous_Polyposis.html">Familial Adenomatous Polyposis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Mediterranean_Fever.html">Familial Mediterranean Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Fanconi_Anemia.html">Fanconi Anemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Gastric_Ulcer.html">Gastric Ulcer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Gastroesophageal_Reflux_Disease.html">Gastroesophageal Reflux Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Gastrointestinal_Stromal_Tumor.html">Gastrointestinal Stromal Tumor</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Granulomatosis_with_Polyangiitis.html">Granulomatosis with Polyangiitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hemophilia_B.html">Hemophilia B</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hepatitis_B.html">Hepatitis B</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hepatitis_C.html">Hepatitis C</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hereditary_Spherocytosis.html">Hereditary Spherocytosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hypertrophic_Cardiomyopathy.html">Hypertrophic Cardiomyopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Irritable_Bowel_Syndrome.html">Irritable Bowel Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Isovaleric_Acidemia.html">Isovaleric Acidemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Li-Fraumeni_Syndrome.html">Li-Fraumeni Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Major_Depressive_Disorder.html">Major Depressive Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Malignant_Mesothelioma.html">Malignant Mesothelioma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Mantle_Cell_Lymphoma.html">Mantle Cell Lymphoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Maple_Syrup_Urine_Disease.html">Maple Syrup Urine Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Merkel_Cell_Carcinoma.html">Merkel Cell Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Methylmalonic_Acidemia.html">Methylmalonic Acidemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Mixed_Connective_Tissue_Disease.html">Mixed Connective Tissue Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Multiple_Sclerosis.html">Multiple Sclerosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Myasthenia_Gravis.html">Myasthenia Gravis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/N-Acetylglutamate_Synthase_Deficiency.html">N-Acetylglutamate Synthase Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Neuromyelitis_Optica.html">Neuromyelitis Optica</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Noonan_Syndrome.html">Noonan Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ornithine_Carbamoyltransferase_Deficiency.html">Ornithine Carbamoyltransferase Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Parkinson&#39;s_Disease.html">Parkinsons Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pemphigus_Vulgaris.html">Pemphigus Vulgaris</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pfeiffer_Syndrome.html">Pfeiffer Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Polycystic_Ovary_Syndrome.html">Polycystic Ovary Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Primary_Sclerosing_Cholangitis.html">Primary Sclerosing Cholangitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Psoriatic_Arthritis.html">Psoriatic Arthritis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pulmonary_hypertension.html">Pulmonary hypertension</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Raynaud_Disease.html">Raynaud Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Renal_Cell_Carcinoma.html">Renal Cell Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rett_Syndrome.html">Rett Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rheumatoid_Arthritis.html">Rheumatoid Arthritis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Sjogren&#39;s_Syndrome.html">Sjogrens Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Synovial_Sarcoma.html">Synovial Sarcoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Systemic_Lupus_Erythematosus.html">Systemic Lupus Erythematosus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Type_2_Diabetes_Mellitus.html">Type 2 Diabetes Mellitus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Tyrosinemia_Type_I.html">Tyrosinemia Type I</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ulcerative_Colitis.html">Ulcerative Colitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Urea_Cycle_Disorder.html">Urea Cycle Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/X-Linked_Hypophosphatemia.html">X-Linked Hypophosphatemia</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/REACTOME_DISEASES.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="reactome-disease-catalogue">Reactome Disease Catalogue</h1>
+<h2 id="overview">Overview</h2>
+<p>Catalogue of diseases in the <a href="https://reactome.org/">Reactome</a> pathway database,
+cross-referenced with dismech entries. Reactome curates disease-associated
+pathway variants, providing mechanistic context for how mutations perturb
+normal biological processes.</p>
+<ul>
+<li><strong>Total Reactome diseases</strong>: 770 (770 entries, 735 DOID + 35 SYMP)</li>
+<li><strong>Already in dismech</strong>: 110 (strict name match)</li>
+<li><strong>Not yet in dismech</strong>: 660</li>
+</ul>
+<p>Source: <code>https://reactome.org/ContentService/data/diseases</code></p>
+<h2 id="existing-overlap-with-dismech">Existing Overlap with dismech</h2>
+<table>
+<thead>
+<tr>
+<th>Reactome Disease</th>
+<th>DOID</th>
+<th>dismech Entry</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>achondroplasia</td>
+<td>DOID:4480</td>
+<td>Achondroplasia</td>
+</tr>
+<tr>
+<td>Addison's disease</td>
+<td>DOID:13774</td>
+<td><a href="../disorders/Addison's_Disease.html">Addisons Disease</a></td>
+</tr>
+<tr>
+<td>age related macular degeneration</td>
+<td>DOID:10871</td>
+<td><a href="../disorders/Age-Related_Macular_Degeneration.html">Age Related Macular Degeneration</a></td>
+</tr>
+<tr>
+<td>alopecia areata</td>
+<td>DOID:986</td>
+<td><a href="../disorders/Alopecia_Areata.html">Alopecia Areata</a></td>
+</tr>
+<tr>
+<td>Alzheimer's disease</td>
+<td>DOID:10652</td>
+<td>Alzheimers_Disease</td>
+</tr>
+<tr>
+<td>ankylosing spondylitis</td>
+<td>DOID:7147</td>
+<td><a href="../disorders/Ankylosing_Spondylitis.html">Ankylosing Spondylitis</a></td>
+</tr>
+<tr>
+<td>argininosuccinic aciduria</td>
+<td>DOID:14755</td>
+<td><a href="../disorders/Argininosuccinic_Aciduria.html">Argininosuccinic Aciduria</a></td>
+</tr>
+<tr>
+<td>asthma</td>
+<td>DOID:2841</td>
+<td>Asthma</td>
+</tr>
+<tr>
+<td>atopic dermatitis</td>
+<td>DOID:3310</td>
+<td><a href="../disorders/Atopic_Dermatitis.html">Atopic Dermatitis</a></td>
+</tr>
+<tr>
+<td>atrial fibrillation</td>
+<td>DOID:0060224</td>
+<td><a href="../disorders/Atrial_Fibrillation.html">Atrial Fibrillation</a></td>
+</tr>
+<tr>
+<td>autoimmune hemolytic anemia</td>
+<td>DOID:718</td>
+<td><a href="../disorders/Autoimmune_Hemolytic_Anemia.html">Autoimmune Hemolytic Anemia</a></td>
+</tr>
+<tr>
+<td>basal cell carcinoma</td>
+<td>DOID:2513</td>
+<td><a href="../disorders/Basal_Cell_Carcinoma.html">Basal Cell Carcinoma</a></td>
+</tr>
+<tr>
+<td>Behcet's disease</td>
+<td>DOID:13241</td>
+<td><a href="../disorders/Behcet's_Disease.html">Behcets Disease</a></td>
+</tr>
+<tr>
+<td>beta-ketothiolase deficiency</td>
+<td>DOID:14723</td>
+<td><a href="../disorders/Beta-Ketothiolase_Deficiency.html">Beta-Ketothiolase Deficiency</a></td>
+</tr>
+<tr>
+<td>bipolar disorder</td>
+<td>DOID:3312</td>
+<td><a href="../disorders/Bipolar_Disorder.html">Bipolar Disorder</a></td>
+</tr>
+<tr>
+<td>botulism</td>
+<td>DOID:11976</td>
+<td>Botulism</td>
+</tr>
+<tr>
+<td>breast fibroadenoma</td>
+<td>DOID:1618</td>
+<td><a href="../disorders/Breast_Fibroadenoma.html">Breast Fibroadenoma</a></td>
+</tr>
+<tr>
+<td>Burkitt lymphoma</td>
+<td>DOID:8584</td>
+<td><a href="../disorders/Burkitt_Lymphoma.html">Burkitt Lymphoma</a></td>
+</tr>
+<tr>
+<td>cardiofaciocutaneous syndrome</td>
+<td>DOID:0060233</td>
+<td><a href="../disorders/Cardiofaciocutaneous_Syndrome.html">Cardiofaciocutaneous Syndrome</a></td>
+</tr>
+<tr>
+<td>celiac disease</td>
+<td>DOID:10608</td>
+<td><a href="../disorders/Celiac_Disease.html">Celiac Disease</a></td>
+</tr>
+<tr>
+<td>cervical cancer</td>
+<td>DOID:4362</td>
+<td><a href="../disorders/Cervical_Cancer.html">Cervical Cancer</a></td>
+</tr>
+<tr>
+<td>chronic kidney disease</td>
+<td>DOID:784</td>
+<td><a href="../disorders/Chronic_Kidney_Disease.html">Chronic Kidney Disease</a></td>
+</tr>
+<tr>
+<td>chronic lymphocytic leukemia</td>
+<td>DOID:1040</td>
+<td><a href="../disorders/Chronic_Lymphocytic_Leukemia.html">Chronic Lymphocytic Leukemia</a></td>
+</tr>
+<tr>
+<td>chronic myeloid leukemia</td>
+<td>DOID:8552</td>
+<td><a href="../disorders/Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive.html">Chronic Myeloid Leukemia</a></td>
+</tr>
+<tr>
+<td>chronic obstructive pulmonary disease</td>
+<td>DOID:3083</td>
+<td><a href="../disorders/Chronic_Obstructive_Pulmonary_Disease.html">Chronic Obstructive Pulmonary Disease</a></td>
+</tr>
+<tr>
+<td>colon adenocarcinoma</td>
+<td>DOID:234</td>
+<td><a href="../disorders/Colon_Adenocarcinoma.html">Colon Adenocarcinoma</a></td>
+</tr>
+<tr>
+<td>coronary artery disease</td>
+<td>DOID:3393</td>
+<td><a href="../disorders/Coronary_Artery_Disease.html">Coronary Artery Disease</a></td>
+</tr>
+<tr>
+<td>Costello syndrome</td>
+<td>DOID:0050469</td>
+<td><a href="../disorders/Costello_Syndrome.html">Costello Syndrome</a></td>
+</tr>
+<tr>
+<td>Crouzon syndrome</td>
+<td>DOID:2339</td>
+<td><a href="../disorders/Crouzon_Syndrome.html">Crouzon Syndrome</a></td>
+</tr>
+<tr>
+<td>cystic fibrosis</td>
+<td>DOID:1485</td>
+<td><a href="../disorders/Cystic_Fibrosis.html">Cystic Fibrosis</a></td>
+</tr>
+<tr>
+<td>dermatomyositis</td>
+<td>DOID:10223</td>
+<td>Dermatomyositis</td>
+</tr>
+<tr>
+<td>diffuse large B-cell lymphoma</td>
+<td>DOID:0050745</td>
+<td><a href="../disorders/Diffuse_Large_B-Cell_Lymphoma.html">Diffuse Large B Cell Lymphoma</a></td>
+</tr>
+<tr>
+<td>Duchenne muscular dystrophy</td>
+<td>DOID:11723</td>
+<td><a href="../disorders/Duchenne_Muscular_Dystrophy.html">Duchenne Muscular Dystrophy</a></td>
+</tr>
+<tr>
+<td>Ehlers-Danlos syndrome</td>
+<td>DOID:13359</td>
+<td><a href="../disorders/Ehlers-Danlos_Syndrome.html">Ehlers-Danlos Syndrome</a></td>
+</tr>
+<tr>
+<td>endometriosis</td>
+<td>DOID:289</td>
+<td>Endometriosis</td>
+</tr>
+<tr>
+<td>familial adenomatous polyposis</td>
+<td>DOID:0050424</td>
+<td><a href="../disorders/Familial_Adenomatous_Polyposis.html">Familial Adenomatous Polyposis</a></td>
+</tr>
+<tr>
+<td>familial Mediterranean fever</td>
+<td>DOID:2987</td>
+<td><a href="../disorders/Familial_Mediterranean_Fever.html">Familial Mediterranean Fever</a></td>
+</tr>
+<tr>
+<td>Fanconi anemia</td>
+<td>DOID:13636</td>
+<td><a href="../disorders/Fanconi_Anemia.html">Fanconi Anemia</a></td>
+</tr>
+<tr>
+<td>fibromyalgia</td>
+<td>DOID:631</td>
+<td>Fibromyalgia</td>
+</tr>
+<tr>
+<td>galactosemia</td>
+<td>DOID:9870</td>
+<td>Galactosemia</td>
+</tr>
+<tr>
+<td>gastric ulcer</td>
+<td>DOID:10808</td>
+<td><a href="../disorders/Gastric_Ulcer.html">Gastric Ulcer</a></td>
+</tr>
+<tr>
+<td>gastroesophageal reflux disease</td>
+<td>DOID:8534</td>
+<td><a href="../disorders/Gastroesophageal_Reflux_Disease.html">Gastroesophageal Reflux Disease</a></td>
+</tr>
+<tr>
+<td>gastrointestinal stromal tumor</td>
+<td>DOID:9253</td>
+<td><a href="../disorders/Gastrointestinal_Stromal_Tumor.html">Gastrointestinal Stromal Tumor</a></td>
+</tr>
+<tr>
+<td>glaucoma</td>
+<td>DOID:1686</td>
+<td>Glaucoma</td>
+</tr>
+<tr>
+<td>gout</td>
+<td>DOID:13189</td>
+<td>Gout</td>
+</tr>
+<tr>
+<td>granulomatosis with polyangiitis</td>
+<td>DOID:12132</td>
+<td><a href="../disorders/Granulomatosis_with_Polyangiitis.html">Granulomatosis with Polyangiitis</a></td>
+</tr>
+<tr>
+<td>hemochromatosis</td>
+<td>DOID:2352</td>
+<td>Hemochromatosis</td>
+</tr>
+<tr>
+<td>hemophilia B</td>
+<td>DOID:12259</td>
+<td><a href="../disorders/Hemophilia_B.html">Hemophilia B</a></td>
+</tr>
+<tr>
+<td>hepatitis B</td>
+<td>DOID:2043</td>
+<td><a href="../disorders/Hepatitis_B.html">Hepatitis B</a></td>
+</tr>
+<tr>
+<td>hepatitis C</td>
+<td>DOID:1883</td>
+<td><a href="../disorders/Hepatitis_C.html">Hepatitis C</a></td>
+</tr>
+<tr>
+<td>hepatocellular carcinoma</td>
+<td>DOID:684</td>
+<td><a href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a></td>
+</tr>
+<tr>
+<td>hereditary spherocytosis</td>
+<td>DOID:12971</td>
+<td><a href="../disorders/Hereditary_Spherocytosis.html">Hereditary Spherocytosis</a></td>
+</tr>
+<tr>
+<td>homocystinuria</td>
+<td>DOID:9263</td>
+<td>Homocystinuria</td>
+</tr>
+<tr>
+<td>hypertrophic cardiomyopathy</td>
+<td>DOID:11984</td>
+<td><a href="../disorders/Hypertrophic_Cardiomyopathy.html">Hypertrophic Cardiomyopathy</a></td>
+</tr>
+<tr>
+<td>hypochondroplasia</td>
+<td>DOID:0080041</td>
+<td>Hypochondroplasia</td>
+</tr>
+<tr>
+<td>irritable bowel syndrome</td>
+<td>DOID:9778</td>
+<td><a href="../disorders/Irritable_Bowel_Syndrome.html">Irritable Bowel Syndrome</a></td>
+</tr>
+<tr>
+<td>isovaleric acidemia</td>
+<td>DOID:14753</td>
+<td><a href="../disorders/Isovaleric_Acidemia.html">Isovaleric Acidemia</a></td>
+</tr>
+<tr>
+<td>leprosy</td>
+<td>DOID:1024</td>
+<td>Leprosy</td>
+</tr>
+<tr>
+<td>Li-Fraumeni syndrome</td>
+<td>DOID:3012</td>
+<td><a href="../disorders/Li-Fraumeni_Syndrome.html">Li-Fraumeni Syndrome</a></td>
+</tr>
+<tr>
+<td>lymphoma</td>
+<td>DOID:0060058</td>
+<td>Lymphoma</td>
+</tr>
+<tr>
+<td>major depressive disorder</td>
+<td>DOID:1470</td>
+<td><a href="../disorders/Major_Depressive_Disorder.html">Major Depressive Disorder</a></td>
+</tr>
+<tr>
+<td>malaria</td>
+<td>DOID:12365</td>
+<td>Malaria</td>
+</tr>
+<tr>
+<td>malignant mesothelioma</td>
+<td>DOID:1790</td>
+<td><a href="../disorders/Malignant_Mesothelioma.html">Malignant Mesothelioma</a></td>
+</tr>
+<tr>
+<td>mantle cell lymphoma</td>
+<td>DOID:0050746</td>
+<td><a href="../disorders/Mantle_Cell_Lymphoma.html">Mantle Cell Lymphoma</a></td>
+</tr>
+<tr>
+<td>maple syrup urine disease</td>
+<td>DOID:9269</td>
+<td><a href="../disorders/Maple_Syrup_Urine_Disease.html">Maple Syrup Urine Disease</a></td>
+</tr>
+<tr>
+<td>Merkel cell carcinoma</td>
+<td>DOID:3965</td>
+<td><a href="../disorders/Merkel_Cell_Carcinoma.html">Merkel Cell Carcinoma</a></td>
+</tr>
+<tr>
+<td>methylmalonic acidemia</td>
+<td>DOID:14749</td>
+<td><a href="../disorders/Methylmalonic_Acidemia.html">Methylmalonic Acidemia</a></td>
+</tr>
+<tr>
+<td>migraine</td>
+<td>DOID:6364</td>
+<td>Migraine</td>
+</tr>
+<tr>
+<td>mixed connective tissue disease</td>
+<td>DOID:3492</td>
+<td><a href="../disorders/Mixed_Connective_Tissue_Disease.html">Mixed Connective Tissue Disease</a></td>
+</tr>
+<tr>
+<td>mucopolysaccharidosis</td>
+<td>DOID:12798</td>
+<td>Mucopolysaccharidosis</td>
+</tr>
+<tr>
+<td>multiple sclerosis</td>
+<td>DOID:2377</td>
+<td><a href="../disorders/Multiple_Sclerosis.html">Multiple Sclerosis</a></td>
+</tr>
+<tr>
+<td>myasthenia gravis</td>
+<td>DOID:437</td>
+<td><a href="../disorders/Myasthenia_Gravis.html">Myasthenia Gravis</a></td>
+</tr>
+<tr>
+<td>N-acetylglutamate synthase deficiency</td>
+<td>DOID:0112258</td>
+<td><a href="../disorders/N-Acetylglutamate_Synthase_Deficiency.html">N-Acetylglutamate Synthase Deficiency</a></td>
+</tr>
+<tr>
+<td>narcolepsy</td>
+<td>DOID:8986</td>
+<td>Narcolepsy</td>
+</tr>
+<tr>
+<td>neuroblastoma</td>
+<td>DOID:769</td>
+<td>Neuroblastoma</td>
+</tr>
+<tr>
+<td>neuromyelitis optica</td>
+<td>DOID:8869</td>
+<td><a href="../disorders/Neuromyelitis_Optica.html">Neuromyelitis Optica</a></td>
+</tr>
+<tr>
+<td>Noonan syndrome</td>
+<td>DOID:3490</td>
+<td><a href="../disorders/Noonan_Syndrome.html">Noonan Syndrome</a></td>
+</tr>
+<tr>
+<td>obesity</td>
+<td>DOID:9970</td>
+<td>Obesity</td>
+</tr>
+<tr>
+<td>onchocerciasis</td>
+<td>DOID:11678</td>
+<td>Onchocerciasis</td>
+</tr>
+<tr>
+<td>ornithine carbamoyltransferase deficiency</td>
+<td>DOID:9271</td>
+<td><a href="../disorders/Ornithine_Carbamoyltransferase_Deficiency.html">Ornithine Carbamoyltransferase Deficiency</a></td>
+</tr>
+<tr>
+<td>osteoarthritis</td>
+<td>DOID:8398</td>
+<td>Osteoarthritis</td>
+</tr>
+<tr>
+<td>osteoporosis</td>
+<td>DOID:11476</td>
+<td>Osteoporosis</td>
+</tr>
+<tr>
+<td>osteosarcoma</td>
+<td>DOID:3347</td>
+<td>Osteosarcoma</td>
+</tr>
+<tr>
+<td>Parkinson's disease</td>
+<td>DOID:14330</td>
+<td><a href="../disorders/Parkinson's_Disease.html">Parkinsons Disease</a></td>
+</tr>
+<tr>
+<td>pemphigus vulgaris</td>
+<td>DOID:0060851</td>
+<td><a href="../disorders/Pemphigus_Vulgaris.html">Pemphigus Vulgaris</a></td>
+</tr>
+<tr>
+<td>Pfeiffer syndrome</td>
+<td>DOID:14705</td>
+<td><a href="../disorders/Pfeiffer_Syndrome.html">Pfeiffer Syndrome</a></td>
+</tr>
+<tr>
+<td>phenylketonuria</td>
+<td>DOID:9281</td>
+<td>Phenylketonuria</td>
+</tr>
+<tr>
+<td>polycystic ovary syndrome</td>
+<td>DOID:11612</td>
+<td><a href="../disorders/Polycystic_Ovary_Syndrome.html">Polycystic Ovary Syndrome</a></td>
+</tr>
+<tr>
+<td>primary sclerosing cholangitis</td>
+<td>DOID:0060643</td>
+<td><a href="../disorders/Primary_Sclerosing_Cholangitis.html">Primary Sclerosing Cholangitis</a></td>
+</tr>
+<tr>
+<td>psoriasis</td>
+<td>DOID:8893</td>
+<td>Psoriasis</td>
+</tr>
+<tr>
+<td>psoriatic arthritis</td>
+<td>DOID:9008</td>
+<td><a href="../disorders/Psoriatic_Arthritis.html">Psoriatic Arthritis</a></td>
+</tr>
+<tr>
+<td>pulmonary hypertension</td>
+<td>DOID:6432</td>
+<td><a href="../disorders/Pulmonary_hypertension.html">Pulmonary hypertension</a></td>
+</tr>
+<tr>
+<td>Raynaud disease</td>
+<td>DOID:10300</td>
+<td><a href="../disorders/Raynaud_Disease.html">Raynaud Disease</a></td>
+</tr>
+<tr>
+<td>renal cell carcinoma</td>
+<td>DOID:4450</td>
+<td><a href="../disorders/Renal_Cell_Carcinoma.html">Renal Cell Carcinoma</a></td>
+</tr>
+<tr>
+<td>retinoblastoma</td>
+<td>DOID:768</td>
+<td>Retinoblastoma</td>
+</tr>
+<tr>
+<td>Rett syndrome</td>
+<td>DOID:1206</td>
+<td><a href="../disorders/Rett_Syndrome.html">Rett Syndrome</a></td>
+</tr>
+<tr>
+<td>rheumatoid arthritis</td>
+<td>DOID:7148</td>
+<td><a href="../disorders/Rheumatoid_Arthritis.html">Rheumatoid Arthritis</a></td>
+</tr>
+<tr>
+<td>sarcoidosis</td>
+<td>DOID:11335</td>
+<td>Sarcoidosis</td>
+</tr>
+<tr>
+<td>schizophrenia</td>
+<td>DOID:5419</td>
+<td>Schizophrenia</td>
+</tr>
+<tr>
+<td>Sjogren's syndrome</td>
+<td>DOID:12894</td>
+<td><a href="../disorders/Sjogren's_Syndrome.html">Sjogrens Syndrome</a></td>
+</tr>
+<tr>
+<td>synovial sarcoma</td>
+<td>DOID:5485</td>
+<td><a href="../disorders/Synovial_Sarcoma.html">Synovial Sarcoma</a></td>
+</tr>
+<tr>
+<td>systemic lupus erythematosus</td>
+<td>DOID:9074</td>
+<td><a href="../disorders/Systemic_Lupus_Erythematosus.html">Systemic Lupus Erythematosus</a></td>
+</tr>
+<tr>
+<td>tetanus</td>
+<td>DOID:11338</td>
+<td>Tetanus</td>
+</tr>
+<tr>
+<td>tuberculosis</td>
+<td>DOID:399</td>
+<td>Tuberculosis</td>
+</tr>
+<tr>
+<td>type 2 diabetes mellitus</td>
+<td>DOID:9352</td>
+<td><a href="../disorders/Type_2_Diabetes_Mellitus.html">Type 2 Diabetes Mellitus</a></td>
+</tr>
+<tr>
+<td>tyrosinemia type I</td>
+<td>DOID:0050726</td>
+<td><a href="../disorders/Tyrosinemia_Type_I.html">Tyrosinemia Type I</a></td>
+</tr>
+<tr>
+<td>ulcerative colitis</td>
+<td>DOID:8577</td>
+<td><a href="../disorders/Ulcerative_Colitis.html">Ulcerative Colitis</a></td>
+</tr>
+<tr>
+<td>urea cycle disorder</td>
+<td>DOID:9267</td>
+<td><a href="../disorders/Urea_Cycle_Disorder.html">Urea Cycle Disorder</a></td>
+</tr>
+<tr>
+<td>urticaria</td>
+<td>DOID:1555</td>
+<td>Urticaria</td>
+</tr>
+<tr>
+<td>X-linked hypophosphatemia</td>
+<td>DOID:0050445</td>
+<td><a href="../disorders/X-Linked_Hypophosphatemia.html">X-Linked Hypophosphatemia</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="status">STATUS</h1>
+<h2 id="cancerneoplasm-210">Cancer/Neoplasm (210)</h2>
+<ul>
+<li>[ ] acute lymphocytic leukemia (DOID:9952)</li>
+<li>[ ] acute myeloid leukemia (DOID:9119)</li>
+<li>[ ] adenomyoma (DOID:2609)</li>
+<li>[ ] adrenal cortical adenoma (DOID:0050891)</li>
+<li>[ ] adrenal gland cancer (DOID:3953)</li>
+<li>[ ] adrenal gland pheochromocytoma (DOID:0050892)</li>
+<li>[ ] adrenocortical carcinoma (DOID:3948)</li>
+<li>[ ] aggressive NK-cell leukemia (DOID:1035)</li>
+<li>[ ] anaplastic large cell lymphoma (DOID:0050744)</li>
+<li>[ ] angioimmunoblastic T-cell lymphoma (DOID:0111147)</li>
+<li>[ ] angiomyolipoma (DOID:3314)</li>
+<li>[ ] angiosarcoma (DOID:0001816)</li>
+<li>[ ] appendix adenocarcinoma (DOID:3608)</li>
+<li>[ ] ascending colon cancer (DOID:218)</li>
+<li>[ ] astrocytoma (DOID:3069)</li>
+<li>[ ] basaloid lung carcinoma (DOID:7045)</li>
+<li>[ ] benign breast phyllodes tumor (DOID:1631)</li>
+<li>[ ] bile duct adenocarcinoma (DOID:4896)</li>
+<li>[ ] bile duct carcinoma (DOID:4897)</li>
+<li>[ ] biliary tract cancer (DOID:4607)</li>
+<li>[ ] bladder adenocarcinoma (DOID:3711)</li>
+<li>[ ] bladder carcinoma (DOID:4007)</li>
+<li>[ ] bladder squamous cell carcinoma (DOID:3742)</li>
+<li>[ ] brain ependymoma (DOID:7497)</li>
+<li>[ ] brain glioma (DOID:0060108)</li>
+<li>[ ] brain meningioma (DOID:0060106)</li>
+<li>[ ] brain oligodendroglioma (DOID:3187)</li>
+<li>[ ] brain stem glioma (DOID:4202)</li>
+<li>[ ] breast cancer (DOID:1612)</li>
+<li>[ ] breast carcinoma (DOID:3459)</li>
+<li>[ ] breast ductal carcinoma (DOID:3007)</li>
+<li>[ ] breast fibrocystic disease (DOID:10354)</li>
+<li>[ ] breast lobular carcinoma (DOID:0050938)</li>
+<li>[ ] bronchiolo-alveolar adenocarcinoma (DOID:4926)</li>
+<li>[ ] cancer (DOID:162)</li>
+<li>[ ] carcinoma (DOID:305)</li>
+<li>[ ] cecum adenocarcinoma (DOID:3039)</li>
+<li>[ ] cecum carcinoma (DOID:1519)</li>
+<li>[ ] central nervous system cancer (DOID:3620)</li>
+<li>[ ] cervical adenocarcinoma (DOID:3702)</li>
+<li>[ ] cervical adenosquamous carcinoma (DOID:5636)</li>
+<li>[ ] cervical squamous cell carcinoma (DOID:3744)</li>
+<li>[ ] cervix small cell carcinoma (DOID:6740)</li>
+<li>[ ] cholangiocarcinoma (DOID:4947)</li>
+<li>[ ] chondrosarcoma (DOID:3371)</li>
+<li>[ ] chordoma (DOID:3302)</li>
+<li>[ ] chromophobe renal cell carcinoma (DOID:4471)</li>
+<li>[ ] colon cancer (DOID:219)</li>
+<li>[ ] colon carcinoma (DOID:1520)</li>
+<li>[ ] colon neuroendocrine neoplasm (DOID:4118)</li>
+<li>[ ] colorectal cancer (DOID:9256)</li>
+<li>[ ] connective tissue cancer (DOID:201)</li>
+<li>[ ] cutaneous T cell lymphoma (DOID:0060061)</li>
+<li>[ ] descending colon cancer (DOID:12190)</li>
+<li>[ ] duodenum adenocarcinoma (DOID:10816)</li>
+<li>[ ] duodenum adenoma (DOID:0050927)</li>
+<li>[ ] dysembryoplastic neuroepithelial tumor (DOID:2679)</li>
+<li>[ ] eccrine sweat gland cancer (DOID:4921)</li>
+<li>[ ] endometrial cancer (DOID:1380)</li>
+<li>[ ] endometrial carcinoma (DOID:2871)</li>
+<li>[ ] endometrioid ovary carcinoma (DOID:5828)</li>
+<li>[ ] epidermal appendage tumor (DOID:2433)</li>
+<li>[ ] epithelioid inflammatory myofibroblastic sarcoma (DOID:0080372)</li>
+<li>[ ] esophageal carcinoma (DOID:1107)</li>
+<li>[x] esophagus adenocarcinoma (DOID:4914)</li>
+<li>[ ] esophagus squamous cell carcinoma (DOID:3748)</li>
+<li>[ ] estrogen-receptor positive breast cancer (DOID:0060075)</li>
+<li>[ ] fallopian tube serous adenocarcinoma (DOID:5598)</li>
+<li>[ ] female reproductive endometrioid cancer (DOID:3001)</li>
+<li>[ ] Ferguson-Smith tumor (DOID:5585)</li>
+<li>[ ] fibrosarcoma (DOID:3355)</li>
+<li>[ ] follicular lymphoma (DOID:0050873)</li>
+<li>[ ] gallbladder adenocarcinoma (DOID:3500)</li>
+<li>[ ] gallbladder carcinoma (DOID:4948)</li>
+<li>[ ] gastric adenocarcinoma (DOID:3717)</li>
+<li>[ ] gastric neuroendocrine neoplasm (DOID:4715)</li>
+<li>[ ] gastroesophageal junction adenocarcinoma (DOID:4944)</li>
+<li>[ ] germ cell cancer (DOID:2994)</li>
+<li>[ ] glioblastoma (DOID:3068)</li>
+<li>[ ] gliosarcoma (DOID:3071)</li>
+<li>[ ] gum cancer (DOID:8602)</li>
+<li>[ ] hairy cell leukemia (DOID:285)</li>
+<li>[ ] head and neck carcinoma (DOID:1542)</li>
+<li>[ ] head and neck squamous cell carcinoma (DOID:5520)</li>
+<li>[ ] hemangioblastoma (DOID:5241)</li>
+<li>[ ] hematologic cancer (DOID:2531)</li>
+<li>[ ] hepatoblastoma (DOID:687)</li>
+<li>[ ] hereditary breast ovarian cancer syndrome (DOID:5683)</li>
+<li>[ ] histiocytic and dendritic cell cancer (DOID:5621)</li>
+<li>[ ] Hodgkin's lymphoma (DOID:8567)</li>
+<li>[ ] Human immunodeficiency virus infectious disease (DOID:526)</li>
+<li>[ ] inflammatory myofibroblastic tumor (DOID:0050905)</li>
+<li>[ ] invasive bladder transitional cell carcinoma (DOID:6477)</li>
+<li>[ ] islet cell tumor (DOID:1799)</li>
+<li>[ ] juvenile myelomonocytic leukemia (DOID:0050458)</li>
+<li>[ ] kidney cancer (DOID:263)</li>
+<li>[ ] large intestine adenocarcinoma (DOID:0050913)</li>
+<li>[ ] large intestine cancer (DOID:5672)</li>
+<li>[ ] laryngeal squamous cell carcinoma (DOID:2876)</li>
+<li>[ ] larynx cancer (DOID:2596)</li>
+<li>[ ] leiomyosarcoma (DOID:1967)</li>
+<li>[ ] liposarcoma (DOID:3382)</li>
+<li>[ ] liver cancer (DOID:3571)</li>
+<li>[ ] liver carcinoma (DOID:686)</li>
+<li>[ ] luminal breast carcinoma B (DOID:0080674)</li>
+<li>[ ] lung adenocarcinoma (DOID:3910)</li>
+<li>[ ] lung cancer (DOID:1324)</li>
+<li>[ ] lung large cell carcinoma (DOID:4556)</li>
+<li>[ ] lung small cell carcinoma (DOID:5409)</li>
+<li>[ ] lung squamous cell carcinoma (DOID:3907)</li>
+<li>[ ] lymphoplasmacytic lymphoma (DOID:0050747)</li>
+<li>[ ] malignant peripheral nerve sheath tumor (DOID:5940)</li>
+<li>[ ] malignant pleural mesothelioma (DOID:7474)</li>
+<li>[ ] malignant spindle cell melanoma (DOID:3162)</li>
+<li>[ ] mast cell neoplasm (DOID:3664)</li>
+<li>[ ] medulloblastoma (DOID:0050902)</li>
+<li>[ ] melanoma (DOID:1909)</li>
+<li>[ ] mucosal melanoma (DOID:0050929)</li>
+<li>[ ] multiple endocrine neoplasia (DOID:3125)</li>
+<li>[ ] multiple myeloma (DOID:9538)</li>
+<li>[ ] myelodysplastic myeloproliferative cancer (DOID:4972)</li>
+<li>[ ] myelodysplastic syndrome (DOID:0050908)</li>
+<li>[ ] myelofibrosis (DOID:4971)</li>
+<li>[ ] myeloid leukemia (DOID:8692)</li>
+<li>[ ] myeloma (DOID:0070004)</li>
+<li>[ ] myeloproliferative neoplasm (DOID:2226)</li>
+<li>[ ] myxofibrosarcoma (DOID:0080534)</li>
+<li>[ ] nasal cavity carcinoma (DOID:4931)</li>
+<li>[ ] nasopharynx carcinoma (DOID:9261)</li>
+<li>[ ] nephroblastoma (DOID:2154)</li>
+<li>[ ] non-Hodgkin lymphoma (DOID:0060060)</li>
+<li>[ ] non-small cell lung carcinoma (DOID:3908)</li>
+<li>[ ] ocular melanoma (DOID:1752)</li>
+<li>[ ] oral cavity cancer (DOID:8618)</li>
+<li>[ ] oral squamous cell carcinoma (DOID:0050866)</li>
+<li>[ ] ovarian cancer (DOID:2394)</li>
+<li>[ ] ovarian carcinoma (DOID:4001)</li>
+<li>[ ] ovarian endometrioid neoplasm (DOID:6212)</li>
+<li>[ ] ovary serous adenocarcinoma (DOID:5744)</li>
+<li>[ ] ovary transitional cell carcinoma (DOID:4000)</li>
+<li>[ ] pancreatic acinar cell adenocarcinoma (DOID:5742)</li>
+<li>[ ] pancreatic cancer (DOID:1793)</li>
+<li>[ ] pancreatic ductal adenocarcinoma (DOID:3498)</li>
+<li>[ ] papillary carcinoma (DOID:3113)</li>
+<li>[ ] papillary renal cell carcinoma (DOID:4465)</li>
+<li>[ ] papillary thyroid carcinoma (DOID:3969)</li>
+<li>[ ] paraganglioma (DOID:0050773)</li>
+<li>[ ] parathyroid carcinoma (DOID:1540)</li>
+<li>[ ] parotid gland cancer (DOID:9036)</li>
+<li>[ ] penis carcinoma (DOID:3449)</li>
+<li>[ ] peripheral primitive neuroectodermal tumor (DOID:3369)</li>
+<li>[ ] peripheral T-cell lymphoma (DOID:0050749)</li>
+<li>[ ] pharynx cancer (DOID:0060119)</li>
+<li>[ ] pharynx squamous cell carcinoma (DOID:0050921)</li>
+<li>[ ] pheochromocytoma (DOID:0050771)</li>
+<li>[ ] pineal gland cancer (DOID:5032)</li>
+<li>[ ] pituitary adenoma (DOID:3829)</li>
+<li>[ ] pituitary cancer (DOID:1785)</li>
+<li>[ ] postgerminal center chronic lymphocytic leukemia/small lymphocytic lymphoma (DOID:7230)</li>
+<li>[ ] prolactin producing pituitary tumor (DOID:5396)</li>
+<li>[ ] prostate adenocarcinoma (DOID:2526)</li>
+<li>[ ] prostate cancer (DOID:10283)</li>
+<li>[ ] prostate carcinoma (DOID:10286)</li>
+<li>[ ] prostate small cell carcinoma (DOID:7141)</li>
+<li>[ ] pseudotumor cerebri (DOID:11459)</li>
+<li>[ ] pulmonary neuroendocrine tumor (DOID:5410)</li>
+<li>[ ] rectum adenocarcinoma (DOID:1996)</li>
+<li>[ ] rectum neuroendocrine neoplasm (DOID:5777)</li>
+<li>[ ] renal clear cell carcinoma (DOID:4467)</li>
+<li>[ ] renal pelvis carcinoma (DOID:4919)</li>
+<li>[ ] renal Wilms' tumor (DOID:5176)</li>
+<li>[ ] retroperitoneal neuroblastoma (DOID:0050937)</li>
+<li>[ ] rhabdomyosarcoma (DOID:3247)</li>
+<li>[ ] salivary gland adenoid cystic carcinoma (DOID:4866)</li>
+<li>[ ] salivary gland cancer (DOID:8850)</li>
+<li>[ ] salivary gland carcinoma (DOID:0050904)</li>
+<li>[ ] sarcoma (DOID:1115)</li>
+<li>[ ] sebaceous carcinoma (DOID:4840)</li>
+<li>[ ] sigmoid colon cancer (DOID:12192)</li>
+<li>[ ] skin benign neoplasm (DOID:3165)</li>
+<li>[ ] skin melanoma (DOID:8923)</li>
+<li>[ ] skin squamous cell carcinoma (DOID:3151)</li>
+<li>[ ] small intestine carcinoma (DOID:4907)</li>
+<li>[ ] squamous cell carcinoma (DOID:1749)</li>
+<li>[ ] stomach cancer (DOID:10534)</li>
+<li>[ ] stomach carcinoma (DOID:5517)</li>
+<li>[ ] subacute leukemia (DOID:3264)</li>
+<li>[ ] sweat gland carcinoma (DOID:5667)</li>
+<li>[ ] T-cell acute lymphoblastic leukemia (DOID:5603)</li>
+<li>[ ] teratoma (DOID:3307)</li>
+<li>[ ] testicular cancer (DOID:2998)</li>
+<li>[ ] testicular germ cell cancer (DOID:5557)</li>
+<li>[ ] thymic carcinoma (DOID:3284)</li>
+<li>[ ] thymus cancer (DOID:3277)</li>
+<li>[ ] thyroid adenoma (DOID:2891)</li>
+<li>[ ] thyroid cancer (DOID:1781)</li>
+<li>[ ] thyroid carcinoma (DOID:3963)</li>
+<li>[ ] thyroid gland anaplastic carcinoma (DOID:0080522)</li>
+<li>[ ] thyroid gland follicular carcinoma (DOID:3962)</li>
+<li>[ ] thyroid gland Hurthle cell carcinoma (DOID:8161)</li>
+<li>[ ] thyroid Hurthle cell adenoma (DOID:8162)</li>
+<li>[ ] tongue cancer (DOID:8649)</li>
+<li>[ ] trachea squamous cell carcinoma (DOID:12003)</li>
+<li>[ ] triple-receptor negative breast cancer (DOID:0060081)</li>
+<li>[ ] urethra cancer (DOID:734)</li>
+<li>[ ] urinary system cancer (DOID:3996)</li>
+<li>[ ] uterine fibroid (DOID:13223)</li>
+<li>[ ] vulva squamous cell carcinoma (DOID:2101)</li>
+<li>[ ] Waldenstroem's macroglobulinemia (DOID:0060901)</li>
+<li>[ ] Zollinger-Ellison syndrome (DOID:0050782)</li>
+</ul>
+<h2 id="metabolicinborn-errors-58">Metabolic/Inborn Errors (58)</h2>
+<ul>
+<li>[ ] 3-hydroxyisobutryl-CoA hydrolase deficiency (DOID:0060949)</li>
+<li>[ ] 3-Methylcrotonyl-CoA carboxylase 1 deficiency (DOID:0080579)</li>
+<li>[ ] 3-Methylcrotonyl-CoA carboxylase 2 deficiency (DOID:0080580)</li>
+<li>[ ] 3-methylcrotonyl-CoA carboxylase deficiency (DOID:0050710)</li>
+<li>[ ] 3-methylglutaconic aciduria (DOID:0060336)</li>
+<li>[ ] aceruloplasminemia (DOID:0050711)</li>
+<li>[ ] acquired metabolic disease (DOID:0060158)</li>
+<li>[ ] adenine phosphoribosyltransferase deficiency (DOID:0060350)</li>
+<li>[ ] adenosine deaminase deficiency (DOID:5810)</li>
+<li>[ ] autosomal hemophilia A (DOID:0111823)</li>
+<li>[ ] bilirubin metabolic disorder (DOID:2741)</li>
+<li>[ ] branched-chain keto acid dehydrogenase kinase deficiency (DOID:0090126)</li>
+<li>[ ] C1 inhibitor deficiency (DOID:0060002)</li>
+<li>[ ] carbamoyl phosphate synthetase I deficiency disease (DOID:9280)</li>
+<li>[ ] cerebrotendinous xanthomatosis (DOID:4810)</li>
+<li>[ ] congenital adrenal hyperplasia (DOID:0050811)</li>
+<li>[ ] Crigler-Najjar syndrome (DOID:3803)</li>
+<li>[ ] disease of metabolism (DOID:0014667)</li>
+<li>[ ] factor VIII deficiency (DOID:12134)</li>
+<li>[ ] galactokinase deficiency (DOID:14695)</li>
+<li>[ ] galactosemia 4 (DOID:0060969)</li>
+<li>[ ] gangliosidosis GM1 (DOID:3322)</li>
+<li>[ ] gangliosidosis GM2 (DOID:3321)</li>
+<li>[ ] glycogen storage disease (DOID:2747)</li>
+<li>[ ] glycogen storage disease I (DOID:2749)</li>
+<li>[ ] glycogen storage disease II (DOID:2752)</li>
+<li>[ ] glycogen storage disease IV (DOID:2750)</li>
+<li>[ ] glycogen storage disease XV (DOID:0050579)</li>
+<li>[ ] Hartnup disease (DOID:1060)</li>
+<li>[ ] inherited metabolic disorder (DOID:655)</li>
+<li>[ ] intestinal disaccharidase deficiency (DOID:9868)</li>
+<li>[ ] lipid metabolism disorder (DOID:3146)</li>
+<li>[ ] lysosomal storage disease (DOID:3211)</li>
+<li>[ ] methylmalonic aciduria and homocystinuria type cblC (DOID:0050715)</li>
+<li>[ ] methylmalonic aciduria and homocystinuria type cblD (DOID:0050716)</li>
+<li>[ ] methylmalonic aciduria and homocystinuria type cblE (DOID:0050732)</li>
+<li>[ ] methylmalonic aciduria and homocystinuria type cblG (DOID:0050733)</li>
+<li>[ ] methylmalonic aciduria due to methylmalonyl-CoA mutase deficiency (DOID:0060740)</li>
+<li>[ ] mitochondrial short-chain enoyl-CoA hydratase 1 deficiency (DOID:0070540)</li>
+<li>[ ] mucopolysaccharidosis I (DOID:12802)</li>
+<li>[ ] mucopolysaccharidosis II (DOID:12799)</li>
+<li>[ ] mucopolysaccharidosis III (DOID:12801)</li>
+<li>[ ] mucopolysaccharidosis IV (DOID:12804)</li>
+<li>[ ] mucopolysaccharidosis VI (DOID:12800)</li>
+<li>[ ] mucopolysaccharidosis VII (DOID:12803)</li>
+<li>[ ] newborn respiratory distress syndrome (DOID:12716)</li>
+<li>[ ] ornithine translocase deficiency (DOID:0050720)</li>
+<li>[ ] primary immunodeficiency disease (DOID:612)</li>
+<li>[ ] purine nucleoside phosphorylase deficiency (DOID:5813)</li>
+<li>[ ] purine-pyrimidine metabolic disorder (DOID:653)</li>
+<li>[ ] Rh deficiency syndrome (DOID:0050641)</li>
+<li>[ ] rickets (DOID:10609)</li>
+<li>[ ] severe combined immunodeficiency (DOID:627)</li>
+<li>[ ] steroid inherited metabolic disorder (DOID:1701)</li>
+<li>[ ] systemic primary carnitine deficiency disease (DOID:14365)</li>
+<li>[ ] vitamin B12 deficiency (DOID:0050731)</li>
+<li>[ ] vitamin metabolic disorder (DOID:0050718)</li>
+<li>[ ] von Willebrand's disease 1 (DOID:0060573)</li>
+</ul>
+<h2 id="neurological-13">Neurological (13)</h2>
+<ul>
+<li>[ ] adrenoleukodystrophy (DOID:10588)</li>
+<li>[ ] brain disease (DOID:936)</li>
+<li>[ ] central nervous system tuberculosis (DOID:1638)</li>
+<li>[ ] cerebrovascular disease (DOID:6713)</li>
+<li>[ ] early infantile epileptic encephalopathy (DOID:0050709)</li>
+<li>[ ] epilepsy syndrome (DOID:1826)</li>
+<li>[ ] epilepsy with generalized tonic-clonic seizures (DOID:7725)</li>
+<li>[ ] episodic ataxia (DOID:963)</li>
+<li>[ ] motor peripheral neuropathy (DOID:2477)</li>
+<li>[ ] neuropathy (DOID:870)</li>
+<li>[ ] pilocytic astrocytoma (DOID:4851)</li>
+<li>[ ] toxic encephalopathy (DOID:3602)</li>
+<li>[ ] transient cerebral ischemia (DOID:224)</li>
+</ul>
+<h2 id="cardiovascular-29">Cardiovascular (29)</h2>
+<ul>
+<li>[ ] Arrhythmia (SYMP:0000287)</li>
+<li>[ ] arteriosclerotic cardiovascular disease (DOID:2348)</li>
+<li>[ ] aspiration pneumonitis (DOID:3240)</li>
+<li>[ ] basal ganglia cerebrovascular disease (DOID:10991)</li>
+<li>[ ] cardiovascular system disease (DOID:1287)</li>
+<li>[ ] Castleman disease (DOID:0111157)</li>
+<li>[ ] congenital heart defect (DOID:1682)</li>
+<li>[ ] congestive heart failure (DOID:6000)</li>
+<li>[ ] coronary artery vasospasm (DOID:11840)</li>
+<li>[ ] dilated cardiomyopathy (DOID:12930)</li>
+<li>[ ] diphtheria (DOID:11405)</li>
+<li>[ ] familial hypercholesterolemia (DOID:13810)</li>
+<li>[ ] heart conduction disease (DOID:10273)</li>
+<li>[ ] heart disease (DOID:114)</li>
+<li>[ ] heartburn (SYMP:0000439)</li>
+<li>[ ] hypertension (DOID:10763)</li>
+<li>[ ] intermediate coronary syndrome (DOID:8805)</li>
+<li>[ ] Kabuki syndrome (DOID:0060473)</li>
+<li>[ ] myocardial infarction (DOID:5844)</li>
+<li>[ ] ocular hypertension (DOID:9282)</li>
+<li>[ ] panic disorder (DOID:594)</li>
+<li>[ ] pericardial tuberculosis (DOID:4962)</li>
+<li>[ ] pneumocystosis (DOID:11339)</li>
+<li>[ ] postural orthostatic tachycardia syndrome (DOID:0111154)</li>
+<li>[ ] Prinzmetal angina (DOID:0111151)</li>
+<li>[ ] pseudoxanthoma elasticum (DOID:2738)</li>
+<li>[ ] short QT syndrome (DOID:0050793)</li>
+<li>[ ] thrombosis (DOID:0060903)</li>
+<li>[ ] vasculitis (DOID:865)</li>
+</ul>
+<h2 id="immunologicalinflammatory-21">Immunological/Inflammatory (21)</h2>
+<ul>
+<li>[ ] allergic asthma (DOID:9415)</li>
+<li>[ ] allergic conjunctivitis (DOID:11204)</li>
+<li>[ ] allergic contact dermatitis (DOID:3042)</li>
+<li>[ ] allergic hypersensitivity disease (DOID:1205)</li>
+<li>[ ] allergic rhinitis (DOID:4481)</li>
+<li>[ ] autoimmune hypersensitivity disease (DOID:417)</li>
+<li>[ ] autoimmune thrombocytopenic purpura (DOID:8924)</li>
+<li>[ ] berylliosis (DOID:10322)</li>
+<li>[ ] bullous pemphigoid (DOID:8506)</li>
+<li>[ ] Crohn's disease (DOID:8778)</li>
+<li>[ ] diarrhea (DOID:13250)</li>
+<li>[ ] hidradenitis suppurativa (DOID:2280)</li>
+<li>[ ] inflammatory bowel disease (DOID:0050589)</li>
+<li>[ ] juvenile rheumatoid arthritis (DOID:676)</li>
+<li>[ ] Loeffler syndrome (DOID:9503)</li>
+<li>[ ] lupus nephritis (DOID:0080162)</li>
+<li>[ ] paroxysmal nocturnal hemoglobinuria (DOID:0060284)</li>
+<li>[ ] pleural tuberculosis (DOID:106)</li>
+<li>[ ] pulmonary tuberculosis (DOID:2957)</li>
+<li>[ ] reactive arthritis (DOID:6196)</li>
+<li>[ ] seborrheic dermatitis (DOID:8741)</li>
+</ul>
+<h2 id="infectious-34">Infectious (34)</h2>
+<ul>
+<li>[ ] alcoholic hepatitis (DOID:12351)</li>
+<li>[ ] anogenital venereal wart (DOID:11168)</li>
+<li>[ ] anthrax disease (DOID:7427)</li>
+<li>[ ] bacterial infectious disease (DOID:104)</li>
+<li>[ ] Coronavirus infectious disease (DOID:0080599)</li>
+<li>[ ] COVID-19 (DOID:0080600)</li>
+<li>[ ] cutaneous anthrax (DOID:7426)</li>
+<li>[ ] cutaneous leishmaniasis (DOID:9111)</li>
+<li>[ ] dengue disease (DOID:12205)</li>
+<li>[ ] disease by infectious agent (DOID:0050117)</li>
+<li>[ ] extrapulmonary tuberculosis (DOID:0050598)</li>
+<li>[ ] fungal infectious disease (DOID:1564)</li>
+<li>[ ] gastroenteritis (DOID:2326)</li>
+<li>[ ] genital herpes (DOID:8704)</li>
+<li>[ ] giardiasis (DOID:10718)</li>
+<li>[ ] gonorrhea (DOID:7551)</li>
+<li>[ ] hemophagocytic lymphohistiocytosis (DOID:0050120)</li>
+<li>[ ] hepatitis (DOID:2237)</li>
+<li>[ ] herpes zoster (DOID:8536)</li>
+<li>[ ] human cytomegalovirus infection (DOID:0080827)</li>
+<li>[ ] influenza (DOID:8469)</li>
+<li>[ ] inhalation anthrax (DOID:0050160)</li>
+<li>[ ] intestinal infectious disease (DOID:100)</li>
+<li>[ ] non-alcoholic steatohepatitis (DOID:0080547)</li>
+<li>[ ] parasitic infectious disease (DOID:1398)</li>
+<li>[ ] primary bacterial infectious disease (DOID:0050338)</li>
+<li>[ ] respiratory syncytial virus infectious disease (DOID:1273)</li>
+<li>[ ] rheumatic fever (DOID:1586)</li>
+<li>[ ] rhinitis (DOID:4483)</li>
+<li>[ ] severe acute respiratory syndrome (DOID:2945)</li>
+<li>[ ] sleeping sickness (DOID:10112)</li>
+<li>[ ] Stevens-Johnson syndrome (DOID:0050426)</li>
+<li>[ ] trichinosis (DOID:9784)</li>
+<li>[ ] viral infectious disease (DOID:934)</li>
+</ul>
+<h2 id="skeletalconnective-tissue-11">Skeletal/Connective Tissue (11)</h2>
+<ul>
+<li>[ ] arthropathy (DOID:381)</li>
+<li>[ ] atelosteogenesis (DOID:0050648)</li>
+<li>[ ] bone development disease (DOID:0080006)</li>
+<li>[ ] bone disease (DOID:0080001)</li>
+<li>[ ] diastrophic dysplasia (DOID:14687)</li>
+<li>[ ] osteochondrodysplasia (DOID:2256)</li>
+<li>[ ] Paget's disease of bone (DOID:5408)</li>
+<li>[ ] primary hypertrophic osteoarthropathy (DOID:14283)</li>
+<li>[ ] schneckenbecken dysplasia (DOID:0050775)</li>
+<li>[ ] spondyloepimetaphyseal dysplasia (DOID:0080027)</li>
+<li>[ ] thanatophoric dysplasia (DOID:13481)</li>
+</ul>
+<h2 id="eyeophthalmic-21">Eye/Ophthalmic (21)</h2>
+<ul>
+<li>[ ] acute closed-angle glaucoma (DOID:13862)</li>
+<li>[ ] angle-closure glaucoma (DOID:13550)</li>
+<li>[ ] blepharospasm (DOID:529)</li>
+<li>[ ] chorioretinitis (DOID:8886)</li>
+<li>[ ] cone-rod dystrophy (DOID:0050572)</li>
+<li>[ ] conjunctivitis (DOID:6195)</li>
+<li>[ ] dystrophies primarily involving the retinal pigment epithelium (DOID:14252)</li>
+<li>[ ] eye disease (DOID:5614)</li>
+<li>[ ] keratitis (DOID:4677)</li>
+<li>[ ] macular corneal dystrophy (DOID:2565)</li>
+<li>[ ] macular degeneration (DOID:4448)</li>
+<li>[ ] marginal corneal ulcer (DOID:10441)</li>
+<li>[ ] open-angle glaucoma (DOID:1067)</li>
+<li>[ ] optic neuritis (DOID:1210)</li>
+<li>[ ] primary congenital glaucoma (DOID:0050593)</li>
+<li>[ ] primary open angle glaucoma (DOID:1070)</li>
+<li>[ ] ptosis (DOID:0060260)</li>
+<li>[ ] retinal disease (DOID:5679)</li>
+<li>[ ] retinitis pigmentosa (DOID:10584)</li>
+<li>[ ] sympathetic ophthalmia (DOID:12029)</li>
+<li>[ ] uveitis (DOID:13141)</li>
+</ul>
+<h2 id="endocrine-12">Endocrine (12)</h2>
+<ul>
+<li>[ ] adrenal gland disease (DOID:9553)</li>
+<li>[ ] congenital adrenal insufficiency (DOID:0050546)</li>
+<li>[ ] congenital hypothyroidism (DOID:0050328)</li>
+<li>[ ] diabetes insipidus (DOID:9409)</li>
+<li>[ ] goiter (DOID:12176)</li>
+<li>[ ] hyperinsulinemic hypoglycemia (DOID:13317)</li>
+<li>[ ] maturity-onset diabetes of the young (DOID:0050524)</li>
+<li>[ ] neonatal diabetes mellitus (DOID:11717)</li>
+<li>[ ] neurohypophyseal diabetes insipidus (DOID:12388)</li>
+<li>[ ] secondary hyperparathyroidism (DOID:12466)</li>
+<li>[ ] subacute thyroiditis (DOID:7165)</li>
+<li>[ ] type 1 diabetes mellitus (DOID:9744)</li>
+</ul>
+<h2 id="renal-7">Renal (7)</h2>
+<ul>
+<li>[ ] cystinuria (DOID:9266)</li>
+<li>[ ] kidney disease (DOID:557)</li>
+<li>[ ] nephrolithiasis (DOID:585)</li>
+<li>[ ] renal fibrosis (DOID:0050855)</li>
+<li>[ ] renal tubular acidosis (DOID:14219)</li>
+<li>[ ] renal tubular transport disease (DOID:447)</li>
+<li>[ ] urinary system disease (DOID:18)</li>
+</ul>
+<h2 id="pulmonary-10">Pulmonary (10)</h2>
+<ul>
+<li>[ ] congenital muscular dystrophy (DOID:0050557)</li>
+<li>[ ] idiopathic pulmonary fibrosis (DOID:0050156)</li>
+<li>[ ] interstitial lung disease (DOID:3082)</li>
+<li>[ ] lipid pneumonia (DOID:3241)</li>
+<li>[ ] lung disease (DOID:850)</li>
+<li>[ ] pulmonary alveolar microlithiasis (DOID:12117)</li>
+<li>[ ] pulmonary alveolar proteinosis (DOID:12120)</li>
+<li>[ ] pulmonary edema (DOID:11396)</li>
+<li>[ ] pulmonary embolism (DOID:9477)</li>
+<li>[ ] respiratory system disease (DOID:1579)</li>
+</ul>
+<h2 id="skindermatologic-12">Skin/Dermatologic (12)</h2>
+<ul>
+<li>[ ] acne (DOID:6543)</li>
+<li>[ ] acrodermatitis enteropathica (DOID:0050605)</li>
+<li>[ ] arthritis (DOID:848)</li>
+<li>[ ] contact dermatitis (DOID:2773)</li>
+<li>[ ] dermatitis (DOID:2723)</li>
+<li>[ ] dermatitis herpetiformis (DOID:8505)</li>
+<li>[ ] eczema (SYMP:0000289)</li>
+<li>[ ] epidermal nevus (DOID:0111162)</li>
+<li>[ ] oculocutaneous albinism (DOID:0050632)</li>
+<li>[ ] scalp dermatosis (DOID:3136)</li>
+<li>[ ] skin disease (DOID:37)</li>
+<li>[ ] skin sarcoidosis (DOID:13402)</li>
+</ul>
+<h2 id="bloodhematologic-12">Blood/Hematologic (12)</h2>
+<ul>
+<li>[ ] acquired thrombocytopenia (DOID:11126)</li>
+<li>[ ] anemia (DOID:2355)</li>
+<li>[ ] bleeding (SYMP:0000007)</li>
+<li>[ ] blood coagulation disease (DOID:1247)</li>
+<li>[ ] blood platelet disease (DOID:2218)</li>
+<li>[ ] congenital hypoplastic anemia (DOID:1342)</li>
+<li>[ ] congenital nonspherocytic hemolytic anemia (DOID:2861)</li>
+<li>[ ] hemolytic anemia (DOID:583)</li>
+<li>[ ] hypochromic microcytic anemia (DOID:0050642)</li>
+<li>[ ] megaloblastic anemia (DOID:13382)</li>
+<li>[ ] methemoglobinemia (DOID:10783)</li>
+<li>[ ] thrombocytopenia (DOID:1588)</li>
+</ul>
+<h2 id="other-210">Other (210)</h2>
+<ul>
+<li>[ ] 46 XY gonadal dysgenesis (DOID:14448)</li>
+<li>[ ] achondrogenesis type IB (DOID:0080055)</li>
+<li>[ ] acrocephalosyndactylia (DOID:12960)</li>
+<li>[ ] actinic keratosis (DOID:8866)</li>
+<li>[ ] acute stress disorder (DOID:6088)</li>
+<li>[ ] alopecia (DOID:987)</li>
+<li>[ ] alopecia universalis (DOID:0050634)</li>
+<li>[ ] amelogenesis imperfecta (DOID:2187)</li>
+<li>[ ] amenorrhea (DOID:13938)</li>
+<li>[ ] amino acid metabolic disorder (DOID:9252)</li>
+<li>[ ] Amyloidosis (DOID:9120)</li>
+<li>[ ] anorexia nervosa (DOID:8689)</li>
+<li>[ ] anovulation (DOID:3781)</li>
+<li>[ ] anxiety disorder (DOID:2030)</li>
+<li>[ ] aphthous stomatitis (DOID:9663)</li>
+<li>[ ] arterial tortuosity syndrome (DOID:0050645)</li>
+<li>[ ] ascites (SYMP:0000526)</li>
+<li>[ ] atherosclerosis (DOID:1936)</li>
+<li>[ ] attention deficit hyperactivity disorder (DOID:1094)</li>
+<li>[ ] autism spectrum disorder (DOID:0060041)</li>
+<li>[ ] autistic disorder (DOID:12849)</li>
+<li>[ ] autosomal dominant nonsyndromic deafness (DOID:0050564)</li>
+<li>[ ] autosomal recessive congenital ichthyosis (DOID:0060655)</li>
+<li>[ ] autosomal recessive disease (DOID:0050737)</li>
+<li>[ ] Bannayan-Riley-Ruvalcaba syndrome (DOID:0050657)</li>
+<li>[ ] Barrett's esophagus (DOID:9206)</li>
+<li>[ ] Bartter disease (DOID:445)</li>
+<li>[ ] Beare-Stevenson cutis gyrata syndrome (DOID:0050660)</li>
+<li>[ ] bladder disease (DOID:365)</li>
+<li>[ ] blue color blindness (DOID:11661)</li>
+<li>[ ] blue cone monochromacy (DOID:0050679)</li>
+<li>[ ] brachydactyly (DOID:0050581)</li>
+<li>[ ] bradycardia (SYMP:0000231)</li>
+<li>[ ] bulimia nervosa (DOID:12129)</li>
+<li>[ ] cachexia (SYMP:0000402)</li>
+<li>[ ] carbohydrate metabolic disorder (DOID:2978)</li>
+<li>[ ] cataract (DOID:83)</li>
+<li>[ ] cholelithiasis (DOID:10211)</li>
+<li>[ ] choroiditis (DOID:11406)</li>
+<li>[ ] chronic spontaneous urticaria (DOID:0080749)</li>
+<li>[ ] citrullinemia (DOID:9273)</li>
+<li>[ ] colicky pain (SYMP:0000236)</li>
+<li>[ ] color blindness (DOID:13399)</li>
+<li>[ ] congenital disorder of glycosylation (DOID:5212)</li>
+<li>[ ] congenital disorder of glycosylation type I (DOID:0050570)</li>
+<li>[ ] congenital disorder of glycosylation type II (DOID:0050571)</li>
+<li>[ ] congenital myasthenic syndrome (DOID:3635)</li>
+<li>[ ] congenital stationary night blindness (DOID:0050534)</li>
+<li>[ ] convulsion (SYMP:0000596)</li>
+<li>[ ] cough (SYMP:0000614)</li>
+<li>[ ] Cowden syndrome (DOID:6457)</li>
+<li>[ ] craniosynostosis (DOID:2340)</li>
+<li>[ ] cryptorchidism (DOID:11383)</li>
+<li>[ ] depression (SYMP:0000022)</li>
+<li>[ ] developmental disorder of mental health (DOID:0060037)</li>
+<li>[ ] disease (DOID:4)</li>
+<li>[ ] disease of cellular proliferation (DOID:14566)</li>
+<li>[ ] disease of mental health (DOID:150)</li>
+<li>[ ] disorder of sexual development (DOID:1923)</li>
+<li>[ ] distal arthrogryposis (DOID:0050646)</li>
+<li>[ ] diverticulitis (DOID:7475)</li>
+<li>[ ] drug-induced hearing loss (DOID:0070310)</li>
+<li>[ ] Dubin-Johnson syndrome (DOID:12308)</li>
+<li>[ ] duodenal ulcer (DOID:1724)</li>
+<li>[ ] dysgerminoma of ovary (DOID:5511)</li>
+<li>[ ] dyspepsia (SYMP:0000422)</li>
+<li>[ ] edema (SYMP:0000538)</li>
+<li>[ ] endocrine system disease (DOID:28)</li>
+<li>[ ] endogenous depression (DOID:1595)</li>
+<li>[ ] eosinophilic esophagitis (DOID:13922)</li>
+<li>[ ] epicondylitis (DOID:14087)</li>
+<li>[ ] epistaxis (SYMP:0000448)</li>
+<li>[ ] esophagitis (DOID:11963)</li>
+<li>[ ] extrapyramidal and movement disease (DOID:13839)</li>
+<li>[ ] familial atrial fibrillation (DOID:0050650)</li>
+<li>[ ] familial hyperlipidemia (DOID:1168)</li>
+<li>[ ] female reproductive system disease (DOID:229)</li>
+<li>[ ] fever (SYMP:0000613)</li>
+<li>[ ] fibrous histiocytoma (DOID:4415)</li>
+<li>[ ] fundus albipunctatus (DOID:11105)</li>
+<li>[ ] gastritis (DOID:4029)</li>
+<li>[ ] genetic disease (DOID:630)</li>
+<li>[ ] Gilbert syndrome (DOID:2739)</li>
+<li>[ ] Gilles de la Tourette syndrome (DOID:11119)</li>
+<li>[ ] gingivitis (DOID:3087)</li>
+<li>[ ] Gitelman syndrome (DOID:0050450)</li>
+<li>[ ] glucose intolerance (DOID:10603)</li>
+<li>[ ] hemorrhoid (DOID:9746)</li>
+<li>[ ] hereditary angioedema (DOID:14735)</li>
+<li>[ ] hereditary fructose intolerance syndrome (DOID:9869)</li>
+<li>[ ] hereditary multiple exostoses (DOID:206)</li>
+<li>[ ] hereditary spastic paraplegia (DOID:2476)</li>
+<li>[ ] histiocytoma (DOID:4231)</li>
+<li>[ ] histiocytosis (DOID:3405)</li>
+<li>[ ] holoprosencephaly (DOID:4621)</li>
+<li>[ ] Horner's syndrome (DOID:11486)</li>
+<li>[ ] hyperargininemia (DOID:9278)</li>
+<li>[ ] hypercalcemia (DOID:12678)</li>
+<li>[ ] hypereosinophilic syndrome (DOID:999)</li>
+<li>[ ] hyperglycemia (DOID:4195)</li>
+<li>[ ] hypermethioninemia (DOID:0050544)</li>
+<li>[ ] hyperphosphatemia (DOID:0050459)</li>
+<li>[ ] hyperprolactinemia (DOID:12700)</li>
+<li>[ ] hypertrichosis (DOID:420)</li>
+<li>[ ] hypoactive sexual desire disorder (DOID:13868)</li>
+<li>[ ] hypoglycemia (DOID:9993)</li>
+<li>[ ] hypogonadism (DOID:1924)</li>
+<li>[ ] hyponatremia (SYMP:0019146)</li>
+<li>[ ] hypophosphatemia (DOID:0050336)</li>
+<li>[ ] hypotension (SYMP:0000059)</li>
+<li>[ ] hypotrichosis (DOID:4535)</li>
+<li>[ ] impotence (DOID:1875)</li>
+<li>[ ] inclusion body myositis (DOID:3429)</li>
+<li>[ ] infertility (DOID:5223)</li>
+<li>[ ] inflammation (SYMP:0000061)</li>
+<li>[ ] insomnia (SYMP:0000571)</li>
+<li>[ ] intermittent claudication (DOID:3669)</li>
+<li>[ ] intracranial vasospasm (DOID:13100)</li>
+<li>[ ] intrahepatic cholestasis (DOID:1852)</li>
+<li>[ ] iridocyclitis (DOID:9383)</li>
+<li>[ ] iritis (DOID:1406)</li>
+<li>[ ] keratoacanthoma (DOID:3149)</li>
+<li>[ ] keratoconjunctivitis (DOID:9368)</li>
+<li>[ ] lactic acidosis (DOID:3650)</li>
+<li>[ ] lactose intolerance (DOID:10604)</li>
+<li>[ ] Larsen syndrome (DOID:14764)</li>
+<li>[ ] Leber congenital amaurosis (DOID:14791)</li>
+<li>[ ] Lennox-Gastaut syndrome (DOID:0050561)</li>
+<li>[ ] LEOPARD syndrome (DOID:14291)</li>
+<li>[ ] Lesch-Nyhan syndrome (DOID:1919)</li>
+<li>[ ] listeriosis (DOID:11573)</li>
+<li>[ ] macroglobulinemia (DOID:9080)</li>
+<li>[ ] malignant fibrous histiocytoma (DOID:1907)</li>
+<li>[ ] malignant peritoneal mesothelioma (DOID:1788)</li>
+<li>[ ] mastocytosis (DOID:350)</li>
+<li>[ ] menorrhagia (SYMP:0000756)</li>
+<li>[ ] microphthalmia (DOID:10629)</li>
+<li>[ ] motion sickness (DOID:2951)</li>
+<li>[ ] muscular atrophy (DOID:767)</li>
+<li>[ ] muscular dystrophy-dystroglycanopathy (DOID:0050588)</li>
+<li>[ ] mycosis fungoides (DOID:8691)</li>
+<li>[ ] mydriasis (SYMP:0000396)</li>
+<li>[ ] myopathy (DOID:423)</li>
+<li>[ ] nasal congestion (SYMP:0000869)</li>
+<li>[ ] nausea (SYMP:0000458)</li>
+<li>[ ] nervous system disease (DOID:863)</li>
+<li>[ ] neurodegenerative disease (DOID:1289)</li>
+<li>[ ] neurofibromatosis (DOID:8712)</li>
+<li>[ ] neuroleptic malignant syndrome (DOID:14464)</li>
+<li>[ ] neuropathic pain (SYMP:0000832)</li>
+<li>[ ] neurotic disorder (DOID:4964)</li>
+<li>[ ] nocturnal enuresis (SYMP:0000606)</li>
+<li>[ ] non-specific X-linked mental retardation (DOID:0050776)</li>
+<li>[ ] obsessive-compulsive disorder (DOID:10933)</li>
+<li>[ ] oral mucosa leukoplakia (DOID:9655)</li>
+<li>[ ] orofacial cleft (DOID:0050567)</li>
+<li>[ ] otitis media (DOID:10754)</li>
+<li>[ ] ovarian dysfunction (DOID:1414)</li>
+<li>[ ] pain (SYMP:0000099)</li>
+<li>[ ] pancreatitis (DOID:4989)</li>
+<li>[ ] peptic ulcer disease (DOID:750)</li>
+<li>[ ] pericarditis (DOID:1787)</li>
+<li>[ ] pervasive developmental disorder (DOID:0060040)</li>
+<li>[ ] polyarteritis nodosa (DOID:9810)</li>
+<li>[ ] polymyalgia rheumatica (DOID:853)</li>
+<li>[ ] post-traumatic stress disorder (DOID:2055)</li>
+<li>[ ] posterior uveitis (DOID:12574)</li>
+<li>[ ] premature ejaculation (DOID:13709)</li>
+<li>[ ] premature labor (SYMP:0000358)</li>
+<li>[ ] prostatic hypertrophy (DOID:11132)</li>
+<li>[ ] protein-losing enteropathy (DOID:10611)</li>
+<li>[ ] pseudohermaphroditism (DOID:3765)</li>
+<li>[ ] psychotic disorder (DOID:2468)</li>
+<li>[ ] red color blindness (DOID:13910)</li>
+<li>[ ] red-green color blindness (DOID:13909)</li>
+<li>[ ] relapsing polychondritis (DOID:2556)</li>
+<li>[ ] restless legs syndrome (DOID:0050425)</li>
+<li>[ ] rheumatic myocarditis (DOID:8481)</li>
+<li>[ ] rosacea (DOID:8881)</li>
+<li>[ ] salivary gland disease (DOID:10854)</li>
+<li>[ ] seasonal affective disorder (DOID:0060167)</li>
+<li>[ ] seborrheic keratosis (DOID:6498)</li>
+<li>[ ] secretory diarrhea (DOID:0050129)</li>
+<li>[ ] seizure (SYMP:0000124)</li>
+<li>[ ] sensorineural hearing loss (DOID:10003)</li>
+<li>[ ] septic shock (SYMP:0000451)</li>
+<li>[ ] severe congenital neutropenia (DOID:0050590)</li>
+<li>[ ] Sezary's disease (DOID:8541)</li>
+<li>[ ] sialuria (DOID:3659)</li>
+<li>[ ] simple partial seizure (SYMP:0000270)</li>
+<li>[ ] spondylocostal dysostosis (DOID:0050568)</li>
+<li>[ ] stroke (SYMP:0000734)</li>
+<li>[ ] syndactyly (DOID:11193)</li>
+<li>[ ] syndrome (DOID:225)</li>
+<li>[ ] syndromic intellectual disability (DOID:0050888)</li>
+<li>[ ] synovitis (DOID:2703)</li>
+<li>[ ] Tachycardia (SYMP:0000529)</li>
+<li>[ ] Tangier disease (DOID:1388)</li>
+<li>[ ] temporal arteritis (DOID:13375)</li>
+<li>[ ] tenosynovitis (DOID:970)</li>
+<li>[ ] testis seminoma (DOID:5842)</li>
+<li>[ ] thrombophilia (DOID:2452)</li>
+<li>[ ] thymoma (DOID:3275)</li>
+<li>[ ] tic disorder (DOID:2769)</li>
+<li>[ ] Turner syndrome (DOID:3491)</li>
+<li>[ ] urge incontinence (SYMP:0000532)</li>
+<li>[ ] urinary incontinence (SYMP:0000492)</li>
+<li>[ ] venous insufficiency (DOID:10128)</li>
+<li>[ ] vestibular disease (DOID:3426)</li>
+<li>[ ] vomiting (SYMP:0019145)</li>
+</ul>
+<h1 id="notes">NOTES</h1>
+<h2 id="2026-03-03">2026-03-03</h2>
+<ul>
+<li>Initial catalogue created from Reactome Content Service API</li>
+<li>770 disease entries (735 DOID-mapped, 35 SYMP-mapped)</li>
+<li>110 strict name matches to existing dismech entries</li>
+<li>Categorization is approximate (keyword-based); some entries may be miscategorized</li>
+<li>Next steps: prioritize diseases with rich Reactome pathway annotations
+  for new dismech entries; use Reactome pathway data to enrich existing entries</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>

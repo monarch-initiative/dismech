@@ -31,15 +31,29 @@ Alias: differential_diagnoses
 
 ## Properties
 
-* Range: [DifferentialDiagnosis](../classes/DifferentialDiagnosis.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [DifferentialDiagnosis](../classes/DifferentialDiagnosis.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -43,7 +43,7 @@ style: |
 <!-- _backgroundImage: url('images/slide01_img00.jpg') -->
 <!-- _backgroundSize: cover -->
 
-# Dismech
+# DisMech
 
 ## A Disease Mechanisms Knowledge Base Built For and With Agentic AI
 
@@ -55,7 +55,7 @@ February 2026
 
 ---
 
-## What is Dismech?
+## What is DisMech?
 
 ![bg right:35% fit](images/slide03_img03.png)
 
@@ -83,7 +83,7 @@ Existing resources capture disease-phenotype associations well:
 
 ---
 
-## Browsing Dismech: Faceted Search
+## Browsing DisMech: Faceted Search
 
 ![w:1050](images/slide04_img05.png)
 
@@ -91,7 +91,7 @@ Existing resources capture disease-phenotype associations well:
 
 ---
 
-## Browsing Dismech: Disorder Detail
+## Browsing DisMech: Disorder Detail
 
 ![w:1050](images/slide05_img07.png)
 
@@ -99,7 +99,7 @@ Each entry shows pathophysiology, phenotypes, cell types, genes, treatments, and
 
 ---
 
-## Browsing Dismech: Rich Header with Metrics
+## Browsing DisMech: Rich Header with Metrics
 
 ![w:1050](images/slide06_img09.png)
 
@@ -299,7 +299,7 @@ The causal graph provides **mechanistic context** for why a phenotype is present
 ## Phenomatcher: Mechanism-Aware Differential Diagnosis
 
 HPO matching alone cannot distinguish diseases that share phenotypes.
-Dismech's causal graphs add a **mechanistic dimension**:
+DisMech's causal graphs add a **mechanistic dimension**:
 
 | Patient Phenotypes | Disease A (Fanconi Anemia) | Disease B (Diamond-Blackfan) |
 |--------------------|---------------------------|------------------------------|
@@ -350,7 +350,7 @@ Every step is **traceable**: ontology reasoning via OAK, frequency weights from 
 
 ![bg right:50% fit](images/slide08_img13.png)
 
-Dismech computes **four separate embedding spaces**:
+DisMech computes **four separate embedding spaces**:
 
 | Space | Application |
 |-------|-------------|
@@ -385,7 +385,7 @@ Interactive browser at: `app/embeddings/mechanisms.html`
 
 ## Application 3: Comorbidity Discovery
 
-Dismech models **directional comorbidities** with mechanistic evidence:
+DisMech models **directional comorbidities** with mechanistic evidence:
 
 **Data sources:**
 - EHR-based Disease Trajectories (temporal directionality)
@@ -409,9 +409,9 @@ Each comorbidity page shows the **mechanistic overlap** -- shared pathophysiolog
 Gene (regulator) --[beta]--> Program --[effect]--> Trait
 ```
 
-Dismech serves as a **validation and interpretation layer**:
+DisMech serves as a **validation and interpretation layer**:
 
-| Pipeline Output | Dismech Query |
+| Pipeline Output | DisMech Query |
 |-----------------|---------------|
 | GATA1 --> erythroid program --> MCH | Do blood disorders link GATA1 to erythropoiesis? |
 | BCL2 --> apoptosis program --> lymphocyte count | Do immune disorders link BCL2 to apoptosis? |
@@ -420,7 +420,7 @@ Dismech serves as a **validation and interpretation layer**:
 - **CONFIRMED**: Gene, process, and phenotype all documented with evidence
 - **PARTIAL**: Some elements present but incomplete chain
 - **NOVEL**: Not in dismech (high-priority curation candidate)
-- **CONTRADICTED**: Dismech documents opposite effect
+- **CONTRADICTED**: DisMech documents opposite effect
 
 ---
 
@@ -433,7 +433,7 @@ Computational Pipeline (GWAS + Perturb-seq)
   [Gene-Program-Trait relationships]
      |
      v  +--> CONFIRMED (41%) -- known biology
-Dismech +--> PARTIAL (25%)   -- incomplete coverage
+DisMech +--> PARTIAL (25%)   -- incomplete coverage
  Query  +--> NOVEL (29%)     -- curation candidates
         +--> CONTRADICTED (6%) -- needs investigation
      |
@@ -442,7 +442,7 @@ Dismech +--> PARTIAL (25%)   -- incomplete coverage
   [Gaps in dismech coverage identified and prioritized]
 ```
 
-Dismech becomes both a **benchmark for pipeline accuracy** and a **beneficiary of pipeline discoveries**.
+DisMech becomes both a **benchmark for pipeline accuracy** and a **beneficiary of pipeline discoveries**.
 
 ---
 
@@ -489,7 +489,7 @@ This finding drove targeted curation:
 
 ## The Iterative Improvement Story
 
-Dismech and the pipeline improve each other through **bidirectional curation**:
+DisMech and the pipeline improve each other through **bidirectional curation**:
 
 | Stage | Genes Confirmed | Rate | What Changed |
 |-------|----------------|------|-------------|
@@ -507,7 +507,7 @@ The remaining ~94% "novel" genes are not contradictions -- they are real GWAS as
 
 ## Application 5: Knowledge Graph Export (KGX)
 
-Dismech exports to **Biolink Model KGX format** for integration with knowledge graphs:
+DisMech exports to **Biolink Model KGX format** for integration with knowledge graphs:
 
 ```python
 # Each assertion becomes a typed Biolink edge
@@ -529,7 +529,7 @@ Enables integration with Monarch KG, Translator, and other Biolink-compatible sy
 
 ## Application 6: Tabular Export for Analysis
 
-Dismech flattens to relational tables for SQL/statistical analysis:
+DisMech flattens to relational tables for SQL/statistical analysis:
 
 ```bash
 just export-tabular  # Generates TSV + DuckDB database
@@ -621,9 +621,9 @@ Demonstrates dismech scaling to **domain-specific curation projects** with clear
 
 ## For Clinical AI Systems
 
-Dismech provides what LLMs lack: **structured, verifiable mechanistic reasoning**
+DisMech provides what LLMs lack: **structured, verifiable mechanistic reasoning**
 
-| Clinical AI Need | Dismech Provides |
+| Clinical AI Need | DisMech Provides |
 |------------------|------------------|
 | Differential diagnosis | Phenomatcher with quantified match probability |
 | Explain phenotype | Causal graph tracing mechanism to presentation |
@@ -637,7 +637,7 @@ Unlike free-text LLM outputs, every dismech assertion is **traceable to a PMID**
 
 ## For AI/ML Researchers
 
-Dismech as a **benchmark and training resource:**
+DisMech as a **benchmark and training resource:**
 
 - **Causal reasoning evaluation**: Do LLMs reproduce the mechanism chains?
 - **Claim verification benchmark**: Given a PMID, does the snippet support the claim?
@@ -672,7 +672,7 @@ Multi-space embeddings reveal therapeutic opportunities:
 A new paradigm for biomedical knowledge base maintenance:
 
 **Traditional:** Human curators read papers, fill forms, submit entries
-**Dismech:** Human curators direct AI agents that read papers, fill structured YAML, and submit validated PRs
+**DisMech:** Human curators direct AI agents that read papers, fill structured YAML, and submit validated PRs
 
 ```
 Human expertise:  Strategy, review, domain judgment
@@ -706,7 +706,7 @@ Integration:      GitHub Actions for continuous improvement
 <!-- _backgroundImage: url('images/slide01_img00.jpg') -->
 <!-- _backgroundSize: cover -->
 
-# Dismech
+# DisMech
 
 ### Structured Disease Mechanisms, Built With and For AI
 

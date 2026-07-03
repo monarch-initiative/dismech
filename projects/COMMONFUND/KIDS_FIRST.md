@@ -14,7 +14,7 @@ Portal.
 For dismech, this is a direct bridge from cohort-scale pediatric variation to
 curated mechanism graphs.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use Kids First data to interpret pediatric genotype-phenotype findings:
 
@@ -91,7 +91,7 @@ developmental, tumor, germline predisposition, or somatic second-hit mechanisms.
 3. Use approved access only inside CAVATICA. Export back to dismech only
    aggregate, non-identifying, literature-supported mechanism findings.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How Kids First helps |
 |---------|--------------------------------|----------------------|

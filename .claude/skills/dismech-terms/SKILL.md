@@ -8,7 +8,7 @@ description: >
   cell_types term, biological_processes term, or other ontology-bound fields to disorder files.
 ---
 
-# Dismech Ontology Terms Skill
+# DisMech Ontology Terms Skill
 
 ## Overview
 

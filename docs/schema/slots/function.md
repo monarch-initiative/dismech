@@ -17,7 +17,7 @@ Alias: function
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [FunctionalEffect](../classes/FunctionalEffect.md) |  |  no  |
+| [FunctionalEffect](../classes/FunctionalEffect.md) | Describes the functional consequence of a genetic variant, including regulato... |  no  |
 
 
 
@@ -26,13 +26,28 @@ Alias: function
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [FunctionalEffect](../classes/FunctionalEffect.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

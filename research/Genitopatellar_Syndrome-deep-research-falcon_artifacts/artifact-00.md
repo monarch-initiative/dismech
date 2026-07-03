@@ -1,0 +1,18 @@
+| Item | Value | Notes |
+|---|---|---|
+| Disease name | Genitopatellar syndrome (GPS) | Rare KAT6B-related developmental disorder; original discovery papers describe GPS as a disorder with patellar aplasia/hypoplasia plus genital and neurodevelopmental anomalies (pqac-00000014, pqac-00000015) |
+| Primary identifier | OMIM/MIM #606170 | Reported consistently in primary and recent literature as the canonical identifier for GPS (pqac-00000001, pqac-00000003, pqac-00000015) |
+| Common synonym | GTPTS | Used in later KAT6B literature as abbreviation for genitopatellar syndrome (pqac-00000017) |
+| Related disease group | KAT6B-related disorders / KAT6B spectrum disorders | GPS and SBBYSS are now often framed as allelic disorders on a phenotypic spectrum with overlapping/intermediate presentations (pqac-00000002, pqac-00000004) |
+| Allelic disorder | Say-Barber-Biesecker-Young-Simpson syndrome (SBBYSS), OMIM #603736 | Closely related allelic KAT6B disorder with overlapping but distinguishable features; frequently discussed together with GPS (pqac-00000001, pqac-00000002, pqac-00000004) |
+| Causal gene | KAT6B | Encodes a highly conserved MYST-family histone acetyltransferase implicated in chromatin regulation and development (pqac-00000002, pqac-00000003, pqac-00000006) |
+| Gene locus | Chromosome 10q22.2 | Explicitly stated in recent KAT6B-related disorder literature (pqac-00000002) |
+| Molecular function | Histone acetyltransferase / lysine acetyltransferase | Patient-derived cells show reduced histone H3/H4 acetylation; KAT6B deficiency is linked to reduced H3K9 acetylation (pqac-00000003, pqac-00000009, pqac-00000010) |
+| Inheritance | Autosomal dominant, usually de novo | Most reported GPS-causing variants are heterozygous and de novo; parental testing in discovery studies supported de novo occurrence (pqac-00000001, pqac-00000014, pqac-00000015) |
+| Typical variant class | Truncating variants: frameshift and nonsense predominate | Discovery and follow-up studies found mainly truncating alleles; one review summarized 33 frameshift, 19 nonsense, 2 missense, and 2 splice variants among reported KAT6B disease variants (pqac-00000007, pqac-00000012, pqac-00000015) |
+| Typical variant location | Exon 18, especially proximal/mid terminal exon region | GPS variants cluster strongly in exon 18; original GPS alleles localized to a 66-bp region of exon 18, and newer reports continue to identify exon 18 enrichment (pqac-00000012, pqac-00000015, pqac-00000005) |
+| Functional consequence | Truncated transcripts often escape nonsense-mediated decay; likely dominant-negative/gain-of-function or altered function in GPS | Discovery studies showed mutant mRNAs are expressed and do not undergo NMD; GPS-associated truncations may retain N-terminal/HAT domains while losing the transcriptional activation domain (pqac-00000012, pqac-00000013, pqac-00000014) |
+| Example recent GPS variant | c.4066del, p.Glu1356Argfs*23 | 2024 case report described a novel de novo heterozygous pathogenic variant in exon 18 associated with classic GPS features (pqac-00000000, pqac-00000003) |
+
+
+*Table: This table summarizes the main disease identifiers, synonyms, and core genetic facts for Genitopatellar syndrome from the gathered primary and recent literature. It is useful as a compact reference for knowledge-base fields covering disease naming, allelic relationships, inheritance, and variant architecture.*

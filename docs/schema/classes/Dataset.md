@@ -120,7 +120,6 @@ URI: [dismech:class/Dataset](https://w3id.org/monarch-initiative/dismech/class/D
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -149,7 +148,11 @@ URI: [dismech:class/Dataset](https://w3id.org/monarch-initiative/dismech/class/D
 
 | used by | used in | type | used |
 | ---  | --- | --- | --- |
+| [Experiment](../classes/Experiment.md) | [datasets](../slots/datasets.md) | range | [Dataset](../classes/Dataset.md) |
 | [Disease](../classes/Disease.md) | [datasets](../slots/datasets.md) | range | [Dataset](../classes/Dataset.md) |
+
+
+
 
 
 
@@ -161,8 +164,9 @@ URI: [dismech:class/Dataset](https://w3id.org/monarch-initiative/dismech/class/D
 
 * Supports GEO, ArrayExpress, SRA, dbGaP, GTEx, ENCODE, MorPhiC, phenopacket-store, and other repositories
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -275,6 +279,7 @@ attributes:
     domain_of:
     - Dataset
     - PublicationReference
+    - TrackedIssue
     range: string
   description:
     name: description
@@ -288,8 +293,14 @@ attributes:
     owner: Dataset
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -297,7 +308,11 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -325,6 +340,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
     recommended: true
   organism:
@@ -336,6 +355,7 @@ attributes:
     owner: Dataset
     domain_of:
     - Dataset
+    - ExperimentalModel
     range: OrganismDescriptor
     inlined: true
   data_type:
@@ -380,6 +400,7 @@ attributes:
     owner: Dataset
     domain_of:
     - Dataset
+    - ExperimentalModel
     range: string
     multivalued: true
   exposures:
@@ -406,6 +427,7 @@ attributes:
     domain_of:
     - GeneticContext
     - Dataset
+    - ExperimentalPerturbation
     - Subtype
     - Pathophysiology
     - AnimalModel
@@ -432,6 +454,7 @@ attributes:
     owner: Dataset
     domain_of:
     - Dataset
+    - ExperimentalModel
     - ComputationalModel
     - ProteinStructure
     range: PMID
@@ -445,6 +468,7 @@ attributes:
     owner: Dataset
     domain_of:
     - Dataset
+    - ExperimentalModel
     - ComputationalModel
     - PublicationReference
     range: Finding
@@ -460,12 +484,22 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
     - ProgressionInfo
@@ -495,6 +529,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -514,10 +552,20 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -544,6 +592,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
 
 ```

@@ -31,13 +31,28 @@ Alias: lysosomal_storage_category
 
 ## Properties
 
-* Range: [LysosomalStorageAssignment](../classes/LysosomalStorageAssignment.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [LysosomalStorageAssignment](../classes/LysosomalStorageAssignment.md) |
+| Domain Of | [DiseaseClassifications](../classes/DiseaseClassifications.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

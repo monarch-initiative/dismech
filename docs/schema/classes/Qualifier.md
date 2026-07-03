@@ -49,7 +49,6 @@ URI: [dismech:class/Qualifier](https://w3id.org/monarch-initiative/dismech/class
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -68,6 +67,7 @@ URI: [dismech:class/Qualifier](https://w3id.org/monarch-initiative/dismech/class
 | [Descriptor](../classes/Descriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [CellTypeDescriptor](../classes/CellTypeDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [BiologicalProcessDescriptor](../classes/BiologicalProcessDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
+| [MolecularFunctionDescriptor](../classes/MolecularFunctionDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [ChemicalEntityDescriptor](../classes/ChemicalEntityDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [GeneDescriptor](../classes/GeneDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
@@ -76,6 +76,7 @@ URI: [dismech:class/Qualifier](https://w3id.org/monarch-initiative/dismech/class
 | [AssayDescriptor](../classes/AssayDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [TriggerDescriptor](../classes/TriggerDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [DiseaseDescriptor](../classes/DiseaseDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
+| [SubtypeDescriptor](../classes/SubtypeDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [GeneProductDescriptor](../classes/GeneProductDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
@@ -86,12 +87,16 @@ URI: [dismech:class/Qualifier](https://w3id.org/monarch-initiative/dismech/class
 | [RegimenDescriptor](../classes/RegimenDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [ExposureDescriptor](../classes/ExposureDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [EnvironmentDescriptor](../classes/EnvironmentDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
+| [FoodDescriptor](../classes/FoodDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [OrganismDescriptor](../classes/OrganismDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [HostDescriptor](../classes/HostDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [SampleTypeDescriptor](../classes/SampleTypeDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [ModelVariableDescriptor](../classes/ModelVariableDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [CriteriaItem](../classes/CriteriaItem.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [ConditionDescriptor](../classes/ConditionDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
+
+
+
 
 
 
@@ -106,8 +111,9 @@ URI: [dismech:class/Qualifier](https://w3id.org/monarch-initiative/dismech/class
 * Both predicate and value are Descriptors, allowing recursive composition
 * Predicate typically uses RO (Relation Ontology) terms
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

@@ -26,13 +26,28 @@ Alias: agent_life_cycle
 
 ## Properties
 
-* Range: [AgentLifeCycle](../classes/AgentLifeCycle.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [AgentLifeCycle](../classes/AgentLifeCycle.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

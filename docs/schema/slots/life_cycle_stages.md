@@ -26,15 +26,29 @@ Alias: life_cycle_stages
 
 ## Properties
 
-* Range: [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md) |
+| Domain Of | [AgentLifeCycle](../classes/AgentLifeCycle.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

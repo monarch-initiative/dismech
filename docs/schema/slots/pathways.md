@@ -26,9 +26,22 @@ Alias: pathways
 
 ## Properties
 
-* Range: [BiologicalProcessDescriptor](../classes/BiologicalProcessDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [BiologicalProcessDescriptor](../classes/BiologicalProcessDescriptor.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: pathways
 | --- |
 | [{preferred_term: Wnt Pathway}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

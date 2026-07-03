@@ -17,8 +17,8 @@ Alias: phenotypes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ComorbidityAssociation](../classes/ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
+| [ComorbidityAssociation](../classes/ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |  no  |
 | [DifferentialDiagnosis](../classes/DifferentialDiagnosis.md) | A disease or condition that presents similarly to the focal disease and must ... |  no  |
 
 
@@ -28,15 +28,29 @@ Alias: phenotypes
 
 ## Properties
 
-* Range: [Phenotype](../classes/Phenotype.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Phenotype](../classes/Phenotype.md) |
+| Domain Of | [DifferentialDiagnosis](../classes/DifferentialDiagnosis.md), [Disease](../classes/Disease.md), [ComorbidityAssociation](../classes/ComorbidityAssociation.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

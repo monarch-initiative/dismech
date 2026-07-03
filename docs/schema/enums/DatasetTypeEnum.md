@@ -10,7 +10,6 @@ _Type of dataset or data resource_
 URI: [dismech:enum/DatasetTypeEnum](https://w3id.org/monarch-initiative/dismech/enum/DatasetTypeEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | MICROARRAY | None | Gene expression microarray |
@@ -27,6 +26,7 @@ URI: [dismech:enum/DatasetTypeEnum](https://w3id.org/monarch-initiative/dismech/
 | WES | None | Whole exome sequencing |
 | PHENOPACKETS | None | GA4GH Phenopacket collection (case-level phenotype data) |
 | VARIANT_DATABASE | None | Curated genetic variant collection |
+| MULTI_OMICS | None | Integrated multi-omics profiling (e |
 | MULTI_OMICS_PERTURBATION | None | Multi-omics profiling of genetic perturbations (e |
 
 
@@ -42,8 +42,12 @@ URI: [dismech:enum/DatasetTypeEnum](https://w3id.org/monarch-initiative/dismech/
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -110,6 +114,10 @@ permissible_values:
   VARIANT_DATABASE:
     text: VARIANT_DATABASE
     description: Curated genetic variant collection
+  MULTI_OMICS:
+    text: MULTI_OMICS
+    description: Integrated multi-omics profiling (e.g., combined transcriptomics,
+      proteomics, metabolomics)
   MULTI_OMICS_PERTURBATION:
     text: MULTI_OMICS_PERTURBATION
     description: Multi-omics profiling of genetic perturbations (e.g., CRISPR knockout

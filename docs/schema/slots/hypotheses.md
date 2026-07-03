@@ -31,15 +31,29 @@ Alias: hypotheses
 
 ## Properties
 
-* Range: [ComorbidityHypothesis](../classes/ComorbidityHypothesis.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ComorbidityHypothesis](../classes/ComorbidityHypothesis.md) |
+| Domain Of | [ComorbidityAssociation](../classes/ComorbidityAssociation.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

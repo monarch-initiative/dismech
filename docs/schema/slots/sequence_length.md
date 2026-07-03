@@ -17,7 +17,7 @@ Alias: sequence_length
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Variant](../classes/Variant.md) |  |  no  |
+| [Variant](../classes/Variant.md) | A genetic variant associated with a disease, including coding and non-coding ... |  no  |
 
 
 
@@ -26,13 +26,28 @@ Alias: sequence_length
 
 ## Properties
 
-* Range: [Integer](../types/Integer.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Integer](../types/Integer.md) |
+| Domain Of | [Variant](../classes/Variant.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
