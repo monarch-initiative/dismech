@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT02610582"
 title: "Safety and Efficacy of a Bilateral Single Subretinal Injection of rAAV.hCNGA3 in Adult and Minor Patients With CNGA3-linked Achromatopsia Investigated in a Randomized, Wait List Controlled, Observer-masked Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Safety and Efficacy of a Bilateral Single Subretinal Injection of rAAV.hCNGA3 in Adult and Minor Patients With CNGA3-linked Achromatopsia Investigated in a Randomized, Wait List Controlled, Observer-masked Trial
