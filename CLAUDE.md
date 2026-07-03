@@ -376,6 +376,46 @@ candidate discovery), `Heritable_Thoracic_Aortic_Disease` (NECESSARY with a
 nested AND/OR phenotype branch), and `Lysosomal_Storage_Disorders` (defining
 module criterion + a nested GROUPING member).
 
+### Digenic / Oligogenic Inheritance (Multi-Locus)
+
+Some disorders require variants at **two loci (digenic)** or a **few loci
+(oligogenic/triallelic)** rather than a single Mendelian locus. Curate the
+multi-locus mode of inheritance explicitly so it is machine-queryable — do not
+leave it as free text.
+
+**Where it goes:** add an `Inheritance` block (in the disease-level
+`inheritance:` list, and/or on a `has_subtypes[]` entry when only one subtype is
+multi-locus) with `inheritance_term` bound to the HPO mode-of-inheritance
+subtree:
+
+- `HP:0010984` **Digenic inheritance** (two loci both required)
+- `HP:0010983` **Oligogenic inheritance** (triallelic / a few loci)
+- `HP:0010982` **Polygenic inheritance** (many small-effect loci; use with
+  `relationship_type: SUSCEPTIBILITY` gene typing)
+
+Always **bind the `term:`** — an `inheritance_term` with only a `preferred_term`
+and no `term:` is the common gap. The `Inheritance` class has no `genes` slot, so
+name the contributing genes in the block `description`; put per-gene detail in
+the `genetic:` section (use `relationship_type: MODIFIER` / `SUSCEPTIBILITY` /
+`COOPERATING` for a contributing second locus) or, for a digenic subtype, in the
+`has_subtypes[].genes` list.
+
+**Evidence discipline:** the digenic/oligogenic claim gets its own PMID with an
+exact-quote snippet (typically the double-heterozygote / joint-transmission /
+epistasis sentence), separate from the general disease evidence.
+
+**Exemplar:** `PRPH2-Related_Retinopathy` is the reference implementation — it
+models digenicity both as an RP7-digenic subtype (listing PRPH2 + ROM1) and as a
+top-level `Digenic inheritance` block bound to `HP:0010984`, citing the classic
+double-heterozygote study (`PMID:8202715`). Other worked digenic/oligogenic
+entries: `Alport_Syndrome`, `Usher_Syndrome`,
+`Facioscapulohumeral_Muscular_Dystrophy` (FSHD2),
+`MITF_Waardenburg_Tietz_Spectrum`, `Meckel_Syndrome`, `Hirschsprung_Disease`
+(oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
+`Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
+`Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
+(`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+
 ### Evidence Items
 All evidence must have PMID references and support classification:
 ```yaml
