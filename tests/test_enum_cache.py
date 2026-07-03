@@ -177,6 +177,26 @@ def test_default_validate_recipes_do_not_run_online_check_enum_cache() -> None:
     assert "check-enum-cache-offline" in justfile
 
 
+def test_validate_all_batches_expensive_validators() -> None:
+    """Full validation should reuse each validator process across all files."""
+    justfile = (Path(__file__).parent.parent / "project.justfile").read_text()
+    body = _recipe_body(justfile, "validate-all")
+
+    assert "for f in {{kb_dir}}/*.yaml" not in body
+    assert "mapfile -t files" in body
+    assert (
+        'uv run linkml-validate --schema {{schema_path}} --target-class Disease "${files[@]}"'
+        in body
+    )
+    assert (
+        '{{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease'
+        in body
+    )
+    assert (
+        '{{ref_validator}} validate data "${files[@]}" --schema {{schema_path}}' in body
+    )
+
+
 def test_normalize_cache_uses_repo_local_temp_files() -> None:
     justfile = (Path(__file__).parent.parent / "project.justfile").read_text()
     assert "/tmp/_sorted_enum.csv" not in justfile

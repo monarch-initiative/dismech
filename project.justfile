@@ -16,53 +16,45 @@ ref_validator := "scripts/run_reference_validator.sh"
 term_validator := "scripts/run_term_validator.sh"
 
 # Validate all disorder YAML files (schema + terms + references)
-# Runs all validations and reports ALL errors at the end
+# Runs each validator once over all files so in-memory schema, ontology, and
+# reference caches are reused within that phase.
 [group('QC')]
 validate-all:
     #!/usr/bin/env bash
+    set -u
     just fix-references-cache
     just check-enum-cache-offline
-    failed_files=()
-    echo "Validating all disorder files..."
-    for f in {{kb_dir}}/*.yaml; do
-        if [[ "$f" == *.history.yaml ]]; then
-            continue
-        fi
-        echo "=== $(basename $f) ==="
-        errors=""
-        # Schema validation
-        if ! uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -q "No issues found"; then
-            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
-        fi
-        # Term validation
-        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
-        if ! echo "$term_output" | grep -q "Validation passed"; then
-            errors+="  [TERMS] $term_output\n"
-        fi
-        # Reference validation
-        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
-        if echo "$ref_output" | grep -q "\[ERROR\]"; then
-            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
-        fi
-        if [ -n "$errors" ]; then
-            failed_files+=("$f")
-            echo -e "$errors"
-        else
-            echo "  ✓ OK"
-        fi
-    done
-    just normalize-cache
-    echo ""
-    echo "================================"
-    if [ ${#failed_files[@]} -eq 0 ]; then
-        echo "✓ All files validated successfully!"
+
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}} | sort)
     else
-        echo "✗ ${#failed_files[@]} file(s) with errors:"
-        for f in "${failed_files[@]}"; do
-            echo "  - $f"
-        done
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
+
+    exit_code=0
+    echo "Validating ${#files[@]} disorder files (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${files[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} || exit_code=1
+    echo ""
+
+    just normalize-cache || exit_code=1
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation completed with errors (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All files validated successfully!"
 
 # Full validation of a single disorder file (schema + terms + references)
 # Note: default validation runs only the offline enum-cache structural check.
@@ -619,31 +611,24 @@ check-folded-hyphens:
 update-folded-hyphen-baseline:
     uv run python scripts/check_folded_hyphens.py --update-baseline
 
-# Validate ALL snippet/reference pairs against PubMed across all disorder files
-# Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed
+# Validate ALL snippet/reference pairs across all disorder files.
+# Warning: First run may take a while if references are not already cached.
 [group('QC')]
 validate-references-all:
     #!/usr/bin/env bash
     set -e
     just fix-references-cache
-    echo "Validating references in all disorder files..."
-    total_errors=0
-    for f in {{kb_dir}}/*.yaml; do
-        echo "Checking: $f"
-        if ! {{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1 | grep -q "All validations passed"; then
-            errors=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1 | grep -c "ERROR" || true)
-            if [ "$errors" -gt 0 ]; then
-                echo "  Found $errors errors in $f"
-                total_errors=$((total_errors + errors))
-            fi
-        fi
-    done
-    if [ $total_errors -eq 0 ]; then
-        echo "All reference validations passed!"
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}} | sort)
     else
-        echo "Total reference validation errors: $total_errors"
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
+    echo "Validating references in ${#files[@]} disorder files (batched)..."
+    {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
 # Fix YAML quoting issues in references cache (workaround for upstream bug)
 [group('QC')]
