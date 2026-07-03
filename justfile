@@ -102,6 +102,18 @@ test: test-code test-kb
 [group('model development')]
 test-code: _test-schema _test-python-code _test-examples test-search
 
+# Schema generator smoke test.
+[group('model development')]
+test-schema: _test-schema
+
+# Python code/logic tests, excluding the whole-KB `kb_data` sweep.
+[group('model development')]
+test-python-code: _test-python-code
+
+# LinkML valid/invalid example round-trip tests.
+[group('model development')]
+test-examples: _test-examples
+
 # Whole-KB schema-conformance sweep (parametrized over every KB file), parallelized.
 # In CI this is gated on schema / conformance-test changes; run on demand locally.
 [group('model development')]

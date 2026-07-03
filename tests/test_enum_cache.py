@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 
 from linkml_term_validator.plugins import BindingValidationPlugin
@@ -36,6 +37,13 @@ def _write_curie_csv(path: Path, curies: list[str]) -> None:
         writer.writeheader()
         for curie in curies:
             writer.writerow({"curie": curie})
+
+
+def _recipe_body(justfile: str, recipe: str) -> str:
+    match = re.search(rf"(?m)^{re.escape(recipe)}:\n", justfile)
+    assert match is not None, f"recipe {recipe!r} not found"
+    body = justfile[match.end() :]
+    return body.split("\n# ", 1)[0]
 
 
 def test_enum_cache_scan_and_repair_reject_stale_invalid_and_duplicate_rows(
@@ -128,24 +136,40 @@ def test_enum_cache_offline_scan_skips_membership_but_keeps_structural_checks(
     assert "not valid for current enum" not in formatted
 
 
-def test_single_file_validate_recipes_do_not_run_check_enum_cache() -> None:
-    """Single-file validation must not depend on check-enum-cache, which
+def test_default_validate_recipes_do_not_run_online_check_enum_cache() -> None:
+    """Default validation must not depend on the online enum cache audit, which
     re-derives every dynamic enum from OAK and can pull multi-GB DBs (#5150)."""
     justfile = (Path(__file__).parent.parent / "project.justfile").read_text()
 
-    markers = [
-        "# Full validation of a single disorder file",
-        "# Full validation of a single comorbidity file",
-        "# Validate a single mechanism module file",
-        "# Validate a single disease grouping file",
-        "# Validate terms in a single file",
+    online_check = re.compile(r"(?m)^\s+just check-enum-cache$")
+    any_check = re.compile(r"(?m)^\s+just check-enum-cache(?:-offline)?$")
+
+    assert online_check.search(justfile) is None
+
+    offline_recipes = [
+        "validate-all",
+        "validate-comorbidities-all",
+        "validate-modules",
+        "validate-groupings",
+        "validate-terms-all",
     ]
-    for i, marker in enumerate(markers):
-        body = justfile.split(marker, 1)[1]
-        # bound the recipe body at the start of the next top-level comment recipe
-        body = body.split("\n# ", 1)[0]
-        assert "just check-enum-cache" not in body, (
-            f"recipe after {marker!r} should not call check-enum-cache"
+    for recipe in offline_recipes:
+        body = _recipe_body(justfile, recipe)
+        assert "just check-enum-cache-offline" in body, (
+            f"{recipe!r} should run the offline enum cache check"
+        )
+
+    single_file_recipes = [
+        "validate file",
+        "validate-comorbidity file",
+        "validate-module file",
+        "validate-grouping file",
+        "validate-terms file",
+    ]
+    for recipe in single_file_recipes:
+        body = _recipe_body(justfile, recipe)
+        assert any_check.search(body) is None, (
+            f"{recipe!r} should not run enum cache audits"
         )
 
     # The provisioning recipe and offline check exist for constrained envs.

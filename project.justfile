@@ -21,7 +21,7 @@ term_validator := "scripts/run_term_validator.sh"
 validate-all:
     #!/usr/bin/env bash
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all disorder files..."
     for f in {{kb_dir}}/*.yaml; do
@@ -65,10 +65,10 @@ validate-all:
     fi
 
 # Full validation of a single disorder file (schema + terms + references)
-# Note: does NOT run `check-enum-cache` — that whole-cache integrity check
-# re-derives every dynamic enum from OAK and can pull multi-GB sqlite:obo:*
-# DBs (e.g. ncbitaxon ~13.5 GB). Single-file validation trusts the committed
-# cache/*.csv; the integrity check still runs in `validate-all`/`qc` (CI).
+# Note: default validation runs only the offline enum-cache structural check.
+# The full OAK-backed `check-enum-cache` audit re-derives every dynamic enum and
+# can pull multi-GB sqlite:obo:* DBs (e.g. ncbitaxon ~13.5 GB), so run it
+# explicitly only when refreshing/auditing enum cache membership.
 [group('QC')]
 validate file:
     #!/usr/bin/env bash
@@ -87,6 +87,15 @@ validate file:
 [group('QC')]
 validate-schema file:
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+
+# Scaffold a new append-only history record (pass-through to scripts/new_history.py).
+# Run `just new-history --help` for all options. Prints the created path.
+# Example:
+#   just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
+#     --summary "Create: Asthma" --agent-tool claude-code --pr 5123 --details "..."
+[group('QC')]
+new-history *ARGS:
+    uv run python scripts/new_history.py {{ARGS}}
 
 # Validate a single history record
 [group('QC')]
@@ -172,7 +181,7 @@ validate-comorbidities-all:
         exit 0
     fi
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all comorbidity files..."
     for f in "${files[@]}"; do
@@ -240,7 +249,7 @@ validate-modules:
         exit 0
     fi
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all mechanism module files..."
     for f in "${files[@]}"; do
@@ -320,7 +329,7 @@ validate-groupings:
         exit 0
     fi
     just fix-references-cache
-    just check-enum-cache
+    just check-enum-cache-offline
     failed_files=()
     echo "Validating all disease grouping files..."
     for f in "${files[@]}"; do
@@ -384,7 +393,7 @@ oak_config := "conf/oak_config.yaml"
 validate-terms-all:
     #!/usr/bin/env bash
     set -e
-    just check-enum-cache
+    just check-enum-cache-offline
     if command -v rg >/dev/null 2>&1; then
         mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
     else
@@ -670,6 +679,18 @@ fix-references-cache:
             new_lines.append(line)
         if modified:
             md_file.write_text(f"---{chr(10).join(new_lines)}---{body}", encoding="utf-8")
+
+# Warm the reference cache's full-text-attempt state (stops repeated PDF
+# re-downloads during `just validate`). Idempotent + resumable: only touches
+# records that still lack `full_text_attempted`, so a bounded LIMIT drains the
+# backlog incrementally and steady-state runs only warm newly-added references.
+# LIMIT defaults to 0 (no cap); pass a number for a bounded/periodic sweep.
+warm-reference-cache limit="0":
+    uv run python scripts/warm_reference_cache.py --config {{ref_validator_config}} --limit {{limit}}
+
+# Preview which reference-cache records the warm sweep would process, no network.
+warm-reference-cache-preview limit="0":
+    uv run python scripts/warm_reference_cache.py --config {{ref_validator_config}} --limit {{limit}} --dry-run
 
 # Run browser search tests (JavaScript, uses Node.js + MiniSearch)
 [group('QC')]
