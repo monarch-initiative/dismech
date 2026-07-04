@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT06355622"
 title: "Pain in RASopathies: New Investigative Techniques and Possible Treatments"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Pain in RASopathies: New Investigative Techniques and Possible Treatments

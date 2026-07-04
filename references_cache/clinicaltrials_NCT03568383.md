@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT03568383"
 title: Protecting Households On Exposure to Newly Diagnosed Index Multidrug-Resistant Tuberculosis Patients (PHOENIx MDR-TB)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Protecting Households On Exposure to Newly Diagnosed Index Multidrug-Resistant Tuberculosis Patients (PHOENIx MDR-TB)

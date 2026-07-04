@@ -100,7 +100,7 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
 pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
-weekly-compliance, stale-pr-reassign, post-review-agent) is centralized in
+preprint-scan, weekly-compliance, stale-pr-reassign, post-review-agent) is centralized in
 `.github/cron-profiles.yaml` as named profiles (`slow`/`medium`/`fast`/`fast-weekend`).
 Switch with `just cron-profile <name>` (preview with `just cron-profile-preview <name>`,
 list with `just cron-profiles`), which rewrites the `on.schedule` cron lines in
@@ -120,6 +120,33 @@ config instead. Page/build crons are intentionally unmanaged. See
 
 ### Scripts (`scripts/`)
 - `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
+
+### Research Artifacts (`research/`)
+
+**`research/` is ONLY for deep-research outputs — do not hand-place files here.**
+The directory holds the raw, per-disease outputs of deep-research runs (the
+`/deep-research` skill and DR providers such as Falcon, Asta, OpenScientist,
+Perplexity): the `*-deep-research-*.md` reports, their `*.citations.md`
+sidecars, `*_artifacts/` image folders, `*-research-synthesis.md` roll-ups, and
+Claude Code literature sweeps. These are consumed by curation as first-class
+inputs and indexed by `scripts/index_research_artifacts.py`; evidence `images:`
+paths and DR provenance resolve relative to this directory.
+
+Rules:
+- **Do not manually write ad-hoc research or analysis markdown into `research/`.**
+  Notes about the code internals, project investigations, landscape surveys,
+  pilots, registries, and paper maps do **not** belong here — put them under
+  `docs/` instead (e.g. `docs/superpowers/` for agent investigations/plans/specs,
+  `docs/reports/` for analysis reports, `docs/research/` for research provenance,
+  `docs/curation-notes/` for per-disease curation notes). Everything under `docs/`
+  should also be surfaced in the `mkdocs.yml` nav.
+- **Exception — deterministic script outputs may live in `research/`.** A handful
+  of scripts write generated data here by design (e.g.
+  `scripts/nec_risk_audit.py` → `research/nec_risk_disease_classes.md`,
+  `scripts/grouping_mondo_gaps.py` → `research/grouping_mondo_gaps.md`, the
+  node-embedding worklist, `conforms_to_suggestions.tsv`, `cebm_pilot_*.json`).
+  These are generated, not "manually touched"; regenerate them via their script
+  rather than hand-editing, and leave them in place.
 
 ### Structured-Database Sources (`src/dismech/structured_sources/`)
 - Framework for ingesting structured knowledge bases (Orphanet, ClinGen; OMIM /
@@ -196,6 +223,7 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `deregulated_cellular_energetics` — Emerging hallmark (metabolic reprogramming): oncogene-driven nutrient uptake → aerobic glycolysis (Warburg effect) → biosynthetic diversion of glycolytic/TCA intermediates for biomass. Metabolically downstream of `sustaining_proliferative_signaling`; driver substitutions include MYC/PI3K glucose addiction, IDH1/2 oncometabolite, VHL/HIF. Worked conformer: Clear_Cell_Ovarian_Carcinoma (HNF1B-driven glycolysis). Key conformance target: `deregulated_cellular_energetics#Aerobic Glycolysis (Warburg Effect)`
 - `genome_instability_mutation` — Enabling characteristic (the mutational engine): genome-maintenance defect or replication stress (MMR/HRR-BRCA/NER loss, oncogene-induced replication stress) → failure of DNA-damage surveillance and repair (compounded by TP53/ATM/CDKN2A loss) → mutator phenotype and chromosomal instability → accelerated clonal evolution. The HRR-deficiency therapeutic vulnerability is detailed in `dna_repair_synthetic_lethality`. Worked conformer: Lynch_Syndrome (MMR loss/MSI). Key conformance target: `genome_instability_mutation#Mutator Phenotype and Chromosomal Instability`
 - `tumor_promoting_inflammation` — Enabling characteristic (the inflammatory engine): chronic inflammatory stimulus (H. pylori, viral hepatitis, IBD, irritants, obesity) → pro-tumorigenic inflammatory microenvironment (TAMs, neutrophils, mast cells secreting growth/pro-angiogenic factors, proteases, cytokines, mutagenic ROS) → hallmark-promoting inflammatory output (proliferation, survival via NF-kB/STAT3, angiogenesis, invasion, genomic instability). Complements `immune_checkpoint_blockade` (adaptive immune-evasion arm). Worked conformers: Classic_Hodgkin_Lymphoma (reactive inflammatory microenvironment), MALT_Lymphoma (H. pylori chronic-inflammation trigger). Key conformance target: `tumor_promoting_inflammation#Pro-Tumorigenic Inflammatory Microenvironment`
+- `viral_oncogenesis` — Enabling characteristic (the viral engine): virus-induced cancer, the conserved mechanism shared by the human tumor viruses (~10-15% of human cancers). Persistent oncogenic-virus infection → viral oncoprotein expression ± host-genome integration → inactivation of the host p53 and RB/p16 tumor-suppressor axes and proliferative/survival-signaling hijack → genomic instability and deregulated proliferation → malignant transformation years-to-decades later. Conforming disorder nodes substitute the virus-specific oncoprotein(s): high-risk HPV E6 (p53 degradation)/E7 (RB inactivation); EBV LMP1/EBNA; HBV HBx; HTLV-1 Tax/HBZ; Merkel cell polyomavirus large T; KSHV LANA/vCyclin/vFLIP. Deliberately complementary to — not a duplicate of — `tumor_promoting_inflammation` (the chronic-inflammation route to viral cancer, e.g. HBV/HCV→HCC), `immune_checkpoint_blockade` (adaptive immune-evasion arm), and the host-genetic hallmark modules (`evading_growth_suppressors`, `genome_instability_mutation`, `enabling_replicative_immortality`), which viral cancers often ALSO conform to; this module isolates the DIRECT viral-oncoprotein arm. Worked conformers: Human_Papillomavirus_Infection (High-Risk Persistence and Transformation; HPV E6/E7), Cervical_Cancer (E6→p53, E7→pRB, HPV genome integration, and genomic-instability nodes — the flagship multi-node conformer), Penile_Cancer (HPV E6/E7-driven transformation), Classic_Hodgkin_Lymphoma (EBV LMP1 NF-kB signaling-hijack arm), Hepatitis_B (HBV DNA integration node), Merkel_Cell_Carcinoma (MCPyV large T antigen — viral-oncoprotein and RB-inactivation nodes), and Adult_T_Cell_Leukemia_Lymphoma (HTLV-1 Tax — viral-oncoprotein, NF-kB signaling-hijack, and genomic-instability nodes). Key conformance target: `viral_oncogenesis#Host Tumor Suppressor Inactivation and Signaling Hijack`
 - `bacterial_cell_wall_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for cell-wall-active antibiotics: peptidoglycan precursor/lipid II synthesis (fosfomycin, cycloserine, bacitracin, glycopeptide targets) → PBP transpeptidase cross-linking (the beta-lactam target) → cell-envelope integrity failure and bactericidal autolysis, with two resistance branches that gate drug choice: acquired resistance/drug inactivation (beta-lactamase, PBP2a, D-Ala-D-Lac remodeling) and intrinsic resistance in cell-wall-deficient organisms (Mycoplasma/Mollicutes have no target). Drug mechanism design pattern: cell-wall-active treatments use `target_mechanisms` to link back to the inhibited node. Key conformance / treatment target: `bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins`. See `projects/ANTIMICROBIAL.md` for the broader drug–bug strategy.
 - `bacterial_protein_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for ribosome-targeting antibiotics: bacterial mRNA translation by the 70S ribosome (the shared target of 30S-acting tetracyclines/aminoglycosides and 50S-acting macrolides, lincosamides, chloramphenicol, oxazolidinones) → suppression of toxin and exoprotein synthesis (the anti-toxin rationale for adjunctive clindamycin/linezolid in toxin-mediated streptococcal/staphylococcal disease, beyond bacterial killing) → ribosomal target resistance (erm rRNA methylation/MLSb, ribosomal mutation, drug-modifying enzymes, efflux). Key conformance / treatment targets: `bacterial_protein_synthesis_inhibition#Bacterial mRNA Translation by the Ribosome` and `#Suppression of Toxin and Exoprotein Synthesis`.
 - `intracellular_pathogen_persistence` — Conserved antibacterial lifestyle-gating pattern for obligate/facultative intracellular bacteria (Rickettsia, Bartonella, Brucella, Coxiella, Legionella, Chlamydia, intracellular Mycobacterium): intracellular niche and beta-lactam exclusion (poorly cell-penetrant drugs cannot reach the organism) → requirement for cell-penetrant antimicrobials (doxycycline, macrolides, fluoroquinolones, rifamycins). This is a pharmacokinetic gating module, not an enzyme target; a conforming disease usually ALSO conforms to a target-based module (ribosome/cell wall) for the drug's molecular mechanism. Key conformance / treatment target: `intracellular_pathogen_persistence#Requirement for Cell-Penetrant Antimicrobials`. Worked multi-module examples: Murine_Typhus and Oroya_Fever conform to both this and `bacterial_protein_synthesis_inhibition`.
@@ -348,6 +376,46 @@ candidate discovery), `Heritable_Thoracic_Aortic_Disease` (NECESSARY with a
 nested AND/OR phenotype branch), and `Lysosomal_Storage_Disorders` (defining
 module criterion + a nested GROUPING member).
 
+### Digenic / Oligogenic Inheritance (Multi-Locus)
+
+Some disorders require variants at **two loci (digenic)** or a **few loci
+(oligogenic/triallelic)** rather than a single Mendelian locus. Curate the
+multi-locus mode of inheritance explicitly so it is machine-queryable — do not
+leave it as free text.
+
+**Where it goes:** add an `Inheritance` block (in the disease-level
+`inheritance:` list, and/or on a `has_subtypes[]` entry when only one subtype is
+multi-locus) with `inheritance_term` bound to the HPO mode-of-inheritance
+subtree:
+
+- `HP:0010984` **Digenic inheritance** (two loci both required)
+- `HP:0010983` **Oligogenic inheritance** (triallelic / a few loci)
+- `HP:0010982` **Polygenic inheritance** (many small-effect loci; use with
+  `relationship_type: SUSCEPTIBILITY` gene typing)
+
+Always **bind the `term:`** — an `inheritance_term` with only a `preferred_term`
+and no `term:` is the common gap. The `Inheritance` class has no `genes` slot, so
+name the contributing genes in the block `description`; put per-gene detail in
+the `genetic:` section (use `relationship_type: MODIFIER` / `SUSCEPTIBILITY` /
+`COOPERATING` for a contributing second locus) or, for a digenic subtype, in the
+`has_subtypes[].genes` list.
+
+**Evidence discipline:** the digenic/oligogenic claim gets its own PMID with an
+exact-quote snippet (typically the double-heterozygote / joint-transmission /
+epistasis sentence), separate from the general disease evidence.
+
+**Exemplar:** `PRPH2-Related_Retinopathy` is the reference implementation — it
+models digenicity both as an RP7-digenic subtype (listing PRPH2 + ROM1) and as a
+top-level `Digenic inheritance` block bound to `HP:0010984`, citing the classic
+double-heterozygote study (`PMID:8202715`). Other worked digenic/oligogenic
+entries: `Alport_Syndrome`, `Usher_Syndrome`,
+`Facioscapulohumeral_Muscular_Dystrophy` (FSHD2),
+`MITF_Waardenburg_Tietz_Spectrum`, `Meckel_Syndrome`, `Hirschsprung_Disease`
+(oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
+`Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
+`Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
+(`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+
 ### Evidence Items
 All evidence must have PMID references and support classification:
 ```yaml
@@ -403,6 +471,19 @@ non-empty list even for single-actor sessions, include `links:` for relevant
 issues, PRs, and other URLs, keep `summary` short, and put rich review/curation
 notes in the required `details` field. For AI-assisted curation, include the
 model plus agent tool/version fields when they are known.
+
+**Any PR that creates or edits a KB entry (`kb/disorders/`, `kb/modules/`,
+`kb/comorbidities/`) should add a matching history record.** CI posts an advisory
+(non-blocking) warning when a KB entry changes without one. Do not hand-write the
+filename/timestamp — scaffold a schema-valid skeleton and edit its `details`:
+
+```bash
+just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
+  --summary "Create: Asthma" --agent-tool claude-code --model claude-opus-4-8 \
+  --sections phenotypes,pathophysiology,evidence --pr 5123 \
+  --details "What was curated and how it was validated."
+# run `just new-history --help` for all options; it prints the created path
+```
 
 Validate history records with:
 
@@ -816,6 +897,76 @@ reference_ranges:
 phenotype-activation points); use reference ranges for measured lab analytes.
 
 The CKD-Mineral Bone Disorder entry is the worked example.
+
+### Prevalence (disease occurrence)
+
+Model disease occurrence with the **structured** `Prevalence` slots, not the
+deprecated free-text `percentage` field (see design decision §8). Each prevalence
+record should separate the four dimensions the old field conflated:
+
+- `population` — cohort / geography only (e.g. `Worldwide`, `Ashkenazi Jewish
+  population`). Do **not** put the measure type here.
+- `measure_type` (`PrevalenceMeasureEnum`) — `POINT_PREVALENCE`, `BIRTH_PREVALENCE`,
+  `LIFETIME_PREVALENCE`, `PERIOD_PREVALENCE`, `ANNUAL_INCIDENCE`, `CARRIER_FREQUENCY`,
+  `CASES_IN_LITERATURE`, or `UNKNOWN`. Never compare a prevalence with an incidence.
+- `prevalence_class` (`PrevalenceClassEnum`) — the coarse, always-fillable band
+  (the population-rate analog of phenotype `FrequencyEnum`). Numeric tiers are the
+  Orphanet classes (`ABOVE_1_IN_1000`, `BAND_1_5_PER_10000`, `BAND_1_9_PER_100000`,
+  `BAND_1_9_PER_1000000`, `BELOW_1_IN_1000000`, `NOT_YET_DOCUMENTED`); qualitative
+  tiers (`COMMON`, `RARE`, `ULTRA_RARE`, `UNKNOWN`) cover prose-only sources.
+- `rate_per_100000` (+ `rate_low` / `rate_high` for ranges) — one normalized number
+  in cases per 100,000 (`% × 1000`; `per million ÷ 10`; `1 in N → 100000/N`).
+- `notes` keeps the verbatim source phrasing; `evidence` is unchanged.
+
+```yaml
+prevalence:
+- population: Worldwide
+  measure_type: POINT_PREVALENCE
+  prevalence_class: BAND_1_5_PER_10000
+  rate_per_100000: 20.0
+  notes: Orphanet worldwide point-prevalence class 1-5 / 10,000.
+  evidence:
+  - reference: ORPHA:558
+    supports: SUPPORT
+    snippet: "1-5 / 10 000 | Worldwide | Point prevalence | PMID:20301510"
+    explanation: Orphanet epidemiology table.
+```
+
+`scripts/migrate_prevalence.py` backfilled existing entries; do not populate
+`percentage` on new records.
+
+#### Per-gene case fractions (genetically heterogeneous diseases)
+
+For a disease where multiple genes each explain some share of cases, record that
+share with structured `Genetic.case_fractions` (multivalued `GeneCaseFraction`),
+**not** the free-text `Genetic.frequency` field. This is the genetic-spectrum
+analog of a `Prevalence` record and is distinct from population occurrence and
+from allele frequency — the share is cohort/ancestry-dependent, so each estimate
+carries its own `population` and `evidence`:
+
+```yaml
+genetic:
+- name: BBS1
+  gene_term:
+    preferred_term: BBS1
+    term:
+      id: hgnc:966
+      label: BBS1
+  frequency: one of the most prevalent BBS genes   # coarse qualitative band (kept)
+  case_fractions:
+  - population: German BBS cohort
+    case_fraction_percent: 24.6
+    notes: Second most common gene in a contemporary German clinical series.
+    evidence:
+    - reference: PMID:35886001
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: "The most common associated genes were BBS10 (32.8%) and BBS1 (24.6%)"
+      explanation: Quantifies the BBS1 share of cases in the German cohort.
+```
+
+Use `case_fraction_low`/`case_fraction_high` for ranges and `cohort_size` when the
+proband count is reported. `Bardet-Biedl_Syndrome` (BBS1/BBS10) is the worked example.
 
 ### Clinical Trials
 
@@ -1374,7 +1525,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `kb/disorders/*.yaml`, `kb/modules/*.yaml` | YES | Core content |
 | `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
-| `research/*.md` | YES | Useful provenance |
+| `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `src/`, `scripts/`, `tests/`, `conf/` | YES | Source code |
 
 ### What NOT to commit

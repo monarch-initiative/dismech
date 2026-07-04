@@ -24,16 +24,26 @@ from linkml_term_validator.plugins import BindingValidationPlugin
 
 @dataclass(frozen=True)
 class EnumCacheFinding:
-    """A single enum cache integrity problem."""
+    """A single enum cache integrity problem.
+
+    ``is_warning`` is True for stale-filename findings (a file whose name no
+    longer matches the expected hash, usually because ``linkml-term-validator``
+    changed its internal cache-key serialization).  Stale files are printed as
+    warnings and do **not** fail CI; run ``check-enum-cache --fix`` to prune
+    them.  All other findings (malformed headers, duplicate rows, invalid
+    CURIEs) are errors and do fail CI.
+    """
 
     path: Path
     enum_name: str
     reason: str
     curie: str | None = None
+    is_warning: bool = False
 
     def format(self) -> str:
         detail = f": {self.curie}" if self.curie else ""
-        return f"{self.path} ({self.enum_name}) {self.reason}{detail}"
+        level = "WARNING" if self.is_warning else "ERROR"
+        return f"[{level}] {self.path} ({self.enum_name}) {self.reason}{detail}"
 
 
 @dataclass(frozen=True)
@@ -100,8 +110,17 @@ def scan_enum_cache_dir(
     schema_path: Path,
     cache_dir: Path,
     oak_config: Path | None,
+    offline: bool = False,
 ) -> list[EnumCacheFinding]:
-    """Scan enum cache files for stale files, duplicate rows, and invalid rows."""
+    """Scan enum cache files for stale files, duplicate rows, and invalid rows.
+
+    When ``offline`` is true the per-CURIE membership re-derivation
+    (``is_value_in_enum``, which asks OAK to expand the enum and can trigger
+    multi-GB ``sqlite:obo:*`` downloads) is skipped. The structural checks that
+    need no ontology access — stale-file detection, malformed headers, and
+    duplicate rows — still run. Use this in network- or disk-constrained
+    environments where the committed ``cache/*.csv`` is trusted.
+    """
 
     enum_dir = cache_dir / "enums"
     if not enum_dir.is_dir():
@@ -115,7 +134,7 @@ def scan_enum_cache_dir(
 
     schema_view = SchemaView(str(schema_path))
     expected = current_enum_caches(schema_path, cache_dir, oak_config)
-    checker = _checking_plugin(cache_dir, oak_config)
+    checker = None if offline else _checking_plugin(cache_dir, oak_config)
     findings: list[EnumCacheFinding] = []
 
     for path in sorted(enum_dir.glob("*.csv")):
@@ -123,7 +142,10 @@ def scan_enum_cache_dir(
         if current is None:
             findings.append(
                 EnumCacheFinding(
-                    path=path, enum_name="unknown", reason="stale enum cache file"
+                    path=path,
+                    enum_name="unknown",
+                    reason="stale enum cache file",
+                    is_warning=True,
                 )
             )
             continue
@@ -152,7 +174,9 @@ def scan_enum_cache_dir(
                 continue
             seen.add(curie)
 
-            if not checker.is_value_in_enum(curie, current.enum_def, schema_view):
+            if checker is not None and not checker.is_value_in_enum(
+                curie, current.enum_def, schema_view
+            ):
                 findings.append(
                     EnumCacheFinding(
                         path=path,
@@ -255,6 +279,16 @@ def main(argv: list[str] | None = None) -> int:
         "--fix", action="store_true", help="Repair cache files in place"
     )
     parser.add_argument(
+        "--offline",
+        action="store_true",
+        help=(
+            "Skip the OAK-backed membership re-derivation (which can trigger "
+            "multi-GB sqlite:obo:* downloads) and run only the structural checks "
+            "(stale files, malformed headers, duplicate rows) that trust the "
+            "committed cache. Incompatible with --fix."
+        ),
+    )
+    parser.add_argument(
         "--max-findings",
         type=int,
         default=50,
@@ -262,30 +296,63 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.offline and args.fix:
+        parser.error("--offline cannot be combined with --fix (repair needs OAK)")
+
     oak_config = args.oak_config if args.oak_config.exists() else None
     findings = (
         repair_enum_cache_dir(args.schema, args.cache_dir, oak_config)
         if args.fix
-        else scan_enum_cache_dir(args.schema, args.cache_dir, oak_config)
+        else scan_enum_cache_dir(
+            args.schema, args.cache_dir, oak_config, offline=args.offline
+        )
     )
 
     if not findings:
+        note = " (offline: membership re-derivation skipped)" if args.offline else ""
         print(
-            f"OK: enum cache rows match current dynamic enum definitions in {args.cache_dir}"
+            f"OK: enum cache rows match current dynamic enum definitions in "
+            f"{args.cache_dir}{note}"
         )
         return 0
 
-    action = "repaired" if args.fix else "failed"
-    print(
-        f"Enum cache integrity {action}: {len(findings)} finding(s)",
-        file=sys.stderr,
-    )
-    for finding in findings[: args.max_findings]:
-        print(f"  - {finding.format()}", file=sys.stderr)
-    if len(findings) > args.max_findings:
-        print(f"  ... {len(findings) - args.max_findings} more", file=sys.stderr)
+    if args.fix:
+        print(
+            f"Enum cache integrity repaired: {len(findings)} finding(s)",
+            file=sys.stderr,
+        )
+        for finding in findings[: args.max_findings]:
+            print(f"  - {finding.format()}", file=sys.stderr)
+        if len(findings) > args.max_findings:
+            print(f"  ... {len(findings) - args.max_findings} more", file=sys.stderr)
+        return 0
 
-    return 0 if args.fix else 1
+    warnings = [f for f in findings if f.is_warning]
+    errors = [f for f in findings if not f.is_warning]
+
+    if warnings:
+        print(
+            f"Enum cache: {len(warnings)} stale file(s) found "
+            f"(run 'just check-enum-cache --fix' to prune):",
+            file=sys.stderr,
+        )
+        for finding in warnings[: args.max_findings]:
+            print(f"  - {finding.format()}", file=sys.stderr)
+        if len(warnings) > args.max_findings:
+            print(f"  ... {len(warnings) - args.max_findings} more", file=sys.stderr)
+
+    if errors:
+        print(
+            f"Enum cache integrity failed: {len(errors)} error(s)",
+            file=sys.stderr,
+        )
+        for finding in errors[: args.max_findings]:
+            print(f"  - {finding.format()}", file=sys.stderr)
+        if len(errors) > args.max_findings:
+            print(f"  ... {len(errors) - args.max_findings} more", file=sys.stderr)
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
