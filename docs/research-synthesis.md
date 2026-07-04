@@ -34,6 +34,12 @@ Each harmonized finding is tagged to the dismech `sections` it informs
 - `explanation` — why the report earns this stance
 - `citations` — the PMIDs/DOIs the provider cited for the claim
 
+The artifact deliberately does **not** re-annotate claims with ontology terms or
+carry verified literature `evidence:` blocks — that is the job of the main
+curation pipeline on the disorder YAML. This file exists only to evaluate and
+compare claims across providers, so the only reference provenance it keeps is the
+per-provider `citations` (which sources each report leaned on).
+
 ## Relationship to `deep-research-client`
 
 The schema deliberately mirrors the field names in
@@ -57,10 +63,7 @@ evaluation harness. The two additions over that harness are:
   each provider's `stance`/`score`, and deciding `curation_status`. These are
   qualitative judgments and are not auto-generated.
 
-`best_matching_text` values must be exact quotes from the report files. Literature
-`evidence:` snippets (real PMIDs/DOIs for the harmonized claim itself) follow the
-same fetch-reference verification discipline as the rest of the KB; leave them
-unpopulated rather than fabricated.
+`best_matching_text` values must be exact quotes from the report files.
 
 ## Validation
 
