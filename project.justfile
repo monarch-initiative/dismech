@@ -3,6 +3,8 @@
 # Default schema path
 schema_path := "src/dismech/schema/dismech.yaml"
 history_schema_path := "src/dismech/schema/history.yaml"
+synthesis_schema_path := "src/dismech/schema/research_synthesis.yaml"
+research_dir := "research"
 kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
@@ -161,6 +163,31 @@ validate-history-all:
     fi
     printf 'Validating %s history record(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{history_schema_path}} --target-class HistoryRecord "${files[@]}"
+
+# Validate a single cross-provider research synthesis (research/*-research-synthesis.yaml)
+[group('QC')]
+validate-synthesis file:
+    uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis {{file}}
+
+# Validate all cross-provider research syntheses
+[group('QC')]
+validate-synthesis-all:
+    #!/usr/bin/env bash
+    set -e
+    if [[ ! -d "{{research_dir}}" ]]; then
+        echo "No research directory found."
+        exit 0
+    fi
+    files=()
+    while IFS= read -r f; do
+        files+=("$f")
+    done < <(find "{{research_dir}}" -type f -name '*-research-synthesis.yaml' | sort)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No research synthesis YAML files found in {{research_dir}}."
+        exit 0
+    fi
+    printf 'Validating %s research synthesis file(s).\n' "${#files[@]}"
+    uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
 
 # Schema validation for all files (batched: one process startup for all files)
 [group('QC')]

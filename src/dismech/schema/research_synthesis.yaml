@@ -1,0 +1,299 @@
+id: https://w3id.org/monarch-initiative/dismech/research_synthesis
+name: dismech_research_synthesis
+title: Disorder Mechanisms Cross-Provider Research Synthesis Schema
+description: >-
+  Curated, cross-provider harmonization of deep-research reports for a single
+  disorder. A synthesis pairs each harmonized finding (a canonical claim, tagged
+  to the dismech section it informs) with a per-provider assessment scoring how
+  each deep-research report stands relative to that finding (concordant, partial,
+  contradictory, or silent). This artifact is curation *workspace* provenance and
+  lives in `research/`, distinct from the integrated `references:`/`findings:`
+  claims block that survives into the disorder YAML.
+
+  Field names deliberately mirror the `deep_research_client.evaluation.models`
+  pydantic model (GroundTruthClaim.category, ClaimMatch.matched /
+  similarity_score / best_matching_text / explanation, DROutput.provider) so the
+  curated artifact interoperates with the deep-research-client evaluation
+  harness. The additions over that harness are (1) an aggregate that groups all
+  providers under one harmonized finding and (2) an explicit `stance` enum that
+  distinguishes concordance from contradiction, which the coverage-only
+  ClaimMatch does not capture.
+license: BSD-3-Clause
+
+imports:
+  - linkml:types
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  dismech: https://w3id.org/monarch-initiative/dismech/
+  xsd: http://www.w3.org/2001/XMLSchema#
+
+default_prefix: dismech
+default_range: string
+
+enums:
+  SynthesisSectionEnum:
+    description: >-
+      The dismech section a harmonized finding informs. The first five values are
+      the upstream `deep_research_client.evaluation` GroundTruthClaim categories
+      (kept verbatim for interop); the remainder extend the vocabulary to cover
+      dismech blocks the upstream loader does not yet emit.
+    permissible_values:
+      pathophysiology:
+        description: Mechanism / pathophysiology node (upstream category).
+      phenotype:
+        description: Clinical or cellular phenotype (upstream category).
+      treatment:
+        description: Treatment, drug, or clinical action (upstream category).
+      genetic_factor:
+        description: Causal gene, variant, or inheritance claim (upstream category).
+      gene_function:
+        description: Molecular function of an implicated gene product (upstream category).
+      prognosis:
+        description: Outcome, natural history, or prognostic association (dismech extension).
+      diagnosis:
+        description: Diagnostic criterion, test, or biomarker (dismech extension).
+      epidemiology:
+        description: Prevalence, incidence, or population occurrence (dismech extension).
+      comorbidity:
+        description: Comorbidity, association, or disease-disease link (dismech extension).
+      other:
+        description: A claim that does not fit the above sections.
+
+  ConsensusEnum:
+    description: How the providers collectively relate to a harmonized finding.
+    permissible_values:
+      UNANIMOUS:
+        description: Every non-silent provider is concordant with the finding.
+      MAJORITY:
+        description: More than one provider is concordant; no provider contradicts.
+      SINGLE:
+        description: Only one provider asserts the finding; the others are silent.
+      CONFLICT:
+        description: At least one provider contradicts the finding.
+
+  CurationStatusEnum:
+    description: What curation did with the harmonized finding.
+    permissible_values:
+      INTEGRATED:
+        description: Promoted into the disorder YAML as curated content.
+      LEAD:
+        description: Retained as a research lead, not yet promoted.
+      REJECTED:
+        description: Judged unsupported or out of scope and not promoted.
+
+  ProviderStanceEnum:
+    description: >-
+      How one provider's report stands relative to the harmonized finding. This
+      extends the coverage-only upstream ClaimMatch (matched true/false) with an
+      explicit concordant-vs-contradictory distinction.
+    permissible_values:
+      CONCORDANT:
+        description: The report asserts the finding (or a compatible stronger form).
+      PARTIAL:
+        description: The report supports part of the finding or a weaker/qualified form.
+      CONTRADICTORY:
+        description: The report asserts something that conflicts with the finding.
+      SILENT:
+        description: The report does not address the finding.
+
+  EvidenceItemSupportEnum:
+    description: How a cited reference relates to the claim (mirrors the dismech core enum).
+    permissible_values:
+      SUPPORT:
+        description: The cited evidence directly supports the claim.
+      REFUTE:
+        description: The cited evidence directly contradicts the claim.
+      PARTIAL:
+        description: The cited evidence partially or indirectly supports the claim.
+      NO_EVIDENCE:
+        description: The cited reference does not contain evidence relevant to the claim.
+      WRONG_STATEMENT:
+        description: The annotated claim contains a demonstrable factual error.
+
+slots:
+  disease:
+    description: Disorder name / slug this synthesis is about (matches a Disease.name).
+    required: true
+  mondo:
+    description: MONDO CURIE for the disorder, when known.
+  generated:
+    description: When this synthesis was curated (ISO 8601 / RFC 3339).
+    range: datetime
+  synthesis_version:
+    description: Schema/format version of this synthesis artifact.
+  providers:
+    description: The deep-research reports compared in this synthesis.
+    multivalued: true
+    range: ProviderReport
+    inlined_as_list: true
+  harmonized_findings:
+    description: Canonical cross-provider claims with per-provider assessments.
+    multivalued: true
+    range: HarmonizedFinding
+    inlined_as_list: true
+  notes:
+    description: Free-text curation notes, caveats, or follow-up context.
+
+  # ProviderReport slots
+  name:
+    description: Provider name (e.g. falcon, openscientist).
+  report:
+    description: Path to the provider's deep-research report file, relative to repo root.
+  model:
+    description: Model the provider used, when known.
+  citation_count:
+    description: Number of citations in the provider's report.
+    range: integer
+
+  # HarmonizedFinding slots
+  statement:
+    description: The canonical harmonized claim, phrased provider-neutrally.
+    required: true
+  sections:
+    description: dismech section(s) this finding informs.
+    multivalued: true
+    range: SynthesisSectionEnum
+    required: true
+  consensus:
+    description: How the providers collectively relate to this finding.
+    range: ConsensusEnum
+  curation_status:
+    description: What curation did with this finding.
+    range: CurationStatusEnum
+  ontology_terms:
+    description: Ontology terms associated with the finding (mirrors upstream).
+    multivalued: true
+    range: OntologyTerm
+    inlined_as_list: true
+  evidence:
+    description: Literature evidence for the harmonized claim itself (real PMIDs/DOIs).
+    multivalued: true
+    range: SynthesisEvidenceItem
+    inlined_as_list: true
+  provider_support:
+    description: Per-provider assessment of this finding.
+    multivalued: true
+    range: ProviderAssessment
+    inlined_as_list: true
+    required: true
+
+  # ProviderAssessment slots
+  provider:
+    description: Provider this assessment is for (matches a ProviderReport.name).
+    required: true
+  source_report:
+    description: Path to the provider report this assessment reads from.
+  stance:
+    description: How this provider's report stands relative to the harmonized finding.
+    range: ProviderStanceEnum
+    required: true
+  matched:
+    description: Whether the report covers the finding at all (mirrors ClaimMatch.matched).
+    range: boolean
+  score:
+    description: >-
+      Concordance/similarity score in [0,1] for how well the report matches the
+      finding (mirrors ClaimMatch.similarity_score). Curator-assigned.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+  best_matching_text:
+    description: >-
+      Verbatim excerpt from the provider report supporting the stance (mirrors
+      ClaimMatch.best_matching_text). Must be an exact quote from the report.
+  explanation:
+    description: Why the report earns this stance/score (mirrors ClaimMatch.explanation).
+  citations:
+    description: Reference identifiers (PMID/DOI) the provider cited for this finding.
+    multivalued: true
+
+  # OntologyTerm slots
+  id:
+    description: Ontology CURIE, e.g. HP:0002094.
+    required: true
+  label:
+    description: Human-readable ontology label.
+    required: true
+
+  # SynthesisEvidenceItem slots
+  reference:
+    description: PMID, DOI, or other reference identifier for the harmonized claim.
+    required: true
+  reference_title:
+    description: Title of the referenced work, when known.
+  supports:
+    description: How the reference relates to the claim.
+    range: EvidenceItemSupportEnum
+  snippet:
+    description: Verbatim quote from the reference supporting the claim.
+  evidence_explanation:
+    description: Why this evidence supports/refutes the harmonized claim.
+
+classes:
+  ResearchSynthesis:
+    description: Cross-provider deep-research synthesis for a single disorder.
+    tree_root: true
+    slots:
+      - disease
+      - mondo
+      - generated
+      - synthesis_version
+      - providers
+      - harmonized_findings
+      - notes
+
+  ProviderReport:
+    description: One deep-research report compared in the synthesis.
+    slots:
+      - name
+      - report
+      - model
+      - citation_count
+    slot_usage:
+      name:
+        required: true
+      report:
+        required: true
+
+  HarmonizedFinding:
+    description: A canonical cross-provider claim tagged to dismech section(s).
+    slots:
+      - statement
+      - sections
+      - consensus
+      - curation_status
+      - ontology_terms
+      - evidence
+      - provider_support
+      - notes
+
+  ProviderAssessment:
+    description: How one provider's report stands relative to a harmonized finding.
+    slots:
+      - provider
+      - source_report
+      - stance
+      - matched
+      - score
+      - best_matching_text
+      - explanation
+      - citations
+
+  OntologyTerm:
+    description: An ontology term associated with a harmonized finding.
+    slots:
+      - id
+      - label
+
+  SynthesisEvidenceItem:
+    description: Literature evidence attached to a harmonized claim.
+    slots:
+      - reference
+      - reference_title
+      - supports
+      - snippet
+      - evidence_explanation
+    slot_usage:
+      reference:
+        required: true
