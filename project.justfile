@@ -168,6 +168,7 @@ validate-history-all:
 [group('QC')]
 validate-synthesis file:
     uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis {{file}}
+    uv run python -m dismech.research_synthesis {{file}}
 
 # Validate all cross-provider research syntheses
 [group('QC')]
@@ -188,6 +189,7 @@ validate-synthesis-all:
     fi
     printf 'Validating %s research synthesis file(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
+    uv run python -m dismech.research_synthesis "${files[@]}"
 
 # Schema validation for all files (batched: one process startup for all files)
 [group('QC')]

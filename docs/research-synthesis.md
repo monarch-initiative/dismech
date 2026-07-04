@@ -23,16 +23,21 @@ promoted; the synthesis holds the cross-provider reasoning that got you there.
 
 Each harmonized finding is tagged to the dismech `sections` it informs
 (`pathophysiology`, `phenotype`, `treatment`, `genetic_factor`, `gene_function`,
-`prognosis`, `diagnosis`, `epidemiology`, `comorbidity`), records an overall
-`consensus` (`UNANIMOUS` / `MAJORITY` / `SINGLE` / `CONFLICT`) and a
-`curation_status` (`INTEGRATED` / `LEAD` / `REJECTED`), and lists one
-`provider_support` block per report with:
+`prognosis`, `diagnosis`, `epidemiology`, `comorbidity`), records a
+`curation_status` (`INTEGRATED` / `LEAD` / `REJECTED` — a genuine curation
+decision), and lists one `provider_support` block per report with:
 
 - `stance` — `CONCORDANT` / `PARTIAL` / `CONTRADICTORY` / `SILENT`
 - `score` — curator-assigned concordance/similarity in `[0,1]`
 - `best_matching_text` — a **verbatim excerpt** from that provider's report
 - `explanation` — why the report earns this stance
 - `citations` — the PMIDs/DOIs the provider cited for the claim
+
+Consensus is **not** an authored field — it is derived from the provider
+stances (`dismech.research_synthesis.derive_consensus`): any `CONTRADICTORY`
+stance → `CONFLICT`; at most one asserting provider → `SINGLE`; more than one,
+all `CONCORDANT` → `UNANIMOUS`; otherwise `MAJORITY`. `curation_status`, by
+contrast, is a real human decision and is authored.
 
 The artifact deliberately does **not** re-annotate claims with ontology terms or
 carry verified literature `evidence:` blocks — that is the job of the main
@@ -75,9 +80,12 @@ just validate-synthesis research/ALK_Rearranged_NSCLC-research-synthesis.yaml
 just validate-synthesis-all
 ```
 
-`tests/test_data.py` also validates every `research/*-research-synthesis.yaml`
-against the schema and checks that each `provider_support.provider` resolves to a
-declared top-level provider.
+`validate-synthesis` also runs `dismech.research_synthesis`, which enforces that
+every `best_matching_text` is a verbatim (whitespace-normalized) substring of the
+`source_report` it quotes — `linkml-validate` only checks that the field is a
+string, so this is what actually prevents fabricated quotes. `tests/test_data.py`
+mirrors both checks (schema validity, verbatim quotes, and that each
+`provider_support.provider` resolves to a declared top-level provider).
 
 ## Worked example
 

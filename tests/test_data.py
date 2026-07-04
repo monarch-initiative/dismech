@@ -1080,6 +1080,30 @@ def test_synthesis_provider_references_resolve(filepath):
 
 
 @pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
+def test_synthesis_best_matching_text_verbatim(filepath):
+    """Every best_matching_text must be a verbatim substring of its source_report."""
+    from dismech.research_synthesis import iter_quote_problems
+
+    problems = list(iter_quote_problems(filepath))
+    assert not problems, f"Quote-verification problems in {filepath}: {problems}"
+
+
+def test_synthesis_derive_consensus():
+    """derive_consensus computes the consensus label from provider stances."""
+    from dismech.research_synthesis import derive_consensus
+
+    def finding(*stances):
+        return {"provider_support": [{"stance": s} for s in stances]}
+
+    assert derive_consensus(finding("CONCORDANT", "CONTRADICTORY")) == "CONFLICT"
+    assert derive_consensus(finding("CONCORDANT", "SILENT")) == "SINGLE"
+    assert derive_consensus(finding("CONCORDANT", "CONCORDANT")) == "UNANIMOUS"
+    assert derive_consensus(finding("CONCORDANT", "PARTIAL")) == "MAJORITY"
+    assert derive_consensus(finding("SILENT", "SILENT")) == "SINGLE"
+
+
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_grouping_member_foreign_keys(filepath):
     """Each grouping member must resolve to a real Disease, module, or grouping."""
