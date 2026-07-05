@@ -1045,6 +1045,28 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  ImagingFindingTerm:
+    description: >-
+      An in-vivo imaging finding term. Imaging findings are drawn from the NCIT
+      Imaging Finding branch (NCIT:C176708 / NCIT:C199145) and, because most
+      radiologic observations coincide with a described phenotype, from the HP
+      Phenotypic abnormality branch (HP:0000118) - e.g. white-matter lesions,
+      atrophy, hyperintensity. Binding is RECOMMENDED (not REQUIRED): many
+      specific radiologic appearances lack a dedicated NCIT/HP term and are left
+      to preferred_term until a radiology ontology (e.g. RadLex via BioPortal)
+      is wired in.
+    comments:
+      - NCIT:C176708 Imaging Finding - imaging observations
+      - NCIT:C199145 Clinical Finding Detected by Imaging
+      - HP:0000118 Phenotypic abnormality - imaging-observable phenotypes (atrophy, white-matter lesions, hyperintensity)
+    reachable_from:
+      source_nodes:
+        - NCIT:C176708  ## Imaging Finding
+        - NCIT:C199145  ## Clinical Finding Detected by Imaging
+        - HP:0000118    ## Phenotypic abnormality (imaging-observable phenotypes)
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   DiseaseTerm:
     description: >-
       A MONDO disease, inherited disease susceptibility, or related medical
@@ -1407,6 +1429,55 @@ enums:
         description: Works around the disrupted mechanism via an alternative pathway
       RESTORES:
         description: Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)
+
+  ImagingModalityEnum:
+    description: >-
+      In-vivo medical imaging modality by which an ImagingFinding is detected.
+      Meanings bind to the NCI Thesaurus Diagnostic Imaging branch.
+    permissible_values:
+      MRI:
+        title: Magnetic Resonance Imaging
+        description: Magnetic resonance imaging, including structural and contrast-enhanced MRI
+        meaning: NCIT:C16809
+      FUNCTIONAL_MRI:
+        title: Functional Magnetic Resonance Imaging
+        description: Blood-oxygen-level-dependent functional MRI
+        meaning: NCIT:C17958
+      CT:
+        title: Computed Tomography
+        description: X-ray computed tomography
+        meaning: NCIT:C17204
+      PET:
+        title: Positron Emission Tomography
+        description: Positron emission tomography (e.g., FDG-PET, amyloid-PET)
+        meaning: NCIT:C17007
+      SPECT:
+        title: Single Photon Emission Computed Tomography
+        description: Single-photon emission computed tomography
+        meaning: NCIT:C17203
+      ULTRASOUND:
+        title: Ultrasound Imaging
+        description: Diagnostic ultrasonography, including Doppler and echocardiography
+        meaning: NCIT:C17230
+      XRAY:
+        title: X-Ray Imaging
+        description: Projectional radiography (plain film)
+        meaning: NCIT:C38101
+      MAMMOGRAPHY:
+        title: Mammography
+        description: X-ray imaging of the breast
+        meaning: NCIT:C16818
+      ANGIOGRAPHY:
+        title: Angiography
+        description: Imaging of blood vessels (CT, MR, or catheter angiography)
+        meaning: NCIT:C190556
+      OCT:
+        title: Optical Coherence Tomography
+        description: Optical coherence tomography (e.g., retinal OCT)
+        meaning: NCIT:C20828
+      OTHER:
+        title: Other imaging modality
+        description: An imaging modality not otherwise enumerated
 
   MedicalActionCategoryEnum:
     description: >-
@@ -2841,6 +2912,27 @@ slots:
       - Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), or Histologic Grade (C18000)
       - For cancer: includes grade, differentiation, growth patterns, necrosis
       - For other diseases: may include architectural changes, cellular infiltrates
+  imaging_findings:
+    description: >-
+      In-vivo imaging findings (radiologic, nuclear-medicine, or ultrasound) that
+      reflect disease pathophysiology or define diagnostic criteria. The
+      macroscopic / in-vivo counterpart of the histopathology slot.
+    multivalued: true
+    inlined_as_list: true
+    range: ImagingFinding
+    recommended: false
+    comments:
+      - Separate from phenotypes - names the modality plus the imaging appearance, even when the abnormality is also curated as an HP phenotype
+      - Not for acquisition protocol, per-patient reads, or diagnostic decision support (see the imaging-scope design decision)
+  modality:
+    description: The in-vivo imaging modality by which a finding is detected
+    range: ImagingModalityEnum
+  imaging_finding_term:
+    description: Ontology term for an imaging finding (from the NCIT Imaging Finding branch or HP)
+    range: ImagingFindingDescriptor
+    inlined: true
+    comments:
+      - Use NCIT Imaging Finding terms (C176708 / C199145) or HP imaging-observable phenotypes (atrophy, white-matter lesions, hyperintensity)
   biochemical:
     multivalued: true
     inlined_as_list: true
@@ -4207,6 +4299,24 @@ classes:
             range: HistopathologyFindingTerm
             obligation_level: REQUIRED
 
+  ImagingFindingDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for an in-vivo imaging finding, bindable to the NCIT Imaging
+      Finding branch (C176708 / C199145) or an HP imaging-observable phenotype.
+      Inherits located_in (UBERON body site), laterality, spatial_extent, and
+      modifier from Descriptor for post-composition.
+    comments:
+      - Use for imaging appearances (white-matter lesions, atrophy, enhancement, hyperintensity)
+      - Body site goes in located_in (UBERON); focal/multifocal/diffuse in spatial_extent
+    slot_usage:
+      term:
+        description: NCIT imaging-finding or HP phenotype term reference
+        bindings:
+          - binds_value_of: id
+            range: ImagingFindingTerm
+            obligation_level: RECOMMENDED
+
   LifeCycleStageDescriptor:
     is_a: Descriptor
     description: A descriptor for parasite life cycle stages, bindable to OPL
@@ -5311,6 +5421,49 @@ classes:
         description: Whether this finding is pathognomonic or highly diagnostic
       context:
         description: Context in which this finding is observed (e.g., specific subtype)
+  ImagingFinding:
+    description: >-
+      A finding detected by in-vivo medical imaging (MRI, CT, PET, ultrasound,
+      etc.) that reflects disease pathophysiology or defines a diagnostic
+      criterion. The macroscopic / in-vivo counterpart of HistopathologyFinding.
+      Captures the modality plus the imaging appearance - NOT acquisition
+      protocol, per-patient reads, or radiology decision support.
+    comments:
+      - Separate from phenotypes - names the modality plus appearance, even when the abnormality is also an HP phenotype (cross-linked via phenotype_term)
+      - Separate from histopathology - in-vivo / macroscopic, no biopsy
+      - Separate from the generic diagnosis slot - carries a structured finding rather than a free-text test name
+    slots:
+      - name
+      - modality
+      - imaging_finding_term
+      - located_in
+      - laterality
+      - spatial_extent
+      - phenotype_term
+      - diagnostic
+      - frequency
+      - modifier
+      - evidence
+      - notes
+      - context
+      - subtype
+    slot_usage:
+      name:
+        description: Name of the imaging finding
+        examples:
+          - value: Multifocal periventricular white matter lesions on MRI
+          - value: Gadolinium-enhancing lesion
+          - value: Cerebral atrophy on CT
+      modality:
+        description: The imaging modality by which this finding is detected
+      located_in:
+        description: Anatomical body site of the finding (UBERON)
+      phenotype_term:
+        description: Optional HP phenotype this imaging finding also maps to
+      diagnostic:
+        description: Whether this finding is pathognomonic or defines a diagnostic criterion
+      context:
+        description: Context in which this finding is observed (e.g., specific subtype)
   Genetic:
     slots:
       - name
@@ -5362,6 +5515,7 @@ classes:
       - mechanistic_hypotheses
       - phenotypes
       - histopathology
+      - imaging_findings
       - biochemical
       - stages
       - genetic
