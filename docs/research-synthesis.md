@@ -70,13 +70,18 @@ evaluation harness. The two additions over that harness are:
    contradiction (the harness's `ClaimMatch` is coverage-only —
    `matched` true/false).
 
-## What is deterministic vs. agentic
+## Curation is manual
 
-- **Deterministic** (a script can help): intersecting the citation sets across
-  providers, and pre-listing the provider reports.
-- **Agentic** (the curator): extracting the harmonized statements, assigning
-  each provider's `stance`/`score`, and deciding `curation_status`. These are
-  qualitative judgments and are not auto-generated.
+A synthesis is **hand-curated**, not generated. The curator reads every provider
+report in full and writes the harmonized statements, per-provider `stance`/`score`,
+`best_matching_text` quotes, and `curation_status` directly. There is deliberately
+no scaffolding tool that pre-seeds "deterministic" parts (citation intersection,
+provider stubs): those shortcuts add little — citation overlap is a weak signal
+(providers routinely agree on a claim while citing entirely different papers) —
+and a partial auto-fill nudges the curator toward the tool's framing instead of
+the reports'. The one automated step is the **validator** (`just validate-synthesis`),
+which is a check run *after* curation, never a generator: it confirms the schema
+is satisfied and every `best_matching_text` is a verbatim substring of its report.
 
 `best_matching_text` values must be exact quotes from the report files.
 
