@@ -318,7 +318,62 @@ ancestry-dependence of the genetic spectrum explicit (BBS1 falls from ~25% in Eu
 to 7% in the Indian cohort).
 
 
-## 9. Gaps
+## 9. Imaging & detection modality representation
+
+**Decision.** In-vivo imaging findings are modeled with a **dedicated, ontology-bound
+`ImagingFinding` class** on the `Disease` entry (slot `imaging_findings`), the macroscopic
+/ in-vivo counterpart of `HistopathologyFinding`. The **modality** (the test) and the
+**finding** (what is seen) are represented separately, because they answer different
+questions and bind to different vocabularies:
+
+- **`modality`** (`ImagingModalityEnum`) — a small closed set (MRI, functional MRI, CT,
+  PET, SPECT, ultrasound, X-ray, mammography, angiography, OCT, other), with `meaning:`
+  values bound to the **NCI Thesaurus Diagnostic Imaging branch** (e.g. `NCIT:C16809`
+  Magnetic Resonance Imaging, `NCIT:C17204` Computed Tomography, `NCIT:C17007` PET).
+- **`imaging_finding_term`** (`ImagingFindingDescriptor`) — the imaging appearance, bound
+  via `ImagingFindingTerm` to the **NCIT Imaging Finding branch** (`NCIT:C176708` /
+  `NCIT:C199145`) and/or the **HP Phenotypic-abnormality branch** (`HP:0000118`), since
+  most radiologic observations coincide with a described phenotype (white-matter lesions,
+  atrophy, hyperintensity). The term binding is **RECOMMENDED, not REQUIRED**: many
+  specific radiologic appearances (e.g. "gadolinium-enhancing lesion") lack a dedicated
+  NCIT/HP term and are carried on `preferred_term` alone rather than being forced onto an
+  ill-fitting code or fabricated.
+- **Body site** reuses the existing `located_in` (UBERON) slot, plus `laterality` and
+  `spatial_extent` (focal/multifocal/diffuse), because imaging is inherently spatial. An
+  optional `phenotype_term` cross-links the finding to the HP phenotype it also maps to.
+
+**In scope.** Imaging *findings* that are mechanistically- or diagnostically-meaningful
+readouts — a lesion, an atrophy pattern, a contrast-enhancement behavior that reflects the
+underlying pathophysiology or defines a diagnostic criterion (`diagnostic: true`).
+
+**Out of scope.** Acquisition/protocol parameters, per-patient reads, and radiology
+decision support — consistent with §1 (DisMech is not a diagnostic decision-support tool).
+`ImagingFinding` is the in-vivo/macroscopic sibling of `HistopathologyFinding` (biopsy/
+microscopy) and is distinct from the generic free-text `diagnosis` slot (which records that
+a test was ordered / its presence-absence result) and from the molecular `Biomarker*` /
+`Biochemical` machinery (lab analytes, unchanged).
+
+**Rationale.** Before this decision, imaging leaked into four places — free-text
+`diagnosis` entries (e.g. `"MRI with Gadolinium Contrast"`), free-text `imaging_requirements`
+in criteria sets, HP `phenotypes` / UBERON anatomy, and `notes`/`evidence` prose — none of
+it queryable by modality or finding. Splitting modality from finding makes "which diseases
+show white-matter T2 lesions on MRI?" answerable while keeping the anti-hallucination
+guarantee (every attached term must be a real NCIT/HP/UBERON term with a matching label).
+
+**Ontology choice.** RadLex is the natural radiology vocabulary but is **not hosted on EBI
+OLS4** (it lives on BioPortal, which needs the `bioportal:` adapter + an API key), so it is
+not wired into `conf/oak_config.yaml` today. The grounding therefore uses **NCIT (already
+OLS-served) + HP**, which covers modality cleanly and findings adequately; a future
+tightening to RadLex-grade finding granularity is a deferred follow-up (see §10). Because
+the finding binding is RECOMMENDED, the ontology gap does not block curation.
+
+**Worked example.** `Multiple_Sclerosis` carries two `imaging_findings`: multifocal
+periventricular white-matter lesions on MRI (bound to `HP:0007052`, `located_in`
+`UBERON:0003544` brain white matter, `spatial_extent: MULTIFOCAL`, `diagnostic: true`) and
+a gadolinium-enhancing lesion (modality MRI, `preferred_term`-only — the RECOMMENDED-no-code
+case).
+
+## 10. Gaps
 
 This section details decisions we have **not yet made or formalized**.
 
@@ -330,6 +385,8 @@ This section details decisions we have **not yet made or formalized**.
 | Deprecated `prevalence.percentage` cleanup | `percentage` superseded by structured prevalence slots (§8) and deprecated. The bare-number unit-ambiguity backlog is effectively resolved: of 199 records, **166 are converted** via `scripts/resolve_bare_prevalence.py` plus reviewed batches — 91 low-value rare-disease prevalences, 47 high-percent population/cohort prevalences (conditional ones qualified by their `population` field), 9 hand-fixed `DISAGREE`, and 19 final records (12 uncorroborated-but-legit + 7 filter false-positives) using the rule **decimal = percent, scientific-notation = proportion** (e.g. CHIME `1e-06` = 1/million; Cockayne `4e-06` = 1/250,000; carrier/birth measures set where stated). All additive; `percentage` preserved. The **33 not converted are not a unit problem**: 32 are records that are *not population prevalence at all* (`MISPLACED_STAT` in `research/prevalence_bare_number_report.md` — metastatic-cancer 5-year survival, staging fractions, complication rates, and fraction-of-category such as "X% of all lymphomas/leukemias/cancers"), which belong in a different slot and need **relocation, not unit-fixing** — a distinct data-quality task pending a schema home for survival/staging/subtype-share data; plus 1 genuinely-ambiguous record (Nephronophthisis `0.1-1.0`, neither a clean percent nor proportion with no corroborating evidence). Plus ~8 free-prose head-counts. `percentage` field removal is deferred until the misplaced-data relocation lands. **Post-migration correction (PR review):** a systematic scan found **19 records across 16 files** where a *fraction-of-category* or *penetrance* value (with the qualifier living in `notes`, so the percentage-only guard missed it) had been wrongly converted to a population `rate_per_100000` — e.g. Osteogenesis_Imperfecta_Type_II `50%` (half of prenatal-onset OI cases → 50,000/100k), HPAH/FXTAS carrier **penetrance** (~40% → 40,000/100k), Minimal_Change_Disease (70–90% of idiopathic NS), Cholesteatoma (419/1710 otitis-media patients). These had their `measure_type`/`prevalence_class`/`rate_*` slots stripped (bare `percentage` preserved). The migration guard was hardened accordingly: `FRACTION_OF_CATEGORY_RE` now also matches cohort head-counts (`N of M`) and `% of <solved/idiopathic/sporadic/typhoidal/…>` categories stated in the percentage, and a new `PENETRANCE_RE` (safe to run against `notes`) catches penetrance/lifetime-risk qualifiers. Bare-percentage cohort fractions whose qualifier is *only* in prose remain inherently ambiguous from the value alone and are corrected by hand rather than by an aggressive notes scan (which would false-positive on records like Lathyrism, whose notes cite a cohort count but whose `percentage` is a genuine population estimate). **Second correction batch (PR review):** a follow-up KB-wide scan surfaced a further class of measure-type/conditional errors on rate-bearing records — (a) **genotype-conditional cumulative incidence / penetrance** stated as "N% diagnosed by age X" (Hemochromatosis male C282Y homozygotes 56.4% by age 80) or "cumulative risk of new cases up to age N" (Oppositional_Defiant_Disorder), which were stripped like the penetrance records; (b) **wrong measure_type** where the type lived only in `notes`/snippet — lifetime prevalence tagged POINT (Anorexia_Nervosa, Migraine_with_Aura → LIFETIME_PREVALENCE) and 12-month prevalence tagged POINT (Obsessive-Compulsive_Disorder → PERIOD_PREVALENCE); (c) **cohort-conditional risk-factor rates** (Furunculosis S. aureus nasal-carriage 60%/36%, Acute_Hypotension 88% intraoperative-event rate in ASA 3–4 surgical patients), stripped; and (d) a **two-figure percentage** where the parser captured the incidence not the prevalence (Systemic_Lupus_Erythematosus North America "23.2/100k incidence; 241/100k prevalence"), split into separate POINT_PREVALENCE (241) and ANNUAL_INCIDENCE (23.2) records. `PENETRANCE_RE` was extended with `cumulative incidence/risk` and `diagnosed by age` (verified against the KB to add no false positives on legitimate rate-bearing records). **Third correction batch (PR review):** a further scan found cohort-conditional / diagnostic-procedure rates whose qualifier lives only in the **`population` label** (not `percentage`/`notes`), which the guards do not parse: e.g. FICUS_syndrome (PICS-F among ICU family members), Coronary_Vasospasm (spasm among ANOCA patients), Refeeding_Syndrome (event rate in hospitalized/PN patients), Aortitis (histology among aortic-surgery patients), Brucellosis (pooled prevalence among included study populations), Silent_Sinus_Syndrome (radiologic finding among head-CT patients), Laryngotracheoesophageal_Cleft (proportion among endoscopy referrals) — structured slots stripped. Plus three `measure_type` corrections to BIRTH_PREVALENCE (Klinefelter_Syndrome, Wolf-Hirschhorn_Syndrome, MECP2_Duplication_Syndrome) where the birth-prevalence language was in the snippet only. Population-label conditionality is deliberately **not** auto-guarded: the label alone cannot separate a selected referral cohort ("adults undergoing head CT") from a legitimate large-scale screening population that approximates the general rate ("Pregnant women undergoing genome-wide NIPS", 333,187 women → 6.9/100,000), so this class stays manual-review. | migration follow-up + schema follow-up (destination for survival/staging/subtype-share) |
 | Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8). `Bardet-Biedl_Syndrome` backfilled for five genes (BBS1, BBS10, ARL6/BBS3, MKKS/BBS6, BBS9) across European, metabolic, and Indian cohorts. **Method/caveat:** dominant-gene fractions (BBS1, BBS10) appear in citable abstracts; minor-gene fractions are recoverable only from **open-access full-text** cohort papers/reviews whose cache is `full_text_xml` (the Indian-cohort figures came from PMID:27853007), since abstracts and the GeneReviews table (NBK1363 T3) and the Niederlová meta-analysis abstract (PMID:31283077) do not carry them. Backfilling the remaining minor genes is gated on finding such full-text-cacheable sources — figures must **not** be filled from memory (anti-hallucination policy, §6). Whether to deprecate the overloaded `frequency` field is also outstanding; no automated extractor yet. | schema follow-up |
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
+| RadLex-grade imaging-finding granularity | `ImagingFinding` (§9) grounds findings in NCIT + HP, which is patchy for specific radiologic appearances (e.g. contrast enhancement, T2 hyperintensity resolve to procedures or CTCAE grades). Tightening `ImagingFindingTerm` to a RadLex `reachable_from` (and `finding_term` to REQUIRED) is deferred: RadLex is not on EBI OLS4, so it needs a `bioportal:` adapter + API key in `conf/oak_config.yaml`. | schema/ontology follow-up |
+| Non-imaging detection modalities | §9 covers imaging only. Other in-vivo investigations — electrophysiology (EEG, evoked potentials, ECG), functional/provocation tests — still live in the generic free-text `diagnosis` list. Whether to generalize `ImagingFinding` into a broader `DetectionModality`/`Investigation` class (or add sibling classes) is undecided; imaging-specific was chosen first for clean modality/finding ontology grounding. | schema follow-up |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
 | Schema docs vs. script docs separation | Schema element pages currently mix in script docs | [#2737](https://github.com/monarch-initiative/dismech/issues/2737) |
