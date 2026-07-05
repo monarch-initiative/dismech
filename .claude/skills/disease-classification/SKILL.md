@@ -145,13 +145,20 @@ classifications:
   - classification_value: ENDOCRINOLOGY_METABOLISM
   icimd_category:
   - classification_value: organic_acidurias        # group; rolls up to amino_acid_metabolism
-    evidence:
-    - reference: PMID:33340416
-      supports: SUPPORT
-      evidence_source: OTHER
-      snippet: "exact quote from the ICIMD paper framing the category"
-      explanation: ICIMD assigns this disorder to the organic acidurias group.
+    notes: >-
+      ICIMD (Ferreira et al. 2021, PMID:33340416): group "Organic acidurias"
+      under category "Disorders of amino acid metabolism".
 ```
+
+Record provenance in `notes:` (as above) for the ICIMD assignment. An
+ICIMD placement is a *definitional taxonomy* mapping, not an empirical
+disease claim, and the ICIMD paper's abstract carries no per-disease
+sentence that would serve as an exact-quote `snippet:` supporting a
+specific group. A formal `evidence:` block (identical shape to any other
+dismech evidence — cached PMID + exact-quote snippet) is still valid and
+welcome when a source genuinely states the placement (e.g. the iembase
+entry text or a disease-specific review); prefer `notes:` over a generic
+snippet that only supports the framework rather than the assignment.
 
 Pair `icimd_category` with `harrisons_chapter` (usually
 `ENDOCRINOLOGY_METABOLISM` and/or `GENETICS_ENVIRONMENT_DISEASE`) the
