@@ -116,6 +116,60 @@ enum.
   (`Carcinoma`, `Adenocarcinoma`, `Sarcoma`, `Leukemia`, `Lymphoma`,
   `Melanoma`, `Glioma`, `Embryonal Neoplasm`, `Squamous Cell
   Carcinoma`). Apply to neoplastic entries.
+- **`icimd_category`** — International Classification of Inherited
+  Metabolic Disorders (ICIMD) category/group. Apply to inherited
+  metabolic disorders (inborn errors of metabolism). Multivalued. See
+  the dedicated section below.
+
+## ICIMD (`icimd_category`) — inherited metabolic disorders
+
+For inherited metabolic disorders, assign the ICIMD category/group from
+`ICIMDEnum` (defined in `src/dismech/schema/classifications/icimd.yaml`,
+transcribed from Ferreira et al. 2021, **PMID:33340416**). ICIMD is a
+consensus, mechanism-first nosology of inborn errors of metabolism.
+
+The enum is **hierarchical**: it encodes the 24 ICIMD **categories**
+(layer 1) as top-level values and the ~113 disease **groups** (layer 2)
+as children that declare their parent category via `is_a`. Both levels
+are valid assignments.
+
+**Assign the most specific applicable node** — usually a group. The
+parent category is derivable through `is_a`, so you do not also need to
+list the category. Assign at category level only when the specific group
+is unknown. The slot is multivalued: add more than one node when a
+disorder genuinely spans groups.
+
+```yaml
+classifications:
+  harrisons_chapter:
+  - classification_value: ENDOCRINOLOGY_METABOLISM
+  icimd_category:
+  - classification_value: organic_acidurias        # group; rolls up to amino_acid_metabolism
+    evidence:
+    - reference: PMID:33340416
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: "exact quote from the ICIMD paper framing the category"
+      explanation: ICIMD assigns this disorder to the organic acidurias group.
+```
+
+Pair `icimd_category` with `harrisons_chapter` (usually
+`ENDOCRINOLOGY_METABOLISM` and/or `GENETICS_ENVIRONMENT_DISEASE`) the
+same way other specific taxonomies are set alongside Harrison's. ICIMD
+is finer-grained and metabolism-specific; the lysosomal storage diseases
+in particular can carry both `lysosomal_storage_category` and an ICIMD
+group under `complex_molecule_degradation`.
+
+To list the available categories/groups:
+
+```bash
+uv run python -c "
+from linkml_runtime.utils.schemaview import SchemaView
+sv = SchemaView('src/dismech/schema/dismech.yaml')
+for k, pv in sv.get_enum('ICIMDEnum').permissible_values.items():
+    print(('  ' if pv.is_a else '') + k + (f'  (is_a {pv.is_a})' if pv.is_a else '  [CATEGORY]'))
+"
+```
 
 When the same concept fits both Harrison's and a more specific slot,
 **set both**. Example: a tauopathy gets `harrisons_chapter:
