@@ -1,0 +1,11 @@
+| NCT Number | Trial Name | Intervention | Phase | Status | Enrollment | Sponsor | Year |
+|---|---|---|---|---|---:|---|---|
+| NCT05025332 | An Open-Label Study of Oral NNZ-2591 in Pitt Hopkins Syndrome (PTHS-001) | NNZ-2591 oral solution; cyclo-L-glycyl-L-2-allylproline | Phase 2 | Completed | 28 | Neuren Pharmaceuticals Limited | 2021–2025 (completed 2024) (pqac-00000036, pqac-00000037) |
+| NCT07135050 | Phase 1/2 Study of MZ-1866, an AAV-9 Gene Therapy Delivered by Intracerebroventricular Injection to Participants With Pitt Hopkins Syndrome | MZ-1866 AAV-9 gene therapy; intracerebroventricular injection | Phase 1/2 | Recruiting | 12 | Mahzi Therapeutics | 2025–2029 est. (pqac-00000017) |
+| NCT07150026 | An Exploratory Evaluation of the Safety and Efficacy of Vorinostat in Pitt Hopkins Syndrome | Vorinostat; HDAC inhibitor | Phase 1 | Recruiting | 5 | Unravel Biosciences, Inc. | 2026 (pqac-00000016) |
+| NCT04132427 | Microbiota Transfer Therapy for Children With Both Pitt Hopkins Syndrome and Gastrointestinal Disorders | Microbiota transfer therapy: oral vancomycin, magnesium citrate, fecal microbiota/placebo | Phase 2 | Completed | 6 | Arizona State University | 2019–2024 (completed 2022) (pqac-00000038) |
+| NCT06321796 | Microbiota Transfer Therapy for Children and Adults With Both Pitt Hopkins Syndrome and Gastrointestinal Disorders | Microbiota Transfer Therapy (extension) | Phase 2 | Unknown | 20 | Gut-Brain-Axis Therapeutics Inc. | 2024 (pqac-00000000) |
+| NCT05165017 | Randomized Double Blind Placebo Controlled Study of the Safety & Efficacy of Therapeutic Treatment With AlloRx Stem Cells® in Patients With Pitt Hopkins Syndrome | AlloRx Stem Cells®; umbilical cord-derived allogeneic mesenchymal stem cells | Phase 1/2 | Unknown / not yet recruiting at last update | 26 | Vitro Biopharma Inc. | 2021–2023 est. (pqac-00000040) |
+
+
+*Table: This table summarizes currently identified Pitt-Hopkins syndrome interventional trials, including drug, gene therapy, microbiome, and cell therapy studies. It is useful for quickly comparing intervention types, development stage, recruitment status, and sponsor activity.*

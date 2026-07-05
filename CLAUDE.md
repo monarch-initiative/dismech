@@ -121,6 +121,33 @@ config instead. Page/build crons are intentionally unmanaged. See
 ### Scripts (`scripts/`)
 - `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
 
+### Research Artifacts (`research/`)
+
+**`research/` is ONLY for deep-research outputs — do not hand-place files here.**
+The directory holds the raw, per-disease outputs of deep-research runs (the
+`/deep-research` skill and DR providers such as Falcon, Asta, OpenScientist,
+Perplexity): the `*-deep-research-*.md` reports, their `*.citations.md`
+sidecars, `*_artifacts/` image folders, `*-research-synthesis.md` roll-ups, and
+Claude Code literature sweeps. These are consumed by curation as first-class
+inputs and indexed by `scripts/index_research_artifacts.py`; evidence `images:`
+paths and DR provenance resolve relative to this directory.
+
+Rules:
+- **Do not manually write ad-hoc research or analysis markdown into `research/`.**
+  Notes about the code internals, project investigations, landscape surveys,
+  pilots, registries, and paper maps do **not** belong here — put them under
+  `docs/` instead (e.g. `docs/superpowers/` for agent investigations/plans/specs,
+  `docs/reports/` for analysis reports, `docs/research/` for research provenance,
+  `docs/curation-notes/` for per-disease curation notes). Everything under `docs/`
+  should also be surfaced in the `mkdocs.yml` nav.
+- **Exception — deterministic script outputs may live in `research/`.** A handful
+  of scripts write generated data here by design (e.g.
+  `scripts/nec_risk_audit.py` → `research/nec_risk_disease_classes.md`,
+  `scripts/grouping_mondo_gaps.py` → `research/grouping_mondo_gaps.md`, the
+  node-embedding worklist, `conforms_to_suggestions.tsv`, `cebm_pilot_*.json`).
+  These are generated, not "manually touched"; regenerate them via their script
+  rather than hand-editing, and leave them in place.
+
 ### Structured-Database Sources (`src/dismech/structured_sources/`)
 - Framework for ingesting structured knowledge bases (Orphanet, ClinGen; OMIM /
   MONDO / HGNC pluggable) into `references_cache/` as line-oriented markdown
@@ -214,6 +241,7 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `aortopathy_tgfbeta_dysregulation` — Conserved heritable thoracic aortic aneurysm/dissection (TAAD) pattern: aortic-wall ECM or smooth-muscle contractile-apparatus defect → paradoxically increased TGF-beta signaling dysregulation → medial degeneration (smooth muscle cell depletion + elastic fiber fragmentation) and wall weakening → progressive aortic dilation/aneurysm → aortic dissection and rupture. Conforming disorder nodes substitute the disorder-specific primary lesion (FBN1 microfibril deficiency in Marfan/Shprintzen-Goldberg; TGFBR1/2, SMAD3, TGFB2/3 in Loeys-Dietz; COL3A1 in vascular Ehlers-Danlos; SLC2A10 in arterial tortuosity; ACTA2/MYH11/MYLK/PRKG1 in nonsyndromic familial TAAD). Key conformance target: `aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation`
 - `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
 - `cardiac_ion_channel_repolarization` — Conserved cardiac channelopathy pattern: cardiac ion-channel or calcium-handling variant → altered action-potential duration / Ca²⁺ handling → arrhythmogenic substrate and triggered activity (EADs/DADs, dispersion of repolarization, reentry) → ventricular tachyarrhythmia → syncope and sudden cardiac death, with a parallel sinoatrial-node automaticity-failure branch producing bradyarrhythmia. For inherited arrhythmia syndromes in structurally normal hearts (Long QT, Short QT, Brugada, RYR2-CPVT, Timothy, torsade/short-coupled VF, familial sick sinus). Key conformance target: `cardiac_ion_channel_repolarization#Arrhythmogenic Substrate and Triggered Activity`
+- `antisense_oligonucleotide_therapy` — Three FDA-approved ASO paradigms: (1) RNase H knockdown: pathogenic mRNA accumulation → RNase H-mediated transcript degradation → reduction of pathogenic protein (SOD1-ALS/tofersen, ATTR/inotersen or eplontersen, FH/mipomersen, FCS/volanesorsen or olezarsen, HAE/donidalorsen, FUS-ALS/jacifusen); (2) Splice-site occlusion: aberrant pre-mRNA splicing → ASO-directed splice redirection → restored protein reading frame (SMA/nusinersen, DMD exon-skipping/eteplirsen, golodirsen, viltolarsen, casimersen); (3) Steric translation blockade: pathogenic viral mRNA translation → steric viral mRNA translation blockade (CMV retinitis/fomivirsen). Key conformance targets: `antisense_oligonucleotide_therapy#Pathogenic mRNA Accumulation`, `antisense_oligonucleotide_therapy#Aberrant Pre-mRNA Splicing`, `antisense_oligonucleotide_therapy#Pathogenic Viral mRNA Translation`
 
 The following modules capture conserved **treatment-toxicity / "side effect as mechanism"** patterns — adverse-drug-reaction pathophysiology that recurs across many culprit drugs, so a drug-toxicity entry can declare conformance rather than re-deriving the chain (the same insult-agnostic convergence logic the `intestinal_barrier_dysfunction` module already applies to drug-induced and disease-intrinsic diarrhea). Note that several mechanism modules above (`peripheral_axonal_degeneration` for chemo-induced peripheral neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT) already double as toxicity targets without a separate "side effect" class:
 - `myelosuppression` — Conserved cytotoxic bone-marrow-toxicity pattern (chemotherapy, radiation, other antiproliferative exposures): cytotoxic insult to proliferating hematopoietic stem/progenitor cells → bone marrow hematopoietic suppression → multilineage peripheral cytopenias (neutropenia/anemia/thrombocytopenia) → cytopenia-related clinical complications (infection/febrile neutropenia, fatigue, bleeding) and dose-limiting toxicity. Conforming disorder nodes substitute the disorder-specific cytotoxic driver and may specialize the cytopenia node to a predominant lineage. Key conformance target: `myelosuppression#Multilineage Peripheral Cytopenias`
@@ -349,6 +377,46 @@ candidate discovery), `Heritable_Thoracic_Aortic_Disease` (NECESSARY with a
 nested AND/OR phenotype branch), and `Lysosomal_Storage_Disorders` (defining
 module criterion + a nested GROUPING member).
 
+### Digenic / Oligogenic Inheritance (Multi-Locus)
+
+Some disorders require variants at **two loci (digenic)** or a **few loci
+(oligogenic/triallelic)** rather than a single Mendelian locus. Curate the
+multi-locus mode of inheritance explicitly so it is machine-queryable — do not
+leave it as free text.
+
+**Where it goes:** add an `Inheritance` block (in the disease-level
+`inheritance:` list, and/or on a `has_subtypes[]` entry when only one subtype is
+multi-locus) with `inheritance_term` bound to the HPO mode-of-inheritance
+subtree:
+
+- `HP:0010984` **Digenic inheritance** (two loci both required)
+- `HP:0010983` **Oligogenic inheritance** (triallelic / a few loci)
+- `HP:0010982` **Polygenic inheritance** (many small-effect loci; use with
+  `relationship_type: SUSCEPTIBILITY` gene typing)
+
+Always **bind the `term:`** — an `inheritance_term` with only a `preferred_term`
+and no `term:` is the common gap. The `Inheritance` class has no `genes` slot, so
+name the contributing genes in the block `description`; put per-gene detail in
+the `genetic:` section (use `relationship_type: MODIFIER` / `SUSCEPTIBILITY` /
+`COOPERATING` for a contributing second locus) or, for a digenic subtype, in the
+`has_subtypes[].genes` list.
+
+**Evidence discipline:** the digenic/oligogenic claim gets its own PMID with an
+exact-quote snippet (typically the double-heterozygote / joint-transmission /
+epistasis sentence), separate from the general disease evidence.
+
+**Exemplar:** `PRPH2-Related_Retinopathy` is the reference implementation — it
+models digenicity both as an RP7-digenic subtype (listing PRPH2 + ROM1) and as a
+top-level `Digenic inheritance` block bound to `HP:0010984`, citing the classic
+double-heterozygote study (`PMID:8202715`). Other worked digenic/oligogenic
+entries: `Alport_Syndrome`, `Usher_Syndrome`,
+`Facioscapulohumeral_Muscular_Dystrophy` (FSHD2),
+`MITF_Waardenburg_Tietz_Spectrum`, `Meckel_Syndrome`, `Hirschsprung_Disease`
+(oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
+`Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
+`Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
+(`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+
 ### Evidence Items
 All evidence must have PMID references and support classification:
 ```yaml
@@ -404,6 +472,19 @@ non-empty list even for single-actor sessions, include `links:` for relevant
 issues, PRs, and other URLs, keep `summary` short, and put rich review/curation
 notes in the required `details` field. For AI-assisted curation, include the
 model plus agent tool/version fields when they are known.
+
+**Any PR that creates or edits a KB entry (`kb/disorders/`, `kb/modules/`,
+`kb/comorbidities/`) should add a matching history record.** CI posts an advisory
+(non-blocking) warning when a KB entry changes without one. Do not hand-write the
+filename/timestamp — scaffold a schema-valid skeleton and edit its `details`:
+
+```bash
+just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
+  --summary "Create: Asthma" --agent-tool claude-code --model claude-opus-4-8 \
+  --sections phenotypes,pathophysiology,evidence --pr 5123 \
+  --details "What was curated and how it was validated."
+# run `just new-history --help` for all options; it prints the created path
+```
 
 Validate history records with:
 
@@ -817,6 +898,76 @@ reference_ranges:
 phenotype-activation points); use reference ranges for measured lab analytes.
 
 The CKD-Mineral Bone Disorder entry is the worked example.
+
+### Prevalence (disease occurrence)
+
+Model disease occurrence with the **structured** `Prevalence` slots, not the
+deprecated free-text `percentage` field (see design decision §8). Each prevalence
+record should separate the four dimensions the old field conflated:
+
+- `population` — cohort / geography only (e.g. `Worldwide`, `Ashkenazi Jewish
+  population`). Do **not** put the measure type here.
+- `measure_type` (`PrevalenceMeasureEnum`) — `POINT_PREVALENCE`, `BIRTH_PREVALENCE`,
+  `LIFETIME_PREVALENCE`, `PERIOD_PREVALENCE`, `ANNUAL_INCIDENCE`, `CARRIER_FREQUENCY`,
+  `CASES_IN_LITERATURE`, or `UNKNOWN`. Never compare a prevalence with an incidence.
+- `prevalence_class` (`PrevalenceClassEnum`) — the coarse, always-fillable band
+  (the population-rate analog of phenotype `FrequencyEnum`). Numeric tiers are the
+  Orphanet classes (`ABOVE_1_IN_1000`, `BAND_1_5_PER_10000`, `BAND_1_9_PER_100000`,
+  `BAND_1_9_PER_1000000`, `BELOW_1_IN_1000000`, `NOT_YET_DOCUMENTED`); qualitative
+  tiers (`COMMON`, `RARE`, `ULTRA_RARE`, `UNKNOWN`) cover prose-only sources.
+- `rate_per_100000` (+ `rate_low` / `rate_high` for ranges) — one normalized number
+  in cases per 100,000 (`% × 1000`; `per million ÷ 10`; `1 in N → 100000/N`).
+- `notes` keeps the verbatim source phrasing; `evidence` is unchanged.
+
+```yaml
+prevalence:
+- population: Worldwide
+  measure_type: POINT_PREVALENCE
+  prevalence_class: BAND_1_5_PER_10000
+  rate_per_100000: 20.0
+  notes: Orphanet worldwide point-prevalence class 1-5 / 10,000.
+  evidence:
+  - reference: ORPHA:558
+    supports: SUPPORT
+    snippet: "1-5 / 10 000 | Worldwide | Point prevalence | PMID:20301510"
+    explanation: Orphanet epidemiology table.
+```
+
+`scripts/migrate_prevalence.py` backfilled existing entries; do not populate
+`percentage` on new records.
+
+#### Per-gene case fractions (genetically heterogeneous diseases)
+
+For a disease where multiple genes each explain some share of cases, record that
+share with structured `Genetic.case_fractions` (multivalued `GeneCaseFraction`),
+**not** the free-text `Genetic.frequency` field. This is the genetic-spectrum
+analog of a `Prevalence` record and is distinct from population occurrence and
+from allele frequency — the share is cohort/ancestry-dependent, so each estimate
+carries its own `population` and `evidence`:
+
+```yaml
+genetic:
+- name: BBS1
+  gene_term:
+    preferred_term: BBS1
+    term:
+      id: hgnc:966
+      label: BBS1
+  frequency: one of the most prevalent BBS genes   # coarse qualitative band (kept)
+  case_fractions:
+  - population: German BBS cohort
+    case_fraction_percent: 24.6
+    notes: Second most common gene in a contemporary German clinical series.
+    evidence:
+    - reference: PMID:35886001
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: "The most common associated genes were BBS10 (32.8%) and BBS1 (24.6%)"
+      explanation: Quantifies the BBS1 share of cases in the German cohort.
+```
+
+Use `case_fraction_low`/`case_fraction_high` for ranges and `cohort_size` when the
+proband count is reported. `Bardet-Biedl_Syndrome` (BBS1/BBS10) is the worked example.
 
 ### Clinical Trials
 
@@ -1375,7 +1526,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `kb/disorders/*.yaml`, `kb/modules/*.yaml` | YES | Core content |
 | `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
-| `research/*.md` | YES | Useful provenance |
+| `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `src/`, `scripts/`, `tests/`, `conf/` | YES | Source code |
 
 ### What NOT to commit
