@@ -45,6 +45,16 @@ curation pipeline on the disorder YAML. This file exists only to evaluate and
 compare claims across providers, so the only reference provenance it keeps is the
 per-provider `citations` (which sources each report leaned on).
 
+## Free-text narrative
+
+The structured findings capture *what* each provider claimed; an optional
+top-level `narrative:` block preserves the qualitative *story* the legacy
+freehand `.md` roll-ups carried. It has five optional prose slots mirroring the
+old section headings — `overview`, `agreement`, `divergence`, `integration`,
+`not_integrated` — plus a free-text `notes` field on the synthesis (and on each
+finding) for caveats. Use the narrative to say things that do not reduce to a
+per-claim stance; the harmonized findings remain the machine-readable backbone.
+
 ## Relationship to `deep-research-client`
 
 The schema deliberately mirrors the field names in
