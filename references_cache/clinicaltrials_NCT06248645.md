@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT06248645"
 title: Oxygen Therapy as an Acute Treatment for Dystonic and/or Plegic Attacks in Alternating Hemiplegia of Childhood
 content_type: summary
+full_text_attempted: true
 ---
 
 # Oxygen Therapy as an Acute Treatment for Dystonic and/or Plegic Attacks in Alternating Hemiplegia of Childhood
