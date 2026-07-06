@@ -85,7 +85,9 @@ validate-disorders *files:
     #!/usr/bin/env bash
     set -u
     existing=()
-    for f in {{files}}; do
+    # Iterate real positional args (see `set positional-arguments` in justfile) so
+    # filenames with shell metacharacters (e.g. Bell's_Palsy.yaml) are safe (#5525).
+    for f in "$@"; do
         if [[ "$f" == {{kb_dir}}/*.yaml && "$f" != *.history.yaml && -f "$f" ]]; then
             existing+=("$f")
         elif [[ ! -f "$f" ]]; then

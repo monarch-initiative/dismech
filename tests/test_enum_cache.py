@@ -208,7 +208,9 @@ def test_validate_disorders_batches_expensive_validators() -> None:
     justfile = (Path(__file__).parent.parent / "project.justfile").read_text()
     body = _recipe_body(justfile, "validate-disorders *files")
 
-    assert "for f in {{files}}; do" in body
+    # Iterate positional args ("$@") rather than interpolating {{files}} as raw
+    # shell text, so filenames with metacharacters don't break the recipe (#5525).
+    assert 'for f in "$@"; do' in body
     assert (
         'uv run linkml-validate --schema {{schema_path}} --target-class Disease "${existing[@]}"'
         in body
