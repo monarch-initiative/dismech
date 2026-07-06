@@ -11,6 +11,13 @@ set dotenv-load := true
 # set dotenv-filename := env_var_or_default("LINKML_ENVIRONMENT_FILENAME", "config.public.mk")
 set dotenv-filename := x'${LINKML_ENVIRONMENT_FILENAME:-config.public.mk}'
 
+# Pass recipe arguments to shell recipes as real positional arguments ($1, $@)
+# instead of only via {{...}} text interpolation. This lets recipes iterate file
+# lists safely with `for f in "$@"`, so paths containing shell metacharacters
+# (e.g. an apostrophe in `Bell's_Palsy.yaml`) no longer break the generated
+# script. See issue #5525.
+set positional-arguments := true
+
 # Set shebang line for cross-platform Python recipes (assumes presence of launcher on Windows)
 shebang := if os() == 'windows' {
   'py'
