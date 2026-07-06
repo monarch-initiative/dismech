@@ -41,6 +41,13 @@ def _count_kb_yaml(kb_dir: Path) -> int:
     )
 
 
+# Path convention for the count helpers below: ``research/``, ``kb/comorbidities``
+# and ``kb/groupings`` are repo-root data (not shipped inside the package), so
+# their defaults are relative and assume the current working directory is the
+# repo root — which is how the export/render pipeline (and CI) always runs them;
+# callers that need a specific location pass an explicit path (the tests do). By
+# contrast ``count_classifications`` resolves ``schema/classifications`` via
+# ``__file__`` because those YAMLs ship *inside* the package.
 def count_research_reports(research_dir: Path = Path("research")) -> int:
     """Count deep-research report files (``*-deep-research-*.md``) under ``research/``.
 
