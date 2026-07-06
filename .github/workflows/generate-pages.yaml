@@ -29,6 +29,12 @@ on:
         description: 'Force run even if already ran today'
         type: boolean
         default: false
+  # Daily full-rebuild backstop (issue #5507). Push builds may render only the
+  # changed disorder pages; this scheduled run always does a FULL rebuild, healing
+  # any cross-link drift an incremental build could leave behind. Page/build crons
+  # are intentionally unmanaged by cron-profiles.yaml.
+  schedule:
+    - cron: '0 6 * * *'
 
 # Let an in-flight build finish rather than killing it when a newer change lands.
 # A full run takes ~30-60 min, so cancel-in-progress: true caused builds to be
@@ -97,8 +103,36 @@ jobs:
       - name: Install project
         run: uv sync --dev
 
-      - name: Generate static HTML pages
+      # Decide whether the disorder-page render must be FULL (a template/render/
+      # schema/style change could alter every page) or may be INCREMENTAL (only
+      # changed kb/disorders/*.yaml pages). Non-push events (schedule, manual
+      # dispatch) and forced pushes always do a full rebuild. Fails safe to full.
+      # See scripts/classify_page_build.py and issue #5507.
+      - name: Classify build scope (full vs incremental)
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          FORCED: ${{ github.event.forced }}
+        shell: bash
+        run: |
+          if [ "$EVENT_NAME" != "push" ] || [ "$FORCED" = "true" ]; then
+            echo "Event '$EVENT_NAME' (forced=$FORCED) -> full rebuild."
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+          else
+            uv run python scripts/classify_page_build.py \
+              --base "$BEFORE_SHA" --head "$HEAD_SHA" \
+              --github-output --files-out "${{ runner.temp }}/changed_disorders.txt"
+          fi
+
+      - name: Generate static HTML pages (full)
+        if: steps.scope.outputs.mode == 'full'
         run: just gen-pages
+
+      - name: Generate static HTML pages (incremental)
+        if: steps.scope.outputs.mode == 'incremental'
+        run: just gen-pages-changed-from "${{ runner.temp }}/changed_disorders.txt"
 
       - name: Generate browser data
         run: just gen-browser-data

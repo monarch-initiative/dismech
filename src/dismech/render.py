@@ -4224,14 +4224,26 @@ def render_all_disorders(
     input_dir: Path = Path("kb/disorders"),
     output_dir: Path = Path("pages/disorders"),
     template_path: Optional[Path] = None,
+    only: Optional[set[Path]] = None,
+    render_research: bool = True,
 ) -> list[Path]:
     """
-    Render all disorder YAML files to HTML pages.
+    Render disorder YAML files to HTML pages.
 
     Args:
         input_dir: Directory containing disorder YAML files
         output_dir: Directory for output HTML files
         template_path: Optional custom template path
+        only: If given, render individual disorder pages only for these disorder
+            YAML paths (incremental mode); the disorder-dependent aggregate/index
+            pages (comorbidities, modules, classification pages) are rendered
+            regardless, so a page that lists disorders stays current. ``None``
+            renders every disorder (full build).
+        render_research: Whether to (re)render the research index and its
+            per-report pages. This pass is expensive and essentially independent
+            of disorder edits, so incremental builds skip it unless a research
+            report actually changed; the daily full-rebuild backstop keeps the
+            research index's disorder cross-links fresh.
 
     Returns:
         List of generated HTML file paths
@@ -4239,13 +4251,19 @@ def render_all_disorders(
     output_dir.mkdir(parents=True, exist_ok=True)
     render_all_comorbidities()
     render_all_modules(disorders_dir=input_dir)
-    render_research_index_page(disorders_dir=input_dir)
+    if render_research:
+        render_research_index_page(disorders_dir=input_dir)
 
     yaml_files = [
         path
         for path in sorted(input_dir.glob("*.yaml"))
         if not path.name.endswith(".history.yaml")
     ]
+    if only is not None:
+        only_resolved = {path.resolve() for path in only}
+        yaml_files = [
+            path for path in yaml_files if path.resolve() in only_resolved
+        ]
     output_files = []
 
     # Each disorder should have a name,
@@ -4261,7 +4279,8 @@ def render_all_disorders(
 
     render_classification_pages(input_dir=input_dir)
 
-    print(f"\nGenerated {len(output_files)} HTML pages in {output_dir}")
+    scope = "changed" if only is not None else "all"
+    print(f"\nGenerated {len(output_files)} disorder HTML pages ({scope}) in {output_dir}")
     return output_files
 
 
@@ -4292,10 +4311,68 @@ def main():
     )
     parser.add_argument("--output", "-o", help="Output path (file or directory)")
     parser.add_argument("--template", "-t", help="Custom template path")
+    parser.add_argument(
+        "--changed",
+        nargs="*",
+        metavar="FILE",
+        help=(
+            "Incremental build: render individual disorder pages only for these "
+            "changed kb/disorders/*.yaml files. The aggregate/index pages "
+            "(comorbidities, modules, research index, classification pages) are "
+            "always regenerated, so changed comorbidity/module/research files are "
+            "picked up too. Use only when no global input (template, render.py, "
+            "schema, styles) changed — those require a full --all build."
+        ),
+    )
+    parser.add_argument(
+        "--changed-from",
+        metavar="FILE",
+        help=(
+            "Like --changed, but read the newline-delimited changed paths from "
+            "FILE. Robust to any characters in filenames; used by the "
+            "generate-pages workflow's incremental build."
+        ),
+    )
 
     args = parser.parse_args()
 
     template_path = Path(args.template) if args.template else None
+
+    changed_values = args.changed
+    if args.changed_from is not None:
+        changed_file = Path(args.changed_from)
+        changed_values = (
+            [
+                line.strip()
+                for line in changed_file.read_text().splitlines()
+                if line.strip()
+            ]
+            if changed_file.exists()
+            else []
+        )
+
+    if changed_values is not None:
+        disorders_dir = Path("kb/disorders")
+        disorders_root = disorders_dir.resolve()
+        research_root = Path("research").resolve()
+        changed_paths = [Path(p) for p in changed_values]
+        only = {
+            path
+            for path in changed_paths
+            if path.resolve().parent == disorders_root
+            and path.name.endswith(".yaml")
+            and not path.name.endswith(".history.yaml")
+        }
+        # The research pass is expensive and disorder-independent; only run it
+        # when a research report actually changed.
+        research_changed = any(
+            path.resolve().parent == research_root and path.name.endswith(".md")
+            for path in changed_paths
+        )
+        render_all_disorders(
+            input_dir=disorders_dir, only=only, render_research=research_changed
+        )
+        return
 
     if args.comorbidity:
         if args.path is None:

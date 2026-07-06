@@ -818,6 +818,22 @@ gen-pages:
     uv run python -m dismech.render --all
     @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, and $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
+# Incremental page build (issue #5507): render only the given changed
+# kb/disorders/*.yaml pages, plus the always-regenerated disorder-dependent
+# aggregate/index pages (comorbidities, modules, classification pages). The
+# expensive research pass runs only if a research report is among the args. Use
+# ONLY when no global input (template, render.py, schema, styles) changed — those
+# need a full `just gen-pages`. The generate-pages workflow's classifier decides.
+[group('Pages')]
+gen-pages-changed *files:
+    uv run python -m dismech.render --changed {{files}}
+
+# Incremental page build reading the changed paths from a newline-delimited file
+# (robust to any characters in filenames). Used by the generate-pages workflow.
+[group('Pages')]
+gen-pages-changed-from file:
+    uv run python -m dismech.render --changed-from {{file}}
+
 # Generate a single disorder page
 [group('Pages')]
 gen-page file:
