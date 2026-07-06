@@ -106,6 +106,21 @@ disorders. A disorder node declares `conforms_to: "module_name#Node Name"`. This
 content and substitute organ-specific cell types/genes. Modules deliberately do not act
 as a base class that disorders inherit from.
 
+**A module models one signalling direction, not a whole pathway.** When a pathway causes
+disease in *opposite* directions, we model each direction as its own module rather than
+folding both into one effect-reversing chain — the same call made for
+`cellular_senescence` (deleterious arm) vs `senescence_tumor_suppression` (protective arm).
+Worked example: **Sonic Hedgehog**. `hedgehog_pathway_activation` captures only the
+*gain*-of-signal oncogenic arm (PTCH1/PTCH2/SUFU loss-of-function or SMO gain-of-function →
+constitutive SMO/GLI output → Hedgehog-driven tumours; the SMO-inhibitor
+mechanism-of-action target). The *loss*-of-signal developmental disorders
+(holoprosencephaly, GLI3-repressor syndromes, ciliary transduction failures) are **not**
+added to it; they remain with `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`
+and `limb_digit_patterning_serial_homology`. Note the gene-level vs pathway-level distinction
+recorded on conforming nodes via `genetic_context.functional_impact_category`: a
+tumour-suppressor *loss-of-function* (PTCH1/SUFU) and an oncogene *gain-of-function* (SMO)
+are opposite at the gene level but both yield net **pathway activation**.
+
 **Causal graph / pathograph.** Pathophysiology nodes connect via `downstream` causal
 edges with a `causal_link_type`, forming a directed graph from etiology to phenotypes.
 This graph backs the rendered pathographs and the computational-model integration
