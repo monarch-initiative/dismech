@@ -24520,12 +24520,15 @@ window.searchData = [
       "Depressed nasal bridge",
       "Short nose",
       "Narrow mouth",
-      "Genital hypoplasia"
+      "Genital hypoplasia",
+      "Multiple joint contractures",
+      "Nail hypoplasia"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Genitourinary",
       "Head and Neck",
+      "Integument",
       "Limbs",
       "Musculoskeletal"
     ],
@@ -24540,7 +24543,9 @@ window.searchData = [
       "HP:0005280",
       "HP:0003196",
       "HP:0000160",
-      "HP:0003241"
+      "HP:0003241",
+      "HP:0002828",
+      "HP:0001792"
     ],
     "frequencies": [],
     "genes": [
@@ -24553,7 +24558,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Brachyphalangy_Polydactyly_Tibial_Aplasia_Syndrome.yaml",
     "page_url": "../pages/disorders/Brachyphalangy-Polydactyly-Tibial_Aplasia_Syndrome.html",
-    "num_phenotypes": 11,
+    "num_phenotypes": 13,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 1,
@@ -51214,19 +51219,26 @@ window.searchData = [
       "Fused cervical vertebrae",
       "Hypospadias",
       "Exotropia",
-      "Intellectual disability"
+      "Intellectual disability",
+      "Mixed hearing impairment",
+      "Alopecia",
+      "Thickened skin"
     ],
     "phenotype_categories": [
       "Craniofacial",
       "Dental",
       "Skeletal",
       "Genitourinary",
-      "Neurodevelopmental"
+      "Neurodevelopmental",
+      "Auditory",
+      "Integumentary"
     ],
     "phenotype_hpo_categories": [
+      "Ear",
       "Eye",
       "Genitourinary",
       "Head and Neck",
+      "Integument",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -51242,7 +51254,10 @@ window.searchData = [
       "HP:0002949",
       "HP:0000047",
       "HP:0000577",
-      "HP:0001249"
+      "HP:0001249",
+      "HP:0000410",
+      "HP:0001596",
+      "HP:0001072"
     ],
     "frequencies": [],
     "genes": [
@@ -51253,7 +51268,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Elsahy-Waters_Syndrome.yaml",
     "page_url": "../pages/disorders/Elsahy-Waters_Syndrome.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 15,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
@@ -61058,6 +61073,7 @@ window.searchData = [
       "Progressive microcephaly",
       "Global developmental delay",
       "Seizures",
+      "Infantile spasms",
       "Hypotonia",
       "Strabismus",
       "Thin corpus callosum",
@@ -61085,6 +61101,7 @@ window.searchData = [
       "HP:0000253",
       "HP:0001263",
       "HP:0001250",
+      "HP:0012469",
       "HP:0001252",
       "HP:0000486",
       "HP:0033725",
@@ -61102,7 +61119,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "GOLGA2-Related_Golgin_A2_Deficiency.yaml",
     "page_url": "../pages/disorders/GOLGA2-Related_Golgin_A2_Deficiency.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 11,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
@@ -109156,11 +109173,15 @@ window.searchData = [
       "Reduced Bone Mineral Density",
       "Growth Deficiency",
       "Progressive Scoliosis",
-      "Congenital Joint Contractures (Bruck-Syndrome Overlap)"
+      "Congenital Joint Contractures (Bruck-Syndrome Overlap)",
+      "White Sclerae (Blue Sclerae Characteristically Absent)",
+      "Normal Dentition (Dentinogenesis Imperfecta Characteristically Absent)"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Eye",
       "Growth",
+      "Head and Neck",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
@@ -109168,7 +109189,9 @@ window.searchData = [
       "HP:0004349",
       "HP:0001510",
       "HP:0002650",
-      "HP:0002803"
+      "HP:0002803",
+      "HP:0000592",
+      "HP:0000703"
     ],
     "frequencies": [],
     "genes": [
@@ -109183,7 +109206,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Osteogenesis_Imperfecta_Type_XI.yaml",
     "page_url": "../pages/disorders/Osteogenesis_Imperfecta_Type_XI.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 7,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
@@ -109386,12 +109409,14 @@ window.searchData = [
       "Coxa Vara",
       "Muscular Hypotonia",
       "Scoliosis",
-      "Blue Sclerae"
+      "Blue Sclerae",
+      "Dental Abnormalities"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Eye",
       "Growth",
+      "Head and Neck",
       "Limbs",
       "Musculoskeletal"
     ],
@@ -109404,7 +109429,8 @@ window.searchData = [
       "HP:0002812",
       "HP:0001252",
       "HP:0002650",
-      "HP:0000592"
+      "HP:0000592",
+      "HP:0000164"
     ],
     "frequencies": [],
     "genes": [
@@ -109419,7 +109445,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Osteogenesis_Imperfecta_Type_XIV.yaml",
     "page_url": "../pages/disorders/Osteogenesis_Imperfecta_Type_XIV.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 10,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
@@ -120406,7 +120432,8 @@ window.searchData = [
     "frequencies": [],
     "genes": [
       "JAK2 Structural Alteration",
-      "SH2B3 Structural Alteration"
+      "SH2B3 Structural Alteration",
+      "CDKN2A/B Inactivation"
     ],
     "treatments": [
       "Systemic Therapy",
@@ -120424,7 +120451,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Primary_Cutaneous_Aggressive_Epidermotropic_CD8+_T-cell_Lymphoma.html",
     "num_phenotypes": 3,
     "num_pathophysiology": 3,
-    "num_genes": 2,
+    "num_genes": 3,
     "num_treatments": 6,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
@@ -135935,16 +135962,22 @@ window.searchData = [
       "Failure to thrive",
       "Inspiratory stridor",
       "Autonomic dysfunction",
-      "Sensory neuropathy"
+      "Sensory neuropathy",
+      "Congenital foot deformities",
+      "Dysphagia"
     ],
     "phenotype_categories": [
       "Respiratory",
       "Neuromuscular",
       "Neurologic",
-      "Constitutional"
+      "Constitutional",
+      "Musculoskeletal",
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Growth",
+      "Limbs",
       "Musculoskeletal",
       "Nervous System",
       "Respiratory"
@@ -135959,7 +135992,9 @@ window.searchData = [
       "HP:0001508",
       "HP:0005348",
       "HP:0012332",
-      "HP:0000763"
+      "HP:0000763",
+      "HP:0001760",
+      "HP:0002015"
     ],
     "frequencies": [],
     "genes": [
@@ -135967,16 +136002,17 @@ window.searchData = [
     ],
     "treatments": [
       "Respiratory Support",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "IGHMBP2 Gene Replacement Therapy (investigational)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Spinal_Muscular_Atrophy_with_Respiratory_Distress_Type_1.yaml",
     "page_url": "../pages/disorders/Spinal_Muscular_Atrophy_with_Respiratory_Distress_Type_1.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 12,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 2,
+    "num_treatments": 3,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
   },
@@ -151733,16 +151769,19 @@ window.searchData = [
       "Retinopathy",
       "Diabetes mellitus",
       "Cognitive impairment",
-      "Postural instability"
+      "Postural instability",
+      "Cardiac arrest"
     ],
     "phenotype_categories": [
       "Hematologic",
       "Ophthalmologic",
       "Endocrine",
-      "Neurologic"
+      "Neurologic",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
       "Endocrine",
       "Eye",
       "Metabolism",
@@ -151753,7 +151792,8 @@ window.searchData = [
       "HP:0000488",
       "HP:0000819",
       "HP:0100543",
-      "HP:0002172"
+      "HP:0002172",
+      "HP:0001695"
     ],
     "frequencies": [],
     "genes": [
@@ -151768,16 +151808,17 @@ window.searchData = [
       "Serum copper",
       "Ferritin",
       "Transferrin saturation",
+      "Serum iron",
       "Tissue iron accumulation",
       "Brain MRI iron accumulation"
     ],
     "source_file": "aceruloplasminemia.yaml",
     "page_url": "../pages/disorders/aceruloplasminemia.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 6,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "4"
   },
   {
@@ -152447,8 +152488,8 @@ window.searchMetrics = {
   "total_disorder_pages": 1538,
   "total_subtypes": 2407,
   "total_disorders_and_subtypes": 3945,
-  "total_unique_evidence_sources": 24277,
-  "total_unique_publications": 22816,
+  "total_unique_evidence_sources": 24278,
+  "total_unique_publications": 22817,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 214,
   "total_pathographs": 1532,
