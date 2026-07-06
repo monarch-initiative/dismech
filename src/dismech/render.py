@@ -26,6 +26,9 @@ try:  # pragma: no cover - exercised implicitly wherever YAML is loaded
 except ImportError:  # pragma: no cover - only when libyaml is not built
     from yaml import SafeLoader as _FastYamlLoader
 
+from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
+from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
+
 
 def _fast_yaml_load(stream):
     """Parse YAML from a file object or string using the fastest safe loader."""
@@ -49,8 +52,6 @@ def _get_shared_env(template_dir_str: str) -> Environment:
         auto_reload=False,
     )
 
-from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
-from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
 
 _HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
