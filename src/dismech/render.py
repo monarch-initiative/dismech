@@ -27,6 +27,7 @@ except ImportError:  # pragma: no cover - only when libyaml is not built
     from yaml import SafeLoader as _FastYamlLoader
 
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
+from dismech.export.utils import RESEARCH_REPORT_PATTERN
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
 
 
@@ -2059,10 +2060,9 @@ def _display_name_from_provider(provider: str) -> str:
     )
 
 
-_RESEARCH_REPORT_PATTERN = re.compile(
-    r"^(?P<slug>.+)-deep-research-(?P<provider>[^.]+)\.md$",
-    re.IGNORECASE,
-)
+# Shared with browser_export so the homepage report count and this index count
+# the same files (issue #5567).
+_RESEARCH_REPORT_PATTERN = RESEARCH_REPORT_PATTERN
 
 
 def _research_report_output_name(report_path: Path) -> str:
