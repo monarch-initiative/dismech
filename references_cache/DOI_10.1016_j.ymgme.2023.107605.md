@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2023.107605"
+reference_id: DOI:10.1016/j.ymgme.2023.107605
 title: "Clinical, biochemical and molecular characterization of 12 patients with pyruvate carboxylase deficiency treated with triheptanoin"
 authors:
 - M. Laura Duque Lasio
@@ -21,6 +21,7 @@ journal: Molecular Genetics and Metabolism
 year: '2023'
 doi: 10.1016/j.ymgme.2023.107605
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Clinical, biochemical and molecular characterization of 12 patients with pyruvate carboxylase deficiency treated with triheptanoin

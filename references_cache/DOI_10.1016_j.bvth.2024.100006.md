@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.bvth.2024.100006"
+reference_id: DOI:10.1016/j.bvth.2024.100006
 title: "Idiopathic multicentric Castleman disease - TAFRO results in high levels of mTOR activator SVEP1, tissue factor, and endotheliopathy"
 authors:
 - Chen Lossos
@@ -15,6 +15,7 @@ journal: "Blood Vessels, Thrombosis &amp; Hemostasis"
 year: '2024'
 doi: 10.1016/j.bvth.2024.100006
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Idiopathic multicentric Castleman disease - TAFRO results in high levels of mTOR activator SVEP1, tissue factor, and endotheliopathy

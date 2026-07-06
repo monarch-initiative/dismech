@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgmr.2024.101153"
+reference_id: DOI:10.1016/j.ymgmr.2024.101153
 title: Outcomes of cases with elevated 3-hydroxyisovaleryl carnitine report from the newborn screening program
 authors:
 - Fuad Al Mutairi
@@ -11,6 +11,7 @@ journal: Molecular Genetics and Metabolism Reports
 year: '2024'
 doi: 10.1016/j.ymgmr.2024.101153
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Outcomes of cases with elevated 3-hydroxyisovaleryl carnitine report from the newborn screening program

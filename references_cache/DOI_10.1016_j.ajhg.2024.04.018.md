@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2024.04.018"
+reference_id: DOI:10.1016/j.ajhg.2024.04.018
 title: "The impact of inversions across 33,924 families with rare disease from a national genome sequencing project"
 authors:
 - Alistair T. Pagnamenta
@@ -74,6 +74,7 @@ journal: The American Journal of Human Genetics
 year: '2024'
 doi: 10.1016/j.ajhg.2024.04.018
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The impact of inversions across 33,924 families with rare disease from a national genome sequencing project

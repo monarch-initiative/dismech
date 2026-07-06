@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1002/cac2.12602"
-title: "<i>FGFR3</i>
-                    alterations in bladder cancer: Sensitivity and resistance to targeted therapies"
+reference_id: DOI:10.1002/cac2.12602
+title: "<i>FGFR3</i> alterations in bladder cancer: Sensitivity and resistance to targeted therapies"
 authors:
 - Maxim Noeraparast
 - Katarina Krajina
@@ -15,10 +14,10 @@ journal: Cancer Communications
 year: '2024'
 doi: 10.1002/cac2.12602
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>FGFR3</i>
-                    alterations in bladder cancer: Sensitivity and resistance to targeted therapies
+# <i>FGFR3</i> alterations in bladder cancer: Sensitivity and resistance to targeted therapies
 **Authors:** Maxim Noeraparast, Katarina Krajina, Renate Pichler, Dora Niedersüß‐Beke, Shahrokh F Shariat, Viktor Grünwald, Sascha Ahyai, Martin Pichler
 **Journal:** Cancer Communications (2024)
 **DOI:** [10.1002/cac2.12602](https://doi.org/10.1002/cac2.12602)

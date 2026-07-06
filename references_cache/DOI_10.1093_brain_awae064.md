@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awae064"
+reference_id: DOI:10.1093/brain/awae064
 title: Whole genome sequencing increases the diagnostic rate in Charcot-Marie-Tooth disease
 authors:
 - Christopher J Record
@@ -20,6 +20,7 @@ journal: Brain
 year: '2024'
 doi: 10.1093/brain/awae064
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Whole genome sequencing increases the diagnostic rate in Charcot-Marie-Tooth disease

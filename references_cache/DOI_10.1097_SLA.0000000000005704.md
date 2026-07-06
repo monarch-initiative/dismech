@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/SLA.0000000000005704"
+reference_id: DOI:10.1097/SLA.0000000000005704
 title: Macrophage-mediated PDGF Activation Correlates With Regenerative Outcomes Following Musculoskeletal Trauma
 authors:
 - Ashish R. Chowdary
@@ -16,6 +16,7 @@ journal: Annals of Surgery
 year: '2023'
 doi: 10.1097/SLA.0000000000005704
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Macrophage-mediated PDGF Activation Correlates With Regenerative Outcomes Following Musculoskeletal Trauma

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41431-023-01336-6"
+reference_id: DOI:10.1038/s41431-023-01336-6
 title: "Population screening for 15q11-q13 duplications: corroboration of the difference in impact between maternally and paternally inherited alleles"
 authors:
 - Ilse Parijs
@@ -25,6 +25,7 @@ journal: European Journal of Human Genetics
 year: '2024'
 doi: 10.1038/s41431-023-01336-6
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Population screening for 15q11-q13 duplications: corroboration of the difference in impact between maternally and paternally inherited alleles

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s41105-023-00454-4"
+reference_id: DOI:10.1007/s41105-023-00454-4
 title: Updates and confounding factors in delayed sleep–wake phase disorder
 authors:
 - Alexandra Wu
@@ -7,6 +7,7 @@ journal: Sleep and Biological Rhythms
 year: '2023'
 doi: 10.1007/s41105-023-00454-4
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Updates and confounding factors in delayed sleep–wake phase disorder

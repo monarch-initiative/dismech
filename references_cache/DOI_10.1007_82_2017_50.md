@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/82_2017_50"
+reference_id: DOI:10.1007/82_2017_50
 title: Uptake of Clostridial Neurotoxins into Cells and Dissemination
 authors:
 - Chloé Connan
@@ -8,6 +8,7 @@ journal: Current Topics in Microbiology and Immunology
 year: '2017'
 doi: 10.1007/82_2017_50
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Uptake of Clostridial Neurotoxins into Cells and Dissemination

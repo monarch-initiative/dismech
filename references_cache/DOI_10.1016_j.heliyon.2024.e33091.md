@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.heliyon.2024.e33091"
+reference_id: DOI:10.1016/j.heliyon.2024.e33091
 title: "Pathways to therapy resistance: The sheltering effect of the bone marrow microenvironment to multiple myeloma cells"
 authors:
 - Kuntal Bhowmick
@@ -13,6 +13,7 @@ journal: Heliyon
 year: '2024'
 doi: 10.1016/j.heliyon.2024.e33091
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pathways to therapy resistance: The sheltering effect of the bone marrow microenvironment to multiple myeloma cells

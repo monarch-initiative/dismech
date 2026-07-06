@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.autrev.2021.102988"
+reference_id: DOI:10.1016/j.autrev.2021.102988
 title: "Autoimmune autonomic ganglionopathy: Ganglionic acetylcholine receptor autoantibodies"
 authors:
 - Nicolás Urriola
@@ -8,6 +8,7 @@ journal: Autoimmunity Reviews
 year: '2022'
 doi: 10.1016/j.autrev.2021.102988
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Autoimmune autonomic ganglionopathy: Ganglionic acetylcholine receptor autoantibodies

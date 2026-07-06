@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/eat.24296"
+reference_id: DOI:10.1002/eat.24296
 title: Postdischarge Mortality in a Cohort Hospitalized With Anorexia Nervosa
 authors:
 - Scott B. Patten
@@ -14,6 +14,7 @@ journal: International Journal of Eating Disorders
 year: '2024'
 doi: 10.1002/eat.24296
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Postdischarge Mortality in a Cohort Hospitalized With Anorexia Nervosa

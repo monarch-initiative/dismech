@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12798"
+reference_id: DOI:10.1002/jimd.12798
 title: An update on autophagy disorders
 authors:
 - Hormos Salimi Dafsari
@@ -13,6 +13,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2025'
 doi: 10.1002/jimd.12798
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # An update on autophagy disorders

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awad358"
+reference_id: DOI:10.1093/brain/awad358
 title: Microglia sense astrocyte dysfunction and prevent disease progression in an Alexander disease model
 authors:
 - Kozo Saito
@@ -17,6 +17,7 @@ journal: Brain
 year: '2024'
 doi: 10.1093/brain/awad358
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Microglia sense astrocyte dysfunction and prevent disease progression in an Alexander disease model

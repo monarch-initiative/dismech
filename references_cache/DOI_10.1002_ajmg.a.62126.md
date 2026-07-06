@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.62126"
+reference_id: DOI:10.1002/ajmg.a.62126
 title: "Segmental overgrowth and aneurysms due to mosaic <scp><i>PDGFRB</i></scp> p.(<scp>Tyr562Cys</scp>)"
 authors:
 - Jirat Chenbhanich
@@ -22,6 +22,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2021'
 doi: 10.1002/ajmg.a.62126
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Segmental overgrowth and aneurysms due to mosaic <scp><i>PDGFRB</i></scp> p.(<scp>Tyr562Cys</scp>)

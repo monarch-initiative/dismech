@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgmr.2018.01.007"
+reference_id: DOI:10.1016/j.ymgmr.2018.01.007
 title: "Hyperphosphatasia with mental retardation syndrome, expanded phenotype of PIGL related disorders"
 authors:
 - Ruqaiah Altassan
@@ -10,6 +10,7 @@ journal: Molecular Genetics and Metabolism Reports
 year: '2018'
 doi: 10.1016/j.ymgmr.2018.01.007
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Hyperphosphatasia with mental retardation syndrome, expanded phenotype of PIGL related disorders

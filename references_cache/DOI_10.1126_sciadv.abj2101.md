@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/sciadv.abj2101"
+reference_id: DOI:10.1126/sciadv.abj2101
 title: Neutrophil extracellular traps enhance macrophage killing of bacterial pathogens
 authors:
 - Andrew J. Monteith
@@ -11,6 +11,7 @@ journal: Science Advances
 year: '2021'
 doi: 10.1126/sciadv.abj2101
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Neutrophil extracellular traps enhance macrophage killing of bacterial pathogens

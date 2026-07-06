@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/braincomms/fcae329"
+reference_id: DOI:10.1093/braincomms/fcae329
 title: Structural lesions and transcriptomic specializations shape gradient perturbations in Wilson disease
 authors:
 - Sheng Hu
@@ -16,6 +16,7 @@ journal: Brain Communications
 year: '2024'
 doi: 10.1093/braincomms/fcae329
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Structural lesions and transcriptomic specializations shape gradient perturbations in Wilson disease

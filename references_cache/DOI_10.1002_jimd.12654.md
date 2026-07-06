@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12654"
+reference_id: DOI:10.1002/jimd.12654
 title: Gene therapy for glycogen storage diseases
 authors:
 - Dwight D. Koeberl
@@ -13,6 +13,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2024'
 doi: 10.1002/jimd.12654
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gene therapy for glycogen storage diseases

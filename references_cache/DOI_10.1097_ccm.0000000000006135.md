@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/ccm.0000000000006135"
+reference_id: DOI:10.1097/ccm.0000000000006135
 title: Surviving Sepsis Campaign Research Priorities 2023
 authors:
 - Daniel De Backer
@@ -22,6 +22,7 @@ journal: Critical Care Medicine
 year: '2024'
 doi: 10.1097/ccm.0000000000006135
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Surviving Sepsis Campaign Research Priorities 2023

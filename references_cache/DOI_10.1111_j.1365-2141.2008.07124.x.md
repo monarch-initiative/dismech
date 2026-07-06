@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.1365-2141.2008.07124.x"
+reference_id: DOI:10.1111/j.1365-2141.2008.07124.x
 title: Advances in the understanding of mantle cell lymphoma
 authors:
 - Pedro Jares
@@ -8,6 +8,7 @@ journal: British Journal of Haematology
 year: '2008'
 doi: 10.1111/j.1365-2141.2008.07124.x
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advances in the understanding of mantle cell lymphoma

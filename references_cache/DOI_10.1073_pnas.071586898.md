@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1073/pnas.071586898"
-title: "A splicing switch and gain-of-function mutation in
-            <i>FgfR2-IIIc</i>
-            hemizygotes causes Apert/Pfeiffer-syndrome-like phenotypes"
+reference_id: DOI:10.1073/pnas.071586898
+title: "A splicing switch and gain-of-function mutation in <i>FgfR2-IIIc</i> hemizygotes causes Apert/Pfeiffer-syndrome-like phenotypes"
 authors:
 - Mohammad K. Hajihosseini
 - Stephen Wilson
@@ -12,11 +10,10 @@ journal: Proceedings of the National Academy of Sciences
 year: '2001'
 doi: 10.1073/pnas.071586898
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# A splicing switch and gain-of-function mutation in
-            <i>FgfR2-IIIc</i>
-            hemizygotes causes Apert/Pfeiffer-syndrome-like phenotypes
+# A splicing switch and gain-of-function mutation in <i>FgfR2-IIIc</i> hemizygotes causes Apert/Pfeiffer-syndrome-like phenotypes
 **Authors:** Mohammad K. Hajihosseini, Stephen Wilson, Laurence De Moerlooze, Clive Dickson
 **Journal:** Proceedings of the National Academy of Sciences (2001)
 **DOI:** [10.1073/pnas.071586898](https://doi.org/10.1073/pnas.071586898)

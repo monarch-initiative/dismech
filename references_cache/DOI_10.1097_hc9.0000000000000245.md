@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/hc9.0000000000000245"
+reference_id: DOI:10.1097/hc9.0000000000000245
 title: Clinical and genetic definition of serum bilirubin levels for the diagnosis of Gilbert syndrome and hypobilirubinemia
 authors:
 - Thierry Poynard
@@ -17,6 +17,7 @@ journal: Hepatology Communications
 year: '2023'
 doi: 10.1097/hc9.0000000000000245
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical and genetic definition of serum bilirubin levels for the diagnosis of Gilbert syndrome and hypobilirubinemia
