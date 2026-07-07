@@ -637,7 +637,7 @@ Source inputs for these batches:
 | 501 | ENO3-related Enolase beta deficiency | CANDIDATE | Reject GSD I candidate; true ENO3/GSD XIII gap with muscle beta-enolase, CK, muscle glycogen, exercise intolerance, cramps, pain, and weakness prompts. |
 | 502 | PGK1-related Phosphoglycerate kinase deficiency | UNMAPPED | True PGK1 phosphoglycerate kinase deficiency gap; reject GSD VII neighbor despite shared glycolytic myopathy and hemolysis features. |
 | 503 | SUCLA2-related ATP-specific succinyl-CoA synthetase beta subunit deficiency | CANDIDATE | Reject MTDPS7/TWNK candidate; true SUCLA2/MTDPS5 gap with methylmalonic aciduria, succinylcarnitine, lactate, Leigh, deafness, and dystonia prompts. |
-| 504 | HOGA1-related Mitochondrial 4-hydroxy-2-oxoglutarate aldolase 1 deficiency deficiency | UNMAPPED | False negative; resolve to `Primary_Hyperoxaluria_Type_3.yaml`, with systemic oxalosis prompts needing source review before import. |
+| 504 | HOGA1-related Mitochondrial 4-hydroxy-2-oxoglutarate aldolase 1 deficiency | UNMAPPED | False negative; resolve to `Primary_Hyperoxaluria_Type_3.yaml`, with systemic oxalosis prompts needing source review before import. |
 | 505 | APOC2-related Apolipoprotein C-II deficiency | UNMAPPED | False negative; resolve to `Familial_Chylomicronemia_Syndrome.yaml` with APOC2 branch context and review APOC2-specific treatment rows. |
 | 506 | USF1-related Familial combined hyperlipidemia | MAPPED | Correct FCHL subtype mapping to `Hyperlipidemia.yaml`; DisMech lacks visible USF1/Apo B-specific coverage. |
 | 507 | APOE-related Apolipoprotein E deficiency | UNMAPPED | Partial hyperlipidemia and sea-blue histiocyte context only; exact APOE dysbetalipoproteinemia / type III hyperlipoproteinemia remains a local gap. |
