@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41431-022-01230-7"
+reference_id: DOI:10.1038/s41431-022-01230-7
 title: "Expanding the speech and language phenotype in Koolen-de Vries syndrome: late onset and periodic stuttering a novel feature"
 authors:
 - Miya St John
@@ -12,6 +12,7 @@ journal: European Journal of Human Genetics
 year: '2023'
 doi: 10.1038/s41431-022-01230-7
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Expanding the speech and language phenotype in Koolen-de Vries syndrome: late onset and periodic stuttering a novel feature

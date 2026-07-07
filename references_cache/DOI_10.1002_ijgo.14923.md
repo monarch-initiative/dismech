@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ijgo.14923"
+reference_id: DOI:10.1002/ijgo.14923
 title: "<scp>FIGO</scp> staging of endometrial cancer: 2023"
 authors:
 - Jonathan S. Berek
@@ -15,6 +15,7 @@ journal: "International Journal of Gynecology &amp; Obstetrics"
 year: '2023'
 doi: 10.1002/ijgo.14923
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # <scp>FIGO</scp> staging of endometrial cancer: 2023

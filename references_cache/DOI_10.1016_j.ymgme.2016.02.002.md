@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2016.02.002"
+reference_id: DOI:10.1016/j.ymgme.2016.02.002
 title: Outcomes of cases with 3-methylcrotonyl-CoA carboxylase (3-MCC) deficiency - Report from the Inborn Errors of Metabolism Information System
 authors:
 - RaeLynn Forsyth
@@ -14,6 +14,7 @@ journal: Molecular Genetics and Metabolism
 year: '2016'
 doi: 10.1016/j.ymgme.2016.02.002
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Outcomes of cases with 3-methylcrotonyl-CoA carboxylase (3-MCC) deficiency - Report from the Inborn Errors of Metabolism Information System

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/brb3.3443"
+reference_id: DOI:10.1002/brb3.3443
 title: "Neurosarcoidosis: Clinical, biological, and MRI presentation of central nervous system disease in a national multicenter cohort"
 authors:
 - Amélie Dos santos
@@ -22,6 +22,7 @@ journal: Brain and Behavior
 year: '2024'
 doi: 10.1002/brb3.3443
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Neurosarcoidosis: Clinical, biological, and MRI presentation of central nervous system disease in a national multicenter cohort

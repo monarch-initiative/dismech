@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05978141"
+reference_id: clinicaltrials:NCT05978141
 title: "The T-cell Lymphoma Master Repository (TCLMR): A Prospective Databank of Patients With T-cell Lymphoma With Clinical Annotation and Matched Tumor Specimens"
 content_type: summary
+full_text_attempted: true
 ---
 
 # The T-cell Lymphoma Master Repository (TCLMR): A Prospective Databank of Patients With T-cell Lymphoma With Clinical Annotation and Matched Tumor Specimens

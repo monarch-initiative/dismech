@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-019-09544-1"
+reference_id: DOI:10.1007/s00415-019-09544-1
 title: "Epidemiology of paraneoplastic neurological syndromes: a population-based study"
 authors:
 - Alberto Vogrig
@@ -21,6 +21,7 @@ journal: Journal of Neurology
 year: '2020'
 doi: 10.1007/s00415-019-09544-1
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Epidemiology of paraneoplastic neurological syndromes: a population-based study

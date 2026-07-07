@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jep.13586"
+reference_id: DOI:10.1111/jep.13586
 title: "Capturing the anorexia nervosa phenotype: Conceptual and normative issues in <scp>ICD</scp>‐11"
 authors:
 - Jennifer Radden
@@ -7,6 +7,7 @@ journal: Journal of Evaluation in Clinical Practice
 year: '2022'
 doi: 10.1111/jep.13586
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Capturing the anorexia nervosa phenotype: Conceptual and normative issues in <scp>ICD</scp>‐11

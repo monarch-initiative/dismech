@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/acn3.51968"
+reference_id: DOI:10.1002/acn3.51968
 title: "Infliximab in neurosarcoidosis: a systematic review and meta‐analysis"
 authors:
 - Siwakorn Chaiyanarm
@@ -13,6 +13,7 @@ journal: Annals of Clinical and Translational Neurology
 year: '2024'
 doi: 10.1002/acn3.51968
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Infliximab in neurosarcoidosis: a systematic review and meta‐analysis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awac418"
+reference_id: DOI:10.1093/brain/awac418
 title: Anti-pan-neurofascin antibodies induce subclass-related complement activation and nodo-paranodal damage
 authors:
 - Luise Appeltshauser
@@ -32,6 +32,7 @@ journal: Brain
 year: '2023'
 doi: 10.1093/brain/awac418
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Anti-pan-neurofascin antibodies induce subclass-related complement activation and nodo-paranodal damage

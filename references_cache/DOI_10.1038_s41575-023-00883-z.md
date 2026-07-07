@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41575-023-00883-z"
+reference_id: DOI:10.1038/s41575-023-00883-z
 title: "Pathophysiology of gastro-oesophageal reflux disease: implications for diagnosis and management"
 authors:
 - Julieta Argüero
@@ -8,6 +8,7 @@ journal: "Nature Reviews Gastroenterology &amp; Hepatology"
 year: '2024'
 doi: 10.1038/s41575-023-00883-z
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pathophysiology of gastro-oesophageal reflux disease: implications for diagnosis and management

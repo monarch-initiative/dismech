@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1101/2024.12.15.24318703"
-title: "Clinical Features, Outcomes of Treatments, Inflammasome Function and Longitudinal Clonal Dynamics into
-                  <i>NLRP3</i>
-                  Mosaicism: Evidence from the Largest Cryopyrin-associated Periodic Syndromes Cohort to Date"
+reference_id: DOI:10.1101/2024.12.15.24318703
+title: "Clinical Features, Outcomes of Treatments, Inflammasome Function and Longitudinal Clonal Dynamics into <i>NLRP3</i> Mosaicism: Evidence from the Largest Cryopyrin-associated Periodic Syndromes Cohort to Date"
 authors:
 - Nuria Bonet
 - Jose M. Mascaro
@@ -58,11 +56,10 @@ authors:
 year: '2024'
 doi: 10.1101/2024.12.15.24318703
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Clinical Features, Outcomes of Treatments, Inflammasome Function and Longitudinal Clonal Dynamics into
-                  <i>NLRP3</i>
-                  Mosaicism: Evidence from the Largest Cryopyrin-associated Periodic Syndromes Cohort to Date
+# Clinical Features, Outcomes of Treatments, Inflammasome Function and Longitudinal Clonal Dynamics into <i>NLRP3</i> Mosaicism: Evidence from the Largest Cryopyrin-associated Periodic Syndromes Cohort to Date
 **Authors:** Nuria Bonet, Jose M. Mascaro, Laura Hurtado-Navarro, Diego Angosto-Bazarra, Jose Luis Callejas-Rubio, Daniel Clemente, Alejandro Souto, Olalla Lima, Natalia Palmou-Fontana, Eulalia Baselga, Santiago Jiménez-Treviño, Agustin Remesal, Marta Andreu-Barasoain, Luis Fernandez-Dominguez, Josep Riera-Monroig, Maria Aparicio, Juan Garcia-Herrero, David Pesqué, Maria Teresa Sanchez-Calvin, Jose Miguel Lezana-Rosales, Maria Correyero-Plaza, Julio Garcia-Villalba, Victor Bolaño, Sara Peiro, Mar Diaz, Alexandru Vlagea, Daniel Lorca, Virginia Fabregat, Maria Carmen Anton, Susana Plaza, Luis Ignacio Gonzalez-Granado, Concepción Postigo, Jose Maria Garcia-Ruiz de Morales, Enrique Gómez de la Fuente, Estibaliz Iglesias, Javier Gomez-Roman, Caritina Vázquez-Triñanes, Juan Carlos Lopez-Robledillo, Norberto Ortego-Centeno, Ana María Giménez-Arnau, Josep M. Campistol, Hafid Laayouni, Iñaki Ortiz de Landazuri, Jordi Yagüe, Eva Gonzalez-Roca, Anna Mensa-Vilaro, Oscar Fornas, Eduardo Ramos, Pablo Pelegrin, Ferran Casals, Juan I. Arostegui
 **DOI:** [10.1101/2024.12.15.24318703](https://doi.org/10.1101/2024.12.15.24318703)
 

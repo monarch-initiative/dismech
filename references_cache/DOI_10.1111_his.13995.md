@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/his.13995"
+reference_id: DOI:10.1111/his.13995
 title: "Cervical adenocarcinoma: integration of HPV status, pattern of invasion, morphology and molecular markers into classification"
 authors:
 - Kay J Park
@@ -7,6 +7,7 @@ journal: Histopathology
 year: '2020'
 doi: 10.1111/his.13995
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cervical adenocarcinoma: integration of HPV status, pattern of invasion, morphology and molecular markers into classification

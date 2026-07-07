@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2010.04.014"
+reference_id: DOI:10.1016/j.ymgme.2010.04.014
 title: Characterization of new ACADSB gene sequence mutations and clinical implications in patients with 2-methylbutyrylglycinuria identified by newborn screening
 authors:
 - Jaffar Alfardan
@@ -17,6 +17,7 @@ journal: Molecular Genetics and Metabolism
 year: '2010'
 doi: 10.1016/j.ymgme.2010.04.014
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Characterization of new ACADSB gene sequence mutations and clinical implications in patients with 2-methylbutyrylglycinuria identified by newborn screening

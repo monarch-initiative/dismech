@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41577-025-01159-0"
+reference_id: DOI:10.1038/s41577-025-01159-0
 title: The immunology of asthma and chronic rhinosinusitis
 authors:
 - Atsushi Kato
@@ -8,6 +8,7 @@ journal: Nature Reviews Immunology
 year: '2025'
 doi: 10.1038/s41577-025-01159-0
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The immunology of asthma and chronic rhinosinusitis

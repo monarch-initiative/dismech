@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/humu.21583"
+reference_id: DOI:10.1002/humu.21583
 title: "Identification and functional analysis of<i>SOX10</i>missense mutations in different subtypes of waardenburg syndrome"
 authors:
 - Asma Chaoui
@@ -13,6 +13,7 @@ journal: Human Mutation
 year: '2011'
 doi: 10.1002/humu.21583
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Identification and functional analysis of<i>SOX10</i>missense mutations in different subtypes of waardenburg syndrome

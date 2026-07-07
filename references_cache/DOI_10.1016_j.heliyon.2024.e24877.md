@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.heliyon.2024.e24877"
+reference_id: DOI:10.1016/j.heliyon.2024.e24877
 title: New progress in the treatment of diffuse midline glioma with H3K27M alteration
 authors:
 - Zhi Yang
@@ -11,6 +11,7 @@ journal: Heliyon
 year: '2024'
 doi: 10.1016/j.heliyon.2024.e24877
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # New progress in the treatment of diffuse midline glioma with H3K27M alteration

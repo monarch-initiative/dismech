@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41571-021-00492-2"
+reference_id: DOI:10.1038/s41571-021-00492-2
 title: "Biomarker-targeted therapies for advanced-stage gastric and gastro-oesophageal junction cancers: an emerging paradigm"
 authors:
 - Yoshiaki Nakamura
@@ -11,6 +11,7 @@ journal: Nature Reviews Clinical Oncology
 year: '2021'
 doi: 10.1038/s41571-021-00492-2
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Biomarker-targeted therapies for advanced-stage gastric and gastro-oesophageal junction cancers: an emerging paradigm

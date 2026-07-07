@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.autrev.2016.09.008"
+reference_id: DOI:10.1016/j.autrev.2016.09.008
 title: "Steroid-responsive encephalopathy associated with autoimmune thyroiditis (SREAT): Characteristics, treatment and outcome in 251 cases from the literature"
 authors:
 - Charlotte Laurent
@@ -13,6 +13,7 @@ journal: Autoimmunity Reviews
 year: '2016'
 doi: 10.1016/j.autrev.2016.09.008
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Steroid-responsive encephalopathy associated with autoimmune thyroiditis (SREAT): Characteristics, treatment and outcome in 251 cases from the literature

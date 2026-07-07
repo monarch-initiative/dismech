@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.berh.2023.101856"
+reference_id: DOI:10.1016/j.berh.2023.101856
 title: "Advanced molecular imaging in large-vessel vasculitis: Adopting FDG-PET into a clinical workflow"
 authors:
 - Mark A. Ahlman
@@ -8,6 +8,7 @@ journal: "Best Practice &amp; Research Clinical Rheumatology"
 year: '2023'
 doi: 10.1016/j.berh.2023.101856
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Advanced molecular imaging in large-vessel vasculitis: Adopting FDG-PET into a clinical workflow
