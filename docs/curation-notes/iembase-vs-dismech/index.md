@@ -147,3 +147,18 @@ Source inputs for these batches:
 | 96 | AGXT-related Alanine-glyoxylate aminotransferase deficiency (peroxisomal) | UNMAPPED | False negative; resolve to `Primary_Hyperoxaluria_Type_1.yaml`, not the ornithine aminotransferase false-positive candidate. |
 | 97 | GRHPR-related Glyoxylate reductase/hydroxypyruvate reductase deficiency | UNMAPPED | False negative; resolve to `Primary_Hyperoxaluria_Type_2.yaml`, not the pyruvate dehydrogenase false-positive candidate. |
 | 99 | TH-related Tyrosine hydroxylase deficiency | AMBIGUOUS | Resolve to `Autosomal_Recessive_Dopa_Responsive_Dystonia.yaml`; catecholamine synthesis and DRD umbrellas are secondary context. |
+
+## Batch 10
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 100 | DDC-related Aromatic L-amino acid decarboxylase deficiency | AMBIGUOUS | Standalone AADC deficiency is canonical; catecholamine-synthesis umbrella subtype is secondary context. |
+| 101 | DBH-related Dopamine beta-hydroxylase deficiency | UNMAPPED | No valid local target; congenital adrenal hyperplasia 11B-OHD is a beta-hydroxylase lexical false positive. |
+| 102 | MAOA-related Monoamine oxidase A deficiency | UNMAPPED | No valid local target; needs future MAOA/monoamine catabolism scope, not catecholamine synthesis or chronic granulomatous disease. |
+| 103 | SLC6A3-related Dopamine transporter deficiency | MAPPED | Correct infantile parkinsonism-dystonia mapping; high concordance, with DisMech richer for mechanism and treatment caveats. |
+| 104 | GAMT-related Guanidinoacetate methyltransferase deficiency | MAPPED | Correct GAMT mapping; high concordance, with IEMbase adding specimen-compartment detail and osteoporosis as a review target. |
+| 105 | GATM-related Arginine:glycine amidinotransferase deficiency | MAPPED | Correct AGAT mapping; high concordance, with IEMbase adding urinary creatine/creatinine ratio and compartment-specific GAA rows. |
+| 106 | SLC6A8-related Creatine transporter deficiency | CANDIDATE | Generated AGAT candidate is false; correct target is `Creatine_Transporter_Deficiency.yaml`. |
+| 107 | FECH-related Ferrochelatase deficiency | MAPPED | Correct current target is inherited porphyria's EPP subtype; IEMbase adds FECH-specific iron/ferritin and microcytosis detail. |
+| 108 | ALAS2-related Erythroid 5-aminolevulinate synthase superactivity | UNMAPPED | False negative to inherited porphyria EPP/X-linked protoporphyria branch; future XLP split may be warranted. |
+| 109 | PPOX-related Protoporphyrinogen oxidase deficiency | UNMAPPED | False negative; resolve to inherited porphyria's variegate porphyria subtype, with future standalone VP curation possible. |
