@@ -867,3 +867,18 @@ Source inputs for these batches:
 | 681 | NDUFAF5-related complex I assembly factor 5 deficiency | CANDIDATE | Reject COX4I1 complex IV candidate; true NDUFAF5/MC1DN16 gap with broad Leigh/complex I overlap plus CSF lactate, dysmorphology, IUGR, hair/toe, sacral-pit, and movement-disorder prompts. |
 | 682 | NDUFAF6-related complex I assembly factor 6 deficiency | UNMAPPED | Partial gene-level coverage in `Fanconi_Renotubular_Syndrome.yaml#FRTS5`, but exact MC1DN17 Leigh/striatal-necrosis phenotype remains under-covered. |
 | 683 | FOXRED1-related mitochondrial complex I deficiency, nuclear type 19 | CANDIDATE | Reject PET117 complex IV candidate; true FOXRED1/MC1DN19 gap with decreased complex I activity, lactate, Leigh syndrome, hypertrophic cardiomyopathy, cerebellar atrophy, and pulmonary hypertension. |
+
+## Batch 58
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 684 | TMEM126B-related transmembrane protein 126B deficiency | CANDIDATE | Reject COX11 complex IV candidate; true TMEM126B/MC1DN29 gap with decreased complex I activity, hypertrophic cardiomyopathy, myopathy, renal tubular acidosis, and exercise intolerance. |
+| 685 | NDUFV1-related NADH dehydrogenase flavoprotein 1 deficiency | UNMAPPED | Partial gene-level coverage in `Leigh_Syndrome.yaml`, but no standalone NDUFV1/MC1DN4 target; preserve lactate, brainstem/basal-ganglia lesions, cardiomyopathy, ophthalmoplegia, microcephaly, and regression prompts. |
+| 686 | NDUFV2-related NADH dehydrogenase flavoprotein 2 deficiency | CANDIDATE | Reject COX6B1 complex IV candidate; true NDUFV2/MC1DN7 gap with leukodystrophy, liver dysfunction, myopathy, optic neuropathy, parkinsonism, and hypertrophic cardiomyopathy prompts. |
+| 687 | NDUFS1-related NADH dehydrogenase iron-sulfur protein 1 deficiency | CANDIDATE | Reject COX8A complex IV candidate; true NDUFS1/MC1DN5 gap with lactate, cardiomyopathy, encephalopathy, hypotonia, liver dysfunction, myopathy, leukodystrophy, and optic neuropathy. |
+| 688 | NDUFS2-related NADH dehydrogenase iron-sulfur protein 2 deficiency | CANDIDATE | Reject COX4I1 complex IV candidate; true NDUFS2/MC1DN6 gap with lactate, encephalopathy, hypotonia, Leigh syndrome, liver dysfunction, parkinsonism, cardiomyopathy, and myopathy. |
+| 689 | NDUFS3-related NADH dehydrogenase iron-sulfur protein 3 deficiency | CANDIDATE | Reject TACO1 complex IV candidate; true NDUFS3/MC1DN8 gap with decreased complex I activity, lactate, developmental delay, encephalopathy, Leigh syndrome, and myopathy. |
+| 690 | NDUFS4-related NADH dehydrogenase iron-sulfur protein 4 deficiency | UNMAPPED | Partial gene-level coverage in `Leigh_Syndrome.yaml`, but no standalone NDUFS4/MC1DN1 target; preserve complex I/III activity, glucose, lactate, basal-ganglia, failure-to-thrive, hypotonia, cardiomyopathy, and Leigh prompts. |
+| 691 | NDUFS6-related NADH dehydrogenase iron-sulfur protein 6 deficiency | CANDIDATE | Reject PET117 complex IV candidate; true NDUFS6/MC1DN9 gap with severe multisystem complex I disease, cardiomyopathy, basal-ganglia, hypotonia, lactic-acidosis, and failure-to-thrive prompts. |
+| 692 | NDUFS7-related NADH dehydrogenase iron-sulfur protein 7 deficiency | CANDIDATE | Reject COX10 complex IV candidate; true NDUFS7/MC1DN3 gap with lactate, ataxia, epilepsy, feeding difficulty, liver dysfunction, myopathy, cardiomyopathy, encephalopathy, and Leigh prompts. |
+| 693 | NDUFS8-related NADH dehydrogenase iron-sulfur protein 8 deficiency | CANDIDATE | Reject COX11 complex IV candidate; true NDUFS8/MC1DN2 gap with decreased complex I activity, Leigh syndrome, ataxia, dysarthria, hypotonia, cardiomyopathy, myopathy, and progressive external ophthalmoplegia. |
