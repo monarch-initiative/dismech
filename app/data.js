@@ -3686,12 +3686,14 @@ window.searchData = [
     "cell_types": [
       "hepatocyte",
       "Kupffer cell",
-      "neutrophil"
+      "neutrophil",
+      "monocyte-derived macrophage"
     ],
     "cell_type_ids": [
       "CL:0000182",
       "CL:0000091",
-      "CL:0000775"
+      "CL:0000775",
+      "CL:0000235"
     ],
     "biological_processes": [
       "xenobiotic metabolic process",
@@ -3704,7 +3706,8 @@ window.searchData = [
       "Acute liver failure",
       "Jaundice",
       "Coagulopathy",
-      "Hepatic encephalopathy"
+      "Hepatic encephalopathy",
+      "Increased intracranial pressure"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -3719,12 +3722,14 @@ window.searchData = [
       "HP:0001399",
       "HP:0000952",
       "HP:0003256",
-      "HP:0001298"
+      "HP:0001298",
+      "HP:0002516"
     ],
     "frequencies": [],
     "genes": [],
     "treatments": [
       "N-acetylcysteine",
+      "Fomepizole",
       "Activated charcoal",
       "Liver transplantation"
     ],
@@ -3733,14 +3738,16 @@ window.searchData = [
     ],
     "biochemical": [
       "Serum acetaminophen concentration",
-      "International normalized ratio (INR)"
+      "International normalized ratio (INR)",
+      "Acetaminophen-protein adducts",
+      "Circulating CXCL14"
     ],
     "source_file": "Acetaminophen_Hepatotoxicity.yaml",
     "page_url": "../pages/disorders/Acetaminophen_Hepatotoxicity.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 6,
     "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 3,
+    "num_treatments": 4,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "4"
   },
@@ -11017,7 +11024,9 @@ window.searchData = [
       "Peripheral Neuropathy",
       "Nephrotic Syndrome",
       "Macroglossia",
-      "Autonomic Dysfunction"
+      "Autonomic Dysfunction",
+      "Carpal Tunnel Syndrome",
+      "Proteinuria"
     ],
     "phenotype_categories": [
       "Histological",
@@ -11040,24 +11049,36 @@ window.searchData = [
       "HP:0009830",
       "HP:0000100",
       "HP:0000158",
-      "HP:0012332"
+      "HP:0012332",
+      "HP:0012185",
+      "HP:0000093"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
     "genes": [
-      "TTR"
+      "TTR",
+      "SAA1"
     ],
     "treatments": [
       "Tafamidis",
-      "Patisiran"
+      "Patisiran",
+      "Acoramidis",
+      "Vutrisiran",
+      "Inotersen",
+      "Eplontersen",
+      "Daratumumab",
+      "Tocilizumab"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Amyloidosis.yaml",
     "page_url": "../pages/disorders/Amyloidosis.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 8,
     "num_pathophysiology": 2,
-    "num_genes": 1,
-    "num_treatments": 2,
+    "num_genes": 2,
+    "num_treatments": 8,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "2"
   },
@@ -52140,7 +52161,8 @@ window.searchData = [
       "Interleukin-13 production",
       "Eosinophil chemotaxis",
       "Extracellular matrix organization",
-      "Fibroblast activation"
+      "Fibroblast activation",
+      "Epithelial-to-mesenchymal transition"
     ],
     "phenotypes": [
       "Dysphagia",
@@ -53390,6 +53412,7 @@ window.searchData = [
     "pathophysiology": [
       "ESCC Carcinogen-Driven Squamous Transformation",
       "Barrett Metaplasia to EAC Sequence",
+      "Chromosomal Instability and Mutator Phenotype",
       "Adaptive Immune Resistance"
     ],
     "cell_types": [
@@ -53427,7 +53450,9 @@ window.searchData = [
     "genes": [
       "TP53",
       "CDKN2A",
-      "ERBB2 (HER2)"
+      "ERBB2 (HER2)",
+      "NOTCH1",
+      "NFE2L2"
     ],
     "treatments": [
       "Esophagectomy",
@@ -53446,10 +53471,10 @@ window.searchData = [
     "source_file": "Esophageal_Carcinoma.yaml",
     "page_url": "../pages/disorders/Esophageal_Carcinoma.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 3,
-    "num_genes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "1"
   },
   {
@@ -85182,6 +85207,7 @@ window.searchData = [
     "description": "Legionnaires' disease is the severe pneumonic form of legionellosis, caused by inhalation of aerosols contaminated with Legionella (most often Legionella pneumophila). After inhalation, the bacterium replicates inside alveolar macrophages within a specialized Legionella-containing vacuole, producing a severe lobar pneumonia frequently accompanied by extrapulmonary features (gastrointestinal and neurologic abnormalities, relative bradycardia, and hyponatremia). Because the organism is intracellular, effective therapy requires cell-penetrant antibiotics (macrolides or fluoroquinolones) rather than beta-lactams. It is the severe counterpart of the self-limited, non-pneumonic Pontiac_Fever, the other clinical manifestation of Legionella infection.\n",
     "pathophysiology": [
       "Inhalation and Intracellular Replication in Alveolar Macrophages",
+      "Flagellin-Triggered NAIP5/NLRC4 Inflammasome Restriction",
       "Severe Lobar Pneumonia with Extrapulmonary Features",
       "Requirement for Cell-Penetrant Antimicrobials",
       "Ribosomal Protein Synthesis Inhibition by Macrolides",
@@ -85197,6 +85223,8 @@ window.searchData = [
       "symbiont entry into host cell",
       "biological process involved in interaction with host",
       "Dot/Icm type IV secretion of effector proteins",
+      "NAIP5/NLRC4 inflammasome-mediated defense against Legionella",
+      "caspase-1-dependent pyroptotic response",
       "inflammatory response",
       "response to antibiotic",
       "Translation",
@@ -85210,7 +85238,9 @@ window.searchData = [
       "Confusion",
       "Relative Bradycardia",
       "Headache",
-      "Hyponatremia"
+      "Hyponatremia",
+      "Acute Kidney Injury",
+      "Rhabdomyolysis"
     ],
     "phenotype_categories": [
       "Respiratory",
@@ -85218,13 +85248,17 @@ window.searchData = [
       "Gastrointestinal",
       "Neurologic",
       "Cardiovascular",
-      "Metabolic"
+      "Metabolic",
+      "Renal",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Digestive",
+      "Genitourinary",
       "Immune",
       "Metabolism",
+      "Musculoskeletal",
       "Nervous System",
       "Respiratory"
     ],
@@ -85236,23 +85270,26 @@ window.searchData = [
       "HP:0001289",
       "HP:0001662",
       "HP:0002315",
-      "HP:0002902"
+      "HP:0002902",
+      "HP:0001919",
+      "HP:0003201"
     ],
     "frequencies": [],
     "genes": [],
     "treatments": [
       "Azithromycin",
-      "Levofloxacin"
+      "Levofloxacin",
+      "Doxycycline"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Legionnaires_Disease.yaml",
     "page_url": "../pages/disorders/Legionnaires_Disease.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
     "num_genes": 0,
-    "num_treatments": 2,
-    "causal_graph_edges": "7",
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
   },
   {
@@ -101270,30 +101307,48 @@ window.searchData = [
     "description": "Myocardial infarction (acute myocardial infarction, AMI; \"heart attack\") is ischemic death of cardiomyocytes caused by an acute, sustained reduction in coronary blood flow. The most common (type 1) mechanism is atherothrombosis: rupture or erosion of a coronary atherosclerotic plaque exposes thrombogenic material, precipitating an occlusive or near-occlusive coronary thrombus that interrupts perfusion of the downstream myocardium. The resulting ischemia causes cardiomyocyte necrosis with release of cardiac troponin, and clinically presents as an acute coronary syndrome (ST-elevation or non-ST-elevation MI). Acute respiratory infections, including influenza and respiratory syncytial virus, are recognized short-term triggers of type 1 MI. AMI remains a leading cause of morbidity and mortality worldwide.\n",
     "pathophysiology": [
       "Coronary Atherothrombosis",
-      "Myocardial Ischemia and Cardiomyocyte Death"
+      "Myocardial Ischemia and Cardiomyocyte Death",
+      "Ischemia-Reperfusion Injury",
+      "Post-Infarction Inflammation and Cardiac Repair",
+      "Cardiac Fibrosis and Ventricular Remodeling"
     ],
     "cell_types": [
       "coronary endothelial cell",
       "platelet",
-      "cardiac muscle cell"
+      "cardiac muscle cell",
+      "macrophage",
+      "neutrophil",
+      "cardiac fibroblast"
     ],
     "cell_type_ids": [
       "CL:0000115",
       "CL:0000233",
-      "CL:0000746"
+      "CL:0000746",
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0002548"
     ],
     "biological_processes": [
       "platelet activation",
       "blood coagulation",
       "inflammatory response",
-      "cardiac muscle cell apoptotic process"
+      "cardiac muscle cell apoptotic process",
+      "response to oxidative stress",
+      "intracellular calcium ion homeostasis",
+      "wound healing",
+      "extracellular matrix organization"
     ],
     "phenotypes": [
       "Chest pain",
       "Myocardial infarction",
       "Elevated cardiac troponin",
       "Arrhythmia",
-      "Reduced left ventricular ejection fraction"
+      "Reduced left ventricular ejection fraction",
+      "Angina pectoris",
+      "Dyspnea",
+      "Ventricular fibrillation",
+      "Congestive heart failure",
+      "Syncope"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -101301,31 +101356,42 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
-      "Constitutional"
+      "Constitutional",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0100749",
       "HP:0001658",
       "HP:0410174",
       "HP:0011675",
-      "HP:0012664"
+      "HP:0012664",
+      "HP:0001681",
+      "HP:0002094",
+      "HP:0001663",
+      "HP:0001635",
+      "HP:0001279"
     ],
     "frequencies": [],
     "genes": [],
     "treatments": [
       "Coronary Reperfusion (PCI or Fibrinolysis)",
-      "Antiplatelet and Antithrombotic Therapy"
+      "Antiplatelet and Antithrombotic Therapy",
+      "Anti-Inflammatory / Immunomodulatory Therapy"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Elevated cardiac troponin",
+      "Elevated CK-MB"
+    ],
     "source_file": "Myocardial_Infarction.yaml",
     "page_url": "../pages/disorders/Myocardial_Infarction.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 2,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 3,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Myoclonus-Dystonia Syndrome",
@@ -116612,19 +116678,28 @@ window.searchData = [
     "pathophysiology": [
       "Bordetella pertussis Respiratory Colonization",
       "Pertussis Toxin-Mediated Disruption of Host Gi Signaling",
+      "Adenylate Cyclase Toxin-Mediated Phagocyte Subversion",
+      "Type III Secretion System-Mediated Immune Evasion",
       "Paroxysmal Coughing Illness",
       "Bacterial Ribosomal Translation (Macrolide Target)",
       "Emerging Macrolide Resistance"
     ],
     "cell_types": [
-      "ciliated airway epithelial cell"
+      "ciliated airway epithelial cell",
+      "macrophage",
+      "neutrophil",
+      "dendritic cell"
     ],
     "cell_type_ids": [
-      "CL:0000064"
+      "CL:0000064",
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000451"
     ],
     "biological_processes": [
       "adhesion of symbiont to host",
       "response to toxic substance",
+      "response to host immune response",
       "inflammatory response",
       "translation",
       "response to antibiotic"
@@ -116665,6 +116740,8 @@ window.searchData = [
     "genes": [],
     "treatments": [
       "Azithromycin",
+      "Pertussis Toxin Inhibitors (investigational)",
+      "Maternal Tdap Vaccination",
       "Pertussis Vaccination"
     ],
     "environmental": [],
@@ -116672,10 +116749,10 @@ window.searchData = [
     "source_file": "Pertussis.yaml",
     "page_url": "../pages/disorders/Pertussis.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 0,
-    "num_treatments": 2,
-    "causal_graph_edges": "5",
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
   },
   {
@@ -120010,14 +120087,18 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
-    "genes": [],
+    "genes": [
+      "SLC6A2"
+    ],
     "treatments": [
       "Exercise Training",
       "Volume Expansion and Salt Supplementation",
       "Pharmacotherapy - Beta-Blockers",
       "Pharmacotherapy - Midodrine",
       "Pharmacotherapy - Fludrocortisone",
-      "Compression Garments"
+      "Compression Garments",
+      "Pharmacotherapy - Ivabradine",
+      "Pharmacotherapy - Pyridostigmine"
     ],
     "environmental": [],
     "biochemical": [],
@@ -120025,8 +120106,8 @@ window.searchData = [
     "page_url": "../pages/disorders/Postural_Orthostatic_Tachycardia_Syndrome.html",
     "num_phenotypes": 14,
     "num_pathophysiology": 7,
-    "num_genes": 0,
-    "num_treatments": 6,
+    "num_genes": 1,
+    "num_treatments": 8,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
   },
@@ -124816,6 +124897,8 @@ window.searchData = [
     "description": "Q fever is a zoonotic infection caused by Coxiella burnetii, an obligate intracellular Gram-negative bacterium that replicates within alveolar macrophages after inhalation of contaminated aerosols (the reservoir is livestock, with high organism concentrations in the placenta of infected animals). Acute Q fever presents as one of three syndromes \u2014 nonspecific febrile illness, pneumonia, or hepatitis \u2014 while chronic Q fever is most often endocarditis. Because the organism is intracellular, treatment requires cell-penetrant antibiotics; doxycycline (a tetracycline acting on the bacterial ribosome) or a fluoroquinolone is preferred, and beta-lactams are ineffective.\n",
     "pathophysiology": [
       "Inhalation and Intracellular Replication in Alveolar Macrophages",
+      "Coxiella-Containing Vacuole Biogenesis and Dot/Icm Effector Secretion",
+      "Chronic Q Fever (Persistent Focalized Infection and Endocarditis)",
       "Acute Q Fever (Pneumonia and Hepatitis)",
       "Coxiella Ribosomal Translation (Tetracycline Target)"
     ],
@@ -124834,14 +124917,19 @@ window.searchData = [
     "phenotypes": [
       "Pneumonia",
       "Fever",
-      "Hepatitis"
+      "Hepatitis",
+      "Q Fever Endocarditis",
+      "Q Fever Fatigue Syndrome"
     ],
     "phenotype_categories": [
       "Respiratory",
       "Constitutional",
-      "Hepatic"
+      "Hepatic",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
       "Digestive",
       "Immune",
       "Metabolism",
@@ -124850,23 +124938,29 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0002090",
       "HP:0001945",
-      "HP:0012115"
+      "HP:0012115",
+      "HP:0006689",
+      "HP:0012432"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
     "genes": [],
     "treatments": [
-      "Doxycycline"
+      "Doxycycline",
+      "Doxycycline plus Hydroxychloroquine",
+      "Q Fever Vaccination (Q-VAX)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Q_Fever.yaml",
     "page_url": "../pages/disorders/Q_Fever.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 3,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "RAB33B-Related Smith-McCort Dysplasia 2",
@@ -135152,6 +135246,8 @@ window.searchData = [
       "Loss of Cell Cycle Checkpoints",
       "Genomic Instability",
       "Neuroendocrine Differentiation",
+      "Lineage Transcription Factor Subtypes and State Plasticity",
+      "Immune Evasion",
       "Functional Neuron-SCLC Synapses",
       "Neuron-Driven Proliferation",
       "Glutamate Signaling Dependency"
@@ -135168,6 +135264,9 @@ window.searchData = [
       "cell population proliferation",
       "DNA repair",
       "neuron differentiation",
+      "chromatin remodeling",
+      "antigen processing and presentation via MHC class I",
+      "negative regulation of T cell mediated immunity",
       "synapse assembly",
       "chemical synaptic transmission",
       "positive regulation of cell population proliferation",
@@ -135211,7 +135310,9 @@ window.searchData = [
       "Thoracic Radiation",
       "Prophylactic Cranial Irradiation",
       "Lurbinectedin",
-      "Topotecan"
+      "Topotecan",
+      "Tarlatamab",
+      "Benmelstobart plus Anlotinib with Chemotherapy"
     ],
     "environmental": [
       "Tobacco Smoking"
@@ -135222,10 +135323,10 @@ window.searchData = [
     "source_file": "Small_Cell_Lung_Cancer.yaml",
     "page_url": "../pages/disorders/Small_Cell_Lung_Cancer.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 10,
     "num_genes": 4,
-    "num_treatments": 7,
-    "causal_graph_edges": "3",
+    "num_treatments": 9,
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "2"
   },
   {
@@ -152979,6 +153080,7 @@ window.searchData = [
     "description": "Neuroferritinopathy is an autosomal dominant neurodegeneration with brain iron accumulation caused by pathogenic FTL variants. The disorder features abnormal ferritin and iron accumulation, especially in the basal ganglia, and typically presents as a progressive movement disorder with dystonia, chorea, parkinsonism, and low or low-normal serum ferritin.",
     "pathophysiology": [
       "Mutant ferritin light chain disrupts iron storage",
+      "Mutant ferritin co-assembly and inclusion body formation",
       "Abnormal intracellular iron metabolism",
       "Iron deposition in basal ganglia",
       "Increased oxidative stress",
@@ -153027,6 +153129,7 @@ window.searchData = [
     ],
     "treatments": [
       "Symptomatic pharmacotherapy",
+      "Physical therapy",
       "Iron chelation therapy"
     ],
     "environmental": [],
@@ -153036,11 +153139,11 @@ window.searchData = [
     "source_file": "neuroferritinopathy.yaml",
     "page_url": "../pages/disorders/neuroferritinopathy.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Oligoastrocytoma",
@@ -153294,14 +153397,14 @@ window.searchMetrics = {
   "total_disorder_pages": 1548,
   "total_subtypes": 2412,
   "total_disorders_and_subtypes": 3960,
-  "total_unique_evidence_sources": 24334,
-  "total_unique_publications": 22870,
+  "total_unique_evidence_sources": 24399,
+  "total_unique_publications": 22929,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 214,
   "total_pathographs": 1542,
-  "total_unique_pathological_events": 7218,
+  "total_unique_pathological_events": 7229,
   "total_modules": 110,
-  "total_research_reports": 1797,
+  "total_research_reports": 1807,
   "total_classifications": 8,
   "total_comorbidities": 16,
   "total_groupings": 46
