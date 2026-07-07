@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT02690714"
 title: "A Phase 2/3, Open-Label, Repeat-Dose Study of the Pharmacokinetics, Efficacy, and Safety of Prometic Plasminogen Intravenous Infusion in Subjects With Hypoplasminogenemia"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2/3, Open-Label, Repeat-Dose Study of the Pharmacokinetics, Efficacy, and Safety of Prometic Plasminogen Intravenous Infusion in Subjects With Hypoplasminogenemia
