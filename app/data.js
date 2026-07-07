@@ -152979,6 +152979,7 @@ window.searchData = [
     "description": "Neuroferritinopathy is an autosomal dominant neurodegeneration with brain iron accumulation caused by pathogenic FTL variants. The disorder features abnormal ferritin and iron accumulation, especially in the basal ganglia, and typically presents as a progressive movement disorder with dystonia, chorea, parkinsonism, and low or low-normal serum ferritin.",
     "pathophysiology": [
       "Mutant ferritin light chain disrupts iron storage",
+      "Mutant ferritin co-assembly and inclusion body formation",
       "Abnormal intracellular iron metabolism",
       "Iron deposition in basal ganglia",
       "Increased oxidative stress",
@@ -153027,6 +153028,7 @@ window.searchData = [
     ],
     "treatments": [
       "Symptomatic pharmacotherapy",
+      "Physical therapy",
       "Iron chelation therapy"
     ],
     "environmental": [],
@@ -153036,11 +153038,11 @@ window.searchData = [
     "source_file": "neuroferritinopathy.yaml",
     "page_url": "../pages/disorders/neuroferritinopathy.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Oligoastrocytoma",
@@ -153294,12 +153296,12 @@ window.searchMetrics = {
   "total_disorder_pages": 1548,
   "total_subtypes": 2412,
   "total_disorders_and_subtypes": 3960,
-  "total_unique_evidence_sources": 24334,
-  "total_unique_publications": 22870,
+  "total_unique_evidence_sources": 24336,
+  "total_unique_publications": 22872,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 214,
   "total_pathographs": 1542,
-  "total_unique_pathological_events": 7218,
+  "total_unique_pathological_events": 7219,
   "total_modules": 110,
   "total_research_reports": 1797,
   "total_classifications": 8,
