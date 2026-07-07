@@ -312,3 +312,18 @@ Source inputs for these batches:
 | 220 | PDHA1-related pyruvate dehydrogenase E1 alpha deficiency | MAPPED | Correct PDH mapping, with subtype resolution to `Pyruvate_Dehydrogenase_Deficiency.yaml#E1-alpha deficiency`. |
 | 221 | PDHB-related pyruvate dehydrogenase E1 beta deficiency | MAPPED | Correct PDH mapping, with subtype resolution to `Pyruvate_Dehydrogenase_Deficiency.yaml#E1-beta deficiency`. |
 | 222 | DLAT-related dihydrolipoyl transacetylase deficiency | MAPPED | Correct subtype-level PDH E2 mapping with high concordance. |
+
+## Batch 21
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 223 | DLD-related dihydrolipoyl dehydrogenase deficiency | MAPPED | Correct subtype-level PDH E3 mapping with high concordance. |
+| 224 | PDHX-related pyruvate dehydrogenase E3-binding protein deficiency | MAPPED | Correct subtype-level PDH E3-binding protein mapping with high concordance. |
+| 225 | PDP1-related pyruvate dehydrogenase phosphatase deficiency | MAPPED | Correct subtype-level PDH phosphatase mapping with high concordance. |
+| 228 | CPT1A-related carnitine palmitoyltransferase 1A deficiency | CANDIDATE | Generated CPT II candidate is false; correct local target is `Carnitine_Palmitoyltransferase_1A_Deficiency.yaml`. |
+| 229 | SLC25A20-related carnitine acylcarnitine translocase deficiency | MAPPED | Correct CACT mapping with high concordance, including severe cardiac and treatment overlap. |
+| 230 | CPT2-related carnitine palmitoyltransferase 2 deficiency | CANDIDATE | Accept generated candidate as correct CPT II mapping with high concordance. |
+| 231 | ACADVL-related very long-chain acyl-CoA dehydrogenase deficiency | MAPPED | Correct VLCAD mapping with high concordance; IEMbase adds C14:1 ratios and bezafibrate prompts. |
+| 232 | HADHA-related trifunctional protein subunit alpha deficiency | UNMAPPED | False negative to local MTP/LCHAD coverage, but IEMbase label spans complete MTPD and isolated HADHA/LCHAD scopes. |
+| 233 | HADHB-related isolated deficiency of long-chain 3-ketoacyl-CoA thiolase | UNMAPPED | Partial false negative to MTPD umbrella coverage; exact isolated HADHB/LKAT subtype remains a gap. |
+| 234 | ACADM-related medium-chain acyl-CoA dehydrogenase deficiency | MAPPED | Correct MCAD mapping with high concordance and granular IEMbase biomarker detail. |
