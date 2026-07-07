@@ -597,3 +597,18 @@ Source inputs for these batches:
 | 475 | GALE-related Galactose epimerase deficiency (CDG) | UNMAPPED | False negative; resolve to `Galactosemia.yaml#Epimerase Deficiency`. |
 | 476 | KHK-related Hepatic fructokinase deficiency | UNMAPPED | True KHK essential fructosuria gap or low-priority scope-review item; reject essential thrombocythemia and do not map to ALDOB HFI. |
 | 477 | ALDOB-related Aldolase B deficiency (CDG) | MAPPED | Correct hereditary fructose intolerance mapping with high concordance; IEMbase adds glycan, coagulation, electrolyte, lipid, uric-acid, and urinary glycerol prompts. |
+
+## Batch 40
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 478 | LAMP2-related Lysosome-associated membrane protein 2 deficiency | MAPPED | Correct Danon disease mapping with high concordance; IEMbase adds Pompe-differentiating normal alpha-glucosidase rows plus EEG/ocular/lymphocyte prompts. |
+| 479 | SLC5A2-related Sodium-glucose cotransporter 2 deficiency | UNMAPPED | False negative; resolve to `Familial_Renal_Glucosuria.yaml#SLC5A2-Related`, reject GSD I, and preserve the inheritance discrepancy for review. |
+| 480 | SLC2A1-related Glucose transporter 1 deficiency | UNMAPPED | False negative; resolve to `GLUT1_Deficiency_Syndrome.yaml`, reject SLC35A2-CDG, and review triheptanoin/hemolytic-anemia additions. |
+| 481 | SLC2A2-related Glucose transporter 2 deficiency | UNMAPPED | False negative; resolve to `Fanconi-Bickel_Syndrome.yaml`, reject SLC35A2-CDG, and review renal/hepatic complication enrichments. |
+| 482 | SLC5A1-related Intestinal sodium-glucose cotransporter 1 deficiency | UNMAPPED | False negative; resolve to `Glucose-Galactose_Malabsorption.yaml` and reject GSD I as a carbohydrate-metabolism neighbor. |
+| 483 | FBP1-related Fructose-1,6-bisphosphatase deficiency | UNMAPPED | True FBP1 deficiency gap; reject hereditary fructose intolerance despite fructose/hypoglycemia overlap. |
+| 484 | G6PC-related Glucose-6-phosphatase deficiency | MAPPED | Correct subtype mapping to `Glycogen_Storage_Disease_Type_I.yaml#GSD Ia (glucose-6-phosphatase deficiency)`. |
+| 485 | SLC37A4-related Glucose-6-phosphate transporter deficiency (CDG) | CANDIDATE | Accept as covered by `Glycogen_Storage_Disease_Type_I.yaml#GSD Ib (glucose-6-phosphate transporter deficiency)` rather than only broad GSD I. |
+| 486 | GAA-related Alpha-glucosidase deficiency | MAPPED | Correct Pompe disease mapping with high concordance; IEMbase adds EEG, orthopnea, taurodontism, and compartment-specific enzyme-assay prompts. |
+| 487 | AGL-related Amylo-1,6-glucosidase (debrancher) deficiency | UNMAPPED | False negative; resolve to `Cori_Forbes_Disease.yaml` and improve alias matching for GSD III / Cori-Forbes / limit dextrinosis. |
