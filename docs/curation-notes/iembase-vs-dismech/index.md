@@ -537,3 +537,18 @@ Source inputs for these batches:
 | 386 | PIGY-related Phosphatidylinositolglycan, class V, deficiency (CDG) | UNMAPPED | True PIGY GPI-anchor deficiency gap; reject CHIME/PIGL as a pathway-neighbor candidate. |
 | 387 | DPM3-related GDP-Man:Dol-P mannosyltransferase 3 deficiency (CDG) | UNMAPPED | False negative; resolve to `Dystroglycanopathy.yaml#DPM3-related dystroglycanopathy`, with CDG biochemical enrichment prompts. |
 | 388 | COG5-related Conserved oligomeric Golgi complex subunit 5 deficiency (CDG) | CANDIDATE | Reject COG1-CDG candidate; true COG5-CDG gap, with COG-complex/type II CDG context only. |
+
+## Batch 36
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 389 | COG6-related Component of COG complex 6 deficiency (CDG) | UNMAPPED | True COG6-CDG gap; reject COX14-related COX deficiency and use COG-complex/type II CDG files only as context. |
+| 390 | TRIP11-related Achondrogenesis type IA (CDG) | UNMAPPED | True TRIP11/GMAP210-CDG gap; reject COL2A1 achondrogenesis type II despite lethal skeletal overlap. |
+| 391 | SEC23B-related Congenital dyserythropoietic anemia type 2 (CDG) | CANDIDATE | Accept candidate as correct subtype mapping to `Congenital_Dyserythropoietic_Anemia.yaml#CDA II`. |
+| 392 | SLC19A3-related Thiamine transporter 2 deficiency | MAPPED | Correct biotin-thiamine-responsive basal ganglia disease mapping with high concordance. |
+| 393 | SLC25A19-related Mitochondrial thiamine pyrophosphate transporter deficiency | UNMAPPED | True SLC25A19 gap; reject GSD I and keep SLC19A3/BTBGD only as thiamine/basal-ganglia context. |
+| 395 | ALDH18A1-related Delta-1-pyrroline-5-carboxylate synthase deficiency, cutis laxa phenotype | MAPPED | Correct ALDH18A1/P5CS spectrum mapping; IEMbase adds ARCL3A-specific skeletal, ocular, vascular, and brain prompts. |
+| 397 | NOGENE-related Pearson Syndrome | UNMAPPED | False negative; resolve to `Pearson_Syndrome.yaml`, not pancreatic agenesis. |
+| 398 | NOGENE-related Kearns Sayre Syndrome | UNMAPPED | False negative; resolve to `Kearns-Sayre_Syndrome.yaml`. |
+| 402 | PRICKLE3-related Leber Hereditary Optic Neuropathy, LHON | UNMAPPED | True PRICKLE3-LHON gap; reject congenital insensitivity to pain and do not substitute Leber congenital amaurosis files. |
+| 406 | MT-TT-related Mitochondrial tRNA(Thr) deficiency | UNMAPPED | True MT-TT/LIMM gap; reject reversible MT-TE infantile COX deficiency as a tRNA-neighbor candidate. |
