@@ -642,3 +642,18 @@ Source inputs for these batches:
 | 506 | USF1-related Familial combined hyperlipidemia | MAPPED | Correct FCHL subtype mapping to `Hyperlipidemia.yaml`; DisMech lacks visible USF1/Apo B-specific coverage. |
 | 507 | APOE-related Apolipoprotein E deficiency | UNMAPPED | Partial hyperlipidemia and sea-blue histiocyte context only; exact APOE dysbetalipoproteinemia / type III hyperlipoproteinemia remains a local gap. |
 | 508 | ABCG5-related Sitosterolemia | UNMAPPED | True ABCG5 sitosterolemia / phytosterolemia gap; do not substitute broad hyperlipidemia for plant-sterol transporter disease. |
+
+## Batch 43
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 509 | LPA-related elevated lipoprotein(a) | UNMAPPED | True LPA/elevated lipoprotein(a) gap; reject Tangier disease and use vascular/lipid entries only as context. |
+| 510 | CYP11A1-related side-chain cleavage enzyme deficiency | UNMAPPED | True CYP11A1/P450scc steroidogenesis gap; reject nonketotic hyperglycinemia and use CAH/adrenal insufficiency only as context. |
+| 512 | GSS-related glutathione synthetase deficiency, severe | UNMAPPED | True severe GSS gap; hereditary orotic aciduria is a false metabolite-neighbor candidate and OPLAH is differential context only. |
+| 513 | MVK-related mevalonate kinase deficiency, severe | MAPPED | Correct mevalonic aciduria subtype mapping to `Mevalonate_Kinase_Deficiency.yaml#Mevalonic Aciduria`; IEMbase adds leukotriene E4 and respiratory/cytopenia prompts. |
+| 514 | EBP-related chondrodysplasia punctata 2, recessive | UNMAPPED | True EBP/MEND syndrome gap; reject PEX7-related RCDP1 despite chondrodysplasia punctata/cataract overlap. |
+| 515 | NSDHL-related CK syndrome | UNMAPPED | True NSDHL CK syndrome gap; reject ZC4H2-related Wieacker-Wolff syndrome as a neurodevelopmental false candidate. |
+| 521 | SLC1A3-related glutamate aspartate transporter deficiency | CANDIDATE | Reject CACNA1A episodic ataxia type 2 as exact; true SLC1A3/EAAT1/EA6 transporter gap. |
+| 522 | SLC6A5-related glycine transporter 2 deficiency | MAPPED | Correct hereditary hyperekplexia mapping with SLC6A5/GlyT2 concordance; IEMbase adds head-retraction and SIDS-related prompts. |
+| 523 | SLC25A12-related mitochondrial aspartate-glutamate carrier deficiency | UNMAPPED | True SLC25A12/Aralar deficiency gap; reject CACNA1A-DEE42 and preserve mitochondrial biomarker/treatment prompts. |
+| 524 | SLC25A22-related mitochondrial glutamate transporter deficiency | UNMAPPED | True SLC25A22/EIEE3 gap; broad undetermined EOEE is context only, not an exact gene-specific target. |
