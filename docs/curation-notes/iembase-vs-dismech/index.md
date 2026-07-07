@@ -477,3 +477,18 @@ Source inputs for these batches:
 | 341 | SLC35C1-related GDP-fucose transporter deficiency (CDG) | UNMAPPED | Reject SLC35A2 and fucosidosis neighbors; true SLC35C1-CDG/LAD-II gap with neutrophil-rolling and fucose-treatment prompts. |
 | 342 | DOLK-related dolichol kinase deficiency (CDG) | UNMAPPED | False negative; resolve to `DK1-congenital_disorder_of_glycosylation.yaml`, with IEMbase adding digital-necrosis and delayed-puberty prompts. |
 | 343 | COG7-related conserved oligomeric Golgi complex subunit 7 deficiency (CDG) | MAPPED | Correct COG7-CDG mapping with high concordance; IEMbase adds renal/urinary, bilirubin/CK, and detailed glycan-fraction prompts. |
+
+## Batch 32
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 344 | COG1-related conserved oligomeric Golgi complex subunit 1 deficiency (CDG) | MAPPED | Correct COG1-CDG mapping with high concordance; IEMbase adds cardiomyopathy, hearing, hepatic/splenic, platelet, and glycan-fraction prompts. |
+| 345 | COG8-related conserved oligomeric Golgi complex subunit 8 deficiency (CDG) | CANDIDATE | Reject COG1-CDG fuzzy candidate; true COG8-CDG gap despite shared COG-complex/type II CDG biology. |
+| 346 | ATP6V0A2-related cutis laxa type IIA (CDG) | UNMAPPED | True ATP6V0A2-CDG/cutis laxa gap; reject Peeling Skin Syndrome and preserve the source spelling variant ATP6VOA2. |
+| 347 | EXT1-related exostosin 1 deficiency (CDG) | UNMAPPED | True EXT1 multiple cartilaginous exostoses gap; reject Multiple Synostoses Syndrome and treat chondrosarcoma as downstream context only. |
+| 348 | EXT2-related exostosin 2 deficiency (CDG) | UNMAPPED | True EXT2 multiple cartilaginous exostoses gap; reject Multiple Synostoses Syndrome and verify sparse neurodevelopmental rows before import. |
+| 349 | B4GALT7-related beta-1,4-galactosyltransferase 7 deficiency (CDG) | UNMAPPED | False negative; resolve to the local spEDS-B4GALT7 subtype under spondylodysplastic Ehlers-Danlos syndrome. |
+| 350 | GALNT3-related hyperphosphatemic familial tumoral calcinosis | UNMAPPED | True GALNT3 tumoral calcinosis gap; reject brain-calcification candidate and retain phosphate-lowering treatment prompts. |
+| 351 | SLC35D1-related UDP-glucuronic acid/UDP-GalNAc transporter deficiency (CDG) | MAPPED | Correct Schneckenbecken dysplasia mapping with high concordance; IEMbase adds CDG framing and normal sialotransferrins. |
+| 352 | POMT1-related O-mannosyltransferase 1 deficiency (CDG) | UNMAPPED | False negative; resolve to the POMT1/MDDG1 context in `Dystroglycanopathy.yaml`. |
+| 353 | POMT2-related O-mannosyltransferase 2 deficiency (CDG) | UNMAPPED | False negative; resolve to the POMT2/MDDG2 context in `Dystroglycanopathy.yaml`. |
