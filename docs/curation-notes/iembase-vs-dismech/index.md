@@ -207,3 +207,18 @@ Source inputs for these batches:
 | 139 | DPEP1-related Dipeptidase deficiency | UNMAPPED | True local gap for cystinylglycinuria; do not map to cystinuria or other cystine-transporter disease. |
 | 140 | ADSL-related Adenylosuccinate lyase deficiency | MAPPED | Correct ADSL mapping with strong local coverage; IEMbase adds specimen-specific SAICA riboside/succinyladenosine detail and cerebellar hypoplasia wording to review. |
 | 141 | ATIC-related AICAR transformylase-IMP cyclohydrolase deficiency | UNMAPPED | True local gap; ADSL is purine-pathway context only, and the catecholamine-synthesis candidate is false. |
+
+## Batch 14
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 142 | ADA-related Adenosine deaminase deficiency | MAPPED | Correct ADA-SCID subtype mapping under severe combined immunodeficiency; IEMbase adds skeletal and compartment-specific biomarker detail. |
+| 143 | DGUOK-related Mitochondrial deoxyguanosine kinase deficiency | CANDIDATE | False-positive TWNK/MTDPS7 candidate; no valid local DGUOK/MTDPS3 target exists. |
+| 144 | AMPD1-related Myoadenylate deaminase deficiency | UNMAPPED | True local gap; ADA deficiency is a false purine-pathway neighbor. |
+| 145 | HPRT1-related Hypoxanthine guanine phosphoribosyltransferase deficiency | MAPPED | Correct Lesch-Nyhan/HPRT1 mapping; IEMbase adds granular hypoxanthine, xanthine, and AICA riboside biomarker leads. |
+| 146 | APRT-related Adenine phosphoribosyl transferase deficiency | MAPPED | Correct APRT deficiency mapping with high concordance for enzyme defect, 2,8-DHA, urolithiasis, and renal injury. |
+| 147 | PRPS1-related Phosphoribosyl pyrophosphate synthetase 1 deficiency | MAPPED | Correct Arts syndrome leaf mapping, with `PRPS1_Deficiency_Spectrum.yaml` as broader context for the CMTX5/DFN continuum. |
+| 149 | PNP-related Purine nucleoside phosphorylase deficiency | UNMAPPED | True local gap; IKBKG/IMD33 is an immunodeficiency-label false positive. |
+| 150 | RRM2B-related Mitochondrial ribonucleotide reductase subunit 2 deficiency | UNMAPPED | Partial false negative: local RRM2B MNGIE-like subtype exists, but no canonical MTDPS8A/8B target. |
+| 151 | TPMT-related Thiopurine S-methyltransferase deficiency | UNMAPPED | Unmapped scope-review item; pharmacogenetic thiopurine intolerance should not map to GAMT deficiency. |
+| 152 | UMPS-related Uridine monophosphate synthase deficiency | MAPPED | Correct hereditary orotic aciduria mapping; IEMbase adds plasma orotic acid, smear terms, and renal-row review targets. |
