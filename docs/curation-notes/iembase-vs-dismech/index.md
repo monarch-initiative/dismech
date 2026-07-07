@@ -342,3 +342,18 @@ Source inputs for these batches:
 | 244 | NAGLU-related N-acetylglucosaminidase deficiency | MAPPED | Correct subtype-level Sanfilippo B/MPS IIIB mapping. |
 | 245 | HGSNAT-related heparan-alpha-glucosaminide N-acetyltransferase deficiency | MAPPED | Correct subtype-level Sanfilippo C/MPS IIIC mapping, with RP73/attenuated retinal-label nuance noted. |
 | 246 | GNS-related N-acetylglucosamine 6-sulfatase deficiency | MAPPED | Correct subtype-level Sanfilippo D/MPS IIID mapping. |
+
+## Batch 23
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 247 | GALNS-related N-acetylgalactosamine 6-sulfatase deficiency | MAPPED | Correct subtype-level Morquio A/MPS IVA mapping with high concordance. |
+| 248 | GLB1-related beta-galactosidase 1 deficiency, Morquio B | UNMAPPED | False negative; resolve to `Morquio_syndrome.yaml#Type B` with high concordance. |
+| 249 | ARSB-related N-acetylgalactosamine 4-sulfatase deficiency | MAPPED | Correct Maroteaux-Lamy/MPS VI mapping with high concordance. |
+| 250 | GUSB-related beta-glucuronidase deficiency | MAPPED | Correct Sly syndrome/MPS VII mapping with high concordance and treatment-row agreement. |
+| 251 | HYAL1-related hyaluronidase deficiency | MAPPED | Correct MPS IX/HYAL1 mapping; IEMbase reinforces hyaluronidase, hyaluronic acid, and normal total-GAG rows. |
+| 252 | PDSS1-related prenyl diphosphate synthase subunit 1 deficiency | MAPPED | Correct PDSS1 primary CoQ10 subtype mapping, with IEMbase adding granular renal, vascular, skin, optic, and neuropathy detail. |
+| 253 | PDSS2-related prenyl diphosphate synthase subunit 2 deficiency | MAPPED | Correct PDSS2 primary CoQ10 subtype mapping with high concordance. |
+| 254 | COQ2-related coenzyme Q2 polyprenyltranferase deficiency | MAPPED | Correct COQ2 primary CoQ10 subtype mapping with high concordance and IEMbase-only retinal/stroke-like prompts. |
+| 255 | COQ9-related coenzyme 9 deficiency | MAPPED | Correct COQ9 primary CoQ10 subtype mapping; IEMbase adds human clinical and biomarker detail plus an alternate-label typo to review. |
+| 256 | COQ8A-related coenzyme Q8A (ADCK3) deficiency | MAPPED | Correct dedicated COQ8A ubiquinone-deficiency ataxia mapping; the primary CoQ10 umbrella subtype remains secondary context. |
