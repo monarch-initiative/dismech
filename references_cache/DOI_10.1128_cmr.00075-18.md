@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/cmr.00075-18"
+reference_id: DOI:10.1128/cmr.00075-18
 title: "Echinococcosis: Advances in the 21st Century"
 authors:
 - Hao Wen
@@ -13,6 +13,7 @@ journal: Clinical Microbiology Reviews
 year: '2019'
 doi: 10.1128/cmr.00075-18
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Echinococcosis: Advances in the 21st Century

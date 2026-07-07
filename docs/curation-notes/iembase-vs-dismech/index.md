@@ -387,3 +387,528 @@ Source inputs for these batches:
 | 278 | GNPAT-related RCDP type 2 | MAPPED | Correct RCDP2 subtype mapping; review IEMbase phytanic-acid directionality before import. |
 | 279 | AGPS-related RCDP type 3 | MAPPED | Correct RCDP3 subtype mapping; review IEMbase phytanic-acid directionality before import. |
 | 280 | ABCD1-related X-linked adrenoleukodystrophy and adrenomyeloneuropathy | UNMAPPED | False negative; resolve to `adrenoleukodystrophy.yaml` with high concordance. |
+
+## Batch 26
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 281 | PHYH-related Phytanoyl-CoA hydroxylase deficiency | MAPPED | Correct Adult Refsum mapping; DisMech is stronger for treatment and mechanism, while IEMbase adds pristanic/pipecolic and craniofacial/renal review prompts. |
+| 282 | DNM1L-related Dynamin-like protein 1 deficiency | UNMAPPED | True local gap; reject the weak PDH candidate because DNM1L mitochondrial-peroxisomal fission disease is mechanistically distinct. |
+| 284 | GLB1-related Beta-galactosidase-1 deficiency, GM1 gangliosidosis | UNMAPPED | False negative to local GLB1 GM1 spectrum coverage; map across GM1 types 1, 2, and 3 rather than only the infantile file. |
+| 285 | HEXB-related Beta-hexosaminidase subunit beta deficiency | UNMAPPED | False negative; resolve to `Sandhoff_Disease.yaml`, with IEMbase adding VEP, urinary incontinence, movement-disorder, LysoGM2, and oligosaccharide prompts. |
+| 286 | HEXA-related Beta-hexosaminidase subunit alpha deficiency | MAPPED | Correct Tay-Sachs mapping; high concordance, with IEMbase adding LysoGM2/oligosaccharide prompts and hepatosplenomegaly needing caution. |
+| 287 | GM2A-related GM2 activator protein deficiency | MAPPED | Correct AB variant mapping; IEMbase reinforces the preserved Hex A activity distinction and adds sparse spasticity/urinary/psychiatric prompts. |
+| 288 | GBA-related Glucocerebrosidase deficiency | MAPPED | Correct Gaucher mapping with high concordance; IEMbase adds specific ERT/SRT agents and pulmonary, malignancy, hemophagocytosis, and cirrhosis prompts. |
+| 289 | GALC-related Beta-galactosylceramidase deficiency | UNMAPPED | False negative; resolve to `Krabbe_Disease.yaml`, with IEMbase adding CSF protein, deafness, fever, and later-onset ataxia prompts. |
+| 290 | ARSA-related Arylsulfatase A deficiency | MAPPED | Correct MLD mapping; IEMbase OTL-200 aligns with local atidarsagene autotemcel and adds psychiatric/gait/dysarthria/spasticity review prompts. |
+| 291 | PSAP-related Combined saposin deficiency | MAPPED | Correct combined saposin deficiency mapping; note the cached IEMbase label has a source typo and treat hydrolase-assay rows as downstream cofactor-loss readouts. |
+
+## Batch 27
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 292 | PSAP-related Krabbe disease-like disorder due to saposin A deficiency | MAPPED | Correct saposin A/Krabbe-like mapping; IEMbase adds sensory, fever, feeding, CSF-protein, and lysogalactosylceramide prompts. |
+| 293 | PSAP-related Metachromatic leukodystrophy-like disorder due to saposin B deficiency | CANDIDATE | Reject saposin C candidate; local MLD file is partial phenotype context, but a saposin B/PSAP-specific target is still missing. |
+| 294 | PSAP-related Gaucher disease-like disorder due to saposin C deficiency | MAPPED | Correct saposin C/Gaucher-like mapping; IEMbase reinforces normal beta-D-glucosidase with elevated glucosylsphingosine and chitotriosidase. |
+| 296 | GLA-related Alpha-galactosidase A deficiency | MAPPED | Correct Fabry mapping with high concordance; IEMbase adds agent-specific treatment rows and airway/pulmonary/malignancy/thyroid review prompts. |
+| 297 | ASAH1-related Acid ceramidase deficiency, inflammatory phenotype | MAPPED | Correct Farber mapping with high concordance; IEMbase adds hepatosplenic, reflex, lung, lymph-node, CSF-protein, and C26-ceramide prompts. |
+| 298 | SMPD1-related Acid sphingomyelinase deficiency | CANDIDATE | Generated type A candidate is valid but incomplete; split spectrum record across local Niemann-Pick type A and type B entries. |
+| 299 | GNPTAB-related UDP-N-acetylglucosamine-1-phosphotransferase subunit alpha/beta deficiency | MAPPED | Correct mucolipidosis II mapping; IEMbase adds neuroimaging, otitis, hepatosplenic, and compartment-specific enzyme/GAG/oligosaccharide prompts. |
+| 300 | GNPTG-related UDP-N-acetylglucosamine-1-phosphotransferase subunit gamma deficiency | UNMAPPED | False negative; resolve to `GNPTG-Mucolipidosis.yaml`, with IEMbase adding serum/leukocyte assay and urinary substrate prompts. |
+| 301 | SUMF1-related Formyl-glycine generating enzyme deficiency | AMBIGUOUS | Resolve generated subtype ambiguity to file-level `Multiple_Sulfatase_Deficiency.yaml`; IEMbase adds selected MRI, cardiopulmonary, gingival, speech, and gait prompts. |
+| 302 | LIPA-related Lysosomal acid lipase deficiency | MAPPED | Generated CESD mapping is incomplete; split spectrum record across `Wolman_Disease.yaml` and `Cholesteryl_Ester_Storage_Disease.yaml`. |
+
+## Batch 28
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 303 | NPC1-related Niemann-Pick disease type C1 | MAPPED | Correct NPC1 subtype mapping; local coverage is strong, with IEMbase adding chitotriosidase, cholestane-triol, filipin-test, hemophagocytosis, and rare liver-tumor review prompts. |
+| 304 | NPC2-related Niemann-Pick disease type C2 | MAPPED | Correct NPC2 subtype mapping; local coverage is strong, with IEMbase adding diagnostic biomarker rows and no NPC2-specific HPbCD treatment signal. |
+| 305 | PPT1-related Palmitoyl-protein thioesterase 1 deficiency | MAPPED | Correct NCL1 mapping; local mechanism coverage is strong but lacks PPT1 enzyme assay and granular MRI/electrophysiology/retinal rows. |
+| 306 | TPP1-related Tripeptidyl-peptidase 1 deficiency | MAPPED | Correct NCL2 mapping; high concordance for phenotype and cerliponase alfa, with IEMbase adding TPP1 assay and granular imaging/electrophysiology prompts. |
+| 307 | CLN3-related Lysosomal transmembrane protein deficiency | MAPPED | Correct NCL3 mapping; DisMech covers core juvenile Batten disease while IEMbase adds psychiatric, movement, cardiac, cytologic, and electrophysiology review prompts. |
+| 308 | CLN6-related Kufs disease | MAPPED | Correct adult NCL/Kufs mapping; local CLN6 adult coverage is strong, with IEMbase adding extrapyramidal, behavioral, and spasticity prompts. |
+| 309 | DNAJC5-related Kufs disease | MAPPED | Correct adult NCL/Kufs mapping; DNAJC5 is covered genetically and mechanistically, but future gene-specific CLN4 subtype resolution could improve precision. |
+| 310 | CLN5-related Lysosomal protein deficiency | UNMAPPED | True missing standalone NCL5 target; broad NCL umbrella provides only partial shared context. |
+| 311 | CLN6-related Lysosomal protein deficiency | UNMAPPED | True missing CLN6 late-infantile target; do not map to adult CLN6 Kufs disease despite shared gene. |
+| 312 | MFSD8-related CLN7 Turkish variant | MAPPED | Correct NCL7 mapping with high concordance, including Milasen; IEMbase adds granular MRI, optic, retinal, speech, and electrophysiology prompts. |
+
+## Batch 29
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 313 | CLN8-related Lysosomal protein deficiency | UNMAPPED | True missing standalone NCL8/CLN8 target; broad NCL umbrella has CLN8 gene and shared phenotype context only. |
+| 315 | CTSD-related Cathepsin D deficiency | UNMAPPED | True missing standalone NCL10/CTSD target; broad NCL umbrella has CTSD context but lacks CTSD enzyme-assay and congenital phenotype detail. |
+| 316 | MMADHC-related Methylmalonic aciduria and homocystinuria, cblD type | UNMAPPED | False negative; resolve to the cobalamin umbrella's cblD subtype, with combined cblD-MMA/HC biochemical detail as enrichment. |
+| 317 | MSMO1-related Sterol C4-methyloxidase deficiency | UNMAPPED | True local gap; cerebrotendinous xanthomatosis is a false sterol-pathway neighbor. |
+| 318 | CYP51A1-related Lanosterol demethylase deficiency | UNMAPPED | True local gap; COA3-related COX deficiency is a lexical false-positive candidate. |
+| 319 | CTSA-related Cathepsin A deficiency | MAPPED | Correct galactosialidosis mapping; local coverage is strong but IEMbase adds enzyme, oligosaccharide, renal, cardiac, and cellular review prompts. |
+| 320 | SCARB2-related Glucocerebrosidase receptor deficiency | UNMAPPED | True missing SCARB2/AMRF target; reject Gaucher disease despite glucocerebrosidase-adjacent terminology and preserve normal beta-D-glucosidase as differential detail. |
+| 321 | PMM2-related Phosphomannomutase 2 deficiency (CDG) | UNMAPPED | True PMM2-CDG gap; other gene-specific CDG files are context only, not valid targets. |
+| 322 | MPI-related Phosphomannose isomerase deficiency (CDG) | UNMAPPED | True MPI-CDG gap with distinctive protein-losing enteropathy, hypoglycemia, liver, thrombosis, and coagulation-marker signals. |
+| 323 | ALG6-related Glucosyltransferase 1 deficiency (CDG) | UNMAPPED | True ALG6-CDG gap; do not map to ALG12/ALG9 or other CDG entries based only on shared type I CDG features. |
+
+## Batch 30
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 324 | ALG3-related Mannosyltransferase 6 deficiency (CDG) | CANDIDATE | Reject ALG12-CDG candidate; true ALG3-CDG gap with Man5GlcNAc2, hypoglycemia, and coagulation/protein biochemical prompts. |
+| 325 | ALG12-related Mannosyltransferase 8 deficiency (CDG) | MAPPED | Correct ALG12-CDG mapping; IEMbase adds granular imaging, ocular/hearing, GI, endocrine, prenatal, and Man7 review prompts. |
+| 326 | ALG8-related Glucosyltransferase 2 deficiency (CDG) | UNMAPPED | Reject ALG8-related ADPLD gene-collision candidate; true recessive ALG8-CDG gap. |
+| 327 | ALG2-related Mannosyltransferase 2 deficiency (CDG) | CANDIDATE | Reject ALG12-CDG candidate; true ALG2-CDG gap, with local CMS glycosylation context only for the neuromuscular branch. |
+| 328 | DPAGT1-related UDP-GlcNAc:Dol-P-GlcNac-P transferase deficiency (CDG) | UNMAPPED | Local CMS covers DPAGT1 neuromuscular context, but canonical multisystem DPAGT1-CDG remains a disease gap. |
+| 329 | ALG1-related Mannosyltransferase 1 deficiency (CDG) | CANDIDATE | Reject ALG12-CDG candidate; true ALG1-CDG gap with early GlcNAc2 lipid-linked and renal/cardiac prompts. |
+| 330 | ALG9-related Mannosyltransferase 7-9 deficiency (CDG) | MAPPED | Correct ALG9-CDG mapping with high concordance, including type I transferrin and Man6/Man8 lipid-linked biochemical signals. |
+| 331 | RFT1-related Flippase of Man5GlcNAc2-PP-Dol deficiency (CDG) | UNMAPPED | Reject X-linked SCID candidate; true RFT1-CDG gap with Man5GlcNAc2, sensory, thrombotic, and coagulation prompts. |
+| 332 | MGAT2-related N-acetylglucosaminyltransferase 2 deficiency (CDG) | UNMAPPED | False negative; low-score MGAT2-CDG candidate is the correct local target, with IEMbase adding granular dysmorphism, GI, and coagulation prompts. |
+| 333 | GCS1-related Glucosidase 1 deficiency (CDG) | UNMAPPED | Reject Gaucher disease lexical candidate; true MOGS/GCS1-CDG gap with tetraglucoside, immunoglobulin, respiratory, and neurologic prompts. |
+
+## Batch 31
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 334 | TUSC3-related oligosaccharyltransferase subunit deficiency (CDG) | UNMAPPED | True TUSC3-CDG gap; reject GHIS/IGFALS candidate because short stature is not enough to map across mechanisms. |
+| 335 | SRD5A3-related steroid 5-alpha-reductase 3 deficiency (CDG) | CANDIDATE | Reject SRD5A2 46,XY DSD candidate; true SRD5A3-CDG gap with ocular, skin, brain, dolichol, and coagulation prompts. |
+| 336 | DPM1-related GDP-Man:Dol-P mannosyltransferase deficiency (CDG) | UNMAPPED | Dystroglycanopathy has partial DPM1 pathway context, but standalone DPM1-CDG remains a local disease gap. |
+| 337 | MPDU1-related Dol-P-Man utilization 1 deficiency (CDG) | MAPPED | Correct MPDU1-CDG mapping with high concordance; IEMbase adds growth-hormone, cerebral-atrophy, antithrombin, and Man5/Man9 prompts. |
+| 338 | B4GALT1-related beta-1,4-galactosyltransferase 1 deficiency (CDG) | UNMAPPED | Reject GM1 gangliosidosis lexical candidate; true B4GALT1-CDG gap with hypogalactosylated transferrin and coagulation prompts. |
+| 339 | GNE-related UDP-GlcNAc epimerase-kinase deficiency (CDG) | UNMAPPED | Reject Galactosemia/epimerase candidate; true GNE myopathy/CDG gap with rimmed-vacuole and N-acetylmannosamine prompts. |
+| 340 | SLC35A1-related CMP-sialic acid transporter deficiency (CDG) | UNMAPPED | Reject SLC35A2-CDG family-neighbor candidate; true SLC35A1-CDG gap with macrothrombocytopenia and platelet-sialylation prompts. |
+| 341 | SLC35C1-related GDP-fucose transporter deficiency (CDG) | UNMAPPED | Reject SLC35A2 and fucosidosis neighbors; true SLC35C1-CDG/LAD-II gap with neutrophil-rolling and fucose-treatment prompts. |
+| 342 | DOLK-related dolichol kinase deficiency (CDG) | UNMAPPED | False negative; resolve to `DK1-congenital_disorder_of_glycosylation.yaml`, with IEMbase adding digital-necrosis and delayed-puberty prompts. |
+| 343 | COG7-related conserved oligomeric Golgi complex subunit 7 deficiency (CDG) | MAPPED | Correct COG7-CDG mapping with high concordance; IEMbase adds renal/urinary, bilirubin/CK, and detailed glycan-fraction prompts. |
+
+## Batch 32
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 344 | COG1-related conserved oligomeric Golgi complex subunit 1 deficiency (CDG) | MAPPED | Correct COG1-CDG mapping with high concordance; IEMbase adds cardiomyopathy, hearing, hepatic/splenic, platelet, and glycan-fraction prompts. |
+| 345 | COG8-related conserved oligomeric Golgi complex subunit 8 deficiency (CDG) | CANDIDATE | Reject COG1-CDG fuzzy candidate; true COG8-CDG gap despite shared COG-complex/type II CDG biology. |
+| 346 | ATP6V0A2-related cutis laxa type IIA (CDG) | UNMAPPED | True ATP6V0A2-CDG/cutis laxa gap; reject Peeling Skin Syndrome and preserve the source spelling variant ATP6VOA2. |
+| 347 | EXT1-related exostosin 1 deficiency (CDG) | UNMAPPED | True EXT1 multiple cartilaginous exostoses gap; reject Multiple Synostoses Syndrome and treat chondrosarcoma as downstream context only. |
+| 348 | EXT2-related exostosin 2 deficiency (CDG) | UNMAPPED | True EXT2 multiple cartilaginous exostoses gap; reject Multiple Synostoses Syndrome and verify sparse neurodevelopmental rows before import. |
+| 349 | B4GALT7-related beta-1,4-galactosyltransferase 7 deficiency (CDG) | UNMAPPED | False negative; resolve to the local spEDS-B4GALT7 subtype under spondylodysplastic Ehlers-Danlos syndrome. |
+| 350 | GALNT3-related hyperphosphatemic familial tumoral calcinosis | UNMAPPED | True GALNT3 tumoral calcinosis gap; reject brain-calcification candidate and retain phosphate-lowering treatment prompts. |
+| 351 | SLC35D1-related UDP-glucuronic acid/UDP-GalNAc transporter deficiency (CDG) | MAPPED | Correct Schneckenbecken dysplasia mapping with high concordance; IEMbase adds CDG framing and normal sialotransferrins. |
+| 352 | POMT1-related O-mannosyltransferase 1 deficiency (CDG) | UNMAPPED | False negative; resolve to the POMT1/MDDG1 context in `Dystroglycanopathy.yaml`. |
+| 353 | POMT2-related O-mannosyltransferase 2 deficiency (CDG) | UNMAPPED | False negative; resolve to the POMT2/MDDG2 context in `Dystroglycanopathy.yaml`. |
+
+## Batch 33
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 354 | POMGNT1-related O-Mannose beta-1,2-N-acetyglucosaminyltransferase deficiency (CDG) | UNMAPPED | False negative; resolve to the POMGNT1/MDDG3 context in `Dystroglycanopathy.yaml`. |
+| 358 | LFNG-rerlated O-Fucose-specific beta-1,3-N-acetylglucosaminyltransferase deficiency (CDG) | UNMAPPED | False negative; resolve to `Spondylocostal_Dysostosis.yaml` LFNG/SCDO3 context and preserve the source-label typo only as source metadata. |
+| 359 | B3GALTL-related O-Fucose-specific beta-1,3-N-glucosyltransferase deficiency (CDG) | UNMAPPED | True B3GLCT/Peters plus syndrome gap; reject Gaucher disease and phenotype-only anterior-segment neighbors. |
+| 360 | ST3GAL5-related Lactosylceramide alpha-2,3-sialyltransferase deficiency (CDG) | MAPPED | Correct GM3 synthase deficiency mapping with high concordance; review IEMbase ORPHA:370938 versus local ORPHA:370933. |
+| 361 | PIGM-related Phosphatidylinositolglycan, class M, deficiency (CDG) | UNMAPPED | True PIGM-CDG/GPI anchor deficiency gap; reject MHC class II deficiency and retain thrombosis/GPI-flow/sodium phenylbutyrate prompts. |
+| 362 | PRPS1-related Phosphoribosyl pyrophosphate synthetase 1 superactivity | CANDIDATE | Accept the PRPS1 Superactivity candidate as the correct local target with high concordance. |
+| 363 | IMPDH1-related Inosine-5'-monophosphate dehydrogenase deficiency | CANDIDATE | Reject GUCY2D retinopathy candidate; true IMPDH1 RP10/LCA11 gap despite shared retinal dystrophy phenotype. |
+| 364 | XDH-related Xanthine oxidase deficiency | UNMAPPED | True XDH xanthinuria type I gap; reject chronic granulomatous disease and preserve xanthine/hypoxanthine/uric-acid prompts. |
+| 367 | LDLR-related Familial hypercholesterolemia heterozygous (LDLR) | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml`, heterozygous FH/LDLR branch. |
+| 368 | APOB-related Familial defective apolipoprotein B | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml`, APOB-LDLR binding-defect branch, and verify fibrates before import. |
+
+## Batch 34
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 369 | PCSK9-related Proprotein convertase superactivity | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml`, PCSK9 gain-of-function branch. |
+| 370 | LDLRAP1-related Autosomal recessive hypercholesterolemia (ARH) | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml`, LDLRAP1-related LDL uptake defect/autosomal recessive FH branch. |
+| 371 | MTTP-related Microsomal triglyceride transfer protein deficiency | MAPPED | Correct abetalipoproteinemia mapping with high concordance; IEMbase adds biopsy, prothrombin-ratio, HDL, and reflex wording prompts. |
+| 372 | APOB-related Apolipoprotein B deficiency | MAPPED | Generated abetalipoproteinemia mapping is over-broad; APOB familial hypobetalipoproteinemia type 1 is a separate local gap. |
+| 373 | PCSK9-related Proprotein convertase deficiency with low LDL | UNMAPPED | True local gap or scope-review item; do not map opposite-direction PCSK9 loss-of-function disease to FH gain-of-function coverage. |
+| 374 | ANGPTL3-related Angiopoietin-like 3 deficiency | MAPPED | Generated abetalipoproteinemia mapping is a false positive; ANGPTL3 combined familial hypolipidemia is a separate local gap. |
+| 375 | CETP-related Cholesteryl ester transfer protein deficiency | UNMAPPED | True CETP deficiency gap; reject cholesteryl ester storage disease lexical candidate. |
+| 376 | LIPC-related Hepatic lipase deficiency | UNMAPPED | True LIPC hepatic lipase deficiency gap; reject hepatic veno-occlusive disease lexical candidate. |
+| 377 | SCARB1-related Scavenger receptor B1 deficiency | UNMAPPED | True SCARB1/SR-BI deficiency gap; reject triple-negative breast cancer candidate. |
+| 378 | ABCA1-related Tangier disease | MAPPED | Correct Tangier disease mapping with high concordance; IEMbase adds concise orange tonsil, HDL, triglyceride, and ApoA-I prompts. |
+
+## Batch 35
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 379 | APOA1-related Apolipoprotein A-I deficiency | UNMAPPED | True APOA1 deficiency gap; do not reuse Tangier disease just because low HDL/ApoA-I vocabulary overlaps. |
+| 380 | LCAT-related Familial lecithin cholesterol acyl transferase deficiency | UNMAPPED | True LCAT deficiency gap; reject lipoyl transferase 1 as a lexical false-positive candidate. |
+| 381 | LPL-related Lipoprotein lipase deficiency | UNMAPPED | False negative; resolve to `Familial_Chylomicronemia_Syndrome.yaml`, with LPL/familial hyperchylomicronemia as the relevant branch. |
+| 382 | CLN8-related Northern epilepsy variant | UNMAPPED | True CLN8-EPMR subtype gap; broad NCL context is useful but not an exact Northern epilepsy target. |
+| 383 | ALG11-related Mannosyltransferase 4-5 deficiency (CDG) | UNMAPPED | True ALG11-CDG gap; reject ALG12-CDG as a type I CDG family-neighbor candidate. |
+| 384 | MAGT1-related Magnesium transporter 1 deficiency (CDG) | UNMAPPED | True MAGT1/XMEN-CDG gap; reject GSD I/GSD Ib and keep EBV-susceptibility mentions as differential context only. |
+| 385 | CHSY1-related Chondroitin sulfate synthase 1 deficiency (CDG) | MAPPED | Correct Temtamy preaxial brachydactyly mapping with high concordance; preserve the source spelling variant as source metadata. |
+| 386 | PIGY-related Phosphatidylinositolglycan, class V, deficiency (CDG) | UNMAPPED | True PIGY GPI-anchor deficiency gap; reject CHIME/PIGL as a pathway-neighbor candidate. |
+| 387 | DPM3-related GDP-Man:Dol-P mannosyltransferase 3 deficiency (CDG) | UNMAPPED | False negative; resolve to `Dystroglycanopathy.yaml#DPM3-related dystroglycanopathy`, with CDG biochemical enrichment prompts. |
+| 388 | COG5-related Conserved oligomeric Golgi complex subunit 5 deficiency (CDG) | CANDIDATE | Reject COG1-CDG candidate; true COG5-CDG gap, with COG-complex/type II CDG context only. |
+
+## Batch 36
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 389 | COG6-related Component of COG complex 6 deficiency (CDG) | UNMAPPED | True COG6-CDG gap; reject COX14-related COX deficiency and use COG-complex/type II CDG files only as context. |
+| 390 | TRIP11-related Achondrogenesis type IA (CDG) | UNMAPPED | True TRIP11/GMAP210-CDG gap; reject COL2A1 achondrogenesis type II despite lethal skeletal overlap. |
+| 391 | SEC23B-related Congenital dyserythropoietic anemia type 2 (CDG) | CANDIDATE | Accept candidate as correct subtype mapping to `Congenital_Dyserythropoietic_Anemia.yaml#CDA II`. |
+| 392 | SLC19A3-related Thiamine transporter 2 deficiency | MAPPED | Correct biotin-thiamine-responsive basal ganglia disease mapping with high concordance. |
+| 393 | SLC25A19-related Mitochondrial thiamine pyrophosphate transporter deficiency | UNMAPPED | True SLC25A19 gap; reject GSD I and keep SLC19A3/BTBGD only as thiamine/basal-ganglia context. |
+| 395 | ALDH18A1-related Delta-1-pyrroline-5-carboxylate synthase deficiency, cutis laxa phenotype | MAPPED | Correct ALDH18A1/P5CS spectrum mapping; IEMbase adds ARCL3A-specific skeletal, ocular, vascular, and brain prompts. |
+| 397 | NOGENE-related Pearson Syndrome | UNMAPPED | False negative; resolve to `Pearson_Syndrome.yaml`, not pancreatic agenesis. |
+| 398 | NOGENE-related Kearns Sayre Syndrome | UNMAPPED | False negative; resolve to `Kearns-Sayre_Syndrome.yaml`. |
+| 402 | PRICKLE3-related Leber Hereditary Optic Neuropathy, LHON | UNMAPPED | True PRICKLE3-LHON gap; reject congenital insensitivity to pain and do not substitute Leber congenital amaurosis files. |
+| 406 | MT-TT-related Mitochondrial tRNA(Thr) deficiency | UNMAPPED | True MT-TT/LIMM gap; reject reversible MT-TE infantile COX deficiency as a tRNA-neighbor candidate. |
+
+## Batch 37
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 407 | MT-TE-related Mitochondrial Myopathy with Diabetes Mellitus | UNMAPPED | True MT-TE m.14709T>C diabetes-myopathy gap; reject reversible infantile MT-TE/COX deficiency despite shared gene. |
+| 408 | MT-TE-related Mitochondrial tRNA(Glu) deficiency | UNMAPPED | False negative; resolve to `Reversible_Infantile_Cytochrome_c_Oxidase_Deficiency.yaml`. |
+| 411 | POLG-related Mitochondrial DNA polymerase gamma catalytic subunit deficiency 4A | CANDIDATE | True POLG Alpers-Huttenlocher/MTDPS4A gap; reject MNGIE and use SANDO only as POLG-spectrum context. |
+| 416 | OPA1-related Childhood-onset optic atrophy type 1 | UNMAPPED | Partial OPA1 context in DOA-plus file, but pure childhood/juvenile OPA1 optic atrophy remains an exact gap or lump/split decision. |
+| 420 | POLG-related Spinocerebellar Ataxia with Epilepsy, included (SCAE, included) | MAPPED | Correct SANDO mapping with high concordance; review inheritance discordance before import. |
+| 421 | OPA1-related Optic Atrophy 1 and Deafness | UNMAPPED | False negative; resolve to `Autosomal_Dominant_Optic_Atrophy_Plus.yaml`, with Behr/recessive subtype caveats. |
+| 425 | LRPPRC-related Leigh Syndrome with French-Canadian Ethnicity | UNMAPPED | False negative; resolve to the French-Canadian LRPPRC subtype in `Leigh_Syndrome.yaml`. |
+| 426 | ISCU-related Hereditary Myopathy with Lactic Acidosis | UNMAPPED | True ISCU/HML Fe-S myopathy gap; reject CMT/HNPP neuropathy candidate. |
+| 436 | GFM1-related Mitochondrial elongation factor G1 deficiency | UNMAPPED | True GFM1/COXPD1 mitoribosome/translation gap; reject mitochondrial trifunctional protein deficiency. |
+| 437 | MRPS16-related Mitochondrial ribosomal small subunit 16 deficiency | UNMAPPED | True MRPS16/COXPD2 neonatal combined-OXPHOS gap; reject HMG-CoA synthase deficiency. |
+
+## Batch 38
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 438 | ACAD9-related Acyl-CoA Dehydrogenase 9 deficiency | UNMAPPED | False negative; resolve to `ACAD9_Deficiency.yaml` and reject glutaric acidemia type 1. |
+| 439 | TSFM-related Mitochondrial elongation factor Ts deficiency | UNMAPPED | True TSFM/COXPD3 local gap; reject beta-ketothiolase deficiency. |
+| 440 | TUFM-related Mitochondrial elongation factor Tu deficiency | UNMAPPED | True TUFM/COXPD4 local gap; reject mitochondrial trifunctional protein deficiency. |
+| 441 | MRPS22-related Mitochondrial ribosomal small subunit 22 deficiency | UNMAPPED | True MRPS22/COXPD5 neonatal combined-OXPHOS gap; reject HMG-CoA synthase deficiency. |
+| 442 | AIFM1-related X-Linked Mitochondrial Myopathy | UNMAPPED | True AIFM1 COXPD6 mitochondrial myopathy gap; reject DFNX hearing loss as an exact mapping. |
+| 443 | C12ORF65-related Mitochondrial release factor deficiency | UNMAPPED | True C12ORF65/MTRFR COXPD7/SPG55 gap; reject ALDH18A1 spastic-paraplegia neighbor. |
+| 444 | PUS1-related Pseudouridine synthase 1 deficiency | MAPPED | Correct PUS1/MLASA1 mapping with high concordance; IEMbase adds mtDNA depletion and dysmorphic-feature prompts. |
+| 445 | TRMU-related tRNA 5-methylaminomethyl-2-thiouridylate-methyltransferase deficiency | UNMAPPED | Partial false negative/context case: local RIRCD captures TRMU/cysteine context, but dedicated TRMU transient infantile liver failure remains a gap. |
+| 446 | DARS2-related Mitochondrial aspartyl-tRNA synthetase deficiency | UNMAPPED | True DARS2/LBSL gap; reject HMG-CoA synthase deficiency and do not substitute EIF2B leukodystrophy. |
+| 451 | SDHA-related Succinate dehydrogenase subunit A deficiency | UNMAPPED | True SDHA/complex II deficiency gap; reject pyruvate dehydrogenase E1-beta and keep Leigh syndrome as phenotype context only. |
+
+## Batch 39
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 463 | SLC25A3-related Mitochondrial phosphate carrier deficiency | UNMAPPED | True SLC25A3 mitochondrial phosphate carrier gap; reject HMG-CoA synthase deficiency. |
+| 466 | SLC25A38-related Mitochondrial glycine transporter deficiency | UNMAPPED | True SLC25A38 sideroblastic anemia type 2 gap; reject primary carnitine deficiency and do not substitute MLASA/Pearson context. |
+| 467 | TIMM8A-related Mohr-Tranebjaerg syndrome | UNMAPPED | True TIMM8A/Mohr-Tranebjaerg deafness-dystonia gap; ignore unrelated MTS acronym hits. |
+| 468 | UCP1-3-related Uncoupling protein deficiency | UNMAPPED | True UCP1-3 uncoupling-protein gap or scope-review item; reject PDH E3-binding protein deficiency. |
+| 471 | MT-RNR1-related Mitochondrial ribosomal RNA 12S deficiency | UNMAPPED | True MT-RNR1 aminoglycoside-induced deafness gap; reject mitochondrial trifunctional protein deficiency. |
+| 473 | GALT-related Galactose-1-phosphate uridyltransferase deficiency (CDG) | MAPPED | Correct classic galactosemia/GALT mapping with high concordance; verify several extra urinary, imaging, and liver-tumor prompts before import. |
+| 474 | GALK1-related Galactokinase deficiency (CDG) | UNMAPPED | False negative; resolve to `Galactosemia.yaml#Galactokinase Deficiency`. |
+| 475 | GALE-related Galactose epimerase deficiency (CDG) | UNMAPPED | False negative; resolve to `Galactosemia.yaml#Epimerase Deficiency`. |
+| 476 | KHK-related Hepatic fructokinase deficiency | UNMAPPED | True KHK essential fructosuria gap or low-priority scope-review item; reject essential thrombocythemia and do not map to ALDOB HFI. |
+| 477 | ALDOB-related Aldolase B deficiency (CDG) | MAPPED | Correct hereditary fructose intolerance mapping with high concordance; IEMbase adds glycan, coagulation, electrolyte, lipid, uric-acid, and urinary glycerol prompts. |
+
+## Batch 40
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 478 | LAMP2-related Lysosome-associated membrane protein 2 deficiency | MAPPED | Correct Danon disease mapping with high concordance; IEMbase adds Pompe-differentiating normal alpha-glucosidase rows plus EEG/ocular/lymphocyte prompts. |
+| 479 | SLC5A2-related Sodium-glucose cotransporter 2 deficiency | UNMAPPED | False negative; resolve to `Familial_Renal_Glucosuria.yaml#SLC5A2-Related`, reject GSD I, and preserve the inheritance discrepancy for review. |
+| 480 | SLC2A1-related Glucose transporter 1 deficiency | UNMAPPED | False negative; resolve to `GLUT1_Deficiency_Syndrome.yaml`, reject SLC35A2-CDG, and review triheptanoin/hemolytic-anemia additions. |
+| 481 | SLC2A2-related Glucose transporter 2 deficiency | UNMAPPED | False negative; resolve to `Fanconi-Bickel_Syndrome.yaml`, reject SLC35A2-CDG, and review renal/hepatic complication enrichments. |
+| 482 | SLC5A1-related Intestinal sodium-glucose cotransporter 1 deficiency | UNMAPPED | False negative; resolve to `Glucose-Galactose_Malabsorption.yaml` and reject GSD I as a carbohydrate-metabolism neighbor. |
+| 483 | FBP1-related Fructose-1,6-bisphosphatase deficiency | UNMAPPED | True FBP1 deficiency gap; reject hereditary fructose intolerance despite fructose/hypoglycemia overlap. |
+| 484 | G6PC-related Glucose-6-phosphatase deficiency | MAPPED | Correct subtype mapping to `Glycogen_Storage_Disease_Type_I.yaml#GSD Ia (glucose-6-phosphatase deficiency)`. |
+| 485 | SLC37A4-related Glucose-6-phosphate transporter deficiency (CDG) | CANDIDATE | Accept as covered by `Glycogen_Storage_Disease_Type_I.yaml#GSD Ib (glucose-6-phosphate transporter deficiency)` rather than only broad GSD I. |
+| 486 | GAA-related Alpha-glucosidase deficiency | MAPPED | Correct Pompe disease mapping with high concordance; IEMbase adds EEG, orthopnea, taurodontism, and compartment-specific enzyme-assay prompts. |
+| 487 | AGL-related Amylo-1,6-glucosidase (debrancher) deficiency | UNMAPPED | False negative; resolve to `Cori_Forbes_Disease.yaml` and improve alias matching for GSD III / Cori-Forbes / limit dextrinosis. |
+
+## Batch 41
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 488 | GBE1-related Glycogen branching enzyme deficiency | MAPPED | Correct GSD IV mapping with high concordance; review compartment-specific enzyme testing, coagulation, diet wording, and ORPHA identifier differences before import. |
+| 489 | PYGM-related Muscle glycogen phosphorylase deficiency | CANDIDATE | Reject GSD I candidate; true PYGM/McArdle disease / GSD V gap, with exercise-test lactate, second wind, myoglobinuria, creatine, and sucrose prompts. |
+| 490 | PYGL-related Liver glycogen phosphorylase deficiency | CANDIDATE | Reject GSD I candidate; true PYGL/Hers disease / GSD VI gap, with normal lactate/uric acid and liver phosphorylase prompts. |
+| 491 | PFKM-related Muscle phosphofructokinase deficiency | MAPPED | Correct Tarui disease / GSD VII mapping with high concordance; review gallstones, jaundice, second wind, and ammonia-profile wording before import. |
+| 492 | PHKA2-related Hepatic phosphorylase kinase alpha-2 subunit deficiency | CANDIDATE | Reject GSD I candidate; true X-linked PHKA2/GSD IXa gap, with liver phosphorylase kinase and normal lactate/uric acid prompts. |
+| 493 | PGAM2-related Muscle phosphoglycerate mutase deficiency | CANDIDATE | Reject GSD I candidate; true PGAM2/DiMauro disease / GSD X gap, with muscle phosphoglycerate mutase, CK, glycogen, and myoglobin prompts. |
+| 494 | SLC2A10-related L-Dehydroascorbate transporter deficiency | MAPPED | Correct arterial tortuosity syndrome mapping with high concordance; IEMbase adds arachnodactyly, facial stigmata, arterial hypertension, and joint-laxity prompts. |
+| 496 | GYG1-related Muscle glycogenin 1 deficiency | CANDIDATE | Accept as covered by `Glycogen_Storage_Disease_XV.yaml`; consider promoting GYG1/GSD XV aliases from candidate to exact. |
+| 497 | GYS2-related Hepatic glycogen synthase deficiency | CANDIDATE | Reject GSD I candidate; true GYS2/GSD 0a gap, with depleted liver glycogen, absent hepatomegaly, fasting avoidance, and protein-rich diet prompts. |
+| 498 | GYS1-related Muscle glycogen synthase deficiency | CANDIDATE | Reject GSD I candidate; true GYS1/GSD 0b gap, distinct from both GSD I and GYS1-overactivity Lafora disease context. |
+
+## Batch 42
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 499 | LDHA-related Lactate dehydrogenase A deficiency | CANDIDATE | Reject GSD I candidate; true LDHA/GSD XI gap with LDH activity, exercise-test lactate/ammonia, myoglobinuria, and pregnancy uterine-stiffness prompts. |
+| 500 | ALDOA-related Aldolase A deficiency | CANDIDATE | Reject GSD I candidate; true ALDOA/GSD XII gap with aldolase activity, hemolytic anemia, bilirubin/reticulocyte, rhabdomyolysis, and dysmorphic-feature prompts. |
+| 501 | ENO3-related Enolase beta deficiency | CANDIDATE | Reject GSD I candidate; true ENO3/GSD XIII gap with muscle beta-enolase, CK, muscle glycogen, exercise intolerance, cramps, pain, and weakness prompts. |
+| 502 | PGK1-related Phosphoglycerate kinase deficiency | UNMAPPED | True PGK1 phosphoglycerate kinase deficiency gap; reject GSD VII neighbor despite shared glycolytic myopathy and hemolysis features. |
+| 503 | SUCLA2-related ATP-specific succinyl-CoA synthetase beta subunit deficiency | CANDIDATE | Reject MTDPS7/TWNK candidate; true SUCLA2/MTDPS5 gap with methylmalonic aciduria, succinylcarnitine, lactate, Leigh, deafness, and dystonia prompts. |
+| 504 | HOGA1-related Mitochondrial 4-hydroxy-2-oxoglutarate aldolase 1 deficiency | UNMAPPED | False negative; resolve to `Primary_Hyperoxaluria_Type_3.yaml`, with systemic oxalosis prompts needing source review before import. |
+| 505 | APOC2-related Apolipoprotein C-II deficiency | UNMAPPED | False negative; resolve to `Familial_Chylomicronemia_Syndrome.yaml` with APOC2 branch context and review APOC2-specific treatment rows. |
+| 506 | USF1-related Familial combined hyperlipidemia | MAPPED | Correct FCHL subtype mapping to `Hyperlipidemia.yaml`; DisMech lacks visible USF1/Apo B-specific coverage. |
+| 507 | APOE-related Apolipoprotein E deficiency | UNMAPPED | Partial hyperlipidemia and sea-blue histiocyte context only; exact APOE dysbetalipoproteinemia / type III hyperlipoproteinemia remains a local gap. |
+| 508 | ABCG5-related Sitosterolemia | UNMAPPED | True ABCG5 sitosterolemia / phytosterolemia gap; do not substitute broad hyperlipidemia for plant-sterol transporter disease. |
+
+## Batch 43
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 509 | LPA-related elevated lipoprotein(a) | UNMAPPED | True LPA/elevated lipoprotein(a) gap; reject Tangier disease and use vascular/lipid entries only as context. |
+| 510 | CYP11A1-related side-chain cleavage enzyme deficiency | UNMAPPED | True CYP11A1/P450scc steroidogenesis gap; reject nonketotic hyperglycinemia and use CAH/adrenal insufficiency only as context. |
+| 512 | GSS-related glutathione synthetase deficiency, severe | UNMAPPED | True severe GSS gap; hereditary orotic aciduria is a false metabolite-neighbor candidate and OPLAH is differential context only. |
+| 513 | MVK-related mevalonate kinase deficiency, severe | MAPPED | Correct mevalonic aciduria subtype mapping to `Mevalonate_Kinase_Deficiency.yaml#Mevalonic Aciduria`; IEMbase adds leukotriene E4 and respiratory/cytopenia prompts. |
+| 514 | EBP-related chondrodysplasia punctata 2, recessive | UNMAPPED | True EBP/MEND syndrome gap; reject PEX7-related RCDP1 despite chondrodysplasia punctata/cataract overlap. |
+| 515 | NSDHL-related CK syndrome | UNMAPPED | True NSDHL CK syndrome gap; reject ZC4H2-related Wieacker-Wolff syndrome as a neurodevelopmental false candidate. |
+| 521 | SLC1A3-related glutamate aspartate transporter deficiency | CANDIDATE | Reject CACNA1A episodic ataxia type 2 as exact; true SLC1A3/EAAT1/EA6 transporter gap. |
+| 522 | SLC6A5-related glycine transporter 2 deficiency | MAPPED | Correct hereditary hyperekplexia mapping with SLC6A5/GlyT2 concordance; IEMbase adds head-retraction and SIDS-related prompts. |
+| 523 | SLC25A12-related mitochondrial aspartate-glutamate carrier deficiency | UNMAPPED | True SLC25A12/Aralar deficiency gap; reject CACNA1A-DEE42 and preserve mitochondrial biomarker/treatment prompts. |
+| 524 | SLC25A22-related mitochondrial glutamate transporter deficiency | UNMAPPED | True SLC25A22/EIEE3 gap; broad undetermined EOEE is context only, not an exact gene-specific target. |
+
+## Batch 44
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 525 | CTNS-related nephropathic cystinosis | AMBIGUOUS | Correct local `Cystinosis.yaml` target; resolve to nephropathic infantile/juvenile context rather than ocular-only cystinosis. |
+| 527 | LDLR-related homozygous familial hypercholesterolemia | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml#Homozygous Familial Hypercholesterolemia`. |
+| 528 | LCAT-related fish-eye disease | UNMAPPED | True partial LCAT / fish-eye disease gap; reject carnitine palmitoyltransferase II as a fatty-acid-oxidation false candidate. |
+| 529 | SLC52A3-related Brown-Vialetto-Van Laere syndrome | CANDIDATE | Accept candidate; resolve to `Brown-Vialetto-Van_Laere_Syndrome.yaml#SLC52A3/BVVL1`. |
+| 530 | SLC52A3-related Fazio-Londe syndrome | UNMAPPED | False negative; use `Brown-Vialetto-Van_Laere_Syndrome.yaml` as the riboflavin-transporter spectrum target while preserving deafness-absent scope. |
+| 531 | COQ6-related coenzyme Q6 monooxygenase deficiency | UNMAPPED | False negative; resolve to `Primary_Coenzyme_Q10_Deficiency.yaml#COQ6` with oto-renal CoQ10 deficiency context. |
+| 532 | ETFDH-related myopathic form of CoQ10 deficiency | UNMAPPED | False negative; resolve to `Multiple_Acyl-CoA_Dehydrogenase_Deficiency.yaml#ETFDH` rather than a separate primary CoQ10 entry. |
+| 533 | ATP7A-related distal spinal muscular atrophy type 3 | UNMAPPED | False negative at spectrum level; resolve to `Menkes_Disease.yaml#ATP7A-related distal motor neuropathy`, not classic Menkes disease. |
+| 537 | SUGCT-related glutaric aciduria type 3 | CANDIDATE | Reject GCDH/GA1 candidate; true SUGCT/GA3 benign-form gap with normal 3-hydroxyglutaric acid. |
+| 542 | GK-related isolated glycerol kinase deficiency | UNMAPPED | True GK/hyperglycerolemia gap; reject BCKDK as a lexical kinase-deficiency false candidate. |
+
+## Batch 45
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 544 | MCEE-related methylmalonic aciduria due to methylmalonyl-CoA epimerase deficiency | CANDIDATE | Broad MMA context only; do not treat as an exact MCEE mapping until an MMAE subtype or standalone MCEE target exists. |
+| 548 | ABCD4-related methylmalonic aciduria and homocystinuria, cblJ type | MAPPED | Correct cblJ subtype mapping with high concordance; IEMbase adds SAM, renal/HUS, hypersegmented-neutrophil, myelopathy, and ocular prompts. |
+| 549 | ADK-related adenosine kinase deficiency | MAPPED | Correct ADK mapping with high concordance; IEMbase adds adenosine, SAM/SAH, liver, coagulation, glucose, uric-acid, hearing, and neuroimaging prompts. |
+| 550 | SLC33A1-related acetyl-CoA transporter deficiency | MAPPED | Correct Huppke-Brendel syndrome mapping with high concordance; IEMbase adds cerebral/cerebellar atrophy and axial-hypotonia detail. |
+| 551 | MTHFD1-related 5,10-methylene-tetrahydrofolate dehydrogenase deficiency | UNMAPPED | True MTHFD1 folate one-carbon metabolism gap; reject CAH 3B-HSD as a dehydrogenase-name false candidate. |
+| 552 | ABCB4-related progressive familial intrahepatic cholestasis type 3 | UNMAPPED | True PFIC3 gap; reject progressive familial heart block and preserve high-GGT cholestasis, bile-acid, fibrosis, and transplant prompts. |
+| 553 | SLCO1B1/SLCO1B3-related Rotor syndrome | UNMAPPED | True digenic Rotor syndrome gap; reject Bartter/porphyria context and preserve organic-anion transport and coproporphyrin I prompts. |
+| 554 | ABCC2-related Dubin-Johnson syndrome | UNMAPPED | True ABCC2/Dubin-Johnson gap; reject Stevens-Johnson and porphyria candidates. |
+| 555 | AKR1C2-related 3-alpha-hydroxysteroid dehydrogenase type 3 deficiency | UNMAPPED | True AKR1C2 backdoor pathway gap; reject HSD3B2 CAH despite steroid/DSD phenotype overlap. |
+| 556 | GNPTAB-related mucolipidosis III alpha/beta | MAPPED | Correct ML III alpha/beta mapping with high concordance; IEMbase adds enzyme-directionality, urinary GAG/oligosaccharide, hernia, hip, and foam-cell prompts. |
+
+## Batch 46
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 557 | GRN-related progranulin deficiency | UNMAPPED | False negative for the recessive CLN11/NCL aspect; resolve to `Neuronal_Ceroid_Lipofuscinosis.yaml#GRN`, while dominant GRN-FTLD/TDP-43 remains separate context. |
+| 558 | ATP13A2-related lysosomal type 5 P-type ATPase deficiency | UNMAPPED | False negative; resolve to `Kufor-Rakeb_syndrome.yaml` with CLN12/PARK9 alias review. |
+| 559 | CTSF-related cathepsin F deficiency | UNMAPPED | False negative; resolve to `Adult_Neuronal_Ceroid_Lipofuscinosis.yaml#CTSF` for CLN13 / Type B Kufs disease. |
+| 560 | KCTD7-related CLN14 disease | UNMAPPED | Broad PME/NCL group context only; exact KCTD7/CLN14/EPM3 coverage remains a local gap. |
+| 561 | ALPL-related tissue-nonspecific alkaline phosphatase deficiency | MAPPED | Correct hypophosphatasia mapping with high concordance; review dental, respiratory, calcium/phosphate, and asfotase alfa scope. |
+| 562 | OAT-related ornithine aminotransferase deficiency | MAPPED | Correct OAT/gyrate atrophy mapping with high concordance; IEMbase adds creatine/GAA, treatment, neuromuscular, imaging, and neuropathy prompts. |
+| 563 | PHKA1-related muscle phosphorylase kinase deficiency | CANDIDATE | Reject GSD I candidate; true PHKA1/GSD IXd gap with muscle phosphorylase kinase, exercise-test, second-wind, CK, and myoglobin prompts. |
+| 564 | PRKAG2-related phosphorylase kinase deficiency, AMP-activated | UNMAPPED | Reject MNGIE candidate; true PRKAG2 glycogen-storage cardiomyopathy / AMPK disease gap. |
+| 565 | GLYCTK-related D-glycerate kinase deficiency | UNMAPPED | Reject mevalonate kinase candidate; true GLYCTK/D-glyceric acidemia gap with D-glycerate, acidosis, and severe neurodevelopmental prompts. |
+| 566 | ABCC8-related ATP-sensitive potassium channel regulatory subunit deficiency | UNMAPPED | False negative; resolve to `Congenital_Isolated_Hyperinsulinism.yaml#KATP-HI/ABCC8`. |
+
+## Batch 47
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 567 | GLUD1-related glutamate dehydrogenase superactivity | MAPPED | Correct HI/HA subtype mapping to `Congenital_Isolated_Hyperinsulinism.yaml#HI/HA Syndrome`; IEMbase adds 2-ketoglutaric acid, EEG, and generalized-epilepsy prompts. |
+| 568 | GCK-related glucokinase superactivity | UNMAPPED | False negative; resolve to `Congenital_Isolated_Hyperinsulinism.yaml#GCK-HI`, while source-reviewing IEMbase MODY/type 2 diabetes wording. |
+| 570 | HNF4A-related MODY1 / hyperinsulinism | UNMAPPED | False negative to CHI/monogenic-diabetes context; reject FRTS4 as exact unless renal Fanconi variant-specific phenotype is present. |
+| 571 | SLC16A1-related monocarboxylate transporter 1 superactivity | UNMAPPED | Broad CHI context only; reject PRPS1 superactivity and treat exact SLC16A1/HHF7 exercise-induced hyperinsulinism as a local gap. |
+| 572 | UCP2-related uncoupling protein 2 deficiency | UNMAPPED | Broad CHI context only; reject pyruvate dehydrogenase deficiency and treat exact UCP2-HI as a local gap. |
+| 573 | HNF1A-related MODY3 | UNMAPPED | False negative to partial local coverage in `Congenital_Isolated_Hyperinsulinism.yaml#HNF4A/HNF1A-HI` and `Diabetes_Mellitus.yaml#HNF1A`; no standalone HNF1A/MODY3 entry. |
+| 574 | SUCLG1-related mitochondrial DNA depletion syndrome type 9 | CANDIDATE | Reject mitochondrial CIPO/MNGIE candidate; true SUCLG1/MTDPS9 gap with methylmalonic acid, lactate, Leigh, deafness, and early-death prompts. |
+| 575 | SERAC1-related MEGDEL syndrome | UNMAPPED | Reject COX8A candidate; true SERAC1/MEGDEL gap with 3-methylglutaconic aciduria, deafness, Leigh-like lesions, regression, and filipin prompts. |
+| 576 | TMEM70-related complex V deficiency | UNMAPPED | Reject COX11 candidate; true TMEM70 complex V assembly deficiency gap with cardiomyopathy, WPW, acidosis, pulmonary, renal, and neuroimaging prompts. |
+| 577 | ACSF3-related combined malonic and methylmalonic aciduria | UNMAPPED | False negative; resolve to `Combined_Malonic_and_Methylmalonic_Aciduria.yaml` and reject HMG-CoA synthase candidate. |
+
+## Batch 48
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 578 | AP1S1-related MEDNIK syndrome | MAPPED | Correct exact mapping to `MEDNIK_syndrome.yaml`; IEMbase adds low serum copper/ceruloplasmin, high ASAT/ALAT and bile-acid, very-long-chain fatty-acid, cerebral-atrophy, hyperkeratosis, and intestinal pseudo-obstruction prompts. |
+| 579 | SLC18A2-related vesicular monoamine transporter 2 deficiency | UNMAPPED | Reject primary carnitine deficiency; true SLC18A2/VMAT2 monoamine-vesicular-transport gap, with no exact local target identified. |
+| 580 | MTHFS-related 5,10-methenyltetrahydrofolate synthetase deficiency | UNMAPPED | Reject CPS1 deficiency; true MTHFS / 5-formyltetrahydrofolate cycloligase gap, with only broad folate/remethylation/cerebral-folate context. |
+| 581 | HAMP-related hepcidin deficiency | MAPPED | Correct subtype-level mapping to `Hemochromatosis.yaml#Type 2B`; IEMbase adds concise ferritin, glucose, transferrin-saturation, and liver-iron prompts. |
+| 582 | TFR2-related transferrin receptor 2 deficiency | MAPPED | Correct subtype-level mapping to `Hemochromatosis.yaml#Type 3`; IEMbase adds normal-to-high iron-index staging plus abdominal-pain and hyperpigmentation prompts. |
+| 583 | INSR-related Donohue syndrome | UNMAPPED | Reject IPEX syndrome; true INSR severe insulin-receptoropathy gap; source-review IEMbase inheritance while preserving hyperinsulinemic hypoglycemia, ketone, and free-fatty-acid prompts. |
+| 584 | SMS-related Snyder-Robinson syndrome | UNMAPPED | Reject GM3 synthase deficiency; true spermine-synthase/polyamine gap; source-review IEMbase inheritance/OMIM pairing and preserve N-acetylspermidine, epileptic-encephalopathy, and intellectual-disability prompts. |
+| 585 | PHEX-related X-linked hypophosphatemia | MAPPED | Correct exact mapping to `X-Linked_Hypophosphatemia.yaml`; IEMbase adds alkaline-phosphatase, urinary-phosphate, normal-calcium, tinnitus, muscle-weakness, and waddling-gait prompts. |
+| 587 | VPS11-related hypomyelinating leukodystrophy type 12 | UNMAPPED | Reject HLD7/POLR3 candidate; true VPS11/HLD12 gap with urinary glycosphingolipid/sulfatide and MRI/sensory/autonomic prompts. |
+| 588 | DNAJC12-related hyperphenylalaninemia | UNMAPPED | False negative; resolve to `Disorder_of_Catecholamine_Synthesis.yaml#DNAJC12-related monoamine synthesis disorder`, with pterin, CSF HVA/5-HIAA, treatment, autism, and dystonia prompts. |
+
+## Batch 49
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 589 | KCNA4-related potassium channelopathy | UNMAPPED | Reject CACNA1A calcium-channel candidate; true KCNA4 potassium-channelopathy gap with striatal-necrosis, cataract, dystonia, microcephaly, growth, and attention prompts. |
+| 590 | PPA2-related mitochondrial inorganic pyrophosphatase 2 deficiency | UNMAPPED | Partial PPA2 coverage exists in `Dilated_Cardiomyopathy.yaml`; exact PPA2 mitochondrial pyrophosphatase / infantile sudden cardiac failure remains a local gap. |
+| 591 | SAMD9-related MIRAGE syndrome | UNMAPPED | Reject CHARGE syndrome; true SAMD9/MIRAGE gap with adrenal-axis, myelodysplasia, thrombocytopenia, infection, enteropathy, and genital-phenotype prompts. |
+| 592 | NANS-related N-acetylneuraminic acid synthase deficiency | UNMAPPED | Reject AIFM1/Bieganski SEMD candidate; true NANS-CDG / sialic-acid-biosynthesis gap with N-acetyl-D-mannosamine and skeletal/facial/neurodevelopmental prompts. |
+| 593 | CCDC115-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true CCDC115-CDG / CDG-IIo gap with type 2 glycosylation, liver, lipid, ceruloplasmin, and neurodevelopmental prompts. |
+| 594 | TANGO2-related recurrent metabolic encephalomyopathic crises | UNMAPPED | Reject PKAN candidate; true TANGO2/MECRCN gap with metabolic-crisis, rhabdomyolysis, arrhythmia, hypoglycemia, lactate, CK, and acylcarnitine prompts. |
+| 595 | SLC39A8-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true SLC39A8-CDG / manganese-transporter gap with low manganese, zinc, type 2 sialotransferrin, and nutritional-treatment prompts. |
+| 596 | SLC25A26-related S-adenosylmethionine carrier deficiency | UNMAPPED | Reject HHH syndrome as an SLC25-family false candidate; true SLC25A26/COXPD28 gap with respiratory-chain, pyruvate, lactic-acidosis, hydrops, and perinatal-failure prompts. |
+| 597 | HAO1-related hydroxyacid oxidase 1 deficiency | UNMAPPED | False negative; resolve to `HAO1-Related_Glycolate_Oxidase_Deficiency.yaml` and source-review IEMbase oxalate/nephrolithiasis and achalasia/alacrima prompts before import. |
+| 598 | GMPPA-related GDP-mannose pyrophosphorylase B deficiency | UNMAPPED | Reject CHIME syndrome; true GMPPA/AAMR gap with normal sialotransferrins, achalasia, alacrima, postural-hypotension, hearing, swallowing, and facial prompts. |
+
+## Batch 50
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 599 | GMPPB-related muscular dystrophy-dystroglycanopathy | CANDIDATE | Accept `Dystroglycanopathy.yaml#MDDG14 (GMPPB)` as subtype-level coverage, with `Congenital_Myasthenic_Syndrome.yaml#GMPPB` as secondary CMS context; preserve CK, alpha-dystroglycan, cataract, CMS, myoglobinuria, seizure, and neurodevelopmental prompts. |
+| 600 | PGM1-related phosphoglucomutase 1 deficiency | CANDIDATE | Reject GSD I as exact; true PGM1-CDG / GSD XIV gap with D-galactose, transferrin, antithrombin, nonketotic hypoglycemia, hyperinsulinism, cardiomyopathy, rhabdomyolysis, hepatopathy, endocrine, clefting, thrombosis, and malignant-hyperthermia prompts. |
+| 601 | PGM3-related phosphoglucomutase 3 deficiency | CANDIDATE | Reject IKBKG/IMD33 as exact; true PGM3-CDG / immunodeficiency-23 gap with N/O-glycan, normal sialotransferrin, CD19 B-cell, IgE, T-cell immunodeficiency, neutropenia, infection, atopy, skeletal, facial, growth, and neurodevelopmental prompts. |
+| 602 | DHDDS-related dehydrodolichyl diphosphate synthase deficiency | CANDIDATE | Reject EYS-related RP as exact; true DHDDS-CDG / RP59 gap with normal sialotransferrins, retinitis pigmentosa, epilepsy, intellectual disability, ataxia, dystonia, hypotonia, micropenis, and acute renal-failure prompts. |
+| 603 | NUS1-related Nogo-B receptor deficiency | UNMAPPED | Reject GABRD/GEFS+ as a seizure-only false candidate; true NUS1 / NgBR-CDG gap with cortical atrophy, retinitis pigmentosa, epilepsy, microcephaly, axial hypotonia, acral spasticity, scoliosis, developmental delay, and failure-to-thrive prompts. |
+| 604 | DPM2-related dolichol-P-mannose synthase-2 deficiency | UNMAPPED | False negative; resolve to `Dystroglycanopathy.yaml#DPM2-related dystroglycanopathy` while preserving DPM2-CDG biochemical and systemic prompts including type 1 sialotransferrin, dolichol-linked Man5GlcNAc2, hepatomegaly, infections, respiratory, joint, scoliosis, strabismus, cerebral, seizure, and muscular-dystrophy rows. |
+| 605 | ALG13-related UDP-N-acetylglucosamine transferase deficiency | UNMAPPED | Reject generic DEE13 as exact; true ALG13-CDG / EIEE36 gap with transferrin, thromboplastin, refractory epilepsy, regression, extrapyramidal/pyramidal, visual, feeding, microcephaly, hepatomegaly, and facial prompts. |
+| 606 | ALG14-related congenital myasthenic syndrome 15 | UNMAPPED | Partial broad context in `Congenital_Myasthenic_Syndrome.yaml#Glycosylation`, but exact ALG14-CDG / CMS15 remains a local gap; preserve normal CK, possible type 1 sialotransferrin, fetal hydrops, contractures, hypotonia, epilepsy, developmental delay, behavioral, and CMS-without-tubular-aggregates prompts. |
+| 607 | DDOST-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true DDOST-CDG / CDG-Ir gap with transferrin, antithrombin, factor XI, protein C/S, neonatal liver, oromotor, strabismus, reflux, constipation, myelination, ear infection, osteopenia, failure-to-thrive, hypotonia, and neurodevelopmental prompts. |
+| 608 | STT3A-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true STT3A-CDG gap with N-glycan, transferrin, factor VIII, von Willebrand factor, seizure, hypotonia, neurodevelopmental, gastrointestinal dysmotility, growth, microcephaly, and cerebellar-atrophy prompts. |
+
+## Batch 51
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 609 | STT3B-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true STT3B-CDG gap with neonatal transferrin type I pattern, respiratory/hepatic/coagulation, neurodevelopmental, optic-atrophy, and genital-phenotype prompts. |
+| 610 | SSR4-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true X-linked SSR4-CDG gap with transferrin, abnormal fat distribution, neurodevelopmental, dysmorphic, strabismus, skeletal, and genital prompts. |
+| 611 | MAN1B1-related mannosyl-oligosaccharide alpha-1,2-mannosidase deficiency | UNMAPPED | True MAN1B1-CDG gap; reject generic DYRK1A/intellectual-disability overlap and preserve transferrin, transaminase, speech, behavior, obesity, hypotonia, seizure, strabismus, and facial prompts. |
+| 612 | SLC35A2-related early infantile epileptic encephalopathy-22 / CDG | MAPPED | Correct exact `SLC35A2-CDG.yaml` mapping with high concordance; review IEMbase prompts for infections, visual/retinal findings, limb/hand abnormalities, corpus-callosum/cerebellar imaging, and galactose evidence wording. |
+| 613 | TMEM165-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true TMEM165-CDG / CDG-IIk gap with type II sialotransferrin, CK/transaminase, growth hormone, skeletal, osteoporosis, hepatomegaly, joint-laxity, and treatability-review prompts. |
+| 614 | COG2-related conserved oligomeric Golgi complex deficiency | CANDIDATE | Reject COG1-CDG as exact; true COG2-CDG gap with transferrin, copper/ceruloplasmin, coagulopathy, pituitary, thin-corpus-callosum, spasticity, seizure, hepatic, and neurodevelopmental prompts. |
+| 615 | COG4-related conserved oligomeric Golgi complex deficiency | CANDIDATE | Reject COG1-CDG as exact; true COG4-CDG gap with transferrin, apolipoprotein CIII, liver-enzyme, AFP, ammonia, LDL, cerebral-atrophy, developmental-delay, and intellectual-disability prompts. |
+| 616 | PLPBP-related pyridoxal 5-prime-phosphate binding protein deficiency | UNMAPPED | True treatable PLPBP / vitamin B6-dependent epilepsy gap; reject PDH/E3-binding candidate and source-review vitamin B6 evidence before import. |
+| 617 | WDR45-related neurodegeneration with brain iron accumulation 5 | MAPPED | Correct subtype mapping to `Neurodegeneration_With_Brain_Iron_Accumulation.yaml#BPAN`; preserve BPAN-specific dementia, cerebral atrophy, movement disorder, seizure, and age-banded brain-iron prompts. |
+| 618 | TDO2-related hypertryptophanemia | UNMAPPED | True local gap but scope-review needed because IEMbase is biochemical-only; reject alkaptonuria and preserve tryptophan/serotonin biomarker prompts if curated. |
+
+## Batch 52
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 619 | SLC16A1-related monocarboxylate transporter-1 deficiency | UNMAPPED | True MCT1 deficiency gap; reject primary carnitine deficiency and keep distinct from earlier SLC16A1/HHF7 superactivity. |
+| 620 | COASY-related coenzyme A synthase deficiency | CANDIDATE | Broad NBIA/PKAN differential context only; reject BPAN as exact and curate COASY/NBIA6/CoPAN as its own NBIA subtype or disease if selected. |
+| 621 | TPK1-related thiamine pyrophosphokinase deficiency | CANDIDATE | Reject SLC19A3 biotin-thiamine-responsive basal ganglia disease as exact; true TPK1/THMD5 gap with thiamine, lactate, 2-ketoglutarate, and globus-pallidus prompts. |
+| 622 | PCYT1A-related retinoskeletal phosphocholine cytidylyltransferase deficiency | UNMAPPED | Reject SED congenita; true PCYT1A/SMDCRD gap with hypolipidemia, cone-rod dystrophy, retinopathy, and skeletal prompts. |
+| 623 | CAD-related trifunctional protein deficiency | CANDIDATE | Reject mitochondrial trifunctional protein deficiency as a lexical false candidate; true CAD/CAD-CDG/EIEE50 gap with uridine, epilepsy/regression, anemia, and normal biochemical-caveat prompts. |
+| 625 | POGLUT1-related Dowling-Degos disease 4 | UNMAPPED | Reject EBS Dowling-Meara lexical collision; true POGLUT1/DDD4 gap with dermatologic and normal sialotransferrin prompts. |
+| 626 | GANAB-related alpha glucosidase II deficiency | AMBIGUOUS | Covered at ADPKD disease-family level via GANAB pathogenic variants; prefer `Autosomal_Dominant_Polycystic_Kidney_Disease.yaml` and preserve GANAB/PKD3 subtype and normal sialotransferrin caveats. |
+| 627 | PIGW-related hyperphosphatasia with mental retardation syndrome 5 | UNMAPPED | Reject PIGL/CHIME as exact; true PIGW/HPMRS5 GPI-anchor gap with alkaline phosphatase, decreased GPI markers, epilepsy, hypotonia, and developmental-delay prompts. |
+| 628 | PIGC-related developmental disability with drug-responsive epilepsy | UNMAPPED | Reject IRX5 craniofacial/ID candidate; true PIGC-CDG gap with decreased GPI markers, seizures, intellectual disability, ataxia, cerebellar, hypotonia, and facial prompts. |
+| 629 | PIGG-related glycosylphosphatidylinositol biosynthesis defect 13 | UNMAPPED | True PIGG/GPIBD13 gap; keep separate from Wolf-Hirschhorn PIGG haploinsufficiency context and preserve normal GPI-marker caveat. |
+
+## Batch 53
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 630 | PGAP1-related GPI deacylase deficiency | UNMAPPED | True PGAP1/GPI-deacylase gap; keep separate from chromosome 2q32-q33 deletion PGAP1 haploinsufficiency context and preserve neurodevelopmental, epilepsy, MRI, hypotonia, movement, apnea, hand, and facial prompts. |
+| 631 | PGAP3-related hyperphosphatasia with mental retardation syndrome 4 | UNMAPPED | Reject PIGL/CHIME as exact; true PGAP3/HPMRS4 GPI-anchor maturation gap with alkaline phosphatase, decreased GPI markers, hypotonia, epilepsy, intellectual disability, ataxia, cleft-palate, and micrognathia prompts. |
+| 632 | TRAPPC11-related limb-girdle muscular dystrophy 2S | UNMAPPED | Reject autosomal dominant LGMD as exact; true recessive TRAPPC11/LGMD2S-CDG gap with CK, weakness/myopathy, cholestasis, neurodevelopmental, cerebral atrophy, hip, skeletal, and facial prompts. |
+| 633 | VPS13B-related Cohen syndrome | UNMAPPED | Reject GM3 synthase deficiency; true VPS13B/Cohen syndrome gap with transferrin glycoforms, myopia, chorioretinal degeneration, neutropenia, obesity, microcephaly, ID, and joint-laxity prompts. |
+| 634 | TMEM199-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true TMEM199-CDG/CDG-IIp gap with alkaline phosphatase, transaminase, type 2 sialotransferrin, apolipoprotein CIII, low ceruloplasmin, and hepatomegaly prompts. |
+| 635 | ATP6AP1-related immunodeficiency 47 and hepatopathy | UNMAPPED | Reject IKBKG immunodeficiency and somatic ATP6AP1 granular-cell-tumor context; true inherited ATP6AP1-CDG gap with glycosylation, copper/ceruloplasmin, immunoglobulin, liver, infection, pancreatic, neurologic, and cutis-laxa prompts. |
+| 636 | ATP6V1A-related autosomal recessive cutis laxa type IID | UNMAPPED | Reject EDAR HED and somatic ATP6V1A tumor context; true ATP6V1A cutis-laxa/CDG gap with sialotransferrin, cutis laxa, seizures, hypotonia, cardiovascular, brain MRI, contracture, kyphoscoliosis, ocular, and facial prompts. |
+| 637 | ATP6V1E1-related autosomal recessive cutis laxa type IIC | UNMAPPED | Reject chronic granulomatous disease; true ATP6V1E1 cutis-laxa/CDG gap with type 2 sialotransferrin, cutis laxa, hypotonia, cardiovascular, skeletal/contracture, cleft-palate, ocular, dental, and facial prompts. |
+| 638 | XYLT1-related Desbuquois dysplasia 2 | UNMAPPED | Reject FBN1-related geleophysic dysplasia 2 and CANT1/Desbuquois mentions as exact; true XYLT1/Desbuquois dysplasia 2 gap with brachydactyly, femoral, patellar, coronal-cleft, joint-laxity, short-stature, craniofacial, and clubfoot prompts. |
+| 639 | XYLT2-related spondyloocular syndrome | UNMAPPED | True XYLT2/spondyloocular syndrome gap; preserve combined bone-density/fracture, vertebral, cataract, retinal-detachment, hearing-loss, cardiac, stature, kyphosis, and ID prompts. |
+
+## Batch 54
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 640 | RXYLT1-related muscular dystrophy-dystroglycanopathy type A | MAPPED | Correct disease-level target is `Dystroglycanopathy.yaml`, not lissencephaly spectrum alone; broadly covered via RXYLT1/MDDG10 and type A dystroglycanopathy, with gonadal and neural-tube prompts still thin. |
+| 641 | CRPPA-related muscular dystrophy-dystroglycanopathy types A7 and C7 | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml` through CRPPA/MDDG7 and type A/C framework; missing exact A7/C7 cross-product subtype and some eye/brain/limb detail. |
+| 642 | FKTN-related muscular dystrophy-dystroglycanopathy type A | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml` through FKTN/MDDG4 and type A/Fukuyama continuum; missing exact FKTN type A row and several ocular, regression, contracture, respiratory, and cardiac prompts. |
+| 643 | FKTN-related muscular dystrophy-dystroglycanopathy type B | UNMAPPED | Broadly covered by FKTN and type B dystroglycanopathy; preserve narrow no-intellectual-disability row nuance with CK, normal sialotransferrin, hypotonia, and muscular dystrophy prompts. |
+| 644 | FKTN-related muscular dystrophy-dystroglycanopathy type C | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml`; not yet represented as an FKTN limb-girdle subtype in AR LGMD, so preserve rigid-spine and cardiomyopathy prompts. |
+| 645 | FKRP-related muscular dystrophy-dystroglycanopathy type A | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml` through FKRP/MDDG5 and type A framework; missing exact FKRP type A row and detailed Walker-Warburg eye/brain/regression prompts. |
+| 646 | FKRP-related muscular dystrophy-dystroglycanopathy type B | UNMAPPED | Broadly covered by FKRP and type B dystroglycanopathy; missing exact FKRP type B row with nodular heterotopia, cerebellar white-matter, feeding, microcephaly, and spinal prompts. |
+| 647 | FKRP-related muscular dystrophy-dystroglycanopathy type C | UNMAPPED | Covered locally by both `Dystroglycanopathy.yaml` and FKRP/LGMDR9 in AR LGMD; preserve myoglobinuria and tongue-hypertrophy prompts not clearly captured locally. |
+| 648 | VPS33A-related mucopolysaccharidosis-plus syndrome | UNMAPPED | Reject Hurler syndrome as exact; true VPS33A MPS-plus gap with GAG/oligosaccharide, hematologic, renal, cardiac, respiratory, infection, neurodevelopmental, and storage-phenotype prompts. |
+| 650 | TIMM50-related 3-methylglutaconic aciduria type 9 | UNMAPPED | Reject glutaryl-CoA dehydrogenase deficiency as exact; true TIMM50/3-methylglutaconic aciduria type 9 gap with lactate, 3-MGA, epilepsy, hypsarrhythmia, optic atrophy, and brain-imaging prompts. |
+
+## Batch 55
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 651 | HAAO-related 3-hydroxyanthranilic acid 3,4-dioxygenase deficiency | UNMAPPED | Reject alkaptonuria; true HAAO/VCRL1 gap with 3-hydroxyanthranilic acid, NAD+, cardiac, renal, limb, hearing, stature, and ID prompts. |
+| 652 | KYNU-related 3-hydroxykynureninase deficiency | UNMAPPED | Reject hereditary orotic aciduria; true KYNU/VCRL2/xanthurenic aciduria gap with kynurenine-pathway metabolites, NAD+, cardiac, renal, limb, stature, and speech prompts. |
+| 653 | TPI1-related triosephosphate isomerase deficiency | UNMAPPED | Reject intrinsic factor deficiency; true TPI1 glycolytic hemolytic-anemia gap with red-cell TPI/DHAP, infections, neuromuscular, cardiac, seizure, and stroke prompts. |
+| 655 | DHTKD1-related 2-aminoadipic 2-oxoadipic aciduria | UNMAPPED | Reject D-2-hydroxyglutaric aciduria as exact; true DHTKD1/AMOXAD gap with adipic/ketoadipic organic-acid, ketone, acidosis, developmental, and seizure prompts. |
+| 656 | CA5A-related carbonic anhydrase VA deficiency | UNMAPPED | Broad hyperammonemia/UCD context only; true CA5A gap with ammonia, lactate, glucose, amino-acid, organic-acid, acylglycine, encephalopathy, coma, and feeding prompts. |
+| 657 | ALDH3A2-related fatty aldehyde dehydrogenase deficiency | UNMAPPED | Reject Sjogren autoimmune disease as an eponym collision; true ALDH3A2/Sjogren-Larsson gap with enzyme, ichthyosis, spasticity, ID, leukoencephalopathy, and macular prompts. |
+| 658 | TTPA-related alpha-tocopherol transfer protein deficiency | MAPPED | Correct exact AVED mapping to `Familial_Isolated_Vitamin_E_Deficiency.yaml`; IEMbase adds lipid, broad-beta electrophoresis, brain MRI, and xanthoma prompts. |
+| 659 | ABCD3-related congenital bile acid synthesis defect | MAPPED | Broad bile-acid umbrella context only; exact ABCD3/PMP70 subtype gap with THCA/C27 bile acids, normal peroxisomal lipid markers, liver, anemia, and hepatosplenomegaly prompts. |
+| 660 | ACOX2-related congenital bile acid synthesis defect | MAPPED | Broad bile-acid umbrella context only; exact ACOX2/CBAS6 subtype gap with C24/C27 bile-acid directionality, vitamin D, cholesterol, ataxia, cognition, steatorrhea, and fibrosis prompts. |
+| 661 | UGT1A1-related UDP-glucuronosyltransferase A1 deficiency | MAPPED | Partial Gilbert-only coverage; severe Crigler-Najjar/bilirubin-neurotoxicity scope remains under-covered, including convulsions, abnormal eye movements, hearing, and neonatal instability. |
+
+## Batch 56
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 662 | NR1H4-related progressive familial intrahepatic cholestasis 5 | UNMAPPED | True NR1H4/FXR/PFIC5 gap; reject progressive familial heart block and use bile-acid/cholestasis files only as broad context for normal-GGT neonatal cholestasis and liver failure. |
+| 663 | PPM1K-related branched-chain ketoacid dehydrogenase phosphatase deficiency | UNMAPPED | Partial MSUD pathway coverage in `Maple_Syrup_Urine_Disease.yaml`; no standalone PPM1K mild-variant subtype/file, so preserve the phosphatase mechanism and mild elevated-BCAA signal. |
+| 664 | BCKDK-related branched-chain ketoacid dehydrogenase kinase deficiency | MAPPED | Correct exact mapping to `BCKDK_Deficiency.yaml`; IEMbase adds speech and stereotyped-hand-movement prompts on top of the low-BCAA autism/ID/seizure phenotype. |
+| 665 | ECHS1-related mitochondrial short-chain enoyl-CoA hydratase 1 deficiency | UNMAPPED | False negative from stale mapping; resolve to exact `ECHS1_Deficiency.yaml` and reject beta-ketothiolase deficiency while preserving neonatal metabolite, cardiomyopathy, hearing, optic, and apnea prompts. |
+| 666 | UQCRC2-related mitochondrial complex III deficiency, nuclear type 5 | CANDIDATE | Reject COX8A complex IV candidate; true UQCRC2/complex III gap with neonatal lactate, hypoglycemia, hyperammonemia, metabolic acidosis, transaminase, and developmental-delay prompts. |
+| 667 | SLC45A1-related neuronal glucose transporter deficiency | UNMAPPED | False negative from stale mapping; resolve to exact `SLC45A1-Related_Neuronal_Glucose_Transporter_Deficiency.yaml` and preserve normal CSF/plasma glucose plus dysmorphology prompts. |
+| 668 | SI-related sucrase-isomaltase deficiency | MAPPED | Correct exact mapping to `Congenital_Sucrase-Isomaltase_Deficiency.yaml`; IEMbase adds sodium, normal reducing-sugar, dehydration, and urolithiasis prompts. |
+| 669 | TREH-related trehalase deficiency | UNMAPPED | False negative from stale mapping; resolve to exact `Trehalase_Deficiency.yaml` and reject galactosemia while preserving normal stool reducing sugars and adolescent/adult GI timing. |
+| 671 | CRAT-related carnitine acetyltransferase deficiency | UNMAPPED | True CRAT gap; reject CPT2/CPT1A carnitine-shuttle context and preserve childhood ataxia, oculomotor apraxia, consciousness disturbance, hypotonia, and ID prompts. |
+| 673 | CPT1C-related autosomal dominant spastic paraplegia type 73 | CANDIDATE | Reject CPT2 deficiency and CPT1A isoform context; true CPT1C/SPG73 gap with adult spastic paraplegia, hyperreflexia, weakness/atrophy, loss of ambulation, and evoked-potential prompts. |
+
+## Batch 57
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 674 | PMVK-related phosphomevalonate kinase deficiency | UNMAPPED | True PMVK/POROK1 gap; reject MVK-related mevalonate kinase deficiency and unrelated RNU12 porokeratosis context while preserving adolescent/adult actinic porokeratosis and keratotic lesions. |
+| 675 | MVD-related mevalonate pyrophosphate decarboxylase deficiency | UNMAPPED | True MVD/POROK7 gap; reject hereditary orotic aciduria and use mevalonate-pathway content only as broad context for adolescent/adult porokeratosis. |
+| 676 | FDPS-related farnesylpyrophosphate synthetase deficiency | UNMAPPED | True FDPS/POROK9 gap; reject CPS1 deficiency and preserve the dominant porokeratosis/keratotic-lesion phenotype. |
+| 677 | NDUFAF1-related complex I assembly factor 1 deficiency | CANDIDATE | Reject COX20 complex IV candidate; true NDUFAF1/MC1DN11 gap with decreased complex I activity, lactate, cardiomyopathy, failure-to-thrive, hypotonia, lactic-acidosis, and MELAS-like prompts. |
+| 678 | NDUFAF2-related complex I assembly factor 2 deficiency | CANDIDATE | Reject COX14 complex IV candidate; true NDUFAF2/MC1DN10 gap with renal tubular acidosis, respiratory insufficiency, basal-ganglia, nystagmus, optic-atrophy, ataxia, and encephalopathy prompts. |
+| 679 | NDUFAF3-related complex I assembly factor 3 deficiency | CANDIDATE | Reject COX6A2 complex IV candidate; true NDUFAF3/MC1DN18 gap with neonatal/infantile complex I deficiency, lactate, leukomalacia, perinatal death, respiratory failure, hypotonia, and optic atrophy. |
+| 680 | NDUFAF4-related complex I assembly factor 4 deficiency | CANDIDATE | Reject COX8A complex IV candidate; true NDUFAF4/MC1DN15 gap with neonatal/infantile complex I deficiency, lactate, Leigh syndrome, cardiomyopathy, and encephalomyopathy. |
+| 681 | NDUFAF5-related complex I assembly factor 5 deficiency | CANDIDATE | Reject COX4I1 complex IV candidate; true NDUFAF5/MC1DN16 gap with broad Leigh/complex I overlap plus CSF lactate, dysmorphology, IUGR, hair/toe, sacral-pit, and movement-disorder prompts. |
+| 682 | NDUFAF6-related complex I assembly factor 6 deficiency | UNMAPPED | Partial gene-level coverage in `Fanconi_Renotubular_Syndrome.yaml#FRTS5`, but exact MC1DN17 Leigh/striatal-necrosis phenotype remains under-covered. |
+| 683 | FOXRED1-related mitochondrial complex I deficiency, nuclear type 19 | CANDIDATE | Reject PET117 complex IV candidate; true FOXRED1/MC1DN19 gap with decreased complex I activity, lactate, Leigh syndrome, hypertrophic cardiomyopathy, cerebellar atrophy, and pulmonary hypertension. |
+
+## Batch 58
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 684 | TMEM126B-related transmembrane protein 126B deficiency | CANDIDATE | Reject COX11 complex IV candidate; true TMEM126B/MC1DN29 gap with decreased complex I activity, hypertrophic cardiomyopathy, myopathy, renal tubular acidosis, and exercise intolerance. |
+| 685 | NDUFV1-related NADH dehydrogenase flavoprotein 1 deficiency | UNMAPPED | Partial gene-level coverage in `Leigh_Syndrome.yaml`, but no standalone NDUFV1/MC1DN4 target; preserve lactate, brainstem/basal-ganglia lesions, cardiomyopathy, ophthalmoplegia, microcephaly, and regression prompts. |
+| 686 | NDUFV2-related NADH dehydrogenase flavoprotein 2 deficiency | CANDIDATE | Reject COX6B1 complex IV candidate; true NDUFV2/MC1DN7 gap with leukodystrophy, liver dysfunction, myopathy, optic neuropathy, parkinsonism, and hypertrophic cardiomyopathy prompts. |
+| 687 | NDUFS1-related NADH dehydrogenase iron-sulfur protein 1 deficiency | CANDIDATE | Reject COX8A complex IV candidate; true NDUFS1/MC1DN5 gap with lactate, cardiomyopathy, encephalopathy, hypotonia, liver dysfunction, myopathy, leukodystrophy, and optic neuropathy. |
+| 688 | NDUFS2-related NADH dehydrogenase iron-sulfur protein 2 deficiency | CANDIDATE | Reject COX4I1 complex IV candidate; true NDUFS2/MC1DN6 gap with lactate, encephalopathy, hypotonia, Leigh syndrome, liver dysfunction, parkinsonism, cardiomyopathy, and myopathy. |
+| 689 | NDUFS3-related NADH dehydrogenase iron-sulfur protein 3 deficiency | CANDIDATE | Reject TACO1 complex IV candidate; true NDUFS3/MC1DN8 gap with decreased complex I activity, lactate, developmental delay, encephalopathy, Leigh syndrome, and myopathy. |
+| 690 | NDUFS4-related NADH dehydrogenase iron-sulfur protein 4 deficiency | UNMAPPED | Partial gene-level coverage in `Leigh_Syndrome.yaml`, but no standalone NDUFS4/MC1DN1 target; preserve complex I/III activity, glucose, lactate, basal-ganglia, failure-to-thrive, hypotonia, cardiomyopathy, and Leigh prompts. |
+| 691 | NDUFS6-related NADH dehydrogenase iron-sulfur protein 6 deficiency | CANDIDATE | Reject PET117 complex IV candidate; true NDUFS6/MC1DN9 gap with severe multisystem complex I disease, cardiomyopathy, basal-ganglia, hypotonia, lactic-acidosis, and failure-to-thrive prompts. |
+| 692 | NDUFS7-related NADH dehydrogenase iron-sulfur protein 7 deficiency | CANDIDATE | Reject COX10 complex IV candidate; true NDUFS7/MC1DN3 gap with lactate, ataxia, epilepsy, feeding difficulty, liver dysfunction, myopathy, cardiomyopathy, encephalopathy, and Leigh prompts. |
+| 693 | NDUFS8-related NADH dehydrogenase iron-sulfur protein 8 deficiency | CANDIDATE | Reject COX11 complex IV candidate; true NDUFS8/MC1DN2 gap with decreased complex I activity, Leigh syndrome, ataxia, dysarthria, hypotonia, cardiomyopathy, myopathy, and progressive external ophthalmoplegia. |
+
+## Batch 59
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 694 | NDUFA1-related NADH dehydrogenase alpha subcomplex subunit 1 deficiency | CANDIDATE | Reject PET100 complex IV candidate; true NDUFA1/MC1DN12 gap with X-linked inheritance, decreased complex I activity, lactate, epilepsy, hypotonia, lactic acidosis, psychomotor retardation, basal-ganglia MRI abnormalities, and Leigh syndrome. |
+| 695 | NDUFA2-related NADH dehydrogenase alpha subcomplex subunit 2 deficiency | CANDIDATE | Reject COX10 complex IV candidate; true NDUFA2/MC1DN13 gap with decreased complex I activity, lactate, lactic acidosis, Leigh syndrome, and leukoencephalopathy; source OMIM:256000 should be reviewed against expected OMIM:618235. |
+| 696 | NDUFA4-related cytochrome c oxidase subunit NDUFA4 (COXFA4) deficiency | MAPPED | Correct exact mapping to `COXFA4-Related_COX_Deficiency.yaml`; DisMech is strong for corrected complex IV mechanism and lactate/Leigh identity, while IEMbase adds alanine, CSF lactate, FTT, regression, neuropathy, optic, renal, respiratory, dystonia, and hypertension prompts. |
+| 697 | NDUFA9-related NADH dehydrogenase alpha subcomplex subunit 9 deficiency | CANDIDATE | Reject COX11 complex IV candidate; true NDUFA9/MC1DN26 gap with decreased complex I activity, lactate, brain/brainstem MRI disease, dysarthria, dysphagia, lactic acidosis, Leigh syndrome, dystonia, and retinitis pigmentosa; source OMIM:256000 should be reviewed against expected OMIM:618247. |
+| 698 | NDUFA10-related NADH dehydrogenase alpha subcomplex subunit 10 deficiency | CANDIDATE | Reject COX16 complex IV candidate; true NDUFA10/MC1DN22 gap with decreased complex I activity, lactate, lactic acidosis, psychomotor retardation, basal-ganglia MRI abnormalities, hypertrophic cardiomyopathy, hypotonia, and Leigh syndrome. |
+| 699 | NDUFA11-related NADH dehydrogenase alpha subcomplex subunit 11 deficiency | CANDIDATE | Reject COA3 complex IV candidate; true NDUFA11/MC1DN14 gap with decreased complex I activity, lactate, cardiomyopathy, encephalopathy, and a source lactic-acidosis marker anomaly. |
+| 700 | NDUFA12-related NADH dehydrogenase alpha subcomplex subunit 12 deficiency | CANDIDATE | Reject COX11 complex IV candidate; true NDUFA12/MC1DN23 gap with decreased complex I activity, growth retardation, Leigh syndrome, psychomotor retardation, dystonia, and hypotonia. |
+| 701 | NDUFA13-related NADH dehydrogenase alpha subcomplex subunit 13 deficiency | CANDIDATE | Reject TACO1 complex IV candidate; true NDUFA13/MC1DN28 gap with decreased complex I activity, lactate, cerebellar atrophy, developmental delay, encephalopathy, feeding difficulties, lactic acidosis, and hypotonia. |
+| 702 | NDUFB3-related NADH dehydrogenase beta subcomplex subunit 3 deficiency | CANDIDATE | Reject COX18 complex IV candidate; true NDUFB3/MC1DN25 gap with decreased complex I activity, lactate, developmental delay, encephalopathy, hypotonia, myopathy, and lactic acidosis; source OMIM:252010 should be reviewed against expected OMIM:618246. |
+| 703 | NDUFB9-related NADH dehydrogenase beta subcomplex subunit 9 deficiency | CANDIDATE | Reject FASTKD5 complex IV candidate; true NDUFB9/MC1DN24 gap with decreased complex I activity, lactate, perinatal death, hypotonia, and lactic acidosis; source OMIM:252010 should be reviewed against expected OMIM:618245. |
+
+## Batch 60
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 704 | NDUFB11-related NADH dehydrogenase beta subcomplex subunit 11 deficiency | CANDIDATE | Reject COX10 complex IV candidate; true NDUFB11/MC1DN30 or NDUFB11/LSDMCA3 gap with decreased complex I activity, lactate, sideroblastic anemia, cardiomyopathy, microphthalmia, perinatal death, and lactic acidosis; source OMIM:252010 should be reviewed against MONDO's NDUFB11/LSDMCA3 OMIM:300952 context. |
+| 705 | MT-ND1-related NADH dehydrogenase core subunit 1 deficiency | UNMAPPED | True MT-ND1 complex I gap with decreased complex I activity, lactate, exercise intolerance, LHON, hypertrophic cardiomyopathy, dystonia, MELAS-like features, myopathy, and spasticity; reject weak PDH E1-beta candidate. |
+| 706 | MT-ND2-related NADH dehydrogenase core subunit 2 deficiency | UNMAPPED | True MT-ND2 complex I gap with decreased complex I activity, lactate, low-to-normal glucose, exercise intolerance, LHON, Leigh syndrome, and ragged red fibers; reject weak PDH E1-beta candidate. |
+| 707 | MT-ND3-related NADH dehydrogenase core subunit 3 deficiency | UNMAPPED | True MT-ND3 complex I gap with decreased complex I activity, lactate, dystonia, epilepsy, abnormal eye movements, LHON, neuropathy, encephalopathy, Leigh syndrome, myopathy, and optic atrophy; reject weak PDH E1-beta candidate. |
+| 708 | MT-ND4-relatedNADH dehydrogenase core subunit 4 deficiency | UNMAPPED | True MT-ND4 complex I gap with decreased complex I activity, lactate, dystonia, LHON, adult MELAS-like features, and Leigh syndrome; reject weak PDH E1-beta candidate and preserve the source-label spacing anomaly. |
+| 709 | MT-ND4L-related NADH dehydrogenase core subunit 4L deficiency | UNMAPPED | True MT-ND4L complex I/LHON gap with decreased complex I activity and adolescent/adult LHON; reject weak PDH E1-beta candidate. |
+| 710 | MT-ND5-related NADH dehydrogenase core subunit 5 deficiency | UNMAPPED | Partial MT-ND5 context exists in Leigh and MELAS entries, but exact MT-ND5 complex I deficiency remains missing; preserve complex I activity, lactate, LHON, Leigh, MELAS-like, source-spelled MERFF-like, renal failure, and myopathy prompts. |
+| 711 | MT-ND6-related NADH dehydrogenase core subunit 6 deficiency | UNMAPPED | True MT-ND6 complex I gap with decreased complex I activity, lactate, dystonia, lactic acidosis, LHON, MELAS-like features, stroke-like episodes, epilepsy, Leigh syndrome, and optic atrophy; reject weak PDH E1-beta candidate. |
+| 712 | TTC19-related Mitochondrial complex III deficiency, nuclear type 2 | CANDIDATE | Reject COX11 complex IV candidate; true TTC19/MC3DN2 complex III gap with lactate, low-to-normal glucose, hypoglycemia, metabolic acidosis, basal ganglia MRI abnormalities, developmental delay, and gait ataxia. |
+| 714 | UQCC3-related Mitochondrial complex III deficiency, nuclear type 9 | CANDIDATE | Reject PET117 complex IV candidate; true UQCC3/MC3DN9 complex III gap with lactate, developmental delay, and short stature. |

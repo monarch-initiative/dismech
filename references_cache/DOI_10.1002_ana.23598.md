@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ana.23598"
+reference_id: DOI:10.1002/ana.23598
 title: "Adult polyglucosan body disease: Natural History and Key Magnetic Resonance Imaging Findings"
 authors:
 - Fanny Mochel
@@ -30,6 +30,7 @@ journal: Annals of Neurology
 year: '2012'
 doi: 10.1002/ana.23598
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Adult polyglucosan body disease: Natural History and Key Magnetic Resonance Imaging Findings

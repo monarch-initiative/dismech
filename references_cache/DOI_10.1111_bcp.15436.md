@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bcp.15436"
+reference_id: DOI:10.1111/bcp.15436
 title: "Identifying new drugs associated with pulmonary arterial hypertension: A WHO pharmacovigilance database disproportionality analysis"
 authors:
 - Alex Hlavaty
@@ -14,6 +14,7 @@ journal: British Journal of Clinical Pharmacology
 year: '2022'
 doi: 10.1111/bcp.15436
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Identifying new drugs associated with pulmonary arterial hypertension: A WHO pharmacovigilance database disproportionality analysis

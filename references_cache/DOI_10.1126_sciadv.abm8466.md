@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/sciadv.abm8466"
+reference_id: DOI:10.1126/sciadv.abm8466
 title: RB1 loss triggers dependence on ESRRG in retinoblastoma
 authors:
 - Matthew G. Field
@@ -16,6 +16,7 @@ journal: Science Advances
 year: '2022'
 doi: 10.1126/sciadv.abm8466
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # RB1 loss triggers dependence on ESRRG in retinoblastoma

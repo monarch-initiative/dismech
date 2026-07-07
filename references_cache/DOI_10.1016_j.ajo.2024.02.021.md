@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajo.2024.02.021"
+reference_id: DOI:10.1016/j.ajo.2024.02.021
 title: "Drug Approval for the Treatment of Geographic Atrophy: How We Got Here and Where We Need to Go"
 authors:
 - Karl G. Csaky
@@ -10,6 +10,7 @@ journal: American Journal of Ophthalmology
 year: '2024'
 doi: 10.1016/j.ajo.2024.02.021
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Drug Approval for the Treatment of Geographic Atrophy: How We Got Here and Where We Need to Go

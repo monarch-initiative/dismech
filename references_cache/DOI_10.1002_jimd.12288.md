@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12288"
+reference_id: DOI:10.1002/jimd.12288
 title: "Delineating the neurological phenotype in children with defects in the <scp><i>ECHS1</i></scp> or <scp><i>HIBCH</i></scp> gene"
 authors:
 - Laura Marti‐Sanchez
@@ -41,6 +41,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2021'
 doi: 10.1002/jimd.12288
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Delineating the neurological phenotype in children with defects in the <scp><i>ECHS1</i></scp> or <scp><i>HIBCH</i></scp> gene

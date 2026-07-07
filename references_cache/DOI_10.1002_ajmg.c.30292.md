@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.c.30292"
+reference_id: DOI:10.1002/ajmg.c.30292
 title: Disorders of creatine transport and metabolism
 authors:
 - Nicola Longo
@@ -11,6 +11,7 @@ journal: "American Journal of Medical Genetics Part C: Seminars in Medical Genet
 year: '2011'
 doi: 10.1002/ajmg.c.30292
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Disorders of creatine transport and metabolism

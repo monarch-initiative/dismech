@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/dgd.12203"
+reference_id: DOI:10.1111/dgd.12203
 title: "Fate of growth plate hypertrophic chondrocytes: Death or lineage extension?"
 authors:
 - Kwok Yeung Tsang
@@ -9,6 +9,7 @@ journal: "Development, Growth &amp; Differentiation"
 year: '2015'
 doi: 10.1111/dgd.12203
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Fate of growth plate hypertrophic chondrocytes: Death or lineage extension?

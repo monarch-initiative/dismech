@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/noajnl/vdac026"
+reference_id: DOI:10.1093/noajnl/vdac026
 title: Predictive modeling of resistance to SMO inhibition in a patient-derived orthotopic xenograft model of SHH medulloblastoma
 authors:
 - Sonja Krausert
@@ -21,6 +21,7 @@ journal: Neuro-Oncology Advances
 year: '2022'
 doi: 10.1093/noajnl/vdac026
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Predictive modeling of resistance to SMO inhibition in a patient-derived orthotopic xenograft model of SHH medulloblastoma

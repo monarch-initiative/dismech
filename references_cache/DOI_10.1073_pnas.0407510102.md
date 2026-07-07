@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0407510102"
+reference_id: DOI:10.1073/pnas.0407510102
 title: Transcriptional coactivator PGC-1α regulates chondrogenesis via association with Sox9
 authors:
 - Yasuhiko Kawakami
@@ -16,6 +16,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2005'
 doi: 10.1073/pnas.0407510102
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Transcriptional coactivator PGC-1α regulates chondrogenesis via association with Sox9

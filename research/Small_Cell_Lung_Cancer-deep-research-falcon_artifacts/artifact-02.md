@@ -1,0 +1,16 @@
+| NCT Number | Trial Name/Description | Phase | Status | Enrollment | Key Intervention |
+|---|---|---|---|---:|---|
+| NCT04234607 | ETER701: first-line extensive-stage SCLC trial of benmelstobart + anlotinib + etoposide/carboplatin versus comparator arms; reported median OS 19.3 vs 11.9 months for triplet vs chemotherapy alone (pqac-00000038, pqac-00000039) | Phase 3 | Completed/reported | 738 | Benmelstobart (PD-L1 inhibitor) + anlotinib + etoposide/carboplatin |
+| NCT02763579 | IMpower133: landmark first-line ES-SCLC trial establishing atezolizumab + carboplatin/etoposide as a standard option; median OS 12.3 vs 10.3 months versus placebo + chemotherapy (pqac-00000017, pqac-00000019) | Phase 3 | Completed | 403 | Atezolizumab + carboplatin + etoposide |
+| NCT03043872 | CASPIAN: landmark first-line ES-SCLC trial establishing durvalumab + platinum/etoposide; median OS 12.9 vs 10.5 months versus chemotherapy alone (pqac-00000017, pqac-00000019) | Phase 3 | Completed | 805 | Durvalumab + etoposide + platinum |
+| NCT03319940 | First-in-human tarlatamab (AMG 757) study in relapsed/advanced SCLC and other NECs; established clinical activity for DLL3-targeted BiTE therapy (pqac-00000016) | Phase 1 | Active, not recruiting | 269 | Tarlatamab monotherapy |
+| NCT05361395 | First-line tarlatamab combination trial in ES-SCLC (DeLLphi-305 concept): tarlatamab with carboplatin, etoposide, and PD-L1 inhibitor (pqac-00000013) | Phase 1 | Active, not recruiting | 184 | Tarlatamab + carboplatin + etoposide + PD-L1 inhibitor |
+| NCT05740566 | Phase 3 tarlatamab trial in relapsed SCLC referenced through DLL3/CD3 evidence; major confirmatory randomized program for DLL3-targeted BiTE therapy (pqac-00000000) | Phase 3 | Ongoing | NR | Tarlatamab versus standard therapy |
+| NCT06203210 | Phase 3 trial of ifinatamab deruxtecan versus physician’s choice in relapsed SCLC (pqac-00000018, pqac-00000000) | Phase 3 | Recruiting | 540 | Ifinatamab deruxtecan (B7-H3 ADC) |
+| NCT07218146 | DLLEVATE: Phase 3 trial of ZL-1310 versus investigator’s choice in relapsed SCLC (pqac-00000000) | Phase 3 | Recruiting | 480 | ZL-1310 |
+| NCT06498479 | ARTEMIS-008: Phase 3 trial of HS-20093 compared with topotecan in relapsed SCLC (pqac-00000000) | Phase 3 | Recruiting | 460 | HS-20093 versus topotecan |
+| NCT07015892 | Dose-escalation radiotherapy in limited-stage SCLC randomized Phase 3 study (pqac-00000000) | Phase 3 | Recruiting | 300 | Dose-escalated thoracic radiotherapy |
+| NCT04402788 | RAPTOR: addition of radiation therapy to maintenance atezolizumab in extensive-stage SCLC after chemoimmunotherapy (pqac-00000000) | Phase 2/3 | Recruiting | 138 | Thoracic radiation + atezolizumab |
+
+
+*Table: This table summarizes landmark and actively recruiting small cell lung cancer trials identified in the research, spanning chemoimmunotherapy, DLL3-targeted therapy, antibody-drug conjugates, and radiation strategies. It is useful for quickly comparing the current clinical development landscape and the studies that shaped present standards of care.*

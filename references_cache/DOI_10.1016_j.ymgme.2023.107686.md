@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2023.107686"
+reference_id: DOI:10.1016/j.ymgme.2023.107686
 title: A Caenorhabditis elegans model of adenylosuccinate lyase deficiency reveals neuromuscular and reproductive phenotypes of distinct etiology
 authors:
 - Adam R. Fenton
@@ -15,6 +15,7 @@ journal: Molecular Genetics and Metabolism
 year: '2023'
 doi: 10.1016/j.ymgme.2023.107686
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A Caenorhabditis elegans model of adenylosuccinate lyase deficiency reveals neuromuscular and reproductive phenotypes of distinct etiology

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ijcard.2022.06.019"
+reference_id: DOI:10.1016/j.ijcard.2022.06.019
 title: "Outcomes in patients experiencing complications associated with atrial fibrillation ablation: Data from the German Ablation Registry"
 authors:
 - Shinwan Kany
@@ -16,6 +16,7 @@ journal: International Journal of Cardiology
 year: '2022'
 doi: 10.1016/j.ijcard.2022.06.019
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Outcomes in patients experiencing complications associated with atrial fibrillation ablation: Data from the German Ablation Registry

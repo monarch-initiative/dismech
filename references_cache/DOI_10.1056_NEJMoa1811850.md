@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/NEJMoa1811850"
+reference_id: DOI:10.1056/NEJMoa1811850
 title: Randomized Trial of Four Treatment Approaches for Actinic Keratosis
 authors:
 - Maud H.E. Jansen
@@ -17,6 +17,7 @@ journal: New England Journal of Medicine
 year: '2019'
 doi: 10.1056/NEJMoa1811850
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Randomized Trial of Four Treatment Approaches for Actinic Keratosis

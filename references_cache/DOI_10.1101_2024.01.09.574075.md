@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.01.09.574075"
+reference_id: DOI:10.1101/2024.01.09.574075
 title: "Characterizing CSNK2A1 Mutant-Induced Morphological Phenotypes in Zebrafish (Danio rerio): Insights into Okur-Chung Neurodevelopmental Syndrome (OCNDS)"
 authors:
 - Katie Hassett
@@ -13,6 +13,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.01.09.574075
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Characterizing CSNK2A1 Mutant-Induced Morphological Phenotypes in Zebrafish (Danio rerio): Insights into Okur-Chung Neurodevelopmental Syndrome (OCNDS)

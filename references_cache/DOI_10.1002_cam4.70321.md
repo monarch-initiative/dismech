@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/cam4.70321"
+reference_id: DOI:10.1002/cam4.70321
 title: "Uptake of Risk‐Reducing Salpingo‐Oophorectomy and Gynaecologic Surveillance Among Germline <scp><i>BRCA</i></scp> Pathogenic Variants Carriers"
 authors:
 - Alessandra Inzoli
@@ -18,6 +18,7 @@ journal: Cancer Medicine
 year: '2024'
 doi: 10.1002/cam4.70321
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Uptake of Risk‐Reducing Salpingo‐Oophorectomy and Gynaecologic Surveillance Among Germline <scp><i>BRCA</i></scp> Pathogenic Variants Carriers

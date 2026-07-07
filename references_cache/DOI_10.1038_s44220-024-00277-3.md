@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s44220-024-00277-3"
+reference_id: DOI:10.1038/s44220-024-00277-3
 title: "Shared genetics of ADHD, cannabis use disorder and cannabis use and prediction of cannabis use disorder in ADHD"
 authors:
 - Trine Tollerup Nielsen
@@ -24,6 +24,7 @@ journal: Nature Mental Health
 year: '2024'
 doi: 10.1038/s44220-024-00277-3
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Shared genetics of ADHD, cannabis use disorder and cannabis use and prediction of cannabis use disorder in ADHD
