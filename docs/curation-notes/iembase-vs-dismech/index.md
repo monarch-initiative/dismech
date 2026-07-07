@@ -552,3 +552,18 @@ Source inputs for these batches:
 | 398 | NOGENE-related Kearns Sayre Syndrome | UNMAPPED | False negative; resolve to `Kearns-Sayre_Syndrome.yaml`. |
 | 402 | PRICKLE3-related Leber Hereditary Optic Neuropathy, LHON | UNMAPPED | True PRICKLE3-LHON gap; reject congenital insensitivity to pain and do not substitute Leber congenital amaurosis files. |
 | 406 | MT-TT-related Mitochondrial tRNA(Thr) deficiency | UNMAPPED | True MT-TT/LIMM gap; reject reversible MT-TE infantile COX deficiency as a tRNA-neighbor candidate. |
+
+## Batch 37
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 407 | MT-TE-related Mitochondrial Myopathy with Diabetes Mellitus | UNMAPPED | True MT-TE m.14709T>C diabetes-myopathy gap; reject reversible infantile MT-TE/COX deficiency despite shared gene. |
+| 408 | MT-TE-related Mitochondrial tRNA(Glu) deficiency | UNMAPPED | False negative; resolve to `Reversible_Infantile_Cytochrome_c_Oxidase_Deficiency.yaml`. |
+| 411 | POLG-related Mitochondrial DNA polymerase gamma catalytic subunit deficiency 4A | CANDIDATE | True POLG Alpers-Huttenlocher/MTDPS4A gap; reject MNGIE and use SANDO only as POLG-spectrum context. |
+| 416 | OPA1-related Childhood-onset optic atrophy type 1 | UNMAPPED | Partial OPA1 context in DOA-plus file, but pure childhood/juvenile OPA1 optic atrophy remains an exact gap or lump/split decision. |
+| 420 | POLG-related Spinocerebellar Ataxia with Epilepsy, included (SCAE, included) | MAPPED | Correct SANDO mapping with high concordance; review inheritance discordance before import. |
+| 421 | OPA1-related Optic Atrophy 1 and Deafness | UNMAPPED | False negative; resolve to `Autosomal_Dominant_Optic_Atrophy_Plus.yaml`, with Behr/recessive subtype caveats. |
+| 425 | LRPPRC-related Leigh Syndrome with French-Canadian Ethnicity | UNMAPPED | False negative; resolve to the French-Canadian LRPPRC subtype in `Leigh_Syndrome.yaml`. |
+| 426 | ISCU-related Hereditary Myopathy with Lactic Acidosis | UNMAPPED | True ISCU/HML Fe-S myopathy gap; reject CMT/HNPP neuropathy candidate. |
+| 436 | GFM1-related Mitochondrial elongation factor G1 deficiency | UNMAPPED | True GFM1/COXPD1 mitoribosome/translation gap; reject mitochondrial trifunctional protein deficiency. |
+| 437 | MRPS16-related Mitochondrial ribosomal small subunit 16 deficiency | UNMAPPED | True MRPS16/COXPD2 neonatal combined-OXPHOS gap; reject HMG-CoA synthase deficiency. |
