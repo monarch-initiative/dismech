@@ -687,3 +687,18 @@ Source inputs for these batches:
 | 554 | ABCC2-related Dubin-Johnson syndrome | UNMAPPED | True ABCC2/Dubin-Johnson gap; reject Stevens-Johnson and porphyria candidates. |
 | 555 | AKR1C2-related 3-alpha-hydroxysteroid dehydrogenase type 3 deficiency | UNMAPPED | True AKR1C2 backdoor pathway gap; reject HSD3B2 CAH despite steroid/DSD phenotype overlap. |
 | 556 | GNPTAB-related mucolipidosis III alpha/beta | MAPPED | Correct ML III alpha/beta mapping with high concordance; IEMbase adds enzyme-directionality, urinary GAG/oligosaccharide, hernia, hip, and foam-cell prompts. |
+
+## Batch 46
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 557 | GRN-related progranulin deficiency | UNMAPPED | False negative for the recessive CLN11/NCL aspect; resolve to `Neuronal_Ceroid_Lipofuscinosis.yaml#GRN`, while dominant GRN-FTLD/TDP-43 remains separate context. |
+| 558 | ATP13A2-related lysosomal type 5 P-type ATPase deficiency | UNMAPPED | False negative; resolve to `Kufor-Rakeb_syndrome.yaml` with CLN12/PARK9 alias review. |
+| 559 | CTSF-related cathepsin F deficiency | UNMAPPED | False negative; resolve to `Adult_Neuronal_Ceroid_Lipofuscinosis.yaml#CTSF` for CLN13 / Type B Kufs disease. |
+| 560 | KCTD7-related CLN14 disease | UNMAPPED | Broad PME/NCL group context only; exact KCTD7/CLN14/EPM3 coverage remains a local gap. |
+| 561 | ALPL-related tissue-nonspecific alkaline phosphatase deficiency | MAPPED | Correct hypophosphatasia mapping with high concordance; review dental, respiratory, calcium/phosphate, and asfotase alfa scope. |
+| 562 | OAT-related ornithine aminotransferase deficiency | MAPPED | Correct OAT/gyrate atrophy mapping with high concordance; IEMbase adds creatine/GAA, treatment, neuromuscular, imaging, and neuropathy prompts. |
+| 563 | PHKA1-related muscle phosphorylase kinase deficiency | CANDIDATE | Reject GSD I candidate; true PHKA1/GSD IXd gap with muscle phosphorylase kinase, exercise-test, second-wind, CK, and myoglobin prompts. |
+| 564 | PRKAG2-related phosphorylase kinase deficiency, AMP-activated | UNMAPPED | Reject MNGIE candidate; true PRKAG2 glycogen-storage cardiomyopathy / AMPK disease gap. |
+| 565 | GLYCTK-related D-glycerate kinase deficiency | UNMAPPED | Reject mevalonate kinase candidate; true GLYCTK/D-glyceric acidemia gap with D-glycerate, acidosis, and severe neurodevelopmental prompts. |
+| 566 | ABCC8-related ATP-sensitive potassium channel regulatory subunit deficiency | UNMAPPED | False negative; resolve to `Congenital_Isolated_Hyperinsulinism.yaml#KATP-HI/ABCC8`. |
