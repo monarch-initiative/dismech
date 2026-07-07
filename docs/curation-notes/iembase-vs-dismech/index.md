@@ -102,3 +102,18 @@ Source inputs for these batches:
 | 63 | ACADSB-related 2-methylbutyryl-CoA dehydrogenase deficiency | MAPPED | Correct SBCADD mapping; high concordance, with explicit C5-isomer distinction from IVA. |
 | 64 | HSD17B10-related 17-beta-hydroxysteroid dehydrogenase type 10 deficiency | UNMAPPED | False negative; local `HSD10_Mitochondrial_Disease.yaml` is the correct target despite low fuzzy score. |
 | 66 | HIBCH-related 3-hydroxyisobutyryl-CoA hydrolase deficiency | MAPPED | Correct HIBCH mapping; high concordance, with IEMbase adding fibroblast assay and granular valine-pathway markers. |
+
+## Batch 7
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 67 | HIBADH-related 3-hydroxyisobutyrate dehydrogenase deficiency | CANDIDATE | False positive to SSADH deficiency; local standalone HIBADH/3-hydroxyisobutyric aciduria target is missing. |
+| 68 | PCCA-related Propionic acidemia | MAPPED | Correct propionic acidemia mapping; high concordance, with PCCA covered inside the PCCA/PCCB disease entry. |
+| 69 | MMUT-related Methylmalonic aciduria due to methylmalonyl-CoA mutase deficiency | MAPPED | Correct MMA mapping; high concordance, with MMUT mut0/mut- coverage inside the isolated MMA entry. |
+| 70 | SLC46A1-related Proton-coupled folate transporter deficiency | UNMAPPED | No valid local target; primary carnitine deficiency is a false-positive transporter/treatability neighbor. |
+| 71 | FOLR1-related Folate receptor alpha deficiency | UNMAPPED | No valid local target; PDH deficiency and secondary DHPR cerebral folate deficiency are not primary FOLR1 disease. |
+| 72 | MTHFR-related 5,10-methylenetetrahydrofolate reductase deficiency | UNMAPPED | False negative; local MTHFR subtype/branch coverage exists under methionine-cycle disorder and homocystinuria entries. |
+| 73 | DHFR-related Dihydrofolate reductase deficiency | UNMAPPED | No valid local target; DHPR/QDPR deficiency and antimicrobial DHFR modules are false-positive folate/acronym neighbors. |
+| 75 | ALDH7A1-related Alpha-amino adipic semialdehyde dehydrogenase deficiency | UNMAPPED | No valid local target; SSADH deficiency is a false-positive semialdehyde dehydrogenase neighbor. |
+| 76 | PNPO-related Pyridoxamine 5-phosphate oxidase deficiency | UNMAPPED | No valid local target; COA3-related COX deficiency is a false-positive mitochondrial/deficiency neighbor. |
+| 77 | MOCS1-related Molybdenum cofactor deficiency A | UNMAPPED | No valid local target; Fanconi anemia FA-A is a false-positive complementation-group acronym collision. |
