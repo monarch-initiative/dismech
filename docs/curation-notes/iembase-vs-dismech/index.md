@@ -357,3 +357,18 @@ Source inputs for these batches:
 | 254 | COQ2-related coenzyme Q2 polyprenyltranferase deficiency | MAPPED | Correct COQ2 primary CoQ10 subtype mapping with high concordance and IEMbase-only retinal/stroke-like prompts. |
 | 255 | COQ9-related coenzyme 9 deficiency | MAPPED | Correct COQ9 primary CoQ10 subtype mapping; IEMbase adds human clinical and biomarker detail plus an alternate-label typo to review. |
 | 256 | COQ8A-related coenzyme Q8A (ADCK3) deficiency | MAPPED | Correct dedicated COQ8A ubiquinone-deficiency ataxia mapping; the primary CoQ10 umbrella subtype remains secondary context. |
+
+## Batch 24
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 257 | APTX-related aprataxin deficiency | MAPPED | Correct AOA1 subtype mapping, but IEMbase is sparse and its serum-albumin direction needs review. |
+| 258 | AGA-related aspartylglucosaminidase deficiency | MAPPED | Correct aspartylglucosaminuria mapping; transplant treatment row needs local lack-of-benefit caveat. |
+| 259 | FUCA1-related alpha-L-fucosidase deficiency | MAPPED | Correct fucosidosis mapping with high concordance. |
+| 260 | MAN2B1-related alpha-mannosidase B deficiency | MAPPED | Correct alpha-mannosidosis mapping with high concordance. |
+| 261 | MANBA-related beta-mannosidase deficiency | MAPPED | Correct beta-mannosidosis mapping; IEMbase adds granular neurologic, skeletal, ocular, and cellular prompts. |
+| 262 | Alpha-N-acetylgalactosaminidase deficiency, Schindler disease type I | MAPPED | Generated type 3 target is wrong; resolve to `Schindler_Disease.yaml`. |
+| 263 | NAGA-related alpha-N-acetylgalactosaminidase deficiency, Kanzaki disease | MAPPED | Correct Kanzaki disease/type II mapping with high concordance. |
+| 264 | Alpha-N-acetylgalactosaminidase deficiency, Schindler disease type III | MAPPED | Correct `NAGA_Deficiency_Type_3.yaml` mapping with high concordance. |
+| 265 | NEU1-related alpha-neuraminidase deficiency | MAPPED | Correct sialidosis type 1 mapping, with caution for IEMbase-only systemic rows that may reflect broader sialidosis spectrum. |
+| 267 | SLC17A5-related sialin deficiency, severe | AMBIGUOUS | Resolve to `Free_Sialic_Acid_Storage_Disease.yaml#Infantile Free Sialic Acid Storage Disease`; standalone Salla disease is secondary context. |
