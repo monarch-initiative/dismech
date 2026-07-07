@@ -462,3 +462,18 @@ Source inputs for these batches:
 | 331 | RFT1-related Flippase of Man5GlcNAc2-PP-Dol deficiency (CDG) | UNMAPPED | Reject X-linked SCID candidate; true RFT1-CDG gap with Man5GlcNAc2, sensory, thrombotic, and coagulation prompts. |
 | 332 | MGAT2-related N-acetylglucosaminyltransferase 2 deficiency (CDG) | UNMAPPED | False negative; low-score MGAT2-CDG candidate is the correct local target, with IEMbase adding granular dysmorphism, GI, and coagulation prompts. |
 | 333 | GCS1-related Glucosidase 1 deficiency (CDG) | UNMAPPED | Reject Gaucher disease lexical candidate; true MOGS/GCS1-CDG gap with tetraglucoside, immunoglobulin, respiratory, and neurologic prompts. |
+
+## Batch 31
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 334 | TUSC3-related oligosaccharyltransferase subunit deficiency (CDG) | UNMAPPED | True TUSC3-CDG gap; reject GHIS/IGFALS candidate because short stature is not enough to map across mechanisms. |
+| 335 | SRD5A3-related steroid 5-alpha-reductase 3 deficiency (CDG) | CANDIDATE | Reject SRD5A2 46,XY DSD candidate; true SRD5A3-CDG gap with ocular, skin, brain, dolichol, and coagulation prompts. |
+| 336 | DPM1-related GDP-Man:Dol-P mannosyltransferase deficiency (CDG) | UNMAPPED | Dystroglycanopathy has partial DPM1 pathway context, but standalone DPM1-CDG remains a local disease gap. |
+| 337 | MPDU1-related Dol-P-Man utilization 1 deficiency (CDG) | MAPPED | Correct MPDU1-CDG mapping with high concordance; IEMbase adds growth-hormone, cerebral-atrophy, antithrombin, and Man5/Man9 prompts. |
+| 338 | B4GALT1-related beta-1,4-galactosyltransferase 1 deficiency (CDG) | UNMAPPED | Reject GM1 gangliosidosis lexical candidate; true B4GALT1-CDG gap with hypogalactosylated transferrin and coagulation prompts. |
+| 339 | GNE-related UDP-GlcNAc epimerase-kinase deficiency (CDG) | UNMAPPED | Reject Galactosemia/epimerase candidate; true GNE myopathy/CDG gap with rimmed-vacuole and N-acetylmannosamine prompts. |
+| 340 | SLC35A1-related CMP-sialic acid transporter deficiency (CDG) | UNMAPPED | Reject SLC35A2-CDG family-neighbor candidate; true SLC35A1-CDG gap with macrothrombocytopenia and platelet-sialylation prompts. |
+| 341 | SLC35C1-related GDP-fucose transporter deficiency (CDG) | UNMAPPED | Reject SLC35A2 and fucosidosis neighbors; true SLC35C1-CDG/LAD-II gap with neutrophil-rolling and fucose-treatment prompts. |
+| 342 | DOLK-related dolichol kinase deficiency (CDG) | UNMAPPED | False negative; resolve to `DK1-congenital_disorder_of_glycosylation.yaml`, with IEMbase adding digital-necrosis and delayed-puberty prompts. |
+| 343 | COG7-related conserved oligomeric Golgi complex subunit 7 deficiency (CDG) | MAPPED | Correct COG7-CDG mapping with high concordance; IEMbase adds renal/urinary, bilirubin/CK, and detailed glycan-fraction prompts. |
