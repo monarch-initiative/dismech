@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jdv.18637"
+reference_id: DOI:10.1111/jdv.18637
 title: Epidemiology of inherited epidermolysis bullosa in Germany
 authors:
 - Cristina Has
@@ -29,6 +29,7 @@ journal: Journal of the European Academy of Dermatology and Venereology
 year: '2023'
 doi: 10.1111/jdv.18637
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epidemiology of inherited epidermolysis bullosa in Germany

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/gastro/goac082"
+reference_id: DOI:10.1093/gastro/goac082
 title: "Re-recognition of <i>BMPR1A</i>-related polyposis: beyond juvenile polyposis and hereditary mixed polyposis syndrome"
 authors:
 - Zi-Ye Zhao
@@ -15,6 +15,7 @@ journal: Gastroenterology Report
 year: '2022'
 doi: 10.1093/gastro/goac082
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Re-recognition of <i>BMPR1A</i>-related polyposis: beyond juvenile polyposis and hereditary mixed polyposis syndrome

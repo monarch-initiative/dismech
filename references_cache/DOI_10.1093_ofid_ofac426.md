@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ofid/ofac426"
+reference_id: DOI:10.1093/ofid/ofac426
 title: "Cat Scratch Disease: 9 Years of Experience at a Pediatric Center"
 authors:
 - Omayma Amin
@@ -22,6 +22,7 @@ journal: Open Forum Infectious Diseases
 year: '2022'
 doi: 10.1093/ofid/ofac426
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cat Scratch Disease: 9 Years of Experience at a Pediatric Center

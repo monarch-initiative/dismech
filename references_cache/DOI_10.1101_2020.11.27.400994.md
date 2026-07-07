@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2020.11.27.400994"
+reference_id: DOI:10.1101/2020.11.27.400994
 title: CRISPR/Cas9 targeting Ttc30a mimics ciliary chondrodysplasia with polycystic kidney disease
 authors:
 - Maike Getwan
@@ -18,6 +18,7 @@ authors:
 year: '2020'
 doi: 10.1101/2020.11.27.400994
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # CRISPR/Cas9 targeting Ttc30a mimics ciliary chondrodysplasia with polycystic kidney disease

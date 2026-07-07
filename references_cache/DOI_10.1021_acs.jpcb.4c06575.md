@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1021/acs.jpcb.4c06575"
+reference_id: DOI:10.1021/acs.jpcb.4c06575
 title: Atomistic Mechanism of Lipid Membrane Binding for Blood Coagulation Factor VIII with Molecular Dynamics Simulations on a Microsecond Time Scale
 authors:
 - Nathan G. Avery
@@ -10,6 +10,7 @@ journal: The Journal of Physical Chemistry B
 year: '2025'
 doi: 10.1021/acs.jpcb.4c06575
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Atomistic Mechanism of Lipid Membrane Binding for Blood Coagulation Factor VIII with Molecular Dynamics Simulations on a Microsecond Time Scale

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/wps.21037"
+reference_id: DOI:10.1002/wps.21037
 title: "Candidate diagnostic biomarkers for neurodevelopmental disorders in children and adolescents: a systematic review"
 authors:
 - Samuele Cortese
@@ -34,6 +34,7 @@ journal: World Psychiatry
 year: '2023'
 doi: 10.1002/wps.21037
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Candidate diagnostic biomarkers for neurodevelopmental disorders in children and adolescents: a systematic review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.kint.2016.09.046"
+reference_id: DOI:10.1016/j.kint.2016.09.046
 title: "Gitelman syndrome: consensus and guidance from a Kidney Disease: Improving Global Outcomes (KDIGO) Controversies Conference"
 authors:
 - Anne Blanchard
@@ -18,6 +18,7 @@ journal: Kidney International
 year: '2017'
 doi: 10.1016/j.kint.2016.09.046
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Gitelman syndrome: consensus and guidance from a Kidney Disease: Improving Global Outcomes (KDIGO) Controversies Conference

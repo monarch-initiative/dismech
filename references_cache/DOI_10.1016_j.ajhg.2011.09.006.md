@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2011.09.006"
+reference_id: DOI:10.1016/j.ajhg.2011.09.006
 title: XX Ovarian Dysgenesis Is Caused by a PSMC3IP/HOP2 Mutation that Abolishes Coactivation of Estrogen-Driven Transcription
 authors:
 - David Zangen
@@ -19,6 +19,7 @@ journal: The American Journal of Human Genetics
 year: '2011'
 doi: 10.1016/j.ajhg.2011.09.006
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # XX Ovarian Dysgenesis Is Caused by a PSMC3IP/HOP2 Mutation that Abolishes Coactivation of Estrogen-Driven Transcription

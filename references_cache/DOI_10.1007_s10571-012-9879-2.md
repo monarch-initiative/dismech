@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10571-012-9879-2"
+reference_id: DOI:10.1007/s10571-012-9879-2
 title: Neurochemical Evidence that the Metabolites Accumulating in 3-Methylcrotonyl-CoA Carboxylase Deficiency Induce Oxidative Damage in Cerebral Cortex of Young Rats
 authors:
 - Ângela Zanatta
@@ -16,6 +16,7 @@ journal: Cellular and Molecular Neurobiology
 year: '2013'
 doi: 10.1007/s10571-012-9879-2
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Neurochemical Evidence that the Metabolites Accumulating in 3-Methylcrotonyl-CoA Carboxylase Deficiency Induce Oxidative Damage in Cerebral Cortex of Young Rats

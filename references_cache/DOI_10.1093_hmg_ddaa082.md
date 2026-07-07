@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddaa082"
+reference_id: DOI:10.1093/hmg/ddaa082
 title: Pmp22 super-enhancer deletion causes tomacula formation and conduction block in peripheral nerves
 authors:
 - Harrison Pantera
@@ -17,6 +17,7 @@ journal: Human Molecular Genetics
 year: '2020'
 doi: 10.1093/hmg/ddaa082
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pmp22 super-enhancer deletion causes tomacula formation and conduction block in peripheral nerves

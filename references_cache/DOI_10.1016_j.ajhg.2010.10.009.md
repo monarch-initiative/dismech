@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2010.10.009"
+reference_id: DOI:10.1016/j.ajhg.2010.10.009
 title: Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene
 authors:
 - Stuart W. Tompson
@@ -19,6 +19,7 @@ journal: The American Journal of Human Genetics
 year: '2010'
 doi: 10.1016/j.ajhg.2010.10.009
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Fibrochondrogenesis Results from Mutations in the COL11A1 Type XI Collagen Gene

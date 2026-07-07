@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.03.27.645675"
+reference_id: DOI:10.1101/2025.03.27.645675
 title: Cerebrospinal fluid inflammome analysis identifies host- and pathogen-specific inflammatory profiles and signaling pathways in meningitis and predicts clinical outcome
 authors:
 - Thorsten Lenhard
@@ -12,6 +12,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.03.27.645675
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cerebrospinal fluid inflammome analysis identifies host- and pathogen-specific inflammatory profiles and signaling pathways in meningitis and predicts clinical outcome

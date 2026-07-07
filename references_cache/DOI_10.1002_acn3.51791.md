@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/acn3.51791"
+reference_id: DOI:10.1002/acn3.51791
 title: "Stiff person spectrum disorder diagnosis, misdiagnosis, and suggested diagnostic criteria"
 authors:
 - Nicholas H. Chia
@@ -17,6 +17,7 @@ journal: Annals of Clinical and Translational Neurology
 year: '2023'
 doi: 10.1002/acn3.51791
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Stiff person spectrum disorder diagnosis, misdiagnosis, and suggested diagnostic criteria

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ehjqcco/qcad027"
+reference_id: DOI:10.1093/ehjqcco/qcad027
 title: "Occlusion of the infarct-related coronary artery presenting as acute coronary syndrome with and without ST-elevation: impact of inflammation and outcomes in a real-world prospective cohort"
 authors:
 - Francesco Bruno
@@ -19,6 +19,7 @@ journal: European Heart Journal - Quality of Care and Clinical Outcomes
 year: '2023'
 doi: 10.1093/ehjqcco/qcad027
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Occlusion of the infarct-related coronary artery presenting as acute coronary syndrome with and without ST-elevation: impact of inflammation and outcomes in a real-world prospective cohort

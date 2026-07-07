@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10238-022-00841-0"
+reference_id: DOI:10.1007/s10238-022-00841-0
 title: Transforming growth factor beta isoforms and TGF-βR1 and TGF-βR2 expression in systemic sclerosis patients
 authors:
 - José Alvaro Lomelí-Nieto
@@ -16,6 +16,7 @@ journal: Clinical and Experimental Medicine
 year: '2022'
 doi: 10.1007/s10238-022-00841-0
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Transforming growth factor beta isoforms and TGF-βR1 and TGF-βR2 expression in systemic sclerosis patients

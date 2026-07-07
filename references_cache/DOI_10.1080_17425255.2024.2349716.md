@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/17425255.2024.2349716"
+reference_id: DOI:10.1080/17425255.2024.2349716
 title: "Pharmacogenetics in IBS: update and impact of GWAS studies in drug targets and metabolism"
 authors:
 - Michael Camilleri
@@ -8,6 +8,7 @@ journal: "Expert Opinion on Drug Metabolism &amp; Toxicology"
 year: '2024'
 doi: 10.1080/17425255.2024.2349716
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pharmacogenetics in IBS: update and impact of GWAS studies in drug targets and metabolism

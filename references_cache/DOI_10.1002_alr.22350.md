@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/alr.22350"
+reference_id: DOI:10.1002/alr.22350
 title: "Computational fluid dynamic analysis of aggressive turbinate reductions: is it a culprit of empty nose syndrome?"
 authors:
 - Jennifer Malik
@@ -16,6 +16,7 @@ journal: "International Forum of Allergy &amp; Rhinology"
 year: '2019'
 doi: 10.1002/alr.22350
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Computational fluid dynamic analysis of aggressive turbinate reductions: is it a culprit of empty nose syndrome?

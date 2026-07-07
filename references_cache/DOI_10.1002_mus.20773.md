@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mus.20773"
+reference_id: DOI:10.1002/mus.20773
 title: Satoyoshi syndrome has antibody against brain and gastrointestinal tissue
 authors:
 - Eiji Matsuura
@@ -10,6 +10,7 @@ journal: "Muscle &amp; Nerve"
 year: '2007'
 doi: 10.1002/mus.20773
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Satoyoshi syndrome has antibody against brain and gastrointestinal tissue

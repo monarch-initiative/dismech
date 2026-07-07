@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11910-023-01255-5"
+reference_id: DOI:10.1007/s11910-023-01255-5
 title: "Hashimoto’s Encephalopathy: Case Series and Literature Review"
 authors:
 - Jasodhara Chaudhuri
@@ -9,6 +9,7 @@ journal: Current Neurology and Neuroscience Reports
 year: '2023'
 doi: 10.1007/s11910-023-01255-5
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Hashimoto’s Encephalopathy: Case Series and Literature Review

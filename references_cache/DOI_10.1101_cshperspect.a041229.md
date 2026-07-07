@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/cshperspect.a041229"
+reference_id: DOI:10.1101/cshperspect.a041229
 title: Stairways to Advanced Therapies for Epidermolysis Bullosa
 authors:
 - Laura De Rosa
@@ -11,6 +11,7 @@ journal: Cold Spring Harbor Perspectives in Biology
 year: '2023'
 doi: 10.1101/cshperspect.a041229
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Stairways to Advanced Therapies for Epidermolysis Bullosa

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/noajnl/vdae158"
+reference_id: DOI:10.1093/noajnl/vdae158
 title: Approaches for prevention of tumors in patients with rhabdoid tumor predisposition syndrome
 authors:
 - Anupa Geethadevi
@@ -8,6 +8,7 @@ journal: Neuro-Oncology Advances
 year: '2024'
 doi: 10.1093/noajnl/vdae158
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Approaches for prevention of tumors in patients with rhabdoid tumor predisposition syndrome

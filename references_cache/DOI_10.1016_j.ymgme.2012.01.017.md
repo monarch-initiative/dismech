@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2012.01.017"
+reference_id: DOI:10.1016/j.ymgme.2012.01.017
 title: "Developmental progress and creatine restoration upon long-term creatine supplementation of a patient with arginine:glycine amidinotransferase deficiency"
 authors:
 - Joseph D.T. Ndika
@@ -14,6 +14,7 @@ journal: Molecular Genetics and Metabolism
 year: '2012'
 doi: 10.1016/j.ymgme.2012.01.017
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Developmental progress and creatine restoration upon long-term creatine supplementation of a patient with arginine:glycine amidinotransferase deficiency

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ajco.13836"
+reference_id: DOI:10.1111/ajco.13836
 title: Molecular basis and targeted therapies for radioiodine refractory thyroid cancer
 authors:
 - Qiuxiao Yu
@@ -12,6 +12,7 @@ journal: Asia-Pacific Journal of Clinical Oncology
 year: '2023'
 doi: 10.1111/ajco.13836
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular basis and targeted therapies for radioiodine refractory thyroid cancer

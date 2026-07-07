@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awx251"
+reference_id: DOI:10.1093/brain/awx251
 title: Exome sequencing and network analysis identifies shared mechanisms underlying spinocerebellar ataxia
 authors:
 - Esther A R Nibbeling
@@ -27,6 +27,7 @@ journal: Brain
 year: '2017'
 doi: 10.1093/brain/awx251
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Exome sequencing and network analysis identifies shared mechanisms underlying spinocerebellar ataxia

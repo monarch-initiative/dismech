@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddad117"
+reference_id: DOI:10.1093/hmg/ddad117
 title: COL11A2 as a candidate gene for vertebral malformations and congenital scoliosis
 authors:
 - Denise Rebello
@@ -22,6 +22,7 @@ journal: Human Molecular Genetics
 year: '2023'
 doi: 10.1093/hmg/ddad117
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # COL11A2 as a candidate gene for vertebral malformations and congenital scoliosis

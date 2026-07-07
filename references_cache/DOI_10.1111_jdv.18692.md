@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jdv.18692"
+reference_id: DOI:10.1111/jdv.18692
 title: Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from China
 authors:
 - Fuying Chen
@@ -20,6 +20,7 @@ journal: Journal of the European Academy of Dermatology and Venereology
 year: '2023'
 doi: 10.1111/jdv.18692
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genotype and phenotype correlations in 441 patients with epidermolysis bullosa from China

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.neuron.2006.08.018"
+reference_id: DOI:10.1016/j.neuron.2006.08.018
 title: Rab5 and Rab7 Control Endocytic Sorting along the Axonal Retrograde Transport Pathway
 authors:
 - Katrin Deinhardt
@@ -14,6 +14,7 @@ journal: Neuron
 year: '2006'
 doi: 10.1016/j.neuron.2006.08.018
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Rab5 and Rab7 Control Endocytic Sorting along the Axonal Retrograde Transport Pathway

@@ -807,3 +807,48 @@ Source inputs for these batches:
 | 637 | ATP6V1E1-related autosomal recessive cutis laxa type IIC | UNMAPPED | Reject chronic granulomatous disease; true ATP6V1E1 cutis-laxa/CDG gap with type 2 sialotransferrin, cutis laxa, hypotonia, cardiovascular, skeletal/contracture, cleft-palate, ocular, dental, and facial prompts. |
 | 638 | XYLT1-related Desbuquois dysplasia 2 | UNMAPPED | Reject FBN1-related geleophysic dysplasia 2 and CANT1/Desbuquois mentions as exact; true XYLT1/Desbuquois dysplasia 2 gap with brachydactyly, femoral, patellar, coronal-cleft, joint-laxity, short-stature, craniofacial, and clubfoot prompts. |
 | 639 | XYLT2-related spondyloocular syndrome | UNMAPPED | True XYLT2/spondyloocular syndrome gap; preserve combined bone-density/fracture, vertebral, cataract, retinal-detachment, hearing-loss, cardiac, stature, kyphosis, and ID prompts. |
+
+## Batch 54
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 640 | RXYLT1-related muscular dystrophy-dystroglycanopathy type A | MAPPED | Correct disease-level target is `Dystroglycanopathy.yaml`, not lissencephaly spectrum alone; broadly covered via RXYLT1/MDDG10 and type A dystroglycanopathy, with gonadal and neural-tube prompts still thin. |
+| 641 | CRPPA-related muscular dystrophy-dystroglycanopathy types A7 and C7 | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml` through CRPPA/MDDG7 and type A/C framework; missing exact A7/C7 cross-product subtype and some eye/brain/limb detail. |
+| 642 | FKTN-related muscular dystrophy-dystroglycanopathy type A | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml` through FKTN/MDDG4 and type A/Fukuyama continuum; missing exact FKTN type A row and several ocular, regression, contracture, respiratory, and cardiac prompts. |
+| 643 | FKTN-related muscular dystrophy-dystroglycanopathy type B | UNMAPPED | Broadly covered by FKTN and type B dystroglycanopathy; preserve narrow no-intellectual-disability row nuance with CK, normal sialotransferrin, hypotonia, and muscular dystrophy prompts. |
+| 644 | FKTN-related muscular dystrophy-dystroglycanopathy type C | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml`; not yet represented as an FKTN limb-girdle subtype in AR LGMD, so preserve rigid-spine and cardiomyopathy prompts. |
+| 645 | FKRP-related muscular dystrophy-dystroglycanopathy type A | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml` through FKRP/MDDG5 and type A framework; missing exact FKRP type A row and detailed Walker-Warburg eye/brain/regression prompts. |
+| 646 | FKRP-related muscular dystrophy-dystroglycanopathy type B | UNMAPPED | Broadly covered by FKRP and type B dystroglycanopathy; missing exact FKRP type B row with nodular heterotopia, cerebellar white-matter, feeding, microcephaly, and spinal prompts. |
+| 647 | FKRP-related muscular dystrophy-dystroglycanopathy type C | UNMAPPED | Covered locally by both `Dystroglycanopathy.yaml` and FKRP/LGMDR9 in AR LGMD; preserve myoglobinuria and tongue-hypertrophy prompts not clearly captured locally. |
+| 648 | VPS33A-related mucopolysaccharidosis-plus syndrome | UNMAPPED | Reject Hurler syndrome as exact; true VPS33A MPS-plus gap with GAG/oligosaccharide, hematologic, renal, cardiac, respiratory, infection, neurodevelopmental, and storage-phenotype prompts. |
+| 650 | TIMM50-related 3-methylglutaconic aciduria type 9 | UNMAPPED | Reject glutaryl-CoA dehydrogenase deficiency as exact; true TIMM50/3-methylglutaconic aciduria type 9 gap with lactate, 3-MGA, epilepsy, hypsarrhythmia, optic atrophy, and brain-imaging prompts. |
+
+## Batch 55
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 651 | HAAO-related 3-hydroxyanthranilic acid 3,4-dioxygenase deficiency | UNMAPPED | Reject alkaptonuria; true HAAO/VCRL1 gap with 3-hydroxyanthranilic acid, NAD+, cardiac, renal, limb, hearing, stature, and ID prompts. |
+| 652 | KYNU-related 3-hydroxykynureninase deficiency | UNMAPPED | Reject hereditary orotic aciduria; true KYNU/VCRL2/xanthurenic aciduria gap with kynurenine-pathway metabolites, NAD+, cardiac, renal, limb, stature, and speech prompts. |
+| 653 | TPI1-related triosephosphate isomerase deficiency | UNMAPPED | Reject intrinsic factor deficiency; true TPI1 glycolytic hemolytic-anemia gap with red-cell TPI/DHAP, infections, neuromuscular, cardiac, seizure, and stroke prompts. |
+| 655 | DHTKD1-related 2-aminoadipic 2-oxoadipic aciduria | UNMAPPED | Reject D-2-hydroxyglutaric aciduria as exact; true DHTKD1/AMOXAD gap with adipic/ketoadipic organic-acid, ketone, acidosis, developmental, and seizure prompts. |
+| 656 | CA5A-related carbonic anhydrase VA deficiency | UNMAPPED | Broad hyperammonemia/UCD context only; true CA5A gap with ammonia, lactate, glucose, amino-acid, organic-acid, acylglycine, encephalopathy, coma, and feeding prompts. |
+| 657 | ALDH3A2-related fatty aldehyde dehydrogenase deficiency | UNMAPPED | Reject Sjogren autoimmune disease as an eponym collision; true ALDH3A2/Sjogren-Larsson gap with enzyme, ichthyosis, spasticity, ID, leukoencephalopathy, and macular prompts. |
+| 658 | TTPA-related alpha-tocopherol transfer protein deficiency | MAPPED | Correct exact AVED mapping to `Familial_Isolated_Vitamin_E_Deficiency.yaml`; IEMbase adds lipid, broad-beta electrophoresis, brain MRI, and xanthoma prompts. |
+| 659 | ABCD3-related congenital bile acid synthesis defect | MAPPED | Broad bile-acid umbrella context only; exact ABCD3/PMP70 subtype gap with THCA/C27 bile acids, normal peroxisomal lipid markers, liver, anemia, and hepatosplenomegaly prompts. |
+| 660 | ACOX2-related congenital bile acid synthesis defect | MAPPED | Broad bile-acid umbrella context only; exact ACOX2/CBAS6 subtype gap with C24/C27 bile-acid directionality, vitamin D, cholesterol, ataxia, cognition, steatorrhea, and fibrosis prompts. |
+| 661 | UGT1A1-related UDP-glucuronosyltransferase A1 deficiency | MAPPED | Partial Gilbert-only coverage; severe Crigler-Najjar/bilirubin-neurotoxicity scope remains under-covered, including convulsions, abnormal eye movements, hearing, and neonatal instability. |
+
+## Batch 56
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 662 | NR1H4-related progressive familial intrahepatic cholestasis 5 | UNMAPPED | True NR1H4/FXR/PFIC5 gap; reject progressive familial heart block and use bile-acid/cholestasis files only as broad context for normal-GGT neonatal cholestasis and liver failure. |
+| 663 | PPM1K-related branched-chain ketoacid dehydrogenase phosphatase deficiency | UNMAPPED | Partial MSUD pathway coverage in `Maple_Syrup_Urine_Disease.yaml`; no standalone PPM1K mild-variant subtype/file, so preserve the phosphatase mechanism and mild elevated-BCAA signal. |
+| 664 | BCKDK-related branched-chain ketoacid dehydrogenase kinase deficiency | MAPPED | Correct exact mapping to `BCKDK_Deficiency.yaml`; IEMbase adds speech and stereotyped-hand-movement prompts on top of the low-BCAA autism/ID/seizure phenotype. |
+| 665 | ECHS1-related mitochondrial short-chain enoyl-CoA hydratase 1 deficiency | UNMAPPED | False negative from stale mapping; resolve to exact `ECHS1_Deficiency.yaml` and reject beta-ketothiolase deficiency while preserving neonatal metabolite, cardiomyopathy, hearing, optic, and apnea prompts. |
+| 666 | UQCRC2-related mitochondrial complex III deficiency, nuclear type 5 | CANDIDATE | Reject COX8A complex IV candidate; true UQCRC2/complex III gap with neonatal lactate, hypoglycemia, hyperammonemia, metabolic acidosis, transaminase, and developmental-delay prompts. |
+| 667 | SLC45A1-related neuronal glucose transporter deficiency | UNMAPPED | False negative from stale mapping; resolve to exact `SLC45A1-Related_Neuronal_Glucose_Transporter_Deficiency.yaml` and preserve normal CSF/plasma glucose plus dysmorphology prompts. |
+| 668 | SI-related sucrase-isomaltase deficiency | MAPPED | Correct exact mapping to `Congenital_Sucrase-Isomaltase_Deficiency.yaml`; IEMbase adds sodium, normal reducing-sugar, dehydration, and urolithiasis prompts. |
+| 669 | TREH-related trehalase deficiency | UNMAPPED | False negative from stale mapping; resolve to exact `Trehalase_Deficiency.yaml` and reject galactosemia while preserving normal stool reducing sugars and adolescent/adult GI timing. |
+| 671 | CRAT-related carnitine acetyltransferase deficiency | UNMAPPED | True CRAT gap; reject CPT2/CPT1A carnitine-shuttle context and preserve childhood ataxia, oculomotor apraxia, consciousness disturbance, hypotonia, and ID prompts. |
+| 673 | CPT1C-related autosomal dominant spastic paraplegia type 73 | CANDIDATE | Reject CPT2 deficiency and CPT1A isoform context; true CPT1C/SPG73 gap with adult spastic paraplegia, hyperreflexia, weakness/atrophy, loss of ambulation, and evoked-potential prompts. |
