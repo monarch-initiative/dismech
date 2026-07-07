@@ -732,3 +732,33 @@ Source inputs for these batches:
 | 585 | PHEX-related X-linked hypophosphatemia | MAPPED | Correct exact mapping to `X-Linked_Hypophosphatemia.yaml`; IEMbase adds alkaline-phosphatase, urinary-phosphate, normal-calcium, tinnitus, muscle-weakness, and waddling-gait prompts. |
 | 587 | VPS11-related hypomyelinating leukodystrophy type 12 | UNMAPPED | Reject HLD7/POLR3 candidate; true VPS11/HLD12 gap with urinary glycosphingolipid/sulfatide and MRI/sensory/autonomic prompts. |
 | 588 | DNAJC12-related hyperphenylalaninemia | UNMAPPED | False negative; resolve to `Disorder_of_Catecholamine_Synthesis.yaml#DNAJC12-related monoamine synthesis disorder`, with pterin, CSF HVA/5-HIAA, treatment, autism, and dystonia prompts. |
+
+## Batch 49
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 589 | KCNA4-related potassium channelopathy | UNMAPPED | Reject CACNA1A calcium-channel candidate; true KCNA4 potassium-channelopathy gap with striatal-necrosis, cataract, dystonia, microcephaly, growth, and attention prompts. |
+| 590 | PPA2-related mitochondrial inorganic pyrophosphatase 2 deficiency | UNMAPPED | Partial PPA2 coverage exists in `Dilated_Cardiomyopathy.yaml`; exact PPA2 mitochondrial pyrophosphatase / infantile sudden cardiac failure remains a local gap. |
+| 591 | SAMD9-related MIRAGE syndrome | UNMAPPED | Reject CHARGE syndrome; true SAMD9/MIRAGE gap with adrenal-axis, myelodysplasia, thrombocytopenia, infection, enteropathy, and genital-phenotype prompts. |
+| 592 | NANS-related N-acetylneuraminic acid synthase deficiency | UNMAPPED | Reject AIFM1/Bieganski SEMD candidate; true NANS-CDG / sialic-acid-biosynthesis gap with N-acetyl-D-mannosamine and skeletal/facial/neurodevelopmental prompts. |
+| 593 | CCDC115-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true CCDC115-CDG / CDG-IIo gap with type 2 glycosylation, liver, lipid, ceruloplasmin, and neurodevelopmental prompts. |
+| 594 | TANGO2-related recurrent metabolic encephalomyopathic crises | UNMAPPED | Reject PKAN candidate; true TANGO2/MECRCN gap with metabolic-crisis, rhabdomyolysis, arrhythmia, hypoglycemia, lactate, CK, and acylcarnitine prompts. |
+| 595 | SLC39A8-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true SLC39A8-CDG / manganese-transporter gap with low manganese, zinc, type 2 sialotransferrin, and nutritional-treatment prompts. |
+| 596 | SLC25A26-related S-adenosylmethionine carrier deficiency | UNMAPPED | Reject HHH syndrome as an SLC25-family false candidate; true SLC25A26/COXPD28 gap with respiratory-chain, pyruvate, lactic-acidosis, hydrops, and perinatal-failure prompts. |
+| 597 | HAO1-related hydroxyacid oxidase 1 deficiency | UNMAPPED | False negative; resolve to `HAO1-Related_Glycolate_Oxidase_Deficiency.yaml` and source-review IEMbase oxalate/nephrolithiasis and achalasia/alacrima prompts before import. |
+| 598 | GMPPA-related GDP-mannose pyrophosphorylase B deficiency | UNMAPPED | Reject CHIME syndrome; true GMPPA/AAMR gap with normal sialotransferrins, achalasia, alacrima, postural-hypotension, hearing, swallowing, and facial prompts. |
+
+## Batch 50
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 599 | GMPPB-related muscular dystrophy-dystroglycanopathy | CANDIDATE | Accept `Dystroglycanopathy.yaml#MDDG14 (GMPPB)` as subtype-level coverage, with `Congenital_Myasthenic_Syndrome.yaml#GMPPB` as secondary CMS context; preserve CK, alpha-dystroglycan, cataract, CMS, myoglobinuria, seizure, and neurodevelopmental prompts. |
+| 600 | PGM1-related phosphoglucomutase 1 deficiency | CANDIDATE | Reject GSD I as exact; true PGM1-CDG / GSD XIV gap with D-galactose, transferrin, antithrombin, nonketotic hypoglycemia, hyperinsulinism, cardiomyopathy, rhabdomyolysis, hepatopathy, endocrine, clefting, thrombosis, and malignant-hyperthermia prompts. |
+| 601 | PGM3-related phosphoglucomutase 3 deficiency | CANDIDATE | Reject IKBKG/IMD33 as exact; true PGM3-CDG / immunodeficiency-23 gap with N/O-glycan, normal sialotransferrin, CD19 B-cell, IgE, T-cell immunodeficiency, neutropenia, infection, atopy, skeletal, facial, growth, and neurodevelopmental prompts. |
+| 602 | DHDDS-related dehydrodolichyl diphosphate synthase deficiency | CANDIDATE | Reject EYS-related RP as exact; true DHDDS-CDG / RP59 gap with normal sialotransferrins, retinitis pigmentosa, epilepsy, intellectual disability, ataxia, dystonia, hypotonia, micropenis, and acute renal-failure prompts. |
+| 603 | NUS1-related Nogo-B receptor deficiency | UNMAPPED | Reject GABRD/GEFS+ as a seizure-only false candidate; true NUS1 / NgBR-CDG gap with cortical atrophy, retinitis pigmentosa, epilepsy, microcephaly, axial hypotonia, acral spasticity, scoliosis, developmental delay, and failure-to-thrive prompts. |
+| 604 | DPM2-related dolichol-P-mannose synthase-2 deficiency | UNMAPPED | False negative; resolve to `Dystroglycanopathy.yaml#DPM2-related dystroglycanopathy` while preserving DPM2-CDG biochemical and systemic prompts including type 1 sialotransferrin, dolichol-linked Man5GlcNAc2, hepatomegaly, infections, respiratory, joint, scoliosis, strabismus, cerebral, seizure, and muscular-dystrophy rows. |
+| 605 | ALG13-related UDP-N-acetylglucosamine transferase deficiency | UNMAPPED | Reject generic DEE13 as exact; true ALG13-CDG / EIEE36 gap with transferrin, thromboplastin, refractory epilepsy, regression, extrapyramidal/pyramidal, visual, feeding, microcephaly, hepatomegaly, and facial prompts. |
+| 606 | ALG14-related congenital myasthenic syndrome 15 | UNMAPPED | Partial broad context in `Congenital_Myasthenic_Syndrome.yaml#Glycosylation`, but exact ALG14-CDG / CMS15 remains a local gap; preserve normal CK, possible type 1 sialotransferrin, fetal hydrops, contractures, hypotonia, epilepsy, developmental delay, behavioral, and CMS-without-tubular-aggregates prompts. |
+| 607 | DDOST-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true DDOST-CDG / CDG-Ir gap with transferrin, antithrombin, factor XI, protein C/S, neonatal liver, oromotor, strabismus, reflux, constipation, myelination, ear infection, osteopenia, failure-to-thrive, hypotonia, and neurodevelopmental prompts. |
+| 608 | STT3A-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true STT3A-CDG gap with N-glycan, transferrin, factor VIII, von Willebrand factor, seizure, hypotonia, neurodevelopmental, gastrointestinal dysmotility, growth, microcephaly, and cerebellar-atrophy prompts. |
