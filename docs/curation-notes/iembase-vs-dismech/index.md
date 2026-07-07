@@ -222,3 +222,18 @@ Source inputs for these batches:
 | 150 | RRM2B-related Mitochondrial ribonucleotide reductase subunit 2 deficiency | UNMAPPED | Partial false negative: local RRM2B MNGIE-like subtype exists, but no canonical MTDPS8A/8B target. |
 | 151 | TPMT-related Thiopurine S-methyltransferase deficiency | UNMAPPED | Unmapped scope-review item; pharmacogenetic thiopurine intolerance should not map to GAMT deficiency. |
 | 152 | UMPS-related Uridine monophosphate synthase deficiency | MAPPED | Correct hereditary orotic aciduria mapping; IEMbase adds plasma orotic acid, smear terms, and renal-row review targets. |
+
+## Batch 15
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 154 | NT5C3A-related Pyrimidine-5'-nucleotidase I deficiency | UNMAPPED | True local gap; hereditary orotic aciduria is a UMPS false neighbor and lead poisoning is acquired mechanism context only. |
+| 155 | DHODH-related Dihydroorotate dehydrogenase deficiency | UNMAPPED | True local gap for Miller syndrome/POADS; pyruvate dehydrogenase deficiency is a broad metabolic false candidate. |
+| 156 | NT5C3A-related Pyrimidine 5'-nucleotidase superactivity | UNMAPPED | True local gap distinct from NT5C3A deficiency; hereditary orotic aciduria does not cover low PRPP/increased UMP hydrolase. |
+| 157 | TYMP-related Thymidine phosphorylase deficiency | AMBIGUOUS | Resolve to standalone `Mitochondrial_Neurogastrointestinal_Encephalomyopathy.yaml`; CIPO mitochondrial subtype is secondary context. |
+| 158 | TK2-related Mitochondrial thymidine kinase 2 deficiency | CANDIDATE | False-positive MNGIE candidate; no valid local TK2/MTDPS2 target, and local TK2 SCA31 repeat context is unrelated. |
+| 159 | DPYD-related Dihydropyrimidine dehydrogenase deficiency | UNMAPPED | True local gap with pharmacogenetic overlap; chemotherapy-induced diarrhea covers DPYD toxicity risk, not DPYD deficiency. |
+| 160 | UPB1-related Beta-Ureidopropionase deficiency | UNMAPPED | True local gap; beta-ketothiolase deficiency is an ACAT1 isoleucine/ketolysis false candidate. |
+| 163 | GCDH-related Glutaryl-CoA dehydrogenase deficiency | MAPPED | Correct GA1 mapping; high concordance, with IEMbase adding glutaconic acid and several rare phenotype review targets. |
+| 164 | ASPA-related Aspartoacylase deficiency | MAPPED | Correct Canavan mapping; high concordance, with IEMbase adding CSF/plasma NAA and specific MRI/posture review targets. |
+| 165 | L2HGDH-related L-2-Hydroxyglutarate dehydrogenase deficiency | MAPPED | Correct L2HGA mapping; high concordance, with IEMbase adding lysine, neonatal ammonia/lactate, CSF protein, and choreoathetosis leads. |
