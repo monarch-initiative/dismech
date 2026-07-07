@@ -87,3 +87,18 @@ Source inputs for these batches:
 | 51 | SLC7A7-related lysinuric protein intolerance | UNMAPPED | No valid local target; high-priority future curation, and not Hartnup or cystinuria. |
 | 52 | PEPD-related prolidase deficiency | UNMAPPED | No valid local target; future standalone PEPD/iminodipeptiduria curation would be clinically rich. |
 | 53 | CNDP1-related carnosine dipeptidase 1 deficiency | UNMAPPED | No valid local target; benign/minimal biochemical carnosinemia and homocarnosinosis record. |
+
+## Batch 6
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 55 | BCKDHA-related branched-chain ketoacid dehydrogenase E1-alpha deficiency | UNMAPPED | False negative; resolve to `Maple_Syrup_Urine_Disease.yaml#Type IA` when subtype anchors are supported. |
+| 56 | IVD-related isovaleryl-CoA dehydrogenase deficiency | MAPPED | Correct IVA mapping; high concordance, with IEMbase adding granular lab, MRI, and cytopenia detail. |
+| 57 | MCCC1-related 3-methylcrotonyl-CoA carboxylase 1 deficiency | CANDIDATE | Accept candidate as correct file-level mapping to `3-Methylcrotonyl-CoA_Carboxylase_Deficiency.yaml`; local file covers MCCC1/MCCC2 jointly. |
+| 58 | AUH-related 3-methylglutaconyl-CoA hydratase deficiency | UNMAPPED | No valid local target; GA1/GCDH is a false-positive fuzzy neighbor for AUH/MGA1. |
+| 59 | TAZ-related Barth syndrome | MAPPED | Correct Barth syndrome mapping; high concordance, with IEMbase adding selected facial, oral-ulcer, sepsis, and clot/stroke detail. |
+| 60 | OPA3-related methylglutaconic aciduria type 3 | UNMAPPED | No valid local target; GA1/GCDH is a false-positive fuzzy neighbor for OPA3/Costeff syndrome. |
+| 62 | HMGCL-related 3-hydroxy-3-methylglutaryl-CoA lyase deficiency | MAPPED | Correct HMGCLD mapping; high concordance, with IEMbase adding C6DC, enzyme-assay, and crisis-imaging detail. |
+| 63 | ACADSB-related 2-methylbutyryl-CoA dehydrogenase deficiency | MAPPED | Correct SBCADD mapping; high concordance, with explicit C5-isomer distinction from IVA. |
+| 64 | HSD17B10-related 17-beta-hydroxysteroid dehydrogenase type 10 deficiency | UNMAPPED | False negative; local `HSD10_Mitochondrial_Disease.yaml` is the correct target despite low fuzzy score. |
+| 66 | HIBCH-related 3-hydroxyisobutyryl-CoA hydrolase deficiency | MAPPED | Correct HIBCH mapping; high concordance, with IEMbase adding fibroblast assay and granular valine-pathway markers. |
