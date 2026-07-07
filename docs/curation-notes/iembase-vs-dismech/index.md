@@ -732,3 +732,18 @@ Source inputs for these batches:
 | 585 | PHEX-related X-linked hypophosphatemia | MAPPED | Correct exact mapping to `X-Linked_Hypophosphatemia.yaml`; IEMbase adds alkaline-phosphatase, urinary-phosphate, normal-calcium, tinnitus, muscle-weakness, and waddling-gait prompts. |
 | 587 | VPS11-related hypomyelinating leukodystrophy type 12 | UNMAPPED | Reject HLD7/POLR3 candidate; true VPS11/HLD12 gap with urinary glycosphingolipid/sulfatide and MRI/sensory/autonomic prompts. |
 | 588 | DNAJC12-related hyperphenylalaninemia | UNMAPPED | False negative; resolve to `Disorder_of_Catecholamine_Synthesis.yaml#DNAJC12-related monoamine synthesis disorder`, with pterin, CSF HVA/5-HIAA, treatment, autism, and dystonia prompts. |
+
+## Batch 49
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 589 | KCNA4-related potassium channelopathy | UNMAPPED | Reject CACNA1A calcium-channel candidate; true KCNA4 potassium-channelopathy gap with striatal-necrosis, cataract, dystonia, microcephaly, growth, and attention prompts. |
+| 590 | PPA2-related mitochondrial inorganic pyrophosphatase 2 deficiency | UNMAPPED | Partial PPA2 coverage exists in `Dilated_Cardiomyopathy.yaml`; exact PPA2 mitochondrial pyrophosphatase / infantile sudden cardiac failure remains a local gap. |
+| 591 | SAMD9-related MIRAGE syndrome | UNMAPPED | Reject CHARGE syndrome; true SAMD9/MIRAGE gap with adrenal-axis, myelodysplasia, thrombocytopenia, infection, enteropathy, and genital-phenotype prompts. |
+| 592 | NANS-related N-acetylneuraminic acid synthase deficiency | UNMAPPED | Reject AIFM1/Bieganski SEMD candidate; true NANS-CDG / sialic-acid-biosynthesis gap with N-acetyl-D-mannosamine and skeletal/facial/neurodevelopmental prompts. |
+| 593 | CCDC115-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true CCDC115-CDG / CDG-IIo gap with type 2 glycosylation, liver, lipid, ceruloplasmin, and neurodevelopmental prompts. |
+| 594 | TANGO2-related recurrent metabolic encephalomyopathic crises | UNMAPPED | Reject PKAN candidate; true TANGO2/MECRCN gap with metabolic-crisis, rhabdomyolysis, arrhythmia, hypoglycemia, lactate, CK, and acylcarnitine prompts. |
+| 595 | SLC39A8-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true SLC39A8-CDG / manganese-transporter gap with low manganese, zinc, type 2 sialotransferrin, and nutritional-treatment prompts. |
+| 596 | SLC25A26-related S-adenosylmethionine carrier deficiency | UNMAPPED | Reject HHH syndrome as an SLC25-family false candidate; true SLC25A26/COXPD28 gap with respiratory-chain, pyruvate, lactic-acidosis, hydrops, and perinatal-failure prompts. |
+| 597 | HAO1-related hydroxyacid oxidase 1 deficiency | UNMAPPED | False negative; resolve to `HAO1-Related_Glycolate_Oxidase_Deficiency.yaml` and source-review IEMbase oxalate/nephrolithiasis and achalasia/alacrima prompts before import. |
+| 598 | GMPPA-related GDP-mannose pyrophosphorylase B deficiency | UNMAPPED | Reject CHIME syndrome; true GMPPA/AAMR gap with normal sialotransferrins, achalasia, alacrima, postural-hypotension, hearing, swallowing, and facial prompts. |
