@@ -85,7 +85,9 @@ validate-disorders *files:
     #!/usr/bin/env bash
     set -u
     existing=()
-    for f in {{files}}; do
+    # Iterate real positional args (see `set positional-arguments` in justfile) so
+    # filenames with shell metacharacters (e.g. Bell's_Palsy.yaml) are safe (#5525).
+    for f in "$@"; do
         if [[ "$f" == {{kb_dir}}/*.yaml && "$f" != *.history.yaml && -f "$f" ]]; then
             existing+=("$f")
         elif [[ ! -f "$f" ]]; then
@@ -818,6 +820,22 @@ gen-pages:
     uv run python -m dismech.render --all
     @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, and $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
+# Incremental page build (issue #5507): render only the given changed
+# kb/disorders/*.yaml pages, plus the always-regenerated disorder-dependent
+# aggregate/index pages (comorbidities, modules, classification pages). The
+# expensive research pass runs only if a research report is among the args. Use
+# ONLY when no global input (template, render.py, schema, styles) changed — those
+# need a full `just gen-pages`. The generate-pages workflow's classifier decides.
+[group('Pages')]
+gen-pages-changed *files:
+    uv run python -m dismech.render --changed {{files}}
+
+# Incremental page build reading the changed paths from a newline-delimited file
+# (robust to any characters in filenames). Used by the generate-pages workflow.
+[group('Pages')]
+gen-pages-changed-from file:
+    uv run python -m dismech.render --changed-from {{file}}
+
 # Generate a single disorder page
 [group('Pages')]
 gen-page file:
@@ -1497,6 +1515,16 @@ genesets-align-all *args="":
 [group('Research')]
 icees-refresh:
     uv run python -m dismech.structured_sources.cli refresh icees
+
+# Pre-fetch raw IEMbase browse + per-disease JSON into data/iembase/ (gitignored).
+[group('Research')]
+iembase-prefetch *args="":
+    uv run python scripts/fetch_iembase_diseases.py {{args}}
+
+# Map cached IEMbase disease JSON to local DisMech disease/subtype entries.
+[group('Research')]
+iembase-map *args="":
+    uv run python scripts/map_iembase_to_dismech.py {{args}}
 
 # Rebuild every references_cache/ICEES_*.md from the current ICEES KG snapshot.
 # Use --id to limit to a specific ICEES pair id or a "CURIE,CURIE" disease pair.

@@ -17,8 +17,42 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+# Prefer the libyaml-backed C loader (~12x faster than the pure-Python loader).
+# The standard PyYAML Linux wheel used on GitHub's ubuntu-latest runner bundles
+# libyaml, so this path is taken in CI; the SafeLoader fallback keeps rendering
+# correct if libyaml is ever unavailable. See issue #5198.
+try:  # pragma: no cover - exercised implicitly wherever YAML is loaded
+    from yaml import CSafeLoader as _FastYamlLoader
+except ImportError:  # pragma: no cover - only when libyaml is not built
+    from yaml import SafeLoader as _FastYamlLoader
+
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
+from dismech.export.utils import RESEARCH_REPORT_PATTERN
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
+
+
+def _fast_yaml_load(stream):
+    """Parse YAML from a file object or string using the fastest safe loader."""
+    return yaml.load(stream, Loader=_FastYamlLoader)
+
+
+@lru_cache(maxsize=8)
+def _get_shared_env(template_dir_str: str) -> Environment:
+    """Return a cached Jinja Environment for a template directory.
+
+    Rendering ~1,700 pages per build previously rebuilt an Environment and
+    recompiled the templates on every page. Jinja caches compiled templates
+    per-Environment, so sharing one Environment per template directory compiles
+    each template once. ``auto_reload=False`` skips a per-render mtime stat;
+    templates never change mid-build. Per-page filters are (re)assigned by each
+    caller before rendering, which is safe because rendering is sequential.
+    """
+    return Environment(
+        loader=FileSystemLoader(template_dir_str),
+        autoescape=select_autoescape(["html", "j2"]),
+        auto_reload=False,
+    )
+
 
 _HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
@@ -112,7 +146,7 @@ STRICT_HIERARCHIES = {
 def _load_prefix_map() -> dict:
     schema_path = Path(__file__).parent / "schema" / "dismech.yaml"
     try:
-        prefixes = yaml.safe_load(schema_path.read_text()).get("prefixes", {})
+        prefixes = _fast_yaml_load(schema_path.read_text()).get("prefixes", {})
     except FileNotFoundError:
         return {}
     return {
@@ -636,7 +670,7 @@ def _load_fda_surrogate_endpoint_index(source_path: str) -> dict[str, dict]:
     path = Path(source_path)
     if not path.exists():
         return {}
-    data = yaml.safe_load(path.read_text()) or {}
+    data = _fast_yaml_load(path.read_text()) or {}
     rows = data.get("surrogate_endpoints") or []
     return {
         str(row["row_id"]): row
@@ -701,13 +735,13 @@ def _annotate_regulatory_endpoint_refs(disorder: dict, yaml_path: Path) -> None:
 def load_disorder(yaml_path: Path) -> dict:
     """Load a disorder YAML file."""
     with open(yaml_path) as f:
-        return yaml.safe_load(f)
+        return _fast_yaml_load(f)
 
 
 def load_comorbidity(yaml_path: Path) -> dict:
     """Load a comorbidity YAML file."""
     with open(yaml_path) as f:
-        return yaml.safe_load(f)
+        return _fast_yaml_load(f)
 
 
 def _parse_module_reference(value: str | None) -> tuple[str, str] | None:
@@ -1003,10 +1037,7 @@ def render_comorbidity_index(
 ) -> Path:
     """Render the comorbidity landing page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("comorbidity_index.html.j2")
 
     html = template.render(
@@ -1052,6 +1083,26 @@ def _extract_condition_slugs(condition: dict) -> list[str]:
     return slugs
 
 
+@lru_cache(maxsize=4)
+def _load_all_comorbidities(comorbidity_dir_str: str) -> tuple[tuple[Path, dict], ...]:
+    """Parse every comorbidity YAML once per build.
+
+    ``_collect_comorbidity_links`` is called once per disorder page (~1,500
+    times), and previously re-globbed and re-parsed all comorbidity files on
+    every call. Caching the parsed set collapses that to a single parse pass.
+    """
+    comorbidity_dir = Path(comorbidity_dir_str)
+    if not comorbidity_dir.exists():
+        return ()
+    parsed: list[tuple[Path, dict]] = []
+    for yaml_path in sorted(comorbidity_dir.glob("*.yaml")):
+        try:
+            parsed.append((yaml_path, load_comorbidity(yaml_path)))
+        except Exception:
+            continue
+    return tuple(parsed)
+
+
 def _collect_comorbidity_links(
     disorder_slug: str,
     comorbidity_dir: Path = Path("kb/comorbidities"),
@@ -1060,11 +1111,7 @@ def _collect_comorbidity_links(
     if not comorbidity_dir.exists():
         return []
     links: list[dict] = []
-    for yaml_path in sorted(comorbidity_dir.glob("*.yaml")):
-        try:
-            data = load_comorbidity(yaml_path)
-        except Exception:
-            continue
+    for yaml_path, data in _load_all_comorbidities(str(comorbidity_dir)):
         disease_a = data.get("disease_a", {}) or {}
         disease_b = data.get("disease_b", {}) or {}
         a_slugs = _extract_condition_slugs(disease_a)
@@ -1113,7 +1160,7 @@ def _split_front_matter(text: str) -> tuple[dict, str]:
         return {}, normalized
     for index in range(1, len(lines)):
         if lines[index].strip() == "---":
-            metadata = yaml.safe_load("\n".join(lines[1:index])) or {}
+            metadata = _fast_yaml_load("\n".join(lines[1:index])) or {}
             if not isinstance(metadata, dict):
                 metadata = {}
             return metadata, "\n".join(lines[index + 1 :])
@@ -1687,10 +1734,7 @@ def render_disorder(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
 
     # Register custom filters
     current_term_id = _extract_disorder_term_id(disorder)
@@ -1874,10 +1918,7 @@ def render_comorbidity(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         disorders_dir,
@@ -1950,10 +1991,7 @@ def render_module(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     template = env.get_template(template_name)
 
@@ -1994,10 +2032,7 @@ def render_module_index(
 ) -> Path:
     """Render the shared-module index page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("module_index.html.j2")
 
     html = template.render(
@@ -2025,10 +2060,9 @@ def _display_name_from_provider(provider: str) -> str:
     )
 
 
-_RESEARCH_REPORT_PATTERN = re.compile(
-    r"^(?P<slug>.+)-deep-research-(?P<provider>[^.]+)\.md$",
-    re.IGNORECASE,
-)
+# Shared with browser_export so the homepage report count and this index count
+# the same files (issue #5567).
+_RESEARCH_REPORT_PATTERN = RESEARCH_REPORT_PATTERN
 
 
 def _research_report_output_name(report_path: Path) -> str:
@@ -2205,10 +2239,7 @@ def render_research_index(
 ) -> Path:
     """Render the deep-research disorder index page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("research_index.html.j2")
 
     provider_options = [
@@ -2411,10 +2442,7 @@ def _render_report_body_html(body_md: str, base_prefix: str) -> str:
 def _research_report_template():
     """Load the per-report Jinja2 template (shared across a render batch)."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     return env.get_template("research_report.html.j2")
 
 
@@ -2605,7 +2633,7 @@ EXACT_MATCH = "skos:exactMatch"
 
 def load_grouping(yaml_path: Path) -> dict:
     """Load a grouping YAML file."""
-    return yaml.safe_load(yaml_path.read_text()) or {}
+    return _fast_yaml_load(yaml_path.read_text()) or {}
 
 
 def _term_chip(descriptor: dict | None) -> dict | None:
@@ -3387,10 +3415,7 @@ def _render_grouping_document(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     template = env.get_template(template_name)
 
@@ -3483,10 +3508,7 @@ def render_grouping_index(
 ) -> Path:
     """Render the disease-grouping index page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("grouping_index.html.j2")
     sorted_groupings = sorted(
         groupings, key=lambda g: str(g.get("name") or "").casefold()
@@ -3747,10 +3769,7 @@ def _render_project_html(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     template = env.get_template(template_name)
 
@@ -3816,10 +3835,7 @@ def render_project_index(
 ) -> Path:
     """Render the curation-project index page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("project_index.html.j2")
     sorted_projects = sorted(
         projects, key=lambda project: str(project.get("title") or "").casefold()
@@ -3884,7 +3900,7 @@ def render_all_projects(
 def _load_schema() -> dict:
     schema_path = Path(__file__).parent / "schema" / "dismech.yaml"
     try:
-        return yaml.safe_load(schema_path.read_text()) or {}
+        return _fast_yaml_load(schema_path.read_text()) or {}
     except FileNotFoundError:
         return {}
 
@@ -3966,7 +3982,7 @@ def _load_classification_enums() -> dict:
     if not classification_dir.exists():
         return enums
     for path in sorted(classification_dir.glob("*.yaml")):
-        data = yaml.safe_load(path.read_text()) or {}
+        data = _fast_yaml_load(path.read_text()) or {}
         source_meta = {
             "source_id": data.get("id"),
             "source_name": data.get("name"),
@@ -4067,10 +4083,7 @@ def render_classification_index(
 ) -> Path:
     """Render the classification landing page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("classification_index.html.j2")
 
     html = template.render(
@@ -4151,10 +4164,7 @@ def render_classification_pages(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         input_dir,
@@ -4214,14 +4224,26 @@ def render_all_disorders(
     input_dir: Path = Path("kb/disorders"),
     output_dir: Path = Path("pages/disorders"),
     template_path: Optional[Path] = None,
+    only: Optional[set[Path]] = None,
+    render_research: bool = True,
 ) -> list[Path]:
     """
-    Render all disorder YAML files to HTML pages.
+    Render disorder YAML files to HTML pages.
 
     Args:
         input_dir: Directory containing disorder YAML files
         output_dir: Directory for output HTML files
         template_path: Optional custom template path
+        only: If given, render individual disorder pages only for these disorder
+            YAML paths (incremental mode); the disorder-dependent aggregate/index
+            pages (comorbidities, modules, classification pages) are rendered
+            regardless, so a page that lists disorders stays current. ``None``
+            renders every disorder (full build).
+        render_research: Whether to (re)render the research index and its
+            per-report pages. This pass is expensive and essentially independent
+            of disorder edits, so incremental builds skip it unless a research
+            report actually changed; the daily full-rebuild backstop keeps the
+            research index's disorder cross-links fresh.
 
     Returns:
         List of generated HTML file paths
@@ -4229,13 +4251,19 @@ def render_all_disorders(
     output_dir.mkdir(parents=True, exist_ok=True)
     render_all_comorbidities()
     render_all_modules(disorders_dir=input_dir)
-    render_research_index_page(disorders_dir=input_dir)
+    if render_research:
+        render_research_index_page(disorders_dir=input_dir)
 
     yaml_files = [
         path
         for path in sorted(input_dir.glob("*.yaml"))
         if not path.name.endswith(".history.yaml")
     ]
+    if only is not None:
+        only_resolved = {path.resolve() for path in only}
+        yaml_files = [
+            path for path in yaml_files if path.resolve() in only_resolved
+        ]
     output_files = []
 
     # Each disorder should have a name,
@@ -4251,7 +4279,8 @@ def render_all_disorders(
 
     render_classification_pages(input_dir=input_dir)
 
-    print(f"\nGenerated {len(output_files)} HTML pages in {output_dir}")
+    scope = "changed" if only is not None else "all"
+    print(f"\nGenerated {len(output_files)} disorder HTML pages ({scope}) in {output_dir}")
     return output_files
 
 
@@ -4282,10 +4311,68 @@ def main():
     )
     parser.add_argument("--output", "-o", help="Output path (file or directory)")
     parser.add_argument("--template", "-t", help="Custom template path")
+    parser.add_argument(
+        "--changed",
+        nargs="*",
+        metavar="FILE",
+        help=(
+            "Incremental build: render individual disorder pages only for these "
+            "changed kb/disorders/*.yaml files. The aggregate/index pages "
+            "(comorbidities, modules, research index, classification pages) are "
+            "always regenerated, so changed comorbidity/module/research files are "
+            "picked up too. Use only when no global input (template, render.py, "
+            "schema, styles) changed — those require a full --all build."
+        ),
+    )
+    parser.add_argument(
+        "--changed-from",
+        metavar="FILE",
+        help=(
+            "Like --changed, but read the newline-delimited changed paths from "
+            "FILE. Robust to any characters in filenames; used by the "
+            "generate-pages workflow's incremental build."
+        ),
+    )
 
     args = parser.parse_args()
 
     template_path = Path(args.template) if args.template else None
+
+    changed_values = args.changed
+    if args.changed_from is not None:
+        changed_file = Path(args.changed_from)
+        changed_values = (
+            [
+                line.strip()
+                for line in changed_file.read_text().splitlines()
+                if line.strip()
+            ]
+            if changed_file.exists()
+            else []
+        )
+
+    if changed_values is not None:
+        disorders_dir = Path("kb/disorders")
+        disorders_root = disorders_dir.resolve()
+        research_root = Path("research").resolve()
+        changed_paths = [Path(p) for p in changed_values]
+        only = {
+            path
+            for path in changed_paths
+            if path.resolve().parent == disorders_root
+            and path.name.endswith(".yaml")
+            and not path.name.endswith(".history.yaml")
+        }
+        # The research pass is expensive and disorder-independent; only run it
+        # when a research report actually changed.
+        research_changed = any(
+            path.resolve().parent == research_root and path.name.endswith(".md")
+            for path in changed_paths
+        )
+        render_all_disorders(
+            input_dir=disorders_dir, only=only, render_research=research_changed
+        )
+        return
 
     if args.comorbidity:
         if args.path is None:

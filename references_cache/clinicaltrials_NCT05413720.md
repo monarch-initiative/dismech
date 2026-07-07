@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT05413720"
 title: Study of the Innate Immune Response to the Acute Phase of Human Leptospirosis - IMMUNOLEPTO
 content_type: summary
+full_text_attempted: true
 ---
 
 # Study of the Innate Immune Response to the Acute Phase of Human Leptospirosis - IMMUNOLEPTO
