@@ -402,3 +402,18 @@ Source inputs for these batches:
 | 289 | GALC-related Beta-galactosylceramidase deficiency | UNMAPPED | False negative; resolve to `Krabbe_Disease.yaml`, with IEMbase adding CSF protein, deafness, fever, and later-onset ataxia prompts. |
 | 290 | ARSA-related Arylsulfatase A deficiency | MAPPED | Correct MLD mapping; IEMbase OTL-200 aligns with local atidarsagene autotemcel and adds psychiatric/gait/dysarthria/spasticity review prompts. |
 | 291 | PSAP-related Combined saposin deficiency | MAPPED | Correct combined saposin deficiency mapping; note the cached IEMbase label has a source typo and treat hydrolase-assay rows as downstream cofactor-loss readouts. |
+
+## Batch 27
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 292 | PSAP-related Krabbe disease-like disorder due to saposin A deficiency | MAPPED | Correct saposin A/Krabbe-like mapping; IEMbase adds sensory, fever, feeding, CSF-protein, and lysogalactosylceramide prompts. |
+| 293 | PSAP-related Metachromatic leukodystrophy-like disorder due to saposin B deficiency | CANDIDATE | Reject saposin C candidate; local MLD file is partial phenotype context, but a saposin B/PSAP-specific target is still missing. |
+| 294 | PSAP-related Gaucher disease-like disorder due to saposin C deficiency | MAPPED | Correct saposin C/Gaucher-like mapping; IEMbase reinforces normal beta-D-glucosidase with elevated glucosylsphingosine and chitotriosidase. |
+| 296 | GLA-related Alpha-galactosidase A deficiency | MAPPED | Correct Fabry mapping with high concordance; IEMbase adds agent-specific treatment rows and airway/pulmonary/malignancy/thyroid review prompts. |
+| 297 | ASAH1-related Acid ceramidase deficiency, inflammatory phenotype | MAPPED | Correct Farber mapping with high concordance; IEMbase adds hepatosplenic, reflex, lung, lymph-node, CSF-protein, and C26-ceramide prompts. |
+| 298 | SMPD1-related Acid sphingomyelinase deficiency | CANDIDATE | Generated type A candidate is valid but incomplete; split spectrum record across local Niemann-Pick type A and type B entries. |
+| 299 | GNPTAB-related UDP-N-acetylglucosamine-1-phosphotransferase subunit alpha/beta deficiency | MAPPED | Correct mucolipidosis II mapping; IEMbase adds neuroimaging, otitis, hepatosplenic, and compartment-specific enzyme/GAG/oligosaccharide prompts. |
+| 300 | GNPTG-related UDP-N-acetylglucosamine-1-phosphotransferase subunit gamma deficiency | UNMAPPED | False negative; resolve to `GNPTG-Mucolipidosis.yaml`, with IEMbase adding serum/leukocyte assay and urinary substrate prompts. |
+| 301 | SUMF1-related Formyl-glycine generating enzyme deficiency | AMBIGUOUS | Resolve generated subtype ambiguity to file-level `Multiple_Sulfatase_Deficiency.yaml`; IEMbase adds selected MRI, cardiopulmonary, gingival, speech, and gait prompts. |
+| 302 | LIPA-related Lysosomal acid lipase deficiency | MAPPED | Generated CESD mapping is incomplete; split spectrum record across `Wolman_Disease.yaml` and `Cholesteryl_Ester_Storage_Disease.yaml`. |
