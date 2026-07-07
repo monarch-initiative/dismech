@@ -132,3 +132,18 @@ Source inputs for these batches:
 | 86 | MMAA-related Methylmalonic aciduria, cblA type | MAPPED | Correct cblA subtype mapping; use methylmalonic acidemia as secondary phenotype/treatment context. |
 | 87 | MMAB-related Methylmalonic aciduria, cblB type | MAPPED | Correct cblB subtype mapping; use methylmalonic acidemia as secondary phenotype/treatment context. |
 | 88 | MMADHC-related Methylmalonic aciduria, cblDv2 type | UNMAPPED | False negative; resolve to the cobalamin umbrella's cblD subtype, with optional future cblD-v2 subtype split. |
+
+## Batch 9
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 89 | MMADHC-related Homocystinuria, cblDv1 type | UNMAPPED | False negative; resolve to the cobalamin umbrella's cblD subtype, with optional future cblD-HC subtype split. |
+| 90 | MMACHC-related Methylmalonic aciduria and homocystinuria, cblC type | MAPPED | Mapped to the cobalamin umbrella, but the standalone cblC entry is the better canonical target. |
+| 91 | LMBRD1-relasted Methylmalonic aciduria and homocystinuria, cblF type | MAPPED | Correct cblF subtype mapping; high concordance, with IEMbase adding cblF-specific lab-compartment detail. |
+| 92 | CD320-related Transcobalamin receptor defect | UNMAPPED | No valid local target; methylmalonic acidemia is a false-positive fuzzy candidate and the cobalamin umbrella lacks CD320. |
+| 93 | BTD-related Biotinidase deficiency | MAPPED | Correct biotinidase deficiency mapping; high concordance, with IEMbase adding selected oral and mitral-valve clinical rows. |
+| 94 | HLCS-related Holocarboxylase synthetase deficiency | MAPPED | Correct HLCS mapping; high concordance, with IEMbase adding ataxia and mitral valvulitis as phenotype review targets. |
+| 95 | SLC19A2-related Thiamine transporter 1 deficiency | UNMAPPED | No valid local TRMA/Rogers syndrome target; SLC19A2 appears only as secondary monogenic-diabetes context. |
+| 96 | AGXT-related Alanine-glyoxylate aminotransferase deficiency (peroxisomal) | UNMAPPED | False negative; resolve to `Primary_Hyperoxaluria_Type_1.yaml`, not the ornithine aminotransferase false-positive candidate. |
+| 97 | GRHPR-related Glyoxylate reductase/hydroxypyruvate reductase deficiency | UNMAPPED | False negative; resolve to `Primary_Hyperoxaluria_Type_2.yaml`, not the pyruvate dehydrogenase false-positive candidate. |
+| 99 | TH-related Tyrosine hydroxylase deficiency | AMBIGUOUS | Resolve to `Autosomal_Recessive_Dopa_Responsive_Dystonia.yaml`; catecholamine synthesis and DRD umbrellas are secondary context. |
