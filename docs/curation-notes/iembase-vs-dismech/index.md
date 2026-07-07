@@ -237,3 +237,18 @@ Source inputs for these batches:
 | 163 | GCDH-related Glutaryl-CoA dehydrogenase deficiency | MAPPED | Correct GA1 mapping; high concordance, with IEMbase adding glutaconic acid and several rare phenotype review targets. |
 | 164 | ASPA-related Aspartoacylase deficiency | MAPPED | Correct Canavan mapping; high concordance, with IEMbase adding CSF/plasma NAA and specific MRI/posture review targets. |
 | 165 | L2HGDH-related L-2-Hydroxyglutarate dehydrogenase deficiency | MAPPED | Correct L2HGA mapping; high concordance, with IEMbase adding lysine, neonatal ammonia/lactate, CSF protein, and choreoathetosis leads. |
+
+## Batch 16
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 166 | D2HGDH-related D-2-Hydroxyglutarate dehydrogenase deficiency | MAPPED | Correct D-2-HGA mapping; high concordance for type I D2HGDH disease, with subtype-specific absence of cardiomyopathy noted. |
+| 167 | IDH2-related mitochondrial NADP+-dependent isocitrate dehydrogenase 2 superactivity | MAPPED | Correct D-2-HGA mapping; high concordance for type II IDH2 disease, including D-2-HG accumulation and cardiomyopathy. |
+| 170 | SARDH-related sarcosine dehydrogenase deficiency | UNMAPPED | True local gap; isovaleric acidemia is a false pathway-neighbor candidate. |
+| 172 | ETHE1-related mitochondrial sulfur dioxygenase deficiency | UNMAPPED | True local gap; chronic traumatic encephalopathy is a lexical false candidate, not ethylmalonic encephalopathy. |
+| 173 | OGDH-related alpha-ketoglutarate dehydrogenase deficiency | UNMAPPED | True local gap; D-2-HGA is an alpha-ketoglutarate pathway-neighbor false candidate. |
+| 174 | FH-related fumarate hydratase deficiency | MAPPED | Generated mapping to familial hyperaldosteronism type I is false via `FH1`; local fumarase deficiency target is missing. |
+| 175 | OXCT1-related succinyl-CoA:3-oxoacid CoA transferase deficiency | UNMAPPED | True local gap; lipoyl transferase 1 deficiency is not a SCOT/ketolysis target. |
+| 176 | HMGCS2-related 3-hydroxy-3-methylglutaryl-CoA synthase deficiency | MAPPED | Correct HMGCS2 mapping; high concordance, with IEMbase adding crotonylglycine and differential acylcarnitine details. |
+| 177 | MLYCD-related malonyl-CoA decarboxylase deficiency | MAPPED | Generated mapping to migraine with aura is false via `MA`; local MLYCD/malonic aciduria target is missing. |
+| 179 | HSD3B7-related 3beta-hydroxy-Delta5-C27-steroid dehydrogenase-isomerase deficiency | UNMAPPED | False negative; resolve to `Inborn_Disorder_of_Bile_Acid_Synthesis.yaml#BASD Type 1`. |
