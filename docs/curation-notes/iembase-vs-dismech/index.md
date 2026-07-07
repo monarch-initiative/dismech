@@ -267,3 +267,18 @@ Source inputs for these batches:
 | 187 | BAAT-related bile acid-CoA:aminoacid N-acyltransferase deficiency | UNMAPPED | False negative; resolve to `Inborn_Disorder_of_Bile_Acid_Synthesis.yaml#Bile acid conjugation defect 1`. |
 | 188 | AMACR-related alpha-methylacyl-CoA racemase deficiency | MAPPED | Correct BASD type 4 mapping; high concordance, with IEMbase adding granular bile acid/fatty acid analytes and neurologic/retinal details. |
 | 189 | TALDO1-related transaldolase deficiency | MAPPED | Correct transaldolase deficiency mapping; high concordance, with IEMbase adding erythronic acid, respiratory-chain/ferritin/glucose, and genital/endocrine details. |
+
+## Batch 18
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 190 | RPIA-related ribose-5-phosphate isomerase deficiency | UNMAPPED | True local gap; G6PD deficiency is a pentose-phosphate pathway-neighbor false candidate. |
+| 191 | MVK-related mevalonate kinase deficiency (mild) | MAPPED | Correct HIDS subtype mapping; high concordance, with DisMech much richer for inflammasome mechanism and IL-1-targeted treatment. |
+| 192 | DHCR7-related Smith-Lemli-Opitz syndrome | MAPPED | Correct SLOS mapping; high concordance, with IEMbase adding 8-DHC, dental/digital-whorl/photosensitivity, and renal/GI/pulmonary detail. |
+| 193 | EBP-related chondrodysplasia punctata 2 | UNMAPPED | True local gap; RCDP1 and tibial-metacarpal chondrodysplasia punctata are distinct from EBP/CDPX2. |
+| 194 | NSDHL-related CHILD syndrome | UNMAPPED | True local gap; congenital ichthyosis is only a partial skin-overlap false candidate. |
+| 195 | DHCR24-related desmosterolosis | UNMAPPED | True local gap; CAH 3B-HSD is a lexical false candidate driven by 3beta wording. |
+| 196 | SC5D-related lathosterolosis | UNMAPPED | True local gap; CTX is a sterol/bile-acid pathway neighbor but not SC5D lathosterolosis. |
+| 197 | LBR-related Greenberg skeletal dysplasia | UNMAPPED | True local gap; sepiapterin reductase deficiency is an unrelated false candidate. |
+| 198 | POR-related cytochrome P450 oxidoreductase deficiency | MAPPED | Generated amniotic band syndrome mapping is false via ABS acronym; local HRS file is only partial Antley-Bixler/POR context. |
+| 199 | ATP7A-related Menkes disease | MAPPED | Correct Menkes mapping; high concordance, with IEMbase adding copper-compartment, hypothermia, cytopenia, ocular, and arterial-rupture details. |
