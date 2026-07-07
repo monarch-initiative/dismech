@@ -672,3 +672,18 @@ Source inputs for these batches:
 | 533 | ATP7A-related distal spinal muscular atrophy type 3 | UNMAPPED | False negative at spectrum level; resolve to `Menkes_Disease.yaml#ATP7A-related distal motor neuropathy`, not classic Menkes disease. |
 | 537 | SUGCT-related glutaric aciduria type 3 | CANDIDATE | Reject GCDH/GA1 candidate; true SUGCT/GA3 benign-form gap with normal 3-hydroxyglutaric acid. |
 | 542 | GK-related isolated glycerol kinase deficiency | UNMAPPED | True GK/hyperglycerolemia gap; reject BCKDK as a lexical kinase-deficiency false candidate. |
+
+## Batch 45
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 544 | MCEE-related methylmalonic aciduria due to methylmalonyl-CoA epimerase deficiency | CANDIDATE | Broad MMA context only; do not treat as an exact MCEE mapping until an MMAE subtype or standalone MCEE target exists. |
+| 548 | ABCD4-related methylmalonic aciduria and homocystinuria, cblJ type | MAPPED | Correct cblJ subtype mapping with high concordance; IEMbase adds SAM, renal/HUS, hypersegmented-neutrophil, myelopathy, and ocular prompts. |
+| 549 | ADK-related adenosine kinase deficiency | MAPPED | Correct ADK mapping with high concordance; IEMbase adds adenosine, SAM/SAH, liver, coagulation, glucose, uric-acid, hearing, and neuroimaging prompts. |
+| 550 | SLC33A1-related acetyl-CoA transporter deficiency | MAPPED | Correct Huppke-Brendel syndrome mapping with high concordance; IEMbase adds cerebral/cerebellar atrophy and axial-hypotonia detail. |
+| 551 | MTHFD1-related 5,10-methylene-tetrahydrofolate dehydrogenase deficiency | UNMAPPED | True MTHFD1 folate one-carbon metabolism gap; reject CAH 3B-HSD as a dehydrogenase-name false candidate. |
+| 552 | ABCB4-related progressive familial intrahepatic cholestasis type 3 | UNMAPPED | True PFIC3 gap; reject progressive familial heart block and preserve high-GGT cholestasis, bile-acid, fibrosis, and transplant prompts. |
+| 553 | SLCO1B1/SLCO1B3-related Rotor syndrome | UNMAPPED | True digenic Rotor syndrome gap; reject Bartter/porphyria context and preserve organic-anion transport and coproporphyrin I prompts. |
+| 554 | ABCC2-related Dubin-Johnson syndrome | UNMAPPED | True ABCC2/Dubin-Johnson gap; reject Stevens-Johnson and porphyria candidates. |
+| 555 | AKR1C2-related 3-alpha-hydroxysteroid dehydrogenase type 3 deficiency | UNMAPPED | True AKR1C2 backdoor pathway gap; reject HSD3B2 CAH despite steroid/DSD phenotype overlap. |
+| 556 | GNPTAB-related mucolipidosis III alpha/beta | MAPPED | Correct ML III alpha/beta mapping with high concordance; IEMbase adds enzyme-directionality, urinary GAG/oligosaccharide, hernia, hip, and foam-cell prompts. |
