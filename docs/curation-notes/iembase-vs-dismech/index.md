@@ -837,3 +837,18 @@ Source inputs for these batches:
 | 659 | ABCD3-related congenital bile acid synthesis defect | MAPPED | Broad bile-acid umbrella context only; exact ABCD3/PMP70 subtype gap with THCA/C27 bile acids, normal peroxisomal lipid markers, liver, anemia, and hepatosplenomegaly prompts. |
 | 660 | ACOX2-related congenital bile acid synthesis defect | MAPPED | Broad bile-acid umbrella context only; exact ACOX2/CBAS6 subtype gap with C24/C27 bile-acid directionality, vitamin D, cholesterol, ataxia, cognition, steatorrhea, and fibrosis prompts. |
 | 661 | UGT1A1-related UDP-glucuronosyltransferase A1 deficiency | MAPPED | Partial Gilbert-only coverage; severe Crigler-Najjar/bilirubin-neurotoxicity scope remains under-covered, including convulsions, abnormal eye movements, hearing, and neonatal instability. |
+
+## Batch 56
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 662 | NR1H4-related progressive familial intrahepatic cholestasis 5 | UNMAPPED | True NR1H4/FXR/PFIC5 gap; reject progressive familial heart block and use bile-acid/cholestasis files only as broad context for normal-GGT neonatal cholestasis and liver failure. |
+| 663 | PPM1K-related branched-chain ketoacid dehydrogenase phosphatase deficiency | UNMAPPED | Partial MSUD pathway coverage in `Maple_Syrup_Urine_Disease.yaml`; no standalone PPM1K mild-variant subtype/file, so preserve the phosphatase mechanism and mild elevated-BCAA signal. |
+| 664 | BCKDK-related branched-chain ketoacid dehydrogenase kinase deficiency | MAPPED | Correct exact mapping to `BCKDK_Deficiency.yaml`; IEMbase adds speech and stereotyped-hand-movement prompts on top of the low-BCAA autism/ID/seizure phenotype. |
+| 665 | ECHS1-related mitochondrial short-chain enoyl-CoA hydratase 1 deficiency | UNMAPPED | False negative from stale mapping; resolve to exact `ECHS1_Deficiency.yaml` and reject beta-ketothiolase deficiency while preserving neonatal metabolite, cardiomyopathy, hearing, optic, and apnea prompts. |
+| 666 | UQCRC2-related mitochondrial complex III deficiency, nuclear type 5 | CANDIDATE | Reject COX8A complex IV candidate; true UQCRC2/complex III gap with neonatal lactate, hypoglycemia, hyperammonemia, metabolic acidosis, transaminase, and developmental-delay prompts. |
+| 667 | SLC45A1-related neuronal glucose transporter deficiency | UNMAPPED | False negative from stale mapping; resolve to exact `SLC45A1-Related_Neuronal_Glucose_Transporter_Deficiency.yaml` and preserve normal CSF/plasma glucose plus dysmorphology prompts. |
+| 668 | SI-related sucrase-isomaltase deficiency | MAPPED | Correct exact mapping to `Congenital_Sucrase-Isomaltase_Deficiency.yaml`; IEMbase adds sodium, normal reducing-sugar, dehydration, and urolithiasis prompts. |
+| 669 | TREH-related trehalase deficiency | UNMAPPED | False negative from stale mapping; resolve to exact `Trehalase_Deficiency.yaml` and reject galactosemia while preserving normal stool reducing sugars and adolescent/adult GI timing. |
+| 671 | CRAT-related carnitine acetyltransferase deficiency | UNMAPPED | True CRAT gap; reject CPT2/CPT1A carnitine-shuttle context and preserve childhood ataxia, oculomotor apraxia, consciousness disturbance, hypotonia, and ID prompts. |
+| 673 | CPT1C-related autosomal dominant spastic paraplegia type 73 | CANDIDATE | Reject CPT2 deficiency and CPT1A isoform context; true CPT1C/SPG73 gap with adult spastic paraplegia, hyperreflexia, weakness/atrophy, loss of ambulation, and evoked-potential prompts. |
