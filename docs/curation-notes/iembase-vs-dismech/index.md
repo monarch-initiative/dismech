@@ -372,3 +372,18 @@ Source inputs for these batches:
 | 264 | Alpha-N-acetylgalactosaminidase deficiency, Schindler disease type III | MAPPED | Correct `NAGA_Deficiency_Type_3.yaml` mapping with high concordance. |
 | 265 | NEU1-related alpha-neuraminidase deficiency | MAPPED | Correct sialidosis type 1 mapping, with caution for IEMbase-only systemic rows that may reflect broader sialidosis spectrum. |
 | 267 | SLC17A5-related sialin deficiency, severe | AMBIGUOUS | Resolve to `Free_Sialic_Acid_Storage_Disease.yaml#Infantile Free Sialic Acid Storage Disease`; standalone Salla disease is secondary context. |
+
+## Batch 25
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 268 | DPYS-related dihydropyrimidinase deficiency | UNMAPPED | True local gap; do not conflate with DPYD deficiency or other pyrimidine-metabolism neighbors. |
+| 269 | ACAT1-related mitochondrial acetoacetyl-CoA thiolase deficiency | MAPPED | Correct beta-ketothiolase mapping with high concordance and granular IEMbase crisis-marker detail. |
+| 270 | ACAT2-related cytosolic acetoacetyl-CoA thiolase deficiency | UNMAPPED | Reject weak beta-ketothiolase candidate; ACAT2/cytosolic thiolase is distinct from ACAT1/T2 disease. |
+| 272 | PEX1-related peroxin 1 deficiency | CANDIDATE | Accept candidate as correct file-level `Peroxisome_Biogenesis_Disorder.yaml` coverage, with PEX1-specific enrichment prompts. |
+| 273 | ACOX1-related peroxisomal acyl-CoA oxidase deficiency | UNMAPPED | False negative; resolve to `Peroxisomal_Acyl-CoA_Oxidase_Deficiency.yaml`, while reviewing generic peroxisomal lab rows before import. |
+| 274 | HSD17B4-related D-bifunctional protein deficiency | MAPPED | Correct DBP mapping with high concordance; IEMbase adds ocular, skeletal, renal, and portal-hypertension prompts. |
+| 277 | PEX7-related RCDP type 1 | MAPPED | Correct RCDP1 mapping with high concordance; IEMbase adds cervical, infection, hearing, cardiac, and skin prompts. |
+| 278 | GNPAT-related RCDP type 2 | MAPPED | Correct RCDP2 subtype mapping; review IEMbase phytanic-acid directionality before import. |
+| 279 | AGPS-related RCDP type 3 | MAPPED | Correct RCDP3 subtype mapping; review IEMbase phytanic-acid directionality before import. |
+| 280 | ABCD1-related X-linked adrenoleukodystrophy and adrenomyeloneuropathy | UNMAPPED | False negative; resolve to `adrenoleukodystrophy.yaml` with high concordance. |
