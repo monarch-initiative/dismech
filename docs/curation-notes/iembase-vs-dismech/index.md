@@ -447,3 +447,18 @@ Source inputs for these batches:
 | 321 | PMM2-related Phosphomannomutase 2 deficiency (CDG) | UNMAPPED | True PMM2-CDG gap; other gene-specific CDG files are context only, not valid targets. |
 | 322 | MPI-related Phosphomannose isomerase deficiency (CDG) | UNMAPPED | True MPI-CDG gap with distinctive protein-losing enteropathy, hypoglycemia, liver, thrombosis, and coagulation-marker signals. |
 | 323 | ALG6-related Glucosyltransferase 1 deficiency (CDG) | UNMAPPED | True ALG6-CDG gap; do not map to ALG12/ALG9 or other CDG entries based only on shared type I CDG features. |
+
+## Batch 30
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 324 | ALG3-related Mannosyltransferase 6 deficiency (CDG) | CANDIDATE | Reject ALG12-CDG candidate; true ALG3-CDG gap with Man5GlcNAc2, hypoglycemia, and coagulation/protein biochemical prompts. |
+| 325 | ALG12-related Mannosyltransferase 8 deficiency (CDG) | MAPPED | Correct ALG12-CDG mapping; IEMbase adds granular imaging, ocular/hearing, GI, endocrine, prenatal, and Man7 review prompts. |
+| 326 | ALG8-related Glucosyltransferase 2 deficiency (CDG) | UNMAPPED | Reject ALG8-related ADPLD gene-collision candidate; true recessive ALG8-CDG gap. |
+| 327 | ALG2-related Mannosyltransferase 2 deficiency (CDG) | CANDIDATE | Reject ALG12-CDG candidate; true ALG2-CDG gap, with local CMS glycosylation context only for the neuromuscular branch. |
+| 328 | DPAGT1-related UDP-GlcNAc:Dol-P-GlcNac-P transferase deficiency (CDG) | UNMAPPED | Local CMS covers DPAGT1 neuromuscular context, but canonical multisystem DPAGT1-CDG remains a disease gap. |
+| 329 | ALG1-related Mannosyltransferase 1 deficiency (CDG) | CANDIDATE | Reject ALG12-CDG candidate; true ALG1-CDG gap with early GlcNAc2 lipid-linked and renal/cardiac prompts. |
+| 330 | ALG9-related Mannosyltransferase 7-9 deficiency (CDG) | MAPPED | Correct ALG9-CDG mapping with high concordance, including type I transferrin and Man6/Man8 lipid-linked biochemical signals. |
+| 331 | RFT1-related Flippase of Man5GlcNAc2-PP-Dol deficiency (CDG) | UNMAPPED | Reject X-linked SCID candidate; true RFT1-CDG gap with Man5GlcNAc2, sensory, thrombotic, and coagulation prompts. |
+| 332 | MGAT2-related N-acetylglucosaminyltransferase 2 deficiency (CDG) | UNMAPPED | False negative; low-score MGAT2-CDG candidate is the correct local target, with IEMbase adding granular dysmorphism, GI, and coagulation prompts. |
+| 333 | GCS1-related Glucosidase 1 deficiency (CDG) | UNMAPPED | Reject Gaucher disease lexical candidate; true MOGS/GCS1-CDG gap with tetraglucoside, immunoglobulin, respiratory, and neurologic prompts. |
