@@ -529,10 +529,10 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         (
             "Campomelic_Dysplasia.yaml",
             {
-                ("SOX9 Pathogenic Variants", "SOX9-Mediated Chondrogenesis Disruption"),
-                ("SOX9 Pathogenic Variants", "Disrupted 46,XY Sex Determination"),
+                ("SOX9 Pathogenic Variation", "SOX9-Mediated Chondrogenesis Disruption"),
+                ("SOX9 Pathogenic Variation", "Disrupted 46,XY Sex Determination"),
             },
-            {"SOX9 Pathogenic Variants": "genetic"},
+            {"SOX9 Pathogenic Variation": "genetic"},
             {
                 "SOX9-Mediated Chondrogenesis Disruption": [
                     "DNA-binding transcription factor activity, RNA polymerase II-specific"
