@@ -297,3 +297,18 @@ Source inputs for these batches:
 | 208 | BCS1L-related GRACILE syndrome | UNMAPPED | True local gap; CALFAN syndrome is a false-positive liver/neurodevelopmental neighbor. |
 | 209 | PANK2-related pantothenate kinase 2 deficiency | MAPPED | Correct PKAN mapping; high concordance, with IEMbase adding brain-iron, eye-movement, and spiculated-red-cell review leads. |
 | 210 | FMO3-related primary trimethylaminuria | UNMAPPED | True local gap; erythromelalgia is a lexical false positive and DMGDH deficiency is only a fish-odor differential. |
+
+## Batch 20
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 211 | DMGDH-related dimethylglycine dehydrogenase deficiency | MAPPED | Correct DMGDH mapping; high concordance, with an OMIM cross-reference discrepancy noted for later metadata review. |
+| 213 | KCNJ11-related ATP-sensitive potassium channel pore-forming subunit deficiency | UNMAPPED | False negative; resolve to `Congenital_Isolated_Hyperinsulinism.yaml`, preferably KATP/HHF2 subtype coverage. |
+| 214 | GGT1-related gamma-glutamyl transpeptidase deficiency | UNMAPPED | True local gap; LIPT1 deficiency is a mitochondrial lipoylation false candidate. |
+| 215 | OPLAH-related 5-oxoprolinase deficiency | MAPPED | Correct OPLAH mapping; high concordance, with IEMbase adding renal colic and urolithiasis review leads. |
+| 216 | GCLC-related gamma-glutamylcysteine synthetase deficiency | UNMAPPED | True local gap; CPS1 deficiency is a synthetase-word false candidate. |
+| 217 | GSS-related glutathione synthetase deficiency, mild | UNMAPPED | True local gap; hereditary orotic aciduria is a lexical/metabolite-neighbor false candidate and OPLAH is differential context only. |
+| 218 | PC-related pyruvate carboxylase deficiency | UNMAPPED | False negative; resolve to `Pyruvate_Carboxylase_Deficiency_Disease.yaml`. |
+| 220 | PDHA1-related pyruvate dehydrogenase E1 alpha deficiency | MAPPED | Correct PDH mapping, with subtype resolution to `Pyruvate_Dehydrogenase_Deficiency.yaml#E1-alpha deficiency`. |
+| 221 | PDHB-related pyruvate dehydrogenase E1 beta deficiency | MAPPED | Correct PDH mapping, with subtype resolution to `Pyruvate_Dehydrogenase_Deficiency.yaml#E1-beta deficiency`. |
+| 222 | DLAT-related dihydrolipoyl transacetylase deficiency | MAPPED | Correct subtype-level PDH E2 mapping with high concordance. |
