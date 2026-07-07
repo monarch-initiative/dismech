@@ -432,3 +432,18 @@ Source inputs for these batches:
 | 310 | CLN5-related Lysosomal protein deficiency | UNMAPPED | True missing standalone NCL5 target; broad NCL umbrella provides only partial shared context. |
 | 311 | CLN6-related Lysosomal protein deficiency | UNMAPPED | True missing CLN6 late-infantile target; do not map to adult CLN6 Kufs disease despite shared gene. |
 | 312 | MFSD8-related CLN7 Turkish variant | MAPPED | Correct NCL7 mapping with high concordance, including Milasen; IEMbase adds granular MRI, optic, retinal, speech, and electrophysiology prompts. |
+
+## Batch 29
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 313 | CLN8-related Lysosomal protein deficiency | UNMAPPED | True missing standalone NCL8/CLN8 target; broad NCL umbrella has CLN8 gene and shared phenotype context only. |
+| 315 | CTSD-related Cathepsin D deficiency | UNMAPPED | True missing standalone NCL10/CTSD target; broad NCL umbrella has CTSD context but lacks CTSD enzyme-assay and congenital phenotype detail. |
+| 316 | MMADHC-related Methylmalonic aciduria and homocystinuria, cblD type | UNMAPPED | False negative; resolve to the cobalamin umbrella's cblD subtype, with combined cblD-MMA/HC biochemical detail as enrichment. |
+| 317 | MSMO1-related Sterol C4-methyloxidase deficiency | UNMAPPED | True local gap; cerebrotendinous xanthomatosis is a false sterol-pathway neighbor. |
+| 318 | CYP51A1-related Lanosterol demethylase deficiency | UNMAPPED | True local gap; COA3-related COX deficiency is a lexical false-positive candidate. |
+| 319 | CTSA-related Cathepsin A deficiency | MAPPED | Correct galactosialidosis mapping; local coverage is strong but IEMbase adds enzyme, oligosaccharide, renal, cardiac, and cellular review prompts. |
+| 320 | SCARB2-related Glucocerebrosidase receptor deficiency | UNMAPPED | True missing SCARB2/AMRF target; reject Gaucher disease despite glucocerebrosidase-adjacent terminology and preserve normal beta-D-glucosidase as differential detail. |
+| 321 | PMM2-related Phosphomannomutase 2 deficiency (CDG) | UNMAPPED | True PMM2-CDG gap; other gene-specific CDG files are context only, not valid targets. |
+| 322 | MPI-related Phosphomannose isomerase deficiency (CDG) | UNMAPPED | True MPI-CDG gap with distinctive protein-losing enteropathy, hypoglycemia, liver, thrombosis, and coagulation-marker signals. |
+| 323 | ALG6-related Glucosyltransferase 1 deficiency (CDG) | UNMAPPED | True ALG6-CDG gap; do not map to ALG12/ALG9 or other CDG entries based only on shared type I CDG features. |
