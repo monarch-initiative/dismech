@@ -117,3 +117,18 @@ Source inputs for these batches:
 | 75 | ALDH7A1-related Alpha-amino adipic semialdehyde dehydrogenase deficiency | UNMAPPED | No valid local target; SSADH deficiency is a false-positive semialdehyde dehydrogenase neighbor. |
 | 76 | PNPO-related Pyridoxamine 5-phosphate oxidase deficiency | UNMAPPED | No valid local target; COA3-related COX deficiency is a false-positive mitochondrial/deficiency neighbor. |
 | 77 | MOCS1-related Molybdenum cofactor deficiency A | UNMAPPED | No valid local target; Fanconi anemia FA-A is a false-positive complementation-group acronym collision. |
+
+## Batch 8
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 78 | MOCS2-related Molybdopterin synthase deficiency | UNMAPPED | No valid local target; PTPS/tetrahydrobiopterin deficiency is a false-positive pterin-neighbor candidate. |
+| 79 | GPHN-related Molybdenum cofactor deficiency C | UNMAPPED | No valid MoCo-C target; local GPHN hyperekplexia content is a gene collision, not molybdenum cofactor disease. |
+| 80 | CBLIF-related Intrinsic factor deficiency | MAPPED | Correct intrinsic factor deficiency mapping; high concordance, with DisMech stronger for mechanism and treatment rationale. |
+| 82 | CUBN-related Cubilin deficiency | UNMAPPED | No valid Imerslund-Grasbeck target; hereditary orotic aciduria is a false-positive megaloblastic-anemia neighbor. |
+| 83 | AMN-related Amnionless deficiency | UNMAPPED | No valid Imerslund-Grasbeck target; hereditary orotic aciduria is a false-positive megaloblastic-anemia neighbor. |
+| 84 | TCN1-related Haptocorrin deficiency | UNMAPPED | No valid TCN1/haptocorrin target; PDH E3-binding protein deficiency is a false positive, and disease-entry scope needs review. |
+| 85 | TCN2-related Transcobalamin 2 deficiency | MAPPED | Correct TCN2 subtype mapping; high concordance, with IEMbase adding chronic diarrhea, apathy, and cyanocobalamin detail. |
+| 86 | MMAA-related Methylmalonic aciduria, cblA type | MAPPED | Correct cblA subtype mapping; use methylmalonic acidemia as secondary phenotype/treatment context. |
+| 87 | MMAB-related Methylmalonic aciduria, cblB type | MAPPED | Correct cblB subtype mapping; use methylmalonic acidemia as secondary phenotype/treatment context. |
+| 88 | MMADHC-related Methylmalonic aciduria, cblDv2 type | UNMAPPED | False negative; resolve to the cobalamin umbrella's cblD subtype, with optional future cblD-v2 subtype split. |
