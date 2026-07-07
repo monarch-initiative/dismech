@@ -13,22 +13,38 @@ on:
         type: string
 
 jobs:
+  # The effort/model/selector fan-out lives in .github/agent-config.yaml so the
+  # per-tier models are in one place (issue #5218). This job emits it as the
+  # curation-scan strategy matrix.
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Resolve curation matrix from agent config
+        id: matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -c "import yaml" 2>/dev/null \
+            || pip install --quiet --disable-pip-version-check pyyaml
+          matrix="$(python3 .github/actions/resolve-agent-config/resolve_agent_config.py \
+            --config .github/agent-config.yaml --workflow curation-scanner --matrix)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "curation matrix: $matrix"
+
   curation-scan:
+    needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - effort: low_effort
-            model: claude-haiku-4-5-20251001
-            selector: "label:curation label:low_effort"
-          - effort: medium_effort
-            model: claude-sonnet-4-6
-            selector: "label:curation label:medium_effort -label:low_effort"
-          - effort: high_effort
-            model: claude-opus-4-8
-            selector: "label:curation -label:low_effort -label:medium_effort"
+        include: ${{ fromJson(needs.setup.outputs.matrix) }}
     concurrency:
       group: curation-scanner-${{ matrix.effort }}
       cancel-in-progress: true
