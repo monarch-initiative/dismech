@@ -1,0 +1,66 @@
+# Central runtime configuration for the agentic AI GitHub Actions.
+#
+# This is the single source of truth for which Claude model backs each agent
+# workflow. It is read at run time by the composite action
+# `.github/actions/resolve-agent-config`, which resolves the effective model and
+# exports it as the `AGENT_MODEL` environment variable (and a step output). To
+# bump a model tier repo-wide, edit this file — no workflow YAML changes needed.
+#
+# Resolution order (highest priority first):
+#   1. an explicit per-run override (a workflow_dispatch `model:` input, passed
+#      to the action as `model-override`),
+#   2. the per-workflow `model:` (or `models:` for a matrix) below,
+#   3. `default_model`.
+#
+# Keys under `workflows:` are the workflow file stem under .github/workflows/.
+# The values here mirror each workflow's previous effective default, so adopting
+# this config is behaviour-preserving.
+#
+# Scope note: this centralises the *AI model* for the agentic workflows only.
+# Cron cadence stays in `.github/cron-profiles.yaml` (GitHub can't parameterise
+# `schedule:` at run time); per-workflow enable/disable is a planned follow-up
+# (issue #5218). `provider` is reserved for a future provider abstraction and is
+# not yet consumed.
+
+default_model: claude-opus-4-8
+provider: anthropic
+
+workflows:
+  # curation-scanner fans out across effort tiers in parallel, each tier bound to
+  # a model and a GitHub label selector. The resolver's --matrix mode emits this
+  # list, and curation-scanner's setup job feeds it to `strategy.matrix.include`.
+  curation-scanner:
+    matrix:
+      - effort: low_effort
+        model: claude-haiku-4-5-20251001
+        selector: "label:curation label:low_effort"
+      - effort: medium_effort
+        model: claude-sonnet-4-6
+        selector: "label:curation label:medium_effort -label:low_effort"
+      - effort: high_effort
+        model: claude-opus-4-8
+        selector: "label:curation -label:low_effort -label:medium_effort"
+
+  discussion-scanner:
+    model: claude-sonnet-4-6
+
+  knowledge-gap-scan:
+    model: claude-haiku-4-5-20251001
+
+  literature-scan:
+    model: claude-haiku-4-5-20251001
+
+  preprint-scan:
+    model: claude-haiku-4-5-20251001
+
+  post-review-agent:
+    model: claude-opus-4-8
+
+  pr-shepherd:
+    model: claude-opus-4-8
+
+  weekly-compliance:
+    model: claude-opus-4-8
+
+  claude-code-review:
+    model: claude-opus-4-6
