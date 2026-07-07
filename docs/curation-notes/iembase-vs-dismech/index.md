@@ -717,3 +717,18 @@ Source inputs for these batches:
 | 575 | SERAC1-related MEGDEL syndrome | UNMAPPED | Reject COX8A candidate; true SERAC1/MEGDEL gap with 3-methylglutaconic aciduria, deafness, Leigh-like lesions, regression, and filipin prompts. |
 | 576 | TMEM70-related complex V deficiency | UNMAPPED | Reject COX11 candidate; true TMEM70 complex V assembly deficiency gap with cardiomyopathy, WPW, acidosis, pulmonary, renal, and neuroimaging prompts. |
 | 577 | ACSF3-related combined malonic and methylmalonic aciduria | UNMAPPED | False negative; resolve to `Combined_Malonic_and_Methylmalonic_Aciduria.yaml` and reject HMG-CoA synthase candidate. |
+
+## Batch 48
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 578 | AP1S1-related MEDNIK syndrome | MAPPED | Correct exact mapping to `MEDNIK_syndrome.yaml`; IEMbase adds low serum copper/ceruloplasmin, high ASAT/ALAT and bile-acid, very-long-chain fatty-acid, cerebral-atrophy, hyperkeratosis, and intestinal pseudo-obstruction prompts. |
+| 579 | SLC18A2-related vesicular monoamine transporter 2 deficiency | UNMAPPED | Reject primary carnitine deficiency; true SLC18A2/VMAT2 monoamine-vesicular-transport gap, with no exact local target identified. |
+| 580 | MTHFS-related 5,10-methenyltetrahydrofolate synthetase deficiency | UNMAPPED | Reject CPS1 deficiency; true MTHFS / 5-formyltetrahydrofolate cycloligase gap, with only broad folate/remethylation/cerebral-folate context. |
+| 581 | HAMP-related hepcidin deficiency | MAPPED | Correct subtype-level mapping to `Hemochromatosis.yaml#Type 2B`; IEMbase adds concise ferritin, glucose, transferrin-saturation, and liver-iron prompts. |
+| 582 | TFR2-related transferrin receptor 2 deficiency | MAPPED | Correct subtype-level mapping to `Hemochromatosis.yaml#Type 3`; IEMbase adds normal-to-high iron-index staging plus abdominal-pain and hyperpigmentation prompts. |
+| 583 | INSR-related Donohue syndrome | UNMAPPED | Reject IPEX syndrome; true INSR severe insulin-receptoropathy gap; source-review IEMbase inheritance while preserving hyperinsulinemic hypoglycemia, ketone, and free-fatty-acid prompts. |
+| 584 | SMS-related Snyder-Robinson syndrome | UNMAPPED | Reject GM3 synthase deficiency; true spermine-synthase/polyamine gap; source-review IEMbase inheritance/OMIM pairing and preserve N-acetylspermidine, epileptic-encephalopathy, and intellectual-disability prompts. |
+| 585 | PHEX-related X-linked hypophosphatemia | MAPPED | Correct exact mapping to `X-Linked_Hypophosphatemia.yaml`; IEMbase adds alkaline-phosphatase, urinary-phosphate, normal-calcium, tinnitus, muscle-weakness, and waddling-gait prompts. |
+| 587 | VPS11-related hypomyelinating leukodystrophy type 12 | UNMAPPED | Reject HLD7/POLR3 candidate; true VPS11/HLD12 gap with urinary glycosphingolipid/sulfatide and MRI/sensory/autonomic prompts. |
+| 588 | DNAJC12-related hyperphenylalaninemia | UNMAPPED | False negative; resolve to `Disorder_of_Catecholamine_Synthesis.yaml#DNAJC12-related monoamine synthesis disorder`, with pterin, CSF HVA/5-HIAA, treatment, autism, and dystonia prompts. |
