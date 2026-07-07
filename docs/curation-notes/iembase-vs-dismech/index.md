@@ -507,3 +507,18 @@ Source inputs for these batches:
 | 364 | XDH-related Xanthine oxidase deficiency | UNMAPPED | True XDH xanthinuria type I gap; reject chronic granulomatous disease and preserve xanthine/hypoxanthine/uric-acid prompts. |
 | 367 | LDLR-related Familial hypercholesterolemia heterozygous (LDLR) | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml`, heterozygous FH/LDLR branch. |
 | 368 | APOB-related Familial defective apolipoprotein B | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml`, APOB-LDLR binding-defect branch, and verify fibrates before import. |
+
+## Batch 34
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 369 | PCSK9-related Proprotein convertase superactivity | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml`, PCSK9 gain-of-function branch. |
+| 370 | LDLRAP1-related Autosomal recessive hypercholesterolemia (ARH) | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml`, LDLRAP1-related LDL uptake defect/autosomal recessive FH branch. |
+| 371 | MTTP-related Microsomal triglyceride transfer protein deficiency | MAPPED | Correct abetalipoproteinemia mapping with high concordance; IEMbase adds biopsy, prothrombin-ratio, HDL, and reflex wording prompts. |
+| 372 | APOB-related Apolipoprotein B deficiency | MAPPED | Generated abetalipoproteinemia mapping is over-broad; APOB familial hypobetalipoproteinemia type 1 is a separate local gap. |
+| 373 | PCSK9-related Proprotein convertase deficiency with low LDL | UNMAPPED | True local gap or scope-review item; do not map opposite-direction PCSK9 loss-of-function disease to FH gain-of-function coverage. |
+| 374 | ANGPTL3-related Angiopoietin-like 3 deficiency | MAPPED | Generated abetalipoproteinemia mapping is a false positive; ANGPTL3 combined familial hypolipidemia is a separate local gap. |
+| 375 | CETP-related Cholesteryl ester transfer protein deficiency | UNMAPPED | True CETP deficiency gap; reject cholesteryl ester storage disease lexical candidate. |
+| 376 | LIPC-related Hepatic lipase deficiency | UNMAPPED | True LIPC hepatic lipase deficiency gap; reject hepatic veno-occlusive disease lexical candidate. |
+| 377 | SCARB1-related Scavenger receptor B1 deficiency | UNMAPPED | True SCARB1/SR-BI deficiency gap; reject triple-negative breast cancer candidate. |
+| 378 | ABCA1-related Tangier disease | MAPPED | Correct Tangier disease mapping with high concordance; IEMbase adds concise orange tonsil, HDL, triglyceride, and ApoA-I prompts. |
