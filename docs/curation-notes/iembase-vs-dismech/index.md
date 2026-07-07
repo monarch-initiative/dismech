@@ -777,3 +777,18 @@ Source inputs for these batches:
 | 616 | PLPBP-related pyridoxal 5-prime-phosphate binding protein deficiency | UNMAPPED | True treatable PLPBP / vitamin B6-dependent epilepsy gap; reject PDH/E3-binding candidate and source-review vitamin B6 evidence before import. |
 | 617 | WDR45-related neurodegeneration with brain iron accumulation 5 | MAPPED | Correct subtype mapping to `Neurodegeneration_With_Brain_Iron_Accumulation.yaml#BPAN`; preserve BPAN-specific dementia, cerebral atrophy, movement disorder, seizure, and age-banded brain-iron prompts. |
 | 618 | TDO2-related hypertryptophanemia | UNMAPPED | True local gap but scope-review needed because IEMbase is biochemical-only; reject alkaptonuria and preserve tryptophan/serotonin biomarker prompts if curated. |
+
+## Batch 52
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 619 | SLC16A1-related monocarboxylate transporter-1 deficiency | UNMAPPED | True MCT1 deficiency gap; reject primary carnitine deficiency and keep distinct from earlier SLC16A1/HHF7 superactivity. |
+| 620 | COASY-related coenzyme A synthase deficiency | CANDIDATE | Broad NBIA/PKAN differential context only; reject BPAN as exact and curate COASY/NBIA6/CoPAN as its own NBIA subtype or disease if selected. |
+| 621 | TPK1-related thiamine pyrophosphokinase deficiency | CANDIDATE | Reject SLC19A3 biotin-thiamine-responsive basal ganglia disease as exact; true TPK1/THMD5 gap with thiamine, lactate, 2-ketoglutarate, and globus-pallidus prompts. |
+| 622 | PCYT1A-related retinoskeletal phosphocholine cytidylyltransferase deficiency | UNMAPPED | Reject SED congenita; true PCYT1A/SMDCRD gap with hypolipidemia, cone-rod dystrophy, retinopathy, and skeletal prompts. |
+| 623 | CAD-related trifunctional protein deficiency | CANDIDATE | Reject mitochondrial trifunctional protein deficiency as a lexical false candidate; true CAD/CAD-CDG/EIEE50 gap with uridine, epilepsy/regression, anemia, and normal biochemical-caveat prompts. |
+| 625 | POGLUT1-related Dowling-Degos disease 4 | UNMAPPED | Reject EBS Dowling-Meara lexical collision; true POGLUT1/DDD4 gap with dermatologic and normal sialotransferrin prompts. |
+| 626 | GANAB-related alpha glucosidase II deficiency | AMBIGUOUS | Covered at ADPKD disease-family level via GANAB pathogenic variants; prefer `Autosomal_Dominant_Polycystic_Kidney_Disease.yaml` and preserve GANAB/PKD3 subtype and normal sialotransferrin caveats. |
+| 627 | PIGW-related hyperphosphatasia with mental retardation syndrome 5 | UNMAPPED | Reject PIGL/CHIME as exact; true PIGW/HPMRS5 GPI-anchor gap with alkaline phosphatase, decreased GPI markers, epilepsy, hypotonia, and developmental-delay prompts. |
+| 628 | PIGC-related developmental disability with drug-responsive epilepsy | UNMAPPED | Reject IRX5 craniofacial/ID candidate; true PIGC-CDG gap with decreased GPI markers, seizures, intellectual disability, ataxia, cerebellar, hypotonia, and facial prompts. |
+| 629 | PIGG-related glycosylphosphatidylinositol biosynthesis defect 13 | UNMAPPED | True PIGG/GPIBD13 gap; keep separate from Wolf-Hirschhorn PIGG haploinsufficiency context and preserve normal GPI-marker caveat. |
