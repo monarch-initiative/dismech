@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT06241313"
 title: "Randomized, Double-blind, Placebo-Controlled, Multiple-Attack Study With an Open-Label Extension to Evaluate the Efficacy, Safety, Tolerability, and the Consistency of Effect of Atogepant for the Acute Treatment of Migraine (ECLIPSE)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Randomized, Double-blind, Placebo-Controlled, Multiple-Attack Study With an Open-Label Extension to Evaluate the Efficacy, Safety, Tolerability, and the Consistency of Effect of Atogepant for the Acute Treatment of Migraine (ECLIPSE)

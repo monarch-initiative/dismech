@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antifungal Therapy: Drug–Fungus Mechanism Design Pattern - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Antifungal Therapy: Drug–Fungus Mechanism Design Pattern</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Antifungal Therapy: Drug–Fungus Mechanism Design Pattern</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (4)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Chromoblastomycosis.html">Chromoblastomycosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Mycetoma.html">Mycetoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Otomycosis.html">Otomycosis</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (5)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/fungal_ergosterol_synthesis_inhibition.html">fungal ergosterol synthesis inhibition</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/fungal_membrane_ergosterol_binding.html">fungal membrane ergosterol binding</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/fungal_cell_wall_glucan_synthesis_inhibition.html">fungal cell wall glucan synthesis inhibition</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/fungal_nucleic_acid_antimetabolite.html">fungal nucleic acid antimetabolite</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/antifungal_intrinsic_resistance_gating.html">antifungal intrinsic resistance gating</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/ANTIFUNGAL.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="antifungal-therapy-drugfungus-mechanism-design-pattern">Antifungal Therapy: Drug–Fungus Mechanism Design Pattern</h1>
+<h2 id="status-phase-1-antifungal-mechanism-module-set-built">Status: Phase 1 — Antifungal Mechanism Module Set Built</h2>
+<p>This project extends the <a href="ANTIMICROBIAL.md"><code>ANTIMICROBIAL</code></a> drug–bug mechanism
+design pattern to <strong>antifungal therapy</strong>. Same machinery — a <code>Treatment</code> links
+via <code>target_mechanisms</code> to the specific pathophysiology node (a fungal
+biosynthetic target or a gating principle) that makes the drug work, and
+recurrent <em>fungus-property × drug-class</em> interactions are captured once as
+<code>kb/modules/</code> that disease entries <code>conforms_to</code>.</p>
+<p><strong>All five antifungal mechanism modules are now built and validated</strong> (schema +
+term + independent snippet-substring verification of every evidence quote): four
+drug-target modules (ergosterol synthesis, polyene membrane binding, echinocandin
+β-glucan synthesis, flucytosine antimetabolite) plus the species-level
+intrinsic-resistance gating module. The remaining work is <strong>wiring conforming
+disease entries</strong> and creating the missing flagship entries (cryptococcal
+meningitis, invasive candidiasis), tracked in §7.</p>
+<p>Antifungal pharmacology has a tighter, more conserved target set than antivirals
+because fungi are eukaryotes — selective toxicity hinges on a handful of
+fungal-specific structures (ergosterol instead of cholesterol; a β-1,3-glucan
+cell wall mammalian cells lack).</p>
+<table>
+<thead>
+<tr>
+<th>Module (built ✓)</th>
+<th>Target / principle</th>
+<th>Drug classes</th>
+<th>Candidate conformers (existing entries)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fungal_ergosterol_synthesis_inhibition</code></td>
+<td>Ergosterol biosynthesis: lanosterol 14α-demethylase (CYP51/ERG11, azole target) and squalene epoxidase (ERG1, allylamine target)</td>
+<td>triazoles, imidazoles, allylamines</td>
+<td><a href="../disorders/Otomycosis.html">Otomycosis</a> (clotrimazole, fluconazole), <a href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a> (fluconazole/itraconazole), <a href="../disorders/Chromoblastomycosis.html">Chromoblastomycosis</a> (itraconazole/terbinafine), <a href="../disorders/Mycetoma.html">Mycetoma</a> (itraconazole)</td>
+</tr>
+<tr>
+<td><code>fungal_membrane_ergosterol_binding</code></td>
+<td>Direct ergosterol binding → membrane pore / oxidative damage</td>
+<td>polyenes</td>
+<td><a href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a> (amphotericin B for severe/disseminated), <a href="../disorders/Mycetoma.html">Mycetoma</a></td>
+</tr>
+<tr>
+<td><code>fungal_cell_wall_glucan_synthesis_inhibition</code></td>
+<td>β-1,3-glucan synthase (FKS1) — fungal-specific wall target, cleanest selectivity story</td>
+<td>echinocandins</td>
+<td>(candidemia/invasive candidiasis entry needed — see Next Steps)</td>
+</tr>
+<tr>
+<td><code>fungal_nucleic_acid_antimetabolite</code></td>
+<td>Intracellular conversion to 5-FU by fungal cytosine deaminase → DNA/RNA synthesis disruption (mammals lack the enzyme → selectivity)</td>
+<td>flucytosine</td>
+<td>(cryptococcal meningitis entry needed — AmB + flucytosine induction)</td>
+</tr>
+<tr>
+<td><code>antifungal_intrinsic_resistance_gating</code></td>
+<td><strong>Gating, not a drug target.</strong> Species-level target absence/insensitivity excludes whole drug classes</td>
+<td>(explains why empiric choice depends on organism ID)</td>
+<td><a href="../disorders/Otomycosis.html">Otomycosis</a> (Aspergillus is intrinsically fluconazole-resistant)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Multi-module conformers</strong> (the payoff — one disease constrained by several
+independent antifungal mechanisms, mirroring Leprosy/Whipple on the
+antibacterial side):
+- <strong>Cryptococcal meningitis</strong> (entry to be created): ergosterol binding
+  (<code>fungal_membrane_ergosterol_binding</code>, amphotericin B) + antimetabolite
+  (<code>fungal_nucleic_acid_antimetabolite</code>, flucytosine) for induction, then
+  azole (<code>fungal_ergosterol_synthesis_inhibition</code>, fluconazole) consolidation —
+  <strong>and</strong> <code>antifungal_intrinsic_resistance_gating</code> because <em>Cryptococcus</em> is
+  intrinsically echinocandin-resistant (β-glucan synthase is present but not a
+  viable target), explaining why the cell-wall module does <strong>not</strong> apply.
+- <strong>Invasive candidiasis</strong> (entry to be created): echinocandin
+  (<code>fungal_cell_wall_glucan_synthesis_inhibition</code>) first-line vs azole
+  (<code>fungal_ergosterol_synthesis_inhibition</code>) step-down, gated by <em>Candida</em>
+  species / <em>C. auris</em> resistance.</p>
+<h2 id="0-scope-and-positioning-what-this-is-and-is-not">0. Scope and Positioning (what this is and is NOT)</h2>
+<p>This is an <strong>explanatory mechanism layer</strong>, not a drug–indication database and
+not a clinical decision support system (DSS). Identical positioning to
+<a href="ANTIMICROBIAL.md"><code>ANTIMICROBIAL</code></a> §0:</p>
+<ul>
+<li><strong>Not duplicating drug-indication curation.</strong> DrugBank, DrugCentral, ChEMBL,
+  and antifungal labels already enumerate <em>which</em> antifungals treat <em>which</em>
+  mycoses. dismech's contribution is to <em>explain</em> those associations
+  mechanistically — linking a treatment, via <code>target_mechanisms</code>, to the fungal
+  biosynthetic step it blocks — and to make that explanation queryable and
+  consistency-checkable across diseases via shared modules.</li>
+<li><strong>Not a DSS.</strong> IDSA antifungal guidelines, CLSI/EUCAST breakpoints, and
+  stewardship pathways already give point-of-care guidance. These modules are at
+  most a <em>mechanistic substrate</em> such tools could cite, not a prescribing engine.</li>
+<li><strong>Open question worth a short survey:</strong> how DrugMechDB and antifungal
+  resistance/MIC databases represent fungal drug-target mechanism paths — borrow
+  vocabulary, avoid reinventing, sharpen where mechanistic explanation is
+  additive. Tracked as a follow-up, not a blocker.</li>
+</ul>
+<h2 id="1-the-problem">1. The Problem</h2>
+<p>Naively, the treatment block for every mycosis collapses to
+<code>Pharmacotherapy → some antifungal → disease</code>. That discards the knowledge
+clinicians actually use: <strong>the small antifungal armamentarium is sharply gated
+by organism</strong>. Whether a class works depends on conserved fungal-cell properties
+— does the organism have an azole-druggable CYP51, an echinocandin-druggable
+β-glucan wall, a polyene-bindable ergosterol membrane, and does intrinsic
+resistance exclude a class outright? We want to encode that depth.</p>
+<h2 id="2-the-core-principle-target-the-fungal-biosynthetic-node-not-the-disease">2. The Core Principle: Target the Fungal Biosynthetic Node, Not the Disease</h2>
+<p>A <code>Treatment</code> links to specific pathophysiology nodes via <code>target_mechanisms</code>
+(<code>TreatmentMechanismTarget</code>). For antifungals, the edge should point at the
+<strong>fungus's druggable biology</strong>, which lives as a pathophysiology node:</p>
+<ul>
+<li><strong><a href="../disorders/Otomycosis.html">Otomycosis</a></strong> is the closest existing substrate: it already models a "Biofilm
+  formation and antifungal resistance" pathophysiology node and lists topical
+  azoles (clotrimazole, miconazole) and acidifying agents as treatments — but
+  <strong>without</strong> <code>target_mechanisms</code> edges onto an explicit "Ergosterol Biosynthesis
+  (CYP51/ERG11)" target node. Adding that node and edge is the cleanest first
+  proof-of-concept, and the existing biofilm/resistance node is a ready-made
+  gating node.</li>
+<li><strong><a href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a></strong> carries rich host-immunity pathophysiology (CLEC7A/
+  dectin-1 β-glucan recognition, CARD9, Th1/Th17) and uses azoles and
+  amphotericin B clinically — but the antifungal agents lack <code>target_mechanisms</code>
+  edges onto fungal drug-target nodes. Note the elegant duality: the same
+  β-glucan that <strong>dectin-1 recognizes</strong> for host defense is the polymer
+  <strong>echinocandins block the synthesis of</strong> — a candidate cross-link between the
+  host-immunity nodes and a future cell-wall drug-target node.</li>
+</ul>
+<p>A single <code>target_mechanisms</code> edge encodes <em>why this drug</em>, and it predicts
+failure modes: an echinocandin has a viable target only where β-1,3-glucan
+synthase is essential and accessible (Candida, Aspergillus) — not in
+<em>Cryptococcus</em> or the Mucorales, which it cannot treat.</p>
+<h2 id="3-three-tier-encoding">3. Three-Tier Encoding</h2>
+<p><strong>Tier 1 — crude baseline.</strong> <code>treatment_term: MAXO:0000168</code> (antiviral/antimicrobial
+agent therapy as appropriate) or <code>NCIT:C15986</code> (Pharmacotherapy) /
+<code>MAXO:0001573</code> (topical pharmacotherapy) + <code>therapeutic_agent</code> (CHEBI for the
+drug, e.g. <code>CHEBI:3764</code> clotrimazole, plus fluconazole/itraconazole/amphotericin
+B/caspofungin/flucytosine) + <code>therapeutic_modality: SMALL_MOLECULE</code>. Says
+"clotrimazole is used for otomycosis."</p>
+<p><strong>Tier 2 — the mechanistic edge (the depth).</strong> Add a pathophysiology node for the
+targeted fungal step and link <code>target_mechanisms</code> to it: an azole → "Ergosterol
+Biosynthesis — Lanosterol 14α-Demethylase (CYP51/ERG11)"; terbinafine →
+"Ergosterol Biosynthesis — Squalene Epoxidase (ERG1)"; amphotericin B →
+"Ergosterol Membrane Integrity"; an echinocandin → "β-1,3-Glucan Cell-Wall
+Synthesis (FKS1)"; flucytosine → "Fungal DNA/RNA Synthesis (cytosine-deaminase
+activation)". Use <code>target_phenotypes</code> for adjuncts (surgical debridement, immune
+reconstitution).</p>
+<p><strong>Tier 3 — conserved generalizations as modules.</strong> The reasons "some classes are
+useless against some fungi" are conserved <em>fungus-property × drug-class</em>
+interactions — <code>kb/modules/</code> + <code>conforms_to</code>. See the proposed module table
+above. Because antifungal selectivity rests on a few fungal-specific structures,
+the module set is small and high-coverage.</p>
+<h2 id="4-the-axes-that-make-specific-drugs-better-for-specific-fungi">4. The Axes That Make Specific Drugs Better for Specific Fungi</h2>
+<table>
+<thead>
+<tr>
+<th>Determinant</th>
+<th>Why it gates drug choice</th>
+<th>dismech examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ergosterol vs cholesterol membrane</strong></td>
+<td>the selective-toxicity basis for both azoles (block synthesis) and polyenes (bind it); also the source of polyene host toxicity</td>
+<td>all mycoses — <a href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a> (amphotericin B)</td>
+</tr>
+<tr>
+<td><strong>Druggable CYP51 / ERG11</strong></td>
+<td>azole target; point mutations or overexpression (and environmental TR34/L98H in <em>Aspergillus</em>) abolish activity</td>
+<td><a href="../disorders/Otomycosis.html">Otomycosis</a>, <a href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a>, <a href="../disorders/Chromoblastomycosis.html">Chromoblastomycosis</a></td>
+</tr>
+<tr>
+<td><strong>β-1,3-glucan cell wall (FKS1)</strong></td>
+<td>fungal-specific echinocandin target — present/essential in <em>Candida</em>/<em>Aspergillus</em>, <strong>not</strong> a viable target in <em>Cryptococcus</em> or the Mucorales</td>
+<td>future invasive-candidiasis entry; absence explains echinocandin failure in cryptococcosis</td>
+</tr>
+<tr>
+<td><strong>Cytosine deaminase / permease</strong></td>
+<td>flucytosine needs fungal activation; rapid monotherapy resistance mandates combination use</td>
+<td>future cryptococcal-meningitis entry (AmB + flucytosine)</td>
+</tr>
+<tr>
+<td><strong>Intrinsic species resistance</strong></td>
+<td>whole classes excluded a priori by organism ID</td>
+<td><a href="../disorders/Otomycosis.html">Otomycosis</a> (<em>Aspergillus</em> intrinsically fluconazole-resistant); Mucorales (voriconazole/echinocandin-resistant → isavuconazole/AmB); <em>Cryptococcus</em> (echinocandin-resistant)</td>
+</tr>
+<tr>
+<td><strong>CNS / compartment penetration (PK)</strong></td>
+<td>fluconazole, flucytosine, voriconazole reach CSF; echinocandins and lipid AmB penetrate poorly</td>
+<td>cryptococcal/coccidioidal meningitis → fluconazole consolidation; <a href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a> (coccidioidal meningitis subtype)</td>
+</tr>
+<tr>
+<td><strong>Biofilm / device / dimorphic phase</strong></td>
+<td>biofilms tolerate azoles; echinocandins and lipid AmB retain activity; tissue spherule/sclerotic-body forms are less drug-accessible</td>
+<td><a href="../disorders/Otomycosis.html">Otomycosis</a> (biofilm/resistance node); <a href="../disorders/Chromoblastomycosis.html">Chromoblastomycosis</a> (muriform/sclerotic bodies, notoriously refractory)</td>
+</tr>
+<tr>
+<td><strong>Mold vs yeast vs dimorphic / thermal dimorphism</strong></td>
+<td>spectrum and dosing differ by morphology and growth</td>
+<td><a href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a> (dimorphic), <a href="../disorders/Otomycosis.html">Otomycosis</a> (Aspergillus mold vs Candida yeast)</td>
+</tr>
+<tr>
+<td><strong>Acquired azole resistance (efflux, target overexpression)</strong></td>
+<td>CDR/MDR efflux pumps and ERG11 changes drive clinical failure</td>
+<td><a href="../disorders/Otomycosis.html">Otomycosis</a> resistance node; <em>C. auris</em> multidrug resistance (future entry)</td>
+</tr>
+<tr>
+<td><strong>Adjunctive surgery / source control</strong></td>
+<td>many deep mycoses are drug-refractory without debridement/excision</td>
+<td><a href="../disorders/Chromoblastomycosis.html">Chromoblastomycosis</a>, <a href="../disorders/Mycetoma.html">Mycetoma</a> (eumycetoma — surgery + prolonged azole)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-recommended-encoding-pattern-per-fungal-entry">5. Recommended Encoding Pattern (per fungal entry)</h2>
+<ol>
+<li>Populate <code>infectious_agent</code> (<code>InfectiousAgent</code>, NCBITaxon term) — the fungal
+   identity anchor (already present in <a href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a>, <a href="../disorders/Chromoblastomycosis.html">Chromoblastomycosis</a>,
+   <a href="../disorders/Otomycosis.html">Otomycosis</a>, <a href="../disorders/Mycetoma.html">Mycetoma</a>).</li>
+<li>In <code>pathophysiology</code>, add <strong>fungal drug-target nodes</strong> (ergosterol synthesis,
+   ergosterol membrane, β-glucan wall synthesis, nucleic-acid antimetabolite)
+   <strong>and</strong> <strong>gating-property nodes</strong> (intrinsic resistance, biofilm/dimorphic
+   phase, CNS sanctuary) as appropriate.</li>
+<li>Each <code>Treatment</code>: Tier-1 fields <strong>plus</strong> <code>target_mechanisms</code> → the specific
+   node(s) it inhibits, and <code>target_phenotypes</code> for adjuncts (debridement,
+   immune reconstitution).</li>
+<li>Where the mechanism recurs, <code>conforms_to</code> a shared antifungal-mechanism
+   module.</li>
+<li>Consider cross-linking host β-glucan recognition (dectin-1/CLEC7A) nodes to
+   the β-glucan-synthesis drug-target node where both are modeled — the same
+   polymer seen from the host-defense and drug-target sides.</li>
+</ol>
+<h2 id="6-open-decision-for-the-register">6. Open Decision for the Register</h2>
+<p>Surface to <code>docs/explanation/design-decisions.md</code>: the same per-disease-vs-module
+decision recorded for antibacterials applies. Antifungal-specific question:
+whether the two ergosterol-biosynthesis targets (CYP51 demethylase for azoles,
+squalene epoxidase for allylamines) are one module with two target nodes
+(<strong>recommended</strong> — they share the ergosterol-depletion endpoint) or two modules.
+Recommendation: one <code>fungal_ergosterol_synthesis_inhibition</code> module with
+distinct CYP51 and squalene-epoxidase target nodes, parallel to how the bacterial
+folate module holds distinct DHPS and DHFR nodes.</p>
+<h2 id="7-next-steps">7. Next Steps</h2>
+<ul>
+<li>[x] Draft <code>fungal_ergosterol_synthesis_inhibition</code> as the proof-of-concept
+      module. Built at <code>kb/modules/fungal_ergosterol_synthesis_inhibition.yaml</code>:
+      four nodes (CYP51/ERG11 demethylase azole target + squalene epoxidase ERG1
+      allylamine target → ergosterol depletion / membrane dysfunction →
+      azole-target resistance: ERG11 mutation/overexpression, efflux, TR34/L98H).
+      Evidence: Rosam 33374996, 37151610 (CYP51), Ryder 1543672 (terbinafine /
+      squalene epoxidase), 38878211 / 31542320 / 36458152 (Aspergillus azole
+      resistance). Key target: <code>#Ergosterol Biosynthesis - Lanosterol
+      14-alpha-Demethylase (CYP51/ERG11) as Azole Target</code>.</li>
+<li>[x] Draft <code>fungal_membrane_ergosterol_binding</code> (polyenes). Built: three nodes
+      (membrane ergosterol as the polyene binding target → permeabilization /
+      fungicidal killing → rare resistance via reduced ergosterol). Evidence:
+      31643715 (LiverTox), Anderson 24681535 (sterol-sponge), Czajka 37998390.</li>
+<li>[x] Draft <code>fungal_cell_wall_glucan_synthesis_inhibition</code> (echinocandins, FKS1).
+      Built: four nodes (β-1,3-glucan synthase target → cell-wall integrity
+      failure / osmotic lysis → FKS-mediated resistance → intrinsic resistance in
+      Cryptococcus/Mucorales). Evidence: Perlin 26190298 / 26567278, Emri
+      23463246, Aruanno 31138565, Cappelletty 21694887, Iyer 33558691.</li>
+<li>[x] Draft <code>fungal_nucleic_acid_antimetabolite</code> (flucytosine). Built: three
+      nodes (fungal cytosine-deaminase activation of 5-FC to 5-FU → disruption of
+      fungal RNA/DNA synthesis → rapid monotherapy resistance mandating
+      combination). Evidence: Vermes 10933638, Houšť 32178468, Noël 12654658.</li>
+<li>[x] Draft <code>antifungal_intrinsic_resistance_gating</code> (the antifungal analog of
+      <code>intracellular_pathogen_persistence</code> — species-level class exclusion).
+      Built: two nodes (species-level intrinsic resistance —
+      Aspergillus/fluconazole, Cryptococcus/echinocandin,
+      Mucorales/voriconazole+echinocandin → acquired multidrug resistance in
+      <em>Candida auris</em>). Evidence: 33558691, 38445857, 31159914, 33091071,
+      28911043.</li>
+<li>[ ] <strong>Wire conforming disease entries</strong> (modules exist but no fungal disorder
+      yet <code>conforms_to</code> them). <strong><a href="../disorders/Otomycosis.html">Otomycosis</a></strong> first: add an ergosterol-synthesis
+      (CYP51/ERG11) drug-target node, <code>conforms_to</code> the module, <code>target_mechanisms</code>
+      from clotrimazole/miconazole/fluconazole, and connect the existing
+      biofilm/resistance node to <code>antifungal_intrinsic_resistance_gating</code>
+      (Aspergillus ↔ fluconazole). <strong><a href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a></strong>: ergosterol-synthesis
+      (azole) + ergosterol-membrane (amphotericin B) target nodes; cross-link the
+      existing dectin-1/CLEC7A β-glucan host-recognition node to the β-glucan
+      drug-target node.</li>
+<li>[ ] Create the missing flagship entries that unlock the multi-module
+      conformers: <strong>Cryptococcal_Meningitis</strong> (AmB + flucytosine induction →
+      fluconazole consolidation; echinocandin-resistant) and <strong>Invasive
+      Candidiasis / Candidemia</strong> (echinocandin first-line; <em>C. auris</em> resistance).
+      These do not yet exist in <code>kb/disorders/</code> and are the worked-example payoff.</li>
+<li>[ ] Wire <strong><a href="../disorders/Chromoblastomycosis.html">Chromoblastomycosis</a></strong> and <strong><a href="../disorders/Mycetoma.html">Mycetoma</a></strong> (eumycetoma) as the
+      surgery-plus-prolonged-azole, drug-refractory cases — itraconazole/
+      terbinafine <code>target_mechanisms</code> onto the ergosterol-synthesis node, with
+      debridement/excision as <code>target_phenotypes</code> adjuncts.</li>
+<li>[ ] Short survey of antifungal drug-mechanism KBs / resistance databases
+      (DrugMechDB, EUCAST/CLSI breakpoint rationales) — see §0; borrow
+      vocabulary, sharpen the niche.</li>
+<li>[ ] Record the ergosterol-one-module-two-nodes decision in the design register.</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>

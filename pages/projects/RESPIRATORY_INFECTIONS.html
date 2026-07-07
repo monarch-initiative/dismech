@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Respiratory Infections Curation Project - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Respiratory Infections Curation Project</h1>
+            <div class="hero-meta">
+                <span class="badge status-PLANNED">Planned</span>
+                <span class="tag">DISEASE_DOMAIN</span><span class="tag">INFECTIOUS_DISEASE</span><span class="tag">RESPIRATORY</span>
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Respiratory Infections Curation Project</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (27)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Influenza.html">Influenza</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/COVID-19.html">COVID-19</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Long_COVID.html">Long COVID</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Respiratory_Syncytial_Virus_Infection.html">Respiratory Syncytial Virus Infection</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rhinovirus_Infection.html">Rhinovirus Infection</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Tuberculosis.html">Tuberculosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hantavirus_Pulmonary_Syndrome.html">Hantavirus Pulmonary Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pontiac_Fever.html">Pontiac Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Plague.html">Plague</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Tularemia.html">Tularemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Glanders.html">Glanders</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Scarlet_Fever.html">Scarlet Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chickenpox.html">Chickenpox</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Bronchiectasis.html">Bronchiectasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Parainfluenza_Virus_Infection.html">Parainfluenza Virus Infection</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Middle_East_Respiratory_Syndrome.html">Middle East Respiratory Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Legionnaires_Disease.html">Legionnaires Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Mycoplasma_Pneumoniae_Pneumonia.html">Mycoplasma Pneumoniae Pneumonia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Human_Metapneumovirus_Infection.html">Human Metapneumovirus Infection</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Seasonal_Coronavirus_Infection.html">Seasonal Coronavirus Infection</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Adenovirus_Respiratory_Infection.html">Adenovirus Respiratory Infection</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pertussis.html">Pertussis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pneumococcal_Pneumonia.html">Pneumococcal Pneumonia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Q_Fever.html">Q Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Psittacosis.html">Psittacosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pneumocystis_Pneumonia.html">Pneumocystis Pneumonia</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (2)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/host_directed_antiviral_dependency.html">host directed antiviral dependency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/innate_antiviral_interferon_response.html">innate antiviral interferon response</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/RESPIRATORY_INFECTIONS.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="respiratory-infections-curation-project">Respiratory Infections Curation Project</h1>
+<h2 id="overview">Overview</h2>
+<p>This project organizes dismech curation of <strong>infections of the respiratory
+tract</strong> — by anatomical site and clinical syndrome rather than by drug class.
+It is the disease-domain complement to the three drug-mechanism projects:</p>
+<ul>
+<li><a href="ANTIMICROBIAL.md"><code>ANTIMICROBIAL</code></a> — antibacterial drug–bug mechanism modules</li>
+<li><a href="ANTIVIRAL.md"><code>ANTIVIRAL</code></a> — antiviral drug–virus mechanism modules</li>
+<li><a href="ANTIFUNGAL.md"><code>ANTIFUNGAL</code></a> — antifungal mechanism modules</li>
+</ul>
+<p>Where those projects ask "how does the drug work against the pathogen," this
+project asks "what is the pathophysiology of infection at this site, in this
+host." A respiratory-infection entry should still <code>conforms_to</code> the relevant
+drug-mechanism module(s) for its treatments; this project tracks the <em>clinical
+entities</em> and their coverage, and the drug-mechanism projects track the
+treatment wiring.</p>
+<h2 id="funding-alignment-the-intercept-initiative">Funding alignment: the Intercept initiative</h2>
+<p><a href="https://www.interceptfund.com/">Intercept</a> is a $500M philanthropic fund whose
+stated goal is to <em>radically reduce and ultimately eliminate endemic respiratory
+infections</em> — pushing the effective reproduction number below 1 for viruses with
+R₀ &lt; 3. Its scientific thesis directly shapes the priorities of this project.</p>
+<p>Intercept's <strong>four core target viruses are all already curated in dismech</strong> and
+seeded above: <a href="../disorders/Influenza.html">Influenza</a>, <a href="../disorders/COVID-19.html">COVID-19</a> (SARS-CoV-2), <a href="../disorders/Respiratory_Syncytial_Virus_Infection.html">Respiratory Syncytial Virus Infection</a>,
+and Rhinovirus_Infection. So Intercept-aligned work here is primarily about
+<strong>deepening mechanism and treatment coverage</strong>, not creating the core entries.</p>
+<p>Intercept funds two product classes:</p>
+<ol>
+<li><strong>Broad-Spectrum Preventatives (BSPs)</strong> across five mechanistic tracks:
+   - <em>Adaptive immunity</em> — universal vaccines, broadly-neutralizing antibodies,
+     tissue-resident CD8 T cells (dismech: <code>VACCINE</code> / <code>MONOCLONAL_ANTIBODY</code> modalities)
+   - <em>Direct-acting antivirals</em> — siRNA, broad-spectrum RdRp inhibitors, mAbs,
+     receptor decoys (dismech: existing <code>viral_polymerase_inhibition</code>,
+     <code>viral_entry_fusion_inhibition</code> modules)
+   - <em>Innate-immunity modulators</em> — engineered interferon, cGAS/RIG-I agonists
+     (<strong>module gap</strong> — see below)
+   - <em>Host-directed antivirals</em> — targeting host dependency factors
+     (<strong>module gap</strong> — see below)
+   - <em>Physical-barrier formulations</em> — lectin/mucin nasal sprays (a treatment modality)</li>
+<li><strong>Air Cleaning Technologies</strong> (far-UVC, filtration, antimicrobial vapors) —
+   environmental interventions, <strong>out of dismech's disease-mechanism scope</strong>.</li>
+</ol>
+<h3 id="intercept-aligned-mechanism-modules">Intercept-aligned mechanism modules</h3>
+<p>dismech already has seven <em>direct-acting</em> antiviral mechanism modules (polymerase,
+protease, entry/fusion, integrase, assembly/release, latency, PARP-macrodomain).
+Two of Intercept's BSP tracks previously had no module; both are now <strong>built and
+validated</strong> (schema + terms + independent snippet-substring verification of every
+evidence quote):</p>
+<ul>
+<li><strong><code>host_directed_antiviral_dependency</code></strong> ✓ — host dependency factors a virus
+  requires (ACE2 receptor + TMPRSS2 protease for SARS-CoV-2 as the worked example).
+  Target of the host-directed and receptor-decoy tracks; high broad-spectrum value
+  because host factors are conserved where viral proteins are not. Captures the
+  higher resistance barrier, the broad-spectrum consequence, and the host-route-escape
+  / on-target-toxicity limits. Key conformance/treatment target:
+  <code>host_directed_antiviral_dependency#Host Receptor and Protease Engagement</code>.</li>
+<li><strong><code>innate_antiviral_interferon_response</code></strong> ✓ — viral PAMP sensing (RIG-I/MDA5,
+  cGAS-STING, TLRs) → type I/III interferon induction and JAK-STAT signaling →
+  ISG antiviral state → restriction of replication, with the viral-interferon-
+  antagonism evasion branch (influenza NS1). Target of the innate-immunity-modulator
+  track; the worked therapeutic is peginterferon lambda. Key conformance/treatment
+  target: <code>innate_antiviral_interferon_response#Interferon-Stimulated Gene Antiviral State</code>.</li>
+</ul>
+<p><strong>Worked conformers (wired):</strong>
+- <code>host_directed_antiviral_dependency#Host Receptor and Protease Engagement</code> ←
+  <a href="../disorders/COVID-19.html">COVID-19</a> (SARS-CoV-2 spike entry via ACE2/TMPRSS2).
+- <code>innate_antiviral_interferon_response#Viral PAMP Sensing by Pattern-Recognition Receptors</code>
+  ← <a href="../disorders/Influenza.html">Influenza</a> (TLR sensing / innate activation).
+- <code>innate_antiviral_interferon_response#Interferon-Stimulated Gene Antiviral State</code>
+  ← <a href="../disorders/Rhinovirus_Infection.html">Rhinovirus Infection</a>, <a href="../disorders/Parainfluenza_Virus_Infection.html">Parainfluenza Virus Infection</a>,
+  <a href="../disorders/Human_Metapneumovirus_Infection.html">Human Metapneumovirus Infection</a>, <a href="../disorders/Seasonal_Coronavirus_Infection.html">Seasonal Coronavirus Infection</a>, and
+  <a href="../disorders/Adenovirus_Respiratory_Infection.html">Adenovirus Respiratory Infection</a> (epithelial innate/interferon antiviral response).
+- <code>host_directed_antiviral_dependency#Host Receptor and Protease Engagement</code> ←
+  <a href="../disorders/Middle_East_Respiratory_Syndrome.html">Middle East Respiratory Syndrome</a> (MERS-CoV spike entry via the DPP4 host
+  receptor — the coronavirus parallel to SARS-CoV-2/ACE2).
+- <code>intracellular_pathogen_persistence</code> (Intracellular Niche + Cell-Penetrant
+  Antimicrobial nodes) ← <a href="../disorders/Legionnaires_Disease.html">Legionnaires Disease</a> (macrolide/fluoroquinolone therapy).
+- <code>bacterial_cell_wall_synthesis_inhibition#Intrinsic Resistance in Cell-Wall-Deficient Organisms</code>
+  and <code>bacterial_protein_synthesis_inhibition</code> (ribosome target + resistance) ←
+  <a href="../disorders/Mycoplasma_Pneumoniae_Pneumonia.html">Mycoplasma Pneumoniae Pneumonia</a> (the flagship cell-wall-deficient conformer).
+- <code>bacterial_protein_synthesis_inhibition</code> (ribosomal macrolide target + resistance)
+  ← <a href="../disorders/Pertussis.html">Pertussis</a> (toxin-mediated whooping cough; macrolide therapy).
+- <code>bacterial_cell_wall_synthesis_inhibition</code> (PBP beta-lactam target + acquired
+  resistance) ← <a href="../disorders/Pneumococcal_Pneumonia.html">Pneumococcal Pneumonia</a> (the typical/cell-walled counterpart to the
+  cell-wall-deficient Mycoplasma).
+- <code>intracellular_pathogen_persistence</code> + <code>bacterial_protein_synthesis_inhibition</code>
+  (tetracycline target) ← <a href="../disorders/Q_Fever.html">Q Fever</a> (intracellular; doxycycline, mirroring Murine_Typhus).
+- <code>intracellular_pathogen_persistence</code> + <code>bacterial_protein_synthesis_inhibition</code>
+  (tetracycline target) ← <a href="../disorders/Psittacosis.html">Psittacosis</a> (avian zoonotic intracellular chlamydial pneumonia).</p>
+<p><strong>Treatment enrichment (wired):</strong>
+- <a href="../disorders/COVID-19.html">COVID-19</a> — Peginterferon Lambda (NCIT:C166435), an interferon-based
+  innate-immunity modulator, <code>target_mechanisms</code>→ the interferon node
+  (<code>ACTIVATES</code>), TOGETHER-trial evidence (PMID:36780676).
+- <a href="../disorders/Respiratory_Syncytial_Virus_Infection.html">Respiratory Syncytial Virus Infection</a> — Nirsevimab (NCIT:C170224), a
+  long-acting anti-RSV-F monoclonal antibody for passive immunoprophylaxis,
+  <code>target_mechanisms</code>→ the epithelial-infection node (<code>INHIBITS</code>), MELODY-trial
+  evidence (PMID:35235726).</p>
+<p>Remaining wiring work: extend <code>conforms_to</code>/treatment edges to the rest of the
+core/endemic viruses as their entries grow (e.g. a dedicated influenza host-
+protease-cleavage entry node, an RSV interferon node), and add host-directed
+agents where clinically established.</p>
+<h2 id="scope">Scope</h2>
+<p><strong>In scope:</strong> infections whose primary disease is in the respiratory tract —
+upper (rhinitis/common cold, pharyngitis, sinusitis, laryngitis, croup,
+epiglottitis) and lower (bronchitis, bronchiolitis, pneumonia, empyema, lung
+abscess, pulmonary TB and fungal pneumonias). Systemic or zoonotic infections
+are in scope when a respiratory form is a principal manifestation (e.g.
+pneumonic plague, pneumonic tularemia, pulmonary glanders, varicella
+pneumonia), and post-acute respiratory sequelae (Long COVID).</p>
+<p><strong>Out of scope (cross-referenced, not owned here):</strong>
+- Non-infectious airway/parenchymal disease — Asthma, COPD,
+  Hypersensitivity_Pneumonitis / Bird_Fanciers_Lung, Hereditary_Pulmonary_Alveolar_Proteinosis,
+  Pulmonary_Hemosiderosis (these are immune/structural, not infections).
+- Structural/developmental lung disease — Congenital_Pulmonary_Airway_Malformation,
+  Scimitar_Syndrome, Laryngotracheoesophageal_Cleft.
+- Host susceptibility entries (immunodeficiencies, Primary Ciliary Dyskinesia,
+  Cystic Fibrosis) that predispose to recurrent respiratory infection — these
+  belong to their own domains but are relevant comorbidity links.</p>
+<p><a href="../disorders/Bronchiectasis.html">Bronchiectasis</a> is included as a <strong>boundary case</strong>: it is a chronic suppurative
+airway disease driven by a vicious cycle of infection and inflammation, often
+post-infectious, and is the structural endpoint many of these infections feed
+into.</p>
+<h2 id="existing-entries-seed-set">Existing entries (seed set)</h2>
+<h3 id="viral">Viral</h3>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Pathogen / note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/Influenza.html">Influenza</a></td>
+<td><a href="../disorders/Influenza.html">Influenza</a> A/B; LRTI + URTI</td>
+</tr>
+<tr>
+<td><a href="../disorders/COVID-19.html">COVID-19</a></td>
+<td>SARS-CoV-2 acute infection</td>
+</tr>
+<tr>
+<td><a href="../disorders/Long_COVID.html">Long COVID</a></td>
+<td>Post-acute SARS-CoV-2 sequelae</td>
+</tr>
+<tr>
+<td><a href="../disorders/Respiratory_Syncytial_Virus_Infection.html">Respiratory Syncytial Virus Infection</a></td>
+<td>RSV bronchiolitis/pneumonia</td>
+</tr>
+<tr>
+<td><a href="../disorders/Rhinovirus_Infection.html">Rhinovirus Infection</a></td>
+<td>Common cold (URTI)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Human_Metapneumovirus_Infection.html">Human Metapneumovirus Infection</a></td>
+<td>hMPV; RSV-like bronchiolitis/pneumonia</td>
+</tr>
+<tr>
+<td><a href="../disorders/Seasonal_Coronavirus_Infection.html">Seasonal Coronavirus Infection</a></td>
+<td>endemic HCoV 229E/NL63/OC43/HKU1; common cold</td>
+</tr>
+<tr>
+<td><a href="../disorders/Adenovirus_Respiratory_Infection.html">Adenovirus Respiratory Infection</a></td>
+<td>HAdV; pharyngoconjunctival fever, military pneumonia</td>
+</tr>
+<tr>
+<td><a href="../disorders/Hantavirus_Pulmonary_Syndrome.html">Hantavirus Pulmonary Syndrome</a></td>
+<td>Hantavirus (HPS)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Chickenpox.html">Chickenpox</a></td>
+<td>VZV; respiratory-droplet transmission, varicella pneumonia</td>
+</tr>
+</tbody>
+</table>
+<h3 id="bacterial-mycobacterial">Bacterial / mycobacterial</h3>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Pathogen / note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/Tuberculosis.html">Tuberculosis</a></td>
+<td><em>Mycobacterium tuberculosis</em>; pulmonary + extrapulmonary</td>
+</tr>
+<tr>
+<td><a href="../disorders/Pneumococcal_Pneumonia.html">Pneumococcal Pneumonia</a></td>
+<td><em>Streptococcus pneumoniae</em> — typical lobar CAP</td>
+</tr>
+<tr>
+<td><a href="../disorders/Q_Fever.html">Q Fever</a></td>
+<td><em>Coxiella burnetii</em> — zoonotic intracellular atypical pneumonia</td>
+</tr>
+<tr>
+<td><a href="../disorders/Psittacosis.html">Psittacosis</a></td>
+<td><em>Chlamydia psittaci</em> — avian zoonotic intracellular pneumonia</td>
+</tr>
+<tr>
+<td><a href="../disorders/Legionnaires_Disease.html">Legionnaires Disease</a></td>
+<td><em>Legionella pneumophila</em> — severe pneumonia (intracellular)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Pontiac_Fever.html">Pontiac Fever</a></td>
+<td><em>Legionella</em> (mild, self-limited febrile form)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Mycoplasma_Pneumoniae_Pneumonia.html">Mycoplasma Pneumoniae Pneumonia</a></td>
+<td><em>M. pneumoniae</em> — atypical/"walking" pneumonia</td>
+</tr>
+<tr>
+<td><a href="../disorders/Pertussis.html">Pertussis</a></td>
+<td><em>Bordetella pertussis</em> — whooping cough (toxin-mediated)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Scarlet_Fever.html">Scarlet Fever</a></td>
+<td>Group A <em>Streptococcus</em> pharyngitis (URT portal)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Plague.html">Plague</a></td>
+<td><em>Yersinia pestis</em> — pneumonic form</td>
+</tr>
+<tr>
+<td><a href="../disorders/Tularemia.html">Tularemia</a></td>
+<td><em>Francisella tularensis</em> — pneumonic form</td>
+</tr>
+<tr>
+<td><a href="../disorders/Glanders.html">Glanders</a></td>
+<td><em>Burkholderia mallei</em> — pulmonary nodular disease</td>
+</tr>
+</tbody>
+</table>
+<h3 id="fungal">Fungal</h3>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Pathogen / note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/Coccidioidomycosis.html">Coccidioidomycosis</a></td>
+<td><em>Coccidioides</em> — pulmonary mycosis</td>
+</tr>
+<tr>
+<td><a href="../disorders/Pneumocystis_Pneumonia.html">Pneumocystis Pneumonia</a></td>
+<td><em>Pneumocystis jirovecii</em> — opportunistic fungal pneumonia (PCP)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="coverage-gaps-curation-backlog">Coverage gaps (curation backlog)</h2>
+<p>High-value respiratory infections <strong>not yet in the KB</strong>, roughly priority-ordered.
+Items tagged <strong>[Intercept]</strong> broaden coverage of Intercept's endemic-respiratory-virus
+thesis (broad-spectrum protection across viral families) and are prioritized accordingly.</p>
+<p><strong>Endemic respiratory viruses [Intercept] — highest priority</strong>
+- <a href="../disorders/Parainfluenza_Virus_Infection.html">Parainfluenza Virus Infection</a> [Intercept] — ✓ created (de novo)
+- <a href="../disorders/Middle_East_Respiratory_Syndrome.html">Middle East Respiratory Syndrome</a> [Intercept] — ✓ created (de novo)
+- <a href="../disorders/Human_Metapneumovirus_Infection.html">Human Metapneumovirus Infection</a> [Intercept] — ✓ created (de novo; no MONDO
+  disease_term — MONDO lacks an hMPV infection term, flagged for a term request).
+- <a href="../disorders/Seasonal_Coronavirus_Infection.html">Seasonal Coronavirus Infection</a> [Intercept] — ✓ created (de novo; no MONDO
+  disease_term — MONDO lacks an endemic-HCoV term, flagged for a term request).
+- <a href="../disorders/Adenovirus_Respiratory_Infection.html">Adenovirus Respiratory Infection</a> [Intercept] — ✓ created (de novo; no MONDO
+  disease_term — MONDO has only "adenovirus renal infection", flagged for a term request).</p>
+<p><strong>Bacterial pneumonia &amp; atypicals</strong>
+- <em>Chlamydophila pneumoniae</em> (atypical pneumonia)
+- <em>Haemophilus influenzae</em> and <em>Moraxella catarrhalis</em> LRTI
+- Hospital-acquired / ventilator-associated pneumonia</p>
+<p><strong>Vaccine-preventable / classic URT &amp; airway</strong>
+- Diphtheria
+- Acute bacterial/viral bronchitis
+- Acute sinusitis / rhinosinusitis
+- Streptococcal pharyngitis (as an entity distinct from <a href="../disorders/Scarlet_Fever.html">Scarlet Fever</a>)
+- Croup (laryngotracheobronchitis), epiglottitis</p>
+<p><strong>Fungal &amp; opportunistic</strong>
+- <em>Pneumocystis jirovecii</em> pneumonia (PCP)
+- Pulmonary aspergillosis
+- Histoplasmosis
+- Blastomycosis
+- Pulmonary cryptococcosis</p>
+<h2 id="workflow">Workflow</h2>
+<ol>
+<li>Pick a gap entry above (or claim via the priority dashboard / <code>/claim-disease</code>).</li>
+<li>Curate with <code>/curate</code>, anchoring pathophysiology on the host–pathogen
+   interaction at the respiratory site.</li>
+<li>Wire treatments to the appropriate drug-mechanism module(s) via
+   <code>target_mechanisms</code> / <code>conforms_to</code> (see ANTIMICROBIAL / ANTIVIRAL /
+   ANTIFUNGAL).</li>
+<li>Validate: <code>just validate</code>, <code>just validate-references</code>, <code>just validate-terms-file</code>.</li>
+</ol>
+<h3 id="intercept-aligned-deepening-track-core-4-already-curated">Intercept-aligned deepening track (core 4 already curated)</h3>
+<p>Beyond filling gaps, deepen the already-curated core viruses along Intercept's thesis:</p>
+<ul>
+<li><strong>Wire the two new modules</strong> (<code>host_directed_antiviral_dependency</code>,
+  <code>innate_antiviral_interferon_response</code>, both built) — add <code>conforms_to</code> edges
+  from the core virus entries to the module conformance targets.</li>
+<li><strong>Enrich broad-spectrum-preventative treatments</strong> on <a href="../disorders/Influenza.html">Influenza</a>, <a href="../disorders/COVID-19.html">COVID-19</a>,
+  <a href="../disorders/Respiratory_Syncytial_Virus_Infection.html">Respiratory Syncytial Virus Infection</a>, and <a href="../disorders/Rhinovirus_Infection.html">Rhinovirus Infection</a> — tag each with
+  the right <code>therapeutic_modality</code> (<code>VACCINE</code>, <code>MONOCLONAL_ANTIBODY</code>, <code>SIRNA</code>,
+  <code>SMALL_MOLECULE</code>) and wire via <code>target_mechanisms</code> (e.g. RSV nirsevimab + RSVpreF
+  vaccine; influenza baloxavir cap-dependent-endonuclease inhibitor).
+5. Add the new slug to the <code>diseases:</code> frontmatter list here.</li>
+</ul>
+<h2 id="related">Related</h2>
+<ul>
+<li><a href="ANTIMICROBIAL.md"><code>ANTIMICROBIAL</code></a>, <a href="ANTIVIRAL.md"><code>ANTIVIRAL</code></a>, <a href="ANTIFUNGAL.md"><code>ANTIFUNGAL</code></a> — treatment-mechanism layer.</li>
+<li><a href="COMORBIDITIES.md"><code>COMORBIDITIES</code></a> — respiratory-infection comorbidity/trajectory signals (e.g. RSV → asthma, influenza → bacterial superinfection).</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>

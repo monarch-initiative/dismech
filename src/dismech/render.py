@@ -2,6 +2,7 @@
 Render disorder YAML files to HTML pages using Jinja2 templates.
 """
 
+import datetime
 import hashlib
 import html
 import json
@@ -16,8 +17,42 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+# Prefer the libyaml-backed C loader (~12x faster than the pure-Python loader).
+# The standard PyYAML Linux wheel used on GitHub's ubuntu-latest runner bundles
+# libyaml, so this path is taken in CI; the SafeLoader fallback keeps rendering
+# correct if libyaml is ever unavailable. See issue #5198.
+try:  # pragma: no cover - exercised implicitly wherever YAML is loaded
+    from yaml import CSafeLoader as _FastYamlLoader
+except ImportError:  # pragma: no cover - only when libyaml is not built
+    from yaml import SafeLoader as _FastYamlLoader
+
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
+from dismech.export.utils import RESEARCH_REPORT_PATTERN
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
+
+
+def _fast_yaml_load(stream):
+    """Parse YAML from a file object or string using the fastest safe loader."""
+    return yaml.load(stream, Loader=_FastYamlLoader)
+
+
+@lru_cache(maxsize=8)
+def _get_shared_env(template_dir_str: str) -> Environment:
+    """Return a cached Jinja Environment for a template directory.
+
+    Rendering ~1,700 pages per build previously rebuilt an Environment and
+    recompiled the templates on every page. Jinja caches compiled templates
+    per-Environment, so sharing one Environment per template directory compiles
+    each template once. ``auto_reload=False`` skips a per-render mtime stat;
+    templates never change mid-build. Per-page filters are (re)assigned by each
+    caller before rendering, which is safe because rendering is sequential.
+    """
+    return Environment(
+        loader=FileSystemLoader(template_dir_str),
+        autoescape=select_autoescape(["html", "j2"]),
+        auto_reload=False,
+    )
+
 
 _HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
@@ -111,7 +146,7 @@ STRICT_HIERARCHIES = {
 def _load_prefix_map() -> dict:
     schema_path = Path(__file__).parent / "schema" / "dismech.yaml"
     try:
-        prefixes = yaml.safe_load(schema_path.read_text()).get("prefixes", {})
+        prefixes = _fast_yaml_load(schema_path.read_text()).get("prefixes", {})
     except FileNotFoundError:
         return {}
     return {
@@ -635,7 +670,7 @@ def _load_fda_surrogate_endpoint_index(source_path: str) -> dict[str, dict]:
     path = Path(source_path)
     if not path.exists():
         return {}
-    data = yaml.safe_load(path.read_text()) or {}
+    data = _fast_yaml_load(path.read_text()) or {}
     rows = data.get("surrogate_endpoints") or []
     return {
         str(row["row_id"]): row
@@ -700,13 +735,13 @@ def _annotate_regulatory_endpoint_refs(disorder: dict, yaml_path: Path) -> None:
 def load_disorder(yaml_path: Path) -> dict:
     """Load a disorder YAML file."""
     with open(yaml_path) as f:
-        return yaml.safe_load(f)
+        return _fast_yaml_load(f)
 
 
 def load_comorbidity(yaml_path: Path) -> dict:
     """Load a comorbidity YAML file."""
     with open(yaml_path) as f:
-        return yaml.safe_load(f)
+        return _fast_yaml_load(f)
 
 
 def _parse_module_reference(value: str | None) -> tuple[str, str] | None:
@@ -1002,10 +1037,7 @@ def render_comorbidity_index(
 ) -> Path:
     """Render the comorbidity landing page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("comorbidity_index.html.j2")
 
     html = template.render(
@@ -1051,6 +1083,26 @@ def _extract_condition_slugs(condition: dict) -> list[str]:
     return slugs
 
 
+@lru_cache(maxsize=4)
+def _load_all_comorbidities(comorbidity_dir_str: str) -> tuple[tuple[Path, dict], ...]:
+    """Parse every comorbidity YAML once per build.
+
+    ``_collect_comorbidity_links`` is called once per disorder page (~1,500
+    times), and previously re-globbed and re-parsed all comorbidity files on
+    every call. Caching the parsed set collapses that to a single parse pass.
+    """
+    comorbidity_dir = Path(comorbidity_dir_str)
+    if not comorbidity_dir.exists():
+        return ()
+    parsed: list[tuple[Path, dict]] = []
+    for yaml_path in sorted(comorbidity_dir.glob("*.yaml")):
+        try:
+            parsed.append((yaml_path, load_comorbidity(yaml_path)))
+        except Exception:
+            continue
+    return tuple(parsed)
+
+
 def _collect_comorbidity_links(
     disorder_slug: str,
     comorbidity_dir: Path = Path("kb/comorbidities"),
@@ -1059,11 +1111,7 @@ def _collect_comorbidity_links(
     if not comorbidity_dir.exists():
         return []
     links: list[dict] = []
-    for yaml_path in sorted(comorbidity_dir.glob("*.yaml")):
-        try:
-            data = load_comorbidity(yaml_path)
-        except Exception:
-            continue
+    for yaml_path, data in _load_all_comorbidities(str(comorbidity_dir)):
         disease_a = data.get("disease_a", {}) or {}
         disease_b = data.get("disease_b", {}) or {}
         a_slugs = _extract_condition_slugs(disease_a)
@@ -1112,7 +1160,7 @@ def _split_front_matter(text: str) -> tuple[dict, str]:
         return {}, normalized
     for index in range(1, len(lines)):
         if lines[index].strip() == "---":
-            metadata = yaml.safe_load("\n".join(lines[1:index])) or {}
+            metadata = _fast_yaml_load("\n".join(lines[1:index])) or {}
             if not isinstance(metadata, dict):
                 metadata = {}
             return metadata, "\n".join(lines[index + 1 :])
@@ -1686,10 +1734,7 @@ def render_disorder(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
 
     # Register custom filters
     current_term_id = _extract_disorder_term_id(disorder)
@@ -1873,10 +1918,7 @@ def render_comorbidity(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         disorders_dir,
@@ -1949,10 +1991,7 @@ def render_module(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     template = env.get_template(template_name)
 
@@ -1993,10 +2032,7 @@ def render_module_index(
 ) -> Path:
     """Render the shared-module index page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("module_index.html.j2")
 
     html = template.render(
@@ -2024,62 +2060,133 @@ def _display_name_from_provider(provider: str) -> str:
     )
 
 
-def _collect_research_index_rows(
+# Shared with browser_export so the homepage report count and this index count
+# the same files (issue #5567).
+_RESEARCH_REPORT_PATTERN = RESEARCH_REPORT_PATTERN
+
+
+def _research_report_output_name(report_path: Path) -> str:
+    """Per-report HTML filename, e.g. ``Asthma-deep-research-falcon.md`` -> ``Asthma-falcon.html``."""
+    return f"{report_path.stem.replace('-deep-research-', '-', 1)}.html"
+
+
+def _format_report_date(value: object) -> str | None:
+    """Reduce a report timestamp to a bare ``YYYY-MM-DD`` date, dropping the time."""
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value.date().isoformat()
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    text = str(value).strip()
+    if not text:
+        return None
+    # Split off any time component (ISO "T" separator or a plain space).
+    date_part = re.split(r"[T ]", text, maxsplit=1)[0]
+    return date_part or None
+
+
+def _scan_research_reports(
     research_dir: Path,
     disorders_dir: Path,
 ) -> list[dict]:
-    """Collect report-count and provider metadata per disorder for index rendering."""
+    """Scan the research directory and return one metadata dict per deep-research report.
+
+    Shared by both the index (aggregated per disorder) and the per-report pages,
+    so the two views stay in lock-step. The report body is *not* rendered here —
+    that is done lazily at report-page render time to avoid parsing every markdown
+    file when only the index is needed.
+    """
     if not research_dir.exists():
         return []
 
     _, disorder_pages_by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
 
-    page_name_by_filename: dict[str, str] = {}
+    disorder_meta_by_filename: dict[str, dict] = {}
     for yaml_path in sorted(disorders_dir.glob("*.yaml")):
         if yaml_path.name.endswith(".history.yaml"):
             continue
         disorder = load_disorder(yaml_path) or {}
         disorder_name = disorder.get("name") or yaml_path.stem
-        page_name_by_filename[f"{slugify(str(disorder_name))}.html"] = str(
-            disorder_name
-        )
+        disorder_meta_by_filename[f"{slugify(str(disorder_name))}.html"] = {
+            "name": str(disorder_name),
+            "mondo_id": _extract_disorder_term_id(disorder),
+        }
 
-    rows: dict[str, dict] = {}
-    report_pattern = re.compile(
-        r"^(?P<slug>.+)-deep-research-(?P<provider>[^.]+)\.md$",
-        re.IGNORECASE,
-    )
-
+    reports: list[dict] = []
     for report_path in sorted(research_dir.glob("*.md")):
-        match = report_pattern.match(report_path.name)
+        match = _RESEARCH_REPORT_PATTERN.match(report_path.name)
         if not match:
             continue
 
         slug = match.group("slug")
-        provider = _display_name_from_provider(match.group("provider"))
+        provider_raw = match.group("provider")
+        category = _display_name_from_provider(provider_raw)
+        key = _normalize_provider_key(category)
         lookup = _normalize_disorder_lookup(_display_name_from_slug(slug))
         page_filename = disorder_pages_by_name.get(lookup)
-        row_key = page_filename or slug
+        meta = disorder_meta_by_filename.get(page_filename) if page_filename else None
 
-        if row_key not in rows:
-            disorder_name = (
-                page_name_by_filename.get(page_filename)
-                if page_filename
-                else _display_name_from_slug(slug)
-            )
-            rows[row_key] = {
-                "name": disorder_name,
-                "report_count": 0,
-                "provider_counts": defaultdict(int),
-                "href": (
+        reports.append(
+            {
+                "path": report_path,
+                "slug": slug,
+                "provider_raw": provider_raw,
+                "provider_category": category,
+                "provider_key": key,
+                "provider_label": _humanize_provider(provider_raw) or category,
+                "prefix": _PROVIDER_PREFIX_BY_KEY.get(key, ""),
+                "disorder_name": (
+                    meta["name"] if meta else _display_name_from_slug(slug)
+                ),
+                "disorder_page_filename": page_filename,
+                "disorder_page_href": (
                     f"../disorders/{page_filename}#literature-summaries"
                     if page_filename
                     else None
                 ),
+                "mondo_id": meta["mondo_id"] if meta else None,
+                "output_name": _research_report_output_name(report_path),
+                "row_key": page_filename or slug,
             }
+        )
 
-        rows[row_key]["report_count"] += 1
-        rows[row_key]["provider_counts"][provider] += 1
+    reports.sort(
+        key=lambda report: (
+            str(report["disorder_name"]).casefold(),
+            str(report["provider_label"]).casefold(),
+            report["path"].name.casefold(),
+        )
+    )
+    return reports
+
+
+def _index_rows_from_reports(reports: list[dict]) -> list[dict]:
+    """Aggregate scanned reports into one index row per disorder."""
+    rows: dict[str, dict] = {}
+    for report in reports:
+        row_key = report["row_key"]
+        if row_key not in rows:
+            rows[row_key] = {
+                "name": report["disorder_name"],
+                "mondo_id": report["mondo_id"],
+                "href": report["disorder_page_href"],
+                "report_count": 0,
+                "provider_counts": defaultdict(int),
+                "reports": [],
+            }
+        row = rows[row_key]
+        row["report_count"] += 1
+        row["provider_counts"][report["provider_category"]] += 1
+        row["reports"].append(
+            {
+                "label": report["provider_label"],
+                "key": report["provider_key"],
+                "prefix": report["prefix"],
+                "href": report["output_name"],
+                "category": report["provider_category"],
+            }
+        )
 
     normalized_rows: list[dict] = []
     for row in rows.values():
@@ -2097,18 +2204,33 @@ def _collect_research_index_rows(
                     "prefix": _PROVIDER_PREFIX_BY_KEY.get(key, ""),
                 }
             )
+        report_links = sorted(
+            row["reports"],
+            key=lambda item: str(item.get("label") or "").casefold(),
+        )
         normalized_rows.append(
             {
                 "name": row["name"],
+                "mondo_id": row["mondo_id"],
+                "mondo_url": _curie_url(row["mondo_id"]),
                 "href": row["href"],
                 "report_count": row["report_count"],
                 "provider_count": len(providers),
                 "providers": providers,
+                "reports": report_links,
             }
         )
 
     normalized_rows.sort(key=lambda row: str(row.get("name") or "").casefold())
     return normalized_rows
+
+
+def _collect_research_index_rows(
+    research_dir: Path,
+    disorders_dir: Path,
+) -> list[dict]:
+    """Collect report-count and provider metadata per disorder for index rendering."""
+    return _index_rows_from_reports(_scan_research_reports(research_dir, disorders_dir))
 
 
 def render_research_index(
@@ -2117,10 +2239,7 @@ def render_research_index(
 ) -> Path:
     """Render the deep-research disorder index page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("research_index.html.j2")
 
     provider_options = [
@@ -2142,15 +2261,283 @@ def render_research_index(
     return output_path
 
 
+# ---------------------------------------------------------------------------
+# Report-body enrichment: identifier autolinking, citation cross-refs, tables
+# ---------------------------------------------------------------------------
+# OBO Foundry PURL prefixes we resolve to http://purl.obolibrary.org/obo/<ID>.
+# Canonical namespace casing differs from the CURIE prefix only for NCBITaxon.
+_OBO_CURIE_PREFIXES: dict[str, str] = {
+    prefix: prefix
+    for prefix in (
+        "MONDO", "HP", "GO", "CL", "UBERON", "CHEBI", "MAXO", "DOID", "GENO",
+        "NCIT", "PATO", "SO", "MP", "PR", "OBA", "UPHENO", "ECO", "RO", "BFO",
+    )
+}
+_OBO_CURIE_PREFIXES["NCBITAXON"] = "NCBITaxon"
+
+# Autolink target: a bare URL, a PMID, a DOI, or an OBO/other CURIE in prose.
+_REPORT_AUTOLINK_RE = re.compile(
+    r"(?P<url>https?://[^\s<>\"']+)"
+    r"|(?P<pmid>PMID:?\s?\d+)"
+    r"|(?P<doi>[Dd][Oo][Ii]:\s?10\.\d{4,9}/[^\s<>\"'),;]+)"
+    r"|(?P<curie>[A-Z][A-Z0-9]{1,9}:\d{2,})"
+)
+_REPORT_AUTOLINK_SKIP_TAGS = {"a", "code", "pre", "script", "style"}
+
+# Inline citation token, e.g. "russell2024theairwayepithelium pages 6-7".
+_REPORT_CITE_TOKEN_RE = re.compile(
+    r"[A-Za-z][A-Za-z0-9]*\d{4}[A-Za-z0-9]*\s+pages?\s+"
+    r"[\dIVXLCivxlc]+(?:[-–][\dIVXLCivxlc]+)?"
+)
+# A numbered reference entry, e.g. "1. (russell2024... pages 6-7): ...".
+_REPORT_REF_ENTRY_RE = re.compile(
+    r"^(?P<pre>\s*\d+\.\s*)\((?P<tag>[^)]+)\)(?P<post>\s*:)",
+    re.MULTILINE,
+)
+_REPORT_REFERENCES_HEADING_RE = re.compile(
+    r"(?mi)^[ \t]*#{0,6}[ \t]*references[ \t]*$"
+)
+
+
+def _curie_url(curie: str | None) -> str | None:
+    """Resolve a CURIE to a browsable URL (OBO PURL, PubMed, doi.org, or Bioregistry)."""
+    if not curie or ":" not in curie:
+        return None
+    prefix, local = curie.split(":", 1)
+    prefix, local = prefix.strip(), local.strip()
+    if not prefix or not local:
+        return None
+    upper = prefix.upper()
+    if upper == "PMID":
+        return f"https://pubmed.ncbi.nlm.nih.gov/{local}/"
+    if upper == "DOI":
+        return f"https://doi.org/{local}"
+    if upper in _OBO_CURIE_PREFIXES:
+        return f"http://purl.obolibrary.org/obo/{_OBO_CURIE_PREFIXES[upper]}_{local}"
+    return f"https://bioregistry.io/{prefix}:{local}"
+
+
+def _external_link(href: str, label: str) -> str:
+    """Build an external anchor tag (labels are already HTML-escaped text nodes)."""
+    return f'<a href="{href}" target="_blank" rel="noopener noreferrer">{label}</a>'
+
+
+def _autolink_report_text(text: str) -> str:
+    """Autolink URLs, PMIDs, DOIs, and CURIEs within a single HTML text node."""
+
+    def _replace(match: re.Match[str]) -> str:
+        kind = match.lastgroup
+        token = match.group(0)
+        trail = ""
+        if kind in {"url", "doi"}:
+            while token and token[-1] in ".,;:":
+                trail = token[-1] + trail
+                token = token[:-1]
+            if token.endswith(")") and "(" not in token:
+                trail = ")" + trail
+                token = token[:-1]
+        if kind == "url":
+            href = token
+        elif kind == "pmid":
+            digits = re.search(r"\d+", token).group(0)
+            href = f"https://pubmed.ncbi.nlm.nih.gov/{digits}/"
+        elif kind == "doi":
+            doi = re.sub(r"(?i)^doi:\s?", "", token)
+            href = f"https://doi.org/{doi}"
+        else:  # curie
+            href = _curie_url(token) or token
+        return _external_link(href, token) + trail
+
+    return _REPORT_AUTOLINK_RE.sub(_replace, text)
+
+
+def _autolink_report_html(html_doc: str) -> str:
+    """Autolink identifiers in text nodes only, skipping links and code spans."""
+    parts = re.split(r"(<[^>]+>)", html_doc)
+    skip_depth = 0
+    out: list[str] = []
+    for part in parts:
+        if part.startswith("<") and part.endswith(">"):
+            name_match = re.match(r"</?\s*([a-zA-Z0-9]+)", part)
+            name = name_match.group(1).lower() if name_match else ""
+            if name in _REPORT_AUTOLINK_SKIP_TAGS:
+                if part.startswith("</"):
+                    skip_depth = max(0, skip_depth - 1)
+                elif not part.endswith("/>"):
+                    skip_depth += 1
+            out.append(part)
+        elif part and skip_depth == 0:
+            out.append(_autolink_report_text(part))
+        else:
+            out.append(part)
+    return "".join(out)
+
+
+def _cite_slug(text: str) -> str:
+    """Stable anchor slug shared by a citation token and its reference entry."""
+    return re.sub(r"[^a-z0-9]+", "-", text.strip().lower()).strip("-")
+
+
+def _link_report_citations(body_md: str) -> str:
+    """Turn inline citation tokens into links to anchored reference entries.
+
+    Reports carry a trailing ``References`` section whose entries are tagged
+    ``N. (key pages X-Y): ...``. We anchor each entry and rewrite the matching
+    inline ``key pages X-Y`` tokens (in the body above the section) into links
+    to that anchor, preserving the visible text (including page numbers).
+    """
+    heading = _REPORT_REFERENCES_HEADING_RE.search(body_md)
+    if not heading:
+        return body_md
+
+    main_md, refs_md = body_md[: heading.start()], body_md[heading.start() :]
+    ref_slugs: set[str] = set()
+
+    def _anchor(match: re.Match[str]) -> str:
+        slug = _cite_slug(match.group("tag"))
+        ref_slugs.add(slug)
+        return (
+            f'{match.group("pre")}<a id="ref-{slug}"></a>'
+            f'({match.group("tag")}){match.group("post")}'
+        )
+
+    refs_md = _REPORT_REF_ENTRY_RE.sub(_anchor, refs_md)
+    if not ref_slugs:
+        return body_md
+
+    def _link(match: re.Match[str]) -> str:
+        token = match.group(0)
+        slug = _cite_slug(token)
+        return f"[{token}](#ref-{slug})" if slug in ref_slugs else token
+
+    return _REPORT_CITE_TOKEN_RE.sub(_link, main_md) + refs_md
+
+
+def _collapse_report_tables(html_doc: str) -> str:
+    """Wrap each rendered table in a collapsed <details> so wide tables don't overflow."""
+
+    def _wrap(match: re.Match[str]) -> str:
+        return (
+            '<details class="report-table">'
+            "<summary>Table (click to expand)</summary>"
+            f'<div class="report-table-scroll">{match.group(0)}</div>'
+            "</details>"
+        )
+
+    return re.sub(r"(?is)<table\b.*?</table>", _wrap, html_doc)
+
+
+def _render_report_body_html(body_md: str, base_prefix: str) -> str:
+    """Convert a report's markdown body to enriched, self-contained HTML."""
+    if not body_md:
+        return ""
+    md = markdown_lib.Markdown(extensions=["tables", "fenced_code"])
+    body_html = md.convert(_link_report_citations(body_md))
+    body_html = _rebase_relative_html_urls(body_html, base_prefix)
+    body_html = _autolink_report_html(body_html)
+    body_html = _collapse_report_tables(body_html)
+    return body_html
+
+
+def _research_report_template():
+    """Load the per-report Jinja2 template (shared across a render batch)."""
+    template_dir = Path(__file__).parent / "templates"
+    env = _get_shared_env(str(template_dir))
+    return env.get_template("research_report.html.j2")
+
+
+def render_research_report(
+    report: dict,
+    siblings: list[dict],
+    prev_report: dict | None,
+    next_report: dict | None,
+    output_dir: Path = Path("pages/research"),
+    template=None,
+) -> Path:
+    """Render a single deep-research markdown report to a standalone HTML page."""
+    if template is None:
+        template = _research_report_template()
+
+    report_path: Path = report["path"]
+    metadata, body = _extract_literature_body(report_path.read_text())
+
+    base_prefix = os.path.relpath(report_path.parent.resolve(), output_dir.resolve())
+    body_html = _render_report_body_html(body, base_prefix)
+
+    subtitle = _extract_display_title(body, "")
+    if subtitle.casefold() in {"", "disorder", str(report["disorder_name"]).casefold()}:
+        subtitle = None
+
+    context = dict(report)
+    context.update(
+        {
+            "subtitle": subtitle,
+            "body_html": body_html,
+            "mondo_url": _curie_url(report.get("mondo_id")),
+            "model": metadata.get("model"),
+            "citation_count": metadata.get("citation_count"),
+            "date": _format_report_date(
+                metadata.get("end_time") or metadata.get("start_time")
+            ),
+            "source_url": _github_blob_url(Path("research") / report_path.name),
+        }
+    )
+
+    html = template.render(
+        report=context,
+        siblings=siblings,
+        prev_report=prev_report,
+        next_report=next_report,
+        provider_registry=DEEP_RESEARCH_PROVIDERS,
+    )
+
+    output_path = output_dir / report["output_name"]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_research_reports(
+    reports: list[dict],
+    output_dir: Path = Path("pages/research"),
+) -> list[Path]:
+    """Render standalone HTML pages for every scanned deep-research report."""
+    siblings_by_row: dict[str, list[dict]] = defaultdict(list)
+    for report in reports:
+        siblings_by_row[report["row_key"]].append(report)
+
+    template = _research_report_template()
+    output_paths: list[Path] = []
+    for index, report in enumerate(reports):
+        prev_report = reports[index - 1] if index > 0 else None
+        next_report = reports[index + 1] if index + 1 < len(reports) else None
+        output_paths.append(
+            render_research_report(
+                report,
+                siblings=siblings_by_row[report["row_key"]],
+                prev_report=prev_report,
+                next_report=next_report,
+                output_dir=output_dir,
+                template=template,
+            )
+        )
+    return output_paths
+
+
 def render_research_index_page(
     research_dir: Path = Path("research"),
     disorders_dir: Path = Path("kb/disorders"),
     output_path: Path = Path("pages/research/index.html"),
 ) -> Path:
-    """Collect and render a browsable deep-research index page."""
-    rows = _collect_research_index_rows(research_dir, disorders_dir)
+    """Collect and render the browsable index plus every per-report page."""
+    reports = _scan_research_reports(research_dir, disorders_dir)
+    rows = _index_rows_from_reports(reports)
     rendered_path = render_research_index(rows, output_path)
-    print(f"Rendered research index -> {rendered_path}")
+    report_pages = render_all_research_reports(reports, output_dir=output_path.parent)
+    print(
+        f"Rendered research index -> {rendered_path} "
+        f"({len(report_pages)} per-report pages)"
+    )
     return rendered_path
 
 
@@ -2246,7 +2633,7 @@ EXACT_MATCH = "skos:exactMatch"
 
 def load_grouping(yaml_path: Path) -> dict:
     """Load a grouping YAML file."""
-    return yaml.safe_load(yaml_path.read_text()) or {}
+    return _fast_yaml_load(yaml_path.read_text()) or {}
 
 
 def _term_chip(descriptor: dict | None) -> dict | None:
@@ -3028,10 +3415,7 @@ def _render_grouping_document(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     template = env.get_template(template_name)
 
@@ -3124,10 +3508,7 @@ def render_grouping_index(
 ) -> Path:
     """Render the disease-grouping index page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("grouping_index.html.j2")
     sorted_groupings = sorted(
         groupings, key=lambda g: str(g.get("name") or "").casefold()
@@ -3388,10 +3769,7 @@ def _render_project_html(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     template = env.get_template(template_name)
 
@@ -3457,10 +3835,7 @@ def render_project_index(
 ) -> Path:
     """Render the curation-project index page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("project_index.html.j2")
     sorted_projects = sorted(
         projects, key=lambda project: str(project.get("title") or "").casefold()
@@ -3525,7 +3900,7 @@ def render_all_projects(
 def _load_schema() -> dict:
     schema_path = Path(__file__).parent / "schema" / "dismech.yaml"
     try:
-        return yaml.safe_load(schema_path.read_text()) or {}
+        return _fast_yaml_load(schema_path.read_text()) or {}
     except FileNotFoundError:
         return {}
 
@@ -3607,7 +3982,7 @@ def _load_classification_enums() -> dict:
     if not classification_dir.exists():
         return enums
     for path in sorted(classification_dir.glob("*.yaml")):
-        data = yaml.safe_load(path.read_text()) or {}
+        data = _fast_yaml_load(path.read_text()) or {}
         source_meta = {
             "source_id": data.get("id"),
             "source_name": data.get("name"),
@@ -3708,10 +4083,7 @@ def render_classification_index(
 ) -> Path:
     """Render the classification landing page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("classification_index.html.j2")
 
     html = template.render(
@@ -3792,10 +4164,7 @@ def render_classification_pages(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         input_dir,
@@ -3855,14 +4224,26 @@ def render_all_disorders(
     input_dir: Path = Path("kb/disorders"),
     output_dir: Path = Path("pages/disorders"),
     template_path: Optional[Path] = None,
+    only: Optional[set[Path]] = None,
+    render_research: bool = True,
 ) -> list[Path]:
     """
-    Render all disorder YAML files to HTML pages.
+    Render disorder YAML files to HTML pages.
 
     Args:
         input_dir: Directory containing disorder YAML files
         output_dir: Directory for output HTML files
         template_path: Optional custom template path
+        only: If given, render individual disorder pages only for these disorder
+            YAML paths (incremental mode); the disorder-dependent aggregate/index
+            pages (comorbidities, modules, classification pages) are rendered
+            regardless, so a page that lists disorders stays current. ``None``
+            renders every disorder (full build).
+        render_research: Whether to (re)render the research index and its
+            per-report pages. This pass is expensive and essentially independent
+            of disorder edits, so incremental builds skip it unless a research
+            report actually changed; the daily full-rebuild backstop keeps the
+            research index's disorder cross-links fresh.
 
     Returns:
         List of generated HTML file paths
@@ -3870,13 +4251,19 @@ def render_all_disorders(
     output_dir.mkdir(parents=True, exist_ok=True)
     render_all_comorbidities()
     render_all_modules(disorders_dir=input_dir)
-    render_research_index_page(disorders_dir=input_dir)
+    if render_research:
+        render_research_index_page(disorders_dir=input_dir)
 
     yaml_files = [
         path
         for path in sorted(input_dir.glob("*.yaml"))
         if not path.name.endswith(".history.yaml")
     ]
+    if only is not None:
+        only_resolved = {path.resolve() for path in only}
+        yaml_files = [
+            path for path in yaml_files if path.resolve() in only_resolved
+        ]
     output_files = []
 
     # Each disorder should have a name,
@@ -3892,7 +4279,8 @@ def render_all_disorders(
 
     render_classification_pages(input_dir=input_dir)
 
-    print(f"\nGenerated {len(output_files)} HTML pages in {output_dir}")
+    scope = "changed" if only is not None else "all"
+    print(f"\nGenerated {len(output_files)} disorder HTML pages ({scope}) in {output_dir}")
     return output_files
 
 
@@ -3923,10 +4311,68 @@ def main():
     )
     parser.add_argument("--output", "-o", help="Output path (file or directory)")
     parser.add_argument("--template", "-t", help="Custom template path")
+    parser.add_argument(
+        "--changed",
+        nargs="*",
+        metavar="FILE",
+        help=(
+            "Incremental build: render individual disorder pages only for these "
+            "changed kb/disorders/*.yaml files. The aggregate/index pages "
+            "(comorbidities, modules, research index, classification pages) are "
+            "always regenerated, so changed comorbidity/module/research files are "
+            "picked up too. Use only when no global input (template, render.py, "
+            "schema, styles) changed — those require a full --all build."
+        ),
+    )
+    parser.add_argument(
+        "--changed-from",
+        metavar="FILE",
+        help=(
+            "Like --changed, but read the newline-delimited changed paths from "
+            "FILE. Robust to any characters in filenames; used by the "
+            "generate-pages workflow's incremental build."
+        ),
+    )
 
     args = parser.parse_args()
 
     template_path = Path(args.template) if args.template else None
+
+    changed_values = args.changed
+    if args.changed_from is not None:
+        changed_file = Path(args.changed_from)
+        changed_values = (
+            [
+                line.strip()
+                for line in changed_file.read_text().splitlines()
+                if line.strip()
+            ]
+            if changed_file.exists()
+            else []
+        )
+
+    if changed_values is not None:
+        disorders_dir = Path("kb/disorders")
+        disorders_root = disorders_dir.resolve()
+        research_root = Path("research").resolve()
+        changed_paths = [Path(p) for p in changed_values]
+        only = {
+            path
+            for path in changed_paths
+            if path.resolve().parent == disorders_root
+            and path.name.endswith(".yaml")
+            and not path.name.endswith(".history.yaml")
+        }
+        # The research pass is expensive and disorder-independent; only run it
+        # when a research report actually changed.
+        research_changed = any(
+            path.resolve().parent == research_root and path.name.endswith(".md")
+            for path in changed_paths
+        )
+        render_all_disorders(
+            input_dir=disorders_dir, only=only, render_research=research_changed
+        )
+        return
 
     if args.comorbidity:
         if args.path is None:

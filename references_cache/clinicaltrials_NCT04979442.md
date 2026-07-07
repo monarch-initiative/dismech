@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04979442"
 title: A Randomized Multicenter Phase 3 Study of Milademetan Versus Trabectedin in Patients With Dedifferentiated Liposarcoma
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized Multicenter Phase 3 Study of Milademetan Versus Trabectedin in Patients With Dedifferentiated Liposarcoma
