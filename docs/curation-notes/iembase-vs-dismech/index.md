@@ -822,3 +822,18 @@ Source inputs for these batches:
 | 647 | FKRP-related muscular dystrophy-dystroglycanopathy type C | UNMAPPED | Covered locally by both `Dystroglycanopathy.yaml` and FKRP/LGMDR9 in AR LGMD; preserve myoglobinuria and tongue-hypertrophy prompts not clearly captured locally. |
 | 648 | VPS33A-related mucopolysaccharidosis-plus syndrome | UNMAPPED | Reject Hurler syndrome as exact; true VPS33A MPS-plus gap with GAG/oligosaccharide, hematologic, renal, cardiac, respiratory, infection, neurodevelopmental, and storage-phenotype prompts. |
 | 650 | TIMM50-related 3-methylglutaconic aciduria type 9 | UNMAPPED | Reject glutaryl-CoA dehydrogenase deficiency as exact; true TIMM50/3-methylglutaconic aciduria type 9 gap with lactate, 3-MGA, epilepsy, hypsarrhythmia, optic atrophy, and brain-imaging prompts. |
+
+## Batch 55
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 651 | HAAO-related 3-hydroxyanthranilic acid 3,4-dioxygenase deficiency | UNMAPPED | Reject alkaptonuria; true HAAO/VCRL1 gap with 3-hydroxyanthranilic acid, NAD+, cardiac, renal, limb, hearing, stature, and ID prompts. |
+| 652 | KYNU-related 3-hydroxykynureninase deficiency | UNMAPPED | Reject hereditary orotic aciduria; true KYNU/VCRL2/xanthurenic aciduria gap with kynurenine-pathway metabolites, NAD+, cardiac, renal, limb, stature, and speech prompts. |
+| 653 | TPI1-related triosephosphate isomerase deficiency | UNMAPPED | Reject intrinsic factor deficiency; true TPI1 glycolytic hemolytic-anemia gap with red-cell TPI/DHAP, infections, neuromuscular, cardiac, seizure, and stroke prompts. |
+| 655 | DHTKD1-related 2-aminoadipic 2-oxoadipic aciduria | UNMAPPED | Reject D-2-hydroxyglutaric aciduria as exact; true DHTKD1/AMOXAD gap with adipic/ketoadipic organic-acid, ketone, acidosis, developmental, and seizure prompts. |
+| 656 | CA5A-related carbonic anhydrase VA deficiency | UNMAPPED | Broad hyperammonemia/UCD context only; true CA5A gap with ammonia, lactate, glucose, amino-acid, organic-acid, acylglycine, encephalopathy, coma, and feeding prompts. |
+| 657 | ALDH3A2-related fatty aldehyde dehydrogenase deficiency | UNMAPPED | Reject Sjogren autoimmune disease as an eponym collision; true ALDH3A2/Sjogren-Larsson gap with enzyme, ichthyosis, spasticity, ID, leukoencephalopathy, and macular prompts. |
+| 658 | TTPA-related alpha-tocopherol transfer protein deficiency | MAPPED | Correct exact AVED mapping to `Familial_Isolated_Vitamin_E_Deficiency.yaml`; IEMbase adds lipid, broad-beta electrophoresis, brain MRI, and xanthoma prompts. |
+| 659 | ABCD3-related congenital bile acid synthesis defect | MAPPED | Broad bile-acid umbrella context only; exact ABCD3/PMP70 subtype gap with THCA/C27 bile acids, normal peroxisomal lipid markers, liver, anemia, and hepatosplenomegaly prompts. |
+| 660 | ACOX2-related congenital bile acid synthesis defect | MAPPED | Broad bile-acid umbrella context only; exact ACOX2/CBAS6 subtype gap with C24/C27 bile-acid directionality, vitamin D, cholesterol, ataxia, cognition, steatorrhea, and fibrosis prompts. |
+| 661 | UGT1A1-related UDP-glucuronosyltransferase A1 deficiency | MAPPED | Partial Gilbert-only coverage; severe Crigler-Najjar/bilirubin-neurotoxicity scope remains under-covered, including convulsions, abnormal eye movements, hearing, and neonatal instability. |
