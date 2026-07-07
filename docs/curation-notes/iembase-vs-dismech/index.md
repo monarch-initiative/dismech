@@ -522,3 +522,18 @@ Source inputs for these batches:
 | 376 | LIPC-related Hepatic lipase deficiency | UNMAPPED | True LIPC hepatic lipase deficiency gap; reject hepatic veno-occlusive disease lexical candidate. |
 | 377 | SCARB1-related Scavenger receptor B1 deficiency | UNMAPPED | True SCARB1/SR-BI deficiency gap; reject triple-negative breast cancer candidate. |
 | 378 | ABCA1-related Tangier disease | MAPPED | Correct Tangier disease mapping with high concordance; IEMbase adds concise orange tonsil, HDL, triglyceride, and ApoA-I prompts. |
+
+## Batch 35
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 379 | APOA1-related Apolipoprotein A-I deficiency | UNMAPPED | True APOA1 deficiency gap; do not reuse Tangier disease just because low HDL/ApoA-I vocabulary overlaps. |
+| 380 | LCAT-related Familial lecithin cholesterol acyl transferase deficiency | UNMAPPED | True LCAT deficiency gap; reject lipoyl transferase 1 as a lexical false-positive candidate. |
+| 381 | LPL-related Lipoprotein lipase deficiency | UNMAPPED | False negative; resolve to `Familial_Chylomicronemia_Syndrome.yaml`, with LPL/familial hyperchylomicronemia as the relevant branch. |
+| 382 | CLN8-related Northern epilepsy variant | UNMAPPED | True CLN8-EPMR subtype gap; broad NCL context is useful but not an exact Northern epilepsy target. |
+| 383 | ALG11-related Mannosyltransferase 4-5 deficiency (CDG) | UNMAPPED | True ALG11-CDG gap; reject ALG12-CDG as a type I CDG family-neighbor candidate. |
+| 384 | MAGT1-related Magnesium transporter 1 deficiency (CDG) | UNMAPPED | True MAGT1/XMEN-CDG gap; reject GSD I/GSD Ib and keep EBV-susceptibility mentions as differential context only. |
+| 385 | CHSY1-related Chondroitin sulfate synthase 1 deficiency (CDG) | MAPPED | Correct Temtamy preaxial brachydactyly mapping with high concordance; preserve the source spelling variant as source metadata. |
+| 386 | PIGY-related Phosphatidylinositolglycan, class V, deficiency (CDG) | UNMAPPED | True PIGY GPI-anchor deficiency gap; reject CHIME/PIGL as a pathway-neighbor candidate. |
+| 387 | DPM3-related GDP-Man:Dol-P mannosyltransferase 3 deficiency (CDG) | UNMAPPED | False negative; resolve to `Dystroglycanopathy.yaml#DPM3-related dystroglycanopathy`, with CDG biochemical enrichment prompts. |
+| 388 | COG5-related Conserved oligomeric Golgi complex subunit 5 deficiency (CDG) | CANDIDATE | Reject COG1-CDG candidate; true COG5-CDG gap, with COG-complex/type II CDG context only. |
