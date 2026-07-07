@@ -792,3 +792,18 @@ Source inputs for these batches:
 | 627 | PIGW-related hyperphosphatasia with mental retardation syndrome 5 | UNMAPPED | Reject PIGL/CHIME as exact; true PIGW/HPMRS5 GPI-anchor gap with alkaline phosphatase, decreased GPI markers, epilepsy, hypotonia, and developmental-delay prompts. |
 | 628 | PIGC-related developmental disability with drug-responsive epilepsy | UNMAPPED | Reject IRX5 craniofacial/ID candidate; true PIGC-CDG gap with decreased GPI markers, seizures, intellectual disability, ataxia, cerebellar, hypotonia, and facial prompts. |
 | 629 | PIGG-related glycosylphosphatidylinositol biosynthesis defect 13 | UNMAPPED | True PIGG/GPIBD13 gap; keep separate from Wolf-Hirschhorn PIGG haploinsufficiency context and preserve normal GPI-marker caveat. |
+
+## Batch 53
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 630 | PGAP1-related GPI deacylase deficiency | UNMAPPED | True PGAP1/GPI-deacylase gap; keep separate from chromosome 2q32-q33 deletion PGAP1 haploinsufficiency context and preserve neurodevelopmental, epilepsy, MRI, hypotonia, movement, apnea, hand, and facial prompts. |
+| 631 | PGAP3-related hyperphosphatasia with mental retardation syndrome 4 | UNMAPPED | Reject PIGL/CHIME as exact; true PGAP3/HPMRS4 GPI-anchor maturation gap with alkaline phosphatase, decreased GPI markers, hypotonia, epilepsy, intellectual disability, ataxia, cleft-palate, and micrognathia prompts. |
+| 632 | TRAPPC11-related limb-girdle muscular dystrophy 2S | UNMAPPED | Reject autosomal dominant LGMD as exact; true recessive TRAPPC11/LGMD2S-CDG gap with CK, weakness/myopathy, cholestasis, neurodevelopmental, cerebral atrophy, hip, skeletal, and facial prompts. |
+| 633 | VPS13B-related Cohen syndrome | UNMAPPED | Reject GM3 synthase deficiency; true VPS13B/Cohen syndrome gap with transferrin glycoforms, myopia, chorioretinal degeneration, neutropenia, obesity, microcephaly, ID, and joint-laxity prompts. |
+| 634 | TMEM199-related congenital disorder of glycosylation | CANDIDATE | Reject ALG12-CDG as exact; true TMEM199-CDG/CDG-IIp gap with alkaline phosphatase, transaminase, type 2 sialotransferrin, apolipoprotein CIII, low ceruloplasmin, and hepatomegaly prompts. |
+| 635 | ATP6AP1-related immunodeficiency 47 and hepatopathy | UNMAPPED | Reject IKBKG immunodeficiency and somatic ATP6AP1 granular-cell-tumor context; true inherited ATP6AP1-CDG gap with glycosylation, copper/ceruloplasmin, immunoglobulin, liver, infection, pancreatic, neurologic, and cutis-laxa prompts. |
+| 636 | ATP6V1A-related autosomal recessive cutis laxa type IID | UNMAPPED | Reject EDAR HED and somatic ATP6V1A tumor context; true ATP6V1A cutis-laxa/CDG gap with sialotransferrin, cutis laxa, seizures, hypotonia, cardiovascular, brain MRI, contracture, kyphoscoliosis, ocular, and facial prompts. |
+| 637 | ATP6V1E1-related autosomal recessive cutis laxa type IIC | UNMAPPED | Reject chronic granulomatous disease; true ATP6V1E1 cutis-laxa/CDG gap with type 2 sialotransferrin, cutis laxa, hypotonia, cardiovascular, skeletal/contracture, cleft-palate, ocular, dental, and facial prompts. |
+| 638 | XYLT1-related Desbuquois dysplasia 2 | UNMAPPED | Reject FBN1-related geleophysic dysplasia 2 and CANT1/Desbuquois mentions as exact; true XYLT1/Desbuquois dysplasia 2 gap with brachydactyly, femoral, patellar, coronal-cleft, joint-laxity, short-stature, craniofacial, and clubfoot prompts. |
+| 639 | XYLT2-related spondyloocular syndrome | UNMAPPED | True XYLT2/spondyloocular syndrome gap; preserve combined bone-density/fracture, vertebral, cataract, retinal-detachment, hearing-loss, cardiac, stature, kyphosis, and ID prompts. |
