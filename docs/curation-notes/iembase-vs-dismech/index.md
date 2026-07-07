@@ -492,3 +492,18 @@ Source inputs for these batches:
 | 351 | SLC35D1-related UDP-glucuronic acid/UDP-GalNAc transporter deficiency (CDG) | MAPPED | Correct Schneckenbecken dysplasia mapping with high concordance; IEMbase adds CDG framing and normal sialotransferrins. |
 | 352 | POMT1-related O-mannosyltransferase 1 deficiency (CDG) | UNMAPPED | False negative; resolve to the POMT1/MDDG1 context in `Dystroglycanopathy.yaml`. |
 | 353 | POMT2-related O-mannosyltransferase 2 deficiency (CDG) | UNMAPPED | False negative; resolve to the POMT2/MDDG2 context in `Dystroglycanopathy.yaml`. |
+
+## Batch 33
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 354 | POMGNT1-related O-Mannose beta-1,2-N-acetyglucosaminyltransferase deficiency (CDG) | UNMAPPED | False negative; resolve to the POMGNT1/MDDG3 context in `Dystroglycanopathy.yaml`. |
+| 358 | LFNG-rerlated O-Fucose-specific beta-1,3-N-acetylglucosaminyltransferase deficiency (CDG) | UNMAPPED | False negative; resolve to `Spondylocostal_Dysostosis.yaml` LFNG/SCDO3 context and preserve the source-label typo only as source metadata. |
+| 359 | B3GALTL-related O-Fucose-specific beta-1,3-N-glucosyltransferase deficiency (CDG) | UNMAPPED | True B3GLCT/Peters plus syndrome gap; reject Gaucher disease and phenotype-only anterior-segment neighbors. |
+| 360 | ST3GAL5-related Lactosylceramide alpha-2,3-sialyltransferase deficiency (CDG) | MAPPED | Correct GM3 synthase deficiency mapping with high concordance; review IEMbase ORPHA:370938 versus local ORPHA:370933. |
+| 361 | PIGM-related Phosphatidylinositolglycan, class M, deficiency (CDG) | UNMAPPED | True PIGM-CDG/GPI anchor deficiency gap; reject MHC class II deficiency and retain thrombosis/GPI-flow/sodium phenylbutyrate prompts. |
+| 362 | PRPS1-related Phosphoribosyl pyrophosphate synthetase 1 superactivity | CANDIDATE | Accept the PRPS1 Superactivity candidate as the correct local target with high concordance. |
+| 363 | IMPDH1-related Inosine-5'-monophosphate dehydrogenase deficiency | CANDIDATE | Reject GUCY2D retinopathy candidate; true IMPDH1 RP10/LCA11 gap despite shared retinal dystrophy phenotype. |
+| 364 | XDH-related Xanthine oxidase deficiency | UNMAPPED | True XDH xanthinuria type I gap; reject chronic granulomatous disease and preserve xanthine/hypoxanthine/uric-acid prompts. |
+| 367 | LDLR-related Familial hypercholesterolemia heterozygous (LDLR) | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml`, heterozygous FH/LDLR branch. |
+| 368 | APOB-related Familial defective apolipoprotein B | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml`, APOB-LDLR binding-defect branch, and verify fibrates before import. |
