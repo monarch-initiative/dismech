@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.61256"
+reference_id: DOI:10.1002/ajmg.a.61256
 title: "Sensitive detection of <i>FGFR1 N546K</i> mosaic mutation in patient with encephalocraniocutaneous lipomatosis and pilocytic astrocytoma"
 authors:
 - Joanna Kordacka
@@ -14,6 +14,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2019'
 doi: 10.1002/ajmg.a.61256
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Sensitive detection of <i>FGFR1 N546K</i> mosaic mutation in patient with encephalocraniocutaneous lipomatosis and pilocytic astrocytoma

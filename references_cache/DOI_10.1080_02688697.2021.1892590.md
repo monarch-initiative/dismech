@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/02688697.2021.1892590"
+reference_id: DOI:10.1080/02688697.2021.1892590
 title: "Intravertebral insertion of interbody fusion cage via transpedicular approach for the treatment of stage III Kümmell disease: a technical note and case presentation"
 authors:
 - Changjun Chen
@@ -11,6 +11,7 @@ journal: British Journal of Neurosurgery
 year: '2023'
 doi: 10.1080/02688697.2021.1892590
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Intravertebral insertion of interbody fusion cage via transpedicular approach for the treatment of stage III Kümmell disease: a technical note and case presentation

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-2006-947284"
+reference_id: DOI:10.1055/s-2006-947284
 title: Waardenburg Syndrome
 authors:
 - Julie Schultz
@@ -7,6 +7,7 @@ journal: Seminars in Hearing
 year: '2006'
 doi: 10.1055/s-2006-947284
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Waardenburg Syndrome

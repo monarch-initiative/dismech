@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/nan.12587"
+reference_id: DOI:10.1111/nan.12587
 title: "Review: Danon disease: Review of natural history and recent advances"
 authors:
 - G. Cenacchi
@@ -12,6 +12,7 @@ journal: Neuropathology and Applied Neurobiology
 year: '2020'
 doi: 10.1111/nan.12587
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Review: Danon disease: Review of natural history and recent advances

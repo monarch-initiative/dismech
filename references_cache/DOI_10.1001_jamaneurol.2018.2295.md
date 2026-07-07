@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamaneurol.2018.2295"
+reference_id: DOI:10.1001/jamaneurol.2018.2295
 title: Definition and Consensus Diagnostic Criteria for Neurosarcoidosis
 authors:
 - Barney J. Stern
@@ -20,6 +20,7 @@ journal: JAMA Neurology
 year: '2018'
 doi: 10.1001/jamaneurol.2018.2295
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Definition and Consensus Diagnostic Criteria for Neurosarcoidosis

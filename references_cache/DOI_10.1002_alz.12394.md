@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/alz.12394"
+reference_id: DOI:10.1002/alz.12394
 title: Mitochondrial ROS control neuronal excitability and cell fate in frontotemporal dementia
 authors:
 - Noemí Esteras
@@ -16,6 +16,7 @@ journal: "Alzheimer's &amp; Dementia"
 year: '2022'
 doi: 10.1002/alz.12394
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mitochondrial ROS control neuronal excitability and cell fate in frontotemporal dementia

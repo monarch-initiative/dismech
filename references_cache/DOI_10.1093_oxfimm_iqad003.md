@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/oxfimm/iqad003"
+reference_id: DOI:10.1093/oxfimm/iqad003
 title: Achieving symptom relief in patients with myalgic encephalomyelitis by targeting the neuro-immune interface and optimizing disease tolerance
 authors:
 - Lucie Rodriguez
@@ -20,6 +20,7 @@ journal: Oxford Open Immunology
 year: '2023'
 doi: 10.1093/oxfimm/iqad003
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Achieving symptom relief in patients with myalgic encephalomyelitis by targeting the neuro-immune interface and optimizing disease tolerance

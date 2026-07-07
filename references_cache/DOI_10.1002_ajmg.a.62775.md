@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.62775"
+reference_id: DOI:10.1002/ajmg.a.62775
 title: "Expanding <scp><i>ACTA2</i></scp> genotypes with corresponding phenotypes overlapping with smooth muscle dysfunction syndrome"
 authors:
 - Anita Kaw
@@ -22,6 +22,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2022'
 doi: 10.1002/ajmg.a.62775
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Expanding <scp><i>ACTA2</i></scp> genotypes with corresponding phenotypes overlapping with smooth muscle dysfunction syndrome

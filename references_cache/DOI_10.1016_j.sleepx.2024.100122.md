@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.sleepx.2024.100122"
+reference_id: DOI:10.1016/j.sleepx.2024.100122
 title: "RESTORE: Once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates"
 authors:
 - Asim Roy
@@ -21,6 +21,7 @@ journal: "Sleep Medicine: X"
 year: '2024'
 doi: 10.1016/j.sleepx.2024.100122
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # RESTORE: Once-nightly oxybate dosing preference and nocturnal experience with twice-nightly oxybates

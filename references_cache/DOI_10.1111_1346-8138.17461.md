@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/1346-8138.17461"
+reference_id: DOI:10.1111/1346-8138.17461
 title: Upadacitinib shows efficacy in Netherton syndrome with poor response to Dupilumab
 authors:
 - Hui Li
@@ -8,6 +8,7 @@ journal: The Journal of Dermatology
 year: '2025'
 doi: 10.1111/1346-8138.17461
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Upadacitinib shows efficacy in Netherton syndrome with poor response to Dupilumab

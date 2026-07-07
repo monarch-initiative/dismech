@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awaa317"
+reference_id: DOI:10.1093/brain/awaa317
 title: "Somatic<i>TARDBP</i>variants as a cause of semantic dementia"
 authors:
 - Jeroen van Rooij
@@ -23,6 +23,7 @@ journal: Brain
 year: '2020'
 doi: 10.1093/brain/awaa317
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Somatic<i>TARDBP</i>variants as a cause of semantic dementia

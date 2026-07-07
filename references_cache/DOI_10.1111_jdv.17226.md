@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jdv.17226"
+reference_id: DOI:10.1111/jdv.17226
 title: "Characteristics of children with Netherton syndrome: a review of 21 patients"
 authors:
 - C. Prodinger
@@ -16,6 +16,7 @@ journal: Journal of the European Academy of Dermatology and Venereology
 year: '2021'
 doi: 10.1111/jdv.17226
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Characteristics of children with Netherton syndrome: a review of 21 patients

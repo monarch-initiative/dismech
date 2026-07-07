@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2302982"
+reference_id: DOI:10.1056/nejmoa2302982
 title: Gene Therapy with Fidanacogene Elaparvovec in Adults with Hemophilia B
 authors:
 - Adam Cuker
@@ -29,6 +29,7 @@ journal: New England Journal of Medicine
 year: '2024'
 doi: 10.1056/nejmoa2302982
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Gene Therapy with Fidanacogene Elaparvovec in Adults with Hemophilia B

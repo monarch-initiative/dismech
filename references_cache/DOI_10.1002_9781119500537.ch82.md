@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/9781119500537.ch82"
+reference_id: DOI:10.1002/9781119500537.ch82
 title: Thrombocytosis and Essential Thrombocythemia
 authors:
 - Julie Allen
@@ -8,6 +8,7 @@ journal: "Schalm's Veterinary Hematology"
 year: '2022'
 doi: 10.1002/9781119500537.ch82
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Thrombocytosis and Essential Thrombocythemia

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/aci.0000000000000947"
+reference_id: DOI:10.1097/aci.0000000000000947
 title: Monogenic forms of common variable immunodeficiency and implications on target therapeutic approaches
 authors:
 - Giulio Tessarin
@@ -9,6 +9,7 @@ journal: "Current Opinion in Allergy &amp; Clinical Immunology"
 year: '2023'
 doi: 10.1097/aci.0000000000000947
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Monogenic forms of common variable immunodeficiency and implications on target therapeutic approaches

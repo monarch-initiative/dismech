@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1046/j.1528-1157.2003.62302.x"
+reference_id: DOI:10.1046/j.1528-1157.2003.62302.x
 title: "Familial Partial Epilepsy with Variable Foci in a Dutch Family: Clinical Characteristics and Confirmation of Linkage to Chromosome 22q"
 authors:
 - Petra M. C. Callenbach
@@ -15,6 +15,7 @@ journal: Epilepsia
 year: '2003'
 doi: 10.1046/j.1528-1157.2003.62302.x
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Familial Partial Epilepsy with Variable Foci in a Dutch Family: Clinical Characteristics and Confirmation of Linkage to Chromosome 22q

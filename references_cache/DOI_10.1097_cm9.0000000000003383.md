@@ -1,10 +1,11 @@
 ---
-reference_id: "DOI:10.1097/cm9.0000000000003383"
+reference_id: DOI:10.1097/cm9.0000000000003383
 title: Chinese guidelines for the diagnosis and treatment of human immunodeficiency virus infection/acquired immunodeficiency syndrome (2024 edition)
 journal: Chinese Medical Journal
 year: '2024'
 doi: 10.1097/cm9.0000000000003383
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Chinese guidelines for the diagnosis and treatment of human immunodeficiency virus infection/acquired immunodeficiency syndrome (2024 edition)

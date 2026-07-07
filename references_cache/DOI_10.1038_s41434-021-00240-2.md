@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41434-021-00240-2"
+reference_id: DOI:10.1038/s41434-021-00240-2
 title: "Genetic insights, disease mechanisms, and biological therapeutics for Waardenburg syndrome"
 authors:
 - Sida Huang
@@ -13,6 +13,7 @@ journal: Gene Therapy
 year: '2022'
 doi: 10.1038/s41434-021-00240-2
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Genetic insights, disease mechanisms, and biological therapeutics for Waardenburg syndrome

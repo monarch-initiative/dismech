@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/humu.23206"
+reference_id: DOI:10.1002/humu.23206
 title: "<i>EDNRB</i>mutations cause Waardenburg syndrome type II in the heterozygous state"
 authors:
 - Sarah Issa
@@ -20,6 +20,7 @@ journal: Human Mutation
 year: '2017'
 doi: 10.1002/humu.23206
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # <i>EDNRB</i>mutations cause Waardenburg syndrome type II in the heterozygous state

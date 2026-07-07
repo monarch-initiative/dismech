@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mds.29355"
+reference_id: DOI:10.1002/mds.29355
 title: Atrophin‐1 Function and Dysfunction in Dentatorubral–Pallidoluysian Atrophy
 authors:
 - Bartosz Nowak
@@ -10,6 +10,7 @@ journal: Movement Disorders
 year: '2023'
 doi: 10.1002/mds.29355
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Atrophin‐1 Function and Dysfunction in Dentatorubral–Pallidoluysian Atrophy

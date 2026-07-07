@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1111/cge.13980"
-title: "<scp>COG1‐</scp>
-                    congenital disorders of glycosylation: Milder presentation and review"
+reference_id: DOI:10.1111/cge.13980
+title: "<scp>COG1‐</scp> congenital disorders of glycosylation: Milder presentation and review"
 authors:
 - Marne Salazar
 - Noriko Miyake
@@ -14,10 +13,10 @@ journal: Clinical Genetics
 year: '2021'
 doi: 10.1111/cge.13980
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <scp>COG1‐</scp>
-                    congenital disorders of glycosylation: Milder presentation and review
+# <scp>COG1‐</scp> congenital disorders of glycosylation: Milder presentation and review
 **Authors:** Marne Salazar, Noriko Miyake, Sebastián Silva, Benjamín Solar, Gabriela M. Papazoglu, Carla G. Asteggiano, Naomichi Matsumoto
 **Journal:** Clinical Genetics (2021)
 **DOI:** [10.1111/cge.13980](https://doi.org/10.1111/cge.13980)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ebiom.2024.105010"
+reference_id: DOI:10.1016/j.ebiom.2024.105010
 title: "Body size and risk of colorectal cancer molecular defined subtypes and pathways: Mendelian randomization analyses"
 authors:
 - Nikos Papadimitriou
@@ -59,6 +59,7 @@ journal: eBioMedicine
 year: '2024'
 doi: 10.1016/j.ebiom.2024.105010
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Body size and risk of colorectal cancer molecular defined subtypes and pathways: Mendelian randomization analyses

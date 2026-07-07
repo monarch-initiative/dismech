@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1101/2025.07.15.664002"
-title: "Early Human Pulmonary Lesions Define a Permissive Alveolar Niche for
-                  <i>Mycobacterium tuberculosis</i>"
+reference_id: DOI:10.1101/2025.07.15.664002
+title: "Early Human Pulmonary Lesions Define a Permissive Alveolar Niche for <i>Mycobacterium tuberculosis</i>"
 authors:
 - Rosane M. B. Teles
 - Chaouki Benabdessalem
@@ -36,10 +35,10 @@ authors:
 year: '2025'
 doi: 10.1101/2025.07.15.664002
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Early Human Pulmonary Lesions Define a Permissive Alveolar Niche for
-                  <i>Mycobacterium tuberculosis</i>
+# Early Human Pulmonary Lesions Define a Permissive Alveolar Niche for <i>Mycobacterium tuberculosis</i>
 **Authors:** Rosane M. B. Teles, Chaouki Benabdessalem, Jonathan Perrie, Cenfu Wei, Julie West, Bruno J. de Andrade Silva, Priscila R. Andrade, Lilah A. Mansky, Prajan Divakar, Linda Fischbacher, Karen Lam, Feiyang Ma, Yiqian Gu, Kimia Rategh, Aparna Pillai, Samuel M. French, Emna Romdhane, Mohamed-Ridha Barbouche, Eynav Klechevsky, Marco Colonna, Adrie J. C. Steyn, Steven J. Bensinger, Daniel L. Barber, Soumaya Rammeh, Parambir S. Dulai, Bryan D. Bryson, Matteo Pellegrini, John T. Belisle, Barry R. Bloom, Robert L. Modlin
 **DOI:** [10.1101/2025.07.15.664002](https://doi.org/10.1101/2025.07.15.664002)
 

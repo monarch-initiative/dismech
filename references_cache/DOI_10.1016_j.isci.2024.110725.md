@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.isci.2024.110725"
+reference_id: DOI:10.1016/j.isci.2024.110725
 title: Targeting ALDOA to modulate tumorigenesis and energy metabolism in retinoblastoma
 authors:
 - Yinghao Wang
@@ -23,6 +23,7 @@ journal: iScience
 year: '2024'
 doi: 10.1016/j.isci.2024.110725
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Targeting ALDOA to modulate tumorigenesis and energy metabolism in retinoblastoma

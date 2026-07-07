@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.06.30.662385"
+reference_id: DOI:10.1101/2025.06.30.662385
 title: Molecular and cellular processes disrupted in the early postnatal Down syndrome prefrontal cortex
 authors:
 - Ryan D. Risgaard
@@ -21,6 +21,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.06.30.662385
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular and cellular processes disrupted in the early postnatal Down syndrome prefrontal cortex
