@@ -1516,6 +1516,16 @@ genesets-align-all *args="":
 icees-refresh:
     uv run python -m dismech.structured_sources.cli refresh icees
 
+# Pre-fetch raw IEMbase browse + per-disease JSON into data/iembase/ (gitignored).
+[group('Research')]
+iembase-prefetch *args="":
+    uv run python scripts/fetch_iembase_diseases.py {{args}}
+
+# Map cached IEMbase disease JSON to local DisMech disease/subtype entries.
+[group('Research')]
+iembase-map *args="":
+    uv run python scripts/map_iembase_to_dismech.py {{args}}
+
 # Rebuild every references_cache/ICEES_*.md from the current ICEES KG snapshot.
 # Use --id to limit to a specific ICEES pair id or a "CURIE,CURIE" disease pair.
 [group('Research')]
