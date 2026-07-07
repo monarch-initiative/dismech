@@ -10589,6 +10589,7 @@ window.searchData = [
       "PSEN1",
       "PSEN2",
       "APOE",
+      "BIN1",
       "TREM2",
       "NLRP3",
       "PYCARD",
@@ -10609,7 +10610,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Alzheimer_Disease.html",
     "num_phenotypes": 6,
     "num_pathophysiology": 10,
-    "num_genes": 8,
+    "num_genes": 9,
     "num_treatments": 5,
     "causal_graph_edges": "24",
     "causal_graph_longest_path": "6"
@@ -10776,6 +10777,73 @@ window.searchData = [
     "num_genes": 6,
     "num_treatments": 2,
     "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Aminoacylase 1 Deficiency",
+    "disease_id": "MONDO:0012368",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-07-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Aminoacylase 1 deficiency (ACY1D) is a rare autosomal recessive inborn error of metabolism caused by biallelic loss-of-function variants in ACY1, the gene encoding aminoacylase 1 \u2014 an abundant cytosolic zinc-binding metalloenzyme (EC 3.5.1.14) that hydrolyzes N-acetylated amino acids into the free amino acid and acetate. Loss of enzyme activity does not produce the toxic-metabolite intoxication seen in classic organic acidurias; instead it causes a characteristic accumulation and urinary excretion of N-acetylated amino acids (a specific profile of ~11 metabolites, most prominently the N-acetyl derivatives of methionine, glutamate, alanine, glycine, leucine, isoleucine, valine, and serine) that is detected on urine organic-acid GC-MS or NMR. It was first reported in 2005 and defined genetically in 2006. Most ascertained individuals have presented with heterogeneous, nonspecific neurological findings (psychomotor/developmental delay, muscular hypotonia, febrile seizures, intellectual disability, autistic behavior, and \u2014 in individual cases \u2014 cerebellar vermis atrophy, syringomyelia, or generalized dystonia), but because most cases were ascertained through targeted urine metabolic screening, the clinical significance and penetrance of the biochemical defect remain debated and it is considered underdiagnosed. dismech curates the enzyme defect and its biochemical signature as established, while explicitly framing the causal link to a uniform clinical phenotype as an open knowledge gap.\n",
+    "pathophysiology": [
+      "Aminoacylase 1 Loss of Function",
+      "Accumulation and Urinary Excretion of N-Acetylated Amino Acids",
+      "Heterogeneous Neurological Manifestations of Uncertain Causality"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "N-acetyl amino acid hydrolysis in amino acid metabolism",
+      "accumulation of N-acetyl amino acids"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Generalized hypotonia",
+      "Febrile seizures",
+      "Moderate intellectual disability",
+      "Autistic behavior",
+      "Cerebellar vermis atrophy",
+      "Syringomyelia",
+      "Generalized dystonia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0002373",
+      "HP:0002342",
+      "HP:0000729",
+      "HP:0006855",
+      "HP:0003396",
+      "HP:0007325"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ACY1 pathogenic variants"
+    ],
+    "treatments": [
+      "Supportive Care and Metabolic Follow-up"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urinary N-acetylated amino acids"
+    ],
+    "source_file": "Aminoacylase_1_Deficiency.yaml",
+    "page_url": "../pages/disorders/Aminoacylase_1_Deficiency.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "3"
   },
   {
@@ -24520,12 +24588,15 @@ window.searchData = [
       "Depressed nasal bridge",
       "Short nose",
       "Narrow mouth",
-      "Genital hypoplasia"
+      "Genital hypoplasia",
+      "Multiple joint contractures",
+      "Nail hypoplasia"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Genitourinary",
       "Head and Neck",
+      "Integument",
       "Limbs",
       "Musculoskeletal"
     ],
@@ -24540,7 +24611,9 @@ window.searchData = [
       "HP:0005280",
       "HP:0003196",
       "HP:0000160",
-      "HP:0003241"
+      "HP:0003241",
+      "HP:0002828",
+      "HP:0001792"
     ],
     "frequencies": [],
     "genes": [
@@ -24553,7 +24626,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Brachyphalangy_Polydactyly_Tibial_Aplasia_Syndrome.yaml",
     "page_url": "../pages/disorders/Brachyphalangy-Polydactyly-Tibial_Aplasia_Syndrome.html",
-    "num_phenotypes": 11,
+    "num_phenotypes": 13,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 1,
@@ -39823,6 +39896,75 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Congenital Lactase Deficiency",
+    "disease_id": "MONDO:0009115",
+    "category": "Mendelian",
+    "parents": [
+      "Gastrointestinal Disease"
+    ],
+    "creation_date": "2026-07-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital lactase deficiency (CLD) is an ultra-rare autosomal recessive neonatal disorder caused by biallelic loss-of-function variants in LCT, the gene encoding lactase-phlorizin hydrolase (LPH). Affected infants have essentially absent intestinal brush-border lactase activity from birth and develop severe watery diarrhea from the first lactose-containing feed (breast milk or standard formula). CLD is historically enriched in Finland because of a founder nonsense mutation. CLD is genetically and clinically distinct from the extremely common \"adult-type hypolactasia\" (primary lactase non-persistence/lactose intolerance, MONDO:0100345), which is a normal polymorphic trait caused by a regulatory (non-coding) variant near LCT/MCM6 that lowers, but does not abolish, lactase expression only after weaning; CLD instead results from coding-region mutations in LCT itself that eliminate LPH protein function from birth. CLD is also distinct from secondary/acquired lactase deficiency due to mucosal injury.",
+    "pathophysiology": [
+      "LCT Loss-of-Function and Absent Lactase-Phlorizin Hydrolase Activity",
+      "Failure to Hydrolyze Lactose into Glucose and Galactose",
+      "Osmotic Load and Unabsorbed Lactose in the Intestinal Lumen"
+    ],
+    "cell_types": [
+      "enterocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000584"
+    ],
+    "biological_processes": [
+      "protein transport",
+      "carbohydrate metabolic process"
+    ],
+    "phenotypes": [
+      "Severe Watery Diarrhea",
+      "Dehydration",
+      "Hypercalcemia",
+      "Nephrocalcinosis"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Systemic",
+      "Metabolic",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0001944",
+      "HP:0003072",
+      "HP:0000121"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LCT loss-of-function variants"
+    ],
+    "treatments": [
+      "Lifelong Lactose-Free Diet"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Absent to Near-Absent Intestinal Lactase Activity"
+    ],
+    "source_file": "Congenital_Lactase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_Lactase_Deficiency.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Congenital Myasthenic Syndrome",
     "disease_id": "MONDO:0018940",
     "category": "Mendelian",
@@ -51214,19 +51356,26 @@ window.searchData = [
       "Fused cervical vertebrae",
       "Hypospadias",
       "Exotropia",
-      "Intellectual disability"
+      "Intellectual disability",
+      "Mixed hearing impairment",
+      "Alopecia",
+      "Thickened skin"
     ],
     "phenotype_categories": [
       "Craniofacial",
       "Dental",
       "Skeletal",
       "Genitourinary",
-      "Neurodevelopmental"
+      "Neurodevelopmental",
+      "Auditory",
+      "Integumentary"
     ],
     "phenotype_hpo_categories": [
+      "Ear",
       "Eye",
       "Genitourinary",
       "Head and Neck",
+      "Integument",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -51242,7 +51391,10 @@ window.searchData = [
       "HP:0002949",
       "HP:0000047",
       "HP:0000577",
-      "HP:0001249"
+      "HP:0001249",
+      "HP:0000410",
+      "HP:0001596",
+      "HP:0001072"
     ],
     "frequencies": [],
     "genes": [
@@ -51253,7 +51405,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Elsahy-Waters_Syndrome.yaml",
     "page_url": "../pages/disorders/Elsahy-Waters_Syndrome.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 15,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
@@ -52530,7 +52682,10 @@ window.searchData = [
       "Postsynaptic Density Destabilization",
       "Cortical Circuit Hard-Wiring",
       "GABAergic Interneuron Dysfunction",
-      "Complement System Activation and Dysregulation"
+      "Complement System Activation and Dysregulation",
+      "Post-Traumatic Transcriptomic Dysregulation",
+      "DUSP1-Mediated MAPK Negative Regulation",
+      "EGR1-Mediated Neuroplasticity and Network Remodeling"
     ],
     "cell_types": [
       "Pyramidal Neuron",
@@ -52568,7 +52723,12 @@ window.searchData = [
       "Postsynaptic density assembly",
       "Regulation of synaptic plasticity",
       "GABAergic synaptic transmission",
-      "Regulation of Complement Activation"
+      "Regulation of Complement Activation",
+      "Gene Expression",
+      "MAPK Signaling",
+      "MAPK Cascades",
+      "Transcriptional Regulation",
+      "Neuronal Development"
     ],
     "phenotypes": [
       "Seizures",
@@ -52685,10 +52845,10 @@ window.searchData = [
     "source_file": "Epilepsy.yaml",
     "page_url": "../pages/disorders/Epilepsy.html",
     "num_phenotypes": 29,
-    "num_pathophysiology": 17,
+    "num_pathophysiology": 20,
     "num_genes": 14,
     "num_treatments": 9,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "5"
   },
   {
@@ -56572,6 +56732,72 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Familial Renal Glucosuria",
+    "disease_id": "MONDO:0009297",
+    "category": "Mendelian",
+    "parents": [
+      "Renal Tubular Transport Disease",
+      "Glucose Transport Disorder",
+      "Inherited Kidney Disorder"
+    ],
+    "creation_date": "2026-07-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "SLC5A2-Related",
+      "PDZK1IP1-Related"
+    ],
+    "description": "Familial renal glucosuria (FRG) is characterized by persistent isolated glucosuria in the absence of hyperglycemia and without a broader Fanconi-type proximal tubulopathy. The great majority of cases are caused by loss-of-function variants in SLC5A2, encoding the renal sodium-glucose cotransporter SGLT2, which mediates the bulk of proximal tubular glucose reabsorption. A minority of cases are caused by biallelic loss-of-function variants in PDZK1IP1, encoding MAP17, an obligate accessory protein required for SGLT2 transport activity; MAP17 deficiency produces a clinically indistinguishable glucosuric phenotype by impairing the SGLT2 complex rather than the transporter itself. FRG is usually benign and frequently an incidental finding; the main documented risks are osmotic polyuria and, in patients with more massive glucosuria, mild volume depletion with secondary renin-angiotensin-aldosterone activation. The pharmacological SGLT2 inhibitors (\"gliflozins\") used to treat type 2 diabetes and heart failure deliberately reproduce this same reduced proximal tubular glucose reabsorption mechanism, though that drug class is curated separately and is only noted here for mechanistic context.\n",
+    "pathophysiology": [
+      "Reduced Proximal Tubular Glucose Reabsorption",
+      "SLC5A2 Loss-of-Function",
+      "PDZK1IP1/MAP17 Loss-of-Function Impairing SGLT2 Complex Function"
+    ],
+    "cell_types": [
+      "Proximal tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000838"
+    ],
+    "biological_processes": [
+      "Renal D-glucose absorption"
+    ],
+    "phenotypes": [
+      "Isolated Renal Glucosuria",
+      "Mild Volume Depletion with Renin-Angiotensin-Aldosterone Activation"
+    ],
+    "phenotype_categories": [
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0003076",
+      "HP:0001944"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SLC5A2",
+      "PDZK1IP1"
+    ],
+    "treatments": [
+      "Hydration Counseling and Monitoring"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Renal_Glucosuria.yaml",
+    "page_url": "../pages/disorders/Familial_Renal_Glucosuria.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 1,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Familial Sick Sinus Syndrome",
     "disease_id": "MONDO:0012061",
     "category": "Genetic",
@@ -56874,6 +57100,98 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Fanconi-Bickel Syndrome",
+    "disease_id": "MONDO:0009216",
+    "category": "Mendelian",
+    "parents": [
+      "Disorder of Glycogen Metabolism",
+      "Inherited Renal Tubulopathy"
+    ],
+    "creation_date": "2026-07-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Fanconi-Bickel syndrome (FBS) is a rare autosomal recessive disorder of carbohydrate metabolism caused by biallelic loss-of-function variants in SLC2A2, which encodes the facilitative glucose transporter GLUT2. GLUT2 is expressed on the basolateral membrane of hepatocytes, the basolateral membrane of renal proximal tubular epithelial cells, pancreatic beta cells, and the basolateral membrane of intestinal enterocytes, where it mediates bidirectional, insulin-independent transport of glucose (and galactose) down their concentration gradient. Loss of GLUT2 function traps glucose intracellularly in hepatocytes and renal tubular cells, driving hepatorenal glycogen accumulation, a generalized (Fanconi-type) proximal renal tubulopathy, and impaired hepatic glucose release with fasting hypoglycemia with glucose and galactose intolerance. Clinically, FBS presents in infancy with hepatomegaly, failure to thrive, rickets/growth failure, and a characteristic \"doll-like\" facies, and carries a generally favorable long-term prognosis with dietary and supportive management.",
+    "pathophysiology": [
+      "SLC2A2 (GLUT2) Loss-of-Function Variants",
+      "Loss of GLUT2 Transporter Function",
+      "Impaired Hepatocyte Glucose Transport",
+      "Impaired Renal Proximal Tubular Glucose Transport"
+    ],
+    "cell_types": [
+      "Hepatocyte",
+      "Epithelial cell of proximal tubule"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "D-glucose transmembrane transport",
+      "Glucose homeostasis",
+      "Glycogen biosynthetic process"
+    ],
+    "phenotypes": [
+      "Hepatomegaly",
+      "Increased Hepatic Glycogen Content",
+      "Fasting Hypoglycemia",
+      "Renal Fanconi Syndrome",
+      "Glucosuria",
+      "Hypophosphatemia",
+      "Hypophosphatemic Rickets",
+      "Growth Failure / Short Stature",
+      "Doll-like Facies",
+      "Hypertriglyceridemia",
+      "Galactose Intolerance"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002240",
+      "HP:0006568",
+      "HP:0003162",
+      "HP:0001994",
+      "HP:0003076",
+      "HP:0002148",
+      "HP:0002748",
+      "HP:0004322",
+      "HP:0000295",
+      "HP:0002155",
+      "HP:0004919"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SLC2A2"
+    ],
+    "treatments": [
+      "Dietary Management (Frequent Feeding and Uncooked Cornstarch)",
+      "Phosphate, Alkali, and Alfacalcidol Supplementation",
+      "Empagliflozin (SGLT2 Inhibitor, Off-Label)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Fasting Hypoglycemia with Glucose/Galactose Intolerance",
+      "Glucosuria with Normal-to-Low Blood Glucose"
+    ],
+    "source_file": "Fanconi-Bickel_Syndrome.yaml",
+    "page_url": "../pages/disorders/Fanconi-Bickel_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Fanconi_Anemia",
@@ -60570,6 +60888,99 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "GLUT1 Deficiency Syndrome",
+    "disease_id": "MONDO:0011724",
+    "category": "Mendelian",
+    "parents": [
+      "GLUT1 Deficiency Syndrome (Umbrella)",
+      "Inborn Carbohydrate Metabolic Disorder",
+      "Metabolic Epilepsy"
+    ],
+    "creation_date": "2026-07-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Classic GLUT1 Deficiency Syndrome",
+      "GLUT1 DS with Paroxysmal Exertion-Induced Dyskinesia",
+      "Dystonia 9"
+    ],
+    "description": "Glucose transporter type 1 (GLUT1) deficiency syndrome (Glut1DS) is a disorder of brain energy metabolism caused by heterozygous (rarely biallelic) pathogenic variants in SLC2A1, which encodes the GLUT1 facilitative glucose transporter responsible for transporting glucose across the endothelial cells of the blood-brain barrier and into erythrocytes. Reduced GLUT1 function starves the brain of its principal metabolic fuel, producing a cerebral energy deficit that manifests as an infantile-onset, often pharmacoresistant epileptic encephalopathy with acquired microcephaly, developmental delay, and a complex movement disorder (ataxia, dystonia, spasticity) in the classic severe form. Milder and later-onset presentations exist across a phenotypic spectrum, including paroxysmal exertion-induced dyskinesia (GLUT1 deficiency syndrome 2 / DYT18) and episodic choreoathetosis with spasticity (dystonia 9 / DYT9). The diagnostic hallmark is hypoglycorrhachia (low CSF glucose) with a low CSF:blood glucose ratio in the setting of normoglycemia. The ketogenic diet, which supplies ketone bodies as an alternative cerebral fuel bypassing the GLUT1 transport defect, is first-line disease-specific therapy.",
+    "pathophysiology": [
+      "SLC2A1 Loss-of-Function Variant",
+      "Reduced GLUT1 Transporter Function at the Blood-Brain Barrier",
+      "Cerebral Glucose Energy Deficit",
+      "Neuronal Hyperexcitability and Hypersynchrony",
+      "Impaired Neurodevelopment and Movement Disorder",
+      "Recurrent Pharmacoresistant Seizures"
+    ],
+    "cell_types": [
+      "Brain Microvascular Endothelial Cell",
+      "Erythrocyte",
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:2000044",
+      "CL:0000232",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "D-glucose transmembrane transport",
+      "Generation of Precursor Metabolites and Energy"
+    ],
+    "phenotypes": [
+      "Pharmacoresistant Seizures",
+      "Global Developmental Delay",
+      "Progressive (Acquired) Microcephaly",
+      "Ataxia",
+      "Dystonia",
+      "Spasticity",
+      "Paroxysmal Exercise/Exertion-Induced Dyskinesia",
+      "Speech Difficulty",
+      "Hypotonia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0000253",
+      "HP:0001251",
+      "HP:0001332",
+      "HP:0001257",
+      "HP:0007166",
+      "HP:0001260",
+      "HP:0001252"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SLC2A1"
+    ],
+    "treatments": [
+      "Ketogenic Diet Therapy",
+      "Anti-Seizure Medications to Avoid",
+      "Multidisciplinary Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Hypoglycorrhachia"
+    ],
+    "source_file": "GLUT1_Deficiency_Syndrome.yaml",
+    "page_url": "../pages/disorders/GLUT1_Deficiency_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "GM1 Gangliosidosis Type 1",
     "disease_id": "MONDO:0009260",
     "category": "Mendelian",
@@ -61058,6 +61469,7 @@ window.searchData = [
       "Progressive microcephaly",
       "Global developmental delay",
       "Seizures",
+      "Infantile spasms",
       "Hypotonia",
       "Strabismus",
       "Thin corpus callosum",
@@ -61085,6 +61497,7 @@ window.searchData = [
       "HP:0000253",
       "HP:0001263",
       "HP:0001250",
+      "HP:0012469",
       "HP:0001252",
       "HP:0000486",
       "HP:0033725",
@@ -61102,7 +61515,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "GOLGA2-Related_Golgin_A2_Deficiency.yaml",
     "page_url": "../pages/disorders/GOLGA2-Related_Golgin_A2_Deficiency.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 11,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
@@ -63777,6 +64190,85 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "31",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Glucose-Galactose Malabsorption",
+    "disease_id": "MONDO:0011731",
+    "category": "Mendelian",
+    "parents": [
+      "Gastrointestinal Disease",
+      "Inborn error of carbohydrate metabolism"
+    ],
+    "creation_date": "2026-07-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Glucose-galactose malabsorption (GGM) is a rare, potentially lethal, autosomal recessive disorder of intestinal monosaccharide transport caused by biallelic loss-of-function variants in SLC5A1, which encodes the brush-border sodium/glucose cotransporter SGLT1. Loss of SGLT1-mediated active transport abolishes intestinal absorption of glucose and galactose (fructose absorption via the facilitated transporter GLUT5/SLC2A5 is spared), so any glucose-, galactose-, or lactose/sucrose-containing feed produces severe osmotic watery diarrhea from the first days of life, leading to life-threatening dehydration unless the infant is switched to a fructose-based, glucose/galactose-free formula.",
+    "pathophysiology": [
+      "SLC5A1/SGLT1 Loss of Function",
+      "Failure of Active Intestinal Glucose/Galactose Absorption",
+      "Fructose Absorption Spared (GLUT5)",
+      "Osmotic Diarrhea and Dehydration",
+      "Dietary Rechallenge Recurrence"
+    ],
+    "cell_types": [
+      "enterocyte of epithelium of small intestine"
+    ],
+    "cell_type_ids": [
+      "CL:1000334"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Neonatal-Onset Watery Diarrhea",
+      "Dehydration",
+      "Failure to Thrive",
+      "Abdominal Distension and Bloating",
+      "Nephrolithiasis",
+      "Elevated Stool Reducing Substances",
+      "Positive Hydrogen Breath Test"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "General",
+      "Growth",
+      "Renal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0033310",
+      "HP:0004906",
+      "HP:0001508",
+      "HP:0003270",
+      "HP:0000787",
+      "HP:6001295",
+      "HP:6000259"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SLC5A1 loss-of-function variants"
+    ],
+    "treatments": [
+      "Fructose-Based Glucose/Galactose-Free Formula"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Glucose-Galactose_Malabsorption.yaml",
+    "page_url": "../pages/disorders/Glucose-Galactose_Malabsorption.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Glutaryl-CoA Dehydrogenase Deficiency",
@@ -109156,11 +109648,15 @@ window.searchData = [
       "Reduced Bone Mineral Density",
       "Growth Deficiency",
       "Progressive Scoliosis",
-      "Congenital Joint Contractures (Bruck-Syndrome Overlap)"
+      "Congenital Joint Contractures (Bruck-Syndrome Overlap)",
+      "White Sclerae (Blue Sclerae Characteristically Absent)",
+      "Normal Dentition (Dentinogenesis Imperfecta Characteristically Absent)"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Eye",
       "Growth",
+      "Head and Neck",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
@@ -109168,7 +109664,9 @@ window.searchData = [
       "HP:0004349",
       "HP:0001510",
       "HP:0002650",
-      "HP:0002803"
+      "HP:0002803",
+      "HP:0000592",
+      "HP:0000703"
     ],
     "frequencies": [],
     "genes": [
@@ -109183,7 +109681,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Osteogenesis_Imperfecta_Type_XI.yaml",
     "page_url": "../pages/disorders/Osteogenesis_Imperfecta_Type_XI.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 7,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
@@ -109386,12 +109884,14 @@ window.searchData = [
       "Coxa Vara",
       "Muscular Hypotonia",
       "Scoliosis",
-      "Blue Sclerae"
+      "Blue Sclerae",
+      "Dental Abnormalities"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Eye",
       "Growth",
+      "Head and Neck",
       "Limbs",
       "Musculoskeletal"
     ],
@@ -109404,7 +109904,8 @@ window.searchData = [
       "HP:0002812",
       "HP:0001252",
       "HP:0002650",
-      "HP:0000592"
+      "HP:0000592",
+      "HP:0000164"
     ],
     "frequencies": [],
     "genes": [
@@ -109419,7 +109920,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Osteogenesis_Imperfecta_Type_XIV.yaml",
     "page_url": "../pages/disorders/Osteogenesis_Imperfecta_Type_XIV.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 10,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
@@ -111433,6 +111934,85 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "PGM2L1 Deficiency",
+    "disease_id": "MONDO:0700092",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Metabolism",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-07-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PGM2L1 deficiency is an ultra-rare autosomal recessive neurodevelopmental disorder caused by bi-allelic inactivating variants in PGM2L1, which encodes a paralog of phosphoglucomutase 2 that synthesizes glucose-1,6-bisphosphate and other sugar bisphosphates. PGM2L1 is highly expressed in the brain, where it accounts for locally elevated glucose-1,6-bisphosphate concentrations. Loss of PGM2L1 function markedly reduces glucose-1,6-bisphosphate and other sugar bisphosphates in patient fibroblasts, but residual concentrations remain sufficient to maximally stimulate phosphomutases, so protein glycosylation (assessed via LAMP2 and serum transferrin) is normal; the disorder is therefore not a glycosylation defect. The condition was first described in 2021 in four children with severe developmental and speech delay, dysmorphic facial features, ear anomalies, high arched palate, strabismus, hypotonia, and keratosis pilaris, with early obesity and seizures in most. Subsequent case reports have reported additional pediatric and adult cases, expanding the phenotypic spectrum.\n",
+    "pathophysiology": [
+      "PGM2L1 Loss of Function",
+      "Reduced Sugar Bisphosphate Concentrations"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Speech Delay",
+      "Dysmorphic Facial Features",
+      "Ear Anomalies",
+      "High Arched Palate",
+      "Strabismus",
+      "Hypotonia",
+      "Keratosis Pilaris",
+      "Early Obesity",
+      "Seizures"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Craniofacial",
+      "Ophthalmological",
+      "Dermatological",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001999",
+      "HP:0000598",
+      "HP:0000218",
+      "HP:0000486",
+      "HP:0001252",
+      "HP:0032152",
+      "HP:0001513",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "PGM2L1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Glucose-1,6-bisphosphate"
+    ],
+    "source_file": "PGM2L1_Deficiency.yaml",
+    "page_url": "../pages/disorders/PGM2L1_Deficiency.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "PHARC syndrome",
@@ -118066,7 +118646,17 @@ window.searchData = [
       "DENND1A",
       "THADA",
       "LHCGR",
-      "FSHR"
+      "FSHR",
+      "INS",
+      "INSR",
+      "IGF1R",
+      "ERBB3",
+      "EGFR",
+      "YAP1",
+      "PDGFRA",
+      "APP",
+      "NFKB1",
+      "IRF1"
     ],
     "treatments": [
       "Combined Oral Contraceptives",
@@ -118095,9 +118685,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Polycystic_Ovary_Syndrome.html",
     "num_phenotypes": 6,
     "num_pathophysiology": 12,
-    "num_genes": 4,
+    "num_genes": 14,
     "num_treatments": 9,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "3"
   },
   {
@@ -120406,7 +120996,8 @@ window.searchData = [
     "frequencies": [],
     "genes": [
       "JAK2 Structural Alteration",
-      "SH2B3 Structural Alteration"
+      "SH2B3 Structural Alteration",
+      "CDKN2A/B Inactivation"
     ],
     "treatments": [
       "Systemic Therapy",
@@ -120424,7 +121015,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Primary_Cutaneous_Aggressive_Epidermotropic_CD8+_T-cell_Lymphoma.html",
     "num_phenotypes": 3,
     "num_pathophysiology": 3,
-    "num_genes": 2,
+    "num_genes": 3,
     "num_treatments": 6,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
@@ -128720,6 +129311,68 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "SLC45A1-Related Neuronal Glucose Transporter Deficiency",
+    "disease_id": "MONDO:0044322",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Intellectual Disability"
+    ],
+    "creation_date": "2026-07-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SLC45A1-related neuronal glucose transporter deficiency is an ultra-rare autosomal recessive neurodevelopmental disorder caused by biallelic loss-of-function variants in SLC45A1, which encodes the second known cerebral glucose transporter (after GLUT1/SLC2A1). Reported individuals present with moderate to severe intellectual disability, epilepsy (including focal-onset seizures), and variable neuropsychiatric features such as anxiety and autistic behaviors, with mild facial dysmorphism in some. Only a handful of families have been reported to date.",
+    "pathophysiology": [
+      "SLC45A1 Loss of Function",
+      "Impaired Neuronal Glucose Transport"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "D-glucose transmembrane transport"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Seizures",
+      "Neuropsychiatric Features",
+      "Developmental Delay"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0007359",
+      "HP:0000739",
+      "HP:0001263"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC45A1 biallelic loss-of-function/hypomorphic variants"
+    ],
+    "treatments": [
+      "Ketogenic Diet",
+      "Acetazolamide"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SLC45A1-Related_Neuronal_Glucose_Transporter_Deficiency.yaml",
+    "page_url": "../pages/disorders/SLC45A1-Related_Neuronal_Glucose_Transporter_Deficiency.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "SMAD6-related craniosynostosis",
     "disease_id": "MONDO:0044315",
     "category": "Mendelian",
@@ -135935,16 +136588,22 @@ window.searchData = [
       "Failure to thrive",
       "Inspiratory stridor",
       "Autonomic dysfunction",
-      "Sensory neuropathy"
+      "Sensory neuropathy",
+      "Congenital foot deformities",
+      "Dysphagia"
     ],
     "phenotype_categories": [
       "Respiratory",
       "Neuromuscular",
       "Neurologic",
-      "Constitutional"
+      "Constitutional",
+      "Musculoskeletal",
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Growth",
+      "Limbs",
       "Musculoskeletal",
       "Nervous System",
       "Respiratory"
@@ -135959,7 +136618,9 @@ window.searchData = [
       "HP:0001508",
       "HP:0005348",
       "HP:0012332",
-      "HP:0000763"
+      "HP:0000763",
+      "HP:0001760",
+      "HP:0002015"
     ],
     "frequencies": [],
     "genes": [
@@ -135967,16 +136628,17 @@ window.searchData = [
     ],
     "treatments": [
       "Respiratory Support",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "IGHMBP2 Gene Replacement Therapy (investigational)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Spinal_Muscular_Atrophy_with_Respiratory_Distress_Type_1.yaml",
     "page_url": "../pages/disorders/Spinal_Muscular_Atrophy_with_Respiratory_Distress_Type_1.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 12,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 2,
+    "num_treatments": 3,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
   },
@@ -143655,6 +144317,67 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Trehalase Deficiency",
+    "disease_id": "MONDO:0012803",
+    "category": "Mendelian",
+    "parents": [
+      "Gastrointestinal Disease"
+    ],
+    "creation_date": "2026-07-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Trehalase deficiency is a rare, autosomal recessive brush-border disaccharidase deficiency caused by loss-of-function variants in TREH, the gene encoding intestinal trehalase. Reduced or absent brush-border trehalase activity impairs hydrolysis of dietary trehalose (a glucose-glucose disaccharide found mainly in mushrooms, and also present in young shoots, some insects, algae, and seaweed) into absorbable glucose. Unabsorbed trehalose reaching the colon causes osmotic and fermentative gastrointestinal symptoms, classically diarrhea and vomiting after ingestion of trehalose-containing food (most often edible mushrooms). Many individuals with reduced trehalase activity are asymptomatic or only mildly affected, and clinical relevance outside of mushroom ingestion is limited.",
+    "pathophysiology": [
+      "Intestinal Brush-Border Trehalase Deficiency",
+      "Trehalose Malabsorption and Osmotic-Fermentative Diarrhea"
+    ],
+    "cell_types": [
+      "enterocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000584"
+    ],
+    "biological_processes": [
+      "disaccharide catabolic process"
+    ],
+    "phenotypes": [
+      "Diarrhea After Trehalose-Containing Food Ingestion",
+      "Vomiting After Trehalose-Containing Food Ingestion",
+      "Abdominal Distention and Flatulence",
+      "Asymptomatic Trehalase Deficiency"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive"
+    ],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0002013",
+      "HP:0003270"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TREH loss-of-function variants"
+    ],
+    "treatments": [
+      "Dietary Avoidance of Trehalose-Containing Foods"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Trehalase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Trehalase_Deficiency.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Trichothiodystrophy",
@@ -151733,16 +152456,19 @@ window.searchData = [
       "Retinopathy",
       "Diabetes mellitus",
       "Cognitive impairment",
-      "Postural instability"
+      "Postural instability",
+      "Cardiac arrest"
     ],
     "phenotype_categories": [
       "Hematologic",
       "Ophthalmologic",
       "Endocrine",
-      "Neurologic"
+      "Neurologic",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
       "Endocrine",
       "Eye",
       "Metabolism",
@@ -151753,7 +152479,8 @@ window.searchData = [
       "HP:0000488",
       "HP:0000819",
       "HP:0100543",
-      "HP:0002172"
+      "HP:0002172",
+      "HP:0001695"
     ],
     "frequencies": [],
     "genes": [
@@ -151768,16 +152495,17 @@ window.searchData = [
       "Serum copper",
       "Ferritin",
       "Transferrin saturation",
+      "Serum iron",
       "Tissue iron accumulation",
       "Brain MRI iron accumulation"
     ],
     "source_file": "aceruloplasminemia.yaml",
     "page_url": "../pages/disorders/aceruloplasminemia.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 6,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "4"
   },
   {
@@ -152444,15 +153172,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1538,
-  "total_subtypes": 2407,
-  "total_disorders_and_subtypes": 3945,
-  "total_unique_evidence_sources": 24277,
-  "total_unique_publications": 22816,
+  "total_disorder_pages": 1547,
+  "total_subtypes": 2412,
+  "total_disorders_and_subtypes": 3959,
+  "total_unique_evidence_sources": 24327,
+  "total_unique_publications": 22864,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 214,
-  "total_pathographs": 1532,
-  "total_unique_pathological_events": 7181,
-  "total_modules": 110
+  "total_pathographs": 1541,
+  "total_unique_pathological_events": 7214,
+  "total_modules": 110,
+  "total_research_reports": 1796,
+  "total_classifications": 8,
+  "total_comorbidities": 16,
+  "total_groupings": 46
 };
 window.dispatchEvent(new Event('searchDataReady'));
