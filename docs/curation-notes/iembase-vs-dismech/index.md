@@ -162,3 +162,18 @@ Source inputs for these batches:
 | 107 | FECH-related Ferrochelatase deficiency | MAPPED | Correct current target is inherited porphyria's EPP subtype; IEMbase adds FECH-specific iron/ferritin and microcytosis detail. |
 | 108 | ALAS2-related Erythroid 5-aminolevulinate synthase superactivity | UNMAPPED | False negative to inherited porphyria EPP/X-linked protoporphyria branch; future XLP split may be warranted. |
 | 109 | PPOX-related Protoporphyrinogen oxidase deficiency | UNMAPPED | False negative; resolve to inherited porphyria's variegate porphyria subtype, with future standalone VP curation possible. |
+
+## Batch 11
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 110 | ALAS2-related Erythroid 5-aminolevulinate synthase deficiency | UNMAPPED | True gap; do not conflate ALAS2 deficiency/X-linked sideroblastic anemia with ALAS2 superactivity/X-linked protoporphyria. |
+| 111 | UROS-related Uroporphyrinogen III synthase deficiency | MAPPED | Correct CEP subtype mapping; DisMech stronger for mechanism and complications, IEMbase adds type I porphyrin isomers and dental/urine signs. |
+| 112 | HMBS-related Porphobilinogen deaminase deficiency | MAPPED | Correct standalone AIP mapping; high concordance, with IEMbase adding renal, hepatic, cancer-risk, and broader neuropsychiatric review targets. |
+| 113 | CPOX-related Coproporphyrinogen oxidase deficiency | MAPPED | Correct HCP subtype mapping; IEMbase adds HCP-specific stool coproporphyrin III and attack-detail granularity. |
+| 114 | UROD-related Hepatic uroporphyrinogen decarboxylase deficiency | UNMAPPED | False negative to UROD-related PCT/HEP subtypes, but the IEMbase label spans multiple UROD-related categories. |
+| 115 | ALAD-related Delta-aminolevulinate dehydratase deficiency | MAPPED | Correct standalone ADP mapping; high biochemical concordance, with IEMbase adding autonomic/renal/severe-attack details. |
+| 116 | STAR-related Steroidogenic acute regulatory protein deficiency | UNMAPPED | False negative to `Congenital_Adrenal_Hyperplasia.yaml#Lipoid CAH`; needs STAR-specific biochemical and 46,XY undervirilization detail. |
+| 117 | CYP17A1-related 17-alpha-Hydroxylase deficiency | MAPPED | Correct `17A-OHD` subtype mapping; IEMbase adds steroid/mineralocorticoid precursor profile granularity. |
+| 118 | HSD3B2-related 3-beta-Hydroxysteroid dehydrogenase deficiency | MAPPED | Correct `3B-HSD` subtype mapping, but local subtype-specific mechanism/biochemical coverage is thin. |
+| 119 | CYP21A2-related 21-Hydroxylase deficiency | MAPPED | Correct CAH/21-OHD mapping with strong local coverage; IEMbase adds granular ACTH/renin/electrolyte/androgen biomarkers. |
