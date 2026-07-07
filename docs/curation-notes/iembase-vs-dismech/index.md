@@ -417,3 +417,18 @@ Source inputs for these batches:
 | 300 | GNPTG-related UDP-N-acetylglucosamine-1-phosphotransferase subunit gamma deficiency | UNMAPPED | False negative; resolve to `GNPTG-Mucolipidosis.yaml`, with IEMbase adding serum/leukocyte assay and urinary substrate prompts. |
 | 301 | SUMF1-related Formyl-glycine generating enzyme deficiency | AMBIGUOUS | Resolve generated subtype ambiguity to file-level `Multiple_Sulfatase_Deficiency.yaml`; IEMbase adds selected MRI, cardiopulmonary, gingival, speech, and gait prompts. |
 | 302 | LIPA-related Lysosomal acid lipase deficiency | MAPPED | Generated CESD mapping is incomplete; split spectrum record across `Wolman_Disease.yaml` and `Cholesteryl_Ester_Storage_Disease.yaml`. |
+
+## Batch 28
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 303 | NPC1-related Niemann-Pick disease type C1 | MAPPED | Correct NPC1 subtype mapping; local coverage is strong, with IEMbase adding chitotriosidase, cholestane-triol, filipin-test, hemophagocytosis, and rare liver-tumor review prompts. |
+| 304 | NPC2-related Niemann-Pick disease type C2 | MAPPED | Correct NPC2 subtype mapping; local coverage is strong, with IEMbase adding diagnostic biomarker rows and no NPC2-specific HPbCD treatment signal. |
+| 305 | PPT1-related Palmitoyl-protein thioesterase 1 deficiency | MAPPED | Correct NCL1 mapping; local mechanism coverage is strong but lacks PPT1 enzyme assay and granular MRI/electrophysiology/retinal rows. |
+| 306 | TPP1-related Tripeptidyl-peptidase 1 deficiency | MAPPED | Correct NCL2 mapping; high concordance for phenotype and cerliponase alfa, with IEMbase adding TPP1 assay and granular imaging/electrophysiology prompts. |
+| 307 | CLN3-related Lysosomal transmembrane protein deficiency | MAPPED | Correct NCL3 mapping; DisMech covers core juvenile Batten disease while IEMbase adds psychiatric, movement, cardiac, cytologic, and electrophysiology review prompts. |
+| 308 | CLN6-related Kufs disease | MAPPED | Correct adult NCL/Kufs mapping; local CLN6 adult coverage is strong, with IEMbase adding extrapyramidal, behavioral, and spasticity prompts. |
+| 309 | DNAJC5-related Kufs disease | MAPPED | Correct adult NCL/Kufs mapping; DNAJC5 is covered genetically and mechanistically, but future gene-specific CLN4 subtype resolution could improve precision. |
+| 310 | CLN5-related Lysosomal protein deficiency | UNMAPPED | True missing standalone NCL5 target; broad NCL umbrella provides only partial shared context. |
+| 311 | CLN6-related Lysosomal protein deficiency | UNMAPPED | True missing CLN6 late-infantile target; do not map to adult CLN6 Kufs disease despite shared gene. |
+| 312 | MFSD8-related CLN7 Turkish variant | MAPPED | Correct NCL7 mapping with high concordance, including Milasen; IEMbase adds granular MRI, optic, retinal, speech, and electrophysiology prompts. |
