@@ -394,7 +394,7 @@ Source inputs for these batches:
 |---:|---|---|---|
 | 281 | PHYH-related Phytanoyl-CoA hydroxylase deficiency | MAPPED | Correct Adult Refsum mapping; DisMech is stronger for treatment and mechanism, while IEMbase adds pristanic/pipecolic and craniofacial/renal review prompts. |
 | 282 | DNM1L-related Dynamin-like protein 1 deficiency | UNMAPPED | True local gap; reject the weak PDH candidate because DNM1L mitochondrial-peroxisomal fission disease is mechanistically distinct. |
-| 284 | GLB1-related Beta-galactosidase-1 deficiency, GM1 gangliosis | UNMAPPED | False negative to local GLB1 GM1 spectrum coverage; map across GM1 types 1, 2, and 3 rather than only the infantile file. |
+| 284 | GLB1-related Beta-galactosidase-1 deficiency, GM1 gangliosidosis | UNMAPPED | False negative to local GLB1 GM1 spectrum coverage; map across GM1 types 1, 2, and 3 rather than only the infantile file. |
 | 285 | HEXB-related Beta-hexosaminidase subunit beta deficiency | UNMAPPED | False negative; resolve to `Sandhoff_Disease.yaml`, with IEMbase adding VEP, urinary incontinence, movement-disorder, LysoGM2, and oligosaccharide prompts. |
 | 286 | HEXA-related Beta-hexosaminidase subunit alpha deficiency | MAPPED | Correct Tay-Sachs mapping; high concordance, with IEMbase adding LysoGM2/oligosaccharide prompts and hepatosplenomegaly needing caution. |
 | 287 | GM2A-related GM2 activator protein deficiency | MAPPED | Correct AB variant mapping; IEMbase reinforces the preserved Hex A activity distinction and adds sparse spasticity/urinary/psychiatric prompts. |

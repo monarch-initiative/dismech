@@ -1,4 +1,4 @@
-# IEMbase 0284: GLB1-related Beta-galactosidase-1 deficiency, GM1 gangliosis
+# IEMbase 0284: GLB1-related Beta-galactosidase-1 deficiency, GM1 gangliosidosis
 
 ## Scope
 

@@ -15,7 +15,7 @@
 ## IEMbase phenotype signal
 
 IEMbase represents combined saposin deficiency / prosaposin deficiency due to
-PSAP. The cached disease label contains a source spelling typo.
+PSAP. The cached disease label contains a source typo in the word "combined."
 Inheritance is autosomal recessive and treatability is unknown.
 
 The clinical rows are sparse: neonatal and infantile developmental delay,
