@@ -192,3 +192,18 @@ Source inputs for these batches:
 | 128 | CYP19A1-related Aromatase deficiency | MAPPED | Correct aromatase deficiency mapping; DisMech is richer for estrogen deficiency, androgen excess, bone, metabolic, and treatment coverage. |
 | 129 | AR-related Androgen receptor deficiency | MAPPED | Correct current CAIS target, with a broader AIS label-scope caveat; IEMbase adds normal DHT as a useful differentiator. |
 | 130 | ESR1-related Estrogen receptor deficiency | UNMAPPED | True local disease gap; do not map estrogen resistance to aromatase deficiency, ESR1 cancer contexts, PMDD, or osteoporosis-risk content. |
+
+## Batch 13
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 131 | PGR-related Progesterone receptor deficiency | UNMAPPED | True local gap; PGR mentions in tumors/endometriosis are signaling context, not monogenic progesterone receptor deficiency. |
+| 132 | NR3C1-related Glucocorticoid receptor deficiency | UNMAPPED | True local gap; do not map glucocorticoid resistance to familial hyperaldosteronism or CSCR glucocorticoid-risk context. |
+| 133 | NR3C2-related Mineralocorticoid receptor deficiency | UNMAPPED | True local gap for pseudohypoaldosteronism type 1; high renin/aldosterone with salt wasting is not familial hyperaldosteronism. |
+| 134 | BCAT2-related Branched-chain aminotransferase 2 deficiency | UNMAPPED | True local gap; MSUD is pathway context only and ornithine aminotransferase deficiency is a false lexical candidate. |
+| 135 | ACAD8-related Isobutyryl-CoA dehydrogenase deficiency | MAPPED | Correct IBDD mapping with strong local coverage; IEMbase reinforces C4 acylcarnitine, isobutyrylglycine, free carnitine, asymptomatic course, anemia, and cardiomyopathy. |
+| 136 | ALDH6A1-related Methylmalonate semialdehyde dehydrogenase deficiency | UNMAPPED | True local gap; SSADH/ALDH5A1 is a false semialdehyde-dehydrogenase neighbor and HIBCH is only valine-pathway context. |
+| 137 | LTC4S-related Leukotriene C4 synthase deficiency | UNMAPPED | True local gap; generated HMG-CoA synthase neighbor is a synthase lexical false positive, not leukotriene biosynthesis disease. |
+| 139 | DPEP1-related Dipeptidase deficiency | UNMAPPED | True local gap for cystinylglycinuria; do not map to cystinuria or other cystine-transporter disease. |
+| 140 | ADSL-related Adenylosuccinate lyase deficiency | MAPPED | Correct ADSL mapping with strong local coverage; IEMbase adds specimen-specific SAICA riboside/succinyladenosine detail and cerebellar hypoplasia wording to review. |
+| 141 | ATIC-related AICAR transformylase-IMP cyclohydrolase deficiency | UNMAPPED | True local gap; ADSL is purine-pathway context only, and the catecholamine-synthesis candidate is false. |
