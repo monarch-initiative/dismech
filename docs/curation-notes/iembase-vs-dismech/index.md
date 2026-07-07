@@ -612,3 +612,18 @@ Source inputs for these batches:
 | 485 | SLC37A4-related Glucose-6-phosphate transporter deficiency (CDG) | CANDIDATE | Accept as covered by `Glycogen_Storage_Disease_Type_I.yaml#GSD Ib (glucose-6-phosphate transporter deficiency)` rather than only broad GSD I. |
 | 486 | GAA-related Alpha-glucosidase deficiency | MAPPED | Correct Pompe disease mapping with high concordance; IEMbase adds EEG, orthopnea, taurodontism, and compartment-specific enzyme-assay prompts. |
 | 487 | AGL-related Amylo-1,6-glucosidase (debrancher) deficiency | UNMAPPED | False negative; resolve to `Cori_Forbes_Disease.yaml` and improve alias matching for GSD III / Cori-Forbes / limit dextrinosis. |
+
+## Batch 41
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 488 | GBE1-related Glycogen branching enzyme deficiency | MAPPED | Correct GSD IV mapping with high concordance; review compartment-specific enzyme testing, coagulation, diet wording, and ORPHA identifier differences before import. |
+| 489 | PYGM-related Muscle glycogen phosphorylase deficiency | CANDIDATE | Reject GSD I candidate; true PYGM/McArdle disease / GSD V gap, with exercise-test lactate, second wind, myoglobinuria, creatine, and sucrose prompts. |
+| 490 | PYGL-related Liver glycogen phosphorylase deficiency | CANDIDATE | Reject GSD I candidate; true PYGL/Hers disease / GSD VI gap, with normal lactate/uric acid and liver phosphorylase prompts. |
+| 491 | PFKM-related Muscle phosphofructokinase deficiency | MAPPED | Correct Tarui disease / GSD VII mapping with high concordance; review gallstones, jaundice, second wind, and ammonia-profile wording before import. |
+| 492 | PHKA2-related Hepatic phosphorylase kinase alpha-2 subunit deficiency | CANDIDATE | Reject GSD I candidate; true X-linked PHKA2/GSD IXa gap, with liver phosphorylase kinase and normal lactate/uric acid prompts. |
+| 493 | PGAM2-related Muscle phosphoglycerate mutase deficiency | CANDIDATE | Reject GSD I candidate; true PGAM2/DiMauro disease / GSD X gap, with muscle phosphoglycerate mutase, CK, glycogen, and myoglobin prompts. |
+| 494 | SLC2A10-related L-Dehydroascorbate transporter deficiency | MAPPED | Correct arterial tortuosity syndrome mapping with high concordance; IEMbase adds arachnodactyly, facial stigmata, arterial hypertension, and joint-laxity prompts. |
+| 496 | GYG1-related Muscle glycogenin 1 deficiency | CANDIDATE | Accept as covered by `Glycogen_Storage_Disease_XV.yaml`; consider promoting GYG1/GSD XV aliases from candidate to exact. |
+| 497 | GYS2-related Hepatic glycogen synthase deficiency | CANDIDATE | Reject GSD I candidate; true GYS2/GSD 0a gap, with depleted liver glycogen, absent hepatomegaly, fasting avoidance, and protein-rich diet prompts. |
+| 498 | GYS1-related Muscle glycogen synthase deficiency | CANDIDATE | Reject GSD I candidate; true GYS1/GSD 0b gap, distinct from both GSD I and GYS1-overactivity Lafora disease context. |
