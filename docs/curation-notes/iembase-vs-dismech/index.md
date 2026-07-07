@@ -852,3 +852,18 @@ Source inputs for these batches:
 | 669 | TREH-related trehalase deficiency | UNMAPPED | False negative from stale mapping; resolve to exact `Trehalase_Deficiency.yaml` and reject galactosemia while preserving normal stool reducing sugars and adolescent/adult GI timing. |
 | 671 | CRAT-related carnitine acetyltransferase deficiency | UNMAPPED | True CRAT gap; reject CPT2/CPT1A carnitine-shuttle context and preserve childhood ataxia, oculomotor apraxia, consciousness disturbance, hypotonia, and ID prompts. |
 | 673 | CPT1C-related autosomal dominant spastic paraplegia type 73 | CANDIDATE | Reject CPT2 deficiency and CPT1A isoform context; true CPT1C/SPG73 gap with adult spastic paraplegia, hyperreflexia, weakness/atrophy, loss of ambulation, and evoked-potential prompts. |
+
+## Batch 57
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 674 | PMVK-related phosphomevalonate kinase deficiency | UNMAPPED | True PMVK/POROK1 gap; reject MVK-related mevalonate kinase deficiency and unrelated RNU12 porokeratosis context while preserving adolescent/adult actinic porokeratosis and keratotic lesions. |
+| 675 | MVD-related mevalonate pyrophosphate decarboxylase deficiency | UNMAPPED | True MVD/POROK7 gap; reject hereditary orotic aciduria and use mevalonate-pathway content only as broad context for adolescent/adult porokeratosis. |
+| 676 | FDPS-related farnesylpyrophosphate synthetase deficiency | UNMAPPED | True FDPS/POROK9 gap; reject CPS1 deficiency and preserve the dominant porokeratosis/keratotic-lesion phenotype. |
+| 677 | NDUFAF1-related complex I assembly factor 1 deficiency | CANDIDATE | Reject COX20 complex IV candidate; true NDUFAF1/MC1DN11 gap with decreased complex I activity, lactate, cardiomyopathy, failure-to-thrive, hypotonia, lactic-acidosis, and MELAS-like prompts. |
+| 678 | NDUFAF2-related complex I assembly factor 2 deficiency | CANDIDATE | Reject COX14 complex IV candidate; true NDUFAF2/MC1DN10 gap with renal tubular acidosis, respiratory insufficiency, basal-ganglia, nystagmus, optic-atrophy, ataxia, and encephalopathy prompts. |
+| 679 | NDUFAF3-related complex I assembly factor 3 deficiency | CANDIDATE | Reject COX6A2 complex IV candidate; true NDUFAF3/MC1DN18 gap with neonatal/infantile complex I deficiency, lactate, leukomalacia, perinatal death, respiratory failure, hypotonia, and optic atrophy. |
+| 680 | NDUFAF4-related complex I assembly factor 4 deficiency | CANDIDATE | Reject COX8A complex IV candidate; true NDUFAF4/MC1DN15 gap with neonatal/infantile complex I deficiency, lactate, Leigh syndrome, cardiomyopathy, and encephalomyopathy. |
+| 681 | NDUFAF5-related complex I assembly factor 5 deficiency | CANDIDATE | Reject COX4I1 complex IV candidate; true NDUFAF5/MC1DN16 gap with broad Leigh/complex I overlap plus CSF lactate, dysmorphology, IUGR, hair/toe, sacral-pit, and movement-disorder prompts. |
+| 682 | NDUFAF6-related complex I assembly factor 6 deficiency | UNMAPPED | Partial gene-level coverage in `Fanconi_Renotubular_Syndrome.yaml#FRTS5`, but exact MC1DN17 Leigh/striatal-necrosis phenotype remains under-covered. |
+| 683 | FOXRED1-related mitochondrial complex I deficiency, nuclear type 19 | CANDIDATE | Reject PET117 complex IV candidate; true FOXRED1/MC1DN19 gap with decreased complex I activity, lactate, Leigh syndrome, hypertrophic cardiomyopathy, cerebellar atrophy, and pulmonary hypertension. |
