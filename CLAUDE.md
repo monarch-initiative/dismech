@@ -108,6 +108,22 @@ each workflow and commits. Do NOT hand-edit those cron lines — edit the profil
 config instead. Page/build crons are intentionally unmanaged. See
 [`docs/cron-profiles.md`](docs/cron-profiles.md).
 
+### Agent Model Config (`.github/agent-config.yaml`)
+The Claude **model** backing each agentic workflow (curation-scanner,
+discussion-scanner, knowledge-gap-scan, literature-scan, preprint-scan,
+post-review-agent, pr-shepherd, weekly-compliance, claude-code-review) is
+centralized in `.github/agent-config.yaml` — one source of truth instead of a
+`--model` hardcoded per workflow. At run time each workflow's `Resolve agent
+config` step (the `.github/actions/resolve-agent-config` composite action) reads
+the config and exports `AGENT_MODEL`; the agent invocation uses `--model ${{
+env.AGENT_MODEL }}`. Resolution order: a `workflow_dispatch` `model:` override >
+the per-workflow `model:` > `default_model`. To bump a model for scheduled runs,
+edit `agent-config.yaml` — do NOT re-add a hardcoded `--model` to a workflow (a
+test enforces this). `curation-scanner`'s per-effort-tier models live in the same
+file as a `matrix:` and drive its strategy matrix via a `setup` job. This
+complements — and is separate from — cron cadence (cron-profiles.yaml); it covers
+the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #5218.
+
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
   frontmatter (`title`, `status`, `tags`, `description`, and entity lists:
