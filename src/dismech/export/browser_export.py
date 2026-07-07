@@ -13,7 +13,13 @@ import yaml
 from oaklib import get_adapter
 
 from dismech.graph import build_causal_graph
-from dismech.export.utils import discover_disorder_files
+from dismech.export.utils import (
+    count_classifications,
+    count_comorbidities,
+    count_groupings,
+    count_research_reports,
+    discover_disorder_files,
+)
 
 # Direct children of HP:0000118 (Phenotypic abnormality) — the broad phenotype categories.
 # Keys match PhenotypeCategoryEnum permissible_value keys in the schema.
@@ -322,8 +328,18 @@ class BrowserExporter:
     def build_summary_metrics(
         disorders: list[dict[str, Any]],
         num_modules: int | None = None,
+        num_research_reports: int | None = None,
+        num_classifications: int | None = None,
+        num_comorbidities: int | None = None,
+        num_groupings: int | None = None,
     ) -> dict[str, int]:
-        """Aggregate landing-page summary metrics directly from disorder data."""
+        """Aggregate landing-page summary metrics directly from disorder data.
+
+        The disorder-derived counts come from ``disorders``; the ``num_*`` counts
+        (modules, research reports, classifications, comorbidities, groupings) are
+        file-system counts supplied by the caller so the homepage's stat cards
+        stay in lock-step with their dedicated section pages (issue #5567).
+        """
         categories = {
             category.strip() for disorder in disorders if (category := disorder.get("category"))
         }
@@ -374,6 +390,14 @@ class BrowserExporter:
         }
         if num_modules is not None:
             metrics["total_modules"] = num_modules
+        if num_research_reports is not None:
+            metrics["total_research_reports"] = num_research_reports
+        if num_classifications is not None:
+            metrics["total_classifications"] = num_classifications
+        if num_comorbidities is not None:
+            metrics["total_comorbidities"] = num_comorbidities
+        if num_groupings is not None:
+            metrics["total_groupings"] = num_groupings
         return metrics
 
     def _write_hpo_category_cache(self, output_path: Path) -> None:
@@ -415,7 +439,14 @@ class BrowserExporter:
             record = self.extract_disorder(disorder, file_path.name)
             records.append(record)
 
-        metrics = self.build_summary_metrics(disorders, num_modules=num_modules)
+        metrics = self.build_summary_metrics(
+            disorders,
+            num_modules=num_modules,
+            num_research_reports=count_research_reports(),
+            num_classifications=count_classifications(),
+            num_comorbidities=count_comorbidities(),
+            num_groupings=count_groupings(),
+        )
         js_content = f"window.searchData = {json.dumps(records, indent=2)};\n"
         js_content += f"window.searchMetrics = {json.dumps(metrics, indent=2)};\n"
         js_content += "window.dispatchEvent(new Event('searchDataReady'));\n"
