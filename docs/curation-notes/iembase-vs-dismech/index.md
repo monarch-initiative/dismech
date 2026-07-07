@@ -567,3 +567,18 @@ Source inputs for these batches:
 | 426 | ISCU-related Hereditary Myopathy with Lactic Acidosis | UNMAPPED | True ISCU/HML Fe-S myopathy gap; reject CMT/HNPP neuropathy candidate. |
 | 436 | GFM1-related Mitochondrial elongation factor G1 deficiency | UNMAPPED | True GFM1/COXPD1 mitoribosome/translation gap; reject mitochondrial trifunctional protein deficiency. |
 | 437 | MRPS16-related Mitochondrial ribosomal small subunit 16 deficiency | UNMAPPED | True MRPS16/COXPD2 neonatal combined-OXPHOS gap; reject HMG-CoA synthase deficiency. |
+
+## Batch 38
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 438 | ACAD9-related Acyl-CoA Dehydrogenase 9 deficiency | UNMAPPED | False negative; resolve to `ACAD9_Deficiency.yaml` and reject glutaric acidemia type 1. |
+| 439 | TSFM-related Mitochondrial elongation factor Ts deficiency | UNMAPPED | True TSFM/COXPD3 local gap; reject beta-ketothiolase deficiency. |
+| 440 | TUFM-related Mitochondrial elongation factor Tu deficiency | UNMAPPED | True TUFM/COXPD4 local gap; reject mitochondrial trifunctional protein deficiency. |
+| 441 | MRPS22-related Mitochondrial ribosomal small subunit 22 deficiency | UNMAPPED | True MRPS22/COXPD5 neonatal combined-OXPHOS gap; reject HMG-CoA synthase deficiency. |
+| 442 | AIFM1-related X-Linked Mitochondrial Myopathy | UNMAPPED | True AIFM1 COXPD6 mitochondrial myopathy gap; reject DFNX hearing loss as an exact mapping. |
+| 443 | C12ORF65-related Mitochondrial release factor deficiency | UNMAPPED | True C12ORF65/MTRFR COXPD7/SPG55 gap; reject ALDH18A1 spastic-paraplegia neighbor. |
+| 444 | PUS1-related Pseudouridine synthase 1 deficiency | MAPPED | Correct PUS1/MLASA1 mapping with high concordance; IEMbase adds mtDNA depletion and dysmorphic-feature prompts. |
+| 445 | TRMU-related tRNA 5-methylaminomethyl-2-thiouridylate-methyltransferase deficiency | UNMAPPED | Partial false negative/context case: local RIRCD captures TRMU/cysteine context, but dedicated TRMU transient infantile liver failure remains a gap. |
+| 446 | DARS2-related Mitochondrial aspartyl-tRNA synthetase deficiency | UNMAPPED | True DARS2/LBSL gap; reject HMG-CoA synthase deficiency and do not substitute EIF2B leukodystrophy. |
+| 451 | SDHA-related Succinate dehydrogenase subunit A deficiency | UNMAPPED | True SDHA/complex II deficiency gap; reject pyruvate dehydrogenase E1-beta and keep Leigh syndrome as phenotype context only. |
