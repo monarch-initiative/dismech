@@ -17,7 +17,9 @@
 IEMbase represents this as BCS1L-related GRACILE syndrome, with alternate
 labels Fellman disease, Bjoernstad syndrome, and the acronym expansion growth
 retardation, aminoaciduria, cholestasis, iron overload, lactic acidosis, and
-early death. Treatability is marked unknown.
+early death. Treatability is marked unknown. The Bjoernstad label appears to
+reflect BCS1L spectrum lumping in IEMbase rather than a strict GRACILE synonym;
+this likely explains the pili torti and sensorineural deafness rows.
 
 The biochemical rows include low-to-normal glucose, increased serum iron, and
 increased plasma lactate. Characteristic clinical rows include sensorineural

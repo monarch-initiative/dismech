@@ -16,7 +16,10 @@
 
 IEMbase represents this as ATP7A-related copper-transporting ATPase subunit
 alpha deficiency, OHS subtype, with alternate labels occipital horn syndrome,
-X-linked cutis laxa, and OHS. Treatability is marked yes.
+X-linked cutis laxa, and OHS. Treatability is marked yes. The cached external
+ID uses OMIM:304150, which is the Menkes disease entry; the dedicated OHS
+phenotype MIM is a useful crosswalk follow-up but the source value is recorded
+as-is above.
 
 The biochemical rows list low-to-normal serum ceruloplasmin and low-to-normal
 serum copper. Characteristic clinical rows are cutis laxa, diarrhea,
