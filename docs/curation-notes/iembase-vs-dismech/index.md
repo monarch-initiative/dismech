@@ -657,3 +657,18 @@ Source inputs for these batches:
 | 522 | SLC6A5-related glycine transporter 2 deficiency | MAPPED | Correct hereditary hyperekplexia mapping with SLC6A5/GlyT2 concordance; IEMbase adds head-retraction and SIDS-related prompts. |
 | 523 | SLC25A12-related mitochondrial aspartate-glutamate carrier deficiency | UNMAPPED | True SLC25A12/Aralar deficiency gap; reject CACNA1A-DEE42 and preserve mitochondrial biomarker/treatment prompts. |
 | 524 | SLC25A22-related mitochondrial glutamate transporter deficiency | UNMAPPED | True SLC25A22/EIEE3 gap; broad undetermined EOEE is context only, not an exact gene-specific target. |
+
+## Batch 44
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 525 | CTNS-related nephropathic cystinosis | AMBIGUOUS | Correct local `Cystinosis.yaml` target; resolve to nephropathic infantile/juvenile context rather than ocular-only cystinosis. |
+| 527 | LDLR-related homozygous familial hypercholesterolemia | UNMAPPED | False negative; resolve to `Familial_Hypercholesterolemia.yaml#Homozygous Familial Hypercholesterolemia`. |
+| 528 | LCAT-related fish-eye disease | UNMAPPED | True partial LCAT / fish-eye disease gap; reject carnitine palmitoyltransferase II as a fatty-acid-oxidation false candidate. |
+| 529 | SLC52A3-related Brown-Vialetto-Van Laere syndrome | CANDIDATE | Accept candidate; resolve to `Brown-Vialetto-Van_Laere_Syndrome.yaml#SLC52A3/BVVL1`. |
+| 530 | SLC52A3-related Fazio-Londe syndrome | UNMAPPED | False negative; use `Brown-Vialetto-Van_Laere_Syndrome.yaml` as the riboflavin-transporter spectrum target while preserving deafness-absent scope. |
+| 531 | COQ6-related coenzyme Q6 monooxygenase deficiency | UNMAPPED | False negative; resolve to `Primary_Coenzyme_Q10_Deficiency.yaml#COQ6` with oto-renal CoQ10 deficiency context. |
+| 532 | ETFDH-related myopathic form of CoQ10 deficiency | UNMAPPED | False negative; resolve to `Multiple_Acyl-CoA_Dehydrogenase_Deficiency.yaml#ETFDH` rather than a separate primary CoQ10 entry. |
+| 533 | ATP7A-related distal spinal muscular atrophy type 3 | UNMAPPED | False negative at spectrum level; resolve to `Menkes_Disease.yaml#ATP7A-related distal motor neuropathy`, not classic Menkes disease. |
+| 537 | SUGCT-related glutaric aciduria type 3 | CANDIDATE | Reject GCDH/GA1 candidate; true SUGCT/GA3 benign-form gap with normal 3-hydroxyglutaric acid. |
+| 542 | GK-related isolated glycerol kinase deficiency | UNMAPPED | True GK/hyperglycerolemia gap; reject BCKDK as a lexical kinase-deficiency false candidate. |
