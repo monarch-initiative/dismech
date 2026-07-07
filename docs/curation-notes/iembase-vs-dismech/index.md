@@ -177,3 +177,18 @@ Source inputs for these batches:
 | 117 | CYP17A1-related 17-alpha-Hydroxylase deficiency | MAPPED | Correct `17A-OHD` subtype mapping; IEMbase adds steroid/mineralocorticoid precursor profile granularity. |
 | 118 | HSD3B2-related 3-beta-Hydroxysteroid dehydrogenase deficiency | MAPPED | Correct `3B-HSD` subtype mapping, but local subtype-specific mechanism/biochemical coverage is thin. |
 | 119 | CYP21A2-related 21-Hydroxylase deficiency | MAPPED | Correct CAH/21-OHD mapping with strong local coverage; IEMbase adds granular ACTH/renin/electrolyte/androgen biomarkers. |
+
+## Batch 12
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 120 | CYP11B1-related 11-beta-Hydroxylase type 1 deficiency | MAPPED | Correct CAH mapping, with subtype resolution to `Congenital_Adrenal_Hyperplasia.yaml#11B-OHD`; IEMbase adds CYP11B1 steroid/electrolyte detail. |
+| 122 | CYP11B1-related 11-beta-Hydroxylase superactivity | MAPPED | Correct standalone familial hyperaldosteronism type I mapping; high concordance for aldosterone, 18-oxocortisol, hypokalemia, and dexamethasone suppression. |
+| 123 | HSD11B2-related 11-beta-Hydroxysteroid dehydrogenase 2 deficiency | CANDIDATE | False-positive HSD17B3 DSD candidate; HSD11B2 apparent mineralocorticoid excess is a true local disease gap. |
+| 124 | H6PD-related Hexose-6-phosphate dehydrogenase deficiency | MAPPED | Correct cortisone reductase deficiency mapping, specifically the H6PD/apparent CRD subtype; IEMbase adds THF/THE-ratio and ACTH/androgen detail. |
+| 125 | CYP17A1-related 17,20-Lyase deficiency | UNMAPPED | Partial false negative to the local CYP17A1 CAH branch, but isolated 17,20-lyase deficiency should remain distinct from combined 17A-OHD coverage. |
+| 126 | HSD17B3-related 17-beta-Hydroxysteroid dehydrogenase deficiency | MAPPED | Correct 46,XY HSD17B3 DSD mapping; DisMech is clinically richer and IEMbase adds explicit gonadotropin elevation. |
+| 127 | SRD5A2-related Steroid 5-alpha-reductase type 2 deficiency | CANDIDATE | Accept generated candidate as correct SRD5A2 DSD mapping; IEMbase adds urinary 5-alpha/5-beta metabolite-ratio detail. |
+| 128 | CYP19A1-related Aromatase deficiency | MAPPED | Correct aromatase deficiency mapping; DisMech is richer for estrogen deficiency, androgen excess, bone, metabolic, and treatment coverage. |
+| 129 | AR-related Androgen receptor deficiency | MAPPED | Correct current CAIS target, with a broader AIS label-scope caveat; IEMbase adds normal DHT as a useful differentiator. |
+| 130 | ESR1-related Estrogen receptor deficiency | UNMAPPED | True local disease gap; do not map estrogen resistance to aromatase deficiency, ESR1 cancer contexts, PMDD, or osteoporosis-risk content. |
