@@ -702,3 +702,18 @@ Source inputs for these batches:
 | 564 | PRKAG2-related phosphorylase kinase deficiency, AMP-activated | UNMAPPED | Reject MNGIE candidate; true PRKAG2 glycogen-storage cardiomyopathy / AMPK disease gap. |
 | 565 | GLYCTK-related D-glycerate kinase deficiency | UNMAPPED | Reject mevalonate kinase candidate; true GLYCTK/D-glyceric acidemia gap with D-glycerate, acidosis, and severe neurodevelopmental prompts. |
 | 566 | ABCC8-related ATP-sensitive potassium channel regulatory subunit deficiency | UNMAPPED | False negative; resolve to `Congenital_Isolated_Hyperinsulinism.yaml#KATP-HI/ABCC8`. |
+
+## Batch 47
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 567 | GLUD1-related glutamate dehydrogenase superactivity | MAPPED | Correct HI/HA subtype mapping to `Congenital_Isolated_Hyperinsulinism.yaml#HI/HA Syndrome`; IEMbase adds 2-ketoglutaric acid, EEG, and generalized-epilepsy prompts. |
+| 568 | GCK-related glucokinase superactivity | UNMAPPED | False negative; resolve to `Congenital_Isolated_Hyperinsulinism.yaml#GCK-HI`, while source-reviewing IEMbase MODY/type 2 diabetes wording. |
+| 570 | HNF4A-related MODY1 / hyperinsulinism | UNMAPPED | False negative to CHI/monogenic-diabetes context; reject FRTS4 as exact unless renal Fanconi variant-specific phenotype is present. |
+| 571 | SLC16A1-related monocarboxylate transporter 1 superactivity | UNMAPPED | Broad CHI context only; reject PRPS1 superactivity and treat exact SLC16A1/HHF7 exercise-induced hyperinsulinism as a local gap. |
+| 572 | UCP2-related uncoupling protein 2 deficiency | UNMAPPED | Broad CHI context only; reject pyruvate dehydrogenase deficiency and treat exact UCP2-HI as a local gap. |
+| 573 | HNF1A-related MODY3 | UNMAPPED | False negative to partial local coverage in `Congenital_Isolated_Hyperinsulinism.yaml#HNF4A/HNF1A-HI` and `Diabetes_Mellitus.yaml#HNF1A`; no standalone HNF1A/MODY3 entry. |
+| 574 | SUCLG1-related mitochondrial DNA depletion syndrome type 9 | CANDIDATE | Reject mitochondrial CIPO/MNGIE candidate; true SUCLG1/MTDPS9 gap with methylmalonic acid, lactate, Leigh, deafness, and early-death prompts. |
+| 575 | SERAC1-related MEGDEL syndrome | UNMAPPED | Reject COX8A candidate; true SERAC1/MEGDEL gap with 3-methylglutaconic aciduria, deafness, Leigh-like lesions, regression, and filipin prompts. |
+| 576 | TMEM70-related complex V deficiency | UNMAPPED | Reject COX11 candidate; true TMEM70 complex V assembly deficiency gap with cardiomyopathy, WPW, acidosis, pulmonary, renal, and neuroimaging prompts. |
+| 577 | ACSF3-related combined malonic and methylmalonic aciduria | UNMAPPED | False negative; resolve to `Combined_Malonic_and_Methylmalonic_Aciduria.yaml` and reject HMG-CoA synthase candidate. |
