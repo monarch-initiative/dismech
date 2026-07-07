@@ -582,3 +582,18 @@ Source inputs for these batches:
 | 445 | TRMU-related tRNA 5-methylaminomethyl-2-thiouridylate-methyltransferase deficiency | UNMAPPED | Partial false negative/context case: local RIRCD captures TRMU/cysteine context, but dedicated TRMU transient infantile liver failure remains a gap. |
 | 446 | DARS2-related Mitochondrial aspartyl-tRNA synthetase deficiency | UNMAPPED | True DARS2/LBSL gap; reject HMG-CoA synthase deficiency and do not substitute EIF2B leukodystrophy. |
 | 451 | SDHA-related Succinate dehydrogenase subunit A deficiency | UNMAPPED | True SDHA/complex II deficiency gap; reject pyruvate dehydrogenase E1-beta and keep Leigh syndrome as phenotype context only. |
+
+## Batch 39
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 463 | SLC25A3-related Mitochondrial phosphate carrier deficiency | UNMAPPED | True SLC25A3 mitochondrial phosphate carrier gap; reject HMG-CoA synthase deficiency. |
+| 466 | SLC25A38-related Mitochondrial glycine transporter deficiency | UNMAPPED | True SLC25A38 sideroblastic anemia type 2 gap; reject primary carnitine deficiency and do not substitute MLASA/Pearson context. |
+| 467 | TIMM8A-related Mohr-Tranebjaerg syndrome | UNMAPPED | True TIMM8A/Mohr-Tranebjaerg deafness-dystonia gap; ignore unrelated MTS acronym hits. |
+| 468 | UCP1-3-related Uncoupling protein deficiency | UNMAPPED | True UCP1-3 uncoupling-protein gap or scope-review item; reject PDH E3-binding protein deficiency. |
+| 471 | MT-RNR1-related Mitochondrial ribosomal RNA 12S deficiency | UNMAPPED | True MT-RNR1 aminoglycoside-induced deafness gap; reject mitochondrial trifunctional protein deficiency. |
+| 473 | GALT-related Galactose-1-phosphate uridyltransferase deficiency (CDG) | MAPPED | Correct classic galactosemia/GALT mapping with high concordance; verify several extra urinary, imaging, and liver-tumor prompts before import. |
+| 474 | GALK1-related Galactokinase deficiency (CDG) | UNMAPPED | False negative; resolve to `Galactosemia.yaml#Galactokinase Deficiency`. |
+| 475 | GALE-related Galactose epimerase deficiency (CDG) | UNMAPPED | False negative; resolve to `Galactosemia.yaml#Epimerase Deficiency`. |
+| 476 | KHK-related Hepatic fructokinase deficiency | UNMAPPED | True KHK essential fructosuria gap or low-priority scope-review item; reject essential thrombocythemia and do not map to ALDOB HFI. |
+| 477 | ALDOB-related Aldolase B deficiency (CDG) | MAPPED | Correct hereditary fructose intolerance mapping with high concordance; IEMbase adds glycan, coagulation, electrolyte, lipid, uric-acid, and urinary glycerol prompts. |
