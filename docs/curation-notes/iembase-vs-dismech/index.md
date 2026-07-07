@@ -327,3 +327,18 @@ Source inputs for these batches:
 | 232 | HADHA-related trifunctional protein subunit alpha deficiency | UNMAPPED | False negative to local MTP/LCHAD coverage, but IEMbase label spans complete MTPD and isolated HADHA/LCHAD scopes. |
 | 233 | HADHB-related isolated deficiency of long-chain 3-ketoacyl-CoA thiolase | UNMAPPED | Partial false negative to MTPD umbrella coverage; exact isolated HADHB/LKAT subtype remains a gap. |
 | 234 | ACADM-related medium-chain acyl-CoA dehydrogenase deficiency | MAPPED | Correct MCAD mapping with high concordance and granular IEMbase biomarker detail. |
+
+## Batch 22
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 235 | ACADS-related short-chain acyl CoA dehydrogenase deficiency | MAPPED | Generated coronary-artery-dissection mapping is false via SCAD acronym collision; correct local target is `SCAD_Deficiency.yaml`. |
+| 236 | HADH-related short-chain 3-hydroxyacyl-CoA dehydrogenase deficiency | UNMAPPED | False negative to `Congenital_Isolated_Hyperinsulinism.yaml#SCHAD-HI` subtype coverage. |
+| 237 | ETFA-related electron transfer flavoprotein alpha subunit deficiency | CANDIDATE | Accept candidate as correct MADD file-level mapping; subtype is ETFA/MADD type 2A. |
+| 239 | ETFDH-related multiple acyl-CoA dehydrogenase deficiency | MAPPED | Correct MADD mapping with high concordance, especially for ETFDH/riboflavin-responsive MADD context. |
+| 241 | IDUA-related alpha-iduronidase deficiency | MAPPED | Correct high-concordance MPS I mapping to `Hurler_syndrome.yaml`, with spectrum scope spanning Hurler-Scheie and Scheie noted. |
+| 242 | IDS-related iduronate 2-sulfatase deficiency | MAPPED | Correct Hunter syndrome/MPS II mapping with high concordance. |
+| 243 | SGSH-related heparan N-sulfatase deficiency | MAPPED | Correct subtype-level Sanfilippo A/MPS IIIA mapping. |
+| 244 | NAGLU-related N-acetylglucosaminidase deficiency | MAPPED | Correct subtype-level Sanfilippo B/MPS IIIB mapping. |
+| 245 | HGSNAT-related heparan-alpha-glucosaminide N-acetyltransferase deficiency | MAPPED | Correct subtype-level Sanfilippo C/MPS IIIC mapping, with RP73/attenuated retinal-label nuance noted. |
+| 246 | GNS-related N-acetylglucosamine 6-sulfatase deficiency | MAPPED | Correct subtype-level Sanfilippo D/MPS IIID mapping. |
