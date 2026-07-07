@@ -7,8 +7,8 @@ Two modes:
 * default: print the single resolved model id for ``--workflow``.
   Resolution order: ``--override`` (if non-empty) > per-workflow ``model:`` >
   ``default_model``.
-* ``--matrix``: print the workflow's ``models:`` list as a JSON array, for a job
-  that fans out across models via ``strategy.matrix``.
+* ``--matrix``: print the workflow's ``matrix:`` list as a JSON array, for a job
+  that fans out via ``strategy.matrix``.
 
 Kept dependency-light (PyYAML only) and side-effect free so it can be unit
 tested directly; the composite action does the ``$GITHUB_ENV`` / ``$GITHUB_OUTPUT``

@@ -101,9 +101,12 @@ def test_no_workflow_hardcodes_a_model_inline():
     only flag hardcoded models on `--model` invocation lines.
     """
     offenders = []
+    # Covers every current and anticipated Claude model family (haiku/sonnet/
+    # opus/fable) so a future hardcoded model is also caught.
+    model_family = re.compile(r"claude-(haiku|sonnet|opus|fable)-")
     for stem, text in _workflow_texts().items():
         for line in text.splitlines():
-            if "--model" in line and re.search(r"claude-(haiku|sonnet|opus|fable)-", line):
+            if "--model" in line and model_family.search(line):
                 offenders.append(f"{stem}: {line.strip()}")
     assert not offenders, "hardcoded --model found (should use AGENT_MODEL):\n" + "\n".join(
         offenders
@@ -111,13 +114,21 @@ def test_no_workflow_hardcodes_a_model_inline():
 
 
 def test_managed_workflows_use_the_resolver_action():
-    """Every workflow listed in agent-config.yaml must invoke the composite
-    action (so its model actually comes from the config)."""
+    """Every workflow in agent-config.yaml must actually source its model from
+    the config: single-model workflows must `uses:` the composite action;
+    matrix workflows (curation-scanner) instead call the resolver script from a
+    setup job, so they're checked for that path."""
     config = yaml.safe_load(CONFIG_PATH.read_text())
     texts = _workflow_texts()
-    for stem in config["workflows"]:
+    for stem, entry in config["workflows"].items():
         text = texts.get(stem, "")
-        assert "resolve-agent-config" in text, (
-            f"workflow '{stem}' is in agent-config.yaml but does not use the "
-            f"resolve-agent-config action"
-        )
+        if isinstance(entry, dict) and entry.get("matrix"):
+            assert (
+                "resolve-agent-config/resolve_agent_config.py" in text
+                and "--matrix" in text
+            ), f"matrix workflow '{stem}' does not emit its matrix from the config"
+        else:
+            assert "uses: ./.github/actions/resolve-agent-config" in text, (
+                f"workflow '{stem}' is in agent-config.yaml but does not `uses:` "
+                f"the resolve-agent-config action"
+            )
