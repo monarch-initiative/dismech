@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.04.28.25326317"
+reference_id: DOI:10.1101/2025.04.28.25326317
 title: Mutations in 329 probands with suspected renal electrolyte disorders
 authors:
 - Renan Eduardo Aparicio
@@ -17,6 +17,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.04.28.25326317
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mutations in 329 probands with suspected renal electrolyte disorders

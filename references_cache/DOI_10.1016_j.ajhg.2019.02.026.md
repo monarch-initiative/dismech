@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2019.02.026"
+reference_id: DOI:10.1016/j.ajhg.2019.02.026
 title: Pathogenic Variants in GPC4 Cause Keipert Syndrome
 authors:
 - David J. Amor
@@ -36,6 +36,7 @@ journal: The American Journal of Human Genetics
 year: '2019'
 doi: 10.1016/j.ajhg.2019.02.026
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pathogenic Variants in GPC4 Cause Keipert Syndrome

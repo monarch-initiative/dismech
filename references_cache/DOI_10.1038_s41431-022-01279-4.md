@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41431-022-01279-4"
+reference_id: DOI:10.1038/s41431-022-01279-4
 title: Truncating variants in the penultimate exon of TGFBR1 escaping nonsense-mediated mRNA decay cause Loeys-Dietz syndrome
 authors:
 - Paola Fortugno
@@ -24,6 +24,7 @@ journal: European Journal of Human Genetics
 year: '2023'
 doi: 10.1038/s41431-022-01279-4
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Truncating variants in the penultimate exon of TGFBR1 escaping nonsense-mediated mRNA decay cause Loeys-Dietz syndrome

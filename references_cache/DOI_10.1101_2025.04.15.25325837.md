@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.04.15.25325837"
+reference_id: DOI:10.1101/2025.04.15.25325837
 title: "Systemic treatment options for metastatic castration resistant prostate cancer: A living systematic review"
 authors:
 - Syed Arsalan Ahmed Naqvi
@@ -29,6 +29,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.04.15.25325837
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Systemic treatment options for metastatic castration resistant prostate cancer: A living systematic review

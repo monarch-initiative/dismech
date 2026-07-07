@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jbc.2024.107542"
+reference_id: DOI:10.1016/j.jbc.2024.107542
 title: Activation of nemo-like kinase in diamond blackfan anemia suppresses early erythropoiesis by preventing mitochondrial biogenesis
 authors:
 - Mark C. Wilkes
@@ -17,6 +17,7 @@ journal: Journal of Biological Chemistry
 year: '2024'
 doi: 10.1016/j.jbc.2024.107542
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Activation of nemo-like kinase in diamond blackfan anemia suppresses early erythropoiesis by preventing mitochondrial biogenesis

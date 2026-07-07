@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14728222.2023.2177533"
+reference_id: DOI:10.1080/14728222.2023.2177533
 title: "Airway smooth muscle in contractility and remodeling of asthma: potential drug target mechanisms"
 authors:
 - Latifa Khalfaoui
@@ -8,6 +8,7 @@ journal: Expert Opinion on Therapeutic Targets
 year: '2023'
 doi: 10.1080/14728222.2023.2177533
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Airway smooth muscle in contractility and remodeling of asthma: potential drug target mechanisms

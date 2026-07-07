@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jama.2024.25349"
+reference_id: DOI:10.1001/jama.2024.25349
 title: Essential Thrombocythemia
 authors:
 - Ayalew Tefferi
@@ -15,6 +15,7 @@ journal: JAMA
 year: '2025'
 doi: 10.1001/jama.2024.25349
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Essential Thrombocythemia

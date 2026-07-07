@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/neuonc/noae085"
+reference_id: DOI:10.1093/neuonc/noae085
 title: Immunotherapy drives mesenchymal tumor cell state shift and TME immune response in glioblastoma patients
 authors:
 - Josephine D Hendriksen
@@ -17,6 +17,7 @@ journal: Neuro-Oncology
 year: '2024'
 doi: 10.1093/neuonc/noae085
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Immunotherapy drives mesenchymal tumor cell state shift and TME immune response in glioblastoma patients

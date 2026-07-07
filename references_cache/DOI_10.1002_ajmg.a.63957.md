@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.63957"
+reference_id: DOI:10.1002/ajmg.a.63957
 title: "The Natural History of Dermatosparaxis Ehlers Danlos Syndrome: An Adult Case Series"
 authors:
 - C. Angwin
@@ -15,6 +15,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2025'
 doi: 10.1002/ajmg.a.63957
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Natural History of Dermatosparaxis Ehlers Danlos Syndrome: An Adult Case Series

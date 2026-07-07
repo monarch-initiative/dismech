@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/oncolo/oyab058"
+reference_id: DOI:10.1093/oncolo/oyab058
 title: "Treatment Patterns, Health Care Resource Utilization, and Cost in Patients with Myelofibrosis in the United States"
 authors:
 - Ronda Copher
@@ -9,6 +9,7 @@ journal: The Oncologist
 year: '2022'
 doi: 10.1093/oncolo/oyab058
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatment Patterns, Health Care Resource Utilization, and Cost in Patients with Myelofibrosis in the United States

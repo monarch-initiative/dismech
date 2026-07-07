@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1098/rsob.150047"
+reference_id: DOI:10.1098/rsob.150047
 title: Warburg Micro syndrome is caused by RAB18 deficiency or dysregulation
 authors:
 - Mark T. Handley
@@ -13,6 +13,7 @@ journal: Open Biology
 year: '2015'
 doi: 10.1098/rsob.150047
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Warburg Micro syndrome is caused by RAB18 deficiency or dysregulation

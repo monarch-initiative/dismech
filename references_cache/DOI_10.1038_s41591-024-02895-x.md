@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-02895-x"
+reference_id: DOI:10.1038/s41591-024-02895-x
 title: Single-cell transcriptomic analyses reveal distinct immune cell contributions to epithelial barrier dysfunction in checkpoint inhibitor colitis
 authors:
 - Molly Fisher Thomas
@@ -38,6 +38,7 @@ journal: Nature Medicine
 year: '2024'
 doi: 10.1038/s41591-024-02895-x
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Single-cell transcriptomic analyses reveal distinct immune cell contributions to epithelial barrier dysfunction in checkpoint inhibitor colitis

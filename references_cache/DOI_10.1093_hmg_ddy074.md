@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddy074"
+reference_id: DOI:10.1093/hmg/ddy074
 title: "PITX2 deficiency and associated human disease: insights from the zebrafish model"
 authors:
 - Kathryn E Hendee
@@ -15,6 +15,7 @@ journal: Human Molecular Genetics
 year: '2018'
 doi: 10.1093/hmg/ddy074
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # PITX2 deficiency and associated human disease: insights from the zebrafish model

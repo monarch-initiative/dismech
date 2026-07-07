@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/164_2022_625"
+reference_id: DOI:10.1007/164_2022_625
 title: "CACNA1A-Related Channelopathies: Clinical Manifestations and Treatment Options"
 authors:
 - Elisabetta Indelicato
@@ -8,6 +8,7 @@ journal: Handbook of Experimental Pharmacology
 year: '2023'
 doi: 10.1007/164_2022_625
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # CACNA1A-Related Channelopathies: Clinical Manifestations and Treatment Options

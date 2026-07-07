@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ejmg.2020.104116"
+reference_id: DOI:10.1016/j.ejmg.2020.104116
 title: Milder presentation of TELO2-related syndrome in two sisters homozygous for the p.Arg609His pathogenic variant
 authors:
 - Claudia Ciaccio
@@ -37,6 +37,7 @@ journal: European Journal of Medical Genetics
 year: '2021'
 doi: 10.1016/j.ejmg.2020.104116
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Milder presentation of TELO2-related syndrome in two sisters homozygous for the p.Arg609His pathogenic variant

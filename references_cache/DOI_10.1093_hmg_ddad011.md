@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddad011"
+reference_id: DOI:10.1093/hmg/ddad011
 title: NRAP reduction rescues sarcomere defects in nebulin-related nemaline myopathy
 authors:
 - Jennifer G Casey
@@ -12,6 +12,7 @@ journal: Human Molecular Genetics
 year: '2023'
 doi: 10.1093/hmg/ddad011
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # NRAP reduction rescues sarcomere defects in nebulin-related nemaline myopathy

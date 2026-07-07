@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/iji.12688"
+reference_id: DOI:10.1111/iji.12688
 title: High‐resolution HLA sequencing and hypocretin receptor 2 autoantibodies in narcolepsy type 1 and type 2
 authors:
 - Samia Hamdan
@@ -9,6 +9,7 @@ journal: International Journal of Immunogenetics
 year: '2024'
 doi: 10.1111/iji.12688
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # High‐resolution HLA sequencing and hypocretin receptor 2 autoantibodies in narcolepsy type 1 and type 2

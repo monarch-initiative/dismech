@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2022.06.18.496687"
+reference_id: DOI:10.1101/2022.06.18.496687
 title: Antisense oligonucleotide therapy rescues disturbed brain rhythms and sleep in juvenile and adult mouse models of Angelman syndrome
 authors:
 - Dongwon Lee
@@ -19,6 +19,7 @@ authors:
 year: '2022'
 doi: 10.1101/2022.06.18.496687
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Antisense oligonucleotide therapy rescues disturbed brain rhythms and sleep in juvenile and adult mouse models of Angelman syndrome

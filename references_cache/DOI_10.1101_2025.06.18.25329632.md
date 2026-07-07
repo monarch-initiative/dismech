@@ -1,12 +1,6 @@
 ---
-reference_id: "DOI:10.1101/2025.06.18.25329632"
-title: "Clinicogenomic landscape and function of
-                  <i>PIK3CA</i>
-                  ,
-                  <i>AKT1</i>
-                  , and
-                  <i>PTEN</i>
-                  mutations in breast cancer"
+reference_id: DOI:10.1101/2025.06.18.25329632
+title: "Clinicogenomic landscape and function of <i>PIK3CA</i> , <i>AKT1</i> , and <i>PTEN</i> mutations in breast cancer"
 authors:
 - Jacqueline J. Tao
 - Saumya D. Sisoudiya
@@ -18,15 +12,10 @@ authors:
 year: '2025'
 doi: 10.1101/2025.06.18.25329632
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Clinicogenomic landscape and function of
-                  <i>PIK3CA</i>
-                  ,
-                  <i>AKT1</i>
-                  , and
-                  <i>PTEN</i>
-                  mutations in breast cancer
+# Clinicogenomic landscape and function of <i>PIK3CA</i> , <i>AKT1</i> , and <i>PTEN</i> mutations in breast cancer
 **Authors:** Jacqueline J. Tao, Saumya D. Sisoudiya, Hanna Tukachinsky, Alexa Schrock, Smruthy Sivakumar, Ethan S. Sokol, Neil Vasan
 **DOI:** [10.1101/2025.06.18.25329632](https://doi.org/10.1101/2025.06.18.25329632)
 
