@@ -807,3 +807,18 @@ Source inputs for these batches:
 | 637 | ATP6V1E1-related autosomal recessive cutis laxa type IIC | UNMAPPED | Reject chronic granulomatous disease; true ATP6V1E1 cutis-laxa/CDG gap with type 2 sialotransferrin, cutis laxa, hypotonia, cardiovascular, skeletal/contracture, cleft-palate, ocular, dental, and facial prompts. |
 | 638 | XYLT1-related Desbuquois dysplasia 2 | UNMAPPED | Reject FBN1-related geleophysic dysplasia 2 and CANT1/Desbuquois mentions as exact; true XYLT1/Desbuquois dysplasia 2 gap with brachydactyly, femoral, patellar, coronal-cleft, joint-laxity, short-stature, craniofacial, and clubfoot prompts. |
 | 639 | XYLT2-related spondyloocular syndrome | UNMAPPED | True XYLT2/spondyloocular syndrome gap; preserve combined bone-density/fracture, vertebral, cataract, retinal-detachment, hearing-loss, cardiac, stature, kyphosis, and ID prompts. |
+
+## Batch 54
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 640 | RXYLT1-related muscular dystrophy-dystroglycanopathy type A | MAPPED | Correct disease-level target is `Dystroglycanopathy.yaml`, not lissencephaly spectrum alone; broadly covered via RXYLT1/MDDG10 and type A dystroglycanopathy, with gonadal and neural-tube prompts still thin. |
+| 641 | CRPPA-related muscular dystrophy-dystroglycanopathy types A7 and C7 | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml` through CRPPA/MDDG7 and type A/C framework; missing exact A7/C7 cross-product subtype and some eye/brain/limb detail. |
+| 642 | FKTN-related muscular dystrophy-dystroglycanopathy type A | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml` through FKTN/MDDG4 and type A/Fukuyama continuum; missing exact FKTN type A row and several ocular, regression, contracture, respiratory, and cardiac prompts. |
+| 643 | FKTN-related muscular dystrophy-dystroglycanopathy type B | UNMAPPED | Broadly covered by FKTN and type B dystroglycanopathy; preserve narrow no-intellectual-disability row nuance with CK, normal sialotransferrin, hypotonia, and muscular dystrophy prompts. |
+| 644 | FKTN-related muscular dystrophy-dystroglycanopathy type C | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml`; not yet represented as an FKTN limb-girdle subtype in AR LGMD, so preserve rigid-spine and cardiomyopathy prompts. |
+| 645 | FKRP-related muscular dystrophy-dystroglycanopathy type A | UNMAPPED | Broadly covered by `Dystroglycanopathy.yaml` through FKRP/MDDG5 and type A framework; missing exact FKRP type A row and detailed Walker-Warburg eye/brain/regression prompts. |
+| 646 | FKRP-related muscular dystrophy-dystroglycanopathy type B | UNMAPPED | Broadly covered by FKRP and type B dystroglycanopathy; missing exact FKRP type B row with nodular heterotopia, cerebellar white-matter, feeding, microcephaly, and spinal prompts. |
+| 647 | FKRP-related muscular dystrophy-dystroglycanopathy type C | UNMAPPED | Covered locally by both `Dystroglycanopathy.yaml` and FKRP/LGMDR9 in AR LGMD; preserve myoglobinuria and tongue-hypertrophy prompts not clearly captured locally. |
+| 648 | VPS33A-related mucopolysaccharidosis-plus syndrome | UNMAPPED | Reject Hurler syndrome as exact; true VPS33A MPS-plus gap with GAG/oligosaccharide, hematologic, renal, cardiac, respiratory, infection, neurodevelopmental, and storage-phenotype prompts. |
+| 650 | TIMM50-related 3-methylglutaconic aciduria type 9 | UNMAPPED | Reject glutaryl-CoA dehydrogenase deficiency as exact; true TIMM50/3-methylglutaconic aciduria type 9 gap with lactate, 3-MGA, epilepsy, hypsarrhythmia, optic atrophy, and brain-imaging prompts. |
