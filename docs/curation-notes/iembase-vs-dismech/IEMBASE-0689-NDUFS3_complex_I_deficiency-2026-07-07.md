@@ -19,6 +19,10 @@ IEMbase represents autosomal recessive NDUFS3-related NADH dehydrogenase
 iron-sulfur protein 3 deficiency, also labeled mitochondrial complex I
 deficiency, nuclear type 8.
 
+The cached IEMbase record lists OMIM:256000 and OMIM:252010. The latter appears
+to correspond to NDUFS4/MC1DN1 rather than NDUFS3/MC1DN8, so it should be
+source-reviewed before downstream use as an NDUFS3-specific identifier.
+
 The biochemical rows show decreased fibroblast complex I activity and increased
 plasma lactate from the neonatal period through childhood. Clinical rows include
 developmental delay, encephalopathy, Leigh syndrome, and characteristic myopathy

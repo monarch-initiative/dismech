@@ -8,7 +8,7 @@
 | Nosology | 7.1.03.02 |
 | Nosology code | IEM0415 |
 | Gene | NDUFS1 |
-| External IDs | OMIM:618229; ORPHA:255241 |
+| External IDs | OMIM:618226 for NDUFS1/MC1DN5; IEMbase source lists OMIM:618229; ORPHA:255241 |
 | Generated mapping | CANDIDATE to `COX8A-Related_COX_Deficiency.yaml` |
 | Candidate DisMech targets | Broad complex I/Leigh context only; no exact NDUFS1 target |
 | Review date | 2026-07-07 |
@@ -18,6 +18,10 @@
 IEMbase represents autosomal recessive NDUFS1-related NADH dehydrogenase
 iron-sulfur protein 1 deficiency, also labeled mitochondrial complex I
 deficiency, nuclear type 5.
+
+The cached IEMbase record lists OMIM:618229, which appears to correspond to
+NDUFV2/MC1DN7 rather than NDUFS1/MC1DN5. The scope table records the expected
+NDUFS1/MC1DN5 identifier while preserving the source anomaly.
 
 Biochemical rows show decreased fibroblast complex I activity and increased
 plasma lactate across all ages. Clinical rows include hypertrophic
