@@ -516,7 +516,13 @@ input on the categories that matter most to you is very welcome.*
 {% if cm.model_type %}**Type:** {{ cm.model_type }}{% endif %}
 
 {{ cm.description | default('', true) | wordwrap(90) }}
-{{ evidence_block(cm.evidence, claim=cm.name + " is a computational model of " + d.name) }}
+{% if cm.modeled_mechanisms %}
+**Informs pathophysiology (§6):**
+{% for link in cm.modeled_mechanisms %}
+- **→ {{ link.target }}**{% if link.description %}: {{ link.description | trim }}{% endif %}
+{% if link.evidence %}{{ evidence_block(link.evidence, claim=cm.name + " models " + link.target, indent=1) }}
+{% endif %}{% endfor %}
+{% endif %}{{ evidence_block(cm.evidence, claim=cm.name + " is a computational model of " + d.name) }}
 {% endfor %}
 {% endif %}
 {% if d.animal_models %}
@@ -527,7 +533,13 @@ input on the categories that matter most to you is very welcome.*
 {% if am.category %}**Category:** {{ am.category }}{% endif %}
 
 {{ am.description | default('', true) | wordwrap(90) }}
-{{ evidence_block(am.evidence, claim=am.species + " is an animal model for " + d.name) }}
+{% if am.modeled_mechanisms %}
+**Informs pathophysiology (§6):**
+{% for link in am.modeled_mechanisms %}
+- **→ {{ link.target }}**{% if link.description %}: {{ link.description | trim }}{% endif %}
+{% if link.evidence %}{{ evidence_block(link.evidence, claim=am.species + " models " + link.target, indent=1) }}
+{% endif %}{% endfor %}
+{% endif %}{{ evidence_block(am.evidence, claim=am.species + " is an animal model for " + d.name) }}
 {% endfor %}
 {% endif %}
 {% if d.experimental_models %}
@@ -537,7 +549,13 @@ input on the categories that matter most to you is very welcome.*
 
 {{ em.description | default('', true) | wordwrap(90) }}
 {% if em.findings %}*Findings:* {{ em.findings }}{% endif %}
-{{ evidence_block(em.evidence, claim=em.name + " is an experimental model for " + d.name) }}
+{% if em.modeled_mechanisms %}
+**Informs pathophysiology (§6):**
+{% for link in em.modeled_mechanisms %}
+- **→ {{ link.target }}**{% if link.description %}: {{ link.description | trim }}{% endif %}
+{% if link.evidence %}{{ evidence_block(link.evidence, claim=em.name + " models " + link.target, indent=1) }}
+{% endif %}{% endfor %}
+{% endif %}{{ evidence_block(em.evidence, claim=em.name + " is an experimental model for " + d.name) }}
 {% endfor %}
 {% endif %}
 
