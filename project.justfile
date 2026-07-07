@@ -84,8 +84,16 @@ validate file:
 validate-disorders *files:
     #!/usr/bin/env bash
     set -u
+    # Read the file list as a single-quoted literal so bash does NOT re-parse it
+    # as code. just text-substitutes {{files}} verbatim (unescaped), so a bare
+    # `for f in {{files}}` chokes on shell metacharacters — notably the
+    # parentheses in DOI-based references_cache names such as
+    # DOI_10.1016_0002-9394(86)90650-1.md — before the filter below can skip
+    # them. Splitting on whitespace via `read -a` keeps such paths as literal
+    # array elements. (Paths in this repo never contain spaces or single quotes.)
+    read -r -a _input_files <<< '{{files}}'
     existing=()
-    for f in {{files}}; do
+    for f in ${_input_files[@]+"${_input_files[@]}"}; do
         if [[ "$f" == {{kb_dir}}/*.yaml && "$f" != *.history.yaml && -f "$f" ]]; then
             existing+=("$f")
         elif [[ ! -f "$f" ]]; then
