@@ -282,3 +282,18 @@ Source inputs for these batches:
 | 197 | LBR-related Greenberg skeletal dysplasia | UNMAPPED | True local gap; sepiapterin reductase deficiency is an unrelated false candidate. |
 | 198 | POR-related cytochrome P450 oxidoreductase deficiency | MAPPED | Generated amniotic band syndrome mapping is false via ABS acronym; local HRS file is only partial Antley-Bixler/POR context. |
 | 199 | ATP7A-related Menkes disease | MAPPED | Correct Menkes mapping; high concordance, with IEMbase adding copper-compartment, hypothermia, cytopenia, ocular, and arterial-rupture details. |
+
+## Batch 19
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 200 | ATP7A-related occipital horn syndrome | MAPPED | Correct OHS subtype mapping under Menkes disease; high concordance, with IEMbase adding diarrhea, orthostatic hypotension, and urinary-infection leads. |
+| 201 | ATP7B-related Wilson disease | MAPPED | Correct Wilson disease mapping; high concordance, with IEMbase adding selected granular lab and clinical rows. |
+| 202 | SLC39A4-related acrodermatitis enteropathica | UNMAPPED | True local gap; unrelated zinc-associated entries are not valid SLC39A4 disease targets. |
+| 203 | HFE-related hereditary hemochromatosis type 1 | UNMAPPED | False negative; resolve to `Hemochromatosis.yaml#Type 1`. |
+| 204 | HJV-related hemojuvelin deficiency | CANDIDATE | Accept candidate as correct hemochromatosis type 2A subtype coverage. |
+| 205 | Neonatal hemochromatosis | UNMAPPED | True local gap; do not conflate congenital alloimmune neonatal liver disease with hereditary hemochromatosis. |
+| 206 | TF-related hereditary transferrin deficiency | UNMAPPED | True local gap; atransferrinemia is mechanistically distinct from hepcidin-deficient hemochromatosis. |
+| 208 | BCS1L-related GRACILE syndrome | UNMAPPED | True local gap; CALFAN syndrome is a false-positive liver/neurodevelopmental neighbor. |
+| 209 | PANK2-related pantothenate kinase 2 deficiency | MAPPED | Correct PKAN mapping; high concordance, with IEMbase adding brain-iron, eye-movement, and spiculated-red-cell review leads. |
+| 210 | FMO3-related primary trimethylaminuria | UNMAPPED | True local gap; erythromelalgia is a lexical false positive and DMGDH deficiency is only a fish-odor differential. |
