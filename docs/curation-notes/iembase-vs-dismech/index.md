@@ -252,3 +252,18 @@ Source inputs for these batches:
 | 176 | HMGCS2-related 3-hydroxy-3-methylglutaryl-CoA synthase deficiency | MAPPED | Correct HMGCS2 mapping; high concordance, with IEMbase adding crotonylglycine and differential acylcarnitine details. |
 | 177 | MLYCD-related malonyl-CoA decarboxylase deficiency | MAPPED | Generated mapping to migraine with aura is false via `MA`; local MLYCD/malonic aciduria target is missing. |
 | 179 | HSD3B7-related 3beta-hydroxy-Delta5-C27-steroid dehydrogenase-isomerase deficiency | UNMAPPED | False negative; resolve to `Inborn_Disorder_of_Bile_Acid_Synthesis.yaml#BASD Type 1`. |
+
+## Batch 17
+
+| IEMbase ID | IEMbase disease | Generated mapping status | Manual conclusion |
+|---:|---|---|---|
+| 180 | AKR1D1-related Delta4-3-oxosteroid-5beta-reductase deficiency | CANDIDATE | Accept candidate as correct BASD type 2 subtype; high concordance, with IEMbase adding granular allocholic/3-oxo bile acids and CDCA/UDCA treatment rows. |
+| 181 | CYP7B1-related oxysterol 7alpha-hydroxylase deficiency | CANDIDATE | Accept candidate as correct BASD type 3 subtype; high concordance, with IEMbase adding 27-hydroxycholesterol, glucose/vitamin E, ocular, and MRI detail. |
+| 182 | CYP7A1-related cholesterol 7alpha-hydroxylase deficiency | CANDIDATE | False positive to BASD type 3; CYP7A1 adult dyslipidemia/gallstone disease is a true local gap. |
+| 183 | CYP27A1-related sterol 27-hydroxylase deficiency | MAPPED | Correct CTX mapping; high concordance, with IEMbase adding endocrine, cardiovascular, gallstone, and cholestane pentol glucuronide details. |
+| 184 | SLC27A5-related bile acid-CoA ligase deficiency | UNMAPPED | Partial local umbrella coverage, but no valid SLC27A5 subtype; BAAT conjugation defect candidate is related but not equivalent. |
+| 185 | ATP8B1-related progressive familial intrahepatic cholestasis type 1 | UNMAPPED | True local gap; progressive familial heart block candidate is a lexical false positive. |
+| 186 | ABCB11-related progressive familial intrahepatic cholestasis type 2 | UNMAPPED | True local gap; progressive familial heart block candidate is a lexical false positive. |
+| 187 | BAAT-related bile acid-CoA:aminoacid N-acyltransferase deficiency | UNMAPPED | False negative; resolve to `Inborn_Disorder_of_Bile_Acid_Synthesis.yaml#Bile acid conjugation defect 1`. |
+| 188 | AMACR-related alpha-methylacyl-CoA racemase deficiency | MAPPED | Correct BASD type 4 mapping; high concordance, with IEMbase adding granular bile acid/fatty acid analytes and neurologic/retinal details. |
+| 189 | TALDO1-related transaldolase deficiency | MAPPED | Correct transaldolase deficiency mapping; high concordance, with IEMbase adding erythronic acid, respiratory-chain/ferritin/glucose, and genital/endocrine details. |
