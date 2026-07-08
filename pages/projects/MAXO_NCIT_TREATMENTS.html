@@ -373,6 +373,102 @@
 <li>service/support formulations lacking direct NCIT treatment classes.</li>
 </ul>
 <p>Case/format variants (e.g., capitalization-only differences) are being propagated from already-manualized rows and explicitly marked in <code>queries_tried</code> as <code>propagated_case_variant_from:&lt;label&gt;</code>.</p>
+<h2 id="applied-to-the-kb-2026-07-02">Applied to the KB (2026-07-02)</h2>
+<p>The <code>MATCH</code> and <code>NEAR_MATCH</code> rows curated in <code>MANUAL.tsv</code> so far were applied
+to every <code>kb/disorders/*.yaml</code> and <code>kb/modules/*.yaml</code> treatment whose <code>name</code>
+matched a curated <code>section_name</code> and whose <code>treatment_term.term</code> still held
+the original MAXO id/label recorded as <code>maxo_label</code>:</p>
+<ul>
+<li>Curated names eligible (<code>MATCH</code> + <code>NEAR_MATCH</code>): <strong>194</strong></li>
+<li>Treatment entries updated: <strong>848</strong> across <strong>640</strong> files</li>
+<li>Only <code>treatment_term.term.id</code> / <code>term.label</code> were changed to the curated
+  NCIT id/label. <code>preferred_term</code> was updated to the new NCIT label only when
+  it previously mirrored the generic MAXO label verbatim (781 entries); the
+  67 entries where a curator had already written a more specific
+  <code>preferred_term</code> (e.g. "Foramen magnum decompression", "Cranial Vault
+  Surgery") were left untouched, since <code>preferred_term</code> is allowed to be more
+  specific than <code>term.label</code> per the curation conventions.</li>
+<li>All 159 unique NCIT ids used were spot-checked against
+  <code>sqlite:obo:ncit</code> (<code>runoak -i sqlite:obo:ncit labels &lt;ids&gt;</code>); every id/label
+  pair matched the canonical NCIT label except one (<code>NCIT:C98085</code>, corrected
+  in <code>MANUAL.tsv</code> from "GLP-1 Mimetics" to the canonical "GLP-1 Mimetic" —
+  this row was never actually applied to a KB file, since its <code>maxo_label</code>
+  ("pharmacotherapy") does not correspond to an actual MAXO id used in the
+  KB).</li>
+<li><code>NO_MATCH</code> (39) and <code>PENDING</code> (475) rows were <strong>not</strong> touched — MAXO
+  remains the term for those treatment names, consistent with the
+  recommendation above to keep MAXO primary except where a clearly better
+  NCIT concept exists.</li>
+<li>Schema (<code>linkml-validate --target-class Disease</code>) was re-run on all 640
+  changed files after the swap: <strong>640/640 passed, 0 failures</strong>.</li>
+</ul>
+<p>Remaining work: continue the manual OAK curation pass on the 475 <code>PENDING</code>
+names, then re-run this apply step to pick up newly curated <code>MATCH</code>/
+<code>NEAR_MATCH</code> rows.</p>
+<h2 id="post-review-correction-2026-07-02">Post-review correction (2026-07-02)</h2>
+<p>The automated PR review (ai4c-agent) on PR #5135 flagged 4 <code>NEAR_MATCH</code> rows
+whose NCIT concept is a substance or qualifier/adjective rather than a
+clinical-intervention action, and therefore likely does not satisfy the
+<code>TreatmentActionTerm</code> dynamic enum's <code>reachable_from NCIT:C25218</code> constraint:</p>
+<ul>
+<li><code>Leukotriene Modifier</code> -&gt; <code>NCIT:C608</code> (Leukotriene) is the endogenous
+  mediator being <em>blocked</em>, not the modifier action — semantically inverted.</li>
+<li><code>Platinum Chemotherapy</code> / <code>Platinum-Based Chemotherapy</code> -&gt; <code>NCIT:C25620</code>
+  (Platinum-Based) is a qualifier/adjective, not an action (9 entries, 9 files).</li>
+<li><code>Multidisciplinary Care</code> -&gt; <code>NCIT:C94845</code> (Multidisciplinary) is an
+  adjective, not a care action (3 entries).</li>
+<li><code>Salt Supplementation</code> -&gt; <code>NCIT:C29974</code> (Sodium Chloride) is the chemical
+  agent, not the supplementation action (1 entry).</li>
+</ul>
+<p>All 14 affected treatment entries (across 13 files) were reverted to their
+original MAXO id/label/preferred_term, <code>linkml-validate</code> re-passed on all 14
+files, and the corresponding <code>MANUAL.tsv</code> rows were changed from
+<code>NEAR_MATCH</code> to <code>NO_MATCH</code> with notes explaining the reversion. Updated
+counts: <code>MATCH</code> 125, <code>NEAR_MATCH</code> 64, <code>NO_MATCH</code> 44, <code>PENDING</code> 475.</p>
+<h2 id="systematic-treatmentactionterm-enum-audit-2026-07-02-same-day">Systematic TreatmentActionTerm enum audit (2026-07-02, same day)</h2>
+<p>CI's real <code>linkml-term-validator</code> pass (with the OAK-backed dynamic enum
+expansion the earlier local <code>linkml-validate</code>-only check did not exercise)
+failed on <code>NCIT:C210732</code> (Vitamin Supplement, not reachable from
+<code>NCIT:C25218</code>). Since the CI loop stops at the first validation failure, a
+full proactive audit was run instead of fixing files one CI failure at a
+time: every unique NCIT id then in use across the <code>MATCH</code>/<code>NEAR_MATCH</code> rows
+(155 ids after the prior correction) was checked via OAK
+(<code>adapter.ancestors(id, predicates=["rdfs:subClassOf"], reflexive=True)</code>)
+against the schema's <code>TreatmentActionTerm</code> <code>reachable_from</code> roots
+(<code>NCIT:C25218</code> / <code>MAXO:0000001</code>).</p>
+<p><strong>93 of 155 unique NCIT ids (101 of 189 MATCH/NEAR_MATCH rows) failed</strong> —
+overwhelmingly cases where a treatment's <em>name</em> happened to be a specific
+drug/agent (e.g. "Rituximab", "Imatinib", "Trifarotene") and the curation
+queue matched it to the NCIT concept for that drug/substance itself, rather
+than the clinical-intervention <em>action</em> the <code>treatment_term</code> slot requires.
+Per the dismech convention, the specific agent belongs in
+<code>therapeutic_agent</code> (already correctly populated in most of these entries
+before the swap), while <code>treatment_term</code> should stay on the generic action
+(<code>NCIT:C15986</code> Pharmacotherapy, <code>MAXO:0000647</code> chemotherapy, etc.). A
+smaller set were drug-class/substance/device concepts (Corticosteroid,
+Beta-Adrenergic Agonist, Hearing Aid, Sunglasses, Brace, Vitamin Supplement,
+Actinotherapy, ...).</p>
+<p>All 57 affected KB treatment entries (45 files) were reverted to their
+original pre-swap MAXO id/label/preferred_term (sourced from the pristine
+git blob before the first swap commit, not re-derived from <code>maxo_label</code>
+text, to guarantee exactness). The corresponding 101 <code>MANUAL.tsv</code> rows were
+changed to <code>NO_MATCH</code> with notes recording the failed reachability check.</p>
+<p>One collateral bug surfaced and was fixed during this pass: a handful of
+entries (<code>Acne_Vulgaris.yaml</code> x3, <code>Glioblastoma_IDH_Wildtype.yaml</code> x1) had a
+pre-existing <code>therapeutic_agent</code> that already correctly cited the same NCIT
+drug id the treatment_term swap had also (incorrectly) copied in; a
+regex-based revert pass matched the <em>first</em> occurrence of that id in the
+entry block, which was ambiguous when both fields shared it. These 4
+<code>therapeutic_agent</code> values were restored from the pristine pre-swap blob and
+verified against it programmatically (0 discrepancies across all 45 touched
+files). <code>linkml-term-validator</code> (the real CI check, not the schema-only
+<code>linkml-validate</code>) was re-run per-file to confirm.</p>
+<p>Updated counts: <code>MATCH</code> 59, <code>NEAR_MATCH</code> 29, <code>NO_MATCH</code> 145, <code>PENDING</code> 475.</p>
+<p><strong>Lesson for future passes on this queue:</strong> verify <code>reachable_from</code>
+reachability via OAK for every candidate NCIT id <em>before</em> applying it, and
+prefer <code>just validate</code> / <code>linkml-term-validator</code> (which exercises the real
+dynamic enum expansion) over bare <code>linkml-validate</code> for local pre-push
+checks — the two can disagree on dynamic-enum-constrained fields.</p>
         </article>
     </div>
 </body>
