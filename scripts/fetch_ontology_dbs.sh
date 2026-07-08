@@ -5,25 +5,42 @@
 #
 # Background: `just validate-all` / `just qc` (and, historically, single-file
 # `just validate`) can make OAK lazily fetch every `sqlite:obo:<name>` database
-# referenced by conf/oak_config.yaml — including very large ones
-# (ncit ~2.7 GB, ncbitaxon ~13.5 GB uncompressed). The lazy OAK downloader has
-# no resume/retry, so one interrupted big-file fetch fails the whole run. This
-# script fetches those DBs up front from the public bbop-sqlite S3 bucket using
-# `curl -C -` (resume) with retries, then gunzips them into OAK's cache dir.
+# referenced by conf/oak_config.yaml — including large ones (chebi ~3.7 GB
+# uncompressed is the biggest that remains local; the ncit/ncbitaxon giants were
+# moved to ols: — see issue #5160 and conf/oak_config.yaml). The lazy OAK
+# downloader has no resume/retry, so one interrupted big-file fetch fails the
+# whole run. This script fetches those DBs up front from the public bbop-sqlite
+# S3 bucket using `curl -C -` (resume) with retries, then gunzips them into
+# OAK's cache dir.
 #
 # Usage:
 #   scripts/fetch_ontology_dbs.sh                 # fetch every DB in oak_config.yaml
 #   scripts/fetch_ontology_dbs.sh ncbitaxon hp    # fetch only the named ontologies
-#   OAK_DB_DIR=/path scripts/fetch_ontology_dbs.sh
+#   PYSTOW_HOME=/path scripts/fetch_ontology_dbs.sh   # canonical cache location
 #
-# The DBs are written where OAK/pystow expects them:
-#   ${OAK_DB_DIR:-${PYSTOW_HOME:-$HOME/.data}/oaklib}/<name>.db
+# IMPORTANT — where OAK actually looks: OAK resolves sqlite:obo:<name> to
+#   ${PYSTOW_HOME:-$HOME/.data}/oaklib/<name>.db   (pystow.module("oaklib"))
+# and reads ONLY PYSTOW_HOME. It does NOT honor OAK_DB_DIR. So PYSTOW_HOME is
+# the canonical knob: set it (or leave it unset for the ~/.data default) and the
+# DBs this script writes will be found by OAK. OAK_DB_DIR remains as an escape
+# hatch for staging files to an arbitrary directory, but if it does not equal
+# ${PYSTOW_HOME:-$HOME/.data}/oaklib, OAK will ignore what you fetched and
+# re-download. The guard below warns when that mismatch is about to happen.
+# See docs/explanation/oak-database-caching.md.
 set -euo pipefail
 
 BASE_URL="https://s3.amazonaws.com/bbop-sqlite"
 OAK_CONFIG="${OAK_CONFIG:-conf/oak_config.yaml}"
-DB_DIR="${OAK_DB_DIR:-${PYSTOW_HOME:-$HOME/.data}/oaklib}"
+# The directory OAK will actually read from, derived exactly as pystow does.
+OAK_READ_DIR="${PYSTOW_HOME:-$HOME/.data}/oaklib"
+DB_DIR="${OAK_DB_DIR:-$OAK_READ_DIR}"
 RETRIES="${FETCH_RETRIES:-5}"
+
+if [[ "$DB_DIR" != "$OAK_READ_DIR" ]]; then
+    echo "WARNING: fetching into '$DB_DIR' but OAK reads from '$OAK_READ_DIR'." >&2
+    echo "         OAK ignores OAK_DB_DIR; set PYSTOW_HOME instead so the DBs" >&2
+    echo "         you fetch are the ones OAK uses. See docs/explanation/oak-database-caching.md." >&2
+fi
 
 mkdir -p "$DB_DIR"
 
