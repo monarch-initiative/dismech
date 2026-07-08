@@ -123,9 +123,11 @@ validation actually needed — typically a few hundred MB, and the multi-GB
 `chebi.db` only if a new CHEBI term was introduced.
 
 Workflows currently using the action: `main.yaml` (the PR validation path —
-`validate-terms-schema`, `validate-disorders`, `test-kb`), `test-linkml-rc3.yml`
-(`validate-terms-schema`), and `weekly-compliance.yaml` (its agent runs
-`just validate`).
+`validate-terms-schema`, `validate-disorders`, `test-kb`) and
+`weekly-compliance.yaml` (its agent runs `just validate`). The dormant
+`test-linkml-rc3.yml` canary (which only runs when its own file changes) is
+deliberately left out — the marginal egress it would save is not worth waking it
+on unrelated PRs.
 
 ## Local development
 
