@@ -31,6 +31,27 @@ describe("github trust gate comment risk classification", () => {
     assert.deepEqual(risk.reasons, ["agent_trigger"]);
   });
 
+  it("flags every reason in comments with multiple risky patterns", () => {
+    const risk = classifyCommentRisk("/review this attachment: https://example.org/fix.zip");
+
+    assert.equal(risk.shouldMinimize, true);
+    assert.deepEqual(risk.reasons, ["archive_attachment", "agent_trigger"]);
+  });
+
+  it("flags slash review at the start of a comment", () => {
+    const risk = classifyCommentRisk("/review");
+
+    assert.equal(risk.shouldMinimize, true);
+    assert.deepEqual(risk.reasons, ["agent_trigger"]);
+  });
+
+  it("does not flag bare Python file references", () => {
+    const risk = classifyCommentRisk("See scripts/apply_cron_profile.py for details.");
+
+    assert.equal(risk.shouldMinimize, false);
+    assert.deepEqual(risk.reasons, []);
+  });
+
   it("does not flag ordinary curation links", () => {
     const risk = classifyCommentRisk(
       "Relevant entity: https://monarchinitiative.org/MONDO:0000956 and PMID:12345678",

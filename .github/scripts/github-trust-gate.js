@@ -22,6 +22,9 @@ const RISKY_COMMENT_PATTERNS = [
   },
   {
     reason: "executable_or_script_attachment",
+    // JavaScript is executable in browser and Node contexts. Python paths are
+    // intentionally not matched here so ordinary repo-script references are not
+    // hidden unless they also include an attachment/archive or agent trigger.
     pattern:
       /(?:^|[^\w])[\w./:%?=&-]+\.(?:exe|msi|dmg|pkg|apk|jar|sh|bash|zsh|ps1|bat|cmd|js|vbs|scr)(?:[?#][^\s)\]>"']*)?(?:[\s)\]>"']|$)/i,
   },
