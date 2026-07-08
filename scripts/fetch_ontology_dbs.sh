@@ -26,7 +26,7 @@
 # hatch for staging files to an arbitrary directory, but if it does not equal
 # ${PYSTOW_HOME:-$HOME/.data}/oaklib, OAK will ignore what you fetched and
 # re-download. The guard below warns when that mismatch is about to happen.
-# See docs/oak-ontology-caching.md.
+# See docs/explanation/oak-database-caching.md.
 set -euo pipefail
 
 BASE_URL="https://s3.amazonaws.com/bbop-sqlite"
@@ -39,7 +39,7 @@ RETRIES="${FETCH_RETRIES:-5}"
 if [[ "$DB_DIR" != "$OAK_READ_DIR" ]]; then
     echo "WARNING: fetching into '$DB_DIR' but OAK reads from '$OAK_READ_DIR'." >&2
     echo "         OAK ignores OAK_DB_DIR; set PYSTOW_HOME instead so the DBs" >&2
-    echo "         you fetch are the ones OAK uses. See docs/oak-ontology-caching.md." >&2
+    echo "         you fetch are the ones OAK uses. See docs/explanation/oak-database-caching.md." >&2
 fi
 
 mkdir -p "$DB_DIR"
