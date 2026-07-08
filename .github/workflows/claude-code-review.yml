@@ -135,12 +135,16 @@ jobs:
             - [ ] No pathophysiology bundling (atomic entries only)
 
       # Hardening: claude-code-action exits 0 even when the agent run itself
-      # errored — e.g. an invalid/retired `--model` is rejected, yielding a
-      # zero-cost is_error result and NO posted review. That turns a broken
-      # review into a phantom green check (agent-config.yaml once pinned a
-      # non-existent claude-opus-4-6, silently no-op'ing every review). Inspect
-      # the action's execution log and fail the job when the run errored, so the
-      # next such breakage is a visible red X instead of a silent pass.
+      # errored, yielding a zero-cost is_error result and NO posted review —
+      # turning a broken review into a phantom green check. Two failure modes
+      # we have actually hit this way:
+      #   * a Claude weekly usage limit on CLAUDE_CODE_OAUTH_TOKEN (rate_limit),
+      #     which silently no-ops EVERY agent workflow account-wide; and
+      #   * an invalid/retired `--model` (agent-config.yaml once pinned a
+      #     non-existent claude-opus-4-6).
+      # Inspect the execution log and fail the job when the run errored, calling
+      # out a usage-limit distinctly (it was far too hard to diagnose otherwise)
+      # so the next breakage is a loud red X, not a silent pass.
       - name: Verify the review agent actually ran
         if: always()
         env:
@@ -152,11 +156,17 @@ jobs:
             file="${RUNNER_TEMP}/claude-execution-output.json"
           fi
           if [[ ! -f "$file" ]]; then
-            echo "::error::No Claude execution log found; the review agent did not run."
+            echo "::error title=Claude review failed::No execution log found; the review agent did not run."
             exit 1
           fi
           python3 - "$file" <<'PY'
-          import json, sys
+          import json, os, sys
+
+          def summary(md):
+              path = os.environ.get("GITHUB_STEP_SUMMARY")
+              if path:
+                  with open(path, "a", encoding="utf-8") as fh:
+                      fh.write(md + "\n")
 
           raw = open(sys.argv[1], encoding="utf-8").read().strip()
           try:
@@ -168,19 +178,37 @@ jobs:
 
           results = [e for e in events if isinstance(e, dict) and e.get("type") == "result"]
           if not results:
-              print("::error::Claude review produced no result event; the agent did not complete.")
+              print("::error title=Claude review failed::No result event in the execution "
+                    "log; the agent did not complete.")
+              summary("### ❌ Claude review failed\nNo result event — the agent did not complete.")
               sys.exit(1)
 
           r = results[-1]
-          summary = (
-              f"subtype={r.get('subtype')} num_turns={r.get('num_turns')} "
-              f"cost=${r.get('total_cost_usd')}"
-          )
-          if r.get("is_error"):
-              print(
-                  "::error::Claude review agent errored (is_error=true) — the model may be "
-                  f"invalid/unavailable or the run aborted. {summary}"
-              )
+          stats = (f"num_turns={r.get('num_turns')} cost=${r.get('total_cost_usd')} "
+                   f"subtype={r.get('subtype')}")
+
+          if not r.get("is_error"):
+              print(f"Claude review completed cleanly: {stats}")
+              sys.exit(0)
+
+          reason = str(r.get("error") or "").strip()
+          detail = str(r.get("result") or "").strip()
+          haystack = f"{reason} {detail}".lower()
+
+          if reason == "rate_limit" or "usage limit" in haystack or "weekly limit" in haystack:
+              msg = (f"Claude USAGE LIMIT reached — NO review ran ({detail!r}). This is an "
+                     "account-quota issue on CLAUDE_CODE_OAUTH_TOKEN, NOT a problem with this "
+                     "PR. Fix: wait for the limit to reset, rotate the token to an account with "
+                     "headroom, or set ANTHROPIC_API_KEY (pay-per-use) on the workflow. "
+                     "Re-run this check afterward.")
+              print(f"::error title=Claude review skipped: usage limit::{msg}")
+              summary("### ⛔ Claude review skipped — usage limit reached\n\n" + msg)
               sys.exit(1)
-          print(f"Claude review completed cleanly: {summary}")
+
+          msg = (f"Review agent errored (is_error=true); NO review was posted. "
+                 f"error={reason!r} detail={detail!r} {stats}. Common causes: an "
+                 "invalid/retired --model, a bad CLAUDE_CODE_OAUTH_TOKEN, or an aborted run.")
+          print(f"::error title=Claude review errored::{msg}")
+          summary("### ❌ Claude review errored\n\n" + msg)
+          sys.exit(1)
           PY
