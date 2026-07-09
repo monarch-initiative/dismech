@@ -364,7 +364,7 @@ guarantee (every attached term must be a real NCIT/HP/UBERON term with a matchin
 OLS4** (it lives on BioPortal, which needs the `bioportal:` adapter + an API key), so it is
 not wired into `conf/oak_config.yaml` today. The grounding therefore uses **NCIT (already
 OLS-served) + HP**, which covers modality cleanly and findings adequately; a future
-tightening to RadLex-grade finding granularity is a deferred follow-up (see §10). Because
+tightening to RadLex-grade finding granularity is a deferred follow-up (see §11). Because
 the finding binding is RECOMMENDED, the ontology gap does not block curation.
 
 **Worked example.** `Multiple_Sclerosis` carries two `imaging_findings`: multifocal
@@ -373,7 +373,65 @@ periventricular white-matter lesions on MRI (bound to `HP:0007052`, `located_in`
 a gadolinium-enhancing lesion (modality MRI, `preferred_term`-only — the RECOMMENDED-no-code
 case).
 
-## 10. Gaps
+## 10. Electrophysiologic-finding representation
+
+**Decision.** In-vivo electrophysiologic / neurophysiologic findings are modeled with a
+**dedicated, ontology-bound `ElectrophysiologyFinding` class** on the `Disease` entry (slot
+`electrophysiology_findings`) — the electrophysiologic sibling of `ImagingFinding` (§9) and
+`HistopathologyFinding`. This is the first resolution of the "non-imaging detection
+modalities" gap tracked in the register: rather than generalize `ImagingFinding` into one
+`DetectionModality` super-class, we **add a sibling class**, preserving the clean
+per-modality/finding ontology grounding that motivated the imaging-specific choice. As with
+imaging, the **modality** (the test) and the **finding** (what is recorded) bind to
+different vocabularies:
+
+- **`electrophysiology_modality`** (`ElectrophysiologyModalityEnum`) — a small closed set
+  (EEG, video-EEG, ECG, EMG, nerve-conduction study, evoked potential, polysomnography, MEG,
+  other), with `meaning:` values bound to the **NCI Thesaurus diagnostic-procedure branch**
+  (e.g. `NCIT:C38054` Electroencephalography, `NCIT:C38053` Electrocardiography,
+  `NCIT:C38056` Electromyography). `VIDEO_EEG` and `EVOKED_POTENTIAL` have no clean generic
+  NCIT term and are enumerated without a `meaning`.
+- **`electrophysiology_finding_term`** (`ElectrophysiologyFindingDescriptor`) — the finding,
+  bound via `ElectrophysiologyFindingTerm` to the **HP EEG / EMG / EKG abnormality subtrees**
+  (`HP:0002353`, `HP:0003457`, `HP:0003115`). Unlike imaging (where RadLex is not on OLS),
+  the **HP EEG subtree is rich and OLS-served** — hypsarrhythmia, burst-suppression,
+  focal/generalized/multifocal epileptiform discharges, photoparoxysmal response, spike-wave,
+  background slowing — so EEG findings bind cleanly with no new adapter. The binding is kept
+  **RECOMMENDED** (not REQUIRED) because EMG/ECG/evoked-potential findings and preclinical
+  readouts (e.g. "electrographic seizure") are less completely covered; these use
+  `preferred_term` alone, the same RECOMMENDED-no-code case as imaging's gadolinium-enhancing
+  lesion.
+- **Two EEG-specific axes that a flat HP phenotype term cannot express** are added as
+  first-class enum slots: **`ictal_state`** (`IctalStateEnum`: ICTAL / INTERICTAL /
+  POSTICTAL) and **`recording_state`** (`EEGRecordingStateEnum`: awake / asleep / drowsy /
+  sleep-deprived / photic-stimulation / hyperventilation). Localization reuses `located_in`
+  (UBERON brain region), `laterality`, and `spatial_extent`, exactly as imaging does.
+
+**In scope.** Electrophysiologic *findings* that are mechanistically- or
+diagnostically-meaningful readouts — an EEG pattern, an ictal correlate, a conduction
+abnormality — including **preclinical model-organism electrophysiology** (tagged via
+`evidence_source: MODEL_ORGANISM`), which lets ictal animal-model EEG sit alongside the
+interictal human findings instead of being stranded in prose.
+
+**Out of scope.** Acquisition/montage parameters, per-patient tracings, and
+neurophysiology decision support — the same boundary as §9. `ElectrophysiologyFinding` is
+distinct from the generic free-text `diagnosis` slot and from the `Biochemical` machinery.
+
+**Rationale.** Before this class, EEG leaked into HP `phenotypes` (flattening ictal state,
+recording state, and modality into a single term), free-text `diagnosis`, and prose.
+Splitting modality from finding makes "which diseases show hypsarrhythmia on EEG?"
+answerable and lets the ictal/interictal and preclinical/clinical distinctions be queried,
+while keeping the anti-hallucination guarantee (every attached term is a real HP/NCIT term
+with a matching label).
+
+**Worked example.** `Dravet_syndrome` carries five `electrophysiology_findings`: the four
+interictal human EEG patterns (multifocal / focal / generalized epileptiform discharges and
+interictal epileptiform activity, migrated out of `phenotypes` and bound to their HP terms,
+`ictal_state: INTERICTAL`), plus one **preclinical** finding — ictal electrographic seizures
+in the Scn1a+/- mouse model (`electrophysiology_modality: EEG`, `ictal_state: ICTAL`,
+`evidence_source: MODEL_ORGANISM`, `preferred_term`-only — the RECOMMENDED-no-code case).
+
+## 11. Gaps
 
 This section details decisions we have **not yet made or formalized**.
 
@@ -386,7 +444,7 @@ This section details decisions we have **not yet made or formalized**.
 | Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8). `Bardet-Biedl_Syndrome` backfilled for five genes (BBS1, BBS10, ARL6/BBS3, MKKS/BBS6, BBS9) across European, metabolic, and Indian cohorts. **Method/caveat:** dominant-gene fractions (BBS1, BBS10) appear in citable abstracts; minor-gene fractions are recoverable only from **open-access full-text** cohort papers/reviews whose cache is `full_text_xml` (the Indian-cohort figures came from PMID:27853007), since abstracts and the GeneReviews table (NBK1363 T3) and the Niederlová meta-analysis abstract (PMID:31283077) do not carry them. Backfilling the remaining minor genes is gated on finding such full-text-cacheable sources — figures must **not** be filled from memory (anti-hallucination policy, §6). Whether to deprecate the overloaded `frequency` field is also outstanding; no automated extractor yet. | schema follow-up |
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | RadLex-grade imaging-finding granularity | `ImagingFinding` (§9) grounds findings in NCIT + HP, which is patchy for specific radiologic appearances (e.g. contrast enhancement, T2 hyperintensity resolve to procedures or CTCAE grades). Tightening `ImagingFindingTerm` to a RadLex `reachable_from` (and `finding_term` to REQUIRED) is deferred: RadLex is not on EBI OLS4, so it needs a `bioportal:` adapter + API key in `conf/oak_config.yaml`. | schema/ontology follow-up |
-| Non-imaging detection modalities | §9 covers imaging only. Other in-vivo investigations — electrophysiology (EEG, evoked potentials, ECG), functional/provocation tests — still live in the generic free-text `diagnosis` list. Whether to generalize `ImagingFinding` into a broader `DetectionModality`/`Investigation` class (or add sibling classes) is undecided; imaging-specific was chosen first for clean modality/finding ontology grounding. | schema follow-up |
+| Non-imaging detection modalities | **Partially resolved (§11 → §10).** Electrophysiology now has a dedicated `ElectrophysiologyFinding` sibling class (EEG/ECG/EMG/NCS/evoked-potential/PSG/MEG modality enum + HP-bound finding term + `ictal_state`/`recording_state`); `Dravet_syndrome` is the worked example. The sibling-class approach (not a single `DetectionModality` super-class) was chosen, consistent with §9. **Still open:** back-migrating the other ~30 disorders whose EEG lives in `phenotypes`/`diagnosis`; functional/provocation tests (e.g. tensilon, tilt-table) are still free-text; whether to make the finding binding REQUIRED for EEG-only findings. | schema follow-up / KB migration |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
 | Schema docs vs. script docs separation | Schema element pages currently mix in script docs | [#2737](https://github.com/monarch-initiative/dismech/issues/2737) |
