@@ -212,6 +212,33 @@ For continuity, `Fanconi_Anemia` itself (4 guidelines, same rare tier) is *not*
 re-listed here — it already has its own [gap-analysis project](FANCONI_ANEMIA_GAP_ANALYSIS.md)
 and serves as the benchmark this batch is modeled on.
 
+## Worked example — Epidermolysis Bullosa (guidelines in practice)
+
+`Epidermolysis_Bullosa` is the first entry curated *from* this citation set,
+demonstrating the end-to-end flow. Its 11 guideline hits were filtered (2 were
+excluded — see below), the relevant abstracts fetched with `just fetch-reference`,
+and the multidisciplinary-care gap closed with snippet-verified evidence:
+
+- **2 new phenotypes** — Esophageal Stricture (`HP:0002043`) and
+  Pseudosyndactyly / mitten deformity (`HP:0010554`), previously only mentioned
+  in prose.
+- **6 new treatments** spanning the DEBRA International care guidelines —
+  esophageal dilatation, hand surgery + therapy, palliative/end-of-life care,
+  podiatric foot care, neonatal EB care, and orthodontic/dental care.
+
+**NEC catch in practice:** two of EB's 11 hits — the pediatric autoimmune
+blistering guideline (`PMID:41678328`) and the pemphigoid/EB-acquisita guideline
+(`PMID:31646663`) — describe *autoimmune* EB acquisita, a distinct entity from
+this Mendelian entry, and matched only on the "epidermolysis bullosa acquisita"
+string. They were excluded. This is the same named-entity-confusion risk the
+project's evidence policy warns about, caught by reading the titles.
+
+**Thin-abstract reality:** the pregnancy/childbirth guideline (`PMID:34687549`)
+and the physiotherapy appraisal (`PMID:35717492`) have no quotable abstract body,
+so they could not supply snippet-verified evidence and were left for a curator
+with full-text access — a reminder that a guideline *hit* is not automatically a
+usable *citation*.
+
 ## Known limitations (for the curator)
 
 - **Common-disease skew.** "Search-driven, keep hits" ranking by count surfaces
@@ -258,9 +285,9 @@ were each independently re-sourced.
 1. **Gap assessment (the second half of #4878).** For a chosen disorder, diff
    its guideline-derived phenotype/treatment content against (a) the dismech
    entry and (b) the HPOA annotation file, FA-style.
-2. **Mine batch 2 first.** The 10 rare disorders are the highest-yield
-   gap-mining targets — start there (Epidermolysis_Bullosa and Kawasaki_Disease
-   have the most guideline material).
+2. **Mine the rest of batch 2.** Epidermolysis_Bullosa is done (worked example
+   above); Kawasaki_Disease has the most remaining guideline material, then work
+   down the batch-2 table.
 3. **Widen the type filter** to `Guideline` where `Practice Guideline` is sparse.
 4. **Extend the rare slice.** 48 rare disorders have guidelines; batch 2 covers
    10. The rest are queued in `guideline_search_all.jsonl`.
