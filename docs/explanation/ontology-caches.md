@@ -4,6 +4,8 @@
 
 The `cache/` directory contains CSV snapshots of ontology term labels (HP, MONDO, GO, CL, CHEBI, MAXO, etc.) used by the term validator. These are **intentionally committed to the repository**, not generated on the fly.
 
+> This page covers the committed CSV label cache — the layer checked *first*. When a term is **not** in this cache, the validator falls through to OAK, which downloads a full ontology SQLite database. How those downloads are located and cached in CI (and why we are a consumer, not a redistributor, of them) is covered in [OAK Ontology Database Caching (CI)](oak-database-caching.md).
+
 ### The problem with live lookups
 
 Ontology labels change over time. If validation fetched labels directly from ontology sources on every run:

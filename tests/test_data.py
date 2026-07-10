@@ -138,6 +138,7 @@ def test_evidence_items_have_references(filepath):
     allowed_reference_prefixes = (
         "PMID:",
         "DOI:",
+        "PPR:",  # Europe PMC preprint IDs (supported by the reference validator)
         "clinicaltrials:",
         "file:",
         "url:",
