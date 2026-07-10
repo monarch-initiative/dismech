@@ -130,7 +130,7 @@ def year_of(rec):
 
 
 def cmd_fetch(args):
-    hits = [json.loads(l) for l in open(args.hits) if l.strip()]
+    hits = [json.loads(line) for line in open(args.hits) if line.strip()]
     hits = [h for h in hits if h["count"] >= args.min_count]
     hits.sort(key=lambda h: (-h["count"], h["slug"]))
     if args.top:
