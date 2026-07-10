@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00432-023-05141-y"
+reference_id: DOI:10.1007/s00432-023-05141-y
 title: Impact of encorafenib on survival of patients with BRAFV600E-mutant metastatic colorectal cancer in a real-world setting
 authors:
 - M. Zurloh

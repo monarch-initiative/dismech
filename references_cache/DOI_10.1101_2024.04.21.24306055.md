@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.04.21.24306055"
+reference_id: DOI:10.1101/2024.04.21.24306055
 title: "Evaluating the prevalence of human and animal african trypanosomiasis in nigeria: A scoping review"
 authors:
 - Chinwe Chukwudi

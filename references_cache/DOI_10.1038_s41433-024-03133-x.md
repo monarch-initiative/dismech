@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41433-024-03133-x"
+reference_id: DOI:10.1038/s41433-024-03133-x
 title: Treating myasthenia gravis beyond the eye clinic
 authors:
 - Saiju Jacob

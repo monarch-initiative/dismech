@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-40822-9"
+reference_id: DOI:10.1038/s41467-023-40822-9
 title: Driver gene combinations dictate cutaneous squamous cell carcinoma disease continuum progression
 authors:
 - Peter Bailey

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2023.108112"
+reference_id: DOI:10.1016/j.ymgme.2023.108112
 title: Impact of supplementation with L-citrulline/arginine after liver transplantation in individuals with Urea Cycle Disorders
 authors:
 - Roland Posset

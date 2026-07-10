@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/pace.13386"
+reference_id: DOI:10.1111/pace.13386
 title: A homozygous SCN5A mutation associated with atrial standstill and sudden death
 authors:
 - Reina Bianca Tan

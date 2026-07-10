@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.fsc.2019.07.005"
+reference_id: DOI:10.1016/j.fsc.2019.07.005
 title: Management of Postsurgical Empty Nose Syndrome
 authors:
 - Jason Talmadge

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamanetworkopen.2024.6235"
+reference_id: DOI:10.1001/jamanetworkopen.2024.6235
 title: "Incidence and Presenting Characteristics of Angiosarcoma in the US, 2001-2020"
 authors:
 - Michael J. Wagner

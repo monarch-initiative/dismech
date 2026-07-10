@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.gimo.2023.100817"
+reference_id: DOI:10.1016/j.gimo.2023.100817
 title: "GenIDA, a participatory patient registry for genetic forms of intellectual disability provides detailed caregiver-reported information on 237 individuals with Koolen-de Vries syndrome"
 authors:
 - Florent Colin

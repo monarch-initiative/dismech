@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/der2.70028"
+reference_id: DOI:10.1002/der2.70028
 title: The Role of Keratinocytes in Skin Health and Disease
 authors:
 - Mohammed Saleh Al‐Dhubaibi

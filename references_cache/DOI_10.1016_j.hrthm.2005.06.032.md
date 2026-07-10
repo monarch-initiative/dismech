@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.hrthm.2005.06.032"
+reference_id: DOI:10.1016/j.hrthm.2005.06.032
 title: Congenital atrial standstill associated with coinheritance of a novel SCN5A mutation and connexin 40 polymorphisms
 authors:
 - Naomasa Makita

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00277-025-06191-7"
+reference_id: DOI:10.1007/s00277-025-06191-7
 title: How I diagnose and treat patients in the pre-fibrotic phase of primary myelofibrosis (pre-PMF) - practical approaches of a German expert panel discussion in 2024
 authors:
 - Martin Griesshammer
@@ -1138,8 +1138,7 @@ Authors and Affiliations
 Martin Griesshammer1 · Haifa Kathrin Al-Ali2 · Jan-Niklas Eckardt3,4 · Michael Fiegl5 · Joachim Göthert6 · 
 Kathleen Jentsch-Ullrich7 · Steffen Koschmieder8,9 · Hans Michael Kvasnicka10 · Andreas Reiter11 · 
 Burkhard Schmidt12 · Florian H. Heidel,13,14,15,16
- 
- Florian H. Heidel
+  Florian H. Heidel
 heidel.florian@mh-hannover.de
 1 Oncology, Haemostaseology and Palliative Care, Johannes 
 Wesling Medical Center Minden, University Clinic for 

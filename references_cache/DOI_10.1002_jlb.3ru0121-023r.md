@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jlb.3ru0121-023r"
+reference_id: DOI:10.1002/jlb.3ru0121-023r
 title: Neuroimmune regulatory networks of the airway mucosa in allergic inflammatory disease
 authors:
 - E Evonne Jean

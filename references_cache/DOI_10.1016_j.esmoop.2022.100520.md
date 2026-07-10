@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.esmoop.2022.100520"
+reference_id: DOI:10.1016/j.esmoop.2022.100520
 title: Efficacy and safety of ripretinib in patients with KIT-altered metastatic melanoma
 authors:
 - F. Janku

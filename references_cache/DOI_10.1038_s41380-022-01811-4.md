@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41380-022-01811-4"
+reference_id: DOI:10.1038/s41380-022-01811-4
 title: Evaluation of Nav1.8 as a therapeutic target for Pitt Hopkins Syndrome
 authors:
 - Keri Martinowich

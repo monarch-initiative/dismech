@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.61887"
+reference_id: DOI:10.1002/ajmg.a.61887
 title: "Does <scp><i>SNAI2</i></scp> mutation cause human piebaldism and Waardenburg syndrome?"
 authors:
 - Sara Mirhadi

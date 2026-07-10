@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41586-023-05812-3"
+reference_id: DOI:10.1038/s41586-023-05812-3
 title: The menin inhibitor revumenib in KMT2A-rearranged or NPM1-mutant leukaemia
 authors:
 - Ghayas C. Issa

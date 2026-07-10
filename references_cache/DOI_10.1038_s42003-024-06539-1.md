@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s42003-024-06539-1"
+reference_id: DOI:10.1038/s42003-024-06539-1
 title: Activation of AMPD2 drives metabolic dysregulation and liver disease in mice with hereditary fructose intolerance
 authors:
 - Ana Andres-Hernando

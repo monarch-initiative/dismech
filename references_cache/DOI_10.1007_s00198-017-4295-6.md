@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00198-017-4295-6"
+reference_id: DOI:10.1007/s00198-017-4295-6
 title: "Osteoporosis and bone mineral density in patients with Wilson’s disease: a systematic review and meta-analysis"
 authors:
 - J. Chenbhanich

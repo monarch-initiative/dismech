@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.07.17.603708"
+reference_id: DOI:10.1101/2024.07.17.603708
 title: "Super-enhancer-driven <i>CACNA2D2</i> is an EWSR1::WT1 signature gene encoding a diagnostic marker for desmoplastic small round cell tumor (DSRCT)"
 authors:
 - Florian H. Geyer

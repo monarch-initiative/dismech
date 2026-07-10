@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00109-017-1602-9"
+reference_id: DOI:10.1007/s00109-017-1602-9
 title: Molecular therapeutic strategies for FGFR3 gene-related skeletal dysplasia
 authors:
 - Jia Chen

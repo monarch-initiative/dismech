@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00277-023-05422-z"
+reference_id: DOI:10.1007/s00277-023-05422-z
 title: "Predictors of very early death in acute promyelocytic leukemia: a retrospective real-world cohort study"
 authors:
 - Joana Infante

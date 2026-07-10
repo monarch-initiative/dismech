@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00223-024-01248-7"
+reference_id: DOI:10.1007/s00223-024-01248-7
 title: A Dyadic Nosology for Osteogenesis Imperfecta and Bone Fragility Syndromes 2024
 authors:
 - David Owen Sillence

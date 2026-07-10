@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/epi.18676"
+reference_id: DOI:10.1111/epi.18676
 title: "The interacting etiologies of hippocampal sclerosis in epilepsy: A scoping review"
 authors:
 - Boris Deleu

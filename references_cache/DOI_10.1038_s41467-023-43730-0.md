@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-43730-0"
+reference_id: DOI:10.1038/s41467-023-43730-0
 title: Genetic and epigenetic features of bilateral Wilms tumor predisposition in patients from the Children’s Oncology Group AREN18B5-Q
 authors:
 - Andrew J. Murphy

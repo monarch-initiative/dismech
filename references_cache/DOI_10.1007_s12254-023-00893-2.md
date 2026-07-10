@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12254-023-00893-2"
+reference_id: DOI:10.1007/s12254-023-00893-2
 title: Molecular pathology of colorectal cancer
 authors:
 - Petar Noack

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s44162-024-00055-w"
+reference_id: DOI:10.1007/s44162-024-00055-w
 title: A retrospective review of LMNB1-related autosomal dominant leukodystrophy
 authors:
 - Judit M. Perez Ortiz

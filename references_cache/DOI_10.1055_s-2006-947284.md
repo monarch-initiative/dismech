@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-2006-947284"
+reference_id: DOI:10.1055/s-2006-947284
 title: Waardenburg Syndrome
 authors:
 - Julie Schultz

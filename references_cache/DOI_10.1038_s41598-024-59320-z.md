@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-59320-z"
+reference_id: DOI:10.1038/s41598-024-59320-z
 title: "Empagliflozin in children with glycogen storage disease-associated inflammatory bowel disease: a prospective, single-arm, open-label clinical trial"
 authors:
 - Zhiling Li

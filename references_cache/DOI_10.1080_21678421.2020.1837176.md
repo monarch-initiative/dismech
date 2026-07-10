@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/21678421.2020.1837176"
+reference_id: DOI:10.1080/21678421.2020.1837176
 title: Neuroimaging in primary lateral sclerosis
 authors:
 - Erik P. Pioro

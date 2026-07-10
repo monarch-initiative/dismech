@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ene.15511"
+reference_id: DOI:10.1111/ene.15511
 title: "The spectrum of central nervous system involvement in Whipple's disease"
 authors:
 - Jasper Mecklenburg

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/978-3-662-45698-9_43"
+reference_id: DOI:10.1007/978-3-662-45698-9_43
 title: Kindler Syndrome
 authors:
 - Joey E. Lai-Cheong

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2018.07.008"
+reference_id: DOI:10.1016/j.ajhg.2018.07.008
 title: Argininosuccinate Lyase Deficiency Causes an Endothelial-Dependent Form of Hypertension
 authors:
 - Jordan Kho

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.01.23.24301643"
+reference_id: DOI:10.1101/2024.01.23.24301643
 title: Towards a Buruli Ulcer Rapid Diagnostic Test that Targets Mycolactone
 authors:
 - Marina Siirin

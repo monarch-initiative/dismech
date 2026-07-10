@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11259-024-10375-3"
+reference_id: DOI:10.1007/s11259-024-10375-3
 title: Human and camel cystic echinococcosis – a polyclonal antibody-based sandwich ELISA for its serodiagnosis with molecular identification
 authors:
 - A. Maher
@@ -32,11 +32,9 @@ AbstractCystic echinococcosis (CE) is an emergent neglected disease affecting hu
 RESEARCH
 Veterinary Research Communications (2024) 48:2193–2206
 https://doi.org/10.1007/s11259-024-10375-3
- 
- D. Aboelsoued
+  D. Aboelsoued
 Dr.Dina.Aboelsoued@gmail.com
- 
- S. Zaky
+  S. Zaky
 samyzs55@yahoo.com
 A. Maher
 ahmedmaher2020@gmail.com

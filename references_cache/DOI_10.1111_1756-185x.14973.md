@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/1756-185x.14973"
+reference_id: DOI:10.1111/1756-185x.14973
 title: "Neuromyelitis optica spectrum disorders (<scp>NMOSD</scp>) and systemic lupus erythematosus (<scp>SLE</scp>): Dangerous duo"
 authors:
 - Anna Abou Raya

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-44645-6"
+reference_id: DOI:10.1038/s41467-023-44645-6
 title: Systems-based identification of the Hippo pathway for promoting fibrotic mesenchymal differentiation in systemic sclerosis
 authors:
 - Feiyang Ma

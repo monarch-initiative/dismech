@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.38503"
+reference_id: DOI:10.1002/ajmg.a.38503
 title: Further delineation of the GDF6 related multiple synostoses syndrome
 authors:
 - Paulien A. Terhal

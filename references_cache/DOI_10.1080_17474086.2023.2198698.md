@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/17474086.2023.2198698"
+reference_id: DOI:10.1080/17474086.2023.2198698
 title: "Polycythemia vera: aspects of its current diagnosis and initial treatment"
 authors:
 - Richard T Silver

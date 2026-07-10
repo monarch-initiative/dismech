@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/cshperspect.a041229"
+reference_id: DOI:10.1101/cshperspect.a041229
 title: Stairways to Advanced Therapies for Epidermolysis Bullosa
 authors:
 - Laura De Rosa

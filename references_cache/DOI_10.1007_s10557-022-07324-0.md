@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10557-022-07324-0"
+reference_id: DOI:10.1007/s10557-022-07324-0
 title: An Assessment of the Therapeutic Landscape for the Treatment of Heart Disease in the RASopathies
 authors:
 - Jae-Sung Yi

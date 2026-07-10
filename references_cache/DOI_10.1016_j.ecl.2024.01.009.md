@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ecl.2024.01.009"
+reference_id: DOI:10.1016/j.ecl.2024.01.009
 title: Primary Amenorrhea and Premature Ovarian Insufficiency
 authors:
 - Svetlana A. Yatsenko

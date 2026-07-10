@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0043-1776760"
+reference_id: DOI:10.1055/s-0043-1776760
 title: "The Hepatic Porphyrias: Revealing the Complexities of a Rare Disease"
 authors:
 - Oluwashanu Balogun

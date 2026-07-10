@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.1742-481x.2007.00297.x"
+reference_id: DOI:10.1111/j.1742-481x.2007.00297.x
 title: "An unusual cause of ulceration: ainhum (dactylolysis spontanea)"
 authors:
 - Timothy Jemmott

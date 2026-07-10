@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-45027-2"
+reference_id: DOI:10.1038/s41467-024-45027-2
 title: Predicting the risk and speed of drug resistance emerging in soil-transmitted helminths during preventive chemotherapy
 authors:
 - Luc E. Coffeng

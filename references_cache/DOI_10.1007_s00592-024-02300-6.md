@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00592-024-02300-6"
+reference_id: DOI:10.1007/s00592-024-02300-6
 title: "GLP1-GIP receptor co-agonists: a promising evolution in the treatment of type 2 diabetes"
 authors:
 - Stefano Ciardullo

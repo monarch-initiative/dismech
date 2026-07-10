@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-55203-z"
+reference_id: DOI:10.1038/s41467-024-55203-z
 title: Molecular correlates for HPV-negative head and neck cancer engraftment prognosticate patient outcomes
 authors:
 - Matthew Waas

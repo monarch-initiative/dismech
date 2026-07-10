@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00431-024-05886-9"
+reference_id: DOI:10.1007/s00431-024-05886-9
 title: "Respiratory outcomes of onasemnogene abeparvovec treatment for spinal muscular atrophy: national real-world cohort study"
 authors:
 - Moran Lavie

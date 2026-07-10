@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11064-019-02786-5"
+reference_id: DOI:10.1007/s11064-019-02786-5
 title: "Primary Coenzyme Q deficiency Due to Novel ADCK3 Variants, Studies in Fibroblasts and Review of Literature"
 authors:
 - Adel Shalata

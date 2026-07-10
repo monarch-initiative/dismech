@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-025-33979-4"
+reference_id: DOI:10.1038/s41598-025-33979-4
 title: "Evaluating the effectiveness of routine noninvasive prenatal screening for CNVs in 22q11.2 region in a cohort of 38,495 pregnancies"
 authors:
 - Xiaoyi Cong

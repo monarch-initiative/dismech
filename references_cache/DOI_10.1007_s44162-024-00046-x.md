@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s44162-024-00046-x"
+reference_id: DOI:10.1007/s44162-024-00046-x
 title: Unveiling cystinosis in India
 authors:
 - Aniruddh Heroor

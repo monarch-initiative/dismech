@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s43018-024-00841-x"
+reference_id: DOI:10.1038/s43018-024-00841-x
 title: Recapitulating the adenoma–carcinoma sequence by selection of four spontaneous oncogenic mutations in mismatch-repair-deficient human colon organoids
 authors:
 - Tomohiro Mizutani

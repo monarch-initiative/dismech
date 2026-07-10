@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-023-11777-0"
+reference_id: DOI:10.1007/s00415-023-11777-0
 title: Eculizumab for the treatment of glycine receptor antibody associated stiff-person syndrome
 authors:
 - Jennifer A. McCombe

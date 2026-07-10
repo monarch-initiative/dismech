@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s13555-024-01239-4"
+reference_id: DOI:10.1007/s13555-024-01239-4
 title: Highlights of Gene and Cell Therapy for Epidermolysis Bullosa and Ichthyosis
 authors:
 - Stefanos A. Koutsoukos

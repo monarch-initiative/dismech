@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41409-023-02189-9"
+reference_id: DOI:10.1038/s41409-023-02189-9
 title: Persistent IDH mutations are not associated with increased relapse or death in patients with IDH-mutated acute myeloid leukemia undergoing allogeneic hematopoietic cell transplant with post-transplant cyclophosphamide
 authors:
 - Niveditha Ravindra

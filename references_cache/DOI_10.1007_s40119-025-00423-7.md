@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40119-025-00423-7"
+reference_id: DOI:10.1007/s40119-025-00423-7
 title: "Transthyretin Kinetic Stabilizers for ATTR Amyloidosis: A Narrative Review of Mechanisms and Therapeutic Benefits"
 authors:
 - Evan T. Powers

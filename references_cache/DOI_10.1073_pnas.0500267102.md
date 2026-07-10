@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0500267102"
+reference_id: DOI:10.1073/pnas.0500267102
 title: "Gain-of-function amino acid substitutions drive positive selection of <i>FGFR2</i> mutations in human spermatogonia"
 authors:
 - Anne Goriely

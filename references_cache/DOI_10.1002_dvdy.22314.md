@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/dvdy.22314"
+reference_id: DOI:10.1002/dvdy.22314
 title: "The missense mutation W290R in <i>Fgfr2</i> causes developmental defects from aberrant IIIb and IIIc signaling"
 authors:
 - S. Mai

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/nmo.14328"
+reference_id: DOI:10.1111/nmo.14328
 title: Retrograde upper esophageal sphincter function… and dysfunction
 authors:
 - Peter J. Kahrilas

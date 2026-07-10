@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/09603123.2014.958139"
+reference_id: DOI:10.1080/09603123.2014.958139
 title: "The health effects of exposure to arsenic-contaminated drinking water: a review by global geographical distribution"
 authors:
 - Lei Huang

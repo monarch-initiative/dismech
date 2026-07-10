@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-41562-6"
+reference_id: DOI:10.1038/s41467-023-41562-6
 title: Large T cell clones expressing immune checkpoints increase during multiple myeloma evolution and predict treatment resistance
 authors:
 - Cirino Botta

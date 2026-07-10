@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11606-024-08793-9"
+reference_id: DOI:10.1007/s11606-024-08793-9
 title: "Empagliflozin and Risk of Incident Gout: Analysis from the EMPagliflozin Comparative Effectiveness and SafEty (EMPRISE) Cohort Study"
 authors:
 - Helen Tesfaye

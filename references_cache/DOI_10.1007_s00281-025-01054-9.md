@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00281-025-01054-9"
+reference_id: DOI:10.1007/s00281-025-01054-9
 title: "Dermatomyositis: focus on cutaneous features, etiopathogenetic mechanisms and their implications for treatment"
 authors:
 - Hammad Ali

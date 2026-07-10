@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2022.07.21.501000"
+reference_id: DOI:10.1101/2022.07.21.501000
 title: Dynamic regulation of inter-organelle communication by ubiquitylation controls skeletal muscle development and disease onset
 authors:
 - Arian Mansur

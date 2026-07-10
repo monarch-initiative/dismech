@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10120-021-01215-3"
+reference_id: DOI:10.1007/s10120-021-01215-3
 title: Landscape of EBV-positive gastric cancer
 authors:
 - Motonobu Saito

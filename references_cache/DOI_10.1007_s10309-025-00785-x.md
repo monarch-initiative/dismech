@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10309-025-00785-x"
+reference_id: DOI:10.1007/s10309-025-00785-x
 title: More than epilepsy—a parent-initiated collaborative analysis of the research landscape and research needs in Dravet syndrome
 authors:
 - Carsten Konrad

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0608449104"
+reference_id: DOI:10.1073/pnas.0608449104
 title: Indian Hedgehog produced by postnatal chondrocytes is essential for maintaining a growth plate and trabecular bone
 authors:
 - Yukiko Maeda

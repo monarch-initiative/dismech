@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-64251-w"
+reference_id: DOI:10.1038/s41598-024-64251-w
 title: Transcriptomic profiling highlights cell proliferation in the progression of experimental pulmonary hypertension in rats
 authors:
 - Ang Luo

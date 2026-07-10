@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41419-017-0064-x"
+reference_id: DOI:10.1038/s41419-017-0064-x
 title: PI3K/mTOR inhibition promotes the regression of experimental vascular malformations driven by PIK3CA-activating mutations
 authors:
 - Laura di Blasio

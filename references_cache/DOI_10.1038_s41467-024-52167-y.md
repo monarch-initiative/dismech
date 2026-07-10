@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-52167-y"
+reference_id: DOI:10.1038/s41467-024-52167-y
 title: Glioblastoma cells increase expression of notch signaling and synaptic genes within infiltrated brain tissue
 authors:
 - Dylan Scott Lykke Harwood

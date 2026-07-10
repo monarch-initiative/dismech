@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11926-024-01164-7"
+reference_id: DOI:10.1007/s11926-024-01164-7
 title: Recent Updates on the Pathogenesis of Inflammatory Myopathies
 authors:
 - Jon Musai

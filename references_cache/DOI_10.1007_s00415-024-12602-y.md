@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-024-12602-y"
+reference_id: DOI:10.1007/s00415-024-12602-y
 title: Natural history of non-polyglutamine CACNA1A disease in Austria
 authors:
 - Elisabetta Indelicato

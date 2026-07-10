@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-03075-7"
+reference_id: DOI:10.1038/s41591-024-03075-7
 title: Multi-parametric atlas of the pre-metastatic liver for prediction of metastatic outcome in early-stage pancreatic cancer
 authors:
 - Linda Bojmar

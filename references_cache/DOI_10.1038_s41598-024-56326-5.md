@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-56326-5"
+reference_id: DOI:10.1038/s41598-024-56326-5
 title: The level of active DNA demethylation compounds in leukocytes and urine samples as potential epigenetic biomarkers in breast cancer patients
 authors:
 - Kinga Linowiecka

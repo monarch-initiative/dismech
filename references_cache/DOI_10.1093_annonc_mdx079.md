@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/annonc/mdx079"
+reference_id: DOI:10.1093/annonc/mdx079
 title: "Efficacy and safety of nilotinib in patients with KIT-mutated metastatic or inoperable melanoma: final results from the global, single-arm, phase II TEAM trial"
 authors:
 - J. Guo

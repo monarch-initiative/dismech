@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/09540261.2022.2123273"
+reference_id: DOI:10.1080/09540261.2022.2123273
 title: "Prevalence and incidence of psychotic disorders in 22q11.2 deletion syndrome: a meta-analysis"
 authors:
 - Umberto Provenzani

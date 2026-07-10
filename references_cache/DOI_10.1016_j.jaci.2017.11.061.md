@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jaci.2017.11.061"
+reference_id: DOI:10.1016/j.jaci.2017.11.061
 title: Abnormal differentiation of B cells and megakaryocytes in patients with Roifman syndrome
 authors:
 - Jessica Heremans

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12149-024-01958-w"
+reference_id: DOI:10.1007/s12149-024-01958-w
 title: "FDG-PET in the diagnosis of primary progressive aphasia: a systematic review"
 authors:
 - Melika Mirbod

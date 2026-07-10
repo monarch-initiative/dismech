@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/hsr2.1896"
+reference_id: DOI:10.1002/hsr2.1896
 title: "Advances in understanding the pathogenesis of epilepsy: Unraveling the molecular mechanisms"
 authors:
 - Sanobar Shariff

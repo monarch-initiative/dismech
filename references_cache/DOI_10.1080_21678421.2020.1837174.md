@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/21678421.2020.1837174"
+reference_id: DOI:10.1080/21678421.2020.1837174
 title: Neurophysiological features of primary lateral sclerosis
 authors:
 - Mamede de Carvalho

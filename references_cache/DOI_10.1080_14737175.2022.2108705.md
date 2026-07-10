@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14737175.2022.2108705"
+reference_id: DOI:10.1080/14737175.2022.2108705
 title: "Neurosarcoidosis: an update on diagnosis and therapy"
 authors:
 - Patompong Ungprasert

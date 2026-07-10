@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/exd.15151"
+reference_id: DOI:10.1111/exd.15151
 title: "Histone modification in psoriasis: Molecular mechanisms and potential therapeutic targets"
 authors:
 - Ruifeng Liu

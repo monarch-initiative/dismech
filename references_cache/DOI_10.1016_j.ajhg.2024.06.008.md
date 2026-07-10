@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2024.06.008"
+reference_id: DOI:10.1016/j.ajhg.2024.06.008
 title: Comprehensive EHMT1 variants analysis broadens genotype-phenotype associations and molecular mechanisms in Kleefstra syndrome
 authors:
 - Dmitrijs Rots

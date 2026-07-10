@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10815-025-03442-4"
+reference_id: DOI:10.1007/s10815-025-03442-4
 title: "Infertility management in a patient with Swyer syndrome: a case report"
 authors:
 - Laura Krygere

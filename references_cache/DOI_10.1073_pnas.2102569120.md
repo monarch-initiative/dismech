@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2102569120"
+reference_id: DOI:10.1073/pnas.2102569120
 title: Deficiency of the minor spliceosome component U4atac snRNA secondarily results in ciliary defects in human and zebrafish
 authors:
 - Deepak Khatri

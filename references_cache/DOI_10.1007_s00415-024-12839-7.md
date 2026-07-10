@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-024-12839-7"
+reference_id: DOI:10.1007/s00415-024-12839-7
 title: Literature review of clinical analysis of hereditary neuropathy with liability to pressure palsies
 authors:
 - Limin Chen

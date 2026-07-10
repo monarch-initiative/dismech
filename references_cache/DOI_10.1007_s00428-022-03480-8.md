@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00428-022-03480-8"
+reference_id: DOI:10.1007/s00428-022-03480-8
 title: "International Consensus Classification of myeloid and lymphoid neoplasms: myeloproliferative neoplasms"
 authors:
 - Umberto Gianelli

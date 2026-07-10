@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jtos.2023.06.002"
+reference_id: DOI:10.1016/j.jtos.2023.06.002
 title: The gene therapy for corneal pathology with novel nonsense cystinosis mouse lines created by CRISPR Gene Editing
 authors:
 - Fei Dong

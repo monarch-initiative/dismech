@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/art.43269"
+reference_id: DOI:10.1002/art.43269
 title: "Expert Perspective: Diagnosis and Treatment of Castleman Disease"
 authors:
 - Luke Y. C. Chen

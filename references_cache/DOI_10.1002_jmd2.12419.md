@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jmd2.12419"
+reference_id: DOI:10.1002/jmd2.12419
 title: "Computational structural genomics and clinical evidence suggest <scp>BCKDK</scp> gain‐of‐function may cause a potentially asymptomatic maple syrup urine disease phenotype"
 authors:
 - Emily Singh

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00467-024-06403-8"
+reference_id: DOI:10.1007/s00467-024-06403-8
 title: Antenatal presentation and early postnatal treatment of infantile hypercalcemia type 2
 authors:
 - Marcelien Verjans

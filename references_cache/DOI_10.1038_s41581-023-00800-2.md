@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41581-023-00800-2"
+reference_id: DOI:10.1038/s41581-023-00800-2
 title: Metabolic alterations in hereditary and sporadic renal cell carcinoma
 authors:
 - Nathan J. Coffey

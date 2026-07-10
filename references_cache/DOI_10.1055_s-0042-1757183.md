@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0042-1757183"
+reference_id: DOI:10.1055/s-0042-1757183
 title: "Von Willebrand Factor Multimer Analysis and Classification: A Comprehensive Review and Updates"
 authors:
 - Abdulrahman Saadalla

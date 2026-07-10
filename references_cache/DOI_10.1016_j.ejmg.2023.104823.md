@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ejmg.2023.104823"
+reference_id: DOI:10.1016/j.ejmg.2023.104823
 title: "Arterial tortuosity syndrome: Phenotypic features and cardiovascular manifestations in 4 newly identified patients"
 authors:
 - Roger Esmel-Vilomara

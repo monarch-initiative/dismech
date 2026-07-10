@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ejh.12863"
+reference_id: DOI:10.1111/ejh.12863
 title: Effects of mogamulizumab in adult T‐cell leukemia/lymphoma in clinical practice
 authors:
 - Masaaki Sekine

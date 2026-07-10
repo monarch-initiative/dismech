@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/cncr.30663"
+reference_id: DOI:10.1002/cncr.30663
 title: "A phase 2 trial of dasatinib in patients with locally advanced or stage IV mucosal, acral, or vulvovaginal melanoma: A trial of the ECOG‐ACRIN Cancer Research Group (E2607)"
 authors:
 - Kevin Kalinsky

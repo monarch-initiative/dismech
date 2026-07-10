@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10741-022-10224-y"
+reference_id: DOI:10.1007/s10741-022-10224-y
 title: Endothelial-cell-mediated mechanism of coronary microvascular dysfunction leading to heart failure with preserved ejection fraction
 authors:
 - Yong Wang

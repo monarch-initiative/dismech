@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/imr.13292"
+reference_id: DOI:10.1111/imr.13292
 title: The discovery of NLRP3 and its function in cryopyrin‐associated periodic syndromes and innate immunity
 authors:
 - Christopher D. Putnam

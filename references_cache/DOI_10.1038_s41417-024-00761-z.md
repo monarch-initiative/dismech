@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41417-024-00761-z"
+reference_id: DOI:10.1038/s41417-024-00761-z
 title: "Hippo pathway in non-small cell lung cancer: mechanisms, potential targets, and biomarkers"
 authors:
 - Hongge Liang

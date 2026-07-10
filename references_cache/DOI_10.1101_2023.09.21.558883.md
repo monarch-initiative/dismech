@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2023.09.21.558883"
+reference_id: DOI:10.1101/2023.09.21.558883
 title: The apoptotic splicing regulators RBM5 and RBM10 are subunits of the U2 snRNP engaged with intron branch sites on chromatin
 authors:
 - Andrey Damianov

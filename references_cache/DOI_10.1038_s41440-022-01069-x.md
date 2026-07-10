@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41440-022-01069-x"
+reference_id: DOI:10.1038/s41440-022-01069-x
 title: Public and occupational health risks related to lead exposure updated according to present-day blood lead levels
 authors:
 - Yu-Ling Yu

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0500517102"
+reference_id: DOI:10.1073/pnas.0500517102
 title: Hereditary juvenile cobalamin deficiency caused by mutations in the intrinsic factor gene
 authors:
 - Stephan M. Tanner

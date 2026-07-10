@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-025-11749-6"
+reference_id: DOI:10.1038/s41598-025-11749-6
 title: Impact of intravertebral cleft types on percutaneous kyphoplasty outcomes in osteoporotic vertebral compression fractures
 authors:
 - Yuzhi Ning

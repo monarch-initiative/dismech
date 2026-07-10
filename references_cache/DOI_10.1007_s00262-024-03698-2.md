@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00262-024-03698-2"
+reference_id: DOI:10.1007/s00262-024-03698-2
 title: "The efficacy and safety of adding PD-1 blockade to induction chemotherapy and concurrent chemoradiotherapy (IC-CCRT) for locoregionally advanced nasopharyngeal carcinoma: an observational, propensity score-matched analysis"
 authors:
 - Ya-Nan Jin
@@ -859,11 +859,9 @@ notypes in nasopharyngeal carcinoma. Nat Commun 10(1):3941
 Authors and Affiliations
 Ya-Nan Jin1 · Meng-Yun Qiang2 · Ying Wang3 · Yu-Jing Lin4 · Ren-Wei Jiang1 · Wan-Wei Cao4 · Wang-Jian Zhang5 · 
 Si-Yang Wang1 · Hong-Yu Zhang1 · Ji-Jin Yao1,6
- 
- Hong-Yu Zhang
+  Hong-Yu Zhang
 zhhyu@mail.sysu.edu.cn
- 
- Ji-Jin Yao
+  Ji-Jin Yao
 yaojj23@mail.sysu.edu.cn
 1 The Cancer Center of the Fifth Affiliated Hospital of Sun 
 Yat-Sen University, Zhuhai, Guangdong Province  

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jama.2008.598"
+reference_id: DOI:10.1001/jama.2008.598
 title: Evolution of Novel Small-Molecule Therapeutics Targeting Sickle Cell Vasculopathy
 authors:
 - Gregory J. Kato

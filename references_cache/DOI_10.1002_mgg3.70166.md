@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mgg3.70166"
+reference_id: DOI:10.1002/mgg3.70166
 title: "A Case of <scp> <i>CSNK2A1</i> </scp> Gene Variant Causing Okur‐Chung Syndrome and Analysis of the Clinical Phenotypic Spectrum"
 authors:
 - Xin Li

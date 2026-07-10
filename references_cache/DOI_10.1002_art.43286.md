@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/art.43286"
+reference_id: DOI:10.1002/art.43286
 title: "Linking Skin and Joint Inflammation in Psoriatic Arthritis through Shared CD8 <sup>+</sup> T Cell Clones"
 authors:
 - Lucy E. Durham

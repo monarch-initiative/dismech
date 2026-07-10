@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.chc.2020.08.005"
+reference_id: DOI:10.1016/j.chc.2020.08.005
 title: Just Let Me Sleep in
 authors:
 - Michael A. Feder

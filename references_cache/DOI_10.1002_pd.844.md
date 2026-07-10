@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/pd.844"
+reference_id: DOI:10.1002/pd.844
 title: Prenatal ultrasound diagnosis of a case of Pfeiffer syndrome without cloverleaf skull and review of the literature
 authors:
 - Alfredo Nazzaro

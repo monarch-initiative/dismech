@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41375-023-02082-w"
+reference_id: DOI:10.1038/s41375-023-02082-w
 title: Perspectives of current understanding and therapeutics of Diamond-Blackfan anemia
 authors:
 - Yang Liu

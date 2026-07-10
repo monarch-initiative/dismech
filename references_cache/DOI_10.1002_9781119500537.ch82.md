@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/9781119500537.ch82"
+reference_id: DOI:10.1002/9781119500537.ch82
 title: Thrombocytosis and Essential Thrombocythemia
 authors:
 - Julie Allen

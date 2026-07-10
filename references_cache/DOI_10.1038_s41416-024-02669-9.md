@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41416-024-02669-9"
+reference_id: DOI:10.1038/s41416-024-02669-9
 title: "T cells in testicular germ cell tumors: new evidence of fundamental contributions by rare subsets"
 authors:
 - Rashidul Islam

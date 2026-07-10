@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/sciimmunol.adi7907"
+reference_id: DOI:10.1126/sciimmunol.adi7907
 title: Macrophage LRRK2 hyperactivity impairs autophagy and induces Paneth cell dysfunction
 authors:
 - Shengxiang Sun

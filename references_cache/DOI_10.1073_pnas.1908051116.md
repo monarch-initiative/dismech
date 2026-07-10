@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.1908051116"
+reference_id: DOI:10.1073/pnas.1908051116
 title: Gangliosides interact with synaptotagmin to form the high-affinity receptor complex for botulinum neurotoxin B
 authors:
 - Alessandra Flores

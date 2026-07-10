@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2304194"
+reference_id: DOI:10.1056/nejmoa2304194
 title: Vorasidenib in IDH1- or IDH2-Mutant Low-Grade Glioma
 authors:
 - Ingo K. Mellinghoff

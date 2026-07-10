@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00424-024-02920-5"
+reference_id: DOI:10.1007/s00424-024-02920-5
 title: Metabolic characteristics of transmembrane prolyl 4-hydroxylase (P4H-TM) deficient mice
 authors:
 - Tuulia Ala-Nisula

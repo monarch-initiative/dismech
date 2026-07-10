@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12105-018-00997-w"
+reference_id: DOI:10.1007/s12105-018-00997-w
 title: Non-infectious Granulomatous Lesions of the Orofacial Region
 authors:
 - Susan Müller

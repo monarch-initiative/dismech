@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-026-36145-6"
+reference_id: DOI:10.1038/s41598-026-36145-6
 title: Updated global prevalence and ethnic diversity of von Willebrand disease based on population genetics analysis
 authors:
 - Omid Seidizadeh

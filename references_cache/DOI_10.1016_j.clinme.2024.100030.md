@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.clinme.2024.100030"
+reference_id: DOI:10.1016/j.clinme.2024.100030
 title: Pyroglutamate acidosis 2023. A review of 100 cases
 authors:
 - Gordon W. Stewart

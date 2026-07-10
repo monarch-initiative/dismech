@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.pmr.2021.02.004"
+reference_id: DOI:10.1016/j.pmr.2021.02.004
 title: Acute Flaccid Myelitis
 authors:
 - William Ide

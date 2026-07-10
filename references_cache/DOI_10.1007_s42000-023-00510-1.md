@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s42000-023-00510-1"
+reference_id: DOI:10.1007/s42000-023-00510-1
 title: Comparison of clinical characteristics of a pediatric cohort with combined pituitary hormone deficiency caused by mutation of the PROP1 gene or of other origins
 authors:
 - Agata Zygmunt-Górska

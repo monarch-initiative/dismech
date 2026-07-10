@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41416-019-0414-9"
+reference_id: DOI:10.1038/s41416-019-0414-9
 title: "Recommendations for determining HPV status in patients with oropharyngeal cancers under TNM8 guidelines: a two-tier approach"
 authors:
 - Stephanie G. Craig

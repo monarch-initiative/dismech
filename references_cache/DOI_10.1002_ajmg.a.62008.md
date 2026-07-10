@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.62008"
+reference_id: DOI:10.1002/ajmg.a.62008
 title: "Koolen‐de Vries syndrome: First report of two unrelated Indian patients"
 authors:
 - Deepti Saxena

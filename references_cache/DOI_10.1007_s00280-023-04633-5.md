@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00280-023-04633-5"
+reference_id: DOI:10.1007/s00280-023-04633-5
 title: "Pharmacokinetics/pharmacodynamics of ivosidenib in advanced IDH1-mutant cholangiocarcinoma: findings from the phase III ClarIDHy study"
 authors:
 - Bin Fan

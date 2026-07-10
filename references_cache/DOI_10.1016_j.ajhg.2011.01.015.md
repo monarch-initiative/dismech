@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2011.01.015"
+reference_id: DOI:10.1016/j.ajhg.2011.01.015
 title: Exome Sequencing Identifies Truncating Mutations in Human SERPINF1 in Autosomal-Recessive Osteogenesis Imperfecta
 authors:
 - Jutta Becker

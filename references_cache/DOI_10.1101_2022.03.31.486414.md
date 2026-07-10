@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2022.03.31.486414"
+reference_id: DOI:10.1101/2022.03.31.486414
 title: Disease-associated mutations in WDR34 lead to diverse impacts on the assembly and function of dynein-2
 authors:
 - Caroline Shak

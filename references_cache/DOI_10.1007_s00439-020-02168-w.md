@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00439-020-02168-w"
+reference_id: DOI:10.1007/s00439-020-02168-w
 title: AP1S1 missense mutations cause a congenital enteropathy via an epithelial barrier defect
 authors:
 - Katharina M. C. Klee

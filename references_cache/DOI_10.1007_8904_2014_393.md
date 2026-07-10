@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/8904_2014_393"
+reference_id: DOI:10.1007/8904_2014_393
 title: "Is l-Carnitine Supplementation Beneficial in 3-Methylcrotonyl-CoA Carboxylase Deficiency?"
 authors:
 - Jákup Andreas Thomsen

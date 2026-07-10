@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00401-023-02598-6"
+reference_id: DOI:10.1007/s00401-023-02598-6
 title: Mutation ∆K281 in MAPT causes Pick’s disease
 authors:
 - Manuel Schweighauser

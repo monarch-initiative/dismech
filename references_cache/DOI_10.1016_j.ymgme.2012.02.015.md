@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2012.02.015"
+reference_id: DOI:10.1016/j.ymgme.2012.02.015
 title: Observations regarding retinopathy in mitochondrial trifunctional protein deficiencies
 authors:
 - Autumn L. Fletcher

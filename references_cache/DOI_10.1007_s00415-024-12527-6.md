@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-024-12527-6"
+reference_id: DOI:10.1007/s00415-024-12527-6
 title: "Spinal movement disorders in NMOSD, MOGAD, and idiopathic transverse myelitis: a prospective observational study"
 authors:
 - Hesham Abboud

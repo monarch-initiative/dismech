@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-020-75999-2"
+reference_id: DOI:10.1038/s41598-020-75999-2
 title: Loss of PHF6 leads to aberrant development of human neuron-like cells
 authors:
 - Anna Fliedner

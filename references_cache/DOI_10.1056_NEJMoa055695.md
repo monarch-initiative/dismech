@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/NEJMoa055695"
+reference_id: DOI:10.1056/NEJMoa055695
 title: Aneurysm Syndromes Caused by Mutations in the TGF-β Receptor
 authors:
 - Bart L. Loeys

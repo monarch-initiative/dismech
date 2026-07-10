@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.cger.2023.09.002"
+reference_id: DOI:10.1016/j.cger.2023.09.002
 title: Diagnosis and Management of Bullous Disease
 authors:
 - Amanda A. Onalaja-Underwood

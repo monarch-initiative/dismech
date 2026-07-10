@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1089/dna.2024.0134"
+reference_id: DOI:10.1089/dna.2024.0134
 title: "<i>Staphylococcus aureus</i> Proteases: Orchestrators of Skin Inflammation"
 authors:
 - Sabrina N. Kline

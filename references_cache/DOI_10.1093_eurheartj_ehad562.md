@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/eurheartj/ehad562"
+reference_id: DOI:10.1093/eurheartj/ehad562
 title: "Critical limb-threatening ischaemia and microvascular transformation: clinical implications"
 authors:
 - Santeri Tarvainen

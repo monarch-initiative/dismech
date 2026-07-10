@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12798"
+reference_id: DOI:10.1002/jimd.12798
 title: An update on autophagy disorders
 authors:
 - Hormos Salimi Dafsari

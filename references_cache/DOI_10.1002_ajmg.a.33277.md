@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.33277"
+reference_id: DOI:10.1002/ajmg.a.33277
 title: "Postnatal growth retardation, facial dysmorphism, spondylocarpal synostosis, cardiac defect, and inner ear malformation (cardiospondylocarpofacial syndrome?)—A distinct syndrome?"
 authors:
 - Sérgio B. Sousa

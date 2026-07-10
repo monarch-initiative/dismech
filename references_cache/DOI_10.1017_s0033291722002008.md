@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1017/s0033291722002008"
+reference_id: DOI:10.1017/s0033291722002008
 title: "More than doubling the clinical benefit of each hour of therapist time: a randomised controlled trial of internet cognitive therapy for social anxiety disorder"
 authors:
 - David M. Clark

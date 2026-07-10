@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00404-022-06814-8"
+reference_id: DOI:10.1007/s00404-022-06814-8
 title: Prenatal ultrasound in fetuses with polycystic kidney appearance — expanding the diagnostic algorithm
 authors:
 - Corinna Simonini

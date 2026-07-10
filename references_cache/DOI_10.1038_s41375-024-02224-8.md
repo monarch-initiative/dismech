@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41375-024-02224-8"
+reference_id: DOI:10.1038/s41375-024-02224-8
 title: NFKBIE mutations are selected by the tumor microenvironment and contribute to immune escape in chronic lymphocytic leukemia
 authors:
 - Alice Bonato

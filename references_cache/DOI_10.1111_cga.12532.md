@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cga.12532"
+reference_id: DOI:10.1111/cga.12532
 title: Long‐term clinical course of Heyn‐Sproul‐Jackson syndrome
 authors:
 - Hiroshi Futagawa

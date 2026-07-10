@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12325-024-02882-1"
+reference_id: DOI:10.1007/s12325-024-02882-1
 title: "Quality of Life Evaluation in Patients with Follicular Cell Lymphoma: A Real-World Study in Europe and the United States"
 authors:
 - Patrick Connor Johnson

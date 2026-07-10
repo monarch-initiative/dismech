@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00221-024-06988-4"
+reference_id: DOI:10.1007/s00221-024-06988-4
 title: Stimulus conditions eliciting sneezing in response to bright light
 authors:
 - Josef Trinkl

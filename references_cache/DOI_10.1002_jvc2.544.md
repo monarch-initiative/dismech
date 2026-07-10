@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jvc2.544"
+reference_id: DOI:10.1002/jvc2.544
 title: "Update on the treatment of <i>BRAF</i>mut metastatic melanoma and future perspectives"
 authors:
 - Peter Mohr

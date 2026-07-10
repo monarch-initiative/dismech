@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cts.13836"
+reference_id: DOI:10.1111/cts.13836
 title: "Evinacumab: Mechanism of action, clinical, and translational science"
 authors:
 - Robert Dingman

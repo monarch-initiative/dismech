@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12105-020-01135-1"
+reference_id: DOI:10.1007/s12105-020-01135-1
 title: "HIV-Associated “Double-Hit” Lymphoma of the Tonsil: A First Reported Case"
 authors:
 - Chad Hinkle

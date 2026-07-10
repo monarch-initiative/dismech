@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-73389-6"
+reference_id: DOI:10.1038/s41598-024-73389-6
 title: Distant metastasis patterns among lung cancer subtypes and impact of primary tumor resection on survival in metastatic lung cancer using SEER database
 authors:
 - Tian Xie

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.20597"
+reference_id: DOI:10.1002/ajmg.a.20597
 title: "Recurrence of achondrogenesis type II within the same family: Evidence for germline mosaicism"
 authors:
 - Laurence Faivre

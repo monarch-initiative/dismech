@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0044-1788586"
+reference_id: DOI:10.1055/s-0044-1788586
 title: Brazilian consensus recommendations on the diagnosis and treatment of autoimmune encephalitis in the adult and pediatric populations
 authors:
 - Lívia Almeida Dutra

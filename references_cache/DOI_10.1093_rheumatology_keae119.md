@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/rheumatology/keae119"
+reference_id: DOI:10.1093/rheumatology/keae119
 title: "Therapeutic strategies and outcomes in neuropsychiatric systemic lupus erythematosus: an international multicentre retrospective study"
 authors:
 - Alessandra Bortoluzzi

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jsr.14277"
+reference_id: DOI:10.1111/jsr.14277
 title: Narcolepsy and rapid eye movement sleep
 authors:
 - Francesco Biscarini

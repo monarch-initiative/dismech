@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.tips.2021.07.002"
+reference_id: DOI:10.1016/j.tips.2021.07.002
 title: "Treatment strategies for glucose-6-phosphate dehydrogenase deficiency: past and future perspectives"
 authors:
 - Adriana A. Garcia

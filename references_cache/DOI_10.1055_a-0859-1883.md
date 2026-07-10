@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/a-0859-1883"
+reference_id: DOI:10.1055/a-0859-1883
 title: "Management of epithelial precancerous conditions and lesions in the stomach (MAPS II): European Society of Gastrointestinal Endoscopy (ESGE), European Helicobacter and Microbiota Study Group (EHMSG), European Society of Pathology (ESP), and Sociedade Portuguesa de Endoscopia Digestiva (SPED) guideline update 2019"
 authors:
 - Pedro Pimentel-Nunes

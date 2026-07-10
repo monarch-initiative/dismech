@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s10038-021-00969-z"
+reference_id: DOI:10.1038/s10038-021-00969-z
 title: "A splicing variation in NPRL2 causing familial focal epilepsy with variable foci: additional cases and literature review"
 authors:
 - Jia Zhang

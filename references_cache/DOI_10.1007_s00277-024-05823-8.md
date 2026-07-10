@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00277-024-05823-8"
+reference_id: DOI:10.1007/s00277-024-05823-8
 title: "Improved efficacy and safety of zanubrutinib versus ibrutinib in patients with relapsed/refractory chronic lymphocytic leukemia (R/R CLL) in China: a subgroup of ALPINE"
 authors:
 - Keshu Zhou
@@ -723,8 +723,7 @@ Keshu Zhou1 · Tingyu Wang2,3 · Ling Pan4 · Wei Xu5 · Jie Jin6 · W
 Zhougang Liu12 · Peng Liu13 · Hongmei Jing14 · Sujun Gao15 · Huilai Zhang16 · Kang Yu17 · Zhao Wang18 · 
 Xiongpeng Zhu19 · Zimin Sun20 · Fei Li21 · Dongmei Yan22 · Jianyu Weng23 · Lina Fu24 · Liping Wang24 · 
 Tommi Salmi25 · Kenneth Wu26 · Lugui Qiu2,3
- 
- Lugui Qiu
+  Lugui Qiu
 qiulg@ihcams.ac.cn
 1 Affiliated Cancer Hospital of Zhengzhou University, Henan 
 Cancer Hospital, Zhengzhou, China

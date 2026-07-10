@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.11.07.24316738"
+reference_id: DOI:10.1101/2024.11.07.24316738
 title: "The Morges Strategy for Yaws Eradication: the First Largescale Total Community Treatment with Azithromycin Against Yaws in the Congo-Basin, using a Novel Model"
 authors:
 - Earnest Njih Tabah

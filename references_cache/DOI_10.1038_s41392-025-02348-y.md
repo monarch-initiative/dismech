@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41392-025-02348-y"
+reference_id: DOI:10.1038/s41392-025-02348-y
 title: "Bone marrow microenvironment in autoimmune hemolytic anemia: from trephine biopsy to single cell RNA sequencing"
 authors:
 - Bruno Fattizzo

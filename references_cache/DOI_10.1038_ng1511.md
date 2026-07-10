@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/ng1511"
+reference_id: DOI:10.1038/ng1511
 title: "A syndrome of altered cardiovascular, craniofacial, neurocognitive and skeletal development caused by mutations in TGFBR1 or TGFBR2"
 authors:
 - Bart L Loeys

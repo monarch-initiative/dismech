@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/dvdy.1178"
+reference_id: DOI:10.1002/dvdy.1178
 title: "Targeted disruption of Col11a2 produces a mild cartilage phenotype in transgenic mice: Comparison with the human disorder otospondylomegaepiphyseal dysplasia (OSMED)"
 authors:
 - Shi‐Wu Li

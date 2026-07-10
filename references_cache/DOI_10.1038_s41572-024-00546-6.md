@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41572-024-00546-6"
+reference_id: DOI:10.1038/s41572-024-00546-6
 title: Developmental and epileptic encephalopathies
 authors:
 - Ingrid E. Scheffer

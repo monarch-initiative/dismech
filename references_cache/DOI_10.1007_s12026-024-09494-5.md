@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12026-024-09494-5"
+reference_id: DOI:10.1007/s12026-024-09494-5
 title: "Ataxia-telangiectasia in Latin America: clinical features, immunodeficiency, and mortality in a multicenter study"
 authors:
 - Renan A. Pereira

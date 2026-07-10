@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-023-40565-z"
+reference_id: DOI:10.1038/s41598-023-40565-z
 title: "HLA-DRB1*04:05 is involved in the development of Vogt–Koyanagi–Harada disease-like immune-related adverse events in patients receiving immune checkpoint inhibitors"
 authors:
 - Masaki Takeuchi

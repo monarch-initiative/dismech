@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-023-28968-4"
+reference_id: DOI:10.1038/s41598-023-28968-4
 title: Combating lead and cadmium exposure with an orally administered chitosan-based chelating polymer
 authors:
 - Jordyn Ann Howard

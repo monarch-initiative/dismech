@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-58776-3"
+reference_id: DOI:10.1038/s41598-024-58776-3
 title: "Effect of an exercise-based cardiac rehabilitation program on quality of life of patients with chronic Chagas cardiomyopathy: results from the PEACH randomized clinical trial"
 authors:
 - Marcelo Carvalho Vieira

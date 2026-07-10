@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14740338.2023.2274426"
+reference_id: DOI:10.1080/14740338.2023.2274426
 title: Safety of current treatment options for NTRK fusion-positive cancers
 authors:
 - Adeline T. Yang

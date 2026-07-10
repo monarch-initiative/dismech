@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2023.03.24.23287706"
+reference_id: DOI:10.1101/2023.03.24.23287706
 title: "A gene network implicated in the joint-muscle pain, brain fog, chronic fatigue, and bowel irregularity of Ehlers-Danlos and “long” COVID19 syndromes"
 authors:
 - Golder N. Wilson

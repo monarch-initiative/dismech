@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12642"
+reference_id: DOI:10.1002/jimd.12642
 title: "<scp>Acyl‐CoA</scp> dehydrogenase substrate promiscuity: Challenges and opportunities for development of substrate reduction therapy in disorders of valine and isoleucine metabolism"
 authors:
 - Sander M. Houten

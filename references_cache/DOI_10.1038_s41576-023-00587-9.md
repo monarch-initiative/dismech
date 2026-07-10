@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41576-023-00587-9"
+reference_id: DOI:10.1038/s41576-023-00587-9
 title: Primary cilia as dynamic and diverse signalling hubs in development and disease
 authors:
 - Pleasantine Mill

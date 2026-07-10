@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00330-024-11300-7"
+reference_id: DOI:10.1007/s00330-024-11300-7
 title: "Ovarian cancer staging and follow-up: updated guidelines from the European Society of Urogenital Radiology female pelvic imaging working group"
 authors:
 - Stefania Rizzo

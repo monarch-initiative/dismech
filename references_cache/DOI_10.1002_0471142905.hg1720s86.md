@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/0471142905.hg1720s86"
+reference_id: DOI:10.1002/0471142905.hg1720s86
 title: "Porphyria Diagnostics—Part 1: A Brief Overview of the Porphyrias"
 authors:
 - Vaithamanithi‐Mudumbai Sadagopa Ramanujam

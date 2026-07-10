@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00787-021-01832-4"
+reference_id: DOI:10.1007/s00787-021-01832-4
 title: "European clinical guidelines for Tourette syndrome and other tic disorders: summary statement"
 authors:
 - Kirsten R. Müller-Vahl

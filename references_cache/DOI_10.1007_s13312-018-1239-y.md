@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s13312-018-1239-y"
+reference_id: DOI:10.1007/s13312-018-1239-y
 title: Kindler Syndrome
 authors:
 - Vibhu Mendiratta

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1085/jgp.202313471"
+reference_id: DOI:10.1085/jgp.202313471
 title: "<i>Tirasemtiv</i> enhances submaximal muscle tension in an <i>Acta1</i>:p.Asp286Gly mouse model of nemaline myopathy"
 authors:
 - Ricardo A. Galli

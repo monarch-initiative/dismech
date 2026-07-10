@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-37340-z"
+reference_id: DOI:10.1038/s41467-023-37340-z
 title: "An actin filament branching surveillance system regulates cell cycle progression, cytokinesis and primary ciliogenesis"
 authors:
 - Muqing Cao

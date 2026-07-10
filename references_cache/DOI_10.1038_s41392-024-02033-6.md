@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41392-024-02033-6"
+reference_id: DOI:10.1038/s41392-024-02033-6
 title: BRAF inhibitors enhance erythropoiesis and treat anemia through paradoxical activation of MAPK signaling
 authors:
 - Shunkang Wu

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00223-019-00532-1"
+reference_id: DOI:10.1007/s00223-019-00532-1
 title: Camurati–Engelmann Disease
 authors:
 - Wim Van Hul

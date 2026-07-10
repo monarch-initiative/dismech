@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00134-023-07304-4"
+reference_id: DOI:10.1007/s00134-023-07304-4
 title: "Hypotension during intensive care stay and mortality and morbidity: a systematic review and meta-analysis"
 authors:
 - Jaap Schuurmans

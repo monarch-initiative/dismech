@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s10038-022-01091-4"
+reference_id: DOI:10.1038/s10038-022-01091-4
 title: Spinocerebellar ataxia type 31 (SCA31)
 authors:
 - Kinya Ishikawa

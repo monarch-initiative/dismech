@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ijgo.13881"
+reference_id: DOI:10.1002/ijgo.13881
 title: "Cancer of the vulva: 2021 update"
 authors:
 - Alexander B. Olawaiye

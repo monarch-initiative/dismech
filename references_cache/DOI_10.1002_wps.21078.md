@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/wps.21078"
+reference_id: DOI:10.1002/wps.21078
 title: "Candidate biomarkers in psychiatric disorders: state of the field"
 authors:
 - Anissa Abi‐Dargham

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12202"
+reference_id: DOI:10.1002/jimd.12202
 title: "Pathophysiology and targets for treatment in hereditary galactosemia: A systematic review of animal and cellular models"
 authors:
 - Minela Haskovic

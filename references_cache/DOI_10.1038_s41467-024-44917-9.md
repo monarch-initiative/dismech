@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-44917-9"
+reference_id: DOI:10.1038/s41467-024-44917-9
 title: Applying a genetic risk score model to enhance prediction of future multiple sclerosis diagnosis at first presentation with optic neuritis
 authors:
 - Pavel Loginovic

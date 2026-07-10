@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41431-021-00939-1"
+reference_id: DOI:10.1038/s41431-021-00939-1
 title: "IMPDH2: a new gene associated with dominant juvenile-onset dystonia-tremor disorder"
 authors:
 - Anna Kuukasjärvi

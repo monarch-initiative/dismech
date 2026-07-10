@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.c.30292"
+reference_id: DOI:10.1002/ajmg.c.30292
 title: Disorders of creatine transport and metabolism
 authors:
 - Nicola Longo

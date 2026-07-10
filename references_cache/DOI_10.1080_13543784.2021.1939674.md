@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/13543784.2021.1939674"
+reference_id: DOI:10.1080/13543784.2021.1939674
 title: Therapies in preclinical and clinical development for Angelman syndrome
 authors:
 - Theodora Markati

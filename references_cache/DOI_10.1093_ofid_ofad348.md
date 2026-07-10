@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ofid/ofad348"
+reference_id: DOI:10.1093/ofid/ofad348
 title: "Intravenous Liposomal Amphotericin B Efficacy and Safety for Cutaneous and Mucosal Leishmaniasis: A Systematic Review and Meta-analysis"
 authors:
 - Jeffrey Chivinski

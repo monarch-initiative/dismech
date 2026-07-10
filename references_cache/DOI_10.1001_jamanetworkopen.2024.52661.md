@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamanetworkopen.2024.52661"
+reference_id: DOI:10.1001/jamanetworkopen.2024.52661
 title: Circulating Tumor DNA Testing in Curatively Resected Colorectal Cancer and Salvage Resection
 authors:
 - Jingran Ji

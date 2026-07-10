@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0405031101"
+reference_id: DOI:10.1073/pnas.0405031101
 title: "A gain-of-function mutation of <i>Fgfr2c</i> demonstrates the roles of this receptor variant in osteogenesis"
 authors:
 - Veraragavan P. Eswarakumar

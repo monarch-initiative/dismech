@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/oncolo/oyae170"
+reference_id: DOI:10.1093/oncolo/oyae170
 title: "<i>FGFR2</i> fusion/rearrangement is associated with favorable prognosis and immunoactivation in patients with intrahepatic cholangiocarcinoma"
 authors:
 - Shaoqing Liu

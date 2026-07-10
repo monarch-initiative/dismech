@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11011-022-01109-y"
+reference_id: DOI:10.1007/s11011-022-01109-y
 title: Branched-chain amino acids (BCAA) administration increases autophagy and the autophagic pathway in brain tissue of rats submitted to a Maple Syrup Urine Disease (MSUD) protocol
 authors:
 - Karoline Teixeira Fermo

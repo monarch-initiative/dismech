@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00383-025-06197-2"
+reference_id: DOI:10.1007/s00383-025-06197-2
 title: "Diverse clinical features of symptomatic Meckel’s diverticulum: a multicenter study of 151 consecutive pediatric patients from the Western Balkans"
 authors:
 - Zlatan Zvizdic

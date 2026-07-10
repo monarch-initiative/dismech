@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-03254-6"
+reference_id: DOI:10.1038/s41591-024-03254-6
 title: ctDNA-based molecular residual disease and survival in resectable colorectal cancer
 authors:
 - Yoshiaki Nakamura

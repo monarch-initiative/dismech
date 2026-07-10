@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s44197-024-00271-z"
+reference_id: DOI:10.1007/s44197-024-00271-z
 title: "Neurocysticercosis Prevalence and Characteristics in Communities of Sinda District in Zambia: A Cross-Sectional Study"
 authors:
 - Gideon Zulu

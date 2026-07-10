@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2309457"
+reference_id: DOI:10.1056/nejmoa2309457
 title: "First-Line Selpercatinib or Chemotherapy and Pembrolizumab in <i>RET</i> Fusion–Positive NSCLC"
 authors:
 - Caicun Zhou

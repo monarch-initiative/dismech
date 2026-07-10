@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamanetworkopen.2024.51094"
+reference_id: DOI:10.1001/jamanetworkopen.2024.51094
 title: Incidence and Risk of Cardiovascular Outcomes in Patients With Anorexia Nervosa
 authors:
 - Mei-Chih Meg Tseng

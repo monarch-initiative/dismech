@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41584-024-01154-0"
+reference_id: DOI:10.1038/s41584-024-01154-0
 title: Distinct mucosal endotypes as initiators and drivers of rheumatoid arthritis
 authors:
 - V. Michael Holers

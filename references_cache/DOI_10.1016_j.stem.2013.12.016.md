@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.stem.2013.12.016"
+reference_id: DOI:10.1016/j.stem.2013.12.016
 title: Proto-Oncogenic Role of Mutant IDH2 in Leukemia Initiation and Maintenance
 authors:
 - Lev M. Kats

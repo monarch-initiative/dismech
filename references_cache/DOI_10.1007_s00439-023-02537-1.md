@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00439-023-02537-1"
+reference_id: DOI:10.1007/s00439-023-02537-1
 title: "Five years of experience in the Epigenetics and Chromatin Clinic: what have we learned and where do we go from here?"
 authors:
 - Jacqueline R. Harris

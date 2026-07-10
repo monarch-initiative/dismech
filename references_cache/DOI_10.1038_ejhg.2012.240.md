@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/ejhg.2012.240"
+reference_id: DOI:10.1038/ejhg.2012.240
 title: Phenotypic variant of Brachydactyly-mental retardation syndrome in a family with an inherited interstitial 2q37.3 microdeletion including HDAC4
 authors:
 - Pablo Villavicencio-Lorini

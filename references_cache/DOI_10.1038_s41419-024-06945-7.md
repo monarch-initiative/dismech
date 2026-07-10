@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41419-024-06945-7"
+reference_id: DOI:10.1038/s41419-024-06945-7
 title: PD-L1 induces autophagy and primary resistance to EGFR–TKIs in EGFR-mutant lung adenocarcinoma via the MAPK signaling pathway
 authors:
 - Na Li

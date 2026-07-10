@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-03146-9"
+reference_id: DOI:10.1038/s41591-024-03146-9
 title: Safety and reactogenicity of a controlled human infection model of sand fly-transmitted cutaneous leishmaniasis
 authors:
 - Vivak Parkash

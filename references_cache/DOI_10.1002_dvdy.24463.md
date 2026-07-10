@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/dvdy.24463"
+reference_id: DOI:10.1002/dvdy.24463
 title: Vascular endothelial growth factor control mechanisms in skeletal growth and repair
 authors:
 - Kai Hu

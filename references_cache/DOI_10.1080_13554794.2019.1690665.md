@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/13554794.2019.1690665"
+reference_id: DOI:10.1080/13554794.2019.1690665
 title: A case of TDP-43 type C pathology presenting as nonfluent variant primary progressive aphasia
 authors:
 - Kerala L Adams-Carr

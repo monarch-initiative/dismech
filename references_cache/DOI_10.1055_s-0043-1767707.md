@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0043-1767707"
+reference_id: DOI:10.1055/s-0043-1767707
 title: Update on Surgical Management of FAP
 authors:
 - Tianqi Zhang

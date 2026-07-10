@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12022-021-09664-3"
+reference_id: DOI:10.1007/s12022-021-09664-3
 title: "Genomics and Epigenomics of Medullary Thyroid Carcinoma: From Sporadic Disease to Familial Manifestations"
 authors:
 - Justine A. Barletta

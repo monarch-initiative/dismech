@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajpath.2024.05.009"
+reference_id: DOI:10.1016/j.ajpath.2024.05.009
 title: Local Tetanus Begins with a Neuromuscular Junction Paralysis around the Site of Tetanus Neurotoxin Release due to Cleavage of the Vesicle-Associated Membrane Protein
 authors:
 - Federico Fabris

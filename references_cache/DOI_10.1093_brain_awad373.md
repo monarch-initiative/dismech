@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awad373"
+reference_id: DOI:10.1093/brain/awad373
 title: Interferon-γ controls aquaporin 4-specific Th17 and B cells in neuromyelitis optica spectrum disorder
 authors:
 - Gabriel Arellano

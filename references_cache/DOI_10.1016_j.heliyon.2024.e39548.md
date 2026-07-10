@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.heliyon.2024.e39548"
+reference_id: DOI:10.1016/j.heliyon.2024.e39548
 title: Sodium arsenite-induced DNA methylation alterations exacerbated by p53 knockout in MCF7 cells
 authors:
 - Felicia Fei-Lei Chung

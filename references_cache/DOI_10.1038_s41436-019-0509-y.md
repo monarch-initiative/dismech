@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41436-019-0509-y"
+reference_id: DOI:10.1038/s41436-019-0509-y
 title: All-cause mortality and survival in adults with 22q11.2 deletion syndrome
 authors:
 - Lily Van

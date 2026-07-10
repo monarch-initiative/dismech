@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00330-024-10587-w"
+reference_id: DOI:10.1007/s00330-024-10587-w
 title: Assessing the optimal MRI descriptors to diagnose Ménière’s disease and the added value of analysing the vestibular aqueduct
 authors:
 - Steve Connor

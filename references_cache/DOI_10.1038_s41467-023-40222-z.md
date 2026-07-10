@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-40222-z"
+reference_id: DOI:10.1038/s41467-023-40222-z
 title: Pyruvate anaplerosis is a targetable vulnerability in persistent leukaemic stem cells
 authors:
 - Kevin M. Rattigan

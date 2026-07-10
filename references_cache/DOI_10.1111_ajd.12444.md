@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ajd.12444"
+reference_id: DOI:10.1111/ajd.12444
 title: "Cutaneous collagenous vasculopathy: Report of first Japanese case and review of the literature"
 authors:
 - Sei‐ichiro Motegi

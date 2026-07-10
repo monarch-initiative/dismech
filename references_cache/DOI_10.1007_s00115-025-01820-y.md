@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00115-025-01820-y"
+reference_id: DOI:10.1007/s00115-025-01820-y
 title: Anorexia nervosa—an update
 authors:
 - Ulrich Voderholzer

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s42003-024-06596-6"
+reference_id: DOI:10.1038/s42003-024-06596-6
 title: A MYCN-driven de-differentiation profile identifies a subgroup of aggressive retinoblastoma
 authors:
 - Tatsiana Ryl

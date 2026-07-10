@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bpa.12768"
+reference_id: DOI:10.1111/bpa.12768
 title: Identification of prognostic markers in diffuse midline gliomas H3K27M‐mutant
 authors:
 - Charlotte Dufour

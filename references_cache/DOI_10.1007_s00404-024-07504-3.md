@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00404-024-07504-3"
+reference_id: DOI:10.1007/s00404-024-07504-3
 title: Real-world prevalence of microsatellite instability testing and related status in women with advanced endometrial cancer in Europe
 authors:
 - Sneha S. Kelkar

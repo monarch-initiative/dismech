@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/10428194.2022.2140288"
+reference_id: DOI:10.1080/10428194.2022.2140288
 title: "Cost-effectiveness of azacitidine and ivosidenib in newly diagnosed older, intensive chemotherapy-ineligible patients with <i>IDH1</i> -mutant acute myeloid leukemia"
 authors:
 - Jan Philipp Bewersdorf

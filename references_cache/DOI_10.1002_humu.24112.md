@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/humu.24112"
+reference_id: DOI:10.1002/humu.24112
 title: "Common atrium/atrioventricular canal defect and postaxial polydactyly: A mild clinical subtype of Ellis‐van Creveld syndrome caused by hypomorphic mutations in the <i>EVC</i> gene"
 authors:
 - Francesca Piceci‐Sparascio

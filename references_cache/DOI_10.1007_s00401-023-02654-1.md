@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00401-023-02654-1"
+reference_id: DOI:10.1007/s00401-023-02654-1
 title: "“De novo replication repair deficient glioblastoma, IDH-wildtype” is a distinct glioblastoma subtype in adults that may benefit from immune checkpoint blockade"
 authors:
 - Sara Hadad

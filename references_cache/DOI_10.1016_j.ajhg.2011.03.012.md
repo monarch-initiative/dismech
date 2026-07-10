@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2011.03.012"
+reference_id: DOI:10.1016/j.ajhg.2011.03.012
 title: Loss-of-Function Mutations in RAB18 Cause Warburg Micro Syndrome
 authors:
 - Danai Bem

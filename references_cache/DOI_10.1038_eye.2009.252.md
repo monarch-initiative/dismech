@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/eye.2009.252"
+reference_id: DOI:10.1038/eye.2009.252
 title: Acute annular outer retinopathy with systemic symptoms
 authors:
 - M P Simunovic

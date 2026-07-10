@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00787-021-01842-2"
+reference_id: DOI:10.1007/s00787-021-01842-2
 title: "European clinical guidelines for Tourette syndrome and other tic disorders—version 2.0. Part I: assessment"
 authors:
 - Natalia Szejko

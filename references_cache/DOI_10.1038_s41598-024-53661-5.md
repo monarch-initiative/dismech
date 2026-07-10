@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-53661-5"
+reference_id: DOI:10.1038/s41598-024-53661-5
 title: Anti-aquaporin-4 immune complex stimulates complement-dependent Th17 cytokine release in neuromyelitis optica spectrum disorders
 authors:
 - Shuhei Nishiyama

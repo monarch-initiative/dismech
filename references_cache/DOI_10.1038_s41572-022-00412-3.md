@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41572-022-00412-3"
+reference_id: DOI:10.1038/s41572-022-00412-3
 title: Ichthyosis
 authors:
 - Carlos Gutiérrez-Cerrajero

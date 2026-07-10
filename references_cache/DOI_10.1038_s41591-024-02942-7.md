@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-02942-7"
+reference_id: DOI:10.1038/s41591-024-02942-7
 title: "Nivolumab for mismatch-repair-deficient or hypermutated gynecologic cancers: a phase 2 trial with biomarker analyses"
 authors:
 - Claire F. Friedman

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10238-025-01830-9"
+reference_id: DOI:10.1007/s10238-025-01830-9
 title: "From symptom scales to regulatory endpoints: the evolution and clinical impact of patient-reported outcome measures in myeloproliferative neoplasms"
 authors:
 - Meng Chen

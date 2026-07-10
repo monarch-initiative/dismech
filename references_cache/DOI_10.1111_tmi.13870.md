@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/tmi.13870"
+reference_id: DOI:10.1111/tmi.13870
 title: "The challenges of detecting <i>Taenia solium</i> and neurocysticercosis in low and middle‐income countries: A scoping review of Lao People's Democratic Republic"
 authors:
 - Andrew Larkins

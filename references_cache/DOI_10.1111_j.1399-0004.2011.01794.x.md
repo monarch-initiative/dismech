@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.1399-0004.2011.01794.x"
+reference_id: DOI:10.1111/j.1399-0004.2011.01794.x
 title: "Deficiency of <i>CRTAP</i> in non‐lethal recessive osteogenesis imperfecta reduces collagen deposition into matrix"
 authors:
 - M Valli

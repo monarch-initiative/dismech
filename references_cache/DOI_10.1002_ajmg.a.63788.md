@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.63788"
+reference_id: DOI:10.1002/ajmg.a.63788
 title: "Germline <scp><i>PTCH1</i></scp>: <scp>c.361_362insAlu</scp> alteration identified by comprehensive exome and <scp>RNA</scp> sequencing in a patient with <scp>Gorlin</scp> syndrome"
 authors:
 - Aaron Y. Mochizuki

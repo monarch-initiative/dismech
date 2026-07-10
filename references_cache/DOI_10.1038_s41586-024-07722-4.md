@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41586-024-07722-4"
+reference_id: DOI:10.1038/s41586-024-07722-4
 title: Molecular mimicry in multisystem inflammatory syndrome in children
 authors:
 - Aaron Bodansky

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10096-011-1185-2"
+reference_id: DOI:10.1007/s10096-011-1185-2
 title: Human antimicrobial proteins in ear wax
 authors:
 - M. Schwaab

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00247-022-05364-0"
+reference_id: DOI:10.1007/s00247-022-05364-0
 title: Longitudinal assessment of vascular calcification in generalized arterial calcification of infancy
 authors:
 - Karen I. Ramirez-Suarez

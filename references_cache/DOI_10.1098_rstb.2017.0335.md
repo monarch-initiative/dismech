@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1098/rstb.2017.0335"
+reference_id: DOI:10.1098/rstb.2017.0335
 title: "The mechanical impact of <i>col11a2</i> loss on joints; <i>col11a2</i> mutant zebrafish show changes to joint development and function, which leads to early-onset osteoarthritis"
 authors:
 - Elizabeth A. Lawrence

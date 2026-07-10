@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/eurheartj/ehac460"
+reference_id: DOI:10.1093/eurheartj/ehac460
 title: A polygenic risk score predicts atrial fibrillation in cardiovascular disease
 authors:
 - Nicholas A Marston

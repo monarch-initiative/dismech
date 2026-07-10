@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/pai.13900"
+reference_id: DOI:10.1111/pai.13900
 title: "Pathogenesis, immunology, and immune‐targeted management of the multisystem inflammatory syndrome in children (MIS‐C) or pediatric inflammatory multisystem syndrome (PIMS): EAACI Position Paper"
 authors:
 - Wojciech Feleszko

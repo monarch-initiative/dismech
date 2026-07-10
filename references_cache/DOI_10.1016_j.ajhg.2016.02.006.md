@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2016.02.006"
+reference_id: DOI:10.1016/j.ajhg.2016.02.006
 title: Mosaic Activating Mutations in FGFR1 Cause Encephalocraniocutaneous Lipomatosis
 authors:
 - James T. Bennett

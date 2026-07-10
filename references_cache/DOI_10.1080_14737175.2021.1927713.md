@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14737175.2021.1927713"
+reference_id: DOI:10.1080/14737175.2021.1927713
 title: "Pathogenesis, diagnosis and treatment of paraneoplastic neurologic syndromes"
 authors:
 - Franz Blaes

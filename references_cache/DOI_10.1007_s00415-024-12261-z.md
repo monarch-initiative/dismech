@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-024-12261-z"
+reference_id: DOI:10.1007/s00415-024-12261-z
 title: "Supra- and infra-tentorial degeneration patterns in primary lateral sclerosis: a multimodal longitudinal neuroradiology study"
 authors:
 - Jana Kleinerova

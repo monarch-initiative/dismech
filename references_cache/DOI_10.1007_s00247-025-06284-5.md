@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00247-025-06284-5"
+reference_id: DOI:10.1007/s00247-025-06284-5
 title: "Premedication in pediatric Meckel scintigraphy: pantoprazole versus ranitidine for optimizing scan quality"
 authors:
 - Hasan Önner

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.tcb.2018.09.003"
+reference_id: DOI:10.1016/j.tcb.2018.09.003
 title: Nuclear Factor One X in Development and Disease
 authors:
 - Michael Piper

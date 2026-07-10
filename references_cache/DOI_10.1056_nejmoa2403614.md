@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2403614"
+reference_id: DOI:10.1056/nejmoa2403614
 title: "Amivantamab plus Lazertinib in Previously Untreated <i>EGFR</i> -Mutated Advanced NSCLC"
 authors:
 - Byoung C. Cho

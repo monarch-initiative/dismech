@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12311-023-01540-6"
+reference_id: DOI:10.1007/s12311-023-01540-6
 title: "Spinocerebellar ataxia type 11 (SCA11): TTBK2 variants, functions and associated disease mechanisms"
 authors:
 - Daniela Felício

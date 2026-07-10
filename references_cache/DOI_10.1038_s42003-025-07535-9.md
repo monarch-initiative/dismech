@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s42003-025-07535-9"
+reference_id: DOI:10.1038/s42003-025-07535-9
 title: Comparison of transcriptomic profiles between intracellular and extracellular Bartonella henselae
 authors:
 - Shiva Kumar Goud Gadila

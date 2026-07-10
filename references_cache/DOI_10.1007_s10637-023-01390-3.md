@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10637-023-01390-3"
+reference_id: DOI:10.1007/s10637-023-01390-3
 title: "The efficacy and safety of selective RET inhibitors in RET fusion-positive non-small cell lung cancer: a meta-analysis"
 authors:
 - Jun-yi Ke
@@ -53,8 +53,7 @@ Introduction
 At present, lung cancer is the malignant tumor with the 
 highest incidence in humans and first cancer that leads to 
 human death. According to statistics, in 2020, lung cancer 
- 
- Min-chao Duan
+  Min-chao Duan
 731321667@qq.com
 1 Guangxi Medical University, Nanning, People’s Republic of 
 China

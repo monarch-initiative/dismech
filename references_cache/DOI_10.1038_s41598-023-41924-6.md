@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-023-41924-6"
+reference_id: DOI:10.1038/s41598-023-41924-6
 title: Clinical value of vestibulo-ocular reflex in the differentiation of spinocerebellar ataxias
 authors:
 - Jae-Myung Kim

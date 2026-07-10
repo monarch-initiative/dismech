@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.08.26.25334362"
+reference_id: DOI:10.1101/2025.08.26.25334362
 title: Genome-wide meta-analysis and integrative fine-mapping identify novel susceptibility loci and effector genes in psoriatic arthritis
 authors:
 - Yask Gupta

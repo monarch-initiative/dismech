@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00296-009-1239-2"
+reference_id: DOI:10.1007/s00296-009-1239-2
 title: "De Quervain’s syndrome associated with osteopoikilosis: a case report and review of the literature"
 authors:
 - Asylbek Kaparov

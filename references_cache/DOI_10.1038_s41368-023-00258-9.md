@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41368-023-00258-9"
+reference_id: DOI:10.1038/s41368-023-00258-9
 title: Spatiotemporal cellular dynamics and molecular regulation of tooth root ontogeny
 authors:
 - Pengcheng Rao

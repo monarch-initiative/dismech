@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mdc3.14328"
+reference_id: DOI:10.1002/mdc3.14328
 title: Neurophysiological Insights into the Pathophysiology of Stiff‐Person Spectrum Disorders
 authors:
 - João Moura

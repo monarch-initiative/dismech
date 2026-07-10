@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.nicl.2020.102369"
+reference_id: DOI:10.1016/j.nicl.2020.102369
 title: Regional and hemispheric susceptibility of the temporal lobe to FTLD-TDP type C pathology
 authors:
 - V. Borghesani

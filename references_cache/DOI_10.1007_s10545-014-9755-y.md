@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10545-014-9755-y"
+reference_id: DOI:10.1007/s10545-014-9755-y
 title: Adenylosuccinate lyase deficiency
 authors:
 - Agnieszka Jurecka

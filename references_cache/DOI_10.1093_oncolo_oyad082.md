@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/oncolo/oyad082"
+reference_id: DOI:10.1093/oncolo/oyad082
 title: "<i>BRAF</i> V600E/<i>RAS</i> Mutations and Lynch Syndrome in Patients With MSI-H/dMMR Metastatic Colorectal Cancer Treated With Immune Checkpoint Inhibitors"
 authors:
 - Raphael Colle

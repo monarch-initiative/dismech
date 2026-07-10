@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/cphy.c230008"
+reference_id: DOI:10.1002/cphy.c230008
 title: "Pancreatic Crosstalk in the Disease Setting: Understanding the Impact of Exocrine Disease on Endocrine Function"
 authors:
 - Catharina B.P. Villaca

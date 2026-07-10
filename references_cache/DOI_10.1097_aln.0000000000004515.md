@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/aln.0000000000004515"
+reference_id: DOI:10.1097/aln.0000000000004515
 title: Mouse Model of Spinal Cord Hypoperfusion with Immediate Paralysis Caused by Endovascular Repair of Thoracic Aortic Aneurysm
 authors:
 - Hesham Kelani

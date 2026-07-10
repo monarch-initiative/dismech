@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11686-024-00840-z"
+reference_id: DOI:10.1007/s11686-024-00840-z
 title: Comparison of Methods in the Serologic Diagnosis of Cystic Echinococcosis
 authors:
 - Sidre Erganis
@@ -75,8 +75,7 @@ granulosus sensu lato  has different subtypes with different
 host specificities: E. granosus sensu stricto (s.s.)  (G1-G3), 
 Echinococcus felidis, Echinococcus equinus, Echinococcus 
 ortleppi, and Echinococcus canadensis  (G6/G7, G8, and 
- 
- Sidre Erganis
+  Sidre Erganis
 sdrerganis.gazi@gmail.com
 Fakhriddin Sarzhanov
 fakhriddin.sarjanov@gmail.com

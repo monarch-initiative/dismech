@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-54972-3"
+reference_id: DOI:10.1038/s41598-024-54972-3
 title: "Survival outcome and prognostic factors for early-onset and late-onset metastatic colorectal cancer: a population based study from SEER database"
 authors:
 - Bingyi Ren

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamanetworkopen.2021.0275"
+reference_id: DOI:10.1001/jamanetworkopen.2021.0275
 title: Expanded Access to Lung Cancer Screening—Implementing Wisely to Optimize Health
 authors:
 - Anne C. Melzer

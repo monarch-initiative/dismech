@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-024-12724-3"
+reference_id: DOI:10.1007/s00415-024-12724-3
 title: Cytoskeleton dysfunction of motor neuron in spinal muscular atrophy
 authors:
 - Tianyu Shi

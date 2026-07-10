@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa1902688"
+reference_id: DOI:10.1056/nejmoa1902688
 title: "Gilteritinib or Chemotherapy for Relapsed or Refractory <i>FLT3</i> -Mutated AML"
 authors:
 - Alexander E. Perl

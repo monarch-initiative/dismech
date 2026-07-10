@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jacc.2019.01.066"
+reference_id: DOI:10.1016/j.jacc.2019.01.066
 title: Hypertrophic Cardiomyopathy in Noonan Syndrome Treated by MEK-Inhibition
 authors:
 - Gregor Andelfinger

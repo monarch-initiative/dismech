@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00467-023-06179-3"
+reference_id: DOI:10.1007/s00467-023-06179-3
 title: "Worldwide disparities in access to treatment and investigations for nephropathic cystinosis: a 2023 perspective"
 authors:
 - Maitena Regnier

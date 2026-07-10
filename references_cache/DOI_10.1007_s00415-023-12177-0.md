@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-023-12177-0"
+reference_id: DOI:10.1007/s00415-023-12177-0
 title: "Prevalence, clinical characteristics, and risk factors of intracerebral haemorrhage in CADASIL: a case series and systematic review"
 authors:
 - Nontapat Sukhonpanich

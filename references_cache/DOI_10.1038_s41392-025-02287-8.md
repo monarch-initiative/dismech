@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41392-025-02287-8"
+reference_id: DOI:10.1038/s41392-025-02287-8
 title: Signaling pathways and targeted therapy for pulmonary hypertension
 authors:
 - Joseph Adu-Amankwaah

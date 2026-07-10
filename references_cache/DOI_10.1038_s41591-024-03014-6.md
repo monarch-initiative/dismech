@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-03014-6"
+reference_id: DOI:10.1038/s41591-024-03014-6
 title: Cervical cancer screening using DNA methylation triage in a real-world population
 authors:
 - Lena Schreiberhuber

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41434-024-00455-z"
+reference_id: DOI:10.1038/s41434-024-00455-z
 title: Retinoic acid related orphan receptor α is a genetic modifier that rescues retinal degeneration in a mouse model of Stargardt disease and Dry AMD
 authors:
 - M. Akula

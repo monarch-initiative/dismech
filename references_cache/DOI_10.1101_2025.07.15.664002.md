@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.07.15.664002"
+reference_id: DOI:10.1101/2025.07.15.664002
 title: "Early Human Pulmonary Lesions Define a Permissive Alveolar Niche for <i>Mycobacterium tuberculosis</i>"
 authors:
 - Rosane M. B. Teles

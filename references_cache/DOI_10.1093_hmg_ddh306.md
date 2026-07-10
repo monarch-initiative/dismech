@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddh306"
+reference_id: DOI:10.1093/hmg/ddh306
 title: "Polyalanine expansion in HOXA13: three new affected families and the molecular consequences in a mouse model"
 authors:
 - Jeffrey W. Innis

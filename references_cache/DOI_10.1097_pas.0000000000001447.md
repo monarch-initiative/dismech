@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/pas.0000000000001447"
+reference_id: DOI:10.1097/pas.0000000000001447
 title: A Novel SS18-SSX Fusion-specific Antibody for the Diagnosis of Synovial Sarcoma
 authors:
 - Esther Baranov

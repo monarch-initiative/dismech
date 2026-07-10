@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41698-024-00609-7"
+reference_id: DOI:10.1038/s41698-024-00609-7
 title: Prediction of TKI response in EGFR-mutant lung cancer patients-derived organoids using malignant pleural effusion
 authors:
 - Sang-Hyun Lee

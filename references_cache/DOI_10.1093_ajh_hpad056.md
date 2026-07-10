@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ajh/hpad056"
+reference_id: DOI:10.1093/ajh/hpad056
 title: From Fibromuscular Dysplasia to Arterial Dissection and Back
 authors:
 - Justine Huart

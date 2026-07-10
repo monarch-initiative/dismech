@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2023.10.17.562749"
+reference_id: DOI:10.1101/2023.10.17.562749
 title: Botulinum toxin intoxication requires retrograde transport and membrane translocation at the ER in RenVM neurons
 authors:
 - Jeremy C. Yeo

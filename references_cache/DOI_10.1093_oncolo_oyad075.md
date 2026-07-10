@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/oncolo/oyad075"
+reference_id: DOI:10.1093/oncolo/oyad075
 title: "A Two-Step Diagnostic Approach for <i>NTRK</i> Gene Fusion Detection in Biliary Tract and Pancreatic Adenocarcinomas"
 authors:
 - Anne Demols

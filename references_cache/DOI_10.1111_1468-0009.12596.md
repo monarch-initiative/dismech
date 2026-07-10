@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/1468-0009.12596"
+reference_id: DOI:10.1111/1468-0009.12596
 title: Improving Equitability and Inclusion for Testing and Detection of Lead Poisoning in US Children
 authors:
 - CHRISTINA SOBIN

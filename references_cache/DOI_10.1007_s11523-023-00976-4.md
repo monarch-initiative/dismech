@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11523-023-00976-4"
+reference_id: DOI:10.1007/s11523-023-00976-4
 title: "Real-World Treatment Outcomes of MET Exon14 Skipping in Non-small Cell Lung Cancer: GFPC 03-18 Study"
 authors:
 - Hélène Babey

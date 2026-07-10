@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12220"
+reference_id: DOI:10.1002/jimd.12220
 title: "Δ<sup>1</sup>‐Pyrroline‐5‐carboxylate synthetase deficiency: An emergent multifaceted urea cycle‐related disorder"
 authors:
 - Clara Marco‐Marín

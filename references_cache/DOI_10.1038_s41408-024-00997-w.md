@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41408-024-00997-w"
+reference_id: DOI:10.1038/s41408-024-00997-w
 title: "Bispecific antibodies and CAR-T cells: dueling immunotherapies for large B-cell lymphomas"
 authors:
 - Asaad Trabolsi

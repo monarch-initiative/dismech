@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11914-020-00577-4"
+reference_id: DOI:10.1007/s11914-020-00577-4
 title: "Generalized Arterial Calcification of Infancy: New Insights, Controversies, and Approach to Management"
 authors:
 - Alison M. Boyce

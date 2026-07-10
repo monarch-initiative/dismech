@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-37437-5"
+reference_id: DOI:10.1038/s41467-023-37437-5
 title: Single-nucleus RNA-sequencing of autosomal dominant Alzheimer disease and risk variant carriers
 authors:
 - Logan Brase

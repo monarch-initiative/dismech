@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/sciadv.adq7560"
+reference_id: DOI:10.1126/sciadv.adq7560
 title: Structural basis of aquaporin-4 autoantibody binding in neuromyelitis optica
 authors:
 - Meghna Gupta

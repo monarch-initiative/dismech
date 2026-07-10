@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/noajnl/vdae162"
+reference_id: DOI:10.1093/noajnl/vdae162
 title: Development and epigenetic regulation of Atypical teratoid/rhabdoid tumors in the context of cell-of-origin and halted cell differentiation
 authors:
 - Laura Huhtala

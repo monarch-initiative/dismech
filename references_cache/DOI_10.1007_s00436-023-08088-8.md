@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00436-023-08088-8"
+reference_id: DOI:10.1007/s00436-023-08088-8
 title: "Anthelmintic resistance in soil-transmitted helminths: One-Health considerations"
 authors:
 - Annette Imali Ng’etich

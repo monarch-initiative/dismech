@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1017/cjn.2024.119"
+reference_id: DOI:10.1017/cjn.2024.119
 title: "P.011 Efficacy and safety of ravulizumab in adults with AQP4+ NMOSD: interim analysis from the ongoing phase 3 CHAMPION-NMOSD trial"
 authors:
 - SJ Pittock

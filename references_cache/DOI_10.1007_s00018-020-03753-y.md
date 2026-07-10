@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00018-020-03753-y"
+reference_id: DOI:10.1007/s00018-020-03753-y
 title: PDGF receptor mutations in human diseases
 authors:
 - Emilie Guérit

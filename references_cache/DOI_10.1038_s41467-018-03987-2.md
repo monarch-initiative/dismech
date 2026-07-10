@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-018-03987-2"
+reference_id: DOI:10.1038/s41467-018-03987-2
 title: Aggressive natural killer-cell leukemia mutational landscape and drug profiling highlight JAK-STAT signaling as therapeutic target
 authors:
 - Olli Dufva

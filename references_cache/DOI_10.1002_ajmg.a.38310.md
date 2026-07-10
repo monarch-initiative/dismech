@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.38310"
+reference_id: DOI:10.1002/ajmg.a.38310
 title: Expansion of the phenotype of Kosaki overgrowth syndrome
 authors:
 - Mari Minatogawa

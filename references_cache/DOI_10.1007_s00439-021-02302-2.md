@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00439-021-02302-2"
+reference_id: DOI:10.1007/s00439-021-02302-2
 title: Collagen transport and related pathways in Osteogenesis Imperfecta
 authors:
 - Lauria Claeys

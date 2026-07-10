@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ehjdh/ztad074"
+reference_id: DOI:10.1093/ehjdh/ztad074
 title: International evaluation of an artificial intelligence–powered electrocardiogram model detecting acute coronary occlusion myocardial infarction
 authors:
 - Robert Herman

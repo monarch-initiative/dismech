@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.hrcr.2017.07.014"
+reference_id: DOI:10.1016/j.hrcr.2017.07.014
 title: Atrial standstill in a pediatric patient with associated caveolin-3 mutation
 authors:
 - Dana B. Gal

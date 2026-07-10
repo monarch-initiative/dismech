@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41433-024-03035-y"
+reference_id: DOI:10.1038/s41433-024-03035-y
 title: Comparing efficacy of charged-particle therapy with brachytherapy in treatment of uveal melanoma
 authors:
 - Yu-Hsuan Tseng

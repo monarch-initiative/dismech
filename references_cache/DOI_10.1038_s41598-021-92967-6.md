@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-021-92967-6"
+reference_id: DOI:10.1038/s41598-021-92967-6
 title: Clinical characterization and outcomes of 85 patients with neurosarcoidosis
 authors:
 - Manuel Ramos-Casals

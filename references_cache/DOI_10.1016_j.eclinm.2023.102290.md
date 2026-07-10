@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.eclinm.2023.102290"
+reference_id: DOI:10.1016/j.eclinm.2023.102290
 title: "Dabrafenib plus trametinib versus anti-PD-1 monotherapy as adjuvant therapy in BRAF V600-mutant stage III melanoma after definitive surgery: a multicenter, retrospective cohort study"
 authors:
 - Xue Bai

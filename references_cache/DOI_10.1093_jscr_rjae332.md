@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jscr/rjae332"
+reference_id: DOI:10.1093/jscr/rjae332
 title: "Intracranial meningeal melanocytoma: a case report and literature review"
 authors:
 - Renuka Chintapalli

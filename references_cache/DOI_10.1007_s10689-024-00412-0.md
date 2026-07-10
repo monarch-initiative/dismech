@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10689-024-00412-0"
+reference_id: DOI:10.1007/s10689-024-00412-0
 title: "Risk-reducing salpingectomy with delayed oophorectomy to prevent ovarian cancer in women with an increased inherited risk: insights into an alternative strategy"
 authors:
 - TA Gootzen
@@ -61,8 +61,7 @@ rate of 50%, and ranges from 93% in women with local -
 ized disease to 31% in women with advanced stage dis -
 ease [1]. The majority of patients present with an advanced 
 stage disease, because women with early stage disease are 
- 
- TA Gootzen
+  TA Gootzen
 tamar.gootzen@radboudumc.nl
 1 Department of Gynaecology and Obstetrics, Radboudumc, 
 Geert Grooteplein Zuid 10, Nijmegen, GA  

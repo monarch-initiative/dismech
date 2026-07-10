@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/hrp.0000000000000100"
+reference_id: DOI:10.1097/hrp.0000000000000100
 title: "Separating Fact from Fiction: An Empirical Examination of Six Myths About Dissociative Identity Disorder"
 authors:
 - Bethany L. Brand

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0910957106"
+reference_id: DOI:10.1073/pnas.0910957106
 title: "Multiple myeloma phosphotyrosine proteomic profile associated with FGFR3 expression, ligand activation, and drug inhibition"
 authors:
 - Jonathan R. St-Germain

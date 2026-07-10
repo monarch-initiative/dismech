@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-019-12947-3"
+reference_id: DOI:10.1038/s41467-019-12947-3
 title: Neuronal network dysfunction in a model for Kleefstra syndrome mediated by enhanced NMDAR signaling
 authors:
 - Monica Frega

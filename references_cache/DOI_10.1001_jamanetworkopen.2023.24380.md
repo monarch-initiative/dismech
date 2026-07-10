@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamanetworkopen.2023.24380"
+reference_id: DOI:10.1001/jamanetworkopen.2023.24380
 title: Utility of Exome Sequencing for Diagnosis in Unexplained Pediatric-Onset Epilepsy
 authors:
 - Hyun Yong Koh

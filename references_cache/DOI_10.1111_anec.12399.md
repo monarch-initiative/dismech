@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/anec.12399"
+reference_id: DOI:10.1111/anec.12399
 title: "Persistent atrial standstill following the Cox-maze III procedure: reversal with sustained atrial pacing"
 authors:
 - Harsh Agrawal

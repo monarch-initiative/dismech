@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2401781121"
+reference_id: DOI:10.1073/pnas.2401781121
 title: "Splice modulation strategy applied to deep intronic variants in <i>COL7A1</i> causing recessive dystrophic epidermolysis bullosa"
 authors:
 - Nathalie Pironon

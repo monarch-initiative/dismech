@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00405-024-08822-7"
+reference_id: DOI:10.1007/s00405-024-08822-7
 title: "Cancer and immune response: The role of PD-1/PD-L1 checkpoint in laryngeal carcinoma. Preliminary results"
 authors:
 - Barbara Verro
@@ -66,8 +66,7 @@ In the last years, despite the overall incidence of LSCC is
 decreased [2] and despite advancements in diagnostic tools, 
 around 60% of LSCC are still diagnosed at advances stages 
 [3] resulting in a declining 5-year survival rate [ 2]. Based 
- 
- Barbara Verro
+  Barbara Verro
 barbara.verro@unipa.it
 1 Unit of Otorhinolaryngology, Department of Biomedicine, 
 Neuroscience and Advanced Diagnostic (BIND), University 

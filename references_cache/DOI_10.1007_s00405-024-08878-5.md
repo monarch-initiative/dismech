@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00405-024-08878-5"
+reference_id: DOI:10.1007/s00405-024-08878-5
 title: "Audiovestibular outcomes in adult patients with cogan syndrome: a systematic review"
 authors:
 - Alejandro R. Marrero-Gonzalez

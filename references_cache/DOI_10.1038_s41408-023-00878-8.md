@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41408-023-00878-8"
+reference_id: DOI:10.1038/s41408-023-00878-8
 title: "Blast phase myeloproliferative neoplasm: contemporary review and 2024 treatment algorithm"
 authors:
 - Ayalew Tefferi

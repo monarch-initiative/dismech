@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41375-023-01846-8"
+reference_id: DOI:10.1038/s41375-023-01846-8
 title: "Outcome prediction by the 2022 European LeukemiaNet genetic-risk classification for adults with acute myeloid leukemia: an Alliance study"
 authors:
 - Krzysztof Mrózek

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jncics/pkab035"
+reference_id: DOI:10.1093/jncics/pkab035
 title: "Incidence of Benign Meningiomas in the United States: Current and Future Trends"
 authors:
 - Sonia Bhala

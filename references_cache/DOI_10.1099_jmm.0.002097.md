@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1099/jmm.0.002097"
+reference_id: DOI:10.1099/jmm.0.002097
 title: "Microbiology and epidemiology of enteroaggregative Escherichia coli isolated from UK residents in England, 2016–2023: what are the risks to public health?"
 authors:
 - Ching-Ying J. Poh

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/0886022x.2025.2465810"
+reference_id: DOI:10.1080/0886022x.2025.2465810
 title: The role of endothelin receptor antagonists in kidney disease
 authors:
 - Xiaoting Ma

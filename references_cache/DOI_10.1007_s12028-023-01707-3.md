@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12028-023-01707-3"
+reference_id: DOI:10.1007/s12028-023-01707-3
 title: Guidelines for Neuroprognostication in Adults with Guillain–Barré Syndrome
 authors:
 - Katharina M. Busl

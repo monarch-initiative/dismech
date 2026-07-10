@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41581-024-00838-w"
+reference_id: DOI:10.1038/s41581-024-00838-w
 title: Immune mechanisms in the pathophysiology of hypertension
 authors:
 - Bianca A. Nguyen

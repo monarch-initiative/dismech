@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12326-024-00627-z"
+reference_id: DOI:10.1007/s12326-024-00627-z
 title: Neue Lokal- und Systemtherapien bei Epidermolysis bullosa
 authors:
 - Christine Prodinger

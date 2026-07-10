@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0044-1779587"
+reference_id: DOI:10.1055/s-0044-1779587
 title: "Giant Intracranial Cavernous Malformations: A Review on Magnetic Resonance Imaging Characteristics"
 authors:
 - Mustafa Kemal Demir

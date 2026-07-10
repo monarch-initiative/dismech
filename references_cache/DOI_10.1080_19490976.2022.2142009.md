@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/19490976.2022.2142009"
+reference_id: DOI:10.1080/19490976.2022.2142009
 title: Unique Pakistani gut microbiota highlights population-specific microbiota signatures of type 2 diabetes mellitus
 authors:
 - Afshan Saleem

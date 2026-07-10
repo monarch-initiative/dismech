@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-02969-w"
+reference_id: DOI:10.1038/s41591-024-02969-w
 title: A prognostic neural epigenetic signature in high-grade glioma
 authors:
 - Richard Drexler

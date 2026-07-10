@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awad266"
+reference_id: DOI:10.1093/brain/awad266
 title: "Neurological disease in xeroderma pigmentosum: prospective cohort study of its features and progression"
 authors:
 - Hector Garcia-Moreno

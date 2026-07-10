@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmra2402527"
+reference_id: DOI:10.1056/nejmra2402527
 title: Lead Poisoning
 authors:
 - Bruce Lanphear

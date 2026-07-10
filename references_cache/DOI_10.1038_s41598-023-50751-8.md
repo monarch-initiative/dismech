@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-023-50751-8"
+reference_id: DOI:10.1038/s41598-023-50751-8
 title: Association of immunologic findings of atheromatous plaques with subsequent cardiovascular events in patients with peripheral artery disease
 authors:
 - Suh Min Kim

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12094-024-03497-2"
+reference_id: DOI:10.1007/s12094-024-03497-2
 title: SEOM-GEM clinical guidelines for cutaneous melanoma (2023)
 authors:
 - Iván Márquez-Rodas

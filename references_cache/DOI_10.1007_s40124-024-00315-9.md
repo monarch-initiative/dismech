@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40124-024-00315-9"
+reference_id: DOI:10.1007/s40124-024-00315-9
 title: "Vitamin C: Is it Relevant or Obsolete in the Modern Era?"
 authors:
 - Suruchi Ramanujan

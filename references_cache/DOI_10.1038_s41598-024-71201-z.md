@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-71201-z"
+reference_id: DOI:10.1038/s41598-024-71201-z
 title: "Ongoing transmission of trachoma in low prevalence districts in Mozambique: results from four cross-sectional enhanced impact surveys, 2022"
 authors:
 - Henis Mior Sitoe

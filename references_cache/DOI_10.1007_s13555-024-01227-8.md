@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s13555-024-01227-8"
+reference_id: DOI:10.1007/s13555-024-01227-8
 title: "Treatment of Epidermolysis Bullosa and Future Directions: A Review"
 authors:
 - Sorina Danescu

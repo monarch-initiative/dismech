@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/pmic.202200362"
+reference_id: DOI:10.1002/pmic.202200362
 title: Proteomic and metabonomic analysis uncovering Enterovirus A71 reprogramming host cell metabolic pathway
 authors:
 - Huichun Shi

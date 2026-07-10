@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamaneurol.2025.1897"
+reference_id: DOI:10.1001/jamaneurol.2025.1897
 title: Interstitial Thermal Therapy in Mesial Temporal Lobe Epilepsy
 authors:
 - Patrick Landazuri

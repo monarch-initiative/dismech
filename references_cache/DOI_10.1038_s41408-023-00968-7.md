@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41408-023-00968-7"
+reference_id: DOI:10.1038/s41408-023-00968-7
 title: "One thousand patients with essential thrombocythemia: the Florence-CRIMM experience"
 authors:
 - Giuseppe G. Loscocco

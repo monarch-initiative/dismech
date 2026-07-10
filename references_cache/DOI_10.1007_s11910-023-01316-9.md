@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11910-023-01316-9"
+reference_id: DOI:10.1007/s11910-023-01316-9
 title: Recent Advances in Pediatric Medulloblastoma
 authors:
 - Kasey Jackson

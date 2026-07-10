@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/ecosalplus.esp-0001-2023"
+reference_id: DOI:10.1128/ecosalplus.esp-0001-2023
 title: "Infection biology of <i>Salmonella enterica</i>"
 authors:
 - Jing Han

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41416-024-02827-z"
+reference_id: DOI:10.1038/s41416-024-02827-z
 title: "BRCA-mutated breast cancer: the unmet need, challenges and therapeutic benefits of genetic testing"
 authors:
 - Banu Arun

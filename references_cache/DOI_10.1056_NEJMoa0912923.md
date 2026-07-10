@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/NEJMoa0912923"
+reference_id: DOI:10.1056/NEJMoa0912923
 title: "<i>NT5E</i> Mutations and Arterial Calcifications"
 authors:
 - Cynthia St. Hilaire

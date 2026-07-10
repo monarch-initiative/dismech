@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12094-023-03337-9"
+reference_id: DOI:10.1007/s12094-023-03337-9
 title: "Immunoradiotherapy for NSCLC: mechanisms, clinical outcomes, and future directions"
 authors:
 - He Weishan

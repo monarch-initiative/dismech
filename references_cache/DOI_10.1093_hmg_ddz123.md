@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddz123"
+reference_id: DOI:10.1093/hmg/ddz123
 title: Chronic mTORC1 inhibition rescues behavioral and biochemical deficits resulting from neuronal Depdc5 loss in mice
 authors:
 - Christopher J Yuskaitis

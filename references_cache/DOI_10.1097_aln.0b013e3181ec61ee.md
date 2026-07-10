@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/aln.0b013e3181ec61ee"
+reference_id: DOI:10.1097/aln.0b013e3181ec61ee
 title: A Mouse Model of Ischemic Spinal Cord Injury with Delayed Paralysis Caused by Aortic Cross-clamping
 authors:
 - Hamdy Awad

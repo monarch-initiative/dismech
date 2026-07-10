@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12672-023-00754-8"
+reference_id: DOI:10.1007/s12672-023-00754-8
 title: "Evolving therapeutic landscape of diffuse large B-cell lymphoma: challenges and aspirations"
 authors:
 - Jason Yongsheng Chan

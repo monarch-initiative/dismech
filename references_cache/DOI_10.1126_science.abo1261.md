@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/science.abo1261"
+reference_id: DOI:10.1126/science.abo1261
 title: Understanding myalgic encephalomyelitis
 authors:
 - Sonya Marshall-Gradisnik

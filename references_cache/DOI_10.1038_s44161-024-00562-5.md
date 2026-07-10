@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s44161-024-00562-5"
+reference_id: DOI:10.1038/s44161-024-00562-5
 title: Intrinsic GATA4 expression sensitizes the aortic root to dilation in a Loeys–Dietz syndrome mouse model
 authors:
 - Emily E. Bramel

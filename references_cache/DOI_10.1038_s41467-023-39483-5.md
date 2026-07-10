@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-39483-5"
+reference_id: DOI:10.1038/s41467-023-39483-5
 title: A randomized non-inferiority trial of therapeutic strategy with immunosuppressants versus biologics for Vogt-Koyanagi-Harada disease
 authors:
 - Zhenyu Zhong

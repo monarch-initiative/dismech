@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41431-021-00858-1"
+reference_id: DOI:10.1038/s41431-021-00858-1
 title: "Consensus statement on standards and guidelines for the molecular diagnostics of Alport syndrome: refining the ACMG criteria"
 authors:
 - Judy Savige

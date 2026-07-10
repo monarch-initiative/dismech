@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.1365-2141.2008.07124.x"
+reference_id: DOI:10.1111/j.1365-2141.2008.07124.x
 title: Advances in the understanding of mantle cell lymphoma
 authors:
 - Pedro Jares

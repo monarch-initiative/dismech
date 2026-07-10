@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.hrthm.2017.07.032"
+reference_id: DOI:10.1016/j.hrthm.2017.07.032
 title: The evolving role of ankyrin-B in cardiovascular disease
 authors:
 - Sara N. Koenig

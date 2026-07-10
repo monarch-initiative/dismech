@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41585-023-00824-0"
+reference_id: DOI:10.1038/s41585-023-00824-0
 title: Hallmark discoveries in the biology of Wilms tumour
 authors:
 - Daniela Perotti

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10741-023-10380-9"
+reference_id: DOI:10.1007/s10741-023-10380-9
 title: Molecular mechanisms and emerging therapies in wild-type transthyretin amyloid cardiomyopathy
 authors:
 - Danni Wu

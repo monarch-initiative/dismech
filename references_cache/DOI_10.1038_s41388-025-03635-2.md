@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41388-025-03635-2"
+reference_id: DOI:10.1038/s41388-025-03635-2
 title: "Dissecting neuroblastoma heterogeneity through single-cell multi-omics: insights into development, immunity, and therapeutic resistance"
 authors:
 - Guo-qian He

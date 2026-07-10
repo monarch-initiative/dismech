@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0044-1789342"
+reference_id: DOI:10.1055/s-0044-1789342
 title: "Longitudinally-extensive transverse myelitis: impact on functional prognosis and mortality in a 10-year follow-up cohort"
 authors:
 - Paula Baleeiro Rodrigues Silva

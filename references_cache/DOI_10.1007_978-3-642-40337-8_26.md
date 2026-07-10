@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/978-3-642-40337-8_26"
+reference_id: DOI:10.1007/978-3-642-40337-8_26
 title: Oligosaccharidoses and Sialic Acid Disorders
 authors:
 - Zoltan Lukacs

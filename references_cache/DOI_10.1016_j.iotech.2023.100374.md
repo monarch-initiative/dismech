@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.iotech.2023.100374"
+reference_id: DOI:10.1016/j.iotech.2023.100374
 title: Autoantibodies involved in primary and secondary adrenal insufficiency following treatment with immune checkpoint inhibitors
 authors:
 - N.C. Helderman

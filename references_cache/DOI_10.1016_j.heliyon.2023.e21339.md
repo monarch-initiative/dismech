@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.heliyon.2023.e21339"
+reference_id: DOI:10.1016/j.heliyon.2023.e21339
 title: Liquid biopsy based HER2 amplification status in gastric cancer patients indicates clinical response
 authors:
 - Susanne Klein-Scory

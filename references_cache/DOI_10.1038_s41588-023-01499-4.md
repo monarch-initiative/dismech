@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41588-023-01499-4"
+reference_id: DOI:10.1038/s41588-023-01499-4
 title: Mismatch repair deficiency is not sufficient to elicit tumor immunogenicity
 authors:
 - Peter M. K. Westcott

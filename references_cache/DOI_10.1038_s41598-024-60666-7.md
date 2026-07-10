@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-60666-7"
+reference_id: DOI:10.1038/s41598-024-60666-7
 title: Subjects with carotid webs demonstrate pro-thrombotic hemodynamics compared to subjects with carotid atherosclerosis
 authors:
 - Retta El Sayed

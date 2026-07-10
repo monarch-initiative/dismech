@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.03.14.24304192"
+reference_id: DOI:10.1101/2024.03.14.24304192
 title: Ischemia promotes hypertrophic nerve trunk formation and enteric neuron cell death in Hirschsprung’s disease
 authors:
 - Deshu Xu

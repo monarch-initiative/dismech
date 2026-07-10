@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41431-024-01538-6"
+reference_id: DOI:10.1038/s41431-024-01538-6
 title: "A new blood DNA methylation signature for Koolen-de Vries syndrome: Classification of missense KANSL1 variants and comparison to fibroblast cells"
 authors:
 - Zain Awamleh

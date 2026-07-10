@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10120-023-01459-1"
+reference_id: DOI:10.1007/s10120-023-01459-1
 title: "Dose–response association between cigarette smoking and gastric cancer risk: a systematic review and meta-analysis"
 authors:
 - Matteo Rota

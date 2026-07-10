@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ophtha.2020.11.023"
+reference_id: DOI:10.1016/j.ophtha.2020.11.023
 title: Presenting Symptoms Are Associated with Uveal Melanoma-Related Death
 authors:
 - Maria Fili

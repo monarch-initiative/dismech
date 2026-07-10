@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jscr/rjad002"
+reference_id: DOI:10.1093/jscr/rjad002
 title: "Intradural extramedullary meningeal melanocytoma: a case report and literature review"
 authors:
 - Rabeeia Parwez

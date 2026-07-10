@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ana.24236"
+reference_id: DOI:10.1002/ana.24236
 title: The visual system in eyelid myoclonia with absences
 authors:
 - Anna Elisabetta Vaudano

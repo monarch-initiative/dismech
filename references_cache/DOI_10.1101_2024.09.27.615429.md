@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.09.27.615429"
+reference_id: DOI:10.1101/2024.09.27.615429
 title: Mapping herpesvirus-driven impacts on the cellular milieu and transcriptional profile of Kaposi sarcoma in patient-derived mouse models
 authors:
 - Xiaofan Li

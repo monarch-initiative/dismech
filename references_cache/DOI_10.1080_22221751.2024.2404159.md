@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/22221751.2024.2404159"
+reference_id: DOI:10.1080/22221751.2024.2404159
 title: Progress and challenges in development of animal models for dengue virus infection
 authors:
 - Wang Yuya

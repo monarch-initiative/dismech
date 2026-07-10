@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-47547-3"
+reference_id: DOI:10.1038/s41467-024-47547-3
 title: Representation of genomic intratumor heterogeneity in multi-region non-small cell lung cancer patient-derived xenograft models
 authors:
 - Robert E. Hynds

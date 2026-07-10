@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.c.30153"
+reference_id: DOI:10.1002/ajmg.c.30153
 title: "Chromosome 2q37 deletion: Clinical and molecular aspects"
 authors:
 - Rena E. Falk

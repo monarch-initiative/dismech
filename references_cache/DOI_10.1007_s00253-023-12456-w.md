@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00253-023-12456-w"
+reference_id: DOI:10.1007/s00253-023-12456-w
 title: "Campylobacter jejuni: targeting host cells, adhesion, invasion, and survival"
 authors:
 - Leon Kemper

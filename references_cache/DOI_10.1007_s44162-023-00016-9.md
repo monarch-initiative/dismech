@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s44162-023-00016-9"
+reference_id: DOI:10.1007/s44162-023-00016-9
 title: "Swyer syndrome: a rare cause of primary amenorrhea"
 authors:
 - Ujjwala Sandilya

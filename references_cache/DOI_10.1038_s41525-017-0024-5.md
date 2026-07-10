@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41525-017-0024-5"
+reference_id: DOI:10.1038/s41525-017-0024-5
 title: A homozygous mutation in the stem II domain of RNU4ATAC causes typical Roifman syndrome
 authors:
 - Yael Dinur Schejter

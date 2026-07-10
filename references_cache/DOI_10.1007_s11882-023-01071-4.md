@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11882-023-01071-4"
+reference_id: DOI:10.1007/s11882-023-01071-4
 title: "Chromosome 22q11.2 Deletion (DiGeorge Syndrome): Immunologic Features, Diagnosis, and Management"
 authors:
 - Sarah E. Biggs

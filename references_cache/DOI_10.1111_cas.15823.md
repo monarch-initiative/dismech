@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cas.15823"
+reference_id: DOI:10.1111/cas.15823
 title: "Epidemiology of skin cancer based on Japan's National Cancer Registry 2016–2017"
 authors:
 - Dai Ogata

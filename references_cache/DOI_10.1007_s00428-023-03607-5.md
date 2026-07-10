@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00428-023-03607-5"
+reference_id: DOI:10.1007/s00428-023-03607-5
 title: "Follicular helper T-cell lymphomas: disease spectrum, relationship with clonal hematopoiesis, and mimics. A report of the 2022 EA4HP/SH lymphoma workshop"
 authors:
 - Sarah L Ondrejka

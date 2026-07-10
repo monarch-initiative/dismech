@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/nep.14407"
+reference_id: DOI:10.1111/nep.14407
 title: Phosphorous metabolism and manipulation in chronic kidney disease
 authors:
 - Marco Marando

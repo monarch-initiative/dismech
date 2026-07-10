@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10578-022-01367-y"
+reference_id: DOI:10.1007/s10578-022-01367-y
 title: "The Efficacy of Parent Management Training With or Without Involving the Child in the Treatment Among Children with Clinical Levels of Disruptive Behavior: A Meta-analysis"
 authors:
 - Maria Helander

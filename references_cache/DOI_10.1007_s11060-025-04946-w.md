@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11060-025-04946-w"
+reference_id: DOI:10.1007/s11060-025-04946-w
 title: "Long-term survival, patterns of progression, and patterns of use for patients with newly diagnosed glioblastoma treated with or without Tumor Treating Fields (TTFields) in a real-world setting"
 authors:
 - Devon C. Riegel

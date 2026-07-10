@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11845-024-03715-4"
+reference_id: DOI:10.1007/s11845-024-03715-4
 title: "HPV overtakes smoking as the leading cause of oropharyngeal cancer in Ireland: experience of a head and neck surgery tertiary referral centre"
 authors:
 - Eoin F. Cleere

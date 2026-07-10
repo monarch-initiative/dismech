@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2023.07.31.551364"
+reference_id: DOI:10.1101/2023.07.31.551364
 title: Reactive nitrogen species inhibit branched chain alpha-ketoacid dehydrogenase complex and impact muscle cell metabolism
 authors:
 - Nicholas L. Arp

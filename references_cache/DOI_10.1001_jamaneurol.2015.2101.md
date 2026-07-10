@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamaneurol.2015.2101"
+reference_id: DOI:10.1001/jamaneurol.2015.2101
 title: Analysis of Varicella-Zoster Virus in Temporal Arteries Biopsy Positive and Negative for Giant Cell Arteritis
 authors:
 - Maria A. Nagel

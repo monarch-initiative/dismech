@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/pdi3.18"
+reference_id: DOI:10.1002/pdi3.18
 title: Metabolic reprogramming in osteosarcoma
 authors:
 - Yulu Shi

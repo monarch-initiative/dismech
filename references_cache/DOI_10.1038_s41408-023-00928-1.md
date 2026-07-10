@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41408-023-00928-1"
+reference_id: DOI:10.1038/s41408-023-00928-1
 title: "Efficacy of venetoclax combined with hypomethylating agents in young, and unfit patients with newly diagnosed core binding factor acute myeloid leukemia"
 authors:
 - Keyuan Zhang

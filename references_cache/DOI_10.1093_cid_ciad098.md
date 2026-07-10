@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/cid/ciad098"
+reference_id: DOI:10.1093/cid/ciad098
 title: "Fatal Human Rabies Infection With Suspected Host-Mediated Failure of Post-Exposure Prophylaxis Following a Recognized Zoonotic Exposure—Minnesota, 2021"
 authors:
 - Stacy M Holzbauer

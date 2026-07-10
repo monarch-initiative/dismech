@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00277-022-05080-7"
+reference_id: DOI:10.1007/s00277-022-05080-7
 title: "Efficacy and safety of ruxolitinib in patients with newly-diagnosed polycythemia vera: futility analysis of the RuxoBEAT clinical trial of the GSG-MPN study group"
 authors:
 - Steffen Koschmieder

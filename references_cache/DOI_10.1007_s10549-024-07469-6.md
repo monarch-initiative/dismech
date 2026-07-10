@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10549-024-07469-6"
+reference_id: DOI:10.1007/s10549-024-07469-6
 title: "Trends in HR+ metastatic breast cancer survival before and after CDK4/6 inhibitor introduction in the United States: a SEER registry analysis of patients with HER2− and HER2+ metastatic breast cancer"
 authors:
 - Adam Brufsky

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.63642"
+reference_id: DOI:10.1002/ajmg.a.63642
 title: "Patient with a heterozygous pathogenic variant in <scp><i>CSNK2A1</i></scp> gene: A new case to update the <scp>Okur–Chung</scp> neurodevelopmental syndrome"
 authors:
 - Albin Blanc

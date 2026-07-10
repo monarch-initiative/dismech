@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/cm9.0000000000002391"
+reference_id: DOI:10.1097/cm9.0000000000002391
 title: "Molecular diagnosis and treatment of meningiomas: an expert consensus (2022)"
 authors:
 - Jiaojiao Deng

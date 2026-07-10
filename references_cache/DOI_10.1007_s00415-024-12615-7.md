@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-024-12615-7"
+reference_id: DOI:10.1007/s00415-024-12615-7
 title: Specific clinical and radiological characteristics of anti-NMDA receptor autoimmune encephalitis following herpes encephalitis
 authors:
 - Pauline Dumez

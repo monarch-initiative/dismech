@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ckj/sfz112"
+reference_id: DOI:10.1093/ckj/sfz112
 title: Combinations of mineral and bone disorder markers and risk of death and hospitalizations in the international Dialysis Outcomes and Practice Patterns Study
 authors:
 - Douglas S Fuller

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.03.20.24304571"
+reference_id: DOI:10.1101/2024.03.20.24304571
 title: "Ebola Virus Disease mathematical models and epidemiological parameters: a systematic review and meta-analysis"
 authors:
 - Rebecca K. Nash

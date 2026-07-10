@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ddg.15424"
+reference_id: DOI:10.1111/ddg.15424
 title: Treatment of mucocutaneous leishmaniasis – A systematic review
 authors:
 - Theresa Fischer

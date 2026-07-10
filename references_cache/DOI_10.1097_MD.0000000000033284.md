@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/MD.0000000000033284"
+reference_id: DOI:10.1097/MD.0000000000033284
 title: Impending central retinal vein occlusion and granulomatous uveitis in a patient with Satoyoshi syndrome
 authors:
 - Yoshinari Saima

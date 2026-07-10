@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41375-025-02664-w"
+reference_id: DOI:10.1038/s41375-025-02664-w
 title: 2025 European LeukemiaNet recommendations for the management of chronic myeloid leukemia
 authors:
 - Jane F. Apperley

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/hep.0000000000001093"
+reference_id: DOI:10.1097/hep.0000000000001093
 title: Central role for cholangiocyte pathobiology in cholestatic liver diseases
 authors:
 - Nidhi Jalan-Sakrikar

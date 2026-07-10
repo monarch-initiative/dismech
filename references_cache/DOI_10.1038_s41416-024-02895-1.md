@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41416-024-02895-1"
+reference_id: DOI:10.1038/s41416-024-02895-1
 title: "Real-world evidence for pembrolizumab in non-small cell lung cancer: a nationwide cohort study"
 authors:
 - Helga H. Hektoen

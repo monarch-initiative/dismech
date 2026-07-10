@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40620-024-01984-x"
+reference_id: DOI:10.1007/s40620-024-01984-x
 title: "Air pollution and kidney cancer risk: a systematic review and meta-analysis"
 authors:
 - Lina Dahman

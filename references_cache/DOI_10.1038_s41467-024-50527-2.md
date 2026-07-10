@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-50527-2"
+reference_id: DOI:10.1038/s41467-024-50527-2
 title: Single cell transcriptomic profiling identifies tumor-acquired and therapy-resistant cell states in pediatric rhabdomyosarcoma
 authors:
 - Sara G. Danielli

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/nan.12945"
+reference_id: DOI:10.1111/nan.12945
 title: "WNT‐activated, <i>MYC</i> ‐amplified medulloblastoma displaying intratumoural heterogeneity"
 authors:
 - Sage Green

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40291-025-00801-w"
+reference_id: DOI:10.1007/s40291-025-00801-w
 title: "Clinical, Genetic, Morphological and Functional Correlations in a Large Series of Patients with Primary Ciliary Dyskinesia: A Heterogeneous Disease with a Controversial Diagnosis"
 authors:
 - Lidón Carretero-Vilarroig

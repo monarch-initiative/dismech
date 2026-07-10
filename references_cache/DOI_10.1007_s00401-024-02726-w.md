@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00401-024-02726-w"
+reference_id: DOI:10.1007/s00401-024-02726-w
 title: Characterization of NEB pathogenic variants in patients reveals novel nemaline myopathy disease mechanisms and omecamtiv mecarbil force effects
 authors:
 - Esmat Karimi

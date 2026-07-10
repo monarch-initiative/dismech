@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2315100121"
+reference_id: DOI:10.1073/pnas.2315100121
 title: Gephyrin promotes autonomous assembly and synaptic localization of GABAergic postsynaptic components without presynaptic GABA release
 authors:
 - Etta Carricaburu

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ohn.735"
+reference_id: DOI:10.1002/ohn.735
 title: Upper Esophageal Sphincter and Esophageal Motility Pathology on Manometry in Retrograde Cricopharyngeal Dysfunction
 authors:
 - Andrew Yousef

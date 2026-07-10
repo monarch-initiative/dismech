@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12325-024-02928-4"
+reference_id: DOI:10.1007/s12325-024-02928-4
 title: "Momelotinib versus Continued Ruxolitinib or Best Available Therapy in JAK Inhibitor-Experienced Patients with Myelofibrosis and Anemia: Subgroup Analysis of SIMPLIFY-2"
 authors:
 - Claire N. Harrison

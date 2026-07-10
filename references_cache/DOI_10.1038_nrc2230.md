@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/nrc2230"
+reference_id: DOI:10.1038/nrc2230
 title: "Genetic and molecular pathogenesis of mantle cell lymphoma: perspectives for new targeted therapeutics"
 authors:
 - Pedro Jares

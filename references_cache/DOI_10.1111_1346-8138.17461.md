@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/1346-8138.17461"
+reference_id: DOI:10.1111/1346-8138.17461
 title: Upadacitinib shows efficacy in Netherton syndrome with poor response to Dupilumab
 authors:
 - Hui Li

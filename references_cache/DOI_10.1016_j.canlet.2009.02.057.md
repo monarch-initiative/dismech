@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.canlet.2009.02.057"
+reference_id: DOI:10.1016/j.canlet.2009.02.057
 title: "The aflatoxin-induced TP53 mutation at codon 249 (R249S): Biomarker of exposure, early detection and target for therapy"
 authors:
 - Doriane Gouas

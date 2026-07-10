@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-53145-0"
+reference_id: DOI:10.1038/s41467-024-53145-0
 title: Prospective assessment of circulating tumor DNA in patients with metastatic uveal melanoma treated with tebentafusp
 authors:
 - Manuel Rodrigues

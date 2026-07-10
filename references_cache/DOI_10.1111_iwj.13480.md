@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/iwj.13480"
+reference_id: DOI:10.1111/iwj.13480
 title: "Plasminogen activator inhibitor‐1: a potential etiological role in livedoid vasculopathy"
 authors:
 - Yimeng Gao

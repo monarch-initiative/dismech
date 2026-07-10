@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-63541-7"
+reference_id: DOI:10.1038/s41598-024-63541-7
 title: Altered immune pathways in patients of temporal lobe epilepsy with and without hippocampal sclerosis
 authors:
 - Xiang-Qian Che

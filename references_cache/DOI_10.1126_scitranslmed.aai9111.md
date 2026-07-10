@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/scitranslmed.aai9111"
+reference_id: DOI:10.1126/scitranslmed.aai9111
 title: Glucose-regulated protein 78 autoantibody associates with blood-brain barrier disruption in neuromyelitis optica
 authors:
 - Fumitaka Shimizu

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s13760-024-02520-1"
+reference_id: DOI:10.1007/s13760-024-02520-1
 title: "Clinical and diagnostic characteristics of Hashimoto’s encephalopathy: a single-center, retrospective study"
 authors:
 - Jung-Ju Lee

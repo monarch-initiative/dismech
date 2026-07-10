@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-40727-7"
+reference_id: DOI:10.1038/s41467-023-40727-7
 title: Single cell transcriptomic analyses implicate an immunosuppressive tumor microenvironment in pancreatic cancer liver metastasis
 authors:
 - Shu Zhang

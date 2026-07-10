@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00436-024-08173-6"
+reference_id: DOI:10.1007/s00436-024-08173-6
 title: "Scabies: Immunopathogenesis and pathological changes"
 authors:
 - Mahmoud S. Sharaf

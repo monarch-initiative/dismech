@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s42003-022-04391-9"
+reference_id: DOI:10.1038/s42003-022-04391-9
 title: "Evaluating elimination thresholds and stopping criteria for interventions against the vector-borne macroparasitic disease, lymphatic filariasis, using mathematical modelling"
 authors:
 - Swarnali Sharma

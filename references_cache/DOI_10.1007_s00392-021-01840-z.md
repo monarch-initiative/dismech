@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00392-021-01840-z"
+reference_id: DOI:10.1007/s00392-021-01840-z
 title: Catheter ablation of short-coupled variant of torsade de pointes
 authors:
 - Johannes Steinfurt

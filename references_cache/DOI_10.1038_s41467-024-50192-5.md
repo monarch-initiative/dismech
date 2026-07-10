@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-50192-5"
+reference_id: DOI:10.1038/s41467-024-50192-5
 title: Unraveling the molecular architecture of autoimmune thyroid diseases at spatial resolution
 authors:
 - Rebeca Martínez-Hernández

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-38311-0"
+reference_id: DOI:10.1038/s41467-023-38311-0
 title: Genomic mutation landscape of skin cancers from DNA repair-deficient xeroderma pigmentosum patients
 authors:
 - Andrey A. Yurchenko

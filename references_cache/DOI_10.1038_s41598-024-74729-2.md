@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-74729-2"
+reference_id: DOI:10.1038/s41598-024-74729-2
 title: Global burden of vaccine-associated Guillain-Barré syndrome over 170 countries from 1967 to 2023
 authors:
 - Yi Deun Jeong

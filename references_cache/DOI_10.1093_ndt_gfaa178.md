@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ndt/gfaa178"
+reference_id: DOI:10.1093/ndt/gfaa178
 title: "Long-term outcome of the survivors of infantile hypercalcaemia with <i>CYP24A1</i> and <i>SLC34A1</i> mutations"
 authors:
 - Agnieszka Janiec

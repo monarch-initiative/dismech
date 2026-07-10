@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2015.10.003"
+reference_id: DOI:10.1016/j.ymgme.2015.10.003
 title: "Arginine:glycine amidinotransferase (AGAT) deficiency: Clinical features and long term outcomes in 16 patients diagnosed worldwide"
 authors:
 - Sylvia Stockler-Ipsiroglu

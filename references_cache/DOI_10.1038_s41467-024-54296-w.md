@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-54296-w"
+reference_id: DOI:10.1038/s41467-024-54296-w
 title: Large-scale single-nuclei profiling identifies role for ATRNL1 in atrial fibrillation
 authors:
 - Matthew C. Hill

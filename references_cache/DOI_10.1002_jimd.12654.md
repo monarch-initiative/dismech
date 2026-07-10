@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12654"
+reference_id: DOI:10.1002/jimd.12654
 title: Gene therapy for glycogen storage diseases
 authors:
 - Dwight D. Koeberl

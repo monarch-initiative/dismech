@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s13353-025-00984-2"
+reference_id: DOI:10.1007/s13353-025-00984-2
 title: "Expanding the knowledge about Thauvin-Robinet-Faivre syndrome: a case report with novel clinical findings and review of the literature"
 authors:
 - Andrea Cosentino

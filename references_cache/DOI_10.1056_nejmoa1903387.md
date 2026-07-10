@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa1903387"
+reference_id: DOI:10.1056/nejmoa1903387
 title: "Maintenance Olaparib for Germline <i>BRCA</i> -Mutated Metastatic Pancreatic Cancer"
 authors:
 - Talia Golan

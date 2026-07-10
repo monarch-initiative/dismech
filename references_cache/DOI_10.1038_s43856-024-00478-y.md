@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s43856-024-00478-y"
+reference_id: DOI:10.1038/s43856-024-00478-y
 title: "Islet autoantibodies as precision diagnostic tools to characterize heterogeneity in type 1 diabetes: a systematic review"
 authors:
 - Jamie L. Felton

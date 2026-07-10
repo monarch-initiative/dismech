@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-023-45930-6"
+reference_id: DOI:10.1038/s41598-023-45930-6
 title: Genetic landscape and PD-L1 expression in Epstein–Barr virus-associated gastric cancer according to the histological pattern
 authors:
 - Ji Hyun Park

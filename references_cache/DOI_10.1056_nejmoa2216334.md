@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2216334"
+reference_id: DOI:10.1056/nejmoa2216334
 title: Dostarlimab for Primary Advanced or Recurrent Endometrial Cancer
 authors:
 - Mansoor R. Mirza

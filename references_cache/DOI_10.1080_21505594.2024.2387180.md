@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/21505594.2024.2387180"
+reference_id: DOI:10.1080/21505594.2024.2387180
 title: Advances in the pathogenesis and treatment of pneumococcal meningitis
 authors:
 - Yiyun Xu

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41594-023-01096-3"
+reference_id: DOI:10.1038/s41594-023-01096-3
 title: Aberrant gene activation in synovial sarcoma relies on SSX specificity and increased PRC1.1 stability
 authors:
 - Nezha S. Benabdallah

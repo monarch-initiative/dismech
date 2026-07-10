@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00431-024-05430-9"
+reference_id: DOI:10.1007/s00431-024-05430-9
 title: "Refeeding syndrome and psychopharmacological interventions in children and adolescents with Anorexia Nervosa: a focus on olanzapine-related modifications of electrolyte balance"
 authors:
 - Jacopo Pruccoli

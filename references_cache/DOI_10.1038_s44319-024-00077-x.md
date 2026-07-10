@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s44319-024-00077-x"
+reference_id: DOI:10.1038/s44319-024-00077-x
 title: "Functional BRI2-TREM2 interactions in microglia: implications for Alzheimer’s and related dementias"
 authors:
 - Tao Yin

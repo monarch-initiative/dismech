@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/eurheartj/ehae421"
+reference_id: DOI:10.1093/eurheartj/ehae421
 title: "Genetics of hypertrophic cardiomyopathy: established and emerging implications for clinical practice"
 authors:
 - Luis R Lopes

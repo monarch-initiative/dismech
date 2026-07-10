@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-021-94132-5"
+reference_id: DOI:10.1038/s41598-021-94132-5
 title: VHL suppresses RAPTOR and inhibits mTORC1 signaling in clear cell renal cell carcinoma
 authors:
 - Athina Ganner

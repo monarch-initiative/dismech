@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1091/mbc.e20-06-0390"
+reference_id: DOI:10.1091/mbc.e20-06-0390
 title: The TIM22 complex mediates the import of sideroflexins and is required for efficient mitochondrial one-carbon metabolism
 authors:
 - Thomas D. Jackson

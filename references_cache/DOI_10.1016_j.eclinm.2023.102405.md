@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.eclinm.2023.102405"
+reference_id: DOI:10.1016/j.eclinm.2023.102405
 title: "Efficacy and safety of pegzilarginase in arginase 1 deficiency (PEACE): a phase 3, randomized, double-blind, placebo-controlled, multi-centre trial"
 authors:
 - Rossana Sanchez Russo

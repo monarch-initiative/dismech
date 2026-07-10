@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00198-023-06844-1"
+reference_id: DOI:10.1007/s00198-023-06844-1
 title: "Hypophosphatasia diagnosis: current state of the art and proposed diagnostic criteria for children and adults"
 authors:
 - Aliya A. Khan

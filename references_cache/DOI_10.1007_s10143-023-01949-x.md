@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10143-023-01949-x"
+reference_id: DOI:10.1007/s10143-023-01949-x
 title: "Predictors of future haemorrhage from cerebral cavernous malformations: a retrospective cohort study"
 authors:
 - Conor S. Gillespie

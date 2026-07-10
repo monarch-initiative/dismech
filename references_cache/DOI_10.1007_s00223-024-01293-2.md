@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00223-024-01293-2"
+reference_id: DOI:10.1007/s00223-024-01293-2
 title: "Dental Abnormalities in Osteogenesis Imperfecta: A Systematic Review"
 authors:
 - Laura Ventura

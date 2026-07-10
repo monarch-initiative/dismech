@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jdv.18637"
+reference_id: DOI:10.1111/jdv.18637
 title: Epidemiology of inherited epidermolysis bullosa in Germany
 authors:
 - Cristina Has

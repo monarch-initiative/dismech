@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/apt.17506"
+reference_id: DOI:10.1111/apt.17506
 title: "Review article: Available modalities for screening and imaging diagnosis of hepatocellular carcinoma—Current gaps and challenges"
 authors:
 - Abbey Barnard Giustini

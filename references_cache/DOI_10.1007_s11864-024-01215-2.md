@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11864-024-01215-2"
+reference_id: DOI:10.1007/s11864-024-01215-2
 title: "Metastatic Castration-Resistant Prostate Cancer: Advances in Treatment and Symptom Management"
 authors:
 - Tivya Kulasegaran

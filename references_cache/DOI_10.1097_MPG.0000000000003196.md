@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/MPG.0000000000003196"
+reference_id: DOI:10.1097/MPG.0000000000003196
 title: "Pediatric Wilson's Disease"
 authors:
 - Eduardo Couchonnal

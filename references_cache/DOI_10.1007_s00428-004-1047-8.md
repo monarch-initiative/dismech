@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00428-004-1047-8"
+reference_id: DOI:10.1007/s00428-004-1047-8
 title: Wilson disease
 authors:
 - Cord Langner

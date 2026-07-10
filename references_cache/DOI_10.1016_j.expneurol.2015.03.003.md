@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.expneurol.2015.03.003"
+reference_id: DOI:10.1016/j.expneurol.2015.03.003
 title: ENU mutagenesis identifies mice modeling Warburg Micro Syndrome with sensory axon degeneration caused by a deletion in Rab18
 authors:
 - Chih-Ya Cheng

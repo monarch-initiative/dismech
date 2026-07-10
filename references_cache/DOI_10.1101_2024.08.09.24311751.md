@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.08.09.24311751"
+reference_id: DOI:10.1101/2024.08.09.24311751
 title: A Literature Review and Pooled Case Analysis of Cardiofaciocutaneous Syndrome to Estimate Cancer Risk
 authors:
 - Jazmyn Bess

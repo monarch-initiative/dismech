@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41571-024-00914-x"
+reference_id: DOI:10.1038/s41571-024-00914-x
 title: Emerging advances in defining the molecular and therapeutic landscape of small-cell lung cancer
 authors:
 - Triparna Sen

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s13671-013-0054-x"
+reference_id: DOI:10.1007/s13671-013-0054-x
 title: "Pityriasis Lichenoides and Cutaneous T Cell Lymphoma: An Update on the Diagnosis and Management of the Most Common Benign and Malignant Cutaneous Lymphoproliferative Diseases in Children"
 authors:
 - Markus D. Boos

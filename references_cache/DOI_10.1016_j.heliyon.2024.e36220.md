@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.heliyon.2024.e36220"
+reference_id: DOI:10.1016/j.heliyon.2024.e36220
 title: "A comprehensive review of Sjögren's syndrome: Classification criteria, risk factors, and signaling pathways"
 authors:
 - Ting Zhao

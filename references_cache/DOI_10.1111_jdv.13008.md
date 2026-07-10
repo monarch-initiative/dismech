@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jdv.13008"
+reference_id: DOI:10.1111/jdv.13008
 title: "Eumycetoma and actinomycetoma – an update on causative agents, epidemiology, pathogenesis, diagnostics and therapy"
 authors:
 - P. Nenoff

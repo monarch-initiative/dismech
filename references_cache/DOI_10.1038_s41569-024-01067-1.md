@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41569-024-01067-1"
+reference_id: DOI:10.1038/s41569-024-01067-1
 title: Pathophysiological insights into HFpEF from studies of human cardiac tissue
 authors:
 - Ahmed U. Fayyaz

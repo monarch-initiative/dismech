@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s42003-024-06534-6"
+reference_id: DOI:10.1038/s42003-024-06534-6
 title: Unraveling the pathological biomineralization of monosodium urate crystals in gout patients
 authors:
 - Carlos Rodriguez-Navarro

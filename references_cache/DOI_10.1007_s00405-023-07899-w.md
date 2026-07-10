@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00405-023-07899-w"
+reference_id: DOI:10.1007/s00405-023-07899-w
 title: "Endolymphatic hydrops imaging and correlation with clinical characteristics, audiovestibular function and mental impairment in patients with Meniere’s disease"
 authors:
 - Ying Hu

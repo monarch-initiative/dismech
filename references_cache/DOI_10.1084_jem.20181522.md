@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1084/jem.20181522"
+reference_id: DOI:10.1084/jem.20181522
 title: "Use of extracellular vesicles from lymphatic drainage as surrogate markers of melanoma progression and <i>BRAF</i> <i>V600E</i> mutation"
 authors:
 - Susana García-Silva

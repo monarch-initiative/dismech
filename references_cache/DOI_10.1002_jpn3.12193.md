@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jpn3.12193"
+reference_id: DOI:10.1002/jpn3.12193
 title: Pediatric retrograde cricopharyngeal dysfunction diagnosed by high‐resolution impedance manometry
 authors:
 - Lev Dorfman

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/gastro/goaa058"
+reference_id: DOI:10.1093/gastro/goaa058
 title: "Cronkhite–Canada syndrome: from clinical features to treatment"
 authors:
 - Ze-Yu Wu

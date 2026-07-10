@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/cam4.5890"
+reference_id: DOI:10.1002/cam4.5890
 title: Avelumab for the treatment of locally advanced or metastatic Merkel cell carcinoma—A multicenter real‐world experience in Israel
 authors:
 - Itamar Averbuch

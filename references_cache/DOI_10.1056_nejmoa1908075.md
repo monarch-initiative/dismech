@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa1908075"
+reference_id: DOI:10.1056/nejmoa1908075
 title: "Encorafenib, Binimetinib, and Cetuximab in <i>BRAF</i> V600E–Mutated Colorectal Cancer"
 authors:
 - Scott Kopetz

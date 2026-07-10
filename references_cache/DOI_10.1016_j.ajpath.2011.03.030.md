@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajpath.2011.03.030"
+reference_id: DOI:10.1016/j.ajpath.2011.03.030
 title: Lung-Targeted Overexpression of the NF-κB Member RelB Inhibits Cigarette Smoke–Induced Inflammation
 authors:
 - David H. McMillan

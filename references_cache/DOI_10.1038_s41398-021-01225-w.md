@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41398-021-01225-w"
+reference_id: DOI:10.1038/s41398-021-01225-w
 title: DNA methylation differences associated with social anxiety disorder and early life adversity
 authors:
 - Ariane Wiegand

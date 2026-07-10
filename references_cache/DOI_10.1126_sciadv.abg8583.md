@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/sciadv.abg8583"
+reference_id: DOI:10.1126/sciadv.abg8583
 title: "High-impact <i>FN1</i> mutation decreases chondrogenic potential and affects cartilage deposition via decreased binding to collagen type II"
 authors:
 - Marcella van Hoolwerff

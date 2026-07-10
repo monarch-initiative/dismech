@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-023-02635-7"
+reference_id: DOI:10.1038/s41591-023-02635-7
 title: "IRAK4 degrader in hidradenitis suppurativa and atopic dermatitis: a phase 1 trial"
 authors:
 - Lindsay Ackerman

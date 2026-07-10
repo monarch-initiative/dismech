@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/cshperspect.a041303"
+reference_id: DOI:10.1101/cshperspect.a041303
 title: Retinal Degeneration Animal Models in Bardet–Biedl Syndrome and Related Ciliopathies
 authors:
 - Clarisse Delvallée

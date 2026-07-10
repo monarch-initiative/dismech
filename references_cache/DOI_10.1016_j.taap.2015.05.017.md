@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.taap.2015.05.017"
+reference_id: DOI:10.1016/j.taap.2015.05.017
 title: MUTZ-3 derived Langerhans cells in human skin equivalents show differential migration and phenotypic plasticity after allergen or irritant exposure
 authors:
 - Ilona J. Kosten

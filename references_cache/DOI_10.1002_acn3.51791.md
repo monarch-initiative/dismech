@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/acn3.51791"
+reference_id: DOI:10.1002/acn3.51791
 title: "Stiff person spectrum disorder diagnosis, misdiagnosis, and suggested diagnostic criteria"
 authors:
 - Nicholas H. Chia

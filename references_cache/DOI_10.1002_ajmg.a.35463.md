@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.35463"
+reference_id: DOI:10.1002/ajmg.a.35463
 title: "Dose dependent expression of <i>HDAC4</i> causes variable expressivity in a novel inherited case of brachydactyly mental retardation syndrome"
 authors:
 - Benjamin Morris

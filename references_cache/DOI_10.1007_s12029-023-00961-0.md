@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12029-023-00961-0"
+reference_id: DOI:10.1007/s12029-023-00961-0
 title: "Clinical Practice Guidelines For the Management of Hepatocellular Carcinoma: A Systematic Review"
 authors:
 - Ishith Seth

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jep.13586"
+reference_id: DOI:10.1111/jep.13586
 title: "Capturing the anorexia nervosa phenotype: Conceptual and normative issues in <scp>ICD</scp>‐11"
 authors:
 - Jennifer Radden

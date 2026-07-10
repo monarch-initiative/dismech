@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/alz.13915"
+reference_id: DOI:10.1002/alz.13915
 title: "An <i>ANXA11</i> P93S variant dysregulates TDP‐43 and causes corticobasal syndrome"
 authors:
 - Allison Snyder

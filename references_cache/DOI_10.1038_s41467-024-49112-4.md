@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-49112-4"
+reference_id: DOI:10.1038/s41467-024-49112-4
 title: Identification and characterization of Varicella Zoster Virus circular RNA in lytic infection
 authors:
 - Shaomin Yang

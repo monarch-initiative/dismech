@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14656566.2023.2199152"
+reference_id: DOI:10.1080/14656566.2023.2199152
 title: An evaluation of setmelanotide injection for chronic weight management in adult and pediatric patients with obesity due to Bardet–Biedl syndrome
 authors:
 - Julia Lazareva

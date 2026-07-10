@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41431-019-0350-4"
+reference_id: DOI:10.1038/s41431-019-0350-4
 title: A novel dominant-negative FGFR1 variant causes Hartsfield syndrome by deregulating RAS/ERK1/2 pathway
 authors:
 - Pietro Palumbo

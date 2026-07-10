@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.hrcr.2019.03.008"
+reference_id: DOI:10.1016/j.hrcr.2019.03.008
 title: A case of atrial standstill with the atrial lead of a dual-chamber pacemaker implanted in the coronary sinus
 authors:
 - Yuya Suzuki

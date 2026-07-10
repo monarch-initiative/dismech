@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.08.15.608062"
+reference_id: DOI:10.1101/2024.08.15.608062
 title: "Novel tau filament folds in individuals with <i>MAPT</i> mutations P301L and P301T"
 authors:
 - Manuel Schweighauser

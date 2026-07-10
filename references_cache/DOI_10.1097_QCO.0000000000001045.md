@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/QCO.0000000000001045"
+reference_id: DOI:10.1097/QCO.0000000000001045
 title: "The many faces of brucellosis: diagnostic and management approach"
 authors:
 - L’Emir Wassim El Ayoubi

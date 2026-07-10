@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jemt.1070280505"
+reference_id: DOI:10.1002/jemt.1070280505
 title: "Cartilage proteoglycans: Structure and potential functions"
 authors:
 - Peter J. Roughley

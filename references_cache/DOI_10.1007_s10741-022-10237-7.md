@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10741-022-10237-7"
+reference_id: DOI:10.1007/s10741-022-10237-7
 title: Amyloid seeding as a disease mechanism and treatment target in transthyretin cardiac amyloidosis
 authors:
 - Paolo Morfino

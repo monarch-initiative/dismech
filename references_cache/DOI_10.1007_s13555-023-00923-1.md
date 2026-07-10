@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s13555-023-00923-1"
+reference_id: DOI:10.1007/s13555-023-00923-1
 title: Topical Isotretinoin (TMB-001) Treatment for 12 Weeks Did Not Result in Clinically Relevant Laboratory Abnormalities in Participants with Congenital Ichthyosis in the Phase 2b CONTROL Study
 authors:
 - Kalyani Marathe

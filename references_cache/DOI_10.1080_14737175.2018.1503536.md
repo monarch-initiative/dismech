@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14737175.2018.1503536"
+reference_id: DOI:10.1080/14737175.2018.1503536
 title: Clinical and pre-clinical utility of genomics in medulloblastoma
 authors:
 - Carolina Nör

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-50861-5"
+reference_id: DOI:10.1038/s41467-024-50861-5
 title: Histone-methyltransferase KMT2D deficiency impairs the Fanconi anemia/BRCA pathway upon glycolytic inhibition in squamous cell carcinoma
 authors:
 - Wei Liu

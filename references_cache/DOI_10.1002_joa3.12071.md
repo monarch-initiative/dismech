@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/joa3.12071"
+reference_id: DOI:10.1002/joa3.12071
 title: Electrical storm in an infant with short‐coupled variant of torsade de pointes
 authors:
 - Hiroaki Kise

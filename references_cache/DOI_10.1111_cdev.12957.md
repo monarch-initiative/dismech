@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cdev.12957"
+reference_id: DOI:10.1111/cdev.12957
 title: A Methylome-Wide Association Study of Trajectories of Oppositional Defiant Behaviors and Biological Overlap With Attention Deficit Hyperactivity Disorder
 authors:
 - Edward D Barker

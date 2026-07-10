@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0710079105"
+reference_id: DOI:10.1073/pnas.0710079105
 title: Assembly of Weibel–Palade body-like tubules from N-terminal domains of von Willebrand factor
 authors:
 - Ren-Huai Huang

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40475-021-00239-0"
+reference_id: DOI:10.1007/s40475-021-00239-0
 title: Cutaneous Larva Migrans
 authors:
 - Alfonso J. Rodriguez-Morales

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-023-47085-w"
+reference_id: DOI:10.1038/s41598-023-47085-w
 title: Evaluation of the efficacy of cystinosin supplementation through CTNS mRNA delivery in experimental models for cystinosis
 authors:
 - Tjessa Bondue

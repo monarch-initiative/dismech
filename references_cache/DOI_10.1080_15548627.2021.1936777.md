@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/15548627.2021.1936777"
+reference_id: DOI:10.1080/15548627.2021.1936777
 title: Imbalanced autophagy causes synaptic deficits in a human model for neurodevelopmental disorders
 authors:
 - Katrin Linda

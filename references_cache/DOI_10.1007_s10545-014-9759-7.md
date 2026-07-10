@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10545-014-9759-7"
+reference_id: DOI:10.1007/s10545-014-9759-7
 title: Inborn errors of metabolism in the biosynthesis and remodelling of phospholipids
 authors:
 - Saskia B. Wortmann

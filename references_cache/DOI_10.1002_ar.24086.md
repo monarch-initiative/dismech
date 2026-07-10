@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ar.24086"
+reference_id: DOI:10.1002/ar.24086
 title: Genetic Disorders of the Extracellular Matrix
 authors:
 - Shireen R. Lamandé

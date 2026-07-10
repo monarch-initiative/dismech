@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12281-025-00504-z"
+reference_id: DOI:10.1007/s12281-025-00504-z
 title: The Current Landscape of Repurposed Drugs for Fungal Neglected Tropical Diseases
 authors:
 - Tahsin Farid
@@ -68,8 +68,7 @@ these fungal NTDs are primarily caused by environmen -
 tal fungi predominantly found in subtropical and tropical 
 regions of the Americas, Africa, and Asia. They dispropor -
 tionately impact socially and economically marginalized 
- 
- Mili Duggal
+  Mili Duggal
 mili.duggal@fda.hhs.gov
 1 Office of Medical Policy, Center for Drug Evaluation 
 and Research (CDER), United States Food and Drug 

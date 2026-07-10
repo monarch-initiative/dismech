@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.61615"
+reference_id: DOI:10.1002/ajmg.a.61615
 title: "Activating variants in <scp><i>PDGFRB</i></scp> result in a spectrum of disorders responsive to imatinib monotherapy"
 authors:
 - Tara L. Wenger

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10875-022-01418-y"
+reference_id: DOI:10.1007/s10875-022-01418-y
 title: Clinical Practice Guidelines for the Immunological Management of Chromosome 22q11.2 Deletion Syndrome and Other Defects in Thymic Development
 authors:
 - Peter J. Mustillo

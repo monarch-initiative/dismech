@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2012.11.282"
+reference_id: DOI:10.1016/j.ymgme.2012.11.282
 title: "Mitochondrial citrate synthase crystals: Novel finding in Sengers syndrome caused by acylglycerol kinase (AGK) mutations"
 authors:
 - Komudi Siriwardena

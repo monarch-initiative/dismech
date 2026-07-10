@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.xkme.2024.100833"
+reference_id: DOI:10.1016/j.xkme.2024.100833
 title: "Sparsentan for Focal Segmental Glomerulosclerosis in the DUET Open-Label Extension: Long-term Efficacy and Safety"
 authors:
 - Kirk N. Campbell

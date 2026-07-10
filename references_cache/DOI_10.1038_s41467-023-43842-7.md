@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-43842-7"
+reference_id: DOI:10.1038/s41467-023-43842-7
 title: Early mucosal events promote distinct mucosal and systemic antibody responses to live attenuated influenza vaccine
 authors:
 - Ryan S. Thwaites

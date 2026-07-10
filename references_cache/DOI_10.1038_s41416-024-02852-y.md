@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41416-024-02852-y"
+reference_id: DOI:10.1038/s41416-024-02852-y
 title: Functional activation of the AKT-mTOR signalling axis in a real-world metastatic breast cancer cohort
 authors:
 - Deepika Prasad

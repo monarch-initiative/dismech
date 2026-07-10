@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41698-024-00741-4"
+reference_id: DOI:10.1038/s41698-024-00741-4
 title: Reduced penetrance BRCA1 and BRCA2 pathogenic variants in clinical germline genetic testing
 authors:
 - Tuya Pal

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-025-15625-1"
+reference_id: DOI:10.1038/s41598-025-15625-1
 title: "Large-scale newborn screening for organic acidemias in Quanzhou, China: a 10-year retrospective observational study"
 authors:
 - Yiming Lin

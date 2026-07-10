@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2010.07.011"
+reference_id: DOI:10.1016/j.ajhg.2010.07.011
 title: "Haploinsufficiency of HDAC4 Causes Brachydactyly Mental Retardation Syndrome, with Brachydactyly Type E, Developmental Delays, and Behavioral Problems"
 authors:
 - Stephen R. Williams

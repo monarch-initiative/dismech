@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40268-024-00490-6"
+reference_id: DOI:10.1007/s40268-024-00490-6
 title: "Pharmacokinetics, Pharmacodynamics, and Safety of Intravenous Efgartigimod and Subcutaneous Efgartigimod PH20 in Healthy Chinese Participants"
 authors:
 - Shan Jing

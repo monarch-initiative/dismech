@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/S1473-3099(24)00074-4"
+reference_id: DOI:10.1016/S1473-3099(24)00074-4
 title: "Operational effectiveness of tafenoquine and primaquine for the prevention of Plasmodium vivax recurrence in Brazil: a retrospective observational study"
 authors:
 - Marcelo Brito

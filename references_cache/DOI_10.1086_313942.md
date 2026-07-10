@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1086/313942"
+reference_id: DOI:10.1086/313942
 title: "Cutaneous Larva Migrans in Travelers: A Prospective Study, with Assessment of Therapy with Ivermectin"
 authors:
 - O. Bouchaud

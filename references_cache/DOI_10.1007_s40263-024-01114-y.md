@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40263-024-01114-y"
+reference_id: DOI:10.1007/s40263-024-01114-y
 title: Glutamatergic Modulators for Major Depression from Theory to Clinical Use
 authors:
 - Roger S. McIntyre

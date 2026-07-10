@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41413-022-00237-6"
+reference_id: DOI:10.1038/s41413-022-00237-6
 title: Characterizing the tumor microenvironment at the single-cell level reveals a novel immune evasion mechanism in osteosarcoma
 authors:
 - Weijian Liu

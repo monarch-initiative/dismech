@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1017/erm.2024.18"
+reference_id: DOI:10.1017/erm.2024.18
 title: "Thrombocytopenia in dengue infection: mechanisms and a potential application"
 authors:
 - Ahmad Suhail Khazali

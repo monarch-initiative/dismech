@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cge.14206"
+reference_id: DOI:10.1111/cge.14206
 title: "The recurrent <scp><i>TCF4</i></scp> missense variant p.(<scp>Arg389Cys</scp>) causes a neurodevelopmental disorder overlapping with but not typical for <scp>Pitt‐Hopkins</scp> syndrome"
 authors:
 - Bernt Popp

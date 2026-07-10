@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.09.19.25336146"
+reference_id: DOI:10.1101/2025.09.19.25336146
 title: "Complex Genetics and Regulatory Drivers of Hypermobile Ehlers-Danlos Syndrome: Insights from Genome-Wide Association Study Meta-analysis"
 authors:
 - Taylor Petrucci-Nelson

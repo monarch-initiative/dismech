@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.mayocp.2012.06.003"
+reference_id: DOI:10.1016/j.mayocp.2012.06.003
 title: Severe Spruelike Enteropathy Associated With Olmesartan
 authors:
 - Alberto Rubio-Tapia

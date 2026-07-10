@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.10.30.620903"
+reference_id: DOI:10.1101/2024.10.30.620903
 title: Chronic pancreatitis patient-derived organoids reveal new paths to precision therapeutics
 authors:
 - Victoria Osorio-Vasquez

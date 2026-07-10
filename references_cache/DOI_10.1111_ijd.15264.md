@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ijd.15264"
+reference_id: DOI:10.1111/ijd.15264
 title: "Mal de Pinta, first autochthonous case from South of Brazil"
 authors:
 - Ralph Vighi da Rosa

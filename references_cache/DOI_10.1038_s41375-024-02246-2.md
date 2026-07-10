@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41375-024-02246-2"
+reference_id: DOI:10.1038/s41375-024-02246-2
 title: Management of isocitrate dehydrogenase 1/2 mutated acute myeloid leukemia
 authors:
 - Harry Fruchtman

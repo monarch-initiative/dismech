@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11920-024-01534-z"
+reference_id: DOI:10.1007/s11920-024-01534-z
 title: Reward and Inhibitory Control as Mechanisms and Treatment Targets for Binge Eating Disorder
 authors:
 - Ellen K. Pasquale

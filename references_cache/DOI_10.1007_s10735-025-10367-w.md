@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10735-025-10367-w"
+reference_id: DOI:10.1007/s10735-025-10367-w
 title: "Restore intestinal steady-state: new advances in the clinical management of chemotherapy-associated diarrhea and constipation"
 authors:
 - Miaoqi Chen

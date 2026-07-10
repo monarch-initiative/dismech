@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10875-022-01407-1"
+reference_id: DOI:10.1007/s10875-022-01407-1
 title: "Juvenile Neuropsychiatric Systemic Lupus Erythematosus: Identification of Novel Central Neuroinflammation Biomarkers"
 authors:
 - Mathilde Labouret

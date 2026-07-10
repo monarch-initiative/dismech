@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejm200105103441902"
+reference_id: DOI:10.1056/nejm200105103441902
 title: The Effect of Chelation Therapy with Succimer on Neuropsychological Development in Children Exposed to Lead
 authors:
 - Walter J. Rogan

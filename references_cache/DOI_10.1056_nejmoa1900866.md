@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa1900866"
+reference_id: DOI:10.1056/nejmoa1900866
 title: Eculizumab in Aquaporin-4–Positive Neuromyelitis Optica Spectrum Disorder
 authors:
 - Sean J. Pittock

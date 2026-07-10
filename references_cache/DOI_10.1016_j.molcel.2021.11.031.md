@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.molcel.2021.11.031"
+reference_id: DOI:10.1016/j.molcel.2021.11.031
 title: APC7 mediates ubiquitin signaling in constitutive heterochromatin in the developing mammalian brain
 authors:
 - Cole J. Ferguson

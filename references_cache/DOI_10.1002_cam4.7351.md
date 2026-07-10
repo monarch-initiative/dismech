@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/cam4.7351"
+reference_id: DOI:10.1002/cam4.7351
 title: "Prevalence of neurotrophic tropomyosin receptor kinase (<scp>NTRK</scp>) fusion gene positivity in patients with solid tumors in Japan"
 authors:
 - Eiji Nakata

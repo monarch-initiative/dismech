@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41366-024-01685-2"
+reference_id: DOI:10.1038/s41366-024-01685-2
 title: Obesity and metabolic syndrome in adults with a 22q11.2 microdeletion
 authors:
 - Hester Jaspers Faijer-Westerink

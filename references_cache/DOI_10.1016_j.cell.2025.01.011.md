@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.cell.2025.01.011"
+reference_id: DOI:10.1016/j.cell.2025.01.011
 title: Advances in the study and treatment of genetic cardiomyopathies
 authors:
 - Victoria N. Parikh

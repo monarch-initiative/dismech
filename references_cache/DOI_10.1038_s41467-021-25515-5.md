@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-021-25515-5"
+reference_id: DOI:10.1038/s41467-021-25515-5
 title: Insights into the expanding phenotypic spectrum of inherited disorders of biogenic amines
 authors:
 - Oya Kuseyri Hübschmann

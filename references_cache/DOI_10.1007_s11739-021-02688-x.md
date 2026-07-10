@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11739-021-02688-x"
+reference_id: DOI:10.1007/s11739-021-02688-x
 title: Diagnosis and management of leukocytoclastic vasculitis
 authors:
 - Paolo Fraticelli

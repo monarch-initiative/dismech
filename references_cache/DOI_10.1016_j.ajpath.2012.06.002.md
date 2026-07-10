@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajpath.2012.06.002"
+reference_id: DOI:10.1016/j.ajpath.2012.06.002
 title: Targeting BRAF in an Inducible Murine Model of Melanoma
 authors:
 - Anna I. Hooijkaas

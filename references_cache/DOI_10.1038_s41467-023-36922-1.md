@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-36922-1"
+reference_id: DOI:10.1038/s41467-023-36922-1
 title: Recapitulating thyroid cancer histotypes through engineering embryonic stem cells
 authors:
 - Veronica Veschi

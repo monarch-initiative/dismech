@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-02973-0"
+reference_id: DOI:10.1038/s41591-024-02973-0
 title: "Progranulin AAV gene therapy for frontotemporal dementia: translational studies and phase 1/2 trial interim results"
 authors:
 - Jeffrey Sevigny

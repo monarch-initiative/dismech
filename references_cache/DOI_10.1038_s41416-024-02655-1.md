@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41416-024-02655-1"
+reference_id: DOI:10.1038/s41416-024-02655-1
 title: "Navigating therapeutic strategies: HPV classification in head and neck cancer"
 authors:
 - Hossein Tabatabaeian

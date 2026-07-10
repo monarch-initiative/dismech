@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2010.06.021"
+reference_id: DOI:10.1016/j.ymgme.2010.06.021
 title: "l-arginine:glycine amidinotransferase (AGAT) deficiency: Clinical presentation and response to treatment in two patients with a novel mutation"
 authors:
 - Simon Edvardson

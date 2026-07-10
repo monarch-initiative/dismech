@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bpa.13184"
+reference_id: DOI:10.1111/bpa.13184
 title: Pathology explains various mechanisms of auto‐immune inflammatory peripheral neuropathies
 authors:
 - Jean‐Michel Vallat

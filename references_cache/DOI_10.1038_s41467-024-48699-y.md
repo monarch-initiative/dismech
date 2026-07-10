@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-48699-y"
+reference_id: DOI:10.1038/s41467-024-48699-y
 title: Enhanced CD95 and interleukin 18 signalling accompany T cell receptor Vβ21.3+ activation in multi-inflammatory syndrome in children
 authors:
 - Zhenguang Zhang

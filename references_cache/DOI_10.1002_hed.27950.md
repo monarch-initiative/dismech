@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/hed.27950"
+reference_id: DOI:10.1002/hed.27950
 title: "The Prevalence and Prognostic Implications of <i>BRAF</i><scp>K601E</scp> Mutations in Thyroid Neoplasms: A Systematic Review and Meta‐Analysis"
 authors:
 - Alyssa Webster

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40257-024-00858-z"
+reference_id: DOI:10.1007/s40257-024-00858-z
 title: "Merkel Cell Carcinoma: Integrating Epidemiology, Immunology, and Therapeutic Updates"
 authors:
 - Jürgen C. Becker

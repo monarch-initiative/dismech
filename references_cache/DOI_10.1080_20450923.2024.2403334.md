@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/20450923.2024.2403334"
+reference_id: DOI:10.1080/20450923.2024.2403334
 title: "Integration of circulating tumor DNA in biliary tract cancer: the emerging landscape"
 authors:
 - Joy A Awosika

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s42255-024-01140-6"
+reference_id: DOI:10.1038/s42255-024-01140-6
 title: Genetic architecture of oral glucose-stimulated insulin release provides biological insights into type 2 diabetes aetiology
 authors:
 - A. L. Madsen

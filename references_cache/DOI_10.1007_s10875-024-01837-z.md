@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10875-024-01837-z"
+reference_id: DOI:10.1007/s10875-024-01837-z
 title: Dupilumab in a 9-week-old with Netherton Syndrome Leads to Deep Symptom Control
 authors:
 - Yannik Vollmuth

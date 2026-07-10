@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14728222.2023.2218613"
+reference_id: DOI:10.1080/14728222.2023.2218613
 title: "Targeting the EGFR signaling pathway in cancer therapy: What’s new in 2023?"
 authors:
 - Sushanta Halder

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41582-019-0250-9"
+reference_id: DOI:10.1038/s41582-019-0250-9
 title: Diagnosis and management of Guillain–Barré syndrome in ten steps
 authors:
 - Sonja E. Leonhard

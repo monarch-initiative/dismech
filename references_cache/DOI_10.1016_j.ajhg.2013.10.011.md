@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2013.10.011"
+reference_id: DOI:10.1016/j.ajhg.2013.10.011
 title: Loss-of-Function Mutations in TBC1D20 Cause Cataracts and Male Infertility in blind sterile Mice and Warburg Micro Syndrome in Humans
 authors:
 - Ryan P. Liegel

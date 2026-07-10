@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/science.abm5214"
+reference_id: DOI:10.1126/science.abm5214
 title: Distinct myeloid-derived suppressor cell populations in human glioblastoma
 authors:
 - Christina Jackson

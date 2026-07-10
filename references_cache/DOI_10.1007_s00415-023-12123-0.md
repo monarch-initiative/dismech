@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-023-12123-0"
+reference_id: DOI:10.1007/s00415-023-12123-0
 title: Expanding clinical profiles and prognostic markers in stiff person syndrome spectrum disorders
 authors:
 - Yujie Wang

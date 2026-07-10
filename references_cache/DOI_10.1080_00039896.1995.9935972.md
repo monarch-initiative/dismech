@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/00039896.1995.9935972"
+reference_id: DOI:10.1080/00039896.1995.9935972
 title: "Green Tobacco Sickness: Occupational Nicotine Poisoning in Tobacco Workers"
 authors:
 - Terri Ballard

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ckj/sfad290"
+reference_id: DOI:10.1093/ckj/sfad290
 title: Real-world usage of Chronic Kidney Disease – Mineral Bone Disorder (CKD–MBD) biomarkers in nephrology practices
 authors:
 - Maria Fusaro

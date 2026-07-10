@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00520-023-08224-1"
+reference_id: DOI:10.1007/s00520-023-08224-1
 title: "2023 updated MASCC/ESMO consensus recommendations: prevention of nausea and vomiting following multiple-day chemotherapy, high-dose chemotherapy, and breakthrough nausea and vomiting"
 authors:
 - Bernardo Leon Rapoport

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41408-025-01235-7"
+reference_id: DOI:10.1038/s41408-025-01235-7
 title: Evolution of WHO diagnostic criteria in “Classical Myeloproliferative Neoplasms” compared with the International Consensus Classification
 authors:
 - Jürgen Thiele

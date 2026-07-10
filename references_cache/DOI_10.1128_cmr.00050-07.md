@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/cmr.00050-07"
+reference_id: DOI:10.1128/cmr.00050-07
 title: "New Aspects of Neotropical Polycystic ( <i>Echinococcus vogeli</i> ) and Unicystic ( <i>Echinococcus oligarthrus</i> ) Echinococcosis"
 authors:
 - "Antonio D'Alessandro"

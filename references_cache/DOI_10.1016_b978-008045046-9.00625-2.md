@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/b978-008045046-9.00625-2"
+reference_id: DOI:10.1016/b978-008045046-9.00625-2
 title: Autoimmune Autonomic Neuropathy
 authors:
 - S. Vernino

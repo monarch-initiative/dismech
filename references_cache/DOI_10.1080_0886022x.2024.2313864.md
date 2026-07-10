@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/0886022x.2024.2313864"
+reference_id: DOI:10.1080/0886022x.2024.2313864
 title: "Cardiovascular and renal safety outcomes of hypoxia-inducible factor prolyl-hydroxylase inhibitor roxadustat for anemia patients with chronic kidney disease: a systematic review and meta-analysis"
 authors:
 - Lei Tian

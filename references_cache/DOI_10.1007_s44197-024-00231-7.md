@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s44197-024-00231-7"
+reference_id: DOI:10.1007/s44197-024-00231-7
 title: "Efficacy of Albendazole and Mebendazole Against Soil Transmitted Infections among Pre-School and School Age Children: A Systematic Review and Meta-Analysis"
 authors:
 - Temesgen Bekele
@@ -47,8 +47,7 @@ Alb  Albendazole
 CRs  Cure rates
 EPG  Egg per gram of stool
 ERRs  Egg Reduction rates
- 
- Tsige Ketema
+  Tsige Ketema
 tsigeketema@gmail.com
 1 College of Natural Sciences, Department of Biology, Jimma 
 University, Jimma, Ethiopia

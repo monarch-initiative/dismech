@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jdv.17226"
+reference_id: DOI:10.1111/jdv.17226
 title: "Characteristics of children with Netherton syndrome: a review of 21 patients"
 authors:
 - C. Prodinger

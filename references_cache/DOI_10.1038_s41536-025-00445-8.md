@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41536-025-00445-8"
+reference_id: DOI:10.1038/s41536-025-00445-8
 title: Disease exacerbation in human DMD MYOrganoids enables gene therapy evaluation and unveils persistence of fibrotic activity
 authors:
 - Laura Palmieri

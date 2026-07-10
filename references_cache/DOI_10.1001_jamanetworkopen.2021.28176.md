@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamanetworkopen.2021.28176"
+reference_id: DOI:10.1001/jamanetworkopen.2021.28176
 title: Evaluation of Population-Level Changes Associated With the 2021 US Preventive Services Task Force Lung Cancer Screening Recommendations in Community-Based Health Care Systems
 authors:
 - Debra P. Ritzwoller

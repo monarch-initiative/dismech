@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41419-024-06528-6"
+reference_id: DOI:10.1038/s41419-024-06528-6
 title: Leukemic cell-secreted interleukin-9 suppresses cytotoxic T cell-mediated killing in chronic lymphocytic leukemia
 authors:
 - Gioia Boncompagni

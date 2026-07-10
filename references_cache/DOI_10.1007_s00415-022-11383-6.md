@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-022-11383-6"
+reference_id: DOI:10.1007/s00415-022-11383-6
 title: "The inherited cerebellar ataxias: an update"
 authors:
 - Giulia Coarelli

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/phh.0000000000001664"
+reference_id: DOI:10.1097/phh.0000000000001664
 title: "Childhood Lead Poisoning 1970-2022: Charting Progress and Needed Reforms"
 authors:
 - David E. Jacobs

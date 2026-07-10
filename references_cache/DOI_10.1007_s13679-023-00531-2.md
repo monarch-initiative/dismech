@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s13679-023-00531-2"
+reference_id: DOI:10.1007/s13679-023-00531-2
 title: "Hypothalamic-Ovarian axis and Adiposity Relationship in Polycystic Ovary Syndrome: Physiopathology and Therapeutic Options for the Management of Metabolic and Inflammatory Aspects"
 authors:
 - Maria Serena Lonardo

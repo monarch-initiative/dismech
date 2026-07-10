@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00432-024-05787-2"
+reference_id: DOI:10.1007/s00432-024-05787-2
 title: Single-cell transcriptomic insights into chemotherapy-induced remodeling of the osteosarcoma tumor microenvironment
 authors:
 - Xuejing Zheng

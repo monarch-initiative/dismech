@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11926-024-01144-x"
+reference_id: DOI:10.1007/s11926-024-01144-x
 title: JAK-STAT Signaling and Beyond in the Pathogenesis of Spondyloarthritis and Their Clinical Significance
 authors:
 - Siba P. Raychaudhuri

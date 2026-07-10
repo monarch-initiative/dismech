@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41392-023-01675-2"
+reference_id: DOI:10.1038/s41392-023-01675-2
 title: "Mpox (formerly monkeypox): pathogenesis, prevention and treatment"
 authors:
 - Junjie Lu

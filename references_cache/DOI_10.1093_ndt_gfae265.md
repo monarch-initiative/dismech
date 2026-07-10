@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ndt/gfae265"
+reference_id: DOI:10.1093/ndt/gfae265
 title: "Diagnosis, management and treatment of the Alport syndrome – 2024 guideline on behalf of ERKNet, ERA and ESPN"
 authors:
 - Roser Torra

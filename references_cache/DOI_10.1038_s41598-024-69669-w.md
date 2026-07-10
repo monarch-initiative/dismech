@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-69669-w"
+reference_id: DOI:10.1038/s41598-024-69669-w
 title: A systematic review and meta-analysis of comparative clinical studies on antibiotic treatment of brucellosis
 authors:
 - Sachith Maduranga

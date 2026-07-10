@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-51851-3"
+reference_id: DOI:10.1038/s41467-024-51851-3
 title: EWS-WT1 fusion isoforms establish oncogenic programs and therapeutic vulnerabilities in desmoplastic small round cell tumors
 authors:
 - Gaylor Boulay

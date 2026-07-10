@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/01.mao.0000244370.47320.9a"
+reference_id: DOI:10.1097/01.mao.0000244370.47320.9a
 title: Measurements of Human Middle- and Inner-Ear Mechanics With Dehiscence of the Superior Semicircular Canal
 authors:
 - Wade Chien

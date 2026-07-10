@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0045-1806986"
+reference_id: DOI:10.1055/s-0045-1806986
 title: Acute transverse myelitis secondary to schistosomiasis
 authors:
 - Janaina Moraes Araujo

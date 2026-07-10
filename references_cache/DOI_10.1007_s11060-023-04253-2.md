@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11060-023-04253-2"
+reference_id: DOI:10.1007/s11060-023-04253-2
 title: "The multiomic landscape of meningiomas: a review and update"
 authors:
 - Justin Z. Wang

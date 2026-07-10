@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41375-024-02206-w"
+reference_id: DOI:10.1038/s41375-024-02206-w
 title: "Beyond the marrow: insights from comprehensive next-generation sequencing of extramedullary multiple myeloma tumors"
 authors:
 - T. Jelinek

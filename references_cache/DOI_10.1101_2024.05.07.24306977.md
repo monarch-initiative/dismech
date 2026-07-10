@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.05.07.24306977"
+reference_id: DOI:10.1101/2024.05.07.24306977
 title: "Usability, acceptability and cost of the SD BIOLINE Ov16 rapid diagnostic test for onchocerciasis surveillance in endemic communities in the middle belt of Ghana"
 authors:
 - Kenneth Bentum Otabil

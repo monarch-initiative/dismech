@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-023-11687-1"
+reference_id: DOI:10.1007/s00415-023-11687-1
 title: "Safety and effectiveness of ataluren in patients with nonsense mutation DMD in the STRIDE Registry compared with the CINRG Duchenne Natural History Study (2015–2022): 2022 interim analysis"
 authors:
 - Eugenio Mercuri

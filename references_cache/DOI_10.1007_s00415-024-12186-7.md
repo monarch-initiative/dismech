@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-024-12186-7"
+reference_id: DOI:10.1007/s00415-024-12186-7
 title: "Guillain–Barré syndrome and COVID-19 vaccination: a systematic review and meta-analysis"
 authors:
 - Stefano Censi

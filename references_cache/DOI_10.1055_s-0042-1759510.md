@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0042-1759510"
+reference_id: DOI:10.1055/s-0042-1759510
 title: Endoscopic Submucosal Dissection for Esophageal Squamous Cell High-grade Dysplasia in a Patient with Plummer Vinson Syndrome
 authors:
 - Gaurav Patil

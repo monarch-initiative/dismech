@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.lanwpc.2024.101017"
+reference_id: DOI:10.1016/j.lanwpc.2024.101017
 title: Age-specific breast and ovarian cancer risks associated with germline BRCA1 or BRCA2 pathogenic variants – an Asian study of 572 families
 authors:
 - Weang-Kee Ho

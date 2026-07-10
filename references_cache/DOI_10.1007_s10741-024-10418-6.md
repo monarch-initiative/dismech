@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10741-024-10418-6"
+reference_id: DOI:10.1007/s10741-024-10418-6
 title: "Interplay of the heart, spleen, and bone marrow in heart failure: the role of splenic extramedullary hematopoiesis"
 authors:
 - Hiroaki Hiraiwa

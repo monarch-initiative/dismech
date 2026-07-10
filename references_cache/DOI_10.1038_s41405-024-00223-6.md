@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41405-024-00223-6"
+reference_id: DOI:10.1038/s41405-024-00223-6
 title: "Characteristics of oral health of patients with X-linked hypophosphatemia: case reports and literature review"
 authors:
 - Ana Arhar

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.omtn.2023.02.009"
+reference_id: DOI:10.1016/j.omtn.2023.02.009
 title: Therapeutic gene correction for Lesch-Nyhan syndrome using CRISPR-mediated base and prime editing
 authors:
 - Gayoung Jang

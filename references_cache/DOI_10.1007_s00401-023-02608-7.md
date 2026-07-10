@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00401-023-02608-7"
+reference_id: DOI:10.1007/s00401-023-02608-7
 title: "Recurrent atypical teratoid/rhabdoid tumors (AT/RT) reveal discrete features of progression on histology, epigenetics, copy number profiling, and transcriptomics"
 authors:
 - Pascal D. Johann

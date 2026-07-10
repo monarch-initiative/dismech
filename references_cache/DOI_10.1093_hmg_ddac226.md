@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddac226"
+reference_id: DOI:10.1093/hmg/ddac226
 title: "Functional assessment of homozygous <i>ALDH18A1</i> variants reveals alterations in amino acid and antioxidant metabolism"
 authors:
 - Maxwell B Colonna

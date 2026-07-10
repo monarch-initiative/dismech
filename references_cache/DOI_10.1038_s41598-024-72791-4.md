@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-72791-4"
+reference_id: DOI:10.1038/s41598-024-72791-4
 title: Establishment of human pluripotent stem cell-derived cortical neurosphere model to study pathomechanisms and chemical toxicity in Kleefstra syndrome
 authors:
 - Andrea Balogh

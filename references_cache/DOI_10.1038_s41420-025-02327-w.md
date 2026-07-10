@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41420-025-02327-w"
+reference_id: DOI:10.1038/s41420-025-02327-w
 title: Mechanisms and therapeutic potential of the hedgehog signaling pathway in cancer
 authors:
 - Ge Cong

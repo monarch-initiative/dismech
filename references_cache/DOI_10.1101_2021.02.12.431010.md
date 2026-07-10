@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2021.02.12.431010"
+reference_id: DOI:10.1101/2021.02.12.431010
 title: Epigenetic modulation in the pathogenesis and treatment of inherited aortic aneurysm conditions
 authors:
 - Benjamin E. Kang

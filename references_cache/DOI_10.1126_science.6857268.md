@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/science.6857268"
+reference_id: DOI:10.1126/science.6857268
 title: "Dicarboxylic Aciduria: Deficient [1- <sup>14</sup> C]Octanoate Oxidation and Medium-Chain Acyl-CoA Dehydrogenase in Fibroblasts"
 authors:
 - William J. Rhead

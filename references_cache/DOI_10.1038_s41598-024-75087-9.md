@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-75087-9"
+reference_id: DOI:10.1038/s41598-024-75087-9
 title: TERT promoter mutations contribute to adverse clinical outcomes and poor prognosis in radioiodine refractory differentiated thyroid cancer
 authors:
 - Gongxun Tan

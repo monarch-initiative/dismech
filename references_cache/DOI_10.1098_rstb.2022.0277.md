@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1098/rstb.2022.0277"
+reference_id: DOI:10.1098/rstb.2022.0277
 title: "Can mass drug administration of moxidectin accelerate onchocerciasis elimination in Africa?"
 authors:
 - Klodeta Kura

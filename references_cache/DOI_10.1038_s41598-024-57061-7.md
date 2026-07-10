@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-57061-7"
+reference_id: DOI:10.1038/s41598-024-57061-7
 title: Hypomagnesaemia with varying degrees of extrarenal symptoms as a consequence of heterozygous CNNM2 variants
 authors:
 - Willem Bosman

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.yjmcc.2017.05.007"
+reference_id: DOI:10.1016/j.yjmcc.2017.05.007
 title: Impaired mitophagy facilitates mitochondrial damage in Danon disease
 authors:
 - Sherin I. Hashem

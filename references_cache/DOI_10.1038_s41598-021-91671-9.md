@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-021-91671-9"
+reference_id: DOI:10.1038/s41598-021-91671-9
 title: Rheumatological features of Whipple disease
 authors:
 - Alice Tison

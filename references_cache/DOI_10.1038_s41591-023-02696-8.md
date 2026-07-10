@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-023-02696-8"
+reference_id: DOI:10.1038/s41591-023-02696-8
 title: "Divarasib plus cetuximab in KRAS G12C-positive colorectal cancer: a phase 1b trial"
 authors:
 - Jayesh Desai

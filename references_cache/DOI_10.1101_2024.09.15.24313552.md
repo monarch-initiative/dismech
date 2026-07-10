@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.09.15.24313552"
+reference_id: DOI:10.1101/2024.09.15.24313552
 title: A next generation CRISPR diagnostic tool to survey drug resistance in Human African Trypanosomiasis
 authors:
 - Elena Pérez Antón

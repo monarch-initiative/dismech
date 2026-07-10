@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.imj.2024.100124"
+reference_id: DOI:10.1016/j.imj.2024.100124
 title: "The key mechanisms of multi-system responses triggered by central nervous system damage in hand, foot, and mouth disease severity"
 authors:
 - Wangquan Ji

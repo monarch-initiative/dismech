@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-021-84373-9"
+reference_id: DOI:10.1038/s41598-021-84373-9
 title: A SPRY1 domain cardiac ryanodine receptor variant associated with short-coupled torsade de pointes
 authors:
 - Zahia Touat-Hamici

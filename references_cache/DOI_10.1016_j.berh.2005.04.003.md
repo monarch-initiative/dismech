@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.berh.2005.04.003"
+reference_id: DOI:10.1016/j.berh.2005.04.003
 title: Management of neuropsychiatric lupus
 authors:
 - John G. Hanly

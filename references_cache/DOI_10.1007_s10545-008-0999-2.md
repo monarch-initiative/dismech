@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10545-008-0999-2"
+reference_id: DOI:10.1007/s10545-008-0999-2
 title: Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant H109R
 authors:
 - R. P. McAndrew

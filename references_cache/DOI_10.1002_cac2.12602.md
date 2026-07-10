@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/cac2.12602"
+reference_id: DOI:10.1002/cac2.12602
 title: "<i>FGFR3</i> alterations in bladder cancer: Sensitivity and resistance to targeted therapies"
 authors:
 - Maxim Noeraparast

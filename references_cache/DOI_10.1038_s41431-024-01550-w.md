@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41431-024-01550-w"
+reference_id: DOI:10.1038/s41431-024-01550-w
 title: "Identification of people with Lynch syndrome from those presenting with colorectal cancer in England: baseline analysis of the diagnostic pathway"
 authors:
 - Fiona E. McRonald

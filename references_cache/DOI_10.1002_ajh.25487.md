@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajh.25487"
+reference_id: DOI:10.1002/ajh.25487
 title: "Mantle cell lymphoma: 2019 update on the diagnosis, pathogenesis, prognostication, and management"
 authors:
 - Preetesh Jain

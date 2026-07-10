@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41420-024-02182-1"
+reference_id: DOI:10.1038/s41420-024-02182-1
 title: "The miRNA and PD-1/PD-L1 signaling axis: an arsenal of immunotherapeutic targets against lung cancer"
 authors:
 - Ritu Yadav

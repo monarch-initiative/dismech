@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41389-023-00466-2"
+reference_id: DOI:10.1038/s41389-023-00466-2
 title: Exploring potential molecular resistance and clonal evolution in advanced HER2-positive gastric cancer under trastuzumab therapy
 authors:
 - Qi Xu

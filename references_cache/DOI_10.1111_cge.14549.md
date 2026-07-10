@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cge.14549"
+reference_id: DOI:10.1111/cge.14549
 title: "Novel biallelic <i>PISD</i> missense variants cause spondyloepimetaphyseal dysplasia with disproportionate short stature and fragmented mitochondrial morphology"
 authors:
 - Line Aagaard Nolting

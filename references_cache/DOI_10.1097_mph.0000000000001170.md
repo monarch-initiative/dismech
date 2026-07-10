@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/mph.0000000000001170"
+reference_id: DOI:10.1097/mph.0000000000001170
 title: Encephalocraniocutaneous Lipomatosis
 authors:
 - Abhishek Bavle

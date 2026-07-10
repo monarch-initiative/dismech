@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10875-019-00638-z"
+reference_id: DOI:10.1007/s10875-019-00638-z
 title: CAPS and NLRP3
 authors:
 - Laela M. Booshehri

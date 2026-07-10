@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12144-021-01700-z"
+reference_id: DOI:10.1007/s12144-021-01700-z
 title: The effect of Blastocystis sp. and Dientamoeba fragilis on psychological symptom severity in a sample of clinically diverse males and females
 authors:
 - Michael Ganci

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jhepr.2023.100926"
+reference_id: DOI:10.1016/j.jhepr.2023.100926
 title: Fine mapping identifies independent HLA associations in autoimmune hepatitis type 1
 authors:
 - You Li

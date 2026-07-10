@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41420-025-02479-9"
+reference_id: DOI:10.1038/s41420-025-02479-9
 title: The pathogenesis and therapeutic implications of metabolic reprogramming in renal cell carcinoma
 authors:
 - Yifan Zhang

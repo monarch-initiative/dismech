@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41525-023-00375-8"
+reference_id: DOI:10.1038/s41525-023-00375-8
 title: Population-based prevalence and mutational landscape of von Willebrand disease using large-scale genetic databases
 authors:
 - Omid Seidizadeh

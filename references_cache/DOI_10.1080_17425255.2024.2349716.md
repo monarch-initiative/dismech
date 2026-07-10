@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/17425255.2024.2349716"
+reference_id: DOI:10.1080/17425255.2024.2349716
 title: "Pharmacogenetics in IBS: update and impact of GWAS studies in drug targets and metabolism"
 authors:
 - Michael Camilleri

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1017/S0033291721002154"
+reference_id: DOI:10.1017/S0033291721002154
 title: "A neurostructural biomarker of dissociative amnesia: a hippocampal study in dissociative identity disorder"
 authors:
 - Lora I. Dimitrova

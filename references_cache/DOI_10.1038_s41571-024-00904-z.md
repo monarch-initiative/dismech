@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41571-024-00904-z"
+reference_id: DOI:10.1038/s41571-024-00904-z
 title: "Epidemiology of HPV-associated cancers past, present and future: towards prevention and elimination"
 authors:
 - Talía Malagón

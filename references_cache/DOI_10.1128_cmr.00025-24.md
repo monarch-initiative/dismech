@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/cmr.00025-24"
+reference_id: DOI:10.1128/cmr.00025-24
 title: "Recent advances in the influenza virus vaccine landscape: a comprehensive overview of technologies and trials"
 authors:
 - Tristan W. Clark

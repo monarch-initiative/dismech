@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ski2.55"
+reference_id: DOI:10.1002/ski2.55
 title: Merkel Cell Carcinoma
 authors:
 - K. Mistry

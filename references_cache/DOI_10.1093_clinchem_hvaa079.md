@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/clinchem/hvaa079"
+reference_id: DOI:10.1093/clinchem/hvaa079
 title: Metabolic Acidosis and Hypoglycemia in a Child with Leigh-Like Phenotype
 authors:
 - Alaa M Alayed

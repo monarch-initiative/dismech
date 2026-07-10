@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cge.12814"
+reference_id: DOI:10.1111/cge.12814
 title: "Expanding the clinical picture of the <i>MECP2</i> Duplication syndrome"
 authors:
 - Z. Lim

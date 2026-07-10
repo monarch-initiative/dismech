@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/8.7.1237"
+reference_id: DOI:10.1093/hmg/8.7.1237
 title: "A missense mutation in connexin26, D66H, causes mutilating keratoderma with sensorineural deafness (Vohwinkel's syndrome) in three unrelated families"
 authors:
 - E. Maestrini

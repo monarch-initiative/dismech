@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/23808993.2021.1938545"
+reference_id: DOI:10.1080/23808993.2021.1938545
 title: Novel insights into the pathogenesis and treatment of NRAS mutant melanoma
 authors:
 - Jeffrey Zhao

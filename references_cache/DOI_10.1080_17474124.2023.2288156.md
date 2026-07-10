@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/17474124.2023.2288156"
+reference_id: DOI:10.1080/17474124.2023.2288156
 title: Noninvasive electrical neuromodulation for gastrointestinal motility disorders
 authors:
 - Jieyun Yin

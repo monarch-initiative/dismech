@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.isci.2024.109172"
+reference_id: DOI:10.1016/j.isci.2024.109172
 title: Disruption of mitochondrial energy metabolism is a putative pathogenesis of Diamond-Blackfan anemia
 authors:
 - Rudan Xiao

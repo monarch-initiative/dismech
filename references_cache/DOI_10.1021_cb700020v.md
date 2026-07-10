@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1021/cb700020v"
+reference_id: DOI:10.1021/cb700020v
 title: Peculiar Binding of Botulinum Neurotoxins
 authors:
 - Ornella Rossetto

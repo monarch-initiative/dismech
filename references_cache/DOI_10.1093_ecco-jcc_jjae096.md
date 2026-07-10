@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ecco-jcc/jjae096"
+reference_id: DOI:10.1093/ecco-jcc/jjae096
 title: Inflammatory Bowel Disease Associated with Primary Sclerosing Cholangitis is Associated with an Altered Gut Microbiome and Bile Acid Profile
 authors:
 - Haim Leibovitzh

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/pace.13924"
+reference_id: DOI:10.1111/pace.13924
 title: "<i>SCN5A</i> mutation identified in a patient with short‐coupled variant of torsades de pointes"
 authors:
 - Keiko Sonoda

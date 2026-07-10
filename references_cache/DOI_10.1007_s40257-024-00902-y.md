@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40257-024-00902-y"
+reference_id: DOI:10.1007/s40257-024-00902-y
 title: "Managing Urticarial Vasculitis: A Clinical Decision-Making Algorithm Based on Expert Consensus"
 authors:
 - Nikolai Dario Rothermel

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1017/s0031182024001069"
+reference_id: DOI:10.1017/s0031182024001069
 title: "The burden and distribution of cystic echinococcosis in Bhutan: a retrospective study"
 authors:
 - Chador Tenzin

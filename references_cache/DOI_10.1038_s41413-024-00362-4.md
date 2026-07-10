@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41413-024-00362-4"
+reference_id: DOI:10.1038/s41413-024-00362-4
 title: "Mapping RANKL- and OPG-expressing cells in bone tissue: the bone surface cells as activators of osteoclastogenesis and promoters of the denosumab rebound effect"
 authors:
 - Bilal M. El-Masri

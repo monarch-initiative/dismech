@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10875-023-01618-0"
+reference_id: DOI:10.1007/s10875-023-01618-0
 title: Plasma Levels of mir-34a-5p Correlate with Systemic Inflammation and Low Naïve CD4 T Cells in Common Variable Immunodeficiency
 authors:
 - Sofia Nyström

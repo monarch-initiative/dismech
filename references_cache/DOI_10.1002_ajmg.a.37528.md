@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.37528"
+reference_id: DOI:10.1002/ajmg.a.37528
 title: "Muenke syndrome: An international multicenter natural history study"
 authors:
 - Paul Kruszka

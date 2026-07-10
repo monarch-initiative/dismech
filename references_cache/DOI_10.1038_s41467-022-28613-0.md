@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-022-28613-0"
+reference_id: DOI:10.1038/s41467-022-28613-0
 title: Kansl1 haploinsufficiency impairs autophagosome-lysosome fusion and links autophagic dysfunction with Koolen-de Vries syndrome in mice
 authors:
 - Ting Li

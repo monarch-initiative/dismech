@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41525-025-00466-8"
+reference_id: DOI:10.1038/s41525-025-00466-8
 title: Identification of deep intronic variants in junctional epidermolysis bullosa using genome sequencing and splicing assays
 authors:
 - Fuying Chen

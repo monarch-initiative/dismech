@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00210-025-04572-3"
+reference_id: DOI:10.1007/s00210-025-04572-3
 title: "Efficacy and safety of immune checkpoint inhibitors for locoregionally advanced, recurrent and metastatic nasopharyngeal carcinoma: a systematic review of phase III randomised controlled trials"
 authors:
 - Sivananthan Manoharan

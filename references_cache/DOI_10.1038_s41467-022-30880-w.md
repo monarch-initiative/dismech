@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-022-30880-w"
+reference_id: DOI:10.1038/s41467-022-30880-w
 title: Neonatal gene therapy achieves sustained disease rescue of maple syrup urine disease in mice
 authors:
 - Clément Pontoizeau

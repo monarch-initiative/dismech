@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00247-023-05596-8"
+reference_id: DOI:10.1007/s00247-023-05596-8
 title: "Imaging in rhabdomyosarcoma: a patient journey"
 authors:
 - Isabelle S. A. de Vries

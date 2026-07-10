@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1046/j.1365-2796.1998.00341.x"
+reference_id: DOI:10.1046/j.1365-2796.1998.00341.x
 title: "Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci"
 authors:
 - Chrousos

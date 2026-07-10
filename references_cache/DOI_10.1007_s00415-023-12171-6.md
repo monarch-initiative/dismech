@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-023-12171-6"
+reference_id: DOI:10.1007/s00415-023-12171-6
 title: "Retinal imaging for the assessment of stroke risk: a systematic review"
 authors:
 - Zain Girach

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ctr.70278"
+reference_id: DOI:10.1111/ctr.70278
 title: "Effectiveness and Safety of Switching to Ravulizumab From Eculizumab in Kidney Transplant Recipients With Atypical Hemolytic Uremic Syndrome: A Global aHUS Registry Analysis"
 authors:
 - Anja Gaeckler

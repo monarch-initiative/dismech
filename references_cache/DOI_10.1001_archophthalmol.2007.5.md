@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/archophthalmol.2007.5"
+reference_id: DOI:10.1001/archophthalmol.2007.5
 title: Association of Antiretinal Antibodies in Acute Annular Outer Retinopathy
 authors:
 - Johnny Tang

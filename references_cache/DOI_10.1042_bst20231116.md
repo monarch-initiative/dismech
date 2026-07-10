@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1042/bst20231116"
+reference_id: DOI:10.1042/bst20231116
 title: "The SMN-ribosome interplay: a new opportunity for Spinal Muscular Atrophy therapies"
 authors:
 - Gaurav Sharma

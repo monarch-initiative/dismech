@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11033-022-08149-8"
+reference_id: DOI:10.1007/s11033-022-08149-8
 title: Genetic advances in Meniere Disease
 authors:
 - Qingqing Dai

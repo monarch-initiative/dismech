@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00296-024-05551-2"
+reference_id: DOI:10.1007/s00296-024-05551-2
 title: "Baricitinib for anti-melanoma differentiation-associated protein 5 antibody-positive dermatomyositis-associated interstitial lung disease: a case series and literature review on Janus kinase inhibitors for the disease"
 authors:
 - Hiroaki Harada

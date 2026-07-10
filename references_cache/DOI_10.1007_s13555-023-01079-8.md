@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s13555-023-01079-8"
+reference_id: DOI:10.1007/s13555-023-01079-8
 title: "The Microbiome and Acne: Perspectives for Treatment"
 authors:
 - Clio Dessinioti

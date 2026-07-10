@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00535-023-02065-9"
+reference_id: DOI:10.1007/s00535-023-02065-9
 title: Mucosal neuroimmune mechanisms in gastro-oesophageal reflux disease (GORD) pathogenesis
 authors:
 - Tom Leech

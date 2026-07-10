@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-023-45638-7"
+reference_id: DOI:10.1038/s41598-023-45638-7
 title: Hypersensitivity of myelinated A-fibers via toll-like receptor 5 promotes mechanical allodynia in tenascin-X-deficient mice associated with Ehlers–Danlos syndrome
 authors:
 - Hiroki Kamada

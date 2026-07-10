@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10554-024-03102-1"
+reference_id: DOI:10.1007/s10554-024-03102-1
 title: "Clinical characteristics, imaging findings, management, and outcomes of patients with scimitar syndrome at a tertiary referral healthcare center in Colombia"
 authors:
 - Ana M. Aristizabal
@@ -45,8 +45,7 @@ cardiovascular anomalies related to anomalous pulmonary
 venous return [ 1]. In this condition, there is an aberrant 
 venous return from the pulmonary veins to the inferior vena 
 cava, the cavoatrial junction, or the right atrium, which can 
- 
- Carlos A. Guzmán-Serrano
+  Carlos A. Guzmán-Serrano
 carlos.guzman.s@fvl.org.co
 1 Facultad de Ciencias de la Salud, Facultad de Ciencias de la 
 Salud, Universidad Icesi, Cali, Colombia

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41380-022-01503-z"
+reference_id: DOI:10.1038/s41380-022-01503-z
 title: "Borderline personality disorder: associations with psychiatric disorders, somatic illnesses, trauma, and adverse behaviors"
 authors:
 - Ashley E. Tate

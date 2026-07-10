@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-44305-9"
+reference_id: DOI:10.1038/s41467-023-44305-9
 title: Single-cell multi-omics analysis of human testicular germ cell tumor reveals its molecular features and microenvironment
 authors:
 - Xiaojian Lu

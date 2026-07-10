@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/9781119142812.ch11"
+reference_id: DOI:10.1002/9781119142812.ch11
 title: "Vesiculopustular, Bullous and Erosive Diseases of the Neonate"
 authors:
 - Caroline Mahon

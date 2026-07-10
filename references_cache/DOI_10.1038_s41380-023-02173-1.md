@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41380-023-02173-1"
+reference_id: DOI:10.1038/s41380-023-02173-1
 title: "White matter alterations in Attention-Deficit/Hyperactivity Disorder (ADHD): a systematic review of 129 diffusion imaging studies with meta-analysis"
 authors:
 - Valeria Parlatini

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-45107-3"
+reference_id: DOI:10.1038/s41467-024-45107-3
 title: Deep phenotyping of post-infectious myalgic encephalomyelitis/chronic fatigue syndrome
 authors:
 - Brian Walitt

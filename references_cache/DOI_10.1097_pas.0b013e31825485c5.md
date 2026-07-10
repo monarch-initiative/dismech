@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/pas.0b013e31825485c5"
+reference_id: DOI:10.1097/pas.0b013e31825485c5
 title: Tumors With EWSR1-CREB1 and EWSR1-ATF1 Fusions
 authors:
 - Khin Thway

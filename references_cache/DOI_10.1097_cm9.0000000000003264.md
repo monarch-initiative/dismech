@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/cm9.0000000000003264"
+reference_id: DOI:10.1097/cm9.0000000000003264
 title: "Global epidemiology of liver cancer 2022: An emphasis on geographic disparities"
 authors:
 - Qianru Li

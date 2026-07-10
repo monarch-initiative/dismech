@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00392-023-02221-4"
+reference_id: DOI:10.1007/s00392-023-02221-4
 title: "Prophylactic effect of angiotensin receptor blockers in children with genetic aortopathies: the early bird catches the worm"
 authors:
 - J. Olfe

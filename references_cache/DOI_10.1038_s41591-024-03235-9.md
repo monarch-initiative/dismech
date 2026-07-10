@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-03235-9"
+reference_id: DOI:10.1038/s41591-024-03235-9
 title: Molecular profiling of BRAF-V600E-mutant metastatic colorectal cancer in the phase 3 BEACON CRC trial
 authors:
 - Scott Kopetz

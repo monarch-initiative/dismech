@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00261-022-03551-z"
+reference_id: DOI:10.1007/s00261-022-03551-z
 title: "Secondary sclerosing cholangitis: mimics of primary sclerosing cholangitis"
 authors:
 - Daniel R. Ludwig

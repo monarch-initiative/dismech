@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2212851"
+reference_id: DOI:10.1056/nejmoa2212851
 title: Cabozantinib plus Nivolumab and Ipilimumab in Renal-Cell Carcinoma
 authors:
 - Toni K. Choueiri

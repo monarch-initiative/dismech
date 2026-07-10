@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jbmrpl/ziae180"
+reference_id: DOI:10.1093/jbmrpl/ziae180
 title: "Dental manifestations of hypophosphatasia: translational and clinical advances"
 authors:
 - Elis J Lira dos Santos

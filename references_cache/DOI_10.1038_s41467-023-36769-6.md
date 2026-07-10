@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-36769-6"
+reference_id: DOI:10.1038/s41467-023-36769-6
 title: Genomic and immune landscape Of metastatic pheochromocytoma and paraganglioma
 authors:
 - Bruna Calsina

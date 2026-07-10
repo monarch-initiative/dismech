@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.xhgg.2020.100015"
+reference_id: DOI:10.1016/j.xhgg.2020.100015
 title: Missense substitutions at a conserved 14-3-3 binding site in HDAC4 cause a novel intellectual disability syndrome
 authors:
 - Emma Wakeling

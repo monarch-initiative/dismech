@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ana.21081"
+reference_id: DOI:10.1002/ana.21081
 title: "Huntington's disease–like 2 is associated with CUG repeat‐containing RNA foci"
 authors:
 - Dobrila D. Rudnicki

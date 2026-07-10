@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-62096-x"
+reference_id: DOI:10.1038/s41598-024-62096-x
 title: RAS/RAF mutations and microsatellite instability status in primary colorectal cancers according to HER2 amplification
 authors:
 - Sun Mi Lee

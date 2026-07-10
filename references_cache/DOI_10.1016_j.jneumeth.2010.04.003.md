@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jneumeth.2010.04.003"
+reference_id: DOI:10.1016/j.jneumeth.2010.04.003
 title: Development of a simplified spinal cord ischemia model in mice
 authors:
 - Zhengfeng Wang

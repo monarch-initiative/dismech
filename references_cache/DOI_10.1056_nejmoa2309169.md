@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2309169"
+reference_id: DOI:10.1056/nejmoa2309169
 title: "Mirvetuximab Soravtansine in FRα-Positive, Platinum-Resistant Ovarian Cancer"
 authors:
 - Kathleen N. Moore

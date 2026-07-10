@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cge.13752"
+reference_id: DOI:10.1111/cge.13752
 title: "Kosaki overgrowth syndrome: A novel pathogenic variant in <scp><i>PDGFRB</i></scp> and expansion of the phenotype including cerebrovascular complications"
 authors:
 - Alison Foster

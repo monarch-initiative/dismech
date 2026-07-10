@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/advs.202403161"
+reference_id: DOI:10.1002/advs.202403161
 title: Primary and Orthotopic Murine Models of Nasopharyngeal Carcinoma Reveal Molecular Mechanisms Underlying its Malignant Progression
 authors:
 - Xudong Wan

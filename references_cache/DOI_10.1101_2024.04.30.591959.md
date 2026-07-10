@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.04.30.591959"
+reference_id: DOI:10.1101/2024.04.30.591959
 title: Structural insights into human propionyl-CoA carboxylase (PCC) and 3-methylcrotonyl-CoA carboxylase (MCC)
 authors:
 - Fayang Zhou

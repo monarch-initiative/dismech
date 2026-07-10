@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41416-023-02186-1"
+reference_id: DOI:10.1038/s41416-023-02186-1
 title: Preclinical models in head and neck squamous cell carcinoma
 authors:
 - Patricia Chaves

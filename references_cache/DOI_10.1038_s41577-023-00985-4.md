@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41577-023-00985-4"
+reference_id: DOI:10.1038/s41577-023-00985-4
 title: The immunology of type 1 diabetes
 authors:
 - Kevan C. Herold

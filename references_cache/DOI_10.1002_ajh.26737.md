@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajh.26737"
+reference_id: DOI:10.1002/ajh.26737
 title: "Follicular lymphoma: 2023 update on diagnosis and management"
 authors:
 - Eric Jacobsen

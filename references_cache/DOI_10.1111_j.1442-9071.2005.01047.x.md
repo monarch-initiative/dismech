@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.1442-9071.2005.01047.x"
+reference_id: DOI:10.1111/j.1442-9071.2005.01047.x
 title: Acute annular outer retinopathy
 authors:
 - Yoshinori Mitamura

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jama.2024.28666"
+reference_id: DOI:10.1001/jama.2024.28666
 title: Eladocagene Exuparvovec for Aromatic L-Amino Acid Decarboxylase Deficiency
 authors:
 - Avanti Golikeri

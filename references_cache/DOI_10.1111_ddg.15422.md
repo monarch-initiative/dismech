@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ddg.15422"
+reference_id: DOI:10.1111/ddg.15422
 title: Combination therapy for Sneddon syndrome to reduce the incidence of cerebrovascular complications
 authors:
 - Albert Narwutsch

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ccr3.1915"
+reference_id: DOI:10.1002/ccr3.1915
 title: Variable phenotypic expression of Apert syndrome in monozygotic twins
 authors:
 - Matthieu Dap

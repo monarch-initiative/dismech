@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.09.12.24313559"
+reference_id: DOI:10.1101/2024.09.12.24313559
 title: "Clinical management, epidemiology, and recurrence of human cystic echinococcosis in a secondary care level hospital in an endemic area of the Andes in Sicuani, Cusco, Peru"
 authors:
 - Roberto Pineda-Reyes

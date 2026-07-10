@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jbc.2024.107524"
+reference_id: DOI:10.1016/j.jbc.2024.107524
 title: Significance and amplification methods of the purine salvage pathway in human brain cells
 authors:
 - Mai Sekine

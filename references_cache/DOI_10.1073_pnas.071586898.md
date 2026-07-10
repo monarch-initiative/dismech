@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.071586898"
+reference_id: DOI:10.1073/pnas.071586898
 title: "A splicing switch and gain-of-function mutation in <i>FgfR2-IIIc</i> hemizygotes causes Apert/Pfeiffer-syndrome-like phenotypes"
 authors:
 - Mohammad K. Hajihosseini

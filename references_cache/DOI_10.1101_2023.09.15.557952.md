@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2023.09.15.557952"
+reference_id: DOI:10.1101/2023.09.15.557952
 title: "Amyloids “at the border”: deep mutagenesis and random sequence extension reveal an incomplete amyloid-forming motif in Bri2 that turns amyloidogenic upon C-terminal extension"
 authors:
 - Mariano Martín

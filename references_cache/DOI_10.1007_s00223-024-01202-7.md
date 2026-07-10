@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00223-024-01202-7"
+reference_id: DOI:10.1007/s00223-024-01202-7
 title: Medical Management for Fracture Prevention in Children with Osteogenesis Imperfecta
 authors:
 - Paul Arundel

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/eye.2016.275"
+reference_id: DOI:10.1038/eye.2016.275
 title: "Uveal melanoma: relatively rare but deadly cancer"
 authors:
 - S Kaliki

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.93.25.14355"
+reference_id: DOI:10.1073/pnas.93.25.14355
 title: Three-dimensional structure of human electron transfer flavoprotein to 2.1-Å resolution
 authors:
 - David L. Roberts

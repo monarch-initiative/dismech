@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00441-009-0872-0"
+reference_id: DOI:10.1007/s00441-009-0872-0
 title: Null mutations in LEPRE1 and CRTAP cause severe recessive osteogenesis imperfecta
 authors:
 - Joan C. Marini

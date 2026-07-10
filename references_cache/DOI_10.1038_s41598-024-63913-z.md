@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-63913-z"
+reference_id: DOI:10.1038/s41598-024-63913-z
 title: Genomic profiles of Japanese patients with vulvar squamous cell carcinoma
 authors:
 - Erisa Fujii

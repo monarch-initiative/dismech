@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00401-024-02834-7"
+reference_id: DOI:10.1007/s00401-024-02834-7
 title: "Neuronal and oligodendroglial, but not astroglial, tau translates to in vivo tau PET signals in individuals with primary tauopathies"
 authors:
 - Luna Slemann

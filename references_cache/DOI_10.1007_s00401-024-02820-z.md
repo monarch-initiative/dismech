@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00401-024-02820-z"
+reference_id: DOI:10.1007/s00401-024-02820-z
 title: Microglia contribute to the production of the amyloidogenic ABri peptide in familial British dementia
 authors:
 - Charles Arber

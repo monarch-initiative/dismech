@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41589-022-01159-4"
+reference_id: DOI:10.1038/s41589-022-01159-4
 title: Functional spectrum and specificity of mitochondrial ferredoxins FDX1 and FDX2
 authors:
 - Vinzent Schulz

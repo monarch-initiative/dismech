@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-03077-5"
+reference_id: DOI:10.1038/s41591-024-03077-5
 title: "Neoadjuvant pembrolizumab, dabrafenib and trametinib in BRAFV600-mutant resectable melanoma: the randomized phase 2 NeoTrio trial"
 authors:
 - Georgina V. Long

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12691"
+reference_id: DOI:10.1002/jimd.12691
 title: The incidence of movement disorder increases with age and contrasts with subtle and limited neuroimaging abnormalities in argininosuccinic aciduria
 authors:
 - Sonam Gurung

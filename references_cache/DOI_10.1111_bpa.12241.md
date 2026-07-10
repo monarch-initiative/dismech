@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bpa.12241"
+reference_id: DOI:10.1111/bpa.12241
 title: "Primary Melanocytic Tumors of the Central Nervous System: a Review with Focus on Molecular Aspects"
 authors:
 - Heidi V.N. Küsters‐Vandevelde

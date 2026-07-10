@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/exd.12572"
+reference_id: DOI:10.1111/exd.12572
 title: "Psoriasis is not an autoimmune disease?"
 authors:
 - Lionel Fry

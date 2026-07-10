@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12017-018-8502-1"
+reference_id: DOI:10.1007/s12017-018-8502-1
 title: RNA Sequencing and Pathway Analysis Identify Important Pathways Involved in Hypertrichosis and Intellectual Disability in Patients with Wiedemann–Steiner Syndrome
 authors:
 - Léo Mietton

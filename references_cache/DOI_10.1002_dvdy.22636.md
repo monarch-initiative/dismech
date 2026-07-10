@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/dvdy.22636"
+reference_id: DOI:10.1002/dvdy.22636
 title: Fgfr3 regulates development of the caudal telencephalon
 authors:
 - Randal X. Moldrich

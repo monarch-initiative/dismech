@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14712598.2020.1740678"
+reference_id: DOI:10.1080/14712598.2020.1740678
 title: "Leading edge: emerging drug, cell, and gene therapies for junctional epidermolysis bullosa"
 authors:
 - Allison R. Keith

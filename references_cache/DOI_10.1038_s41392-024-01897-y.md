@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41392-024-01897-y"
+reference_id: DOI:10.1038/s41392-024-01897-y
 title: "SHR-A1811 (antibody-drug conjugate) in advanced HER2-mutant non-small cell lung cancer: a multicenter, open-label, phase 1/2 study"
 authors:
 - Ziming Li

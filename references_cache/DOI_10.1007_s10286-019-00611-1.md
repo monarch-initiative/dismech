@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10286-019-00611-1"
+reference_id: DOI:10.1007/s10286-019-00611-1
 title: "Autoimmune autonomic neuropathies and ganglionopathies: epidemiology, pathophysiology, and therapeutic advances"
 authors:
 - Elisabeth P. Golden

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s43856-024-00605-9"
+reference_id: DOI:10.1038/s43856-024-00605-9
 title: Lipidomic biomarkers in plasma correlate with disease severity in adrenoleukodystrophy
 authors:
 - Yorrick R. J. Jaspers

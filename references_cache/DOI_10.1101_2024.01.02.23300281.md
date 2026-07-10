@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.01.02.23300281"
+reference_id: DOI:10.1101/2024.01.02.23300281
 title: "IL-32 producing CD8 <sup>+</sup> memory T cells and Tregs define the IDO1 / PD-L1 niche in human cutaneous leishmaniasis skin lesions"
 authors:
 - Nidhi S. Dey

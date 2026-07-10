@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41431-023-01447-0"
+reference_id: DOI:10.1038/s41431-023-01447-0
 title: "Börjeson–Forssman–Lehmann syndrome: delineating the clinical and allelic spectrum in 14 new families"
 authors:
 - Vani Jain

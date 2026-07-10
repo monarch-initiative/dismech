@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bjh.20070"
+reference_id: DOI:10.1111/bjh.20070
 title: "The molecular landscape of <scp>AL</scp> amyloidosis"
 authors:
 - Tal Zvida‐Bloch

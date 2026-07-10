@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/gim.2014.157"
+reference_id: DOI:10.1038/gim.2014.157
 title: Consanguinity and rare mutations outside of MCCC genes underlie nonspecific phenotypes of MCCD
 authors:
 - Peter J. Shepard

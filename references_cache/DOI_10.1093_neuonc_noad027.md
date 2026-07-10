@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/neuonc/noad027"
+reference_id: DOI:10.1093/neuonc/noad027
 title: "Risk prediction in early childhood sonic hedgehog medulloblastoma treated with radiation-avoiding chemotherapy: Evidence for more than 2 subgroups"
 authors:
 - Svenja Tonn

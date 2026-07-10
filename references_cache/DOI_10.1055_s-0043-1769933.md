@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0043-1769933"
+reference_id: DOI:10.1055/s-0043-1769933
 title: "Anxiety and Depression Symptoms of Family Members of Intensive Care Unit Patients: A Prospective Observational Study and the Lived Experiences of the Family Members"
 authors:
 - Hande Gurbuz

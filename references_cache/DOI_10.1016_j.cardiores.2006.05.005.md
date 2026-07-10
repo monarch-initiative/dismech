@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.cardiores.2006.05.005"
+reference_id: DOI:10.1016/j.cardiores.2006.05.005
 title: Regulating cellular oxygen sensing by hydroxylation
 authors:
 - J FANDREY

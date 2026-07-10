@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ijcard.2016.11.052"
+reference_id: DOI:10.1016/j.ijcard.2016.11.052
 title: An RyR2 mutation found in a family with a short-coupled variant of torsade de pointes
 authors:
 - Mai Kimura

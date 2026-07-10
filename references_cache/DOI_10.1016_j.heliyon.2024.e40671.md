@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.heliyon.2024.e40671"
+reference_id: DOI:10.1016/j.heliyon.2024.e40671
 title: "Health-related quality of life assessment in head and neck cancer: A systematic review of phase II and III clinical trials"
 authors:
 - Daria Maria Filippini

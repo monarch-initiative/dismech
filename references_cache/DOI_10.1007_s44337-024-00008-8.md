@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s44337-024-00008-8"
+reference_id: DOI:10.1007/s44337-024-00008-8
 title: "Immune thrombocytopenia (ITP): historical perspectives, pathophysiology, and treatment advances"
 authors:
 - Songphol Tungjitviboonkun

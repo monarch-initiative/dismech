@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s44337-024-00040-8"
+reference_id: DOI:10.1007/s44337-024-00040-8
 title: "Immune thrombocytopenia: a review of pathogenesis and current treatment"
 authors:
 - Xiang Yan

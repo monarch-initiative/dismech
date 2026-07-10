@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12325-024-02839-4"
+reference_id: DOI:10.1007/s12325-024-02839-4
 title: A Practical Review of Encorafenib and Binimetinib Therapy Management in Patients with BRAF V600E-Mutant Metastatic Non-Small Cell Lung Cancer
 authors:
 - Christina Baik

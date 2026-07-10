@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-54938-z"
+reference_id: DOI:10.1038/s41467-024-54938-z
 title: Neurotransmitter-bound bestrophin channel structures reveal small molecule drug targeting sites for disease treatment
 authors:
 - Aaron P. Owji

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00262-024-03789-0"
+reference_id: DOI:10.1007/s00262-024-03789-0
 title: "Deciphering the interplay of HPV infection, MHC-II expression, and CXCL13+ CD4+ T cell activation in oropharyngeal cancer: implications for immunotherapy"
 authors:
 - Shida Yan

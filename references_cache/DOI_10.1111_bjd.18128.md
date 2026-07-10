@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bjd.18128"
+reference_id: DOI:10.1111/bjd.18128
 title: Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa
 authors:
 - C. Has

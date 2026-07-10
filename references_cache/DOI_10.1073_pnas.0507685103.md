@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0507685103"
+reference_id: DOI:10.1073/pnas.0507685103
 title: Conserved oligomeric Golgi complex subunit 1 deficiency reveals a previously uncharacterized congenital disorder of glycosylation type II
 authors:
 - François Foulquier

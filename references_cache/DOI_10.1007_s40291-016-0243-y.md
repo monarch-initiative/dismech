@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40291-016-0243-y"
+reference_id: DOI:10.1007/s40291-016-0243-y
 title: "Netherton Syndrome: A Genotype-Phenotype Review"
 authors:
 - Constantina A. Sarri

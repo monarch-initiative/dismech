@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/wno.0000000000000396"
+reference_id: DOI:10.1097/wno.0000000000000396
 title: "Finding NMO: The Evolving Diagnostic Criteria of Neuromyelitis Optica"
 authors:
 - Jeffrey L. Bennett

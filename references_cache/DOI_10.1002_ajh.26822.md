@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajh.26822"
+reference_id: DOI:10.1002/ajh.26822
 title: "Acute myeloid leukemia: 2023 update on diagnosis, risk‐stratification, and management"
 authors:
 - Shai Shimony

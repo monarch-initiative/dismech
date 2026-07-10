@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/path.6246"
+reference_id: DOI:10.1002/path.6246
 title: "The fifth edition of the WHO classification of mature B‐cell neoplasms: open questions for research"
 authors:
 - Sarah E Coupland

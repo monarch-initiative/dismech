@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/ejhg.2014.61"
+reference_id: DOI:10.1038/ejhg.2014.61
 title: "The SMAD-binding domain of SKI: a hotspot for de novo mutations causing Shprintzen–Goldberg syndrome"
 authors:
 - Dorien Schepers

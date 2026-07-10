@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2009.09.019"
+reference_id: DOI:10.1016/j.ajhg.2009.09.019
 title: Spinocerebellar Ataxia Type 31 Is Associated with “Inserted” Penta-Nucleotide Repeats Containing (TGGAA)n
 authors:
 - Nozomu Sato

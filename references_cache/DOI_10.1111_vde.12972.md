@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/vde.12972"
+reference_id: DOI:10.1111/vde.12972
 title: "Canine junctional epidermolysis bullosa due to a novel mutation in <i>LAMA3</i> with severe upper respiratory involvement"
 authors:
 - Ina Herrmann

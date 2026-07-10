@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-45902-y"
+reference_id: DOI:10.1038/s41467-024-45902-y
 title: KDM3B inhibitors disrupt the oncogenic activity of PAX3-FOXO1 in fusion-positive rhabdomyosarcoma
 authors:
 - Yong Yean Kim

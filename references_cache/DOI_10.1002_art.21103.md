@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/art.21103"
+reference_id: DOI:10.1002/art.21103
 title: "Activation of the endoplasmic reticulum stress response in autoimmune myositis: Potential role in muscle fiber damage and dysfunction"
 authors:
 - Kanneboyina Nagaraju

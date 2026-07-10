@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/1040841x.2022.2054307"
+reference_id: DOI:10.1080/1040841x.2022.2054307
 title: "Regulatory transcription factors of <i>Clostridioides difficile</i> pathogenesis with a focus on toxin regulation"
 authors:
 - Harish Chandra

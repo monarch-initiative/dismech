@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.det.2009.10.016"
+reference_id: DOI:10.1016/j.det.2009.10.016
 title: Animal Models of Epidermolysis Bullosa
 authors:
 - Ken Natsuga

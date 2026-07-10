@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.shaw.2017.06.007"
+reference_id: DOI:10.1016/j.shaw.2017.06.007
 title: Green Tobacco Sickness Among Tobacco Harvesters in a Korean Village
 authors:
 - Sung-Jun Park

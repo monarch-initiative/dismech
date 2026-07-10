@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40267-021-00816-3"
+reference_id: DOI:10.1007/s40267-021-00816-3
 title: "Triheptanoin in the management of long-chain fatty acid oxidation disorders: a profile of its use"
 authors:
 - Esther S. Kim

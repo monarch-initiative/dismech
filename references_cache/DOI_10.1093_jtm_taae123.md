@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jtm/taae123"
+reference_id: DOI:10.1093/jtm/taae123
 title: "From bench to clinic: the development of VLA1553/IXCHIQ, a live-attenuated chikungunya vaccine"
 authors:
 - Lin H Chen

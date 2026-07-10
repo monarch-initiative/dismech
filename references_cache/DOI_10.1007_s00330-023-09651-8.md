@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00330-023-09651-8"
+reference_id: DOI:10.1007/s00330-023-09651-8
 title: "Delayed post gadolinium MRI descriptors for Meniere’s disease: a systematic review and meta-analysis"
 authors:
 - Steve Connor

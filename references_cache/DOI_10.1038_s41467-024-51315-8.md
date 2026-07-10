@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-51315-8"
+reference_id: DOI:10.1038/s41467-024-51315-8
 title: A real-world observation of patients with glioblastoma treated with a personalized peptide vaccine
 authors:
 - Pauline Latzer

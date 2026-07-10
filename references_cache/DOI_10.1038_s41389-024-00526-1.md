@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41389-024-00526-1"
+reference_id: DOI:10.1038/s41389-024-00526-1
 title: Involvement of Kindlin-1 in cutaneous squamous cell carcinoma
 authors:
 - Giovana Carrasco

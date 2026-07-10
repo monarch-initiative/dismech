@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.09.05.611330"
+reference_id: DOI:10.1101/2024.09.05.611330
 title: Geographic characterization of RPE structure and lipid changes in the PEX1-p.Gly844Asp mouse model for Zellweger spectrum disorder
 authors:
 - Samy Omri

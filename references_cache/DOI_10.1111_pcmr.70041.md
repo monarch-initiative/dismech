@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/pcmr.70041"
+reference_id: DOI:10.1111/pcmr.70041
 title: Germline Cancer Susceptibility Variants in Patients With Uveal Melanoma
 authors:
 - Pauliina E. Repo

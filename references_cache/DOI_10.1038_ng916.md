@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/ng916"
+reference_id: DOI:10.1038/ng916
 title: Mutations in SUFU predispose to medulloblastoma
 authors:
 - Michael D. Taylor

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmra2305712"
+reference_id: DOI:10.1056/nejmra2305712
 title: Behçet’s Syndrome
 authors:
 - David Saadoun

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2217423120"
+reference_id: DOI:10.1073/pnas.2217423120
 title: "Deep intronic founder mutations identified in the <i>ERCC4</i> / <i>XPF</i> gene are potential therapeutic targets for a high-frequency form of xeroderma pigmentosum"
 authors:
 - Chikako Senju

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ddg.12876"
+reference_id: DOI:10.1111/ddg.12876
 title: Diagnostic criteria of Netherton syndrome using noninvasive reflectance confocal microscopy
 authors:
 - Elisa Berthold

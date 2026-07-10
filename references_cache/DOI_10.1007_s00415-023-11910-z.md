@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00415-023-11910-z"
+reference_id: DOI:10.1007/s00415-023-11910-z
 title: "Update on the diagnosis and treatment of neuromyelitis optica spectrum disorders (NMOSD) – revised recommendations of the Neuromyelitis Optica Study Group (NEMOS). Part II: Attack therapy and long-term management"
 authors:
 - Tania Kümpfel

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41416-023-02247-5"
+reference_id: DOI:10.1038/s41416-023-02247-5
 title: Genome-scale CRISPR screen reveals neddylation to contribute to cisplatin resistance of testicular germ cell tumours
 authors:
 - Kai Funke

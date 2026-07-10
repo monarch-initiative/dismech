@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-53163-y"
+reference_id: DOI:10.1038/s41467-024-53163-y
 title: Integrative ensemble modelling of cetuximab sensitivity in colorectal cancer patient-derived xenografts
 authors:
 - Umberto Perron

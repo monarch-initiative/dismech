@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/a-2011-1933"
+reference_id: DOI:10.1055/a-2011-1933
 title: "Personalized endoscopic surveillance and intervention protocols for patients with familial adenomatous polyposis: the European FAP Consortium strategy"
 authors:
 - Arthur S. Aelvoet

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/epi.12220"
+reference_id: DOI:10.1111/epi.12220
 title: "International consensus classification of hippocampal sclerosis in temporal lobe epilepsy: A Task Force report from the<scp>ILAE</scp>Commission on Diagnostic Methods"
 authors:
 - Ingmar Blümcke

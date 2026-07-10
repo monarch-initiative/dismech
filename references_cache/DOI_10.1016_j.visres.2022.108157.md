@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.visres.2022.108157"
+reference_id: DOI:10.1016/j.visres.2022.108157
 title: Photoreceptor function and structure in retinal degenerations caused by biallelic BEST1 mutations
 authors:
 - Artur V. Cideciyan

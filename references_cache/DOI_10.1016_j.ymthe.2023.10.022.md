@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymthe.2023.10.022"
+reference_id: DOI:10.1016/j.ymthe.2023.10.022
 title: Improved efficacy of FKRP AAV gene therapy by combination with ribitol treatment for LGMD2I
 authors:
 - Marcela P. Cataldi

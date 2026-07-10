@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00535-025-02265-5"
+reference_id: DOI:10.1007/s00535-025-02265-5
 title: The 2024 diagnostic criteria for primary sclerosing cholangitis
 authors:
 - Itaru Naitoh

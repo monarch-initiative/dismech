@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00418-023-02259-5"
+reference_id: DOI:10.1007/s00418-023-02259-5
 title: "The peroxisome: an update on mysteries 3.0"
 authors:
 - Rechal Kumar

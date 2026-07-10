@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/13543784.2023.2249399"
+reference_id: DOI:10.1080/13543784.2023.2249399
 title: Ataxia-telangiectasia clinical trial landscape and the obstacles to overcome
 authors:
 - Katrina Kuhn

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14737175.2018.1540304"
+reference_id: DOI:10.1080/14737175.2018.1540304
 title: "Autoimmune autonomic ganglionopathy: an update on diagnosis and treatment"
 authors:
 - Shunya Nakane

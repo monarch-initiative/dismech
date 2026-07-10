@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jacl.2018.06.008"
+reference_id: DOI:10.1016/j.jacl.2018.06.008
 title: "Diagnosis, treatment, and clinical outcomes in 43 cases with cerebrotendinous xanthomatosis"
 authors:
 - P. Barton Duell

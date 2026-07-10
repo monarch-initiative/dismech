@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11899-023-00688-6"
+reference_id: DOI:10.1007/s11899-023-00688-6
 title: "The Bone Marrow Immune Microenvironment in CML: Treatment Responses, Treatment-Free Remission, and Therapeutic Vulnerabilities"
 authors:
 - Shaun David Patterson

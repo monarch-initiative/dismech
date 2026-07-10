@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.heliyon.2024.e33350"
+reference_id: DOI:10.1016/j.heliyon.2024.e33350
 title: "Global research trends in precision-targeted therapies for systemic lupus erythematosus (2003–2023): A bibliographic study"
 authors:
 - Zengze Yuan

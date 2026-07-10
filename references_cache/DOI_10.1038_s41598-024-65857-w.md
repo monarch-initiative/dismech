@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41598-024-65857-w"
+reference_id: DOI:10.1038/s41598-024-65857-w
 title: Role of serum complement C3 and C4 on kidney outcomes in IgA nephropathy
 authors:
 - Edoardo Tringali

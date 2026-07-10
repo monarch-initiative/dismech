@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jbmr/zjaf123"
+reference_id: DOI:10.1093/jbmr/zjaf123
 title: Fractures are highly correlated with bone density and inversely correlated with bone turnover markers in autosomal dominant osteopetrosis
 authors:
 - Michael J Econs

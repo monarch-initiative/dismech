@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jpn3.12400"
+reference_id: DOI:10.1002/jpn3.12400
 title: "Incidence, diagnostics, therapeutic management and outcomes of paediatric intestinal pseudo‐obstruction in the Netherlands: A 20‐year retrospective cohort study"
 authors:
 - Aysenur Demirok

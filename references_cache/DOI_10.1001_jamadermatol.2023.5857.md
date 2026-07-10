@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamadermatol.2023.5857"
+reference_id: DOI:10.1001/jamadermatol.2023.5857
 title: Estimated Spending on Beremagene Geperpavec for Dystrophic Epidermolysis Bullosa
 authors:
 - Adam J. N. Raymakers

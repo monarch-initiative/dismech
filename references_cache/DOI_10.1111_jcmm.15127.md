@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jcmm.15127"
+reference_id: DOI:10.1111/jcmm.15127
 title: Mitochondrial and mitochondrial‐independent pathways of myocardial cell death during ischaemia and reperfusion injury
 authors:
 - Sean M. Davidson

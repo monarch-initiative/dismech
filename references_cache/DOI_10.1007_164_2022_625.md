@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/164_2022_625"
+reference_id: DOI:10.1007/164_2022_625
 title: "CACNA1A-Related Channelopathies: Clinical Manifestations and Treatment Options"
 authors:
 - Elisabetta Indelicato

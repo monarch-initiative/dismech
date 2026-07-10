@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s42003-023-05753-7"
+reference_id: DOI:10.1038/s42003-023-05753-7
 title: Multi-ancestry genome-wide meta-analysis identifies novel basal cell carcinoma loci and shared genetic effects with squamous cell carcinoma
 authors:
 - Hélène Choquet

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1017/cjn.2024.16"
+reference_id: DOI:10.1017/cjn.2024.16
 title: Canadian Consensus Guidelines for the Diagnosis and Treatment of Autoimmune Encephalitis in Adults
 authors:
 - Christopher Hahn

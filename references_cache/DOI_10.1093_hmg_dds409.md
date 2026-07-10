@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/dds409"
+reference_id: DOI:10.1093/hmg/dds409
 title: The ciliary Evc/Evc2 complex interacts with Smo and controls Hedgehog pathway activity in chondrocytes by regulating Sufu/Gli3 dissociation and Gli3 trafficking in primary cilia
 authors:
 - Jose A. Caparrós-Martín

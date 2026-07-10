@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/database/baag004"
+reference_id: DOI:10.1093/database/baag004
 title: "Epilepsy disease classification: a community effort to enhance the Mondo Disease Ontology"
 authors:
 - Nicole Vasilevsky

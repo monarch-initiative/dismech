@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bjd.18921"
+reference_id: DOI:10.1111/bjd.18921
 title: Consensus reclassification of inherited epidermolysis bullosa and other disorders with skin fragility
 authors:
 - C. Has

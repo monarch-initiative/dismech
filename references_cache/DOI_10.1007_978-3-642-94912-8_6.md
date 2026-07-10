@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/978-3-642-94912-8_6"
+reference_id: DOI:10.1007/978-3-642-94912-8_6
 title: Subsepsis allergica
 authors:
 - Hans Wissler

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12026-016-8850-6"
+reference_id: DOI:10.1007/s12026-016-8850-6
 title: "Clinicopathologic correlation of 282 leukocytoclastic vasculitis cases in a tertiary hospital: a focus on direct immunofluorescence findings at the blood vessel wall"
 authors:
 - Caroline Maris Takatu

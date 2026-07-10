@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cup.13992"
+reference_id: DOI:10.1111/cup.13992
 title: "Pemphigus erythematosus: A case series from a tertiary academic center and literature review"
 authors:
 - Landon K. Hobbs

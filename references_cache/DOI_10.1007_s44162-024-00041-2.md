@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s44162-024-00041-2"
+reference_id: DOI:10.1007/s44162-024-00041-2
 title: "Cystinosis — a review of disease pathogenesis, management, and future treatment options"
 authors:
 - Lauren Devitt

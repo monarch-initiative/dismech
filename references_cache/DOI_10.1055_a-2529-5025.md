@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/a-2529-5025"
+reference_id: DOI:10.1055/a-2529-5025
 title: "Management of epithelial precancerous conditions and early neoplasia of the stomach (MAPS III): European Society of Gastrointestinal Endoscopy (ESGE), European Helicobacter and Microbiota Study Group (EHMSG) and European Society of Pathology (ESP) Guideline update 2025"
 authors:
 - Mário Dinis-Ribeiro

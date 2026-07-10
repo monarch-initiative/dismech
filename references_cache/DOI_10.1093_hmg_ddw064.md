@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddw064"
+reference_id: DOI:10.1093/hmg/ddw064
 title: "Dominant-negative kinase domain mutations in<i>FGFR1</i>can explain the clinical severity of Hartsfield syndrome"
 authors:
 - Sungkook Hong

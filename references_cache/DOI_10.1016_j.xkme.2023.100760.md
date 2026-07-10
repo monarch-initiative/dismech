@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.xkme.2023.100760"
+reference_id: DOI:10.1016/j.xkme.2023.100760
 title: "Kidney Failure Attributed to Focal Segmental Glomerulosclerosis: A USRDS Retrospective Cohort Study of Epidemiology, Treatment Modalities, and Economic Burden"
 authors:
 - Mark E. Bensink

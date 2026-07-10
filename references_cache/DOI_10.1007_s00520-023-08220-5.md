@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00520-023-08220-5"
+reference_id: DOI:10.1007/s00520-023-08220-5
 title: Emetic risk classification and evaluation of the emetogenicity of antineoplastic agents—updated MASCC/ESMO consensus recommendation
 authors:
 - Karin Jordan

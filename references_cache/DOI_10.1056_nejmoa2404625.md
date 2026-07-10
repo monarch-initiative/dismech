@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2404625"
+reference_id: DOI:10.1056/nejmoa2404625
 title: "Inavolisib-Based Therapy in <i>PIK3CA</i> -Mutated Advanced Breast Cancer"
 authors:
 - Nicholas C. Turner

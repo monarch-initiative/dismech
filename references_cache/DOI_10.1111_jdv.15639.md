@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jdv.15639"
+reference_id: DOI:10.1111/jdv.15639
 title: "Characteristics, risk factors and treatment reality in livedoid vasculopathy – a multicentre analysis"
 authors:
 - C. Weishaupt

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40272-024-00658-2"
+reference_id: DOI:10.1007/s40272-024-00658-2
 title: "Juvenile Dermatomyositis: Updates in Pathogenesis and Biomarkers, Current Treatment, and Emerging Targeted Therapies"
 authors:
 - Hanna Kim

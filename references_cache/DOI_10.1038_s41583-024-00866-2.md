@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41583-024-00866-2"
+reference_id: DOI:10.1038/s41583-024-00866-2
 title: Consequences of trisomy 21 for brain development in Down syndrome
 authors:
 - Matthew L. Russo

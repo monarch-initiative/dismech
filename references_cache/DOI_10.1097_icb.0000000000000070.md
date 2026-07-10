@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/icb.0000000000000070"
+reference_id: DOI:10.1097/icb.0000000000000070
 title: NEW INSIGHTS INTO ACUTE ANNULAR OUTER RETINOPATHY
 authors:
 - Shabari S. Seetharam

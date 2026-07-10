@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41572-024-00551-9"
+reference_id: DOI:10.1038/s41572-024-00551-9
 title: Non-small-cell lung cancer
 authors:
 - Lizza E. L. Hendriks

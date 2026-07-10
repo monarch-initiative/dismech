@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-024-03008-4"
+reference_id: DOI:10.1038/s41591-024-03008-4
 title: "Entrectinib in ROS1-positive advanced non-small cell lung cancer: the phase 2/3 BFAST trial"
 authors:
 - Solange Peters

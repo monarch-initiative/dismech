@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.gtc.2011.09.005"
+reference_id: DOI:10.1016/j.gtc.2011.09.005
 title: "Chronic Intestinal Pseudo-Obstruction: Clinical Features, Diagnosis, and Therapy"
 authors:
 - Roberto De Giorgio

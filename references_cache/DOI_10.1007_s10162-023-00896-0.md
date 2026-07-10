@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10162-023-00896-0"
+reference_id: DOI:10.1007/s10162-023-00896-0
 title: Types of Inheritance and Genes Associated with Familial Meniere Disease
 authors:
 - Alberto M. Parra-Perez

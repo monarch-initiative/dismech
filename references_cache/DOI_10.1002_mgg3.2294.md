@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mgg3.2294"
+reference_id: DOI:10.1002/mgg3.2294
 title: "Genotypic variants of the tetrahydrobiopterin (<scp>BH4</scp>) biosynthesis genes in patients with hyperphenylalaninemia from different regions of Iran"
 authors:
 - Seyed Reza Kazemi Nezhad

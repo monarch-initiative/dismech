@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/epi4.12837"
+reference_id: DOI:10.1002/epi4.12837
 title: "Electroclinical features and phenotypic differences in adenylosuccinate lyase deficiency: Long‐term follow‐up of seven patients from four families and appraisal of the literature"
 authors:
 - Gianni Cutillo

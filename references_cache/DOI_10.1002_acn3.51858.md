@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/acn3.51858"
+reference_id: DOI:10.1002/acn3.51858
 title: "Infantile‐onset parkinsonism, dyskinesia, and developmental delay: do not forget polyglutamine defects!"
 authors:
 - Heidy Baide‐Mairena

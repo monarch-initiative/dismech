@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-021-26263-2"
+reference_id: DOI:10.1038/s41467-021-26263-2
 title: Disordered breathing in a Pitt-Hopkins syndrome model involves Phox2b-expressing parafacial neurons and aberrant Nav1.8 expression
 authors:
 - C. M. Cleary

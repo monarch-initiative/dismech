@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41375-022-01802-y"
+reference_id: DOI:10.1038/s41375-022-01802-y
 title: "Different prognostic impact of recurrent gene mutations in chronic lymphocytic leukemia depending on IGHV gene somatic hypermutation status: a study by ERIC in HARMONY"
 authors:
 - Larry Mansouri

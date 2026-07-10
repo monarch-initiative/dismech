@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jhep.2023.04.007"
+reference_id: DOI:10.1016/j.jhep.2023.04.007
 title: Neurological worsening in Wilson disease – clinical classification and outcome
 authors:
 - Isabelle Mohr
