@@ -103,6 +103,23 @@ The TSV columns are:
 - `--top <n>` / `--min-count <n>` — how many disorders to keep in the TSV.
 - `NCBI_API_KEY` env var — raises the rate limit from 3 to 10 req/s.
 
+## Re-slicing by rarity (or any disorder attribute)
+
+`search` scans all disorders and records the count per disorder, so any slice is
+a post-filter on the JSONL — no re-search needed. To build a rare-disease batch
+(the Fanconi-anemia-style target), filter to entries whose
+`prevalence.prevalence_class` is one of `RARE`, `ULTRA_RARE`,
+`BAND_1_9_PER_100000`, `BAND_1_9_PER_1000000`, `BELOW_1_IN_1000000` (and not
+`COMMON` / `ABOVE_1_IN_1000`), intersect with `count > 0`, then feed the filtered
+JSONL to `fetch`:
+
+```bash
+# after producing hits.jsonl, keep only rare slugs (whatever your filter yields)
+grep -F -f rare_slugs.txt hits.jsonl > hits_rare.jsonl   # or filter in Python
+python .claude/skills/collect-care-guidelines/scripts/collect_guidelines.py \
+    fetch --hits hits_rare.jsonl --out rare_citations.tsv --min-count 1 --top 10
+```
+
 ## Precision notes and caveats
 
 - The bare `"<name>"` term relies on PubMed **Automatic Term Mapping**, which

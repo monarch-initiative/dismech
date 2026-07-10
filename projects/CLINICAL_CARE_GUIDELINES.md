@@ -4,10 +4,11 @@ status: IN_PROGRESS
 description: >-
   Systematically collect recent clinical Practice Guideline citations from
   PubMed for dismech disorders, generalizing the Fanconi anemia care-guideline
-  mining (issue #4878). This first batch captures the top 40 disorders by
-  recent-guideline availability as a snippet-verification and gap-assessment
-  worklist.
-tags: [CLINICAL_GUIDELINES, EVIDENCE, PUBMED, PHENOTYPE_COVERAGE, CURATION_WORKFLOW]
+  mining (issue #4878). Batch 1 captures the top 40 disorders by
+  recent-guideline availability; batch 2 is a 10-disorder rare-disease slice
+  that mirrors the Fanconi anemia case — together a snippet-verification and
+  gap-assessment worklist.
+tags: [CLINICAL_GUIDELINES, EVIDENCE, PUBMED, PHENOTYPE_COVERAGE, CURATION_WORKFLOW, RARE_DISEASE]
 diseases:
   - COVID-19
   - Diabetes_Mellitus
@@ -49,6 +50,16 @@ diseases:
   - Multiple_Myeloma
   - Renal_Cell_Carcinoma
   - Multiple_Sclerosis
+  - Epidermolysis_Bullosa
+  - Kawasaki_Disease
+  - Dermatomyositis
+  - Takayasu_Arteritis
+  - Peutz_Jeghers_Syndrome
+  - Pompe_Disease
+  - Gaucher_Disease
+  - Hemophilia_B
+  - Friedreich_Ataxia
+  - Phenylketonuria
 ---
 
 # Clinical Care Guideline Collection
@@ -106,7 +117,7 @@ floor, kidney cancer, …). Tagging the phrase with `[MeSH Terms]`/`[Title/Abstr
 makes an unmatched disorder correctly return **zero**. This single fix is the
 difference between a trustworthy worklist and noise.
 
-## Results
+## Results — Batch 1 (top 40 by guideline count)
 
 Searched **1,564** disorder entries. **464** returned at least one recent
 practice guideline; 340 returned ≥2, 280 returned ≥3.
@@ -165,6 +176,42 @@ sampled rows for high-volume conditions).
 | 39 | Renal_Cell_Carcinoma | Renal Cell Carcinoma | 51 |
 | 40 | Multiple_Sclerosis | Multiple Sclerosis | 50 |
 
+## Results — Batch 2 (rare diseases, Fanconi-anemia-style)
+
+Batch 1's count-ranking surfaces common conditions. Batch 2 deliberately
+re-slices the same 1,564-disorder search to **rare diseases** — the case the FA
+work actually targeted, and the richest ground for phenotype-annotation gaps.
+
+**Rare** is defined structurally from each entry's `prevalence.prevalence_class`:
+any of `RARE`, `ULTRA_RARE`, `BAND_1_9_PER_100000`, `BAND_1_9_PER_1000000`, or
+`BELOW_1_IN_1000000`, with no `COMMON` / `ABOVE_1_IN_1000` / `BAND_1_5_PER_10000`
+record. Of **288** rare disorders, **48** have ≥1 recent practice guideline.
+
+This batch picks **10** rare disorders spanning distinct disease families
+(blistering skin disease, vasculitis, autoimmune myopathy, hereditary
+cancer/polyposis, lysosomal storage, bleeding disorder, neurodegenerative
+ataxia, inborn error of metabolism), each in the FA-comparable "mineable"
+range of 3–11 guidelines. Citations →
+[`CLINICAL_CARE_GUIDELINES/guideline_citations_rare_batch.tsv`](CLINICAL_CARE_GUIDELINES/guideline_citations_rare_batch.tsv)
+(60 rows).
+
+| Disorder (dismech slug) | PubMed search term | Prevalence tier | Recent guidelines |
+|-------------------------|--------------------|-----------------|------------------:|
+| Epidermolysis_Bullosa | epidermolysis bullosa | 1-9 / 1,000,000 | 11 |
+| Kawasaki_Disease | Kawasaki Disease | rare | 11 |
+| Dermatomyositis | Dermatomyositis | 1-9 / 100,000 | 8 |
+| Takayasu_Arteritis | Takayasu Arteritis | 1-9 / 100,000 | 7 |
+| Peutz_Jeghers_Syndrome | Peutz-Jeghers syndrome | 1-9 / 1,000,000 | 5 |
+| Pompe_Disease | Pompe Disease | 1-9 / 100,000 | 4 |
+| Gaucher_Disease | Gaucher Disease | 1-9 / 100,000 | 4 |
+| Hemophilia_B | Hemophilia B | 1-9 / 100,000 | 4 |
+| Friedreich_Ataxia | Friedreich ataxia | 1-9 / 100,000 | 3 |
+| Phenylketonuria | phenylketonuria | 1-9 / 100,000 | 3 |
+
+For continuity, `Fanconi_Anemia` itself (4 guidelines, same rare tier) is *not*
+re-listed here — it already has its own [gap-analysis project](FANCONI_ANEMIA_GAP_ANALYSIS.md)
+and serves as the benchmark this batch is modeled on.
+
 ## Known limitations (for the curator)
 
 - **Common-disease skew.** "Search-driven, keep hits" ranking by count surfaces
@@ -198,7 +245,9 @@ were each independently re-sourced.
 ## Files
 
 - [`CLINICAL_CARE_GUIDELINES/guideline_citations.tsv`](CLINICAL_CARE_GUIDELINES/guideline_citations.tsv)
-  — the top-40 citation table (one row per disorder × guideline PMID).
+  — batch 1: the top-40 citation table (one row per disorder × guideline PMID).
+- [`CLINICAL_CARE_GUIDELINES/guideline_citations_rare_batch.tsv`](CLINICAL_CARE_GUIDELINES/guideline_citations_rare_batch.tsv)
+  — batch 2: the 10 rare-disease citation table (same columns).
 - [`CLINICAL_CARE_GUIDELINES/guideline_search_all.jsonl`](CLINICAL_CARE_GUIDELINES/guideline_search_all.jsonl)
   — the full 1,564-disorder search result / prioritization ranking.
 - `.claude/skills/collect-care-guidelines/` — the reusable Agent Skill
@@ -209,6 +258,9 @@ were each independently re-sourced.
 1. **Gap assessment (the second half of #4878).** For a chosen disorder, diff
    its guideline-derived phenotype/treatment content against (a) the dismech
    entry and (b) the HPOA annotation file, FA-style.
-2. **Re-slice for rare diseases.** Run the same skill filtered to rare-disease
-   entries to build an FA-comparable, high-yield-for-mining batch.
+2. **Mine batch 2 first.** The 10 rare disorders are the highest-yield
+   gap-mining targets — start there (Epidermolysis_Bullosa and Kawasaki_Disease
+   have the most guideline material).
 3. **Widen the type filter** to `Guideline` where `Practice Guideline` is sparse.
+4. **Extend the rare slice.** 48 rare disorders have guidelines; batch 2 covers
+   10. The rest are queued in `guideline_search_all.jsonl`.
