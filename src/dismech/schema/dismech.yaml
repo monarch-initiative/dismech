@@ -1068,28 +1068,6 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
-  ElectrophysiologyFindingTerm:
-    description: >-
-      An in-vivo electrophysiologic finding term, drawn from the HP
-      electrophysiology-abnormality subtrees: EEG (HP:0002353), EMG (HP:0003457),
-      and EKG (HP:0003115). Unlike imaging findings (where RadLex is not yet
-      wired in), the HP EEG subtree is rich and OLS-served - hypsarrhythmia,
-      burst-suppression, focal/generalized/multifocal epileptiform discharges,
-      photoparoxysmal response, spike-wave, background slowing - so EEG findings
-      bind cleanly. Binding is RECOMMENDED because EMG/ECG/evoked-potential
-      findings are less completely covered.
-    comments:
-      - HP:0002353 EEG abnormality - electroencephalographic findings
-      - HP:0003457 EMG abnormality - electromyographic findings
-      - HP:0003115 Abnormal EKG - electrocardiographic findings
-    reachable_from:
-      source_nodes:
-        - HP:0002353  ## EEG abnormality
-        - HP:0003457  ## EMG abnormality
-        - HP:0003115  ## Abnormal EKG
-      is_direct: false
-      relationship_types:
-        - rdfs:subClassOf
   DiseaseTerm:
     description: >-
       A MONDO disease, inherited disease susceptibility, or related medical
@@ -1504,10 +1482,10 @@ enums:
 
   ElectrophysiologyModalityEnum:
     description: >-
-      In-vivo electrophysiologic / neurophysiologic investigation by which an
-      ElectrophysiologyFinding is detected. Meanings bind to the NCI Thesaurus
-      diagnostic-procedure branch. The electrophysiologic sibling of
-      ImagingModalityEnum.
+      In-vivo electrophysiologic / neurophysiologic investigation on which an
+      electrophysiologic phenotype was recorded (carried on the
+      ElectrophysiologyContext phenotype sidecar). Meanings bind to the NCI
+      Thesaurus diagnostic-procedure branch.
     permissible_values:
       EEG:
         title: Electroencephalography
@@ -3039,28 +3017,21 @@ slots:
     inlined: true
     comments:
       - Use NCIT Imaging Finding terms (C176708 / C199145) or HP imaging-observable phenotypes (atrophy, white-matter lesions, hyperintensity)
-  electrophysiology_findings:
+  electrophysiology:
     description: >-
-      In-vivo electrophysiologic / neurophysiologic findings (EEG, ECG, EMG,
-      nerve conduction, evoked potentials, polysomnography, MEG) that reflect
-      disease pathophysiology or define diagnostic criteria. The
-      electrophysiologic counterpart of the imaging_findings slot.
-    multivalued: true
-    inlined_as_list: true
-    range: ElectrophysiologyFinding
-    recommended: false
-    comments:
-      - Separate from phenotypes - names the modality plus the electrophysiologic finding (ictal/interictal, recording state), even when the abnormality is also curated as an HP phenotype
-      - Not for acquisition protocol, per-patient tracings, or diagnostic decision support (see the detection-modality design decision)
-  electrophysiology_modality:
-    description: The in-vivo electrophysiologic modality by which a finding is detected
-    range: ElectrophysiologyModalityEnum
-  electrophysiology_finding_term:
-    description: Ontology term for an electrophysiologic finding (from the HP EEG/EMG/EKG subtrees)
-    range: ElectrophysiologyFindingDescriptor
+      Optional electrophysiologic post-composition sidecar for a phenotype whose
+      phenotype_term is an EEG/EMG/EKG finding (HP:0002353 / HP:0003457 /
+      HP:0003115 subtrees). Carries modality plus the ictal and recording-state
+      axes a flat HP term cannot express. Electrophysiologic findings are HP
+      phenotypes, so they stay in `phenotypes`; this only post-composes them.
+    range: ElectrophysiologyContext
     inlined: true
     comments:
-      - Use HP electrophysiology-abnormality terms under HP:0002353 (EEG), HP:0003457 (EMG), or HP:0003115 (EKG)
+      - Use on EEG/EMG/EKG phenotypes; leave absent otherwise
+      - Not for acquisition protocol, per-patient tracings, or decision support
+  electrophysiology_modality:
+    description: The in-vivo electrophysiologic modality on which a phenotype was recorded
+    range: ElectrophysiologyModalityEnum
   ictal_state:
     description: Timing of an electrophysiologic finding relative to a seizure/paroxysmal event
     range: IctalStateEnum
@@ -4458,24 +4429,24 @@ classes:
             range: ImagingFindingTerm
             obligation_level: RECOMMENDED
 
-  ElectrophysiologyFindingDescriptor:
-    is_a: Descriptor
+  ElectrophysiologyContext:
     description: >-
-      A descriptor for an in-vivo electrophysiologic finding, bindable to the HP
-      EEG/EMG/EKG abnormality subtrees. The electrophysiologic sibling of
-      ImagingFindingDescriptor. Inherits located_in (UBERON body site, e.g. a
-      brain region for a focal EEG finding), laterality, spatial_extent, and
-      modifier from Descriptor for post-composition.
+      An optional post-composition sidecar on a Phenotype, carrying the
+      electrophysiologic axes that a flat HP phenotype term cannot express:
+      the modality it was recorded on, whether it is ictal/interictal/postictal,
+      and the behavioural/activation recording state. Used ONLY on phenotypes
+      whose phenotype_term is an electrophysiologic finding (the HP EEG/EMG/EKG
+      abnormality subtrees, e.g. descendants of HP:0002353). Deliberately NOT a
+      separate finding class: because electrophysiologic findings are already HP
+      phenotypes, they live in `phenotypes` and this block only post-composes
+      them, exactly as temporality/clinical_course/severity/onset do elsewhere.
     comments:
-      - Use for electrophysiologic appearances (hypsarrhythmia, epileptiform discharges, background slowing)
-      - Localization goes in located_in (UBERON brain region); focal/multifocal/generalized in spatial_extent
-    slot_usage:
-      term:
-        description: HP electrophysiology-abnormality term reference (EEG/EMG/EKG)
-        bindings:
-          - binds_value_of: id
-            range: ElectrophysiologyFindingTerm
-            obligation_level: RECOMMENDED
+      - Attach to a phenotype whose phenotype_term is under HP:0002353 (EEG), HP:0003457 (EMG), or HP:0003115 (EKG)
+      - Preclinical/animal electrophysiology (e.g. an electrographic seizure with no HP term) is a preferred_term-only phenotype carrying this sidecar
+    slots:
+      - electrophysiology_modality
+      - ictal_state
+      - recording_state
 
   LifeCycleStageDescriptor:
     is_a: Descriptor
@@ -5529,6 +5500,7 @@ classes:
       - subtype
       - subtypes
       - phenotype_contexts
+      - electrophysiology
   Biochemical:
     slots:
       - name
@@ -5627,56 +5599,6 @@ classes:
         description: Whether this finding is pathognomonic or defines a diagnostic criterion
       context:
         description: Context in which this finding is observed (e.g., specific subtype)
-  ElectrophysiologyFinding:
-    description: >-
-      A finding detected by in-vivo electrophysiology / neurophysiology (EEG,
-      video-EEG, ECG, EMG, nerve conduction, evoked potentials, polysomnography,
-      MEG) that reflects disease pathophysiology or defines a diagnostic
-      criterion. The electrophysiologic sibling of ImagingFinding and
-      HistopathologyFinding. Captures the modality plus the finding, plus the
-      EEG-specific ictal_state and recording_state axes - NOT acquisition
-      protocol, per-patient tracings, or diagnostic decision support.
-    comments:
-      - Separate from phenotypes - names the modality plus finding and its ictal/recording state, even when the abnormality is also an HP phenotype (cross-linked via phenotype_term)
-      - Separate from imaging - electrophysiologic signal rather than structural image
-      - Separate from the generic diagnosis slot - carries a structured finding rather than a free-text test name
-    slots:
-      - name
-      - electrophysiology_modality
-      - electrophysiology_finding_term
-      - ictal_state
-      - recording_state
-      - description
-      - located_in
-      - laterality
-      - spatial_extent
-      - phenotype_term
-      - diagnostic
-      - frequency
-      - modifier
-      - evidence
-      - notes
-      - context
-      - subtype
-    slot_usage:
-      name:
-        description: Name of the electrophysiologic finding
-      description:
-        description: Detailed description of the finding and its clinical significance
-        examples:
-          - value: Multifocal interictal epileptiform discharges on EEG
-          - value: Hypsarrhythmia on interictal EEG
-          - value: Generalized 3 Hz spike-and-wave on photic stimulation
-      electrophysiology_modality:
-        description: The electrophysiologic modality by which this finding is detected
-      located_in:
-        description: Anatomical localization of the finding (UBERON), e.g. a brain region for focal EEG
-      phenotype_term:
-        description: Optional HP phenotype this electrophysiologic finding also maps to
-      diagnostic:
-        description: Whether this finding is pathognomonic or defines a diagnostic criterion
-      context:
-        description: Context in which this finding is observed (e.g., specific subtype)
   Genetic:
     slots:
       - name
@@ -5729,7 +5651,6 @@ classes:
       - phenotypes
       - histopathology
       - imaging_findings
-      - electrophysiology_findings
       - biochemical
       - stages
       - genetic
