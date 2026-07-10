@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-021-25326-8
+reference_id: "DOI:10.1038/s41467-021-25326-8"
 title: Epigenetic control of melanoma cell invasiveness by the stem cell factor SALL4
 authors:
 - Johanna Diener

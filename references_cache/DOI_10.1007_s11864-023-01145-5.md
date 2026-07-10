@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11864-023-01145-5
+reference_id: "DOI:10.1007/s11864-023-01145-5"
 title: The Evolving Treatment Landscape of Medullary Thyroid Cancer
 authors:
 - Marta Laganà

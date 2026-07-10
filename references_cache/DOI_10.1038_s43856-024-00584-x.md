@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s43856-024-00584-x
+reference_id: "DOI:10.1038/s43856-024-00584-x"
 title: Recent and projected changes in global climate may increase nicotine absorption and the risk of green tobacco sickness
 authors:
 - Lewis H. Ziska

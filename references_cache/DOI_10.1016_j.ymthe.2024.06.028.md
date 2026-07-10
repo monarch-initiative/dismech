@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ymthe.2024.06.028
+reference_id: "DOI:10.1016/j.ymthe.2024.06.028"
 title: "Dual FKRP/FST gene therapy normalizes ambulation, increases strength, decreases pathology, and amplifies gene expression in LGMDR9 mice"
 authors:
 - Patricia Lam

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00428-010-0952-2
+reference_id: "DOI:10.1007/s00428-010-0952-2"
 title: HER2 diagnostics in gastric cancer—guideline validation and development of standardized immunohistochemical testing
 authors:
 - Josef Rüschoff

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-48134-2
+reference_id: "DOI:10.1038/s41467-024-48134-2"
 title: FOXC1 regulates endothelial CD98 (LAT1/4F2hc) expression in retinal angiogenesis and blood-retina barrier formation
 authors:
 - Teena Bhakuni

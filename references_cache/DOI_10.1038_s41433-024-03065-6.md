@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41433-024-03065-6
+reference_id: "DOI:10.1038/s41433-024-03065-6"
 title: "Voretigene neparvovec for inherited retinal dystrophy due to RPE65 mutations: a scoping review of eligibility and treatment challenges from clinical trials to real practice"
 authors:
 - Francesco Testa

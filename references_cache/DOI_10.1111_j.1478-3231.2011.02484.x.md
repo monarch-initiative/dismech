@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/j.1478-3231.2011.02484.x
+reference_id: "DOI:10.1111/j.1478-3231.2011.02484.x"
 title: "Validity of administrative data for the diagnosis of primary sclerosing cholangitis: a population-based study"
 authors:
 - Natalie A. Molodecky

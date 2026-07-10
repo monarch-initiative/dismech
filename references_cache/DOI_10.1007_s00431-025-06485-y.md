@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00431-025-06485-y
+reference_id: "DOI:10.1007/s00431-025-06485-y"
 title: Diagnosis of patent ductus arteriosus by different echocardiographic methods in very preterm infants
 authors:
 - Carlo Dani

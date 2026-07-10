@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0042-1759504
+reference_id: "DOI:10.1055/s-0042-1759504"
 title: "Imaging Recommendations for Diagnosis, Staging and Management of Larynx and Hypopharynx Cancer"
 authors:
 - Arpita Sahu

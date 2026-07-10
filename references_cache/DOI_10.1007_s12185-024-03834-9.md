@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12185-024-03834-9
+reference_id: "DOI:10.1007/s12185-024-03834-9"
 title: "Tazemetostat for relapsed/refractory B-cell non-Hodgkin lymphoma with EZH2 mutation in Japan: 3-year follow-up for a phase II study"
 authors:
 - Koji Izutsu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.stemcr.2023.02.002
+reference_id: "DOI:10.1016/j.stemcr.2023.02.002"
 title: "The role of UBE3A in the autism and epilepsy-related Dup15q syndrome using patient-derived, CRISPR-corrected neurons"
 authors:
 - Marwa Elamin

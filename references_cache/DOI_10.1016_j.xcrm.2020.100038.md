@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.xcrm.2020.100038
+reference_id: "DOI:10.1016/j.xcrm.2020.100038"
 title: Pattern of Relapse and Treatment Response in WNT-Activated Medulloblastoma
 authors:
 - Liana Nobre

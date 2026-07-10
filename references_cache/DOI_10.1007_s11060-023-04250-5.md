@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11060-023-04250-5
+reference_id: "DOI:10.1007/s11060-023-04250-5"
 title: Updates on the WHO diagnosis of IDH-mutant glioma
 authors:
 - David E. Reuss

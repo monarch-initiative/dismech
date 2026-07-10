@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jimd.12502
+reference_id: "DOI:10.1002/jimd.12502"
 title: "Genetic, biochemical, and clinical spectrum of patients with mitochondrial trifunctional protein deficiency identified after the introduction of newborn screening in the Netherlands"
 authors:
 - Marit Schwantje

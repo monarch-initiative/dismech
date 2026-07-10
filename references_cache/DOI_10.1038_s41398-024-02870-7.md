@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41398-024-02870-7
+reference_id: "DOI:10.1038/s41398-024-02870-7"
 title: "Genetics of child aggression, a systematic review"
 authors:
 - Emiko Koyama

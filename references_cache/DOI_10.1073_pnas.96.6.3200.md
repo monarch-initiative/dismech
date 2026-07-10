@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.96.6.3200
+reference_id: "DOI:10.1073/pnas.96.6.3200"
 title: "Functional repair of motor endplates after botulinum neurotoxin type A poisoning: Biphasic switch of synaptic activity between nerve sprouts and their parent terminals"
 authors:
 - Anton de Paiva

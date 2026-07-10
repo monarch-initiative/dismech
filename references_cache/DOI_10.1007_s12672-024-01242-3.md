@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12672-024-01242-3
+reference_id: "DOI:10.1007/s12672-024-01242-3"
 title: Recent advances in early detection of nasopharyngeal carcinoma
 authors:
 - Wen Jiang

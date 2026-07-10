@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/joim.13577
+reference_id: "DOI:10.1111/joim.13577"
 title: Genetic and molecular architecture of familial hypercholesterolemia
 authors:
 - Marianne Abifadel

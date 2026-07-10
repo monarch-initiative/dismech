@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1017/S0950268824000803
+reference_id: "DOI:10.1017/S0950268824000803"
 title: "National epidemiology of culture-confirmed brucellosis in Israel, 2004–2022"
 authors:
 - Miriam Weinberger

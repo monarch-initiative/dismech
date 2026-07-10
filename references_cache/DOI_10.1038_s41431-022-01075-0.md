@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41431-022-01075-0
+reference_id: "DOI:10.1038/s41431-022-01075-0"
 title: The 2019 and 2021 International Workshops on Alport Syndrome
 authors:
 - Sergio Daga

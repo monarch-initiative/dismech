@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00467-023-06211-6
+reference_id: "DOI:10.1007/s00467-023-06211-6"
 title: "Gastrointestinal challenges in nephropathic cystinosis: clinical perspectives"
 authors:
 - Mark W. Joseph

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1051/medsci/2023025
+reference_id: "DOI:10.1051/medsci/2023025"
 title: Cystinose
 authors:
 - Stéphanie Cherqui

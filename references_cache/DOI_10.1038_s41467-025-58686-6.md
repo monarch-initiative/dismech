@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-025-58686-6
+reference_id: "DOI:10.1038/s41467-025-58686-6"
 title: "Rare genetic variation in PTPRB is associated with central serous chorioretinopathy, varicose veins and glaucoma"
 authors:
 - Joel T. Rämö

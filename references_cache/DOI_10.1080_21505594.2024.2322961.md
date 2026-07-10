@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1080/21505594.2024.2322961
+reference_id: "DOI:10.1080/21505594.2024.2322961"
 title: "Sneaky tactics: Ingenious immune evasion mechanisms of <i>Bartonella</i>"
 authors:
 - Yixuan Xi

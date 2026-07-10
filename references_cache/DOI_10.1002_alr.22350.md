@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/alr.22350
+reference_id: "DOI:10.1002/alr.22350"
 title: "Computational fluid dynamic analysis of aggressive turbinate reductions: is it a culprit of empty nose syndrome?"
 authors:
 - Jennifer Malik

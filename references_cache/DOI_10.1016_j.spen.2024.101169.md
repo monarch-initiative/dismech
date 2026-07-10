@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.spen.2024.101169
+reference_id: "DOI:10.1016/j.spen.2024.101169"
 title: Ataxia telangiectasia
 authors:
 - John Collyer

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.02.09.579529
+reference_id: "DOI:10.1101/2024.02.09.579529"
 title: "Alterations in Lysosomal, Glial and Neurodegenerative Biomarkers in Patients with Sporadic and Genetic Forms of Frontotemporal Dementia"
 authors:
 - Jennifer Hsiao-Nakamoto

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41572-020-0158-0
+reference_id: "DOI:10.1038/s41572-020-0158-0"
 title: Uveal melanoma
 authors:
 - Martine J. Jager

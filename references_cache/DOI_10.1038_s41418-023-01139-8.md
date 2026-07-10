@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41418-023-01139-8
+reference_id: "DOI:10.1038/s41418-023-01139-8"
 title: Targeting HDAC3 to overcome the resistance to ATRA or arsenic in acute promyelocytic leukemia through ubiquitination and degradation of PML-RARα
 authors:
 - Bo Dai

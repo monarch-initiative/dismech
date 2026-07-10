@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41431-023-01507-5
+reference_id: "DOI:10.1038/s41431-023-01507-5"
 title: EMQN best practice guidelines for genetic testing in hereditary breast and ovarian cancer
 authors:
 - Trudi McDevitt

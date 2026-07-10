@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-53968-3
+reference_id: "DOI:10.1038/s41598-024-53968-3"
 title: "The spectrum of psychological disorders in family members of patients suffering from delirium associated with critical illness: a prospective, observational study"
 authors:
 - Katarzyna Kotfis

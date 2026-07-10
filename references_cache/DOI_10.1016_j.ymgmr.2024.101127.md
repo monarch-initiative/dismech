@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ymgmr.2024.101127
+reference_id: "DOI:10.1016/j.ymgmr.2024.101127"
 title: "Newborn screening and genetic diagnosis of 3-methylcrotonyl-CoA carboxylase deficiency in Quanzhou,China"
 authors:
 - Weihua Lin

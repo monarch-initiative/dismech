@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/nop/npae036
+reference_id: "DOI:10.1093/nop/npae036"
 title: "Do presenting symptoms predict treatment decisions and survival in glioblastoma? Real-world data from 1458 patients in the Swedish brain tumor registry"
 authors:
 - Helena Bruhn

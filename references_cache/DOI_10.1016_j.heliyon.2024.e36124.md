@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.heliyon.2024.e36124
+reference_id: "DOI:10.1016/j.heliyon.2024.e36124"
 title: Small airway inflammation in atypical asthma
 authors:
 - Junjie Han

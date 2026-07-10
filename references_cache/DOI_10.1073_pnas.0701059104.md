@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.0701059104
+reference_id: "DOI:10.1073/pnas.0701059104"
 title: Homeobox gene methylation in lung cancer studied by genome-wide analysis with a microarray-based methylated CpG island recovery assay
 authors:
 - Tibor Rauch

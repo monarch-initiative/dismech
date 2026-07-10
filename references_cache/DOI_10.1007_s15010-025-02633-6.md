@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s15010-025-02633-6
+reference_id: "DOI:10.1007/s15010-025-02633-6"
 title: "Use of fexinidazole in gambiense human African trypanosomiasis: a retrospective analysis of cases treated in Lui Hospital, South Sudan (2018–2024)"
 authors:
 - Francesca Mariotti
@@ -86,7 +86,8 @@ RESEARCH
 Infection (2025) 53:2847–2857
 https://doi.org/10.1007/s15010-025-02633-6
 F. Mariotti and R. Paggi contributed equally to the manuscript.
-  Lorenzo Zammarchi
+ 
+ Lorenzo Zammarchi
 lorenzo.zammarchi@unifi.it
 Francesca Mariotti
 francesca.mariotti@unifi.it

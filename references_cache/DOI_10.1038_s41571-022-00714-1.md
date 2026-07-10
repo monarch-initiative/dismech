@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41571-022-00714-1
+reference_id: "DOI:10.1038/s41571-022-00714-1"
 title: Advances in the clinical management of uveal melanoma
 authors:
 - Richard D. Carvajal

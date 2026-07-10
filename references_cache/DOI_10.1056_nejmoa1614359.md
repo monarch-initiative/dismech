@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/nejmoa1614359
+reference_id: "DOI:10.1056/nejmoa1614359"
 title: "Midostaurin plus Chemotherapy for Acute Myeloid Leukemia with a <i>FLT3</i> Mutation"
 authors:
 - Richard M. Stone

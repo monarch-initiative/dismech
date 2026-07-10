@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.bbadis.2020.165742
+reference_id: "DOI:10.1016/j.bbadis.2020.165742"
 title: "Insights into the molecular pathogenesis of cardiospondylocarpofacial syndrome: MAP3K7 c.737-7A &gt; G variant alters the TGFβ-mediated α-SMA cytoskeleton assembly and autophagy"
 authors:
 - Lucia Micale

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-023-37860-8
+reference_id: "DOI:10.1038/s41467-023-37860-8"
 title: Structural basis for botulinum neurotoxin E recognition of synaptic vesicle protein 2
 authors:
 - Zheng Liu

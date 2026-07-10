@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-020-67485-6
+reference_id: "DOI:10.1038/s41598-020-67485-6"
 title: "Influencing electroclinical features and prognostic factors in patients with anti-NMDAR encephalitis: a cohort follow-up study in Chinese patients"
 authors:
 - Yingxin Wang

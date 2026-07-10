@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00415-024-12505-y
+reference_id: "DOI:10.1007/s00415-024-12505-y"
 title: "An MRI evaluation of white matter involvement in paradigmatic forms of spastic ataxia: results from the multi-center PROSPAX study"
 authors:
 - Alessandra Scaravilli

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/ncomms9718
+reference_id: "DOI:10.1038/ncomms9718"
 title: Compound heterozygous mutations in the noncoding RNU4ATAC cause Roifman Syndrome by disrupting minor intron splicing
 authors:
 - Daniele Merico

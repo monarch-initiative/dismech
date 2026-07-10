@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10014-022-00446-1
+reference_id: "DOI:10.1007/s10014-022-00446-1"
 title: "Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas"
 authors:
 - Takashi Komori

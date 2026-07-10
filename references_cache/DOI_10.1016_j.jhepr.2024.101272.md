@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.jhepr.2024.101272
+reference_id: "DOI:10.1016/j.jhepr.2024.101272"
 title: "Primary sclerosing cholangitis–inflammatory bowel disease: Epidemiology, mortality, and impact of diagnostic sequence"
 authors:
 - Kristel K. Leung

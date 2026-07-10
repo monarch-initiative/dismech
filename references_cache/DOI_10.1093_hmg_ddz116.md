@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/hmg/ddz116
+reference_id: "DOI:10.1093/hmg/ddz116"
 title: A mouse model of Proteus syndrome
 authors:
 - Marjorie J Lindhurst

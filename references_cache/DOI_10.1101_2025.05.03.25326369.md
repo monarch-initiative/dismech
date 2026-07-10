@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2025.05.03.25326369
+reference_id: "DOI:10.1101/2025.05.03.25326369"
 title: "Multi-omics insights in major depressive disorder: Dysfunction of Neurons"
 authors:
 - Lingfeng Zhang

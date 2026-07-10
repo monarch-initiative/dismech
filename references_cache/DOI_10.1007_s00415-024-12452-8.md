@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00415-024-12452-8
+reference_id: "DOI:10.1007/s00415-024-12452-8"
 title: "Sex ratio and age of onset in AQP4 antibody-associated NMOSD: a review and meta-analysis"
 authors:
 - Simon Arnett

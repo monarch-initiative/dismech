@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/a-2765-8610
+reference_id: "DOI:10.1055/a-2765-8610"
 title: "Thoracic Aortic Aneurysm and Giant Cell Arteritis: Clarifying the Link"
 authors:
 - Sebastien Strachan

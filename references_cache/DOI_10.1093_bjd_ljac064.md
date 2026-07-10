@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/bjd/ljac064
+reference_id: "DOI:10.1093/bjd/ljac064"
 title: "Trends in keratinocyte skin cancer incidence, mortality and burden of disease in 33 countries between 1990 and 2017"
 authors:
 - Dorothy D Yang

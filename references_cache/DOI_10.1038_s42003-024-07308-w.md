@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s42003-024-07308-w
+reference_id: "DOI:10.1038/s42003-024-07308-w"
 title: Left atrial single-cell transcriptomics reveals amphiregulin as a surrogate marker for atrial fibrillation
 authors:
 - Yuya Suzuki

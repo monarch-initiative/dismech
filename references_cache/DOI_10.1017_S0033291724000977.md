@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1017/S0033291724000977
+reference_id: "DOI:10.1017/S0033291724000977"
 title: "The natural course of binge-eating disorder: findings from a prospective, community-based study of adults"
 authors:
 - Kristin N. Javaras

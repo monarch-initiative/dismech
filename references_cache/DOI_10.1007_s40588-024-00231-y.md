@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40588-024-00231-y
+reference_id: "DOI:10.1007/s40588-024-00231-y"
 title: Foodborne Helminthiasis
 authors:
 - Javier Benito Ortiz
@@ -68,7 +68,8 @@ health threat and a significant route of helminth infections
 for humans is through the consumption of larvae or eggs 
 in food products, foodborne helminthiasis. Foodborne hel -
 minth infections cause a substantial health burden with a 
-  Lian F. Thomas
+ 
+ Lian F. Thomas
 lthomas8@ed.ac.uk
 1 The Royal (Dick) School of Veterinary Studies, University of 
 Edinburgh, Midlothian, UK

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/aci.0000000000001040
+reference_id: "DOI:10.1097/aci.0000000000001040"
 title: Paucity of gastrointestinal plasma cells in common variable immunodeficiency
 authors:
 - Jan Willem N. Marsden

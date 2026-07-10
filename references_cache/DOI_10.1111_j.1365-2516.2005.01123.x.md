@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/j.1365-2516.2005.01123.x
+reference_id: "DOI:10.1111/j.1365-2516.2005.01123.x"
 title: "Iliopsoas haemorrhage in patients with haemophilia: results from one centre"
 authors:
 - C. Balkan

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40618-019-01079-6
+reference_id: "DOI:10.1007/s40618-019-01079-6"
 title: "Epidemiology, pathogenesis, and diagnosis of Addison’s disease in adults"
 authors:
 - C. Betterle

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/wps.21374
+reference_id: "DOI:10.1002/wps.21374"
 title: "Attention‐deficit/hyperactivity disorder (<scp>ADHD</scp>) in adults: evidence base, uncertainties and controversies"
 authors:
 - Samuele Cortese

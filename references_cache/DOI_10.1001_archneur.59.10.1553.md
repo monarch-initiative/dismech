@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1001/archneur.59.10.1553
+reference_id: "DOI:10.1001/archneur.59.10.1553"
 title: The Role of Cerebrospinal Fluid Hypocretin Measurement in the Diagnosis of Narcolepsy and Other Hypersomnias
 authors:
 - Emmanuel Mignot

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00520-023-08221-4
+reference_id: "DOI:10.1007/s00520-023-08221-4"
 title: "2023 updated MASCC/ESMO consensus recommendations: prevention of nausea and vomiting following high-emetic-risk antineoplastic agents"
 authors:
 - Jørn Herrstedt

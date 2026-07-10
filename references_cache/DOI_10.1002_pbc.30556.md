@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/pbc.30556
+reference_id: "DOI:10.1002/pbc.30556"
 title: "Children's Oncology Group's 2023 blueprint for research: Soft tissue sarcomas"
 authors:
 - Sapna Oberoi

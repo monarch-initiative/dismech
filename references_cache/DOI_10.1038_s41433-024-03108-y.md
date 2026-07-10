@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41433-024-03108-y
+reference_id: "DOI:10.1038/s41433-024-03108-y"
 title: MOG antibody-associated optic neuritis
 authors:
 - Niroshan Jeyakumar

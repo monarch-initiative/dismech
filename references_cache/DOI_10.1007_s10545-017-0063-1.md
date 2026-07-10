@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10545-017-0063-1
+reference_id: "DOI:10.1007/s10545-017-0063-1"
 title: Amino acid synthesis deficiencies
 authors:
 - T. J. de Koning

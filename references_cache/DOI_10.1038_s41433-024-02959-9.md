@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41433-024-02959-9
+reference_id: "DOI:10.1038/s41433-024-02959-9"
 title: "Ambient ultraviolet radiation and ocular melanoma incidence in the United States, 2000−2019"
 authors:
 - Basilica M. Arockiaraj

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/ddg.15566
+reference_id: "DOI:10.1111/ddg.15566"
 title: S2k guideline basal cell carcinoma of the skin (update 2023)
 authors:
 - Berenice M. Lang

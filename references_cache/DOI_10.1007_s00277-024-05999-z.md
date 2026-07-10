@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00277-024-05999-z
+reference_id: "DOI:10.1007/s00277-024-05999-z"
 title: "The effects of complement-independent, autoantibody-induced apoptosis of platelets in immune thrombocytopenia (ITP)"
 authors:
 - Lin Sun

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10689-025-00460-0
+reference_id: "DOI:10.1007/s10689-025-00460-0"
 title: "Genetics, genomics and clinical features of adenomatous polyposis"
 authors:
 - Jihoon E. Joo
@@ -35,9 +35,11 @@ Jihoon E. Joo, Julen Viana-Errasti equally contributed to this work
 (first authors).
 Daniel D. Buchanan, Laura Valle equally contributed to this work 
 (senior and corresponding authors).
-  Daniel D. Buchanan
+ 
+ Daniel D. Buchanan
 daniel.buchanan@unimelb.edu.au
-  Laura Valle
+ 
+ Laura Valle
 lvalle@idibell.cat
 1 Colorectal Oncogenomics Group, Department of Clinical 
 Pathology, The University of Melbourne, Parkville, VIC, 

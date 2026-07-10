@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-025-85193-x
+reference_id: "DOI:10.1038/s41598-025-85193-x"
 title: No evidence for active viral infection in unicentric and idiopathic multicentric Castleman disease by Viral-Track analysis
 authors:
 - Ira Miller

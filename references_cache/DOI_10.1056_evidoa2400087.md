@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/evidoa2400087
+reference_id: "DOI:10.1056/evidoa2400087"
 title: Sequencing of Checkpoint or BRAF/MEK Inhibitors on Brain Metastases in Melanoma
 authors:
 - Paolo A. Ascierto

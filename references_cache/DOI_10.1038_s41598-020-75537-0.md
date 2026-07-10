@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-020-75537-0
+reference_id: "DOI:10.1038/s41598-020-75537-0"
 title: Enhanced FGFR3 activity in postmitotic principal neurons during brain development results in cortical dysplasia and axonal tract abnormality
 authors:
 - Jui-Yen Huang

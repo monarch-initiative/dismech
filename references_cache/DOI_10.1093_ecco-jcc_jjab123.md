@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/ecco-jcc/jjab123
+reference_id: "DOI:10.1093/ecco-jcc/jjab123"
 title: "Pathogenesis of Microscopic Colitis: A Systematic Review"
 authors:
 - Yamile Zabana

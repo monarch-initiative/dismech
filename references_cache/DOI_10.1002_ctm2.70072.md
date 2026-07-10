@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ctm2.70072
+reference_id: "DOI:10.1002/ctm2.70072"
 title: Excitatory neurons and oligodendrocyte precursor cells are vulnerable to focal cortical dysplasia type IIIa as suggested by single‐nucleus multiomics
 authors:
 - Yingying Liu

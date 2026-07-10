@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11154-023-09848-8
+reference_id: "DOI:10.1007/s11154-023-09848-8"
 title: The genetics of Graves’ disease
 authors:
 - Lydia Grixti

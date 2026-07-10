@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jimd.12372
+reference_id: "DOI:10.1002/jimd.12372"
 title: The spectrum of peripheral neuropathy in disorders of the mitochondrial trifunctional protein
 authors:
 - Sarah C. Grünert

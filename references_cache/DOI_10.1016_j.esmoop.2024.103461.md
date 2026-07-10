@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.esmoop.2024.103461
+reference_id: "DOI:10.1016/j.esmoop.2024.103461"
 title: "First-line avelumab treatment in patients with metastatic Merkel cell carcinoma: 4-year follow-up from part B of the JAVELIN Merkel 200 study"
 authors:
 - S.P. D’Angelo

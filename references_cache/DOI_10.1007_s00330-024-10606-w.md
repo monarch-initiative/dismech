@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00330-024-10606-w
+reference_id: "DOI:10.1007/s00330-024-10606-w"
 title: "ESR Essentials: diagnosis of hepatocellular carcinoma—practice recommendations by ESGAR"
 authors:
 - Roberto Cannella

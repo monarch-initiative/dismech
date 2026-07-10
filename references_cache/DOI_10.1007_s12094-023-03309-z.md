@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12094-023-03309-z
+reference_id: "DOI:10.1007/s12094-023-03309-z"
 title: Real-world study on microsatellite instability and mismatch repair deficiency testing patterns among patients with metastatic colorectal cancer in Spain
 authors:
 - Rocio Garcia-Carbonero

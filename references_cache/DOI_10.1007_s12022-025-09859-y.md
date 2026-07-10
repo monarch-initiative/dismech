@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12022-025-09859-y
+reference_id: "DOI:10.1007/s12022-025-09859-y"
 title: Prevalence and Clinical Impact of BRAF p.V600E Mutation in Papillary Thyroid Carcinoma
 authors:
 - Alexandria Brumfield

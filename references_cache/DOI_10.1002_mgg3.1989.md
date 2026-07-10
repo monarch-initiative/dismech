@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/mgg3.1989
+reference_id: "DOI:10.1002/mgg3.1989"
 title: "Exploring the characteristics and most bothersome symptoms in <scp><i>MECP2</i></scp> duplication syndrome to pave the path toward developing <scp>parent‐oriented</scp> outcome measures"
 authors:
 - Muharrem Ak

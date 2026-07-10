@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/brain/awae074
+reference_id: "DOI:10.1093/brain/awae074"
 title: "Synaptopathy: presynaptic convergence in frontotemporal dementia and amyotrophic lateral sclerosis"
 authors:
 - Emma L Clayton

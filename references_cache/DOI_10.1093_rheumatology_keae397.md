@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/rheumatology/keae397
+reference_id: "DOI:10.1093/rheumatology/keae397"
 title: "Kidney whole-transcriptome profiling in primary antiphospholipid syndrome reveals complement, interferons and NETs-related gene expression"
 authors:
 - Maria G Tektonidou

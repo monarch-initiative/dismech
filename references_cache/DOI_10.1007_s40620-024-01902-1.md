@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40620-024-01902-1
+reference_id: "DOI:10.1007/s40620-024-01902-1"
 title: "Improving outcomes in atherosclerotic renovascular disease: importance of clinical presentation and multi-disciplinary review"
 authors:
 - Áine M. de Bhailis

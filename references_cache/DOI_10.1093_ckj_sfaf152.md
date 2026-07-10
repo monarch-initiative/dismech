@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/ckj/sfaf152
+reference_id: "DOI:10.1093/ckj/sfaf152"
 title: Recent advances in pathogenetic concepts and disease modeling of IgA nephropathy
 authors:
 - Leonie Dreher

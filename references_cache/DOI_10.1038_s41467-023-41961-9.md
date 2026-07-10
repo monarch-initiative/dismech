@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-023-41961-9
+reference_id: "DOI:10.1038/s41467-023-41961-9"
 title: Human cellular model systems of β-thalassemia enable in-depth analysis of disease phenotype
 authors:
 - Deborah E. Daniels

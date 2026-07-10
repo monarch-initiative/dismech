@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-023-38032-4
+reference_id: "DOI:10.1038/s41467-023-38032-4"
 title: Final results of DESTINY-CRC01 investigating trastuzumab deruxtecan in patients with HER2-expressing metastatic colorectal cancer
 authors:
 - Takayuki Yoshino

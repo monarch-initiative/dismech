@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0042-1758756
+reference_id: "DOI:10.1055/s-0042-1758756"
 title: Clinical and epidemiological profiles from a case series of 26 Brazilian CADASIL patients
 authors:
 - Renata Nogueira

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12022-024-09830-3
+reference_id: "DOI:10.1007/s12022-024-09830-3"
 title: "The Molecular Classification of Pheochromocytomas and Paragangliomas: Discovering the Genomic and Immune Landscape of Metastatic Disease"
 authors:
 - Carolijn J. M. de Bresser

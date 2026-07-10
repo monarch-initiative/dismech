@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/wdev.176
+reference_id: "DOI:10.1002/wdev.176"
 title: The Fibroblast Growth Factor signaling pathway
 authors:
 - David M. Ornitz

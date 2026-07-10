@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40259-023-00577-7
+reference_id: "DOI:10.1007/s40259-023-00577-7"
 title: RNA Targeting and Gene Editing Strategies for Transthyretin Amyloidosis
 authors:
 - Adam Ioannou

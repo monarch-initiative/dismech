@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/mgg3.2095
+reference_id: "DOI:10.1002/mgg3.2095"
 title: "<i>BEST1</i> novel mutation causes Bestrophinopathies in six families with distinct phenotypic diversity"
 authors:
 - Shangying Yang

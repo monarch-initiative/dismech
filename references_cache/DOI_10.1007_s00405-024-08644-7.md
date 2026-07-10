@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00405-024-08644-7
+reference_id: "DOI:10.1007/s00405-024-08644-7"
 title: "Cricopharyngeus muscle dysfunction: a poorly defined disorder from diagnosis to treatment"
 authors:
 - Brittany N. Krekeler

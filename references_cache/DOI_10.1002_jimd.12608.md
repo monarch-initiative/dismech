@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jimd.12608
+reference_id: "DOI:10.1002/jimd.12608"
 title: Exploring genotype–phenotype correlations in glutaric aciduria type 1
 authors:
 - Imke M. E. Schuurmans

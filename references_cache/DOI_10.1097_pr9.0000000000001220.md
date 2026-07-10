@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/pr9.0000000000001220
+reference_id: "DOI:10.1097/pr9.0000000000001220"
 title: Small fiber pathology in fibromyalgia syndrome
 authors:
 - Claudia Sommer

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.humpath.2015.12.001
+reference_id: "DOI:10.1016/j.humpath.2015.12.001"
 title: "Olmesartan-associated sprue-like enteropathy: a systematic review with emphasis on histopathology"
 authors:
 - Nina Burbure

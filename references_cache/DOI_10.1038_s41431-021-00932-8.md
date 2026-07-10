@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41431-021-00932-8
+reference_id: "DOI:10.1038/s41431-021-00932-8"
 title: Biallelic P4HTM variants associated with HIDEA syndrome and mitochondrial respiratory chain complex I deficiency
 authors:
 - Eleanor Hay

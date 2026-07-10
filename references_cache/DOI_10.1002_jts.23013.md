@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jts.23013
+reference_id: "DOI:10.1002/jts.23013"
 title: "A clinician's guide to the 2023 VA/DoD Clinical Practice Guideline for Management of Posttraumatic Stress Disorder and Acute Stress Disorder"
 authors:
 - Ariel J. Lang

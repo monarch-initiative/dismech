@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/cen3.70019
+reference_id: "DOI:10.1111/cen3.70019"
 title: "NMOSD: Innate Immunology Revisited"
 authors:
 - Fumihiro Yanagimura

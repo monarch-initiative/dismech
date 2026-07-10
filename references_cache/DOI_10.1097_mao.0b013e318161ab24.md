@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/mao.0b013e318161ab24
+reference_id: "DOI:10.1097/mao.0b013e318161ab24"
 title: Conductive Hearing Loss Caused by Third-Window Lesions of the Inner Ear
 authors:
 - Saumil N. Merchant

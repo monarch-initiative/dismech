@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41408-024-01143-2
+reference_id: "DOI:10.1038/s41408-024-01143-2"
 title: Current status and research directions in acute myeloid leukemia
 authors:
 - Hagop Kantarjian

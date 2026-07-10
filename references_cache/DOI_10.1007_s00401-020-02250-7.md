@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00401-020-02250-7
+reference_id: "DOI:10.1007/s00401-020-02250-7"
 title: Atypical teratoid/rhabdoid tumors (ATRTs) with SMARCA4 mutation are molecularly distinct from SMARCB1-deficient cases
 authors:
 - Dörthe Holdhof

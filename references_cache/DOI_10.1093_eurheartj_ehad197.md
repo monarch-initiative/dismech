@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/eurheartj/ehad197
+reference_id: "DOI:10.1093/eurheartj/ehad197"
 title: "2023 Update on European Atherosclerosis Society Consensus Statement on Homozygous Familial Hypercholesterolaemia: new treatments and clinical guidance"
 authors:
 - Marina Cuchel

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41591-024-03086-4
+reference_id: "DOI:10.1038/s41591-024-03086-4"
 title: "Cabozantinib and nivolumab with or without live bacterial supplementation in metastatic renal cell carcinoma: a randomized phase 1 trial"
 authors:
 - Hedyeh Ebrahimi

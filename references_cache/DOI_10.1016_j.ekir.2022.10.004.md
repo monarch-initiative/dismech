@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ekir.2022.10.004
+reference_id: "DOI:10.1016/j.ekir.2022.10.004"
 title: "Novel Treatment Paradigms: Focal Segmental Glomerulosclerosis"
 authors:
 - Marina de Cos

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/humrep/dead224
+reference_id: "DOI:10.1093/humrep/dead224"
 title: The testicular microvasculature in Klinefelter syndrome is immature with compromised integrity and characterized by excessive inflammatory cross-talk
 authors:
 - Emma B Johannsen

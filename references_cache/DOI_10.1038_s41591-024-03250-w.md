@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41591-024-03250-w
+reference_id: "DOI:10.1038/s41591-024-03250-w"
 title: "Neoadjuvant nivolumab and relatlimab in locally advanced MMR-deficient colon cancer: a phase 2 trial"
 authors:
 - Peter G. M. de Gooyer

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ueg2.12568
+reference_id: "DOI:10.1002/ueg2.12568"
 title: "Intestinal strictures in Crohn's disease: An update from 2023"
 authors:
 - Zishan Liu

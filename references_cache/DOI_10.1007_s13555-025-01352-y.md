@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s13555-025-01352-y
+reference_id: "DOI:10.1007/s13555-025-01352-y"
 title: "Interleukin-4 and Atopic Dermatitis: Why Does it Matter? A Narrative Review"
 authors:
 - Tiago Torres

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2025.10.01.679917
+reference_id: "DOI:10.1101/2025.10.01.679917"
 title: Smooth Muscle Cell-Specific TGFβ2 Protects Against Thoracic Aortic Aneurysm and Dissection in Mice
 authors:
 - Mengistu G. Gebere

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41439-023-00251-y
+reference_id: "DOI:10.1038/s41439-023-00251-y"
 title: Leigh-like syndrome with progressive cerebellar atrophy caused by novel HIBCH variants
 authors:
 - Yoshihiro Taura

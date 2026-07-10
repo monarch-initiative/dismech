@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41586-024-07812-3
+reference_id: "DOI:10.1038/s41586-024-07812-3"
 title: Mitochondrial complex I promotes kidney cancer metastasis
 authors:
 - Divya Bezwada

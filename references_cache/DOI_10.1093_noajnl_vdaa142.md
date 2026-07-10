@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/noajnl/vdaa142
+reference_id: "DOI:10.1093/noajnl/vdaa142"
 title: "Clinical, radiologic, and genetic characteristics of histone H3 K27M-mutant diffuse midline gliomas in adults"
 authors:
 - Jessica D Schulte

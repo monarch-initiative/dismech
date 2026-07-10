@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10147-024-02583-3
+reference_id: "DOI:10.1007/s10147-024-02583-3"
 title: "Phase 3 THOR Japanese subgroup analysis: erdafitinib in advanced or metastatic urothelial cancer and fibroblast growth factor receptor alterations"
 authors:
 - Nobuaki Matsubara

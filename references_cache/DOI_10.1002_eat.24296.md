@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/eat.24296
+reference_id: "DOI:10.1002/eat.24296"
 title: Postdischarge Mortality in a Cohort Hospitalized With Anorexia Nervosa
 authors:
 - Scott B. Patten

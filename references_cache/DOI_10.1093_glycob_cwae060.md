@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/glycob/cwae060
+reference_id: "DOI:10.1093/glycob/cwae060"
 title: "<i>O</i>-glycosylation of IgA1 and the pathogenesis of an autoimmune disease IgA nephropathy"
 authors:
 - Jan Novak

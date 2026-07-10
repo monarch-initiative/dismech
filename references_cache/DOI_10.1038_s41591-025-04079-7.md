@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41591-025-04079-7
+reference_id: "DOI:10.1038/s41591-025-04079-7"
 title: "Repotrectinib in NTRK fusion–positive advanced solid tumors: a phase 1/2 trial"
 authors:
 - Benjamin Besse

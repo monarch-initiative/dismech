@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s44318-024-00206-1
+reference_id: "DOI:10.1038/s44318-024-00206-1"
 title: Targeting SWI/SNF ATPases reduces neuroblastoma cell plasticity
 authors:
 - Man Xu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00223-023-01171-3
+reference_id: "DOI:10.1007/s00223-023-01171-3"
 title: "Is Osteogenesis Imperfecta Associated with Cardiovascular Abnormalities? A Systematic Review of the Literature"
 authors:
 - Sara J. E. Verdonk

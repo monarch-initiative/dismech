@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/S1473-3099(23)00430-9
+reference_id: "DOI:10.1016/S1473-3099(23)00430-9"
 title: "Effect of primaquine dose on the risk of recurrence in patients with uncomplicated Plasmodium vivax: a systematic review and individual patient data meta-analysis"
 authors:
 - Robert J Commons

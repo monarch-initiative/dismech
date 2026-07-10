@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.07.03.24309894
+reference_id: "DOI:10.1101/2024.07.03.24309894"
 title: Type 1 diabetes risk and severity after SARS-CoV-2 infection or vaccination
 authors:
 - Lars C. Stene

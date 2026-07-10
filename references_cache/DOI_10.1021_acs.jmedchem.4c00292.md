@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1021/acs.jmedchem.4c00292
+reference_id: "DOI:10.1021/acs.jmedchem.4c00292"
 title: Use of the Novel Site-Directed Enzyme Enhancement Therapy (SEE-Tx) Drug Discovery Platform to Identify Pharmacological Chaperones for Glutaric Acidemia Type 1
 authors:
 - Madalena Barroso

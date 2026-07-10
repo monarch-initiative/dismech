@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00277-024-05843-4
+reference_id: "DOI:10.1007/s00277-024-05843-4"
 title: "TGF-β: an active participant in the immune and metabolic microenvironment of multiple myeloma"
 authors:
 - Han-Yue Xue
@@ -43,7 +43,8 @@ between them and components of the BMME is considered
 to be the key to the pathogenesis of MM [ 4]. TGF-β exists 
 as a soluble element in the TME and is a multifunctional 
 cytokine. Previous studies have demonstrated that TGF-β 
-  Fang Wei
+ 
+ Fang Wei
 2649929367@qq.com
 Han-Yue Xue
 3242339867@qq.com

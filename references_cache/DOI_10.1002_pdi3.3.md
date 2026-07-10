@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/pdi3.3
+reference_id: "DOI:10.1002/pdi3.3"
 title: "Glycogen storage disease type I: Genetic etiology, clinical manifestations, and conventional and gene therapies"
 authors:
 - Jiamin Zhong

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41431-023-01474-x
+reference_id: "DOI:10.1038/s41431-023-01474-x"
 title: "Episignatures in practice: independent evaluation of published episignatures for the molecular diagnostics of ten neurodevelopmental disorders"
 authors:
 - Thomas Husson

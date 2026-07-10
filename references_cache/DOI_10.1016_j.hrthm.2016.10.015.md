@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.hrthm.2016.10.015
+reference_id: "DOI:10.1016/j.hrthm.2016.10.015"
 title: A type 2 ryanodine receptor variant associated with reduced Ca2+ release and short-coupled torsades de pointes ventricular arrhythmia
 authors:
 - Yusuke Fujii

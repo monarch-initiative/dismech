@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/humu.22915
+reference_id: "DOI:10.1002/humu.22915"
 title: "Mutation Update for<i>COL2A1</i>Gene Variants Associated with Type II Collagenopathies"
 authors:
 - Mouna Barat-Houari

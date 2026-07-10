@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/neup.12859
+reference_id: "DOI:10.1111/neup.12859"
 title: "Clinicopathological diversity of semantic dementia: Comparisons of patients with early‐onset versus late‐onset, left‐sided versus right‐sided temporal atrophy, and TDP‐type A versus type C pathology"
 authors:
 - Shinobu Kawakatsu

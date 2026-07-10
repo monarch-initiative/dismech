@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11060-024-04808-x
+reference_id: "DOI:10.1007/s11060-024-04808-x"
 title: "Glioblastoma in the real-world setting: patterns of care and outcome in the Austrian population"
 authors:
 - Andreas Hainfellner

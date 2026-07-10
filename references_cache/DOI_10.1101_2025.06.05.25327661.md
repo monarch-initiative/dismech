@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2025.06.05.25327661
+reference_id: "DOI:10.1101/2025.06.05.25327661"
 title: "Axenfeld-Rieger syndrome associated with a megabase-scale inversion separating <i>PITX2</i> from a conserved enhancer locus"
 authors:
 - Lucas A. Mitchell

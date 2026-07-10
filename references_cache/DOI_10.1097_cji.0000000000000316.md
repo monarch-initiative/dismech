@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/cji.0000000000000316
+reference_id: "DOI:10.1097/cji.0000000000000316"
 title: "Positive Status of Epstein-Barr Virus as a Biomarker for Gastric Cancer Immunotherapy: A Prospective Observational Study"
 authors:
 - Tong Xie

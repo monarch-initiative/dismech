@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41419-024-07186-4
+reference_id: "DOI:10.1038/s41419-024-07186-4"
 title: Synthetic rescue of Xeroderma Pigmentosum C phenotype via PIK3C3 downregulation
 authors:
 - Farah Kobaisi

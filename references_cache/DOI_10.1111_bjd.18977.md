@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/bjd.18977
+reference_id: "DOI:10.1111/bjd.18977"
 title: Systematic review of the efficacies and adverse effects of treatments for pityriasis lichenoides
 authors:
 - F. Jung

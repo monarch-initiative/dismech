@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00428-024-03746-3
+reference_id: "DOI:10.1007/s00428-024-03746-3"
 title: Molecular pathological classification of colorectal cancer—an update
 authors:
 - Philip D. Dunne

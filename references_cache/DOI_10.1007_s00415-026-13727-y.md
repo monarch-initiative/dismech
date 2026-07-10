@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00415-026-13727-y
+reference_id: "DOI:10.1007/s00415-026-13727-y"
 title: "Primary central nervous system vasculitis: an update"
 authors:
 - Claire Rice

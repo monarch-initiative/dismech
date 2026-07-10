@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41431-024-01585-z
+reference_id: "DOI:10.1038/s41431-024-01585-z"
 title: "Re-evaluating the genotypes of patients with adenomatous polyposis of unknown etiology: a nationwide study"
 authors:
 - John Gásdal Karstensen

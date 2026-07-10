@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1001/jamapsychiatry.2023.4294
+reference_id: "DOI:10.1001/jamapsychiatry.2023.4294"
 title: Attention-Deficit/Hyperactivity Disorder Medications and Long-Term Risk of Cardiovascular Diseases
 authors:
 - Le Zhang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.omtm.2022.12.007
+reference_id: "DOI:10.1016/j.omtm.2022.12.007"
 title: Preclinical studies in support of phase I/II clinical trials to treat GUCY2D-associated Leber congenital amaurosis
 authors:
 - Sanford L. Boye

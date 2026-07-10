@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/a-0918-3678
+reference_id: "DOI:10.1055/a-0918-3678"
 title: Review of Dancing Parasites in Lymphatic Filariasis
 authors:
 - Christoph F. Dietrich

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12028-023-01937-5
+reference_id: "DOI:10.1007/s12028-023-01937-5"
 title: "Detection and Management of Elevated Intracranial Pressure in the Treatment of Acute Community-Acquired Bacterial Meningitis: A Systematic Review"
 authors:
 - Victor Gabriel El-Hajj

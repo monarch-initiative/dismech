@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41572-023-00456-z
+reference_id: "DOI:10.1038/s41572-023-00456-z"
 title: Glycogen storage diseases
 authors:
 - William B. Hannah

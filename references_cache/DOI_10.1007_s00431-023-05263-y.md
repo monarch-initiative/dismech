@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00431-023-05263-y
+reference_id: "DOI:10.1007/s00431-023-05263-y"
 title: Novel therapeutic perspectives in Noonan syndrome and RASopathies
 authors:
 - Céline Saint-Laurent

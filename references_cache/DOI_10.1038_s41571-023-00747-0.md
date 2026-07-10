@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41571-023-00747-0
+reference_id: "DOI:10.1038/s41571-023-00747-0"
 title: "Global burden of gastric cancer: epidemiological trends, risk factors, screening and prevention"
 authors:
 - Aaron P. Thrift

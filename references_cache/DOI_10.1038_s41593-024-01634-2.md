@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41593-024-01634-2
+reference_id: "DOI:10.1038/s41593-024-01634-2"
 title: Targeting pathological cells with senolytic drugs reduces seizures in neurodevelopmental mTOR-related epilepsy
 authors:
 - Théo Ribierre

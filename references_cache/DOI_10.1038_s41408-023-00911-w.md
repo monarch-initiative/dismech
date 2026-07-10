@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41408-023-00911-w
+reference_id: "DOI:10.1038/s41408-023-00911-w"
 title: "Treatment of older adults with FLT3-mutated AML: Emerging paradigms and the role of frontline FLT3 inhibitors"
 authors:
 - Nicholas J. Short

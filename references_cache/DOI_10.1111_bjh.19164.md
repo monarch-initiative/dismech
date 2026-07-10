@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/bjh.19164
+reference_id: "DOI:10.1111/bjh.19164"
 title: "Diagnosis and evaluation of prognosis of myelofibrosis: A British Society for Haematology Guideline"
 authors:
 - Donal P. McLornan

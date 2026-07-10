@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/B978-0-444-63625-6.00010-0
+reference_id: "DOI:10.1016/B978-0-444-63625-6.00010-0"
 title: Wilson disease
 journal: Handbook of Clinical Neurology
 year: '2017'

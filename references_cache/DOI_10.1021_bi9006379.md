@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1021/bi9006379
+reference_id: "DOI:10.1021/bi9006379"
 title: Compositional Analysis of Heparin/Heparan Sulfate Interacting with Fibroblast Growth Factor·Fibroblast Growth Factor Receptor Complexes
 authors:
 - Fuming Zhang

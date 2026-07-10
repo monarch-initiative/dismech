@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12070-024-04719-3
+reference_id: "DOI:10.1007/s12070-024-04719-3"
 title: "Unusual Presentation of Non-Hodgkin Lymphoma of Two Cases: Case Report"
 authors:
 - Haritha S

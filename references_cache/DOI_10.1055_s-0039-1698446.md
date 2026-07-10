@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0039-1698446
+reference_id: "DOI:10.1055/s-0039-1698446"
 title: "Novel COL11A2 Pathogenic Variants in a Child with Autosomal Recessive Otospondylomegaepiphyseal Dysplasia: A Review of the Literature"
 authors:
 - Pavalan Selvam

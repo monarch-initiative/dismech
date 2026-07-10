@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11060-024-04676-5
+reference_id: "DOI:10.1007/s11060-024-04676-5"
 title: Screening and surveillance recommendations for central nervous system hemangioblastomas in pediatric patients with Von Hippel-Lindau disease
 authors:
 - Anna Laura Knoblauch
@@ -53,7 +53,8 @@ DRKS00029553, date of registration 08/16/2022, retrospectively registered.
 CASE STUDY
 Journal of Neuro-Oncology (2024) 168:537–545
 https://doi.org/10.1007/s11060-024-04676-5
-  Anna Laura Knoblauch
+ 
+ Anna Laura Knoblauch
 annalaura.knoblauch@web.de
 1 Department of Neurosurgery, Faculty of Medicine, Medical 
 Center - University of Freiburg, University of Freiburg, 

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41375-023-01942-9
+reference_id: "DOI:10.1038/s41375-023-01942-9"
 title: NPM1 mutation reprograms leukemic transcription network via reshaping TAD topology
 authors:
 - Qian Lai

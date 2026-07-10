@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-022-29657-y
+reference_id: "DOI:10.1038/s41467-022-29657-y"
 title: Microvascular stabilization via blood-brain barrier regulation prevents seizure activity
 authors:
 - Chris Greene

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1080/1744666x.2022.2082946
+reference_id: "DOI:10.1080/1744666x.2022.2082946"
 title: "Role of complement, anti-complement therapeutics, and other targeted immunotherapies in myasthenia gravis"
 authors:
 - Marinos C Dalakas

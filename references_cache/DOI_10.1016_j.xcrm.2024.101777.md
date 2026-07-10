@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.xcrm.2024.101777
+reference_id: "DOI:10.1016/j.xcrm.2024.101777"
 title: Modeling lung adenocarcinoma metastases using patient-derived organoids
 authors:
 - Yuan Liu

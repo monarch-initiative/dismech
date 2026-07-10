@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/jhg.2017.18
+reference_id: "DOI:10.1038/jhg.2017.18"
 title: "Autosomal dominant cutis laxa with progeroid features due to a novel, de novo mutation in ALDH18A1"
 authors:
 - Priya T Bhola

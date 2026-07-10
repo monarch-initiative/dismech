@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ueg2.12656
+reference_id: "DOI:10.1002/ueg2.12656"
 title: "Efficacy, safety and differential outcomes of immune‐chemotherapy with gemcitabine, cisplatin and durvalumab in patients with biliary tract cancers: A multicenter real world cohort"
 authors:
 - Katharina Mitzlaff

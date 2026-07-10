@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ajmg.a.32534
+reference_id: "DOI:10.1002/ajmg.a.32534"
 title: "15q overgrowth syndrome: A newly recognized phenotype associated with overgrowth, learning difficulties, characteristic facial appearance, renal anomalies and increased dosage of distal chromosome 15q"
 authors:
 - Katrina Tatton‐Brown

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00259-023-06166-8
+reference_id: "DOI:10.1007/s00259-023-06166-8"
 title: "Efficacy of [177Lu]Lu-DOTATATE in metastatic neuroendocrine neoplasms of different locations: data from the SEPTRALU study"
 authors:
 - Mercedes Mitjavila

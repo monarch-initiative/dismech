@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/humu.23355
+reference_id: "DOI:10.1002/humu.23355"
 title: "Differential regulation of two<i>FLNA</i>transcripts explains some of the phenotypic heterogeneity in the loss-of-function filaminopathies"
 authors:
 - Zandra A Jenkins

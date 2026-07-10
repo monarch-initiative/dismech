@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ymgmr.2016.07.007
+reference_id: "DOI:10.1016/j.ymgmr.2016.07.007"
 title: Diagnosis of adenylosuccinate lyase deficiency by metabolomic profiling in plasma reveals a phenotypic spectrum
 authors:
 - Taraka R. Donti

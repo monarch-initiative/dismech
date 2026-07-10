@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.chom.2023.03.019
+reference_id: "DOI:10.1016/j.chom.2023.03.019"
 title: Beneficial effects of fecal microbiota transplantation in recurrent Clostridioides difficile infection
 authors:
 - Abbas Yadegar

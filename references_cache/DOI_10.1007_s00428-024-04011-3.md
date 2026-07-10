@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00428-024-04011-3
+reference_id: "DOI:10.1007/s00428-024-04011-3"
 title: "Congenital melanocytic neoplasms: clinical, histopathological and recent molecular developments"
 authors:
 - Claudia Maria Salgado

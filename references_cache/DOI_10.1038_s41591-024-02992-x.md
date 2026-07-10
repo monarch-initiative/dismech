@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41591-024-02992-x
+reference_id: "DOI:10.1038/s41591-024-02992-x"
 title: "Trastuzumab deruxtecan in HER2-positive advanced gastric cancer: exploratory biomarker analysis of the randomized, phase 2 DESTINY-Gastric01 trial"
 authors:
 - Kohei Shitara

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/dvdy.24099
+reference_id: "DOI:10.1002/dvdy.24099"
 title: Soluble form of FGFR2 with S252W partially prevents craniosynostosis of the apert mouse model
 authors:
 - Jumpei Morita

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41380-019-0442-0
+reference_id: "DOI:10.1038/s41380-019-0442-0"
 title: "Familial risk and heritability of diagnosed borderline personality disorder: a register study of the Swedish population"
 authors:
 - Charlotte Skoglund

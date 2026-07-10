@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/hae.14849
+reference_id: "DOI:10.1111/hae.14849"
 title: "Plasminogen, human‐tvmh for the treatment of children and adults with plasminogen deficiency type 1"
 authors:
 - Amy D. Shapiro

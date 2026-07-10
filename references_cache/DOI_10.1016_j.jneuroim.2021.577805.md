@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.jneuroim.2021.577805
+reference_id: "DOI:10.1016/j.jneuroim.2021.577805"
 title: Subunit-specific autoantibodies in autoimmune autonomic ganglionopathy
 authors:
 - Nicolás Urriola

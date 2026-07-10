@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/cmr.00009-23
+reference_id: "DOI:10.1128/cmr.00009-23"
 title: "Clonorchiasis and opisthorchiasis: epidemiology, transmission, clinical features, morbidity, diagnosis, treatment, and control"
 authors:
 - Men-Bao Qian

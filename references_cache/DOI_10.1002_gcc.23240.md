@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/gcc.23240
+reference_id: "DOI:10.1002/gcc.23240"
 title: Clinicopathologic and molecular correlates to neoadjuvant chemotherapy‐induced pathologic response in breast angiosarcoma
 authors:
 - Hsin‐Yi Chang

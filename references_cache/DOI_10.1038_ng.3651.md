@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/ng.3651
+reference_id: "DOI:10.1038/ng.3651"
 title: Recurrent somatic mutations in POLR2A define a distinct subset of meningiomas
 authors:
 - Victoria E Clark

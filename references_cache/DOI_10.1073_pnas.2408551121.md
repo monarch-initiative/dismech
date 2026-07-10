@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.2408551121
+reference_id: "DOI:10.1073/pnas.2408551121"
 title: Contribution of intraflagellar transport to compartmentalization and maintenance of the photoreceptor cell
 authors:
 - Tylor R. Lewis

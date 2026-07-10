@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.04.24.590951
+reference_id: "DOI:10.1101/2024.04.24.590951"
 title: "Oncogenic MAPK pathway activation disrupts Schwann cell fate commitment, inducing congenital and progressive neuropathy in mice"
 authors:
 - Elise Marechal

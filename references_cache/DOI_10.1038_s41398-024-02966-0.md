@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41398-024-02966-0
+reference_id: "DOI:10.1038/s41398-024-02966-0"
 title: "Neurochemical and genetic factors in panic disorder: a systematic review"
 authors:
 - Adriana Carvalho Natal Moraes

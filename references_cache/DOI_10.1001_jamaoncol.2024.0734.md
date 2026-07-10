@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1001/jamaoncol.2024.0734
+reference_id: "DOI:10.1001/jamaoncol.2024.0734"
 title: Magnetic Resonance Imaging in Prostate Cancer Screening
 authors:
 - Tamás Fazekas

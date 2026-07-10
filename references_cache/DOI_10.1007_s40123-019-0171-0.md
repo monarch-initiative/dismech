@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40123-019-0171-0
+reference_id: "DOI:10.1007/s40123-019-0171-0"
 title: Reviewing the Pathophysiology Behind the Advances in the Management of Giant Cell Arteritis
 authors:
 - Alia Z. Al-Mousawi

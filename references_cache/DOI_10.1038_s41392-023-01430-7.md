@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41392-023-01430-7
+reference_id: "DOI:10.1038/s41392-023-01430-7"
 title: "Signaling pathways in vascular function and hypertension: molecular mechanisms and therapeutic interventions"
 authors:
 - Jun Ma

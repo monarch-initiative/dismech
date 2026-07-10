@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1017/s0033291722003683
+reference_id: "DOI:10.1017/s0033291722003683"
 title: "CBT treatment delivery formats for panic disorder: a systematic review and network meta-analysis of randomised controlled trials"
 authors:
 - Davide Papola

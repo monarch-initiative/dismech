@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ymthe.2023.02.015
+reference_id: "DOI:10.1016/j.ymthe.2023.02.015"
 title: A high-fidelity RNA-targeting Cas13 restores paternal Ube3a expression and improves motor functions in Angelman syndrome mice
 authors:
 - Jinhui Li

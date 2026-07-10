@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00436-024-08298-8
+reference_id: "DOI:10.1007/s00436-024-08298-8"
 title: "Scabies vaccines: where we stand and challenges ahead"
 authors:
 - Mahmoud S. Sharaf

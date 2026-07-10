@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.0402041101
+reference_id: "DOI:10.1073/pnas.0402041101"
 title: Binding of platelet glycoprotein Ibα to von Willebrand factor domain A1 stimulates the cleavage of the adjacent domain A2 by ADAMTS13
 authors:
 - Kenji Nishio

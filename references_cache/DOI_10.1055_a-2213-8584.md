@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/a-2213-8584
+reference_id: "DOI:10.1055/a-2213-8584"
 title: "Seizure Control Outcomes following Resection of Cortical Dysplasia in Patients with DEPDC5 Variants: A Systematic Review and Individual Patient Data Analysis"
 authors:
 - Christopher McGinley

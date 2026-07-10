@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/humrep/dez286
+reference_id: "DOI:10.1093/humrep/dez286"
 title: A minimum estimate of the prevalence of 22q11 deletion syndrome and other chromosome abnormalities in a combined prenatal and postnatal cohort
 authors:
 - Lisa Hui

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10689-025-00462-y
+reference_id: "DOI:10.1007/s10689-025-00462-y"
 title: "Guidelines for Familial Adenomatous Polyposis (FAP): challenges in defining clinical management for a rare disease"
 authors:
 - Benjamin Zare

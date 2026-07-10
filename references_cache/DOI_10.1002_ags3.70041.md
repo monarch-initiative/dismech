@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ags3.70041
+reference_id: "DOI:10.1002/ags3.70041"
 title: "Essential Updates 2023/2024: Recent Advances of Multimodal Approach in Patients for Gastric Cancer"
 authors:
 - Katsutoshi Shoda

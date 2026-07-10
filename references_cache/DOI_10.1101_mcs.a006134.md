@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/mcs.a006134
+reference_id: "DOI:10.1101/mcs.a006134"
 title: "Case report: five-year experience of AKT inhibition with miransertib (MK-7075) in an individual with Proteus syndrome"
 authors:
 - Christopher A. Ours

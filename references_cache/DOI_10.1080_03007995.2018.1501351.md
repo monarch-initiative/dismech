@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1080/03007995.2018.1501351
+reference_id: "DOI:10.1080/03007995.2018.1501351"
 title: Healthcare resource utilization in patients with metastatic melanoma receiving first-line therapy with dabrafenib + trametinib versus nivolumab or pembrolizumab monotherapy
 authors:
 - Sameer R. Ghate

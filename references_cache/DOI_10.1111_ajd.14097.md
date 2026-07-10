@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/ajd.14097
+reference_id: "DOI:10.1111/ajd.14097"
 title: "Dupilumab in paediatric Netherton syndrome: Can we do better?"
 authors:
 - Astrid Herzum

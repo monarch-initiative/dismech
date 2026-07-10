@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1080/22221751.2024.2307514
+reference_id: "DOI:10.1080/22221751.2024.2307514"
 title: Tribbles pseudokinase 3 promotes enterovirus A71 infection via dual mechanisms
 authors:
 - Huiqiang Wang

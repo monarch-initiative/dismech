@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s42003-023-05268-1
+reference_id: "DOI:10.1038/s42003-023-05268-1"
 title: A G1528C Hadha knock-in mouse model recapitulates aspects of human clinical phenotypes for long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency
 authors:
 - Garen Gaston

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41408-023-00835-5
+reference_id: "DOI:10.1038/s41408-023-00835-5"
 title: Comparison of the 2022 and 2017 European LeukemiaNet risk classifications in a real-life cohort of the PETHEMA group
 authors:
 - Claudia Sargas

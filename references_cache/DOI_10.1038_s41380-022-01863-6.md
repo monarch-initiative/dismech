@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41380-022-01863-6
+reference_id: "DOI:10.1038/s41380-022-01863-6"
 title: "Genetic nurture versus genetic transmission of risk for ADHD traits in the Norwegian Mother, Father and Child Cohort Study"
 authors:
 - Jean-Baptiste Pingault

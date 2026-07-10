@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2023.02.07.527511
+reference_id: "DOI:10.1101/2023.02.07.527511"
 title: "A Cas9-fusion proximity-based approach generates an <i>Irak1-Mecp2</i> tandem duplication mouse model for the study of MeCP2 duplication syndrome"
 authors:
 - Eleonora Maino

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/npr2.12067
+reference_id: "DOI:10.1002/npr2.12067"
 title: Possible association between photic sneeze syndrome and migraine and psychological distress
 authors:
 - Daimei Sasayama

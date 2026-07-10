@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/cge.13980
+reference_id: "DOI:10.1111/cge.13980"
 title: "<scp>COG1‐</scp> congenital disorders of glycosylation: Milder presentation and review"
 authors:
 - Marne Salazar

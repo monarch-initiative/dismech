@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/cvr/cvae164
+reference_id: "DOI:10.1093/cvr/cvae164"
 title: Calciprotein particle counts associate with vascular remodelling in chronic kidney disease
 authors:
 - Lian Feenstra

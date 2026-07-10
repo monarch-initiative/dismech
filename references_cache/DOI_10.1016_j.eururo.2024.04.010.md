@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.eururo.2024.04.010
+reference_id: "DOI:10.1016/j.eururo.2024.04.010"
 title: "EAU-EANM-ESTRO-ESUR-ISUP-SIOG Guidelines on Prostate Cancer. Part II—2024 Update: Treatment of Relapsing and Metastatic Prostate Cancer"
 authors:
 - Derya Tilki

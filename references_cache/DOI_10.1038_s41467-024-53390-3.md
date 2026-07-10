@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-53390-3
+reference_id: "DOI:10.1038/s41467-024-53390-3"
 title: Hallmarks of a genomically distinct subclass of head and neck cancer
 authors:
 - Tara Muijlwijk

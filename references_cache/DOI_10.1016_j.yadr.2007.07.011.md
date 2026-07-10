@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.yadr.2007.07.011
+reference_id: "DOI:10.1016/j.yadr.2007.07.011"
 title: "Ichthyosis Update: Towards a Function-Driven Model of Pathogenesis of the Disorders of Cornification and the Role of Corneocyte Proteins in These Disorders"
 authors:
 - Matthias Schmuth

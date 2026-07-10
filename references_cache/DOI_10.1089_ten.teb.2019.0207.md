@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1089/ten.teb.2019.0207
+reference_id: "DOI:10.1089/ten.teb.2019.0207"
 title: "Therapeutic Approaches for Volumetric Muscle Loss Injury: A Systematic Review and Meta-Analysis"
 authors:
 - Sarah M. Greising

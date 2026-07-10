@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11060-024-04682-7
+reference_id: "DOI:10.1007/s11060-024-04682-7"
 title: "Global post‑marketing safety surveillance of Tumor Treating Fields (TTFields) therapy in over 25,000 patients with CNS malignancies treated between 2011–2022"
 authors:
 - Maciej M. Mrugala

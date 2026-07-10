@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00296-024-05699-x
+reference_id: "DOI:10.1007/s00296-024-05699-x"
 title: Heart involvement in patients with systemic sclerosis—what have we learned about it in the last 5 years
 authors:
 - Aleksandra Nadel

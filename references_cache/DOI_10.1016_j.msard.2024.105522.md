@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.msard.2024.105522
+reference_id: "DOI:10.1016/j.msard.2024.105522"
 title: Epidemiology of aquaporin-4-IgG-positive NMOSD in Sardinia
 authors:
 - Elia Sechi

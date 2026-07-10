@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1096/fj.202401160rr
+reference_id: "DOI:10.1096/fj.202401160rr"
 title: "Retinal G‐protein‐coupled receptor deletion exacerbates <scp>AMD</scp>‐like changes via the <scp>PINK1</scp>–parkin pathway under oxidative stress"
 authors:
 - Yue Guo

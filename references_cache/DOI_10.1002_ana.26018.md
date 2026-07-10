@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ana.26018
+reference_id: "DOI:10.1002/ana.26018"
 title: Multimodal Biomarkers Quantify Recovery in Autoimmune Autonomic Ganglionopathy
 authors:
 - Shiwen Koay

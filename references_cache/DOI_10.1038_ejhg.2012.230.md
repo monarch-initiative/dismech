@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/ejhg.2012.230
+reference_id: "DOI:10.1038/ejhg.2012.230"
 title: "The 2q37-deletion syndrome: an update of the clinical spectrum including overweight, brachydactyly and behavioural features in 14 new patients"
 authors:
 - Camille Leroy

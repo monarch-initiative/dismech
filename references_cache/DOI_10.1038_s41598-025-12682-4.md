@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-025-12682-4
+reference_id: "DOI:10.1038/s41598-025-12682-4"
 title: Lysosomal free sialic acid storage disorder iPSC-derived neural cells display altered glycosphingolipid metabolism
 authors:
 - Marya S. Sabir

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41591-023-02465-7
+reference_id: "DOI:10.1038/s41591-023-02465-7"
 title: "Zolbetuximab plus CAPOX in CLDN18.2-positive gastric or gastroesophageal junction adenocarcinoma: the randomized, phase 3 GLOW trial"
 authors:
 - Manish A. Shah

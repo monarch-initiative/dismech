@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.eclinm.2024.102453
+reference_id: "DOI:10.1016/j.eclinm.2024.102453"
 title: "Consensus and controversy in the management of paediatric and adult patients with ovarian immature teratoma: the Malignant Germ Cell International Consortium perspective"
 authors:
 - Farzana Pashankar

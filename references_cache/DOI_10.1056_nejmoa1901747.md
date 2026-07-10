@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/nejmoa1901747
+reference_id: "DOI:10.1056/nejmoa1901747"
 title: Trial of Satralizumab in Neuromyelitis Optica Spectrum Disorder
 authors:
 - Takashi Yamamura

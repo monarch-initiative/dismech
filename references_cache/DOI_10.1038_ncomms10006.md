@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/ncomms10006
+reference_id: "DOI:10.1038/ncomms10006"
 title: ENPP1-Fc prevents mortality and vascular calcifications in rodent model of generalized arterial calcification of infancy
 authors:
 - Ronald A. Albright

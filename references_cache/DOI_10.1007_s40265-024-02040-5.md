@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40265-024-02040-5
+reference_id: "DOI:10.1007/s40265-024-02040-5"
 title: "RET Inhibitors in RET Fusion-Positive Lung Cancers: Past, Present, and Future"
 authors:
 - Monica F. Chen

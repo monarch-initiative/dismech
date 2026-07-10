@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/jop.13148
+reference_id: "DOI:10.1111/jop.13148"
 title: Whole‐exome sequencing reveals novel vacuolar ATPase genes’ variants and variants in genes involved in lysosomal biology and autophagosomal formation in oral granular cell tumors
 authors:
 - Josiane Alves França

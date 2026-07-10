@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10162-024-00935-4
+reference_id: "DOI:10.1007/s10162-024-00935-4"
 title: Pneumococcal Meningitis Induces Hearing Loss and Cochlear Ossification Modulated by Chemokine Receptors CX3CR1 and CCR2
 authors:
 - Keiko Hirose

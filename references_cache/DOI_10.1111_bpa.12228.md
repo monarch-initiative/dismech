@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/bpa.12228
+reference_id: "DOI:10.1111/bpa.12228"
 title: "Melanotic Tumors of the Nervous System are Characterized by Distinct Mutational, Chromosomal and Epigenomic Profiles"
 authors:
 - Christian Koelsche

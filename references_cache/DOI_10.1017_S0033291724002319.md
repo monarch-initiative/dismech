@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1017/S0033291724002319
+reference_id: "DOI:10.1017/S0033291724002319"
 title: "Posttraumatic stress disorder (PTSD) prevalence: an umbrella review"
 authors:
 - Alexa Schincariol

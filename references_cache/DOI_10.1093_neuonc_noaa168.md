@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/neuonc/noaa168
+reference_id: "DOI:10.1093/neuonc/noaa168"
 title: "CODEL: phase III study of RT, RT + TMZ, or TMZ for newly diagnosed 1p/19q codeleted oligodendroglioma. Analysis from the initial study design"
 authors:
 - Kurt A Jaeckle

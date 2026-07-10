@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/DAD.0000000000000613
+reference_id: "DOI:10.1097/DAD.0000000000000613"
 title: "Cutaneous Collagenous Vasculopathy: Report of Two Cases Presenting as Disseminated Telangiectasias and Review of the Literature"
 authors:
 - Laure Bondier

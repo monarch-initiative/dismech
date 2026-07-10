@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s10038-024-01237-6
+reference_id: "DOI:10.1038/s10038-024-01237-6"
 title: A bird’s eye view on the use of whole exome sequencing in rare congenital ophthalmic diseases
 authors:
 - Jessica Zucco

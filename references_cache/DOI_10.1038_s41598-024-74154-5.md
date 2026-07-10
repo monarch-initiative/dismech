@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-74154-5
+reference_id: "DOI:10.1038/s41598-024-74154-5"
 title: Effective xanthine oxidase inhibitor urate lowering therapy in gout is linked to an emergent serum protein interactome of complement and inflammation modulators
 authors:
 - Concepcion Sanchez

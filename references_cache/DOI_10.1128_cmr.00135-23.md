@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/cmr.00135-23
+reference_id: "DOI:10.1128/cmr.00135-23"
 title: "<i>Clostridioides difficile</i> infection: history, epidemiology, risk factors, prevention, clinical manifestations, treatment, and future options"
 authors:
 - Stefano Di Bella

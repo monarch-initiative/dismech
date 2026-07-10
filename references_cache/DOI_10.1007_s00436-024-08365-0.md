@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00436-024-08365-0
+reference_id: "DOI:10.1007/s00436-024-08365-0"
 title: Differences of in vitro immune responses between patent and pre-patent Litomosoides sigmodontis–infected mice are independent of the filarial antigenic stimulus used
 authors:
 - Kathrin Arndts

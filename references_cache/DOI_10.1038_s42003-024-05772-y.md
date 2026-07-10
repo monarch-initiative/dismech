@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s42003-024-05772-y
+reference_id: "DOI:10.1038/s42003-024-05772-y"
 title: Single-cell profiling of the microenvironment in human bone metastatic renal cell carcinoma
 authors:
 - Fen Ma

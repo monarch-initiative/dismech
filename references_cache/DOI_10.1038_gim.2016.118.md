@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/gim.2016.118
+reference_id: "DOI:10.1038/gim.2016.118"
 title: "NR5A1 is a novel disease gene for 46,XX testicular and ovotesticular disorders of sex development"
 authors:
 - Dorien Baetens

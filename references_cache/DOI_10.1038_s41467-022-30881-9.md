@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-022-30881-9
+reference_id: "DOI:10.1038/s41467-022-30881-9"
 title: Enhanced BRAF engagement by NRAS mutants capable of promoting melanoma initiation
 authors:
 - Brandon M. Murphy

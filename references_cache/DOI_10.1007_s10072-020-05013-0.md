@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10072-020-05013-0
+reference_id: "DOI:10.1007/s10072-020-05013-0"
 title: "Neurological features and outcomes of Wilson’s disease: a single-center experience"
 authors:
 - Bedia Samanci

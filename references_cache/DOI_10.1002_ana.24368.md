@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ana.24368
+reference_id: "DOI:10.1002/ana.24368"
 title: "Familial focal epilepsy with focal cortical dysplasia due to <scp><i>DEPDC</i></scp><i>5</i> mutations"
 authors:
 - Stéphanie Baulac

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.immuni.2024.11.010
+reference_id: "DOI:10.1016/j.immuni.2024.11.010"
 title: Skin immune-mesenchymal interplay within tertiary lymphoid structures promotes autoimmune pathogenesis in hidradenitis suppurativa
 authors:
 - Wei-Wen Yu

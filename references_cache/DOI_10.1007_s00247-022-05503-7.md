@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00247-022-05503-7
+reference_id: "DOI:10.1007/s00247-022-05503-7"
 title: "Brain imaging findings in Liberfarb syndrome: hypomyelination and optic nerve and cerebellar atrophy"
 authors:
 - Eduarda Pinto

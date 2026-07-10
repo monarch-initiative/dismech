@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1089/thy.2023.0456
+reference_id: "DOI:10.1089/thy.2023.0456"
 title: Clinical Outcomes of Radioactive Iodine Redifferentiation Therapy in Previously Iodine Refractory Differentiated Thyroid Cancers
 authors:
 - David Toro-Tobon

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41588-024-01908-2
+reference_id: "DOI:10.1038/s41588-024-01908-2"
 title: Gene discovery and biological insights into anxiety disorders from a large-scale multi-ancestry genome-wide association study
 authors:
 - Eleni Friligkou

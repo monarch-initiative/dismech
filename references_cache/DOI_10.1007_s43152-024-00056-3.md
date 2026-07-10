@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s43152-024-00056-3
+reference_id: "DOI:10.1007/s43152-024-00056-3"
 title: Cellular and Molecular Mechanisms of Insulin Resistance
 authors:
 - Preethi Chandrasekaran

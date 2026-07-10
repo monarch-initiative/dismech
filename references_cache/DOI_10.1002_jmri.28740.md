@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jmri.28740
+reference_id: "DOI:10.1002/jmri.28740"
 title: "The 2021 <scp>WHO</scp> Classification for Gliomas and Implications on Imaging Diagnosis: Part 2—Summary of Imaging Findings on Pediatric‐Type Diffuse High‐Grade Gliomas, Pediatric‐Type Diffuse Low‐Grade Gliomas, and Circumscribed Astrocytic Gliomas"
 authors:
 - Yae Won Park

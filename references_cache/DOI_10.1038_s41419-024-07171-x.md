@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41419-024-07171-x
+reference_id: "DOI:10.1038/s41419-024-07171-x"
 title: "Proteomic profiling reveals CEACAM6 function in driving gallbladder cancer aggressiveness through integrin receptor, PRKCD and AKT/ERK signaling"
 authors:
 - Raisatun Nisa Sugiyanto

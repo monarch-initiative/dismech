@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2025.06.26.657455
+reference_id: "DOI:10.1101/2025.06.26.657455"
 title: TL1A-activated T cells remodel the rectal mucosa in Crohn’s disease patients with perianal fistulizing disease
 authors:
 - Victoria Gudiño

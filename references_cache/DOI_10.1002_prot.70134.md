@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/prot.70134
+reference_id: "DOI:10.1002/prot.70134"
 title: "Current Insight into Human Ornithine Aminotransferase: A Review"
 authors:
 - Fulvio Floriani

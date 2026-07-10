@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41398-022-02099-2
+reference_id: "DOI:10.1038/s41398-022-02099-2"
 title: Neural and behavioral effects of modification of visual attention in body dysmorphic disorder
 authors:
 - Wan-Wa Wong

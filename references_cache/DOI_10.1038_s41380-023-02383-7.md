@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41380-023-02383-7
+reference_id: "DOI:10.1038/s41380-023-02383-7"
 title: "Examining intergenerational risk factors for conduct problems using polygenic scores in the Norwegian Mother, Father and Child Cohort Study"
 authors:
 - Leonard Frach

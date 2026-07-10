@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00223-025-01356-y
+reference_id: "DOI:10.1007/s00223-025-01356-y"
 title: Diagnosis and Treatment of Hypophosphatasia
 authors:
 - L. Seefried
