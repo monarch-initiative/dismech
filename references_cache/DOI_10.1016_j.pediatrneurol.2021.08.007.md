@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.pediatrneurol.2021.08.007"
+reference_id: DOI:10.1016/j.pediatrneurol.2021.08.007
 title: Clinical Characterization of Epilepsy in Children With Angelman Syndrome
 authors:
 - Daiana Cassater
@@ -14,6 +14,7 @@ journal: Pediatric Neurology
 year: '2021'
 doi: 10.1016/j.pediatrneurol.2021.08.007
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Clinical Characterization of Epilepsy in Children With Angelman Syndrome

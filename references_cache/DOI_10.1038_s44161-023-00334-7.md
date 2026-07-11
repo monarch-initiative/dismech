@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s44161-023-00334-7"
+reference_id: DOI:10.1038/s44161-023-00334-7
 title: Tbx5 maintains atrial identity in postnatal cardiomyocytes by regulating an atrial-specific enhancer network
 authors:
 - Mason E. Sweat
@@ -31,6 +31,7 @@ journal: Nature Cardiovascular Research
 year: '2023'
 doi: 10.1038/s44161-023-00334-7
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Tbx5 maintains atrial identity in postnatal cardiomyocytes by regulating an atrial-specific enhancer network

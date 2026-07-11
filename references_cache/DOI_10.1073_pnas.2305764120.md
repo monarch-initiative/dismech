@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2305764120"
+reference_id: DOI:10.1073/pnas.2305764120
 title: Functional interrogation of lymphocyte subsets in alopecia areata using single-cell RNA sequencing
 authors:
 - Eunice Y. Lee
@@ -12,6 +12,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2023'
 doi: 10.1073/pnas.2305764120
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Functional interrogation of lymphocyte subsets in alopecia areata using single-cell RNA sequencing

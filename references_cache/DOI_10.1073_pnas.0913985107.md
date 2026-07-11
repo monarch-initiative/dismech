@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0913985107"
+reference_id: DOI:10.1073/pnas.0913985107
 title: Analysis of a gain-of-function FGFR2 Crouzon mutation provides evidence of loss of function activity in the etiology of cleft palate
 authors:
 - Alison K. Snyder-Warwick
@@ -12,6 +12,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2010'
 doi: 10.1073/pnas.0913985107
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Analysis of a gain-of-function FGFR2 Crouzon mutation provides evidence of loss of function activity in the etiology of cleft palate

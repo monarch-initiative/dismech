@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/toxres/tfae136"
+reference_id: DOI:10.1093/toxres/tfae136
 title: "Research progress on the regulatory mechanism of cell senescence in arsenic toxicity: a systematic review"
 authors:
 - Yun Gu
@@ -10,6 +10,7 @@ journal: Toxicology Research
 year: '2024'
 doi: 10.1093/toxres/tfae136
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Research progress on the regulatory mechanism of cell senescence in arsenic toxicity: a systematic review

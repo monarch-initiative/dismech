@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/pep.0000000000000714"
+reference_id: DOI:10.1097/pep.0000000000000714
 title: Physical Therapy Management of Wiedemann-Steiner Syndrome From Birth to 3 Years
 authors:
 - Carmel Mendoza
@@ -7,6 +7,7 @@ journal: Pediatric Physical Therapy
 year: '2020'
 doi: 10.1097/pep.0000000000000714
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Physical Therapy Management of Wiedemann-Steiner Syndrome From Birth to 3 Years

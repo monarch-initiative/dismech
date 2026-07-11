@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04289467"
 title: A Phase II Study of Fenfluramine for Treatment of Refractory Infantile Spasms
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase II Study of Fenfluramine for Treatment of Refractory Infantile Spasms

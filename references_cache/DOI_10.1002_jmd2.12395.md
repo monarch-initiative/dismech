@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jmd2.12395"
+reference_id: DOI:10.1002/jmd2.12395
 title: "S‐adenosylmethionine and nicotinamide riboside therapy in Arts syndrome: A case report and literature review"
 authors:
 - Angela Lee
@@ -11,6 +11,7 @@ journal: JIMD Reports
 year: '2023'
 doi: 10.1002/jmd2.12395
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # S‐adenosylmethionine and nicotinamide riboside therapy in Arts syndrome: A case report and literature review

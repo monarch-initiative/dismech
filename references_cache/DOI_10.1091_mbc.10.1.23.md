@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1091/mbc.10.1.23"
+reference_id: DOI:10.1091/mbc.10.1.23
 title: Different Tyrosine Autophosphorylation Requirements in Fibroblast Growth Factor Receptor-1 Mediate Urokinase-Type Plasminogen Activator Induction and Mitogenesis
 authors:
 - Patrizia Dell’Era
@@ -9,6 +9,7 @@ journal: Molecular Biology of the Cell
 year: '1999'
 doi: 10.1091/mbc.10.1.23
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Different Tyrosine Autophosphorylation Requirements in Fibroblast Growth Factor Receptor-1 Mediate Urokinase-Type Plasminogen Activator Induction and Mitogenesis

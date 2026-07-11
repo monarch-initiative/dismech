@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12070-024-04719-3"
+reference_id: DOI:10.1007/s12070-024-04719-3
 title: "Unusual Presentation of Non-Hodgkin Lymphoma of Two Cases: Case Report"
 authors:
 - Haritha S
@@ -10,6 +10,7 @@ journal: "Indian Journal of Otolaryngology and Head &amp; Neck Surgery"
 year: '2024'
 doi: 10.1007/s12070-024-04719-3
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Unusual Presentation of Non-Hodgkin Lymphoma of Two Cases: Case Report

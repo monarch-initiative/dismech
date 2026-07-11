@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.05.23.655388"
+reference_id: DOI:10.1101/2025.05.23.655388
 title: Success of GDNF-based treatment of Hirschsprung disease depends on NCAM1 signaling and various subtypes of enteric neural progenitors
 authors:
 - Alassane Gary
@@ -12,6 +12,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.05.23.655388
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Success of GDNF-based treatment of Hirschsprung disease depends on NCAM1 signaling and various subtypes of enteric neural progenitors

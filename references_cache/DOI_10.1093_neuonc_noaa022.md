@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/neuonc/noaa022"
+reference_id: DOI:10.1093/neuonc/noaa022
 title: Imaging growth as a predictor of grade of malignancy and aggressiveness of IDH-mutant and 1p/19q-codeleted oligodendrogliomas in adults
 authors:
 - Alexandre Roux
@@ -26,6 +26,7 @@ journal: Neuro-Oncology
 year: '2020'
 doi: 10.1093/neuonc/noaa022
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Imaging growth as a predictor of grade of malignancy and aggressiveness of IDH-mutant and 1p/19q-codeleted oligodendrogliomas in adults

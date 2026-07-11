@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11356-022-19333-5"
+reference_id: DOI:10.1007/s11356-022-19333-5
 title: Systemic review of genetic and epigenetic factors underlying differential toxicity to environmental lead (Pb) exposure
 authors:
 - Danila Cuomo
@@ -9,6 +9,7 @@ journal: Environmental Science and Pollution Research
 year: '2022'
 doi: 10.1007/s11356-022-19333-5
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Systemic review of genetic and epigenetic factors underlying differential toxicity to environmental lead (Pb) exposure

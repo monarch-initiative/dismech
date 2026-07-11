@@ -1,0 +1,14 @@
+| NCT Number | Trial Name/Description | Intervention/Drug | Sponsor | Enrollment | Novel Mechanism/Target |
+|---|---|---|---|---:|---|
+| NCT06118281 | ARTEMIS – research study of ziltivekimab vs placebo after heart attack | Ziltivekimab | Novo Nordisk A/S | 10000 | Anti-inflammatory IL-6 pathway inhibition to reduce recurrent events after MI (pqac-00000019) |
+| NCT07478003 | PULSE-MI 2 – prehospital pulse-dose glucocorticoid in STEMI | Pulse-dose glucocorticoid | Rigshospitalet, Denmark | 5204 | Early anti-inflammatory immunomodulation during acute STEMI/reperfusion |
+| NCT06174753 | Dapagliflozin in STEMI | Dapagliflozin | Ottawa Heart Institute Research Corporation | 256 | SGLT2 inhibition; metabolic and anti-inflammatory cardioprotection with infarct-limiting potential (pqac-00000018) |
+| NCT06364150 | Therapeutic use of angiopoietin-primed autologous peripheral blood stem cell in myocardial infarction | Angiopoietin-primed autologous peripheral blood stem cells | Seoul National Hospital | 30 | Regenerative cell therapy aimed at myocardial repair and neovascularization (pqac-00000005, pqac-00000016) |
+| NCT05577988 | Early de-escalation to low-potency single antiplatelet therapy guided by genetics vs systematic high-potency single antiplatelet therapy after ACS | Genotype-guided antiplatelet de-escalation | Assistance Publique - Hôpitaux de Paris | 2468 | Precision antiplatelet therapy using pharmacogenetic guidance for P2Y12-pathway modulation (pqac-00000014, pqac-00000017) |
+| NCT07320625 | Efficacy of montelukast on STEMI patients | Montelukast | Shanghai Zhongshan Hospital | 512 | Leukotriene receptor antagonism to modulate inflammation in STEMI |
+| NCT07301034 | Study of ziltivekimab effect on coronary plaque vs placebo after heart attack | Ziltivekimab with plaque imaging endpoint | Novo Nordisk A/S | 332 | IL-6 pathway inhibition with imaging-based assessment of plaque biology/inflammation |
+| NCT07467213 | Routine use of potassium competitive acid blocker vs guideline-directed gastrointestinal protection in acute myocardial infarction | Potassium-competitive acid blocker strategy | Samsung Medical Center | 5000 | Supportive strategy to optimize GI protection during intensive antithrombotic therapy after AMI |
+| NCT07295223 | GALACTUS – effect of GLP-1 and antidiabetic SGLT2 agents for myocardial infarction and ultrasensitive inflammatory surveillance | GLP-1 agent and SGLT2 agent strategy | Instituto Mexicano del Seguro Social | 44 | Cardiometabolic and anti-inflammatory modulation using incretin/SGLT2 pathways after MI (pqac-00000018) |
+
+
+*Table: This table summarizes currently recruiting phase 3 interventional trials in myocardial infarction and related acute coronary syndromes mentioned in the evidence-gathering workflow. It highlights sponsor, scale, and the mechanistic rationale of each study to support translational and therapeutic landscape mapping.*

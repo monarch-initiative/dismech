@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41416-022-01942-z"
+reference_id: DOI:10.1038/s41416-022-01942-z
 title: Clinical and genomic correlates of imatinib response in melanomas with KIT alterations
 authors:
 - Seungyeon Jung
@@ -16,6 +16,7 @@ journal: British Journal of Cancer
 year: '2022'
 doi: 10.1038/s41416-022-01942-z
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Clinical and genomic correlates of imatinib response in melanomas with KIT alterations

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/nrdp.2015.5"
+reference_id: DOI:10.1038/nrdp.2015.5
 title: Huntington disease
 authors:
 - Gillian P. Bates
@@ -18,6 +18,7 @@ journal: Nature Reviews Disease Primers
 year: '2015'
 doi: 10.1038/nrdp.2015.5
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Huntington disease

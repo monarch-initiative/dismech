@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jaccas.2026.107006"
+reference_id: DOI:10.1016/j.jaccas.2026.107006
 title: Atrial Septal Defect Surgical Closure Following Trametinib Utilization in Noonan Syndrome–Associated Hypertrophic Cardiomyopathy
 authors:
 - Camden Hebson
@@ -12,6 +12,7 @@ journal: "JACC: Case Reports"
 year: '2026'
 doi: 10.1016/j.jaccas.2026.107006
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Atrial Septal Defect Surgical Closure Following Trametinib Utilization in Noonan Syndrome–Associated Hypertrophic Cardiomyopathy

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/s0022-5347(05)64215-2"
+reference_id: DOI:10.1016/s0022-5347(05)64215-2
 title: Genitourinary Malformations in Chromosome 22q11.2 Deletion
 authors:
 - HSI-YANG WU
@@ -13,6 +13,7 @@ journal: Journal of Urology
 year: '2002'
 doi: 10.1016/s0022-5347(05)64215-2
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Genitourinary Malformations in Chromosome 22q11.2 Deletion

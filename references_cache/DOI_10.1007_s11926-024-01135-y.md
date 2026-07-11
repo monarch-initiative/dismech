@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11926-024-01135-y"
+reference_id: DOI:10.1007/s11926-024-01135-y
 title: Microbial Mechanisms of Rheumatoid Arthritis Pathogenesis
 authors:
 - Brenda J. Seymour
@@ -9,6 +9,7 @@ journal: Current Rheumatology Reports
 year: '2024'
 doi: 10.1007/s11926-024-01135-y
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Microbial Mechanisms of Rheumatoid Arthritis Pathogenesis

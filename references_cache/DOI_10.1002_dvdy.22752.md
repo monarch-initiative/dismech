@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/dvdy.22752"
+reference_id: DOI:10.1002/dvdy.22752
 title: "The Muenke syndrome mutation (<i>FgfR3<sup>P244R</sup></i>) causes cranial base shortening associated with growth plate dysfunction and premature perichondrial ossification in murine basicranial synchondroses"
 authors:
 - Jason Laurita
@@ -14,6 +14,7 @@ journal: Developmental Dynamics
 year: '2011'
 doi: 10.1002/dvdy.22752
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Muenke syndrome mutation (<i>FgfR3<sup>P244R</sup></i>) causes cranial base shortening associated with growth plate dysfunction and premature perichondrial ossification in murine basicranial synchondroses

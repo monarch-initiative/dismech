@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/dad.0000000000000257"
+reference_id: DOI:10.1097/dad.0000000000000257
 title: Intravascular/Intralymphatic Histiocytosis
 authors:
 - Cuyan Demirkesen
@@ -12,6 +12,7 @@ journal: The American Journal of Dermatopathology
 year: '2015'
 doi: 10.1097/dad.0000000000000257
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Intravascular/Intralymphatic Histiocytosis

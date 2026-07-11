@@ -108,6 +108,22 @@ each workflow and commits. Do NOT hand-edit those cron lines — edit the profil
 config instead. Page/build crons are intentionally unmanaged. See
 [`docs/cron-profiles.md`](docs/cron-profiles.md).
 
+### Agent Model Config (`.github/agent-config.yaml`)
+The Claude **model** backing each agentic workflow (curation-scanner,
+discussion-scanner, knowledge-gap-scan, literature-scan, preprint-scan,
+post-review-agent, pr-shepherd, weekly-compliance, claude-code-review) is
+centralized in `.github/agent-config.yaml` — one source of truth instead of a
+`--model` hardcoded per workflow. At run time each workflow's `Resolve agent
+config` step (the `.github/actions/resolve-agent-config` composite action) reads
+the config and exports `AGENT_MODEL`; the agent invocation uses `--model ${{
+env.AGENT_MODEL }}`. Resolution order: a `workflow_dispatch` `model:` override >
+the per-workflow `model:` > `default_model`. To bump a model for scheduled runs,
+edit `agent-config.yaml` — do NOT re-add a hardcoded `--model` to a workflow (a
+test enforces this). `curation-scanner`'s per-effort-tier models live in the same
+file as a `matrix:` and drive its strategy matrix via a `setup` job. This
+complements — and is separate from — cron cadence (cron-profiles.yaml); it covers
+the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #5218.
+
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
   frontmatter (`title`, `status`, `tags`, `description`, and entity lists:
@@ -721,6 +737,61 @@ treatments:
 - For NCIT drug-class terms, the local `ncit` adapter is configured in `conf/oak_config.yaml`.
 - A dedicated `treatment.name` (e.g., "Duloxetine") should still match common clinical usage; `therapeutic_agent` carries the machine-readable identifier.
 - Do NOT put the drug name in `preferred_term` on `treatment_term` — `preferred_term` describes the action (Pharmacotherapy), `therapeutic_agent.preferred_term` describes the agent.
+
+#### Named Combination Regimens (`regimen_term`)
+
+`regimen_term` is a **third, distinct** treatment slot — not an alternative spelling of
+`treatment_term` or `therapeutic_agent`. Use it only when the treatment follows an
+established, **named multi-drug protocol** that itself has an NCIT identity (e.g.
+FOLFIRINOX, ABVD, R-CHOP, CHOP). It is bound to the `RegimenTerm` dynamic enum, reachable
+only from `NCIT:C15697` (Treatment Regimen) / `NCIT:C62634` (Chemo/immuno/hormone Therapy
+Regimen) — generic drug-class terms (e.g. `NCIT:C66930` Angiotensin II Receptor
+Antagonist) are **not** reachable from that root and will fail validation if used here;
+those belong in `therapeutic_agent` instead.
+
+**How the three slots divide the work:**
+- `treatment_term`: the medical action/modality (e.g. `MAXO:0000647` chemotherapy, `NCIT:C15986` Pharmacotherapy)
+- `therapeutic_agent`: the individual drug(s) or drug class(es) involved
+- `regimen_term`: the named combination protocol itself, when one exists
+
+```yaml
+treatments:
+- name: ABVD-Based Chemotherapy
+  treatment_term:
+    preferred_term: chemotherapy
+    term:
+      id: MAXO:0000647
+      label: chemotherapy
+    therapeutic_agent:
+    - preferred_term: doxorubicin
+      term:
+        id: CHEBI:28748
+        label: doxorubicin
+    - preferred_term: bleomycin
+      term:
+        id: CHEBI:22907
+        label: bleomycin
+    - preferred_term: vinblastine
+      term:
+        id: CHEBI:27375
+        label: vincaleukoblastine
+    - preferred_term: dacarbazine
+      term:
+        id: CHEBI:4305
+        label: dacarbazine
+  regimen_term:
+    preferred_term: ABVD regimen
+    term:
+      id: NCIT:C9509
+      label: ABVD Regimen
+```
+
+Leave `regimen_term` absent when the treatment is monotherapy or an ad hoc/unnamed drug
+combination — do not invent a regimen identity that OAK can't verify. Worked examples:
+`Pancreatic_Ductal_Adenocarcinoma` (FOLFIRINOX), `Classic_Hodgkin_Lymphoma` (ABVD),
+`Diffuse_Large_B_Cell_Lymphoma` (R-CHOP), `Peripheral_T_Cell_Lymphoma` (CHOP),
+`BRAF_V600E_Mutant_Colorectal_Cancer` (FOLFOXIRI, curated against the closest available
+NCIT term, `Folfirinox Regimen`, since NCIT does not separately code the FOLFOXIRI name).
 
 ### Therapeutic Modality and Antisense Oligonucleotide (ASO) Detail
 

@@ -2,7 +2,7 @@ name: Discussion Scanner
 
 on:
   schedule:
-    - cron: "30 * * * *"  # hourly
+    - cron: "0 0 30 2 *"  # disabled: Feb 30 never occurs — never fires
   workflow_dispatch:
     inputs:
       lookback_hours:
@@ -42,7 +42,6 @@ jobs:
 
     env:
       LOOKBACK_HOURS: ${{ inputs.lookback_hours || '48' }}
-      DISCUSSION_MODEL: ${{ inputs.model || 'claude-sonnet-4-6' }}
 
     steps:
       - name: Checkout repository
@@ -50,6 +49,12 @@ jobs:
         with:
           fetch-depth: 1
           token: ${{ secrets.PAT_FOR_PR }}
+
+      - name: Resolve agent config
+        uses: ./.github/actions/resolve-agent-config
+        with:
+          workflow: discussion-scanner
+          model-override: ${{ inputs.model }}
 
       - name: Build trusted discussion candidate packet
         id: discussion-candidates
@@ -84,7 +89,7 @@ jobs:
           show_full_output: true
           claude_args: |
             --dangerously-skip-permissions
-            --model ${{ env.DISCUSSION_MODEL }}
+            --model ${{ env.AGENT_MODEL }}
           prompt: |
             REPO: ${{ github.repository }}
             TRIGGER: ${{ github.event_name }}

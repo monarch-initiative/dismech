@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2019152118"
+reference_id: DOI:10.1073/pnas.2019152118
 title: SOX9 keeps growth plates and articular cartilage healthy by inhibiting chondrocyte dedifferentiation/osteoblastic redifferentiation
 authors:
 - Abdul Haseeb
@@ -17,6 +17,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2021'
 doi: 10.1073/pnas.2019152118
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # SOX9 keeps growth plates and articular cartilage healthy by inhibiting chondrocyte dedifferentiation/osteoblastic redifferentiation

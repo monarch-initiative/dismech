@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/aos.16701"
+reference_id: DOI:10.1111/aos.16701
 title: "Clinical and genetic characteristics and natural history of Finnish families with familial exudative vitreoretinopathy due to pathogenic <scp><i>FZD4</i></scp> variants"
 authors:
 - Laura Lähteenoja
@@ -13,6 +13,7 @@ journal: Acta Ophthalmologica
 year: '2025'
 doi: 10.1111/aos.16701
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical and genetic characteristics and natural history of Finnish families with familial exudative vitreoretinopathy due to pathogenic <scp><i>FZD4</i></scp> variants

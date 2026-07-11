@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT01209598"
 title: A Phase II Study Of PD0332991 (Palbociclib) in Patients With Advanced or Metastatic Liposarcoma
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase II Study Of PD0332991 (Palbociclib) in Patients With Advanced or Metastatic Liposarcoma

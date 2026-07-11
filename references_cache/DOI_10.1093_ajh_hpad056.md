@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ajh/hpad056"
+reference_id: DOI:10.1093/ajh/hpad056
 title: From Fibromuscular Dysplasia to Arterial Dissection and Back
 authors:
 - Justine Huart
@@ -12,6 +12,7 @@ journal: American Journal of Hypertension
 year: '2023'
 doi: 10.1093/ajh/hpad056
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From Fibromuscular Dysplasia to Arterial Dissection and Back

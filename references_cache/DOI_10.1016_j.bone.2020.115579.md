@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.bone.2020.115579"
+reference_id: DOI:10.1016/j.bone.2020.115579
 title: Novel therapeutic approaches for the treatment of achondroplasia
 authors:
 - Laurence Legeai-Mallet
@@ -8,6 +8,7 @@ journal: Bone
 year: '2020'
 doi: 10.1016/j.bone.2020.115579
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Novel therapeutic approaches for the treatment of achondroplasia

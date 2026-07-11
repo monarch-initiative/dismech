@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/humu.9497"
+reference_id: DOI:10.1002/humu.9497
 title: Missense and silent mutations in COL2A1 result in Stickler syndrome but via different molecular mechanisms
 authors:
 - Allan J. Richards
@@ -13,6 +13,7 @@ journal: Human Mutation
 year: '2007'
 doi: 10.1002/humu.9497
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Missense and silent mutations in COL2A1 result in Stickler syndrome but via different molecular mechanisms

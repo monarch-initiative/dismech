@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/nan.12100"
+reference_id: DOI:10.1111/nan.12100
 title: "A pathogenic <i>progranulin</i> mutation and <scp><i>C9orf72</i></scp> repeat expansion in a family with frontotemporal dementia"
 authors:
 - Tammaryn Lashley
@@ -15,6 +15,7 @@ journal: Neuropathology and Applied Neurobiology
 year: '2014'
 doi: 10.1111/nan.12100
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A pathogenic <i>progranulin</i> mutation and <scp><i>C9orf72</i></scp> repeat expansion in a family with frontotemporal dementia

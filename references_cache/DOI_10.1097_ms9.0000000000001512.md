@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/ms9.0000000000001512"
+reference_id: DOI:10.1097/ms9.0000000000001512
 title: "Cutaneous larva migrans in a child: a case report and review of literature"
 authors:
 - Amrita Shrestha
@@ -11,6 +11,7 @@ journal: "Annals of Medicine &amp; Surgery"
 year: '2024'
 doi: 10.1097/ms9.0000000000001512
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cutaneous larva migrans in a child: a case report and review of literature

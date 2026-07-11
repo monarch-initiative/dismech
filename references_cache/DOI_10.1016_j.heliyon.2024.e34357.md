@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.heliyon.2024.e34357"
+reference_id: DOI:10.1016/j.heliyon.2024.e34357
 title: Genome-wide expression analysis in a Fabry disease human podocyte cell line
 authors:
 - Sarah Snanoudj
@@ -18,6 +18,7 @@ journal: Heliyon
 year: '2024'
 doi: 10.1016/j.heliyon.2024.e34357
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Genome-wide expression analysis in a Fabry disease human podocyte cell line
