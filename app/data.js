@@ -51222,7 +51222,7 @@ window.searchData = [
   },
   {
     "name": "ER-Positive Breast Cancer",
-    "disease_id": "MONDO:0021116",
+    "disease_id": "MONDO:0006512",
     "category": "",
     "parents": [
       "breast carcinoma"
@@ -53157,20 +53157,26 @@ window.searchData = [
       "Scarring",
       "Failure to Thrive",
       "Anemia",
-      "Pain"
+      "Pain",
+      "Esophageal Stricture",
+      "Pseudosyndactyly (Mitten Deformity)"
     ],
     "phenotype_categories": [
       "Integument",
       "Growth",
       "Blood",
-      "Constitutional"
+      "Constitutional",
+      "Gastrointestinal",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Constitutional",
+      "Digestive",
       "Growth",
       "Head and Neck",
       "Integument",
+      "Limbs",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
@@ -53181,7 +53187,9 @@ window.searchData = [
       "HP:0100699",
       "HP:0001508",
       "HP:0001903",
-      "HP:0012531"
+      "HP:0012531",
+      "HP:0002043",
+      "HP:0010554"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -53207,7 +53215,13 @@ window.searchData = [
       "Genetic Counseling",
       "Vyjuvek (Beremagene Geperpavec)",
       "Filsuvez (Birch Triterpenes)",
-      "Zevaskyn (Prademagene Zamikeracel / pz-cel)"
+      "Zevaskyn (Prademagene Zamikeracel / pz-cel)",
+      "Esophageal Stricture Management (Endoscopic Dilatation)",
+      "Hand Surgery and Hand Therapy",
+      "Palliative and End-of-Life Care",
+      "Podiatric (Foot) Care",
+      "Neonatal EB Care",
+      "Orthodontic and Dental Care"
     ],
     "environmental": [],
     "biochemical": [
@@ -53217,10 +53231,10 @@ window.searchData = [
     ],
     "source_file": "Epidermolysis_Bullosa.yaml",
     "page_url": "../pages/disorders/Epidermolysis_Bullosa.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 10,
     "num_pathophysiology": 4,
     "num_genes": 10,
-    "num_treatments": 8,
+    "num_treatments": 14,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
@@ -79605,8 +79619,14 @@ window.searchData = [
       "Immune Activation and Mast Cell Degranulation",
       "Microbiome Dysbiosis"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "enterochromaffin cell",
+      "mast cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000577",
+      "CL:0000097"
+    ],
     "biological_processes": [
       "Pain Perception",
       "Gut Motility",
@@ -79632,7 +79652,7 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0002027",
-      "HP:0025085",
+      "HP:0030895",
       "HP:0003270",
       "HP:0002019",
       "HP:0002014",
@@ -82617,7 +82637,9 @@ window.searchData = [
       "Anakinra",
       "Cyclosporine",
       "Corticosteroids",
-      "Infliximab"
+      "Infliximab",
+      "Long-Term Antithrombotic Therapy for Coronary Aneurysms",
+      "Risk-Stratified Long-Term Cardiology Follow-up"
     ],
     "environmental": [],
     "biochemical": [
@@ -82630,7 +82652,7 @@ window.searchData = [
     "num_phenotypes": 40,
     "num_pathophysiology": 2,
     "num_genes": 21,
-    "num_treatments": 6,
+    "num_treatments": 8,
     "causal_graph_edges": "22",
     "causal_graph_longest_path": "3"
   },
@@ -89261,7 +89283,11 @@ window.searchData = [
       "Corticosteroid Therapy",
       "BAFF Pathway Inhibition (Belimumab)",
       "Calcineurin Inhibition (Voclosporin)",
-      "Antimalarial Background Therapy (Hydroxychloroquine)"
+      "Antimalarial Background Therapy (Hydroxychloroquine)",
+      "Azathioprine Maintenance Therapy",
+      "Calcineurin Inhibition (Tacrolimus)",
+      "B Cell Depletion Therapy (Rituximab) \u2014 Pregnancy-Cautious Use",
+      "Antiplatelet Therapy for Preeclampsia Prevention"
     ],
     "environmental": [],
     "biochemical": [],
@@ -89270,7 +89296,7 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 4,
     "num_genes": 0,
-    "num_treatments": 5,
+    "num_treatments": 9,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
   },
@@ -155435,8 +155461,8 @@ window.searchMetrics = {
   "total_disorder_pages": 1570,
   "total_subtypes": 2431,
   "total_disorders_and_subtypes": 4001,
-  "total_unique_evidence_sources": 24607,
-  "total_unique_publications": 23136,
+  "total_unique_evidence_sources": 24622,
+  "total_unique_publications": 23151,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 216,
   "total_pathographs": 1564,
