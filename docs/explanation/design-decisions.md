@@ -422,19 +422,30 @@ analogy to §9, then **reverted** once the analogy was checked and found not to 
 terms are HP phenotypes; imaging terms are not). Recording the reversal here so the register
 reflects the corrected reasoning, not the false symmetry.
 
-**Deferred (see §11).** Two follow-ups make this stronger but are out of scope here:
-(1) promoting the free-text `phenotypes.category` to a controlled `PhenotypeCategoryEnum`,
-then (2) adding the schema's first LinkML `rules:` block to enforce *category =
-Electrophysiologic ⇒ `phenotype_term` under `HP:0002353`* (and to gate where the sidecar is
-allowed). The sidecar ships now without them; `category: Electrophysiologic` is used as a
-free-text convention in the interim.
+**Category is already HP-derived — the sidecar does not touch it.** The disorder-page
+renderer does *not* group phenotypes by the free-text `phenotypes.category` string; it
+derives the broad category from the **`phenotype_term`'s HPO ancestry**, walking
+`rdfs:subClassOf` to the 22 top-level children of `HP:0000118` (`HpoCategoryProvider` /
+`HPO_TOP_LEVEL_CATEGORIES`, already codified as the `PhenotypeCategoryEnum` in
+`schema/classifications/phenotype_category.yaml`). EEG findings roll up to **Nervous
+System** (`HP:0000707`), so that is the correct `category` value — *not* a novel
+"Electrophysiologic" bucket. **The EEG-ness is carried entirely by the `electrophysiology:`
+sidecar, not by the category**, which is exactly why the sidecar exists: it adds the
+electrophysiologic axes without disturbing the organ-system categorization.
 
-**Worked example.** `Dravet_syndrome` carries five `Electrophysiologic` phenotypes — the
-four interictal human EEG patterns (multifocal / focal / generalized epileptiform discharges
-and interictal epileptiform activity, HP-bound, sidecar `ictal_state: INTERICTAL`), plus one
-preclinical `preferred_term`-only phenotype — ictal electrographic seizures in the Scn1a+/-
-mouse model (sidecar `electrophysiology_modality: EEG`, `ictal_state: ICTAL`,
-`evidence_source: MODEL_ORGANISM`).
+**Deferred (see §11).** The `PhenotypeCategoryEnum` already exists but is not yet wired to
+the `phenotypes.category` slot (still `range: string`); binding it (and/or deprecating the
+hand-entered field in favour of the HP-derived value) is a separate cleanup. If a
+*typing* rule for EEG findings is ever wanted, it should key on **HP ancestry**
+(`phenotype_term` reachable_from `HP:0002353`) — consistent with how categorization already
+works — not on the free-text string. This would be the schema's first LinkML `rules:` block.
+
+**Worked example.** `Dravet_syndrome` carries five EEG phenotypes (`category: Nervous
+System`) — the four interictal human patterns (multifocal / focal / generalized epileptiform
+discharges and interictal epileptiform activity, HP-bound, sidecar `ictal_state:
+INTERICTAL`), plus one preclinical `preferred_term`-only phenotype — ictal electrographic
+seizures in the Scn1a+/- mouse model (sidecar `electrophysiology_modality: EEG`,
+`ictal_state: ICTAL`, `evidence_source: MODEL_ORGANISM`).
 
 ## 11. Gaps
 
@@ -450,7 +461,7 @@ This section details decisions we have **not yet made or formalized**.
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | RadLex-grade imaging-finding granularity | `ImagingFinding` (§9) grounds findings in NCIT + HP, which is patchy for specific radiologic appearances (e.g. contrast enhancement, T2 hyperintensity resolve to procedures or CTCAE grades). Tightening `ImagingFindingTerm` to a RadLex `reachable_from` (and `finding_term` to REQUIRED) is deferred: RadLex is not on EBI OLS4, so it needs a `bioportal:` adapter + API key in `conf/oak_config.yaml`. | schema/ontology follow-up |
 | Non-imaging detection modalities | **Resolved for electrophysiology (§10)** via phenotype post-composition (an `electrophysiology:` sidecar carrying modality + `ictal_state` + `recording_state`), *not* a finding class — because EEG/EMG/EKG terms are already HP phenotypes. `Dravet_syndrome` is the worked example. **Still open:** functional/provocation tests (e.g. tensilon, tilt-table) remain free-text `diagnosis`. | schema follow-up |
-| Controlled `phenotypes.category` + first LinkML `rules:` block | `category` is free-text (`range: string`) with ~200 inconsistent values (`Neurologic`/`Neurological`/`NEUROLOGICAL`, frequency enums leaked in, ~4k blank). Promoting it to a `PhenotypeCategoryEnum` (KB-wide normalization) would unlock the schema's **first** `rules:` block — e.g. *category = Electrophysiologic ⇒ `phenotype_term` reachable_from `HP:0002353`* (§10), and category-gated typing generally. Deferred as its own cross-cutting PR; the §10 sidecar is its first client. | schema follow-up / KB migration |
+| Wire the existing `PhenotypeCategoryEnum` to `phenotypes.category` | The renderer already **derives** each phenotype's organ-system category from its HPO ancestry (`HpoCategoryProvider` → the 22 top-levels, codified as `PhenotypeCategoryEnum` in `schema/classifications/phenotype_category.yaml`), so the hand-entered `category` (still `range: string`, ~200 inconsistent values, ~4k blank) is not what drives display. The cleanup is to bind that enum to the slot and/or deprecate the free-text field in favour of the derived value — not to invent new category values. A first LinkML `rules:` block, if wanted, should type findings by **HP ancestry** (e.g. reachable_from `HP:0002353` for EEG), not by the string. | schema follow-up / KB migration |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
 | Schema docs vs. script docs separation | Schema element pages currently mix in script docs | [#2737](https://github.com/monarch-initiative/dismech/issues/2737) |
