@@ -433,12 +433,19 @@ System** (`HP:0000707`), so that is the correct `category` value — *not* a nov
 sidecar, not by the category**, which is exactly why the sidecar exists: it adds the
 electrophysiologic axes without disturbing the organ-system categorization.
 
-**Deferred (see §11).** The `PhenotypeCategoryEnum` already exists but is not yet wired to
-the `phenotypes.category` slot (still `range: string`); binding it (and/or deprecating the
-hand-entered field in favour of the HP-derived value) is a separate cleanup. If a
-*typing* rule for EEG findings is ever wanted, it should key on **HP ancestry**
-(`phenotype_term` reachable_from `HP:0002353`) — consistent with how categorization already
-works — not on the free-text string. This would be the schema's first LinkML `rules:` block.
+**No category constraint is wanted here.** A rule of the form *category = X ⇒ `phenotype_term`
+under X* would be **circular** — the category is *derived from* the term's HP ancestry, so it
+has no independent content to check — and the 22 top-level categories are too coarse to pick
+out "EEG finding" anyway (EEG rolls up to the whole Nervous System). The sidecar is an
+optional post-composition qualifier exactly like `temporality` / `clinical_course` /
+`severity` / `onset`, **none of which are category-gated or rule-enforced**; this one follows
+the same convention-over-constraint pattern. The only guardrail that would even type-check is
+"sidecar present ⇒ term under `HP:0002353`/`0003457`/`0003115` *or* term-less (the preclinical
+`preferred_term`-only case)", and that is at most an advisory lint, not a schema rule.
+
+**Deferred (see §11).** Independently of EEG, the `PhenotypeCategoryEnum` already exists but
+is not yet wired to the `phenotypes.category` slot (still `range: string`); binding it, or
+deprecating the hand-entered field in favour of the HP-derived value, is a separate cleanup.
 
 **Worked example.** `Dravet_syndrome` carries five EEG phenotypes (`category: Nervous
 System`) — the four interictal human patterns (multifocal / focal / generalized epileptiform
@@ -461,7 +468,7 @@ This section details decisions we have **not yet made or formalized**.
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | RadLex-grade imaging-finding granularity | `ImagingFinding` (§9) grounds findings in NCIT + HP, which is patchy for specific radiologic appearances (e.g. contrast enhancement, T2 hyperintensity resolve to procedures or CTCAE grades). Tightening `ImagingFindingTerm` to a RadLex `reachable_from` (and `finding_term` to REQUIRED) is deferred: RadLex is not on EBI OLS4, so it needs a `bioportal:` adapter + API key in `conf/oak_config.yaml`. | schema/ontology follow-up |
 | Non-imaging detection modalities | **Resolved for electrophysiology (§10)** via phenotype post-composition (an `electrophysiology:` sidecar carrying modality + `ictal_state` + `recording_state`), *not* a finding class — because EEG/EMG/EKG terms are already HP phenotypes. `Dravet_syndrome` is the worked example. **Still open:** functional/provocation tests (e.g. tensilon, tilt-table) remain free-text `diagnosis`. | schema follow-up |
-| Wire the existing `PhenotypeCategoryEnum` to `phenotypes.category` | The renderer already **derives** each phenotype's organ-system category from its HPO ancestry (`HpoCategoryProvider` → the 22 top-levels, codified as `PhenotypeCategoryEnum` in `schema/classifications/phenotype_category.yaml`), so the hand-entered `category` (still `range: string`, ~200 inconsistent values, ~4k blank) is not what drives display. The cleanup is to bind that enum to the slot and/or deprecate the free-text field in favour of the derived value — not to invent new category values. A first LinkML `rules:` block, if wanted, should type findings by **HP ancestry** (e.g. reachable_from `HP:0002353` for EEG), not by the string. | schema follow-up / KB migration |
+| Wire the existing `PhenotypeCategoryEnum` to `phenotypes.category` | The renderer already **derives** each phenotype's organ-system category from its HPO ancestry (`HpoCategoryProvider` → the 22 top-levels, codified as `PhenotypeCategoryEnum` in `schema/classifications/phenotype_category.yaml`), so the hand-entered `category` (still `range: string`, ~200 inconsistent values, ~4k blank) is not what drives display. The cleanup is to bind that enum to the slot and/or deprecate the free-text field in favour of the derived value — not to invent new category values. (Note: category-gated *rules* are a non-goal — the category is derived from the term, so such a rule would be circular; see §10.) | schema follow-up / KB migration |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
 | Schema docs vs. script docs separation | Schema element pages currently mix in script docs | [#2737](https://github.com/monarch-initiative/dismech/issues/2737) |
