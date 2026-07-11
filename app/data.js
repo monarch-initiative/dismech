@@ -14676,6 +14676,92 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Asparagine synthetase deficiency",
+    "disease_id": "MONDO:0014258",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn error of metabolism",
+      "Inborn error of amino acid metabolism"
+    ],
+    "creation_date": "2026-07-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Asparagine synthetase deficiency (ASNSD) is a very rare autosomal recessive inborn error of amino acid biosynthesis caused by biallelic loss-of-function variants in ASNS, which encodes the glutamine-dependent asparagine synthetase enzyme that catalyzes the synthesis of asparagine from aspartate and glutamine. Although asparagine is a non-essential amino acid, ASNS is highly expressed in the developing and adult brain, so its deficiency produces a severe, brain-restricted phenotype rather than a systemic metabolic crisis. Affected neonates present with congenital, progressive microcephaly, profound developmental delay, intractable epileptic encephalopathy, axial hypotonia with appendicular spasticity, a hyperekplexia-like exaggerated startle, and progressive cerebral atrophy. The neurological damage is attributed either to cerebral asparagine depletion impairing cortical development, or to accumulation of the substrates aspartate and glutamate producing excitotoxicity; most severely affected children die in infancy.",
+    "pathophysiology": [
+      "ASNS Loss of Function",
+      "Cerebral Asparagine Deficiency",
+      "Impaired Cortical Development",
+      "Aspartate and Glutamate Excitotoxicity",
+      "Epileptic Encephalopathy and Progressive Cerebral Atrophy"
+    ],
+    "cell_types": [
+      "radial glial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000681"
+    ],
+    "biological_processes": [
+      "L-asparagine biosynthetic process",
+      "cerebral cortex development"
+    ],
+    "phenotypes": [
+      "Progressive microcephaly",
+      "Cerebral atrophy",
+      "Global developmental delay",
+      "Intractable seizures",
+      "Status epilepticus",
+      "Myoclonus",
+      "Axial hypotonia",
+      "Spasticity",
+      "Exaggerated startle response",
+      "Cortical visual impairment",
+      "Feeding difficulties",
+      "Respiratory insufficiency"
+    ],
+    "phenotype_categories": [
+      "Physical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000253",
+      "HP:0002059",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0002133",
+      "HP:0001336",
+      "HP:0008936",
+      "HP:0001257",
+      "HP:0002267",
+      "HP:0100704",
+      "HP:0011968",
+      "HP:0002093"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ASNS"
+    ],
+    "treatments": [
+      "Supportive and symptomatic care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Asparagine_Synthetase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Asparagine_synthetase_deficiency.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Aspartylglucosaminuria",
     "disease_id": "MONDO:0008830",
     "category": "Mendelian",
@@ -46671,7 +46757,9 @@ window.searchData = [
       "Hydroxychloroquine",
       "IVIG",
       "Rituximab",
-      "JAK Inhibitors"
+      "JAK Inhibitors",
+      "Treat-to-Target Management Strategy",
+      "Physical Therapy and Exercise Rehabilitation"
     ],
     "environmental": [],
     "biochemical": [
@@ -46686,7 +46774,7 @@ window.searchData = [
     "num_phenotypes": 47,
     "num_pathophysiology": 4,
     "num_genes": 6,
-    "num_treatments": 8,
+    "num_treatments": 10,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -51222,7 +51310,7 @@ window.searchData = [
   },
   {
     "name": "ER-Positive Breast Cancer",
-    "disease_id": "MONDO:0021116",
+    "disease_id": "MONDO:0006512",
     "category": "",
     "parents": [
       "breast carcinoma"
@@ -52781,6 +52869,90 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Enhanced S-Cone Syndrome",
+    "disease_id": "MONDO:0100288",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-07-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Enhanced S-cone syndrome (ESCS) is a rare autosomal recessive inherited retinal dystrophy caused by biallelic loss-of-function variants in NR2E3 (photoreceptor-specific nuclear receptor, PNR), a photoreceptor-restricted ligand-dependent nuclear-hormone-receptor transcription factor. Uniquely among inherited retinal diseases, ESCS manifests a paradoxical gain of function of a photoreceptor subtype: loss of NR2E3-mediated repression of the S (short-wavelength, blue) cone genetic program during retinogenesis mis-specifies photoreceptor cell fate, so that cells that would normally become rods instead adopt an S-cone identity. The result is an excess of S cones at the expense of rods and L/M (red/green) cones, producing supranormal S-cone sensitivity, rudimentary or absent rod function with lifelong night blindness, reduced L/M-cone (color) vision, and a characteristic electroretinogram. The dysplastic, rod-deficient retina is also progressively degenerative, frequently complicated by cystoid maculopathy and intraretinal schisis; the most severe end of the NR2E3 phenotypic spectrum is historically termed Goldmann-Favre syndrome. ESCS is distinct from the rare dominant p.Gly56Arg NR2E3 allele that causes autosomal dominant retinitis pigmentosa.\n",
+    "pathophysiology": [
+      "NR2E3 Loss of Function",
+      "Photoreceptor Cell-Fate Mis-specification and S-Cone Excess",
+      "Rod Photoreceptor Deficiency and Scotopic Dysfunction",
+      "Progressive Retinal Degeneration and Maculopathy"
+    ],
+    "cell_types": [
+      "photoreceptor cell",
+      "S cone cell",
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0003050",
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "regulation of DNA-templated transcription",
+      "eye photoreceptor cell development",
+      "retinal rod cell differentiation",
+      "retinal cone cell differentiation",
+      "visual perception"
+    ],
+    "phenotypes": [
+      "Night blindness",
+      "Abnormal electroretinogram",
+      "Reduced visual acuity",
+      "Color vision defect",
+      "Retinal degeneration",
+      "Cystoid macular edema",
+      "Retinoschisis"
+    ],
+    "phenotype_categories": [
+      "Ophthalmic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0000512",
+      "HP:0007663",
+      "HP:0000551",
+      "HP:0000546",
+      "HP:0011505",
+      "HP:0030502"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "NR2E3 pathogenic variants"
+    ],
+    "treatments": [
+      "Carbonic Anhydrase Inhibitor for Cystoid Macular Edema",
+      "Topical Interferon Gamma-1b (Investigational)",
+      "Supportive and Low-Vision Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Enhanced_S-Cone_Syndrome.yaml",
+    "page_url": "../pages/disorders/Enhanced_S-Cone_Syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Eosinophilic Esophagitis",
     "disease_id": "MONDO:0005361",
     "category": "Complex",
@@ -53157,20 +53329,26 @@ window.searchData = [
       "Scarring",
       "Failure to Thrive",
       "Anemia",
-      "Pain"
+      "Pain",
+      "Esophageal Stricture",
+      "Pseudosyndactyly (Mitten Deformity)"
     ],
     "phenotype_categories": [
       "Integument",
       "Growth",
       "Blood",
-      "Constitutional"
+      "Constitutional",
+      "Gastrointestinal",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Constitutional",
+      "Digestive",
       "Growth",
       "Head and Neck",
       "Integument",
+      "Limbs",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
@@ -53181,7 +53359,9 @@ window.searchData = [
       "HP:0100699",
       "HP:0001508",
       "HP:0001903",
-      "HP:0012531"
+      "HP:0012531",
+      "HP:0002043",
+      "HP:0010554"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -53207,7 +53387,13 @@ window.searchData = [
       "Genetic Counseling",
       "Vyjuvek (Beremagene Geperpavec)",
       "Filsuvez (Birch Triterpenes)",
-      "Zevaskyn (Prademagene Zamikeracel / pz-cel)"
+      "Zevaskyn (Prademagene Zamikeracel / pz-cel)",
+      "Esophageal Stricture Management (Endoscopic Dilatation)",
+      "Hand Surgery and Hand Therapy",
+      "Palliative and End-of-Life Care",
+      "Podiatric (Foot) Care",
+      "Neonatal EB Care",
+      "Orthodontic and Dental Care"
     ],
     "environmental": [],
     "biochemical": [
@@ -53217,10 +53403,10 @@ window.searchData = [
     ],
     "source_file": "Epidermolysis_Bullosa.yaml",
     "page_url": "../pages/disorders/Epidermolysis_Bullosa.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 10,
     "num_pathophysiology": 4,
     "num_genes": 10,
-    "num_treatments": 8,
+    "num_treatments": 14,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
@@ -78338,7 +78524,8 @@ window.searchData = [
     ],
     "treatments": [
       "Supportive multidisciplinary care",
-      "Genetic counseling"
+      "Genetic counseling",
+      "AAV-mediated hBAG3 gene therapy (investigational)"
     ],
     "environmental": [],
     "biochemical": [],
@@ -78347,8 +78534,8 @@ window.searchData = [
     "num_phenotypes": 25,
     "num_pathophysiology": 6,
     "num_genes": 3,
-    "num_treatments": 2,
-    "causal_graph_edges": "34",
+    "num_treatments": 3,
+    "causal_graph_edges": "36",
     "causal_graph_longest_path": "5"
   },
   {
@@ -79605,8 +79792,14 @@ window.searchData = [
       "Immune Activation and Mast Cell Degranulation",
       "Microbiome Dysbiosis"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "enterochromaffin cell",
+      "mast cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000577",
+      "CL:0000097"
+    ],
     "biological_processes": [
       "Pain Perception",
       "Gut Motility",
@@ -79632,7 +79825,7 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0002027",
-      "HP:0025085",
+      "HP:0030895",
       "HP:0003270",
       "HP:0002019",
       "HP:0002014",
@@ -82617,7 +82810,9 @@ window.searchData = [
       "Anakinra",
       "Cyclosporine",
       "Corticosteroids",
-      "Infliximab"
+      "Infliximab",
+      "Long-Term Antithrombotic Therapy for Coronary Aneurysms",
+      "Risk-Stratified Long-Term Cardiology Follow-up"
     ],
     "environmental": [],
     "biochemical": [
@@ -82630,7 +82825,7 @@ window.searchData = [
     "num_phenotypes": 40,
     "num_pathophysiology": 2,
     "num_genes": 21,
-    "num_treatments": 6,
+    "num_treatments": 8,
     "causal_graph_edges": "22",
     "causal_graph_longest_path": "3"
   },
@@ -88796,7 +88991,8 @@ window.searchData = [
       "Ivabradine therapy for post-COVID POTS-like tachycardia",
       "Beta adrenergic agent therapy for POTS-associated symptoms",
       "Hyperbaric oxygen therapy",
-      "Intranasal and transcranial photobiomodulation"
+      "Intranasal and transcranial photobiomodulation",
+      "Corticosteroid therapy for post-COVID persistent interstitial lung disease"
     ],
     "environmental": [
       "Infection during ancestral-strain dominance"
@@ -88816,8 +89012,8 @@ window.searchData = [
     "num_phenotypes": 22,
     "num_pathophysiology": 15,
     "num_genes": 0,
-    "num_treatments": 7,
-    "causal_graph_edges": "61",
+    "num_treatments": 8,
+    "causal_graph_edges": "64",
     "causal_graph_longest_path": "5"
   },
   {
@@ -89261,7 +89457,11 @@ window.searchData = [
       "Corticosteroid Therapy",
       "BAFF Pathway Inhibition (Belimumab)",
       "Calcineurin Inhibition (Voclosporin)",
-      "Antimalarial Background Therapy (Hydroxychloroquine)"
+      "Antimalarial Background Therapy (Hydroxychloroquine)",
+      "Azathioprine Maintenance Therapy",
+      "Calcineurin Inhibition (Tacrolimus)",
+      "B Cell Depletion Therapy (Rituximab) \u2014 Pregnancy-Cautious Use",
+      "Antiplatelet Therapy for Preeclampsia Prevention"
     ],
     "environmental": [],
     "biochemical": [],
@@ -89270,7 +89470,7 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 4,
     "num_genes": 0,
-    "num_treatments": 5,
+    "num_treatments": 9,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
   },
@@ -104505,6 +104705,7 @@ window.searchData = [
       "Infantile Nephronophthisis",
       "Juvenile Nephronophthisis",
       "Adolescent Nephronophthisis",
+      "Late-Onset Nephronophthisis",
       "NPHP1-related",
       "CEP164-related"
     ],
@@ -104591,6 +104792,7 @@ window.searchData = [
     "treatments": [
       "Renal Replacement Therapy",
       "Antihypertensive Therapy",
+      "Gene Therapy",
       "Supportive Care"
     ],
     "environmental": [
@@ -104605,7 +104807,7 @@ window.searchData = [
     "num_phenotypes": 11,
     "num_pathophysiology": 11,
     "num_genes": 6,
-    "num_treatments": 3,
+    "num_treatments": 4,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
@@ -155432,15 +155634,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1570,
-  "total_subtypes": 2431,
-  "total_disorders_and_subtypes": 4001,
-  "total_unique_evidence_sources": 24607,
-  "total_unique_publications": 23136,
+  "total_disorder_pages": 1572,
+  "total_subtypes": 2432,
+  "total_disorders_and_subtypes": 4004,
+  "total_unique_evidence_sources": 24656,
+  "total_unique_publications": 23184,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 216,
-  "total_pathographs": 1564,
-  "total_unique_pathological_events": 7339,
+  "total_pathographs": 1566,
+  "total_unique_pathological_events": 7348,
   "total_modules": 110,
   "total_research_reports": 1816,
   "total_classifications": 8,
