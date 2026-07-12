@@ -20,6 +20,14 @@ The goal is to let DisMech carry a *mechanism hypothesis, its model-system
 evidence, and a computable EHR case-finding query* as one linked, epistemically
 honest object — something a raw phenotype-algorithm library cannot express.
 
+This is not a one-off: Timothy is one instance of a recurring **trigger-provoked
+latent disease** archetype (Brugada/fever, malignant hyperthermia/anesthesia,
+G6PD/oxidants, drug-induced long-QT, CPVT/exercise, …), most of whose disorders
+already exist in the KB. See the companion survey
+[Mechanism-hypothesis-driven EHR case-finding](reports/hypothesis-driven-ehr-case-finding-2026-07-12.md)
+for the candidate register — it also shows why `derivation_basis` must span an
+*established ↔ emerging* spectrum rather than being a single flag.
+
 ## Motivating example (why now)
 
 Issue [#6245](https://github.com/monarch-initiative/dismech/issues/6245) reports a
