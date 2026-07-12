@@ -12,8 +12,9 @@ DisMech `definitions` blocks can already carry a
 Today those algorithms are implicitly assumed to be grounded in **established,
 consensus phenotype criteria**. This proposal adds a way to mark a phenotype
 algorithm as **derived from — and predicated on — an unproven mechanistic
-hypothesis**, and to link it to the disease-level `mechanistic_hypotheses` entry
-it operationalizes.
+hypothesis**, by linking it (via the existing `attaches_to` slot) to the
+pathograph node(s) it operationalizes and inferring the hypothesis basis from
+them.
 
 The goal is to let DisMech carry a *mechanism hypothesis, its model-system
 evidence, and a computable EHR case-finding query* as one linked, epistemically
@@ -88,7 +89,8 @@ What is missing is (a) a link from a `Definition` to the hypothesis it tests, an
 
 ## Proposed schema extension
 
-Add three slots to the `Definition` class. All are optional; existing entries are
+Two new slots on `Definition` plus a reuse of the existing `attaches_to` slot; one
+new enum and one small object class. All are optional; existing entries are
 unaffected (their absence reads as the established-criteria default).
 
 ### 1. `derivation_basis` — new enum `DefinitionDerivationBasisEnum`
@@ -101,25 +103,41 @@ Records the epistemic grounding, orthogonal to `definition_type`:
 | `MECHANISTIC_HYPOTHESIS` | Predicated on a specific, not-yet-proven disease mechanism hypothesis. Membership is contingent on the hypothesis holding. |
 | `MODEL_SYSTEM_EXTRAPOLATION` | Extrapolated from an animal/in-vitro model result not yet demonstrated in humans. |
 
-### 2. `hypothesis_group_id` — **reuse the existing slot** (range `string`)
+### 2. Link to the pathograph — **reuse the existing `attaches_to` slot** (not a new hypothesis ID)
 
-Points the algorithm at the disease-level `mechanistic_hypotheses[]` entry it
-operationalizes. This is the key wire: it lets tooling traverse
-*hypothesis → causal edges (via `downstream[].hypothesis_groups`) → algorithm*
-as one connected sub-model.
+Rather than storing a separate `hypothesis_group_id` string on the definition and
+keeping it in sync, point the algorithm **directly at the pathophysiology
+node(s)/edge(s) it is predicated on**, reusing the existing `attaches_to` slot and
+its `[<file>:]<kind>#<name>` hash-anchor grammar (already used by `discussions`,
+e.g. `pathophysiology#Amyloid Plaque Formation`). For the motivating case the
+definition would attach to the fever-exacerbation node/edge, e.g.
+`attaches_to: [pathophysiology#Fever-triggered CaV1.2 activation]`.
 
-### 3. `validation_status` — new enum `AlgorithmValidationStatusEnum`
+The hypothesis basis is then **inferred from the pathograph**, not re-declared:
+those nodes'/edges' `downstream[].hypothesis_groups` resolve to the disease-level
+`mechanistic_hypotheses[]` entries, which carry the `status`
+(`CANONICAL` / `ALTERNATIVE` / `EMERGING` / `DEPRECATED`). So tooling can traverse
+*algorithm → attached node/edge → hypothesis group → status* with no redundant
+key. This makes `derivation_basis` (below) a **declared-and-cross-checkable**
+value rather than a free-floating assertion: an algorithm attached only to
+`CANONICAL` nodes that declares `MECHANISTIC_HYPOTHESIS` (or vice versa) is a
+lintable inconsistency.
 
-Makes the case-finding maturity explicit:
+### 3. `validation_status` — a structured object, not a bare enum
 
-| Value | Meaning |
-|---|---|
-| `PROPOSED` | Drafted; never executed against data. |
-| `UNVALIDATED` | Executable but not yet evaluated against a gold-standard/labeled cohort. |
-| `VALIDATED_AGAINST_GOLD_STANDARD` | PPV/sensitivity characterized against a reference standard. |
+Validation maturity lives on the `Definition` (not `CriteriaSet`), and is an
+**object** so it can carry a free-text rationale (and, later, evidence) alongside
+the graded status — mirroring how `MechanisticHypothesis` pairs a `status` enum
+with a `description`. Proposed `AlgorithmValidationStatus` class:
 
-`definition_type` stays `PHENOTYPE_ALGORITHM`; the two new axes layer on top. A
-new `definition_type` value was considered and rejected (see Alternatives).
+| Slot | Range | Meaning |
+|---|---|---|
+| `status` | `AlgorithmValidationStatusEnum` | `PROPOSED` (drafted, never run) / `UNVALIDATED` (executable, not yet evaluated against a gold standard) / `VALIDATED_AGAINST_GOLD_STANDARD` (PPV/sensitivity characterized). |
+| `rationale` | `string` | Why this status — what was (or was not) run, against which cohort, with what result. |
+| `evidence` | `EvidenceItem` (multivalued, optional) | Citation(s) for a validation study, once one exists. |
+
+`definition_type` stays `PHENOTYPE_ALGORITHM`; the new axes layer on top. A new
+`definition_type` value was considered and rejected (see Alternatives).
 
 ## Worked example (Timothy syndrome)
 
@@ -146,12 +164,27 @@ mechanistic_hypotheses:
       Zebrafish cacna1c model demonstrates temperature-triggered decompensation
       in phenotypically normal heterozygotes.
 
+pathophysiology:
+# ... the fever-exacerbation node/edge added per #6245, whose downstream edges
+# opt into the hypothesis group:
+- name: Fever-triggered CaV1.2 activation
+  # downstream:
+  # - target: Ventricular tachyarrhythmia (torsade de pointes)
+  #   hypothesis_groups: [fever_exacerbated_cav1.2]
+  # - target: Seizures
+  #   hypothesis_groups: [fever_exacerbated_cav1.2]
+
 definitions:
 - name: Fever-associated arrhythmia case-finding query for latent CACNA1C carriers
   definition_type: PHENOTYPE_ALGORITHM
-  derivation_basis: MECHANISTIC_HYPOTHESIS       # NEW
-  validation_status: PROPOSED                     # NEW
-  hypothesis_group_id: fever_exacerbated_cav1.2   # reused slot; ties to the hypothesis
+  derivation_basis: MECHANISTIC_HYPOTHESIS       # NEW (declared; cross-checked vs. attached nodes)
+  attaches_to:                                    # reused slot; grounds the algorithm in the pathograph
+  - pathophysiology#Fever-triggered CaV1.2 activation
+  validation_status:                              # NEW (object, not bare enum)
+    status: PROPOSED
+    rationale: >-
+      Drafted from the zebrafish result; never executed against a human EHR/OMOP
+      dataset. No PPV/sensitivity yet.
   scope: >-
     EHR/OMOP case-finding; hypothesis-generating, NOT a validated diagnostic
     algorithm.
@@ -175,11 +208,15 @@ definitions:
 
 ## Guardrails to bake in
 
-- **Foreign-key test** (`tests/test_data.py`): if
-  `derivation_basis: MECHANISTIC_HYPOTHESIS`, then `hypothesis_group_id` **must**
-  resolve to a declared `mechanistic_hypotheses[].hypothesis_group_id` on the
-  same entry — the same referential discipline `conforms_to` and the grouping
-  foreign keys already enforce.
+- **Foreign-key test** (`tests/test_data.py`): a definition's `attaches_to`
+  references must resolve to real nodes/objects in the same entry (the same
+  `[<file>:]<kind>#<name>` resolution `discussions.attaches_to` already needs) —
+  and if `derivation_basis: MECHANISTIC_HYPOTHESIS`, at least one attached
+  node/edge should sit in a non-`CANONICAL` hypothesis group.
+- **Consistency lint** (advisory): warn when the declared `derivation_basis`
+  disagrees with the basis *inferred* from the attached nodes' hypothesis-group
+  status (e.g. declared `ESTABLISHED_CRITERIA` but attached to an `EMERGING`-group
+  node). Advisory, not gating — the pathograph annotations may lag the algorithm.
 - **Renderer badge**: hypothesis-based / unvalidated definitions must be visibly
   flagged (e.g. "⚗ hypothesis-based — not a validated phenotype") so they never
   render as clinical criteria.
@@ -200,12 +237,27 @@ definitions:
 3. **A separate top-level `hypothesis_based_algorithms` slot.** Rejected: it
    would duplicate the `Definition`/`CriteriaSet` structure and split phenotype
    algorithms across two homes.
+4. **A bare `hypothesis_group_id` string on the definition.** Rejected in favor of
+   reusing `attaches_to` to link the pathograph nodes/edges directly (see §2): a
+   free-floating ID duplicates a key that already lives on the causal edges and
+   can drift out of sync, whereas node links let the hypothesis basis be
+   *inferred* and cross-checked.
+5. **A bare `validation_status` enum.** Rejected in favor of an object carrying a
+   `rationale` (and optional `evidence`), so the maturity claim is auditable
+   rather than a bare token.
 
 ## Open questions for review
 
-- Should `validation_status` live on `Definition` or on `CriteriaSet` (a
-  definition may bundle a screening set and a confirmatory set at different
-  maturities)?
+- **Resolved by review:** `validation_status` lives on `Definition` (not
+  `CriteriaSet`) and is an **object** with a free-text `rationale`; the
+  hypothesis link is `attaches_to` node references with the basis inferred, not a
+  standalone `hypothesis_group_id`.
+- Should a `CriteriaSet`-level status override still be allowed for the case where
+  a definition bundles a screening set and a confirmatory set at different
+  maturities, or is a definition-level status sufficient?
+- If the pathograph node an algorithm should attach to does not exist yet, is a
+  transient `preferred_term`-style reference acceptable, or must the node be added
+  first (so `attaches_to` always resolves)?
 - Do we want an explicit `predicts_population` marker distinguishing
   *"finds known cases of disease X"* from *"predicts an as-yet-unvalidated latent
   subpopulation"*? For now the `MECHANISTIC_HYPOTHESIS` basis plus `scope` prose
