@@ -78,3 +78,26 @@ nih_topics:
 ```
 
 Worked example: `projects/CANCER.md`.
+
+## Bulk tagging by structural signal
+
+`scripts/tag_nih_topics.py` applies topic tags to disease entries using the
+**structural signals already in the KB** — currently `conforms_to` module edges
+— so every tag is mechanism-grounded and auditable, never keyword-guessed. It is
+idempotent (an entry already carrying a topic tag is left unchanged) and
+preserves file formatting via ruamel round-trip.
+
+```bash
+python scripts/tag_nih_topics.py --dry-run   # report what would change
+python scripts/tag_nih_topics.py             # apply
+```
+
+The current rule set tags **NIH Topic 89** on entries whose pathophysiology
+conforms to an aging/senescence-hallmark module (`cellular_senescence`,
+`senescence_tumor_suppression`, `genomic_instability_aging`, `inflammaging`,
+`telomere_attrition`, `loss_of_proteostasis`). Extend the `RULES` table as new
+defensible structural signals emerge.
+
+Topics that require per-entry human judgement (rare-cancer status, pediatric
+onset, broad autoimmune scope) are **deliberately not auto-applied** — tag those
+by hand where the evidence supports it.
