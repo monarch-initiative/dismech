@@ -1,0 +1,80 @@
+# NIH Highlighted-Topic Classification
+
+dismech carries a **secondary, non-primary** classification that tags disease
+entries and curation projects with the [NIH "Highlighted Topics"][nih] funding
+priorities they are relevant to. It records *grant-strategy* relevance — which
+funding calls a body of curation could support — and is deliberately **not** a
+disease nosology. An entry may carry several tags or none, alongside its primary
+classifications (Harrison's chapter, mechanistic nosology, ICIMD, …).
+
+[nih]: https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics
+
+## Why it is generated, not hand-written
+
+Each NIH highlighted topic carries a ~2-year expiration date, so the list is
+transient. Rather than hand-maintain an enum, the classification is generated
+from a dated snapshot:
+
+| Artifact | Path |
+|----------|------|
+| Snapshot data (72 topics) | `data/nih_highlighted_topics/topics.tsv` |
+| Snapshot manifest (date, source URL) | `data/nih_highlighted_topics/MANIFEST.yaml` |
+| Generator script | `scripts/gen_nih_topics_enum.py` |
+| Generated LinkML enum | `src/dismech/schema/classifications/nih_research_priorities.yaml` |
+
+**Do not hand-edit the generated enum.** To refresh after NIH updates the list:
+
+```bash
+# 1. Re-scrape the topic pages into data/nih_highlighted_topics/topics.tsv
+#    (each topic lives at .../highlighted-topics/<topic_number>)
+# 2. Update MANIFEST.yaml (snapshot_date, topic_count)
+# 3. Regenerate the enum:
+python scripts/gen_nih_topics_enum.py
+# 4. Verify it is in sync (used in CI/tests):
+python scripts/gen_nih_topics_enum.py --check
+```
+
+## Enum key format
+
+Keys are `NIH_HT_<topic_number>_<short_slug>`, e.g.
+`NIH_HT_89_cellular_quiescence_senescence_cell_death_in`. The **topic number is
+the stable anchor** (it is the NIH URL slug); the trailing slug is for
+human readability and may shift if NIH rewords a title. Each value's description
+carries the full title, expiration date, and the canonical topic URL.
+
+## Tagging a disease entry
+
+Add assignments under the disease's `classifications.nih_research_priority` list.
+Use `notes` to justify the relevance; add `evidence` only where a specific claim
+backs it.
+
+```yaml
+classifications:
+  harrisons_chapter:
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+  nih_research_priority:
+  - classification_value: NIH_HT_89_cellular_quiescence_senescence_cell_death_in
+    notes: >-
+      Osteoarthritis conforms to the cellular_senescence module (senescent
+      chondrocyte accumulation with SASP driving cartilage degradation),
+      making it relevant to NIH Highlighted Topic 89.
+```
+
+Worked example: `kb/disorders/Osteoarthritis.yaml`.
+
+## Tagging a curation project
+
+Add a `nih_topics` list to the project's YAML frontmatter (see
+[Curation projects](projects.md)). The keys are validated against the same enum
+and render as blue linked chips on the project page.
+
+```yaml
+---
+title: Cancer Curation Project
+nih_topics:
+  - NIH_HT_42_rare_cancers_across_cancer_control_continuum
+  - NIH_HT_68_childhood_adolescent_young_adult_aya_cancer
+---
+```
+
+Worked example: `projects/CANCER.md`.

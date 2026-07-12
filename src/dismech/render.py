@@ -3713,6 +3713,53 @@ def render_all_groupings(
 # local/external page each entity links to.
 _PROJECT_ENTITY_KINDS = ("diseases", "modules", "groupings", "drugs", "phenotypes")
 
+_NIH_TOPICS_ENUM_PATH = (
+    Path(__file__).parent / "schema" / "classifications" / "nih_research_priorities.yaml"
+)
+
+
+@lru_cache(maxsize=1)
+def _nih_topic_display() -> dict[str, dict]:
+    """Map each NIHResearchPriorityEnum key to a display label + NIH topic URL.
+
+    Parsed from the generated classification enum's permissible-value
+    descriptions (format: ``"<title> (NIH Highlighted Topic <n>; ...). <url>"``)
+    so project pages can render ``nih_topics`` frontmatter as linked chips.
+    """
+    if not _NIH_TOPICS_ENUM_PATH.exists():
+        return {}
+    with _NIH_TOPICS_ENUM_PATH.open(encoding="utf-8") as fh:
+        doc = yaml.safe_load(fh) or {}
+    pvs = (
+        (doc.get("enums") or {})
+        .get("NIHResearchPriorityEnum", {})
+        .get("permissible_values")
+        or {}
+    )
+    out: dict[str, dict] = {}
+    for key, meta in pvs.items():
+        desc = (meta or {}).get("description", "") if isinstance(meta, dict) else ""
+        label = desc.split(" (NIH Highlighted Topic", 1)[0].strip() or key
+        href = None
+        match = re.search(r"(https?://\S+)", desc)
+        if match:
+            href = match.group(1)
+        out[str(key)] = {"key": str(key), "label": label, "href": href}
+    return out
+
+
+def _resolve_nih_topics(metadata: dict) -> list[dict]:
+    """Resolve a project's ``nih_topics`` frontmatter list to display records."""
+    display = _nih_topic_display()
+    resolved: list[dict] = []
+    for raw in metadata.get("nih_topics") or []:
+        key = str(raw).strip()
+        if not key:
+            continue
+        resolved.append(display.get(key, {"key": key, "label": key, "href": None}))
+    return resolved
+
+
 _PROJECT_STATUS_LABELS = {
     "PLANNED": "Planned",
     "IN_PROGRESS": "In progress",
@@ -3881,6 +3928,7 @@ def _project_summary(
         "status": status,
         "status_label": _PROJECT_STATUS_LABELS.get(status, status.title() or None),
         "tags": [str(tag) for tag in (metadata.get("tags") or [])],
+        "nih_topics": _resolve_nih_topics(metadata),
         "counts": counts,
         "entity_total": sum(counts.values()),
     }
