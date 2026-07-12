@@ -134,7 +134,13 @@ with a `description`. Proposed `AlgorithmValidationStatus` class:
 |---|---|---|
 | `status` | `AlgorithmValidationStatusEnum` | `PROPOSED` (drafted, never run) / `UNVALIDATED` (executable, not yet evaluated against a gold standard) / `VALIDATED_AGAINST_GOLD_STANDARD` (PPV/sensitivity characterized). |
 | `rationale` | `string` | Why this status — what was (or was not) run, against which cohort, with what result. |
-| `evidence` | `EvidenceItem` (multivalued, optional) | Citation(s) for a validation study, once one exists. |
+| `evidence` | `EvidenceItem` (multivalued, optional) | Citation(s) backing the status. This is the **same `EvidenceItem` model used everywhere else** — a `reference` (PMID / DOI / NCT / structured-source CURIE) plus a verbatim `snippet` (the excerpt) and an `explanation`, with the snippet snippet-validated against the cached source. So a validation study, or a paper reporting the algorithm's yield, is captured as PMID + excerpt rather than only prose. |
+
+`rationale` (free text) and `evidence` (PMID/DOI + excerpt) are complementary: the
+rationale narrates *why* the status is what it is; each `evidence` item pins a
+specific verifiable claim to a citable source and quote. A `PROPOSED` algorithm may
+have rationale but no evidence yet; a `VALIDATED_AGAINST_GOLD_STANDARD` one should
+carry at least one `evidence` item pointing at the validation study.
 
 `definition_type` stays `PHENOTYPE_ALGORITHM`; the new axes layer on top. A new
 `definition_type` value was considered and rejected (see Alternatives).
@@ -185,6 +191,19 @@ definitions:
     rationale: >-
       Drafted from the zebrafish result; never executed against a human EHR/OMOP
       dataset. No PPV/sensitivity yet.
+    # Once a validation study exists, its status flips and cites the study as
+    # a standard EvidenceItem (PMID + excerpt), e.g.:
+    #   status: VALIDATED_AGAINST_GOLD_STANDARD
+    #   rationale: >-
+    #     Executed against the CACNA1C-genotyped arm of an EHR biobank; the
+    #     febrile-onset arrhythmia query reached PPV 0.42 for a rare/likely-
+    #     pathogenic CACNA1C variant vs. chart-reviewed controls.
+    #   evidence:
+    #   - reference: PMID:XXXXXXXX
+    #     supports: SUPPORT
+    #     evidence_source: HUMAN_CLINICAL
+    #     snippet: "<verbatim excerpt reporting the PPV / validation result>"
+    #     explanation: Gold-standard validation of the febrile-arrhythmia query.
   scope: >-
     EHR/OMOP case-finding; hypothesis-generating, NOT a validated diagnostic
     algorithm.
