@@ -1,9 +1,20 @@
-# Hypothesis-Based Phenotype Algorithms (Proposal)
+# Hypothesis-Based Phenotype Algorithms
 
-**Status:** Proposal / open decision — *not yet enacted in the schema.*
+**Status:** **Enacted** — the schema slots are live and Timothy syndrome is the
+worked example. Maintainer-approved (`@cmungall`, 2026-07-12).
 **Tracking:** [#6245](https://github.com/monarch-initiative/dismech/issues/6245)
-**Registered in:** [Design Decisions §11 (Gaps)](explanation/design-decisions.md)
-**Maintainer sign-off requested:** `@cmungall`
+**Registered in:** [Design Decisions §11](explanation/design-decisions.md)
+
+**What was enacted (vs. the original proposal below):** `Definition` gained
+`derivation_basis` (`DefinitionDerivationBasisEnum`), `validation_status` (the
+`AlgorithmValidationStatus` object: `status` + `rationale` + optional
+`evidence`), and reuses `attaches_to` to link the pathograph node(s) it is
+predicated on. A gating test
+(`test_hypothesis_based_definition_attaches_to_foreign_keys`) enforces that a
+`MECHANISTIC_HYPOTHESIS` definition has resolving `attaches_to` refs. The
+declared-vs-inferred consistency lint and the KGX-export treatment remain
+follow-ups. The rest of this document is the original design write-up, retained
+as the rationale of record.
 
 ## Summary
 
