@@ -110,6 +110,48 @@ Every row follows the same shape now committed for Timothy — all achievable wi
   (`Malignant_Hyperthermia_of_Anesthesia`) are the next two established-trigger
   candidates.
 
+## Validation pathways & datasets
+
+A recurring question: can these algorithms be tested on public EHR data (e.g.
+MIMIC)? Separate two very different bars:
+
+1. **Prototype** — does the phenotype logic run, and does it surface plausible
+   cases? (tune the OMOP query, temporal windows, code sets; detect the ECG
+   morphology.)
+2. **Validate** — does a hit actually enrich for **genotype-positive** carriers?
+   (the PPV / gold-standard test the `proposed_experiments` describe.)
+
+Bar 2 needs **linked germline DNA**, which is what gates dataset choice.
+
+**MIMIC — a prototyping substrate, not a validation substrate.** Two hard limits:
+(a) **no linked genotype**, so carriership can never be confirmed; and (b) the
+**ICU/ED population is a worst-case confounder** — fever there mostly means
+sepsis/critical illness and new arrhythmias are rampant for unrelated reasons,
+the opposite of the "overtly normal carrier" population the scan targets. Its
+genuine value is narrower: **MIMIC-IV-ECG** (~800k linked 12-lead ECGs on
+PhysioNet) lets you build and sanity-check a **type-1 Brugada morphology
+detector** against charted temperature (the signal-detection half of the Brugada
+query), plus fever→event base-rate mechanics. Useful for Brugada prototyping;
+of little use for Timothy (needs DNA, no clean ECG signature).
+
+**Genotype-linked EHR biobanks — where the enrichment test actually lives:**
+
+| Dataset | Genotype | Longitudinal EHR | ECG waveforms | Role here |
+|---|---|---|---|---|
+| **eMERGE Network** (+ PheKB) | Yes | Yes | Some | Purpose-built for EHR-linked computable-phenotype validation — the canonical home |
+| **All of Us** (NIH) | WGS (100k+s) | Yes (OMOP) | Growing | Directly query SCN5A/CACNA1C carriers vs. their fever/arrhythmia/seizure events |
+| **UK Biobank** | WGS/WES 500k | Linked HES + primary care | Rest/exercise ECG (imaging subset) | Strong for the genotype-enrichment test |
+| **MVP / BioVU / Genomics England 100k** | Yes | Yes | Varies | Same shape, more access-gated |
+
+Because dismech `definitions` are already **OMOP-shaped**, the same query can be
+run federated across the **OHDSI/OMOP network**, including genomics-linked sites.
+
+**Mapping to the schema.** This is exactly what `validation_status` is for: an
+algorithm starts `PROPOSED`/`UNVALIDATED`; a genotype-anchored study on eMERGE /
+All of Us / UK Biobank is what flips it to `VALIDATED_AGAINST_GOLD_STANDARD`,
+cited as `validation_status.evidence` (a standard PMID + PPV excerpt). MIMIC work
+would generally support only the phenotype-detector step, not that transition.
+
 ## Scope and evidence discipline
 
 This is a **design/landscape survey**, not KB evidence. The trigger biology cited
