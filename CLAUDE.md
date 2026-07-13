@@ -738,6 +738,61 @@ treatments:
 - A dedicated `treatment.name` (e.g., "Duloxetine") should still match common clinical usage; `therapeutic_agent` carries the machine-readable identifier.
 - Do NOT put the drug name in `preferred_term` on `treatment_term` — `preferred_term` describes the action (Pharmacotherapy), `therapeutic_agent.preferred_term` describes the agent.
 
+#### Named Combination Regimens (`regimen_term`)
+
+`regimen_term` is a **third, distinct** treatment slot — not an alternative spelling of
+`treatment_term` or `therapeutic_agent`. Use it only when the treatment follows an
+established, **named multi-drug protocol** that itself has an NCIT identity (e.g.
+FOLFIRINOX, ABVD, R-CHOP, CHOP). It is bound to the `RegimenTerm` dynamic enum, reachable
+only from `NCIT:C15697` (Treatment Regimen) / `NCIT:C62634` (Chemo/immuno/hormone Therapy
+Regimen) — generic drug-class terms (e.g. `NCIT:C66930` Angiotensin II Receptor
+Antagonist) are **not** reachable from that root and will fail validation if used here;
+those belong in `therapeutic_agent` instead.
+
+**How the three slots divide the work:**
+- `treatment_term`: the medical action/modality (e.g. `MAXO:0000647` chemotherapy, `NCIT:C15986` Pharmacotherapy)
+- `therapeutic_agent`: the individual drug(s) or drug class(es) involved
+- `regimen_term`: the named combination protocol itself, when one exists
+
+```yaml
+treatments:
+- name: ABVD-Based Chemotherapy
+  treatment_term:
+    preferred_term: chemotherapy
+    term:
+      id: MAXO:0000647
+      label: chemotherapy
+    therapeutic_agent:
+    - preferred_term: doxorubicin
+      term:
+        id: CHEBI:28748
+        label: doxorubicin
+    - preferred_term: bleomycin
+      term:
+        id: CHEBI:22907
+        label: bleomycin
+    - preferred_term: vinblastine
+      term:
+        id: CHEBI:27375
+        label: vincaleukoblastine
+    - preferred_term: dacarbazine
+      term:
+        id: CHEBI:4305
+        label: dacarbazine
+  regimen_term:
+    preferred_term: ABVD regimen
+    term:
+      id: NCIT:C9509
+      label: ABVD Regimen
+```
+
+Leave `regimen_term` absent when the treatment is monotherapy or an ad hoc/unnamed drug
+combination — do not invent a regimen identity that OAK can't verify. Worked examples:
+`Pancreatic_Ductal_Adenocarcinoma` (FOLFIRINOX), `Classic_Hodgkin_Lymphoma` (ABVD),
+`Diffuse_Large_B_Cell_Lymphoma` (R-CHOP), `Peripheral_T_Cell_Lymphoma` (CHOP),
+`BRAF_V600E_Mutant_Colorectal_Cancer` (FOLFOXIRI, curated against the closest available
+NCIT term, `Folfirinox Regimen`, since NCIT does not separately code the FOLFOXIRI name).
+
 ### Therapeutic Modality and Antisense Oligonucleotide (ASO) Detail
 
 A treatment's **modality** (the kind of therapeutic platform) is captured by the
