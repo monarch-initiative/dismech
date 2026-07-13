@@ -15149,6 +15149,7 @@ window.searchData = [
       "Long-acting Beta Agonist",
       "Leukotriene Modifier",
       "Anti-IgE Therapy",
+      "Biologic Therapy for Severe Asthma",
       "Short-acting Beta Agonist"
     ],
     "environmental": [
@@ -15169,7 +15170,7 @@ window.searchData = [
     "num_phenotypes": 12,
     "num_pathophysiology": 8,
     "num_genes": 17,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
   },
@@ -47806,7 +47807,8 @@ window.searchData = [
       "Chronic Red Blood Cell Transfusions",
       "Hematopoietic Stem Cell Transplantation",
       "Iron Chelation Therapy",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Clonal Evolution and Malignancy Surveillance"
     ],
     "environmental": [],
     "biochemical": [
@@ -47821,7 +47823,7 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 3,
     "num_genes": 10,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "3"
   },
@@ -91085,7 +91087,8 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "MED13 heterozygous pathogenic variants"
@@ -156544,8 +156547,8 @@ window.searchMetrics = {
   "total_disorder_pages": 1583,
   "total_subtypes": 2436,
   "total_disorders_and_subtypes": 4019,
-  "total_unique_evidence_sources": 24740,
-  "total_unique_publications": 23267,
+  "total_unique_evidence_sources": 24755,
+  "total_unique_publications": 23282,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 216,
   "total_pathographs": 1577,
