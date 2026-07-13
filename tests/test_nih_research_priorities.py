@@ -91,3 +91,44 @@ def test_resolver_tolerates_unknown_key() -> None:
 
     records = _resolve_nih_topics({"nih_topics": ["NIH_HT_9999_not_real"]})
     assert records == [{"key": "NIH_HT_9999_not_real", "label": "NIH_HT_9999_not_real", "href": None}]
+
+
+def _load_summary_module():
+    import importlib.util
+    script = ROOT / "scripts" / "gen_nih_topics_summary.py"
+    spec = importlib.util.spec_from_file_location("gen_nih_topics_summary", script)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_summary_page_builds_and_embeds_all_topics() -> None:
+    """The coverage page must embed all 72 topics and be valid HTML/JSON."""
+    import json
+    import re
+
+    mod = _load_summary_module()
+    html_out = mod.build()
+    assert html_out.lstrip().startswith("<!doctype html>")
+    m = re.search(r"const DATA = (\[.*?\]);\n", html_out, re.S)
+    assert m, "embedded DATA array not found"
+    data = json.loads(m.group(1))
+    assert len(data) == len(_enum_values()) == 72
+    # Every card has the fields the client script reads.
+    for card in data:
+        assert {"number", "title", "url", "diseases", "projects", "count"} <= card.keys()
+
+
+def test_summary_collects_known_tags() -> None:
+    """Known worked examples must show up in the aggregation."""
+    mod = _load_summary_module()
+    hits = mod._collect()
+    t89 = "NIH_HT_89_cellular_quiescence_senescence_cell_death_in"
+    t42 = "NIH_HT_42_rare_cancers_across_cancer_control_continuum"
+    disease_names_89 = {d["name"] for d in hits.get(t89, {}).get("diseases", [])}
+    assert any("Progeria" in n for n in disease_names_89)
+    disease_names_42 = {d["name"] for d in hits.get(t42, {}).get("diseases", [])}
+    assert any("Merkel" in n for n in disease_names_42)
+    # At least one project tag was collected for a method topic.
+    t66 = "NIH_HT_66_scientific_rigor_transparency_replicability"
+    assert hits.get(t66, {}).get("projects")
