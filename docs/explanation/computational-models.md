@@ -305,6 +305,39 @@ just perturb kb/disorders/Type_2_Diabetes_Mellitus.yaml --all                   
 > ranges; the bistable model captures the *decompensation threshold*, not graded
 > fasting glucose.
 
+## Exemplar: Congenital Hypothyroidism (an authored Antimony model)
+
+The third wired disorder is **Congenital Hypothyroidism**, and it demonstrates
+the **Antimony** authoring path (the framework accepts an SBML base exported from
+Antimony, exactly as the CKD-MBD extension is hand-authored). The model
+(`models/hpt_feedback_axis.ant` → `.xml`) is a minimal two-state
+(TSH, free T4) representation of the hypothalamic-pituitary-thyroid negative-
+feedback loop — not a BioModels deposit — calibrated to a euthyroid steady state
+(TSH ≈ 1.5 mU/L, free T4 ≈ 15 pmol/L):
+
+```
+dTSH/dt = P_pit * TSH_prod / (1 + (FT4/Kfb)^n) - kdeg_TSH * TSH
+dFT4/dt = secr * S_thy * TSH + LT4 - kdeg_T4 * FT4
+```
+
+- **Disease-severity dial**: thyroid secretory capacity `S_thy` (`baseline_gfr:
+  1.0`). Reducing it reproduces primary congenital hypothyroidism with a
+  compensatory TSH rise; eight congenital-hypothyroidism genes (dyshormonogenesis
+  TPO/TG/DUOX2/SLC5A5, dysgenesis PAX8/NKX2-1/FOXE1, resistance TSHR) map to it.
+- **Treatment**: `LT4` is an exogenous, TSH-independent T4 source. Because
+  `param_overrides` are multiplicative, `LT4` carries a tiny nonzero baseline so
+  the treatment scenarios can raise it — titrating from under-replacement
+  (residual high TSH) → full replacement (euthyroid, no phenotypes) →
+  over-replacement (suppressed TSH, elevated free T4 = iatrogenic thyrotoxicosis).
+- **Central hypothyroidism**: reducing pituitary capacity `P_pit` yields low
+  free T4 with *inappropriately normal* TSH — the diagnostic hallmark that
+  separates it from primary hypothyroidism, and it falls out of the feedback loop
+  automatically.
+
+This exemplar shows the framework is not limited to downloaded SBML: any
+well-behaved ODE model authored in Antimony and exported to SBML plugs in through
+the same config sidecar.
+
 ## Adding Perturbation Support to Other Disorders
 
 A disorder becomes perturbable when it has:
