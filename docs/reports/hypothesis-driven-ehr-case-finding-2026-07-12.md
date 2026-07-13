@@ -145,16 +145,24 @@ NAMs contribute to these hypotheses in three ways:
 
 Per-example NAM (each a `proposed_experiment` with NAMO-aligned `model_systems`):
 
-| Example | NAM test of the trigger hypothesis |
-|---|---|
-| **Timothy** (fever) | iPSC-cardiomyocyte + iPSC-neuron + heart-on-chip hyperthermia challenge on CACNA1C-G406R vs. isogenic control, with an in-silico human ventricular-AP model (curated — `exp_ts_fever_ipsc_nam_challenge`) |
-| **Brugada** (fever) | iPSC-cardiomyocyte temperature challenge; heterologous Nav1.5 temperature-gating assay |
-| **Long QT** (drug) | **CiPA** — the *Comprehensive in vitro Proarrhythmia Assay*, itself a flagship regulatory NAM paradigm (in-vitro hERG/multi-channel + in-silico O'Hara-Rudy); iPSC-cardiomyocyte drug challenge |
-| **MH** (anesthetic) | RyR1 Ca²⁺-release assay in HEK/myotubes; patient-iPSC-myotube caffeine/halothane challenge (in-vitro surrogate for the CHCT) |
+All four examples now carry a NAM `proposed_experiment` (curated):
 
-The Timothy entry is the worked example: its `HUMAN_MODEL_MISMATCH` discussion now
-carries **two** `proposed_experiments` — the population EHR scan *and* the NAM
-hyperthermia challenge — the two complementary arms of testing one hypothesis.
+| Example | NAM test | experiment_id |
+|---|---|---|
+| **Timothy** (fever) | iPSC-cardiomyocyte + iPSC-neuron + heart-on-chip hyperthermia challenge on CACNA1C-G406R vs. isogenic control + in-silico human ventricular-AP model | `exp_ts_fever_ipsc_nam_challenge` |
+| **Brugada** (fever) | iPSC-cardiomyocyte temperature challenge + heterologous Nav1.5 temperature-gating assay | `exp_brs_nav15_temperature_nam` |
+| **Long QT** (drug) | **CiPA** — the *Comprehensive in vitro Proarrhythmia Assay*, a flagship regulatory NAM (in-vitro hERG/multi-channel + in-silico O'Hara-Rudy/ToR-ORd) + iPSC-cardiomyocyte drug challenge | `exp_lqt_cipa_nam_confirmation` |
+| **MH** (anesthetic) | RyR1 Ca²⁺-release assay + patient-iPSC-myotube caffeine/4-CmC/halothane challenge (scalable in-vitro complement to the invasive CHCT) | `exp_mh_ryr1_ipsc_calcium_nam` |
+
+Note the role differs by `derivation_basis`. For **Timothy** (the one
+`MECHANISTIC_HYPOTHESIS`), the NAM *bridges the `HUMAN_MODEL_MISMATCH`* — it tests
+whether the zebrafish effect is human-relevant at all, so its discussion pairs the
+NAM with the population EHR scan as the two arms of testing one open hypothesis.
+For the three **`ESTABLISHED_CRITERIA`** examples the mechanism is already settled,
+so the NAM instead *functionally confirms and risk-stratifies the individual
+carriers* (resolving variants of uncertain significance) that the EHR query
+surfaces — an `OPEN_QUESTION` about operationalizing the algorithm, not about the
+mechanism.
 
 ## Validation pathways & datasets
 
