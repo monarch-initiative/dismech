@@ -459,8 +459,11 @@ epistemic grounding so the two are never conflated (issue #6245):
 
 The trigger pathophysiology node itself is modeled normally (a node whose
 `downstream` edges opt into `hypothesis_groups: [<id>]`) plus a disease-level
-`mechanistic_hypotheses` entry (usually `status: EMERGING`). `Timothy_Syndrome`
-(`fever_exacerbated_cav1.2`) is the worked example; see
+`mechanistic_hypotheses` entry (usually `status: EMERGING`). Two paired worked
+examples span the spectrum: `Timothy_Syndrome` (`fever_exacerbated_cav1.2`;
+`MECHANISTIC_HYPOTHESIS`/`PROPOSED`, zebrafish) and `Brugada_Syndrome`
+(fever-unmasking of the type-1 ECG; `ESTABLISHED_CRITERIA`/`UNVALIDATED`, an
+established-mechanism definition that still `attaches_to` its fever node). See
 [`docs/hypothesis-based-phenotype-algorithms.md`](docs/hypothesis-based-phenotype-algorithms.md)
 and the candidate register in
 [`docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md`](docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md).

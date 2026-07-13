@@ -64,7 +64,7 @@ is the mechanism's human-evidence status, mapping to `derivation_basis`.
 | Disease (dismech entry) | Latent trigger | Mechanism (channel/enzyme) | Proposed EHR scan | Maturity |
 |---|---|---|---|---|
 | **Timothy syndrome** (`Timothy_Syndrome`) | Fever / hyperthermia | CaV1.2 (CACNA1C) temperature activation → arrhythmia + seizure threshold | New arrhythmia/QT event or seizure shortly after documented fever | Emerging (zebrafish) — **curated, #6245** |
-| **Brugada syndrome** (`Brugada_Syndrome`) | Fever | Nav1.5 (SCN5A) temperature-sensitive trafficking/gating → type-1 ECG unmasking | Fever-associated type-1 Brugada ECG / fever-triggered VF, structurally normal heart | Established — **gap: entry does not yet capture fever-unmasking** |
+| **Brugada syndrome** (`Brugada_Syndrome`) | Fever | Nav1.5 (SCN5A) temperature-dependent gating → type-1 ECG unmasking | Fever-associated type-1 Brugada ECG / fever-triggered VF, structurally normal heart | Established — **curated** as the ESTABLISHED-basis worked example (`derivation_basis: ESTABLISHED_CRITERIA`) |
 | **Congenital long-QT** (`Long_QT_Syndrome`) | QT-prolonging drug | KCNH2/KCNQ1 reduced repolarization reserve | Marked QT prolongation or torsade on a QT-prolonging drug → latent LQTS | Established (pharmacogenomic) |
 | **CPVT** (`RYR2_CPVT`) | Exercise / catecholamines | RYR2/CASQ2 Ca²⁺-release instability → DADs | Exertion/stress-provoked syncope or bidirectional/polymorphic VT, structurally normal heart | Established |
 | **Malignant hyperthermia** (`Malignant_Hyperthermia_of_Anesthesia`) | Volatile anesthetic / succinylcholine | RYR1/CACNA1S Ca²⁺-release → hypermetabolic crisis | Peri-anesthetic hyperthermia / masseter spasm / unexplained rhabdomyolysis | Established |
@@ -97,15 +97,18 @@ Every row follows the same shape now committed for Timothy — all achievable wi
 
 ## Near-term opportunities
 
-- **Brugada + fever** is the highest-value quick win: fever-unmasking of the
-  type-1 ECG is textbook, the `Brugada_Syndrome` entry does **not** yet capture
-  it, and it is the established-biology mirror image of the Timothy case — an ideal
-  second worked example spanning the other end of the `derivation_basis` spectrum.
+- **Brugada + fever** — **done.** Curated as the established-biology mirror image
+  of the Timothy case: `Brugada_Syndrome` now carries a fever-unmasking
+  pathophysiology node and a `PHENOTYPE_ALGORITHM` definition with
+  `derivation_basis: ESTABLISHED_CRITERIA` / `validation_status: UNVALIDATED`.
+  Timothy (`MECHANISTIC_HYPOTHESIS` / `PROPOSED`) and Brugada now sit at opposite
+  ends of the `derivation_basis` spectrum as paired worked examples.
 - **Drug-induced long-QT → latent congenital LQTS** is the cleanest
-  *pharmacological-trigger* example and pairs naturally with the existing
+  *pharmacological-trigger* next target and pairs naturally with the existing
   `Long_QT_Syndrome` entry and drug-target machinery.
-- Timothy + Brugada together would let the proposal show one `EMERGING` and one
-  `ESTABLISHED` hypothesis-based algorithm side by side.
+- **CPVT / exercise** (`RYR2_CPVT`) and **malignant hyperthermia / anesthesia**
+  (`Malignant_Hyperthermia_of_Anesthesia`) are the next two established-trigger
+  candidates.
 
 ## Scope and evidence discipline
 

@@ -1,7 +1,10 @@
 # Hypothesis-Based Phenotype Algorithms
 
-**Status:** **Enacted** — the schema slots are live and Timothy syndrome is the
-worked example. Maintainer-approved (`@cmungall`, 2026-07-12).
+**Status:** **Enacted** — the schema slots are live, with two paired worked
+examples: **Timothy syndrome** (`MECHANISTIC_HYPOTHESIS` / `PROPOSED`, fever
+exacerbation, zebrafish) and **Brugada syndrome** (`ESTABLISHED_CRITERIA` /
+`UNVALIDATED`, fever-unmasking of the type-1 ECG) — spanning the two ends of the
+`derivation_basis` spectrum. Maintainer-approved (`@cmungall`, 2026-07-12).
 **Tracking:** [#6245](https://github.com/monarch-initiative/dismech/issues/6245)
 **Registered in:** [Design Decisions §11](explanation/design-decisions.md)
 
