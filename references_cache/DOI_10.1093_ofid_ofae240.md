@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/ofid/ofae240
+reference_id: "DOI:10.1093/ofid/ofae240"
 title: "Safety and Short-term Efficacy of a Single Dose of 2 mg Moxidectin in <i>Loa loa</i>–Infected Individuals: A Double-Blind, Randomized Ivermectin-Controlled Trial With Ascending Microfilarial Densities"
 authors:
 - Guy S Wafeu
