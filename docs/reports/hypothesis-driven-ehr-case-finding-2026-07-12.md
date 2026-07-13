@@ -65,7 +65,7 @@ is the mechanism's human-evidence status, mapping to `derivation_basis`.
 |---|---|---|---|---|
 | **Timothy syndrome** (`Timothy_Syndrome`) | Fever / hyperthermia | CaV1.2 (CACNA1C) temperature activation → arrhythmia + seizure threshold | New arrhythmia/QT event or seizure shortly after documented fever | Emerging (zebrafish) — **curated, #6245** |
 | **Brugada syndrome** (`Brugada_Syndrome`) | Fever | Nav1.5 (SCN5A) temperature-dependent gating → type-1 ECG unmasking | Fever-associated type-1 Brugada ECG / fever-triggered VF, structurally normal heart | Established — **curated** as the ESTABLISHED-basis worked example (`derivation_basis: ESTABLISHED_CRITERIA`) |
-| **Congenital long-QT** (`Long_QT_Syndrome`) | QT-prolonging drug | KCNH2/KCNQ1 reduced repolarization reserve | Marked QT prolongation or torsade on a QT-prolonging drug → latent LQTS | Established (pharmacogenomic) |
+| **Congenital long-QT** (`Long_QT_Syndrome`) | QT-prolonging drug | KCNH2/KCNQ1 reduced repolarization reserve | Marked QT prolongation or torsade on a QT-prolonging drug → latent LQTS | Established (pharmacogenomic) — **curated** as the pharmacological-trigger example (`derivation_basis: ESTABLISHED_CRITERIA`) |
 | **CPVT** (`RYR2_CPVT`) | Exercise / catecholamines | RYR2/CASQ2 Ca²⁺-release instability → DADs | Exertion/stress-provoked syncope or bidirectional/polymorphic VT, structurally normal heart | Established |
 | **Malignant hyperthermia** (`Malignant_Hyperthermia_of_Anesthesia`) | Volatile anesthetic / succinylcholine | RYR1/CACNA1S Ca²⁺-release → hypermetabolic crisis | Peri-anesthetic hyperthermia / masseter spasm / unexplained rhabdomyolysis | Established |
 | **G6PD deficiency** (`Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency`) | Oxidant drug / fava / infection | G6PD NADPH shortfall → oxidative RBC injury | Acute hemolytic anemia within days of an oxidant drug/infection | Established |
@@ -103,12 +103,15 @@ Every row follows the same shape now committed for Timothy — all achievable wi
   `derivation_basis: ESTABLISHED_CRITERIA` / `validation_status: UNVALIDATED`.
   Timothy (`MECHANISTIC_HYPOTHESIS` / `PROPOSED`) and Brugada now sit at opposite
   ends of the `derivation_basis` spectrum as paired worked examples.
-- **Drug-induced long-QT → latent congenital LQTS** is the cleanest
-  *pharmacological-trigger* next target and pairs naturally with the existing
-  `Long_QT_Syndrome` entry and drug-target machinery.
+- **Drug-induced long-QT → latent congenital LQTS** — **done.** Curated on
+  `Long_QT_Syndrome` as the *pharmacological-trigger* example (a QT-prolonging
+  drug unmasking reduced repolarization reserve; `derivation_basis:
+  ESTABLISHED_CRITERIA`), broadening the archetype from physiological (fever) to
+  drug triggers.
 - **CPVT / exercise** (`RYR2_CPVT`) and **malignant hyperthermia / anesthesia**
   (`Malignant_Hyperthermia_of_Anesthesia`) are the next two established-trigger
-  candidates.
+  candidates; **G6PD / oxidant drug** (`Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency`)
+  would move the archetype out of cardiology into a hematologic/metabolic system.
 
 ## Validation pathways & datasets
 
