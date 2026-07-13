@@ -70,6 +70,19 @@ class CouplingConfig:
     base_to_extension: dict[str, str] = field(default_factory=dict)
     gfr_parameter: str = "GFR"
     gfr_ext_parameter: str = "GFR_ext"
+    # Value of gfr_parameter representing the healthy baseline. Named "gfr" for
+    # historical (CKD) reasons, but it is the generic disease-severity dial: for
+    # CKD it is GFR (6.0 = healthy), for the Topp diabetes model it is insulin
+    # sensitivity `si` (0.72 = healthy). Kept configurable so the framework stays
+    # disease-agnostic.
+    baseline_gfr: float = 6.0
+    # CVODE integrator tolerances. Defaults preserve the original CKD behavior;
+    # stiff models whose species approach zero (e.g. the Topp beta-cell-mass
+    # collapse) may need a looser absolute tolerance to integrate through the
+    # transition.
+    abs_tol: float = 1e-12
+    rel_tol: float = 1e-8
+    max_num_steps: int = 100000
     feedback: list[FeedbackRule] = field(default_factory=list)
 
 
@@ -250,6 +263,10 @@ def load_model_config(config_path: Path, disorder: dict | None = None) -> ModelC
         base_to_extension=coupling_raw.get("base_to_extension", {}),
         gfr_parameter=coupling_raw.get("gfr_parameter", "GFR"),
         gfr_ext_parameter=coupling_raw.get("gfr_ext_parameter", "GFR_ext"),
+        baseline_gfr=float(coupling_raw.get("baseline_gfr", 6.0)),
+        abs_tol=float(coupling_raw.get("abs_tol", 1e-12)),
+        rel_tol=float(coupling_raw.get("rel_tol", 1e-8)),
+        max_num_steps=int(coupling_raw.get("max_num_steps", 100000)),
         feedback=feedback_rules,
     )
 
@@ -291,10 +308,15 @@ def run_perturbation(
     sbml_path = models_dir / config.sbml_file
 
     r_base = te.loadSBMLModel(str(sbml_path))
-    r_base[config.coupling.gfr_parameter] = gfr
-    r_base.integrator.absolute_tolerance = 1e-12
-    r_base.integrator.relative_tolerance = 1e-8
-    r_base.integrator.max_num_steps = 100000
+    # Set the disease-severity dial only if the base model exposes it. CKD's GFR
+    # and the Topp model's `si` both live here; a model without such a parameter
+    # (driven purely by scenarios/gene effects) simply skips this write instead
+    # of raising.
+    if config.coupling.gfr_parameter in r_base.getGlobalParameterIds():
+        r_base[config.coupling.gfr_parameter] = gfr
+    r_base.integrator.absolute_tolerance = config.coupling.abs_tol
+    r_base.integrator.relative_tolerance = config.coupling.rel_tol
+    r_base.integrator.max_num_steps = config.coupling.max_num_steps
 
     # Load extension model if available
     r_ext = None
@@ -370,11 +392,22 @@ def run_perturbation(
             for rule in config.coupling.feedback:
                 feedback_source_values[rule.source] = float(r_ext[rule.source])
 
-    # Collect final values
-    base_ids = set(r_base.getFloatingSpeciesIds() + r_base.getGlobalParameterIds())
+    # Collect final values. Include boundary species: models like Topp declare
+    # their integrated state variables as boundaryCondition species driven by
+    # rate rules, so they are not in getFloatingSpeciesIds() even though their
+    # values integrate normally and are readable by id.
+    base_ids = set(
+        r_base.getFloatingSpeciesIds()
+        + r_base.getBoundarySpeciesIds()
+        + r_base.getGlobalParameterIds()
+    )
     ext_ids = set()
     if r_ext:
-        ext_ids = set(r_ext.getFloatingSpeciesIds() + r_ext.getGlobalParameterIds())
+        ext_ids = set(
+            r_ext.getFloatingSpeciesIds()
+            + r_ext.getBoundarySpeciesIds()
+            + r_ext.getGlobalParameterIds()
+        )
 
     variables = {}
     for var_name, vm in config.variable_mappings.items():

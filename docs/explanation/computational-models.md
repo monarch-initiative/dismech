@@ -241,6 +241,70 @@ GFR: 2.0
     3. Secondary HPT → RANKL/OPG Imbalance → Pathological Fractures
 ```
 
+## Exemplar: Type 2 Diabetes (treatments as perturbations)
+
+The second fully-wired disorder is **Type 2 Diabetes Mellitus**, on the Topp 2000
+beta-cell-mass / insulin / glucose model (BioModels **BIOMD0000000341**,
+`PMID:11013117`). It is the worked example for simulating **treatments** as
+parameter perturbations.
+
+### The Model
+
+Three ODEs — plasma glucose `G`, plasma insulin `I`, and beta-cell mass `B` —
+with fast glucose/insulin dynamics on a slow beta-cell-mass manifold. For normal
+parameters the system is **bistable**: a physiological fixed point (euglycemia,
+`G≈100 mg/dL`) and a pathological, insulinopenic fixed point (beta-cell-mass
+collapse, `G≈600 mg/dL`), separated by a saddle. The model's deposited initial
+state (`G=250`) sits on that saddle — the metabolically at-risk /
+impaired-fasting tipping point — so an impairing lesion decompensates to overt
+diabetes while a corrective treatment recompensates to euglycemia. No extension
+model is needed: every target is a native Topp parameter.
+
+### The disease-severity dial is generic
+
+CKD-MBD drives severity with renal function (`GFR`, `6.0` = healthy). That dial
+is **not** hard-coded — `coupling.gfr_parameter` names whichever model parameter
+represents disease severity, and `coupling.baseline_gfr` is its healthy value.
+The diabetes config repurposes it to insulin sensitivity:
+
+```yaml
+coupling:
+  gfr_parameter: si        # insulin sensitivity is the severity dial
+  baseline_gfr: 0.72       # healthy si (Topp default)
+  abs_tol: 1.0e-6          # looser than the CKD default; the collapse is stiff
+```
+
+### Treatments → parameters
+
+Each treatment scenario is a **diseased `si` (via `gfr`) plus the drug's
+parameter change** (`param_overrides`, multiplicative):
+
+| Treatment | Parameter change | Mechanism | Outcome in model |
+|-----------|------------------|-----------|------------------|
+| Metformin | `R0 ↓` | ↓ hepatic glucose output | rescues moderate disease |
+| Thiazolidinedione | `si ↑` | insulin sensitizer | rescues (fixes root cause) |
+| SGLT2 inhibitor | `Eg0 ↑` | insulin-**independent** renal glucose clearance | rescues even severe disease |
+| GLP-1 receptor agonist | `sigma ↑`, `R0 ↓` | incretin secretion + ↓ hepatic output | rescues (pleiotropic) |
+| Sulfonylurea | `sigma ↑` | pure secretagogue | **fails** once beta cells collapse |
+| Insulin therapy | `si ↑` (net action) | exogenous insulin | rescues |
+
+The clinically faithful result: insulin-independent therapies (SGLT2 inhibition,
+metformin) and sensitizers (TZD) pull the system back across the saddle to
+euglycemia, whereas a **pure secretagogue fails once beta-cell mass has
+collapsed** — reproducing secondary secretagogue failure in advanced disease.
+Six risk genes (PPARG, TCF7L2, KCNJ11, HNF1A, GCK → `sigma`/`si`/`alpha`; SLC5A2
+→ `Eg0`, protective) map to `gene_effects` for the `--all` gene→phenotype matrix.
+
+```bash
+just perturb kb/disorders/Type_2_Diabetes_Mellitus.yaml --scenario sglt2_inhibitor
+just perturb kb/disorders/Type_2_Diabetes_Mellitus.yaml --scenario sulfonylurea   # fails to rescue
+just perturb kb/disorders/Type_2_Diabetes_Mellitus.yaml --all                     # gene→phenotype matrix
+```
+
+> Thresholds are calibrated to model steady-state values, not clinical reference
+> ranges; the bistable model captures the *decompensation threshold*, not graded
+> fasting glucose.
+
 ## Adding Perturbation Support to Other Disorders
 
 A disorder becomes perturbable when it has:
