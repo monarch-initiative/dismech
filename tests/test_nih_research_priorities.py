@@ -94,7 +94,6 @@ def test_resolver_tolerates_unknown_key() -> None:
 
 
 def _load_summary_module():
-    import importlib.util
     script = ROOT / "scripts" / "gen_nih_topics_summary.py"
     spec = importlib.util.spec_from_file_location("gen_nih_topics_summary", script)
     mod = importlib.util.module_from_spec(spec)
@@ -105,7 +104,6 @@ def _load_summary_module():
 def test_summary_page_builds_and_embeds_all_topics() -> None:
     """The coverage page must embed all 72 topics and be valid HTML/JSON."""
     import json
-    import re
 
     mod = _load_summary_module()
     html_out = mod.build()

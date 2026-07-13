@@ -49,9 +49,9 @@ RULES = [
         "modules": AGING_HALLMARK_MODULES,
         "note": (
             "Pathophysiology conforms to the {modules} module(s) — "
-            "senescence / hallmark-of-aging mechanism(s) — making this entry a "
-            "relevant model for NIH Highlighted Topic 89 (cellular quiescence, "
-            "senescence, and cell death in aging and disease)."
+            "hallmark-of-aging mechanism(s) — making this entry a relevant model "
+            "for NIH Highlighted Topic 89 (cellular quiescence, senescence, and "
+            "cell death in aging and disease)."
         ),
     },
 ]
