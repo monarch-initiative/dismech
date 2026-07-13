@@ -338,6 +338,34 @@ This exemplar shows the framework is not limited to downloaded SBML: any
 well-behaved ODE model authored in Antimony and exported to SBML plugs in through
 the same config sidecar.
 
+## Exemplar: Gout (multi-drug urate homeostasis)
+
+The fourth wired disorder is **Gout**, and it is the richest **multi-treatment**
+example — three urate-lowering drug classes act on three *distinct* model nodes.
+The model (`models/urate_homeostasis.ant` → `.xml`) is a single-compartment
+serum-urate balance (normal ≈ 5 mg/dL; hyperuricemia threshold at the ~6.8 mg/dL
+monosodium-urate solubility limit):
+
+```
+dU/dt = k_prod * P * XO - (k_exc * f_exc + k_uricase) * U
+```
+
+- **Disease-severity dial**: fractional excretion `f_exc` (`baseline_gfr: 1.0`),
+  since >90% of primary hyperuricemia is underexcretion. Overproduction is the
+  purine-load term `P`.
+- **Treatments on distinct nodes**: xanthine-oxidase inhibitors (allopurinol,
+  febuxostat) lower **`XO`** (production); uricosurics (probenecid) raise
+  **`f_exc`** (excretion); recombinant uricase (pegloticase) raises **`k_uricase`**
+  (direct degradation). All return urate below the solubility limit.
+- **Gene directions are clinically faithful**: HPRT1/PRPS1 (overproduction) and
+  ABCG2 loss (underexcretion) cause hyperuricemia, whereas URAT1 (`SLC22A12`) and
+  GLUT9 (`SLC2A9`) loss *raise* excretion → protective renal **hypouricemia**.
+
+The activated Hyperuricemia phenotype traces the full downstream pathogenesis in
+the disorder YAML (Hyperuricemia → Crystal Deposition → Inflammasome Activation →
+… → Acute Arthritis), linking the quantitative urate readout to the qualitative
+gout mechanism graph.
+
 ## Adding Perturbation Support to Other Disorders
 
 A disorder becomes perturbable when it has:
