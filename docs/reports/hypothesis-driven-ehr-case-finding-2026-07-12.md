@@ -67,7 +67,7 @@ is the mechanism's human-evidence status, mapping to `derivation_basis`.
 | **Brugada syndrome** (`Brugada_Syndrome`) | Fever | Nav1.5 (SCN5A) temperature-dependent gating → type-1 ECG unmasking | Fever-associated type-1 Brugada ECG / fever-triggered VF, structurally normal heart | Established — **curated** as the ESTABLISHED-basis worked example (`derivation_basis: ESTABLISHED_CRITERIA`) |
 | **Congenital long-QT** (`Long_QT_Syndrome`) | QT-prolonging drug | KCNH2/KCNQ1 reduced repolarization reserve | Marked QT prolongation or torsade on a QT-prolonging drug → latent LQTS | Established (pharmacogenomic) — **curated** as the pharmacological-trigger example (`derivation_basis: ESTABLISHED_CRITERIA`) |
 | **CPVT** (`RYR2_CPVT`) | Exercise / catecholamines | RYR2/CASQ2 Ca²⁺-release instability → DADs | Exertion/stress-provoked syncope or bidirectional/polymorphic VT, structurally normal heart | Established |
-| **Malignant hyperthermia** (`Malignant_Hyperthermia_of_Anesthesia`) | Volatile anesthetic / succinylcholine | RYR1/CACNA1S Ca²⁺-release → hypermetabolic crisis | Peri-anesthetic hyperthermia / masseter spasm / unexplained rhabdomyolysis | Established |
+| **Malignant hyperthermia** (`Malignant_Hyperthermia_of_Anesthesia`) | Volatile anesthetic / succinylcholine | RYR1/CACNA1S Ca²⁺-release → hypermetabolic crisis | Peri-anesthetic hyperthermia / masseter spasm / unexplained rhabdomyolysis | Established — **curated** as the anesthetic-trigger example (`ESTABLISHED_CRITERIA`); strongest genotype yield (50–>70%) |
 | **G6PD deficiency** (`Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency`) | Oxidant drug / fava / infection | G6PD NADPH shortfall → oxidative RBC injury | Acute hemolytic anemia within days of an oxidant drug/infection | Established |
 | **Acute intermittent porphyria** (`Acute_Intermittent_Porphyria`) | CYP-inducing drug / fasting / hormones | HMBS haploinsufficiency → ALA/PBG accumulation | Recurrent unexplained abdominal pain + neuro/autonomic signs after inducing drugs | Established, under-recognized |
 | **MCAD deficiency** (`MCAD_Deficiency`) | Fasting / intercurrent illness | ACADM fatty-acid-oxidation block → energy failure | Hypoketotic hypoglycemia / Reye-like decompensation during fasting/illness | Established (also newborn-screened) |
@@ -108,10 +108,16 @@ Every row follows the same shape now committed for Timothy — all achievable wi
   drug unmasking reduced repolarization reserve; `derivation_basis:
   ESTABLISHED_CRITERIA`), broadening the archetype from physiological (fever) to
   drug triggers.
-- **CPVT / exercise** (`RYR2_CPVT`) and **malignant hyperthermia / anesthesia**
-  (`Malignant_Hyperthermia_of_Anesthesia`) are the next two established-trigger
-  candidates; **G6PD / oxidant drug** (`Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency`)
-  would move the archetype out of cardiology into a hematologic/metabolic system.
+- **Malignant hyperthermia / anesthesia** (`Malignant_Hyperthermia_of_Anesthesia`)
+  — **done.** Curated as the *anesthetic-trigger* example and the first to leave
+  cardiac electrophysiology (skeletal-muscle RYR1/CACNA1S Ca²⁺ release). It is the
+  archetype's strongest established case: a discrete codeable exposure (the
+  anesthesia record) and an unusually high genotype yield (50–>70%). The
+  definition `attaches_to` the entry's *existing* trigger node — showing that when
+  the pathograph already models the trigger, the algorithm just attaches to it.
+- **CPVT / exercise** (`RYR2_CPVT`) is the remaining cardiac established-trigger
+  candidate; **G6PD / oxidant drug** (`Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency`)
+  would move the archetype further out, into a hematologic/metabolic system.
 
 ## Validation pathways & datasets
 

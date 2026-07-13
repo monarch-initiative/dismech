@@ -4,10 +4,13 @@
 span the `derivation_basis` spectrum: **Timothy syndrome**
 (`MECHANISTIC_HYPOTHESIS` / `PROPOSED`, fever exacerbation, zebrafish) at the
 emerging end; **Brugada syndrome** (`ESTABLISHED_CRITERIA` / `UNVALIDATED`,
-fever-unmasking of the type-1 ECG) at the established end; and **Familial Long QT
+fever-unmasking of the type-1 ECG) at the established end; **Familial Long QT
 syndrome** (`ESTABLISHED_CRITERIA` / `UNVALIDATED`, a *drug* rather than a
 physiological trigger — QT-prolonging-drug unmasking of latent congenital LQTS)
-extending the archetype to pharmacological triggers. Maintainer-approved
+extending the archetype to pharmacological triggers; and **Malignant hyperthermia
+of anesthesia** (`ESTABLISHED_CRITERIA` / `UNVALIDATED`, an *anesthetic* trigger,
+skeletal-muscle RYR1/CACNA1S — the first non-cardiac example, whose definition
+`attaches_to` the entry's existing trigger node). Maintainer-approved
 (`@cmungall`, 2026-07-12).
 **Tracking:** [#6245](https://github.com/monarch-initiative/dismech/issues/6245)
 **Registered in:** [Design Decisions §11](explanation/design-decisions.md)
