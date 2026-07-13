@@ -15149,6 +15149,7 @@ window.searchData = [
       "Long-acting Beta Agonist",
       "Leukotriene Modifier",
       "Anti-IgE Therapy",
+      "Biologic Therapy for Severe Asthma",
       "Short-acting Beta Agonist"
     ],
     "environmental": [
@@ -15169,7 +15170,7 @@ window.searchData = [
     "num_phenotypes": 12,
     "num_pathophysiology": 8,
     "num_genes": 17,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
   },
@@ -47806,7 +47807,8 @@ window.searchData = [
       "Chronic Red Blood Cell Transfusions",
       "Hematopoietic Stem Cell Transplantation",
       "Iron Chelation Therapy",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Clonal Evolution and Malignancy Surveillance"
     ],
     "environmental": [],
     "biochemical": [
@@ -47821,7 +47823,7 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 3,
     "num_genes": 10,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "3"
   },
@@ -91085,7 +91087,8 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "MED13 heterozygous pathogenic variants"
@@ -107248,19 +107251,28 @@ window.searchData = [
       "Microcephaly",
       "Growth delay",
       "Immunodeficiency",
-      "Lymphoma"
+      "Lymphoma",
+      "Increased sensitivity to ionizing radiation",
+      "Spontaneous chromosomal breakage with 7;14 rearrangements",
+      "Hypergonadotropic hypogonadism"
     ],
     "phenotype_categories": [
       "Neurological",
       "Growth",
       "Immunologic",
-      "Oncologic"
+      "Oncologic",
+      "Laboratory",
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cellular",
+      "Endocrine",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Immune",
+      "Metabolism",
       "Musculoskeletal",
       "Neoplasm",
       "Nervous System"
@@ -107269,7 +107281,10 @@ window.searchData = [
       "HP:0000252",
       "HP:0001510",
       "HP:0002721",
-      "HP:0002665"
+      "HP:0002665",
+      "HP:0011133",
+      "HP:0040012",
+      "HP:0000815"
     ],
     "frequencies": [],
     "genes": [
@@ -107282,7 +107297,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Nijmegen_breakage_syndrome.yaml",
     "page_url": "../pages/disorders/Nijmegen_breakage_syndrome.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 7,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 1,
@@ -109635,14 +109650,21 @@ window.searchData = [
     "updated_date": "2026-04-11T00:41:29Z",
     "subtypes": [],
     "description": "Onchocerciasis (river blindness) is a filarial infection caused by Onchocerca volvulus, transmitted by black flies, leading to pruritus, dermatitis, and ocular disease that can progress to blindness.",
-    "pathophysiology": [],
+    "pathophysiology": [
+      "Microfilarial Skin and Ocular Infiltration",
+      "Wolbachia Endosymbiont-Driven Filarial Pathogenesis"
+    ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "inflammatory response"
+    ],
     "phenotypes": [
       "Pruritus",
       "Dermatitis",
-      "Blindness"
+      "Blindness",
+      "Skin Hypopigmentation",
+      "Keratitis"
     ],
     "phenotype_categories": [
       "Dermatologic",
@@ -109656,7 +109678,9 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000989",
       "HP:0000964",
-      "HP:0000618"
+      "HP:0000618",
+      "HP:0001010",
+      "HP:0000491"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -109664,18 +109688,20 @@ window.searchData = [
     ],
     "genes": [],
     "treatments": [
-      "Ivermectin therapy"
+      "Ivermectin therapy",
+      "Moxidectin therapy",
+      "Doxycycline (anti-Wolbachia therapy)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Onchocerciasis.yaml",
     "page_url": "../pages/disorders/Onchocerciasis.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 0,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Opitz G/BBB syndrome",
@@ -110784,7 +110810,8 @@ window.searchData = [
       "Weight Loss",
       "NSAIDs",
       "Intra-articular Glucocorticoid Injections",
-      "Total Joint Replacement"
+      "Total Joint Replacement",
+      "Duloxetine"
     ],
     "environmental": [
       "Age",
@@ -110797,7 +110824,7 @@ window.searchData = [
     "num_phenotypes": 3,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
   },
@@ -156544,12 +156571,12 @@ window.searchMetrics = {
   "total_disorder_pages": 1583,
   "total_subtypes": 2436,
   "total_disorders_and_subtypes": 4019,
-  "total_unique_evidence_sources": 24740,
-  "total_unique_publications": 23267,
+  "total_unique_evidence_sources": 24770,
+  "total_unique_publications": 23297,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 216,
-  "total_pathographs": 1577,
-  "total_unique_pathological_events": 7385,
+  "total_pathographs": 1578,
+  "total_unique_pathological_events": 7387,
   "total_modules": 111,
   "total_research_reports": 1816,
   "total_classifications": 8,
