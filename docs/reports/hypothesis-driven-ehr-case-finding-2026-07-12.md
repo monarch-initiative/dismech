@@ -119,6 +119,43 @@ Every row follows the same shape now committed for Timothy — all achievable wi
   candidate; **G6PD / oxidant drug** (`Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency`)
   would move the archetype further out, into a hematologic/metabolic system.
 
+## New Approach Methodologies (NAMs) as the other validation arm
+
+The EHR scan is a *population-level* test of a trigger hypothesis. Its natural
+complement is a *mechanistic* test in a human-relevant model — a **New Approach
+Methodology** (human iPSC-derived cells, organoids, organ-on-chip, heterologous
+channel expression, in-silico electrophysiology) rather than an animal model.
+NAMs contribute to these hypotheses in three ways:
+
+1. **Bridge the `HUMAN_MODEL_MISMATCH`.** When a hypothesis rests on an animal
+   model (Timothy's zebrafish fever effect), the open question is human relevance.
+   A human iPSC / organ-on-chip / in-silico version of the *same* trigger
+   challenge is the most direct way to close that gap — and it is what moves a
+   definition's `derivation_basis` from `MODEL_SYSTEM_EXTRAPOLATION` toward a
+   human-validated mechanism. dismech already represents this via
+   `Experiment.model_systems` (`ExperimentalModel`, NAMO-aligned:
+   `experimental_model_type` ∈ {`IPSC_DERIVED_MODEL`, `ORGANOID`, `ORGAN_ON_CHIP`,
+   …} + optional `namo_type`).
+2. **Generate hypotheses.** Unbiased iPSC/organoid phenotyping and in-silico
+   channel modeling can surface trigger-sensitivities before any clinical signal
+   exists — candidate `EMERGING` `mechanistic_hypotheses`.
+3. **Provide the mechanistic readout the EHR cannot.** Persistent I_CaL, APD
+   prolongation, EADs, MEA network hyperexcitability, RyR1 Ca²⁺-release — direct
+   causal readouts, not billing-code proxies.
+
+Per-example NAM (each a `proposed_experiment` with NAMO-aligned `model_systems`):
+
+| Example | NAM test of the trigger hypothesis |
+|---|---|
+| **Timothy** (fever) | iPSC-cardiomyocyte + iPSC-neuron + heart-on-chip hyperthermia challenge on CACNA1C-G406R vs. isogenic control, with an in-silico human ventricular-AP model (curated — `exp_ts_fever_ipsc_nam_challenge`) |
+| **Brugada** (fever) | iPSC-cardiomyocyte temperature challenge; heterologous Nav1.5 temperature-gating assay |
+| **Long QT** (drug) | **CiPA** — the *Comprehensive in vitro Proarrhythmia Assay*, itself a flagship regulatory NAM paradigm (in-vitro hERG/multi-channel + in-silico O'Hara-Rudy); iPSC-cardiomyocyte drug challenge |
+| **MH** (anesthetic) | RyR1 Ca²⁺-release assay in HEK/myotubes; patient-iPSC-myotube caffeine/halothane challenge (in-vitro surrogate for the CHCT) |
+
+The Timothy entry is the worked example: its `HUMAN_MODEL_MISMATCH` discussion now
+carries **two** `proposed_experiments` — the population EHR scan *and* the NAM
+hyperthermia challenge — the two complementary arms of testing one hypothesis.
+
 ## Validation pathways & datasets
 
 A recurring question: can these algorithms be tested on public EHR data (e.g.
