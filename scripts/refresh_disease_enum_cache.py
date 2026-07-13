@@ -38,14 +38,29 @@ DISEASE_TERM_ROOTS = ["MONDO:0000001", "MONDO:0020573"]
 DISEASE_OR_SUBTYPE_ROOTS = ["MONDO:0000001"]
 
 # YAML slots (parent keys) whose term.id binds to each enum.
-DISEASE_TERM_SLOTS = {"disease_term", "mondo_mappings"}
+# DiseaseTerm covers the focal disease descriptor and MONDO mappings, plus the
+# ConditionDescriptor slots (disease_a/disease_b/upstream_disorder/components)
+# used by comorbidity entries.
+DISEASE_TERM_SLOTS = {
+    "disease_term",
+    "mondo_mappings",
+    "disease_a",
+    "disease_b",
+    "upstream_disorder",
+    "components",
+}
 SUBTYPE_SLOTS = {"subtype_term"}
 
 CACHE_GLOBS = {
     "DiseaseTerm": "cache/enums/diseaseterm_*.csv",
     "DiseaseOrSubtypeTerm": "cache/enums/diseaseorsubtypeterm_*.csv",
 }
-KB_GLOBS = ["kb/disorders/*.yaml", "kb/modules/*.yaml", "kb/groupings/*.yaml"]
+KB_GLOBS = [
+    "kb/disorders/*.yaml",
+    "kb/modules/*.yaml",
+    "kb/groupings/*.yaml",
+    "kb/comorbidities/*.yaml",
+]
 
 
 def collect_refs() -> tuple[set[str], set[str]]:
