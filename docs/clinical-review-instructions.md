@@ -29,6 +29,14 @@ what is wrong.
 2. Read it top to bottom.
 3. Leave your reactions as comments on the relevant text. Highlight the span, add
    a comment. That's it. Short is fine.
+4. For a reaction that isn't tied to one passage — an overall impression, a
+   cross-cutting concern — add it as a comment at the very top of the document.
+
+Lean on your own clinical judgement first. You do not need to read the cited
+sources to review the report, though you are welcome to open one if a particular
+claim looks off. And when you disagree, giving a citation of your own is welcome
+but never required — a blunt "WRONG — X is actually Y" is exactly as useful to us
+as a referenced one.
 
 Each factual claim in the report comes with its supporting reference, an exact
 quoted snippet from that source, and an interpretation. That reference is where
@@ -48,6 +56,9 @@ why is exactly what we want. Examples:
 > Overstated — this gene is a rare modifier, not a primary cause.
 
 > This was the view 15 years ago; the current consensus is X.
+
+> The cited source is real, but the terminology/criteria have changed since it was
+> published — or it conflicts with [guideline/source] and that conflict isn't noted.
 
 2. **Gaps and omissions — nearly as important.**
 Things a complete record should contain but this one doesn't. This is where your
@@ -92,7 +103,14 @@ You are among the first people to review AI-generated disease records at this de
 If, along the way, you form an opinion about how these documents should be
 reviewed — a better workflow, a section that deserves more scrutiny, a type of
 error we should be systematically watching for, a way the report could make your
-job easier — please tell us. A note at the top of the document, or an email, is
-perfect. That meta-feedback may be the most valuable thing you give us.
+job easier — please tell us. A note at the top of the document, or a reply to
+whoever sent you the report, is perfect. That meta-feedback may be the most
+valuable thing you give us.
+
+## Credit
+
+All reviewers will be offered co-authorship on a potential evaluation paper about
+this work. We can't promise that paper will happen, but if it does, you'll be
+invited onto it (should you want to be).
 
 Thank you. Be blunt — bluntness is the point.
