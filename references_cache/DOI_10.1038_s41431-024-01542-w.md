@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41431-024-01542-w
+reference_id: "DOI:10.1038/s41431-024-01542-w"
 title: Diagnostic uplift through the implementation of short tandem repeat analysis using exome sequencing
 authors:
 - Jihoon G. Yoon

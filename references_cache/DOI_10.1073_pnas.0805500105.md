@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.0805500105
+reference_id: "DOI:10.1073/pnas.0805500105"
 title: Dysfunction in ankyrin-B-dependent ion channel and transporter targeting causes human sinus node disease
 authors:
 - Solena Le Scouarnec

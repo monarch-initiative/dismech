@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/md.0000000000039957
+reference_id: "DOI:10.1097/md.0000000000039957"
 title: "Research progress on human papillomavirus-negative cervical cancer: A review"
 authors:
 - Ning Shao

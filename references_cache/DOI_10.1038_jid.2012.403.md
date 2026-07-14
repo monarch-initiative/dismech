@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/jid.2012.403
+reference_id: "DOI:10.1038/jid.2012.403"
 title: Tumor Recurrence 5 Years after Treatment of Cutaneous Basal Cell Carcinoma and Squamous Cell Carcinoma
 authors:
 - Mary-Margaret Chren

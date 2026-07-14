@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/eurheartj/ehaf937
+reference_id: "DOI:10.1093/eurheartj/ehaf937"
 title: C-reactive protein and cardiovascular risk in the general population
 authors:
 - Berkan Kurt

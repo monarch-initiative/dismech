@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41590-024-01994-8
+reference_id: "DOI:10.1038/s41590-024-01994-8"
 title: A longitudinal single-cell atlas of anti-tumour necrosis factor treatment in inflammatory bowel disease
 authors:
 - Tom Thomas

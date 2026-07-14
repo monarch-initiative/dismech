@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10545-011-9289-5
+reference_id: "DOI:10.1007/s10545-011-9289-5"
 title: Diagnosis and management of glutaric aciduria type I – revised recommendations
 authors:
 - Stefan Kölker

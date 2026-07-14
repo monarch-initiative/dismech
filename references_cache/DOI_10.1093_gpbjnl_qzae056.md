@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/gpbjnl/qzae056
+reference_id: "DOI:10.1093/gpbjnl/qzae056"
 title: Characterization of Cancer Stem Cells in Laryngeal Squamous Cell Carcinoma by Single-cell RNA Sequencing
 authors:
 - Yanguo Li

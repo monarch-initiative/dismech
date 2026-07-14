@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21203/rs.3.rs-9670512/v1
+reference_id: "DOI:10.21203/rs.3.rs-9670512/v1"
 title: AAV-mediated Klotho gene delivery attenuates renal fibrosis in chronic kidney disease by suppressing the TGF-β/Smad3 signaling pathway
 authors:
 - Chaoying Yan

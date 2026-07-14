@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41392-024-01917-x
+reference_id: "DOI:10.1038/s41392-024-01917-x"
 title: "Emerging and reemerging infectious diseases: global trends and new strategies for their prevention and control"
 authors:
 - Shen Wang

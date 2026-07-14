@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/brain/awt012
+reference_id: "DOI:10.1093/brain/awt012"
 title: "MEDNIK syndrome: a novel defect of copper metabolism treatable by zinc acetate therapy"
 authors:
 - Diego Martinelli

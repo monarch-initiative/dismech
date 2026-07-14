@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12325-024-03020-7
+reference_id: "DOI:10.1007/s12325-024-03020-7"
 title: "Real-World Evaluation of Treatment Patterns, Healthcare Costs, and Healthcare Resource Utilization Among Patients with Non-small Cell Lung Cancer in the US Receiving Sotorasib"
 authors:
 - Ihtisham Sultan

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/cge.13254
+reference_id: "DOI:10.1111/cge.13254"
 title: "Wiedemann‐Steiner syndrome as a major cause of syndromic intellectual disability: A study of 33 French cases"
 authors:
 - S. Baer

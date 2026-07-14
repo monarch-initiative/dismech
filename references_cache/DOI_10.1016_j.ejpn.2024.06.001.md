@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ejpn.2024.06.001
+reference_id: "DOI:10.1016/j.ejpn.2024.06.001"
 title: "2024 update: European consensus statement on gene therapy for spinal muscular atrophy"
 authors:
 - Janbernd Kirschner

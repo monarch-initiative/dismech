@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/pas.0000000000001518
+reference_id: "DOI:10.1097/pas.0000000000001518"
 title: Genomic and Immunophenotypic Landscape of Aggressive NK-Cell Leukemia
 authors:
 - Siba El Hussein

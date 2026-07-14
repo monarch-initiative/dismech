@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41574-022-00653-y
+reference_id: "DOI:10.1038/s41574-022-00653-y"
 title: "The genetics of autoimmune Addison disease: past, present and future"
 authors:
 - Ellen C. Røyrvik

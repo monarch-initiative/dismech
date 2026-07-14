@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/brain/awad349
+reference_id: "DOI:10.1093/brain/awad349"
 title: "Antisense oligonucleotides restore excitability, GABA signalling and sodium current density in a Dravet syndrome model"
 authors:
 - Yukun Yuan

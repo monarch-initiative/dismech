@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1080/19490976.2024.2412676
+reference_id: "DOI:10.1080/19490976.2024.2412676"
 title: "<i>Giardia</i> spp.-induced microbiota dysbiosis disrupts intestinal mucin glycosylation"
 authors:
 - Elena Fekete

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41588-024-01802-x
+reference_id: "DOI:10.1038/s41588-024-01802-x"
 title: Single-cell multi-omic and spatial profiling of human kidneys implicates the fibrotic microenvironment in kidney disease progression
 authors:
 - Amin Abedini

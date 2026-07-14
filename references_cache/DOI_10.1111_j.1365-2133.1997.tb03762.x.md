@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/j.1365-2133.1997.tb03762.x
+reference_id: "DOI:10.1111/j.1365-2133.1997.tb03762.x"
 title: Comel-Netherton syndrome. A diagnostic challenge
 authors:
 - I. De Felipe

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/cncr.35783
+reference_id: "DOI:10.1002/cncr.35783"
 title: "Advances in the treatment of <i>KRAS</i><sup><i>G12C</i></sup> mutant non–small cell lung cancer"
 authors:
 - Khvaramze Shaverdashvili

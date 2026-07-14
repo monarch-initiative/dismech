@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.esmoop.2024.102943
+reference_id: "DOI:10.1016/j.esmoop.2024.102943"
 title: "REGOMA-OSS: a large, Italian, multicenter, prospective, observational study evaluating the efficacy and safety of regorafenib in patients with recurrent glioblastoma"
 authors:
 - M. Caccese

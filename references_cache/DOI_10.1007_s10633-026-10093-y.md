@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10633-026-10093-y
+reference_id: "DOI:10.1007/s10633-026-10093-y"
 title: "Review of the clinical electrooculogram - Part 2: the bestrophinopathies and modified protocols"
 authors:
 - Srikanta Kumar Padhy

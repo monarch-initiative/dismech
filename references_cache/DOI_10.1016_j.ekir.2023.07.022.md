@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ekir.2023.07.022
+reference_id: "DOI:10.1016/j.ekir.2023.07.022"
 title: "Implications of Complete Proteinuria Remission at any Time in Focal Segmental Glomerulosclerosis: Sparsentan DUET Trial"
 authors:
 - Howard Trachtman

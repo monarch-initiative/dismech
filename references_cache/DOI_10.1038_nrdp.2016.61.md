@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/nrdp.2016.61
+reference_id: "DOI:10.1038/nrdp.2016.61"
 title: Ovarian cancer
 authors:
 - Ursula A. Matulonis

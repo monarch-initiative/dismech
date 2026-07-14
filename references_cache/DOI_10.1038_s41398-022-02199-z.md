@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41398-022-02199-z
+reference_id: "DOI:10.1038/s41398-022-02199-z"
 title: "NRSF/REST lies at the intersection between epigenetic regulation, miRNA-mediated gene control and neurodevelopmental pathways associated with Intellectual disability (ID) and Schizophrenia"
 authors:
 - Mouhamed Alsaqati

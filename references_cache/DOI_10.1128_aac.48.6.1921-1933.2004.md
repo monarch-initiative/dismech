@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/aac.48.6.1921-1933.2004
+reference_id: "DOI:10.1128/aac.48.6.1921-1933.2004"
 title: "Recommendations for Treatment of Human Infections Caused by<i>Bartonella</i>Species"
 authors:
 - J. M. Rolain

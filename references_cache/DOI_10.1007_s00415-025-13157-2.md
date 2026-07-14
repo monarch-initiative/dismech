@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00415-025-13157-2
+reference_id: "DOI:10.1007/s00415-025-13157-2"
 title: "Rituximab in stiff-person syndrome with glutamic acid decarboxylase 65 autoantibody: a systematic review"
 authors:
 - Antonia Pignolo

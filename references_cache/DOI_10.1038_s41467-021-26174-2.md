@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-021-26174-2
+reference_id: "DOI:10.1038/s41467-021-26174-2"
 title: Genetic investigation of fibromuscular dysplasia identifies risk loci and shared genetics with common cardiovascular diseases
 authors:
 - Adrien Georges

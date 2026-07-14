@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ymthe.2024.02.032
+reference_id: "DOI:10.1016/j.ymthe.2024.02.032"
 title: Lentiviral expression of wild-type LAMA3A restores cell adhesion in airway basal cells from children with epidermolysis bullosa
 authors:
 - Chun Hang Lau

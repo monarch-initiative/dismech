@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s42003-024-05780-y
+reference_id: "DOI:10.1038/s42003-024-05780-y"
 title: Comparative analyses of Netherton syndrome patients and Spink5 conditional knock-out mice uncover disease-relevant pathways
 authors:
 - Evgeniya Petrova

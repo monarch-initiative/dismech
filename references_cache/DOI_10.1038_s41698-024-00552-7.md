@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41698-024-00552-7
+reference_id: "DOI:10.1038/s41698-024-00552-7"
 title: "BRAFV600E-mutant metastatic NSCLC: disease overview and treatment landscape"
 authors:
 - David Planchard

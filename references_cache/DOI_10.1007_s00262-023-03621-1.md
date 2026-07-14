@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00262-023-03621-1
+reference_id: "DOI:10.1007/s00262-023-03621-1"
 title: Updated systematic review and network meta-analysis of first-line treatments for metastatic renal cell carcinoma with extended follow-up data
 authors:
 - Takafumi Yanagisawa

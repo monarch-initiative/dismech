@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.trecan.2024.07.008
+reference_id: "DOI:10.1016/j.trecan.2024.07.008"
 title: "Small cell lung cancer profiling: an updated synthesis of subtypes, vulnerabilities, and plasticity"
 authors:
 - Esther Redin

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00125-024-06106-7
+reference_id: "DOI:10.1007/s00125-024-06106-7"
 title: Interferons are key cytokines acting on pancreatic islets in type 1 diabetes
 authors:
 - Alexandra Coomans de Brachène

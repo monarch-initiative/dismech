@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12094-024-03604-3
+reference_id: "DOI:10.1007/s12094-024-03604-3"
 title: SEOM-GEICO Clinical Guidelines on cervical cancer (2023)
 authors:
 - Luis Manso

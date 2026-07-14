@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/jtm/taac102
+reference_id: "DOI:10.1093/jtm/taac102"
 title: "Clinical characteristics and management of neurocysticercosis patients: a retrospective assessment of case reports from Europe"
 authors:
 - Dominik Stelzle

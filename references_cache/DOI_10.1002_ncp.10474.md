@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ncp.10474
+reference_id: "DOI:10.1002/ncp.10474"
 title: ASPEN Consensus Recommendations for Refeeding Syndrome
 authors:
 - Joshua S. V. da Silva

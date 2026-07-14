@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40257-025-00942-y
+reference_id: "DOI:10.1007/s40257-025-00942-y"
 title: Long-Term Safety and Tolerability of Beremagene Geperpavec-svdt (B-VEC) in an Open-Label Extension Study of Patients with Dystrophic Epidermolysis Bullosa
 authors:
 - M. Peter Marinkovich

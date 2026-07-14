@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1001/jama.294.1.81
+reference_id: "DOI:10.1001/jama.294.1.81"
 title: "Dysregulated Arginine Metabolism, Hemolysis-Associated Pulmonary Hypertension, and Mortality in Sickle Cell Disease"
 authors:
 - Claudia R. Morris

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.06.23.24309352
+reference_id: "DOI:10.1101/2024.06.23.24309352"
 title: Epigenetic factors in the 22q11.2 deletion syndrome in relation to stress and schizophrenia
 authors:
 - Chuan Jiao

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/jgh.15809
+reference_id: "DOI:10.1111/jgh.15809"
 title: Nationwide epidemiological survey of immunoglobulin G4‐related disease with malignancy in Japan
 authors:
 - Kimi Sumimoto

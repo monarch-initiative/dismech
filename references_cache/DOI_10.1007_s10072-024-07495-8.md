@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10072-024-07495-8
+reference_id: "DOI:10.1007/s10072-024-07495-8"
 title: "Plasma concentrations of glial fibrillary acidic protein, neurofilament light, and tau in Alexander disease"
 authors:
 - Nicholas J. Ashton

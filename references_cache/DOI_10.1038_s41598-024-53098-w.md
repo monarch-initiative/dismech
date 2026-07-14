@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-53098-w
+reference_id: "DOI:10.1038/s41598-024-53098-w"
 title: Single-cell analysis reveals the spatial-temporal expression of genes associated with esophageal malformations
 authors:
 - Carlo Maj

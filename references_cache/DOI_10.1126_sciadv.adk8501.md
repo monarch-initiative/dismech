@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1126/sciadv.adk8501
+reference_id: "DOI:10.1126/sciadv.adk8501"
 title: Integration mapping of cardiac fibroblast single-cell transcriptomes elucidates cellular principles of fibrosis in diverse pathologies
 authors:
 - Ralph Patrick

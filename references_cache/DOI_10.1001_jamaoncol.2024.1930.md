@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1001/jamaoncol.2024.1930
+reference_id: "DOI:10.1001/jamaoncol.2024.1930"
 title: Pancreatic Cancer Surveillance and Survival of High-Risk Individuals
 authors:
 - Amanda L. Blackford

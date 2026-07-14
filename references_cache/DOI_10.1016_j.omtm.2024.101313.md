@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.omtm.2024.101313
+reference_id: "DOI:10.1016/j.omtm.2024.101313"
 title: A GLB1 transgene with enhanced therapeutic potential for the preclinical development of ex-vivo gene therapy to treat mucopolysaccharidosis type IVB
 authors:
 - Stefania Crippa

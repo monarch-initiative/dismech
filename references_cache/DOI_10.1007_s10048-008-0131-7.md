@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10048-008-0131-7
+reference_id: "DOI:10.1007/s10048-008-0131-7"
 title: "ARSACS in the Dutch population: a frequent cause of early-onset cerebellar ataxia"
 authors:
 - Sascha Vermeer

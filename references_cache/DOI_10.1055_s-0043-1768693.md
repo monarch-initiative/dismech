@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0043-1768693
+reference_id: "DOI:10.1055/s-0043-1768693"
 title: First Clinical Report of Two RAB3GAP1 Pathogenic Variant in Warburg Micro Syndrome
 authors:
 - Nejmiye Akkuş

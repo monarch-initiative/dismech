@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s44337-025-00321-w
+reference_id: "DOI:10.1007/s44337-025-00321-w"
 title: "GAD-antibody-associated stiff-person syndrome: a case report"
 authors:
 - Renju Mathew Alex

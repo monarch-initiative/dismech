@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41388-025-03547-1
+reference_id: "DOI:10.1038/s41388-025-03547-1"
 title: "Molecular and epigenetic oncogenesis in synovial sarcoma: implications for cancer biology, diagnosis and treatment"
 authors:
 - Amy Xueqi Wang

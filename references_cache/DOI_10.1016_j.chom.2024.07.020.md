@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.chom.2024.07.020
+reference_id: "DOI:10.1016/j.chom.2024.07.020"
 title: Commensal microbe regulation of skin cells in disease
 authors:
 - Yuyang Gan

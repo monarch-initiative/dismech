@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41591-024-03167-4
+reference_id: "DOI:10.1038/s41591-024-03167-4"
 title: Molecular classification to refine surgical and radiotherapeutic decision-making in meningioma
 authors:
 - Justin Z. Wang

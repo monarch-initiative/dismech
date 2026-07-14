@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40265-018-1039-7
+reference_id: "DOI:10.1007/s40265-018-1039-7"
 title: "Pharmacotherapy for Neuromyelitis Optica Spectrum Disorders: Current Management and Future Options"
 authors:
 - Nicolas Collongues

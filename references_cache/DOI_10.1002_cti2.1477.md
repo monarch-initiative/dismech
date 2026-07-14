@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/cti2.1477
+reference_id: "DOI:10.1002/cti2.1477"
 title: "The spectrum of B cells in the pathogenesis, diagnosis and therapeutic applications of immunoglobulin <scp>G4</scp>‐related disease"
 authors:
 - Qiyuan Hao

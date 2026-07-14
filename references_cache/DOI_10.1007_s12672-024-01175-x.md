@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12672-024-01175-x
+reference_id: "DOI:10.1007/s12672-024-01175-x"
 title: A novel cancer-associated fibroblast signature for kidney renal clear cell carcinoma via integrated analysis of single-cell and bulk RNA-sequencing
 authors:
 - Ling Lu

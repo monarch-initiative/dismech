@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1023/b:boli.0000037341.21975.9d
+reference_id: "DOI:10.1023/b:boli.0000037341.21975.9d"
 title: The third case of Doss porphyria (δ‐amino‐levulinic acid dehydratase deficiency) in Germany
 authors:
 - M. O. Doss
@@ -12,7 +12,7 @@ authors:
 - S. Sassa
 journal: Journal of Inherited Metabolic Disease
 year: '2004'
-doi: 10.1023/b:boli.0000037341.21975.9d
+doi: "10.1023/b:boli.0000037341.21975.9d"
 content_type: abstract_only
 full_text_attempted: true
 ---

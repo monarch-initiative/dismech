@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-46336-2
+reference_id: "DOI:10.1038/s41467-024-46336-2"
 title: "PCSK9 stimulates Syk, PKCδ, and NF-κB, leading to atherosclerosis progression independently of LDL receptor"
 authors:
 - Dasom Shin

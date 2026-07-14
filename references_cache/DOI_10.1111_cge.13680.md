@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/cge.13680
+reference_id: "DOI:10.1111/cge.13680"
 title: "Integrated analysis of <i>COL2A1</i> variant data and classification of type II collagenopathies"
 authors:
 - Boyan Zhang

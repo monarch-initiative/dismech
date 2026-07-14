@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/noajnl/vdab097
+reference_id: "DOI:10.1093/noajnl/vdab097"
 title: Clinical and molecular analysis of smoothened inhibitors in Sonic Hedgehog medulloblastoma
 authors:
 - Victor Pereira

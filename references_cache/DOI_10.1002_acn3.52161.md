@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/acn3.52161
+reference_id: "DOI:10.1002/acn3.52161"
 title: In‐hospital recurrent stroke in ipsilateral carotid web patients undergoing thrombectomy
 authors:
 - Farhan Khan

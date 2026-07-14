@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jimd.12649
+reference_id: "DOI:10.1002/jimd.12649"
 title: "Gene therapy for aromatic L‐amino acid decarboxylase deficiency: Requirements for safe application and knowledge‐generating follow‐up"
 authors:
 - Agathe Roubertie

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ajmg.10776
+reference_id: "DOI:10.1002/ajmg.10776"
 title: "Limb malformations and the human <i>HOX</i> genes"
 authors:
 - Frances R. Goodman

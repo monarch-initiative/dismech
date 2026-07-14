@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00415-020-10218-6
+reference_id: "DOI:10.1007/s00415-020-10218-6"
 title: "DRPLA: understanding the natural history and developing biomarkers to accelerate therapeutic trials in a globally rare repeat expansion disorder"
 authors:
 - Aiysha Chaudhry

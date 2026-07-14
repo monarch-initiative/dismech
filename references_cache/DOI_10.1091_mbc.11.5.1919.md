@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1091/mbc.11.5.1919
+reference_id: "DOI:10.1091/mbc.11.5.1919"
 title: "Branched Chain Amino Acids Induce Apoptosis in Neural Cells without Mitochondrial Membrane Depolarization or Cytochrome<i>c</i>Release: Implications for Neurological Impairment Associated with Maple Syrup Urine Disease"
 authors:
 - Philippe Jouvet

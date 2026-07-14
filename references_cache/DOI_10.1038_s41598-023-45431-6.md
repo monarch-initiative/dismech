@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-023-45431-6
+reference_id: "DOI:10.1038/s41598-023-45431-6"
 title: Clinico-radiologic subtypes and therapeutic observation of acute Marchiafava-Bignami disease
 authors:
 - Yan-li Zhang

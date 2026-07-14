@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/hmg/ddv152
+reference_id: "DOI:10.1093/hmg/ddv152"
 title: Specific variants in WDR35 cause a distinctive form of Ellis-van Creveld syndrome by disrupting the recruitment of the EvC complex and SMO into the cilium
 authors:
 - José A. Caparrós-Martín

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s42255-024-01098-5
+reference_id: "DOI:10.1038/s42255-024-01098-5"
 title: Host–microbe interactions rewire metabolism in a C. elegans model of leucine breakdown deficiency
 authors:
 - Yong-Uk Lee

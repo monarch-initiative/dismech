@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41380-023-02005-2
+reference_id: "DOI:10.1038/s41380-023-02005-2"
 title: "The molecular pathology of schizophrenia: an overview of existing knowledge and new directions for future research"
 authors:
 - Takumi Nakamura

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41569-023-00964-1
+reference_id: "DOI:10.1038/s41569-023-00964-1"
 title: Immune and inflammatory mechanisms in hypertension
 authors:
 - Tomasz J. Guzik

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11897-023-00592-3
+reference_id: "DOI:10.1007/s11897-023-00592-3"
 title: Cardiac Involvement in Mitochondrial Disorders
 authors:
 - Tudor-Alexandru Popoiu

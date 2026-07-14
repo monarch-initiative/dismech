@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1089/cap.2024.0022
+reference_id: "DOI:10.1089/cap.2024.0022"
 title: "From Consensus Statement to Pills to Pixels: New Innovations in Attention-Deficit/Hyperactivity Disorder Care"
 authors:
 - Raman Baweja

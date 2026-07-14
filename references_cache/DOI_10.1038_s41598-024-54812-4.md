@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-54812-4
+reference_id: "DOI:10.1038/s41598-024-54812-4"
 title: "Correlation between soluble klotho and chronic kidney disease–mineral and bone disorder in chronic kidney disease: a meta-analysis"
 authors:
 - Zhongyu Fan

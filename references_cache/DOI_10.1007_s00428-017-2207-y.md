@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00428-017-2207-y
+reference_id: "DOI:10.1007/s00428-017-2207-y"
 title: "Desmoplastic small round cell tumor: evaluation of reverse transcription-polymerase chain reaction and fluorescence in situ hybridization as ancillary molecular diagnostic techniques"
 authors:
 - Mustafa Mohamed

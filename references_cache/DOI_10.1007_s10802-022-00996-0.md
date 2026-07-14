@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10802-022-00996-0
+reference_id: "DOI:10.1007/s10802-022-00996-0"
 title: "Social Anxiety and Suicidality in Youth: A Systematic Review and Meta-analysis"
 authors:
 - Eleanor Leigh

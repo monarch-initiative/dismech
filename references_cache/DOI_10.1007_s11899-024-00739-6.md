@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11899-024-00739-6
+reference_id: "DOI:10.1007/s11899-024-00739-6"
 title: Prognostic and Predictive Models in Myelofibrosis
 authors:
 - Barbara Mora

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/cvr/cvad175
+reference_id: "DOI:10.1093/cvr/cvad175"
 title: An inflammation resolution–promoting intervention prevents atrial fibrillation caused by left ventricular dysfunction
 authors:
 - Roddy Hiram

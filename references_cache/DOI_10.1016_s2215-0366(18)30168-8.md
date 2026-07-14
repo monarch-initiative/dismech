@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/s2215-0366(18)30168-8
+reference_id: "DOI:10.1016/s2215-0366(18)30168-8"
 title: "Prevalence of rearrangements in the 22q11.2 region and population-based risk of neuropsychiatric and developmental disorders in a Danish population: a case-cohort study"
 authors:
 - Line Olsen

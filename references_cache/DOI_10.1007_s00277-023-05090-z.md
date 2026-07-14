@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00277-023-05090-z
+reference_id: "DOI:10.1007/s00277-023-05090-z"
 title: "Daratumumab plus bortezomib, cyclophosphamide, and dexamethasone in Asian patients with newly diagnosed AL amyloidosis: subgroup analysis of ANDROMEDA"
 authors:
 - Kenshi Suzuki

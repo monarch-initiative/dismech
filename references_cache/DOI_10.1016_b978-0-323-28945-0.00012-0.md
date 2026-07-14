@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/b978-0-323-28945-0.00012-0
+reference_id: "DOI:10.1016/b978-0-323-28945-0.00012-0"
 title: Odontogenic Infections of the Fascial Spaces
 authors:
 - Tyler T. Boynton

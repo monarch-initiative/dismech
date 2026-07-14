@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-81764-6
+reference_id: "DOI:10.1038/s41598-024-81764-6"
 title: Association of PD-L1 positivity with Epstein Barr virus infection and microsatellite instability in gastric carcinomas with lymphoid stroma
 authors:
 - Sun Mi Lee

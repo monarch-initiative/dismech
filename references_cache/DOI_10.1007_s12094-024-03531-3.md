@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12094-024-03531-3
+reference_id: "DOI:10.1007/s12094-024-03531-3"
 title: SEOM–GEICO clinical guideline on epithelial ovarian cancer (2023)
 authors:
 - Jose Alejandro Perez-Fidalgo

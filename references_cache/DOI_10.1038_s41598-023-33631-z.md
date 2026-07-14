@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-023-33631-z
+reference_id: "DOI:10.1038/s41598-023-33631-z"
 title: A comprehensive diagnostic approach in suspected neurosarcoidosis
 authors:
 - Shala Ghaderi Berntsson

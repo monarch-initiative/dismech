@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/bjh.13338
+reference_id: "DOI:10.1111/bjh.13338"
 title: "Dose‐intensified chemotherapy alone or in combination with mogamulizumab in newly diagnosed aggressive adult T‐cell leukaemia‐lymphoma: a randomized phase <scp>II</scp> study"
 authors:
 - Takashi Ishida

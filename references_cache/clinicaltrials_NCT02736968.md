@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT02736968"
 title: "Phase IIa Randomized, Single-Blinded, Placebo-Controlled Clinical Trial of the Reprofiled Drug Auranofin for GI Protozoa"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase IIa Randomized, Single-Blinded, Placebo-Controlled Clinical Trial of the Reprofiled Drug Auranofin for GI Protozoa

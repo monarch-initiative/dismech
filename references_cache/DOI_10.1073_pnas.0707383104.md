@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.0707383104
+reference_id: "DOI:10.1073/pnas.0707383104"
 title: "Anterior temporal lobes mediate semantic representation: Mimicking semantic dementia by using rTMS in normal participants"
 authors:
 - Gorana Pobric

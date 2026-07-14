@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/epi.17979
+reference_id: "DOI:10.1111/epi.17979"
 title: "Hippocampal sclerosis and temporal lobe epilepsy following febrile status epilepticus: The <scp>FEBSTAT</scp> study"
 authors:
 - Darrell V. Lewis

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12022-024-09836-x
+reference_id: "DOI:10.1007/s12022-024-09836-x"
 title: "Consensus Statement: Recommendations on Actionable Biomarker Testing for Thyroid Cancer Management"
 authors:
 - Ozgur Mete

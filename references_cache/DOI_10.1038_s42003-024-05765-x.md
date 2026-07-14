@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s42003-024-05765-x
+reference_id: "DOI:10.1038/s42003-024-05765-x"
 title: Single-cell transcriptomic analyses of tumor microenvironment and molecular reprograming landscape of metastatic laryngeal squamous cell carcinoma
 authors:
 - Yuanyuan Sun

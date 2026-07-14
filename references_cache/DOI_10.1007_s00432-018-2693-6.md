@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00432-018-2693-6
+reference_id: "DOI:10.1007/s00432-018-2693-6"
 title: "The epidemiology and survivorship of clear cell sarcoma: a National Cancer Database (NCDB) review"
 authors:
 - M. Isabel Gonzaga

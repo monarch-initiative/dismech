@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0044-1793933
+reference_id: "DOI:10.1055/s-0044-1793933"
 title: Recent advances in autoimmune encephalitis
 authors:
 - João Henrique Fregadolli Ferreira

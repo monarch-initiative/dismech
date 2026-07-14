@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/mgg3.70000
+reference_id: "DOI:10.1002/mgg3.70000"
 title: Genetic testing and new variants in diagnosis of congenital ichthyoses
 authors:
 - Milja Salo

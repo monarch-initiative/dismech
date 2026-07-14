@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/nature24283
+reference_id: "DOI:10.1038/nature24283"
 title: Reversing SKI–SMAD4-mediated suppression is essential for TH17 cell differentiation
 authors:
 - Song Zhang

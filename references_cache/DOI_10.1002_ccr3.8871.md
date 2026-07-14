@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ccr3.8871
+reference_id: "DOI:10.1002/ccr3.8871"
 title: Arterial stroke in a child with Seckel syndrome with a pattern of non‐moyamoya vasculopathy
 authors:
 - Samin Alavi

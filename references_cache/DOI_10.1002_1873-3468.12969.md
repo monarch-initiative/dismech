@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/1873-3468.12969
+reference_id: "DOI:10.1002/1873-3468.12969"
 title: "Identification of a novel botulinum neurotoxin gene cluster in <i>Enterococcus</i>"
 authors:
 - Jason Brunt

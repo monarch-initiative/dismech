@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s44321-025-00239-x
+reference_id: "DOI:10.1038/s44321-025-00239-x"
 title: Metabolic reprogramming in polycystic kidney disease and other renal ciliopathies
 authors:
 - Sara Clerici

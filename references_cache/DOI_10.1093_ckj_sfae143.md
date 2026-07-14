@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/ckj/sfae143
+reference_id: "DOI:10.1093/ckj/sfae143"
 title: Application of artificial intelligence to chronic kidney disease mineral bone disorder
 authors:
 - Eleanor D Lederer

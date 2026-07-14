@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10578-021-01306-3
+reference_id: "DOI:10.1007/s10578-021-01306-3"
 title: "Parent Management Training Combined with Group-CBT Compared to Parent Management Training Only for Oppositional Defiant Disorder Symptoms: 2-Year Follow-Up of a Randomized Controlled Trial"
 authors:
 - Maria Helander

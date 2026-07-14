@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/advs.202506954
+reference_id: "DOI:10.1002/advs.202506954"
 title: FGF9–FGFR2 Signaling via Osteocytes‐Preosteoblasts Crosstalks to Mediate Mechanotransduction‐Driven Intramembranous Osteogenesis in the Underdeveloped Maxilla
 authors:
 - Yiwen Zhou

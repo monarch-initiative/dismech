@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.autrev.2025.103824
+reference_id: "DOI:10.1016/j.autrev.2025.103824"
 title: The emerging concept of ANCA-associated vasculitis related to inborn errors of immunity
 authors:
 - Clément Triaille

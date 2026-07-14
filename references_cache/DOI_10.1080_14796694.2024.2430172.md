@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1080/14796694.2024.2430172
+reference_id: "DOI:10.1080/14796694.2024.2430172"
 title: Sotorasib for the treatment of locally advanced/metastatic non-small cell lung cancer
 authors:
 - Jordyn P. Higgins

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s43856-023-00431-5
+reference_id: "DOI:10.1038/s43856-023-00431-5"
 title: Inhibiting anti-angiogenic VEGF165b activates a miR-17-20a-Calcipressin-3 pathway that revascularizes ischemic muscle in peripheral artery disease
 authors:
 - Sonia Batan

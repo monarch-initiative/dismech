@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-023-41857-8
+reference_id: "DOI:10.1038/s41467-023-41857-8"
 title: Multifaceted analysis of cross-tissue transcriptomes reveals phenotype–endotype associations in atopic dermatitis
 authors:
 - Aiko Sekita

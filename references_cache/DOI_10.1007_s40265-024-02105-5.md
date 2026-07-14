@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40265-024-02105-5
+reference_id: "DOI:10.1007/s40265-024-02105-5"
 title: "2024 Recommendations on the Optimal Use of Lipid-Lowering Therapy in Established Atherosclerotic Cardiovascular Disease and Following Acute Coronary Syndromes: A Position Paper of the International Lipid Expert Panel (ILEP)"
 authors:
 - Maciej Banach

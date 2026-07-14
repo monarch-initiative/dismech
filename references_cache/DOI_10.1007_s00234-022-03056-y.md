@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00234-022-03056-y
+reference_id: "DOI:10.1007/s00234-022-03056-y"
 title: "Natural history of familial cerebral cavernous malformation syndrome in children: a multicenter cohort study"
 authors:
 - Ana Filipa Geraldo

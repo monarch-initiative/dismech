@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41525-024-00400-4
+reference_id: "DOI:10.1038/s41525-024-00400-4"
 title: Germline mutations of 4567 patients with hereditary breast-ovarian cancer spectrum in Thailand
 authors:
 - Chalermkiat Kansuttiviwat

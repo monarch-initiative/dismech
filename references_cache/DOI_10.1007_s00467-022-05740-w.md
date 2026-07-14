@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00467-022-05740-w
+reference_id: "DOI:10.1007/s00467-022-05740-w"
 title: Idiopathic infantile hypercalcemia in children with chronic kidney disease due to kidney hypodysplasia
 authors:
 - Evgenia Gurevich

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/mco2.721
+reference_id: "DOI:10.1002/mco2.721"
 title: "Liver cirrhosis: molecular mechanisms and therapeutic interventions"
 authors:
 - Zihe Dong

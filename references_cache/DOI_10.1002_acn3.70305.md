@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/acn3.70305
+reference_id: "DOI:10.1002/acn3.70305"
 title: Characterization of Clinical Phenotype to Glial Fibrillary Acidic Protein Concentrations in Alexander Disease
 authors:
 - Amy T. Waldman

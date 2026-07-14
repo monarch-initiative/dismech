@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41573-022-00612-2
+reference_id: "DOI:10.1038/s41573-022-00612-2"
 title: "Amyotrophic lateral sclerosis: a neurodegenerative disorder poised for successful therapeutic translation"
 authors:
 - Richard J. Mead

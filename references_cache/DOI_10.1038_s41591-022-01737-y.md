@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41591-022-01737-y
+reference_id: "DOI:10.1038/s41591-022-01737-y"
 title: "In vivo topical gene therapy for recessive dystrophic epidermolysis bullosa: a phase 1 and 2 trial"
 authors:
 - Irina Gurevich

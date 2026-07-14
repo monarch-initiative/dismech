@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2023.06.07.544132
+reference_id: "DOI:10.1101/2023.06.07.544132"
 title: Autonomous and non-cell autonomous etiology of ciliopathy associated structural birth defects
 authors:
 - Richard Francis

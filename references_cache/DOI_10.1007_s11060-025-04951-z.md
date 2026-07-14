@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11060-025-04951-z
+reference_id: "DOI:10.1007/s11060-025-04951-z"
 title: Timing of brain metastases in relation to outcome during first-line ipilimumab plus nivolumab therapy for metastatic melanoma in a community oncology practice
 authors:
 - Claire Victoria Ong
@@ -41,7 +41,8 @@ sus patients with an isolated central nervous system (CNS)
 recurrence [7].
 The development of immune checkpoint inhibitors (ICI), 
 such as anti-CTLA-4 and anti-PD-1 antibodies, significantly 
-  Wolfram Samlowski
+ 
+ Wolfram Samlowski
 wsamlowski1@gmail.com
 1 Department of Internal Medicine, Kirk Kerkorian School of 
 Medicine at UNLV , Las Vegas, NV , USA

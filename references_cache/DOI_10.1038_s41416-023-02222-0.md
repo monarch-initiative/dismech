@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41416-023-02222-0
+reference_id: "DOI:10.1038/s41416-023-02222-0"
 title: "Functional genomics of human clear cell sarcoma: genomic, transcriptomic and chemical biology landscape for clear cell sarcoma"
 authors:
 - Samuel V. Rasmussen

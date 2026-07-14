@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ajmg.a.62027
+reference_id: "DOI:10.1002/ajmg.a.62027"
 title: Progressive cerebral and coronary aneurysms in the original two patients with Kosaki overgrowth syndrome
 authors:
 - Toshiki Takenouchi

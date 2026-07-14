@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/oxfimm/iqad003
+reference_id: "DOI:10.1093/oxfimm/iqad003"
 title: Achieving symptom relief in patients with myalgic encephalomyelitis by targeting the neuro-immune interface and optimizing disease tolerance
 authors:
 - Lucie Rodriguez

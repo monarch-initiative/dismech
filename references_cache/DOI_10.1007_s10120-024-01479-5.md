@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10120-024-01479-5
+reference_id: "DOI:10.1007/s10120-024-01479-5"
 title: "International consensus on the management of metastatic gastric cancer: step by step in the foggy landscape"
 authors:
 - Paolo Morgagni

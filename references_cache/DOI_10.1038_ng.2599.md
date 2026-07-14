@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/ng.2599
+reference_id: "DOI:10.1038/ng.2599"
 title: Mutations in DEPDC5 cause familial focal epilepsy with variable foci
 authors:
 - Leanne M Dibbens

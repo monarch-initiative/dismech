@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jgm.3019
+reference_id: "DOI:10.1002/jgm.3019"
 title: "A clinical guidance to DFNA22 drawn from a Korean cohort study with an autosomal dominant deaf population: A retrospective cohort study"
 authors:
 - Bong Jik Kim

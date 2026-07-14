@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10549-024-07376-w
+reference_id: "DOI:10.1007/s10549-024-07376-w"
 title: "Comprehensive genomic profiling of ESR1, PIK3CA, AKT1, and PTEN in HR(+)HER2(−) metastatic breast cancer: prevalence along treatment course and predictive value for endocrine therapy resistance in real-world practice"
 authors:
 - Manali A. Bhave

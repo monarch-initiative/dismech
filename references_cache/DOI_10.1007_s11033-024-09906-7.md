@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11033-024-09906-7
+reference_id: "DOI:10.1007/s11033-024-09906-7"
 title: Whole genome sequencing in adults with clinical hallmarks of hypophosphatasia negative for ALPL variants
 authors:
 - Lothar Seefried
@@ -70,7 +70,8 @@ HPP	 	Hypophosphatasia
 KEGG	 	Kyoto	Encyclopedia	of	Genes	and	Genomes
 MDS	 	Myoclonus	Dystonia	Syndrome
 OMIM	 	Online	Mendelian	Inheritance	in	Man
-  Lothar	Seefried
+ 
+ Lothar	Seefried
 l-seefried.klh@uni-wuerzburg.de
 1	 Clinical	 Trial	Unit,	Orthopedic	Department,	University	of	
 Würzburg,	Brettreichtstr.	11,	97074	Würzburg,	Bavaria,	

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1080/14787210.2023.2247161
+reference_id: "DOI:10.1080/14787210.2023.2247161"
 title: "Clinical management of Kaposi sarcoma herpesvirus-associated diseases: an update on disease manifestations and treatment strategies"
 authors:
 - Roshani Patel

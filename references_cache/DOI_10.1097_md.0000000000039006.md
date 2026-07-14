@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/md.0000000000039006
+reference_id: "DOI:10.1097/md.0000000000039006"
 title: "An update of the diagnosis, treatment, and prevention of leprosy: A narrative review"
 authors:
 - Chien-Yuan Huang

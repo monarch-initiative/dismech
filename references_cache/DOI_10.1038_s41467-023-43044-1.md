@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-023-43044-1
+reference_id: "DOI:10.1038/s41467-023-43044-1"
 title: PAX3-FOXO1 dictates myogenic reprogramming and rhabdomyosarcoma identity in endothelial progenitors
 authors:
 - Madeline B. Searcy

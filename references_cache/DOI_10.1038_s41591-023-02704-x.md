@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41591-023-02704-x
+reference_id: "DOI:10.1038/s41591-023-02704-x"
 title: "First-line talazoparib with enzalutamide in HRR-deficient metastatic castration-resistant prostate cancer: the phase 3 TALAPRO-2 trial"
 authors:
 - Karim Fizazi

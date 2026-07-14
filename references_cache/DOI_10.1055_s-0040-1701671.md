@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0040-1701671
+reference_id: "DOI:10.1055/s-0040-1701671"
 title: "Expanding the Spectrum of Neurological Manifestations in Cutis Laxa, Autosomal Recessive, Type IIIA"
 authors:
 - Chloé Angelini

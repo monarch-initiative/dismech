@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/andr.13708
+reference_id: "DOI:10.1111/andr.13708"
 title: "Genomic technologies and the diagnosis of 46, XY differences of sex development"
 authors:
 - Firman Idris

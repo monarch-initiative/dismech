@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ajo.2019.10.019
+reference_id: "DOI:10.1016/j.ajo.2019.10.019"
 title: "GUCY2D-Associated Leber Congenital Amaurosis: A Retrospective Natural History Study in Preparation for Trials of Novel Therapies"
 authors:
 - Zaina Bouzia

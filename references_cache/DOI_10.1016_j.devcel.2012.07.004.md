@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.devcel.2012.07.004
+reference_id: "DOI:10.1016/j.devcel.2012.07.004"
 title: A Smoothened-Evc2 Complex Transduces the Hedgehog Signal at Primary Cilia
 authors:
 - Karolin V. Dorn

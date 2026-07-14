@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00223-024-01266-5
+reference_id: "DOI:10.1007/s00223-024-01266-5"
 title: Update on the Genetics of Osteogenesis Imperfecta
 authors:
 - Milena Jovanovic

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1098/rsob.220274
+reference_id: "DOI:10.1098/rsob.220274"
 title: Mitochondrial biology and dysfunction in secondary mitochondrial disease
 authors:
 - Megan J. Baker

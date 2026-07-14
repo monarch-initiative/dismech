@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/oncolo/oyac264
+reference_id: "DOI:10.1093/oncolo/oyac264"
 title: "<i>RET</i> Fusion-Positive Non-small Cell Lung Cancer: The Evolving Treatment Landscape"
 authors:
 - Silvia Novello

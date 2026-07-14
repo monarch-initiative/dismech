@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ana.25751
+reference_id: "DOI:10.1002/ana.25751"
 title: "Clinico‐Genetic, Imaging and Molecular Delineation of <scp><i>COQ8A</i></scp>‐Ataxia: A Multicenter Study of 59 Patients"
 authors:
 - Andreas Traschütz

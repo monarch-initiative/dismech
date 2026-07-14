@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41574-024-01016-5
+reference_id: "DOI:10.1038/s41574-024-01016-5"
 title: "Graves disease: latest understanding of pathogenesis and treatment options"
 authors:
 - Giulia Lanzolla

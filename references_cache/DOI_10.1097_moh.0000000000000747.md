@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/moh.0000000000000747
+reference_id: "DOI:10.1097/moh.0000000000000747"
 title: "Hepcidin mimetics in polycythemia vera: resolving the irony of iron deficiency and erythrocytosis"
 authors:
 - Shivani Handa

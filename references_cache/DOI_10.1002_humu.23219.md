@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/humu.23219
+reference_id: "DOI:10.1002/humu.23219"
 title: Phenotype-genotype correlations of PIGO deficiency with variable phenotypes from infantile lethality to mild learning difficulties
 authors:
 - Junpei Tanigawa

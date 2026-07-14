@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40257-022-00736-6
+reference_id: "DOI:10.1007/s40257-022-00736-6"
 title: "Cutaneous Small Vessel Vasculitis: A Practical Guide to Diagnosis and Management"
 authors:
 - Robert G. Micheletti

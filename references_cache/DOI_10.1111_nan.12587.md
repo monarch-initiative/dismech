@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/nan.12587
+reference_id: "DOI:10.1111/nan.12587"
 title: "Review: Danon disease: Review of natural history and recent advances"
 authors:
 - G. Cenacchi

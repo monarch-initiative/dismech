@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ijc.34618
+reference_id: "DOI:10.1002/ijc.34618"
 title: Incidence of Burkitt lymphoma in the United States during 2000 to 2019
 authors:
 - Waruiru Mburu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40140-024-00635-y
+reference_id: "DOI:10.1007/s40140-024-00635-y"
 title: Perioperative Management of Hemophilia Patients
 authors:
 - Aliena E. Lowell

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/wco.0000000000000386
+reference_id: "DOI:10.1097/wco.0000000000000386"
 title: "Pathogenic insights from Huntington's disease-like 2 and other Huntington's disease genocopies"
 authors:
 - Russell L. Margolis

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41586-024-07943-7
+reference_id: "DOI:10.1038/s41586-024-07943-7"
 title: CTLA4 blockade abrogates KEAP1/STK11-related resistance to PD-(L)1 inhibitors
 authors:
 - Ferdinandos Skoulidis

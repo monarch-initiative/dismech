@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1126/sciimmunol.adu0284
+reference_id: "DOI:10.1126/sciimmunol.adu0284"
 title: Dissection of the immune landscape in psoriatic arthritis defines immunoproteasome up-regulation in treatment resistance
 authors:
 - Reut Tzemach

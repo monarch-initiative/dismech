@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-63858-3
+reference_id: "DOI:10.1038/s41598-024-63858-3"
 title: Associations of mixed metal exposure with chronic kidney disease from NHANES 2011–2018
 authors:
 - Xiaoru Shi

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/NEJMoa1810858
+reference_id: "DOI:10.1056/NEJMoa1810858"
 title: Maintenance Olaparib in Patients with Newly Diagnosed Advanced Ovarian Cancer
 authors:
 - Kathleen Moore

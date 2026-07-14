@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00432-024-05980-3
+reference_id: "DOI:10.1007/s00432-024-05980-3"
 title: "Prognostic factors in clear cell sarcoma: an analysis of soft tissue sarcoma in 43 cases"
 authors:
 - Janik Grothues

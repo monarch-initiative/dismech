@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s44318-024-00261-8
+reference_id: "DOI:10.1038/s44318-024-00261-8"
 title: A human progeria-associated BAF-1 mutation modulates gene expression and accelerates aging in C. elegans
 authors:
 - Raquel Romero-Bueno

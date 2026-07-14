@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/8904_2012_166
+reference_id: "DOI:10.1007/8904_2012_166"
 title: 5-Oxoprolinuria in Heterozygous Patients for 5-Oxoprolinase (OPLAH) Missense Changes
 authors:
 - Eduardo Calpena

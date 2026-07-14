@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s13353-025-00952-w
+reference_id: "DOI:10.1007/s13353-025-00952-w"
 title: Gene therapy as an innovative approach to the treatment of hemophilia B—a review
 authors:
 - Kinga Wróblewska

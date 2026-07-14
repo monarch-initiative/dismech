@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-020-80917-7
+reference_id: "DOI:10.1038/s41598-020-80917-7"
 title: Activation of proline biosynthesis is critical to maintain glutamate homeostasis during acute methamphetamine exposure
 authors:
 - Bobby Jones

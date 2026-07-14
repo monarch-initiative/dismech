@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ejca.2012.02.009
+reference_id: "DOI:10.1016/j.ejca.2012.02.009"
 title: "Population attributable risk of aflatoxin-related liver cancer: Systematic review and meta-analysis"
 authors:
 - Yan Liu

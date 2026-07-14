@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1080/17474086.2018.1506326
+reference_id: "DOI:10.1080/17474086.2018.1506326"
 title: "Non-Hodgkin’s lymphoma of the oral cavity and maxillofacial region: a pathologist viewpoint"
 authors:
 - Mahmoud Rezk Abdelwahed Hussein

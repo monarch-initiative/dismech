@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/nejmoa2503119
+reference_id: "DOI:10.1056/nejmoa2503119"
 title: Trastuzumab Deruxtecan or Ramucirumab plus Paclitaxel in Gastric Cancer
 authors:
 - Kohei Shitara

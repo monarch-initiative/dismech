@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/pnasnexus/pgae242
+reference_id: "DOI:10.1093/pnasnexus/pgae242"
 title: Dual role of proliferating cell nuclear antigen monoubiquitination in facilitating Fanconi anemia-mediated interstrand crosslink repair
 authors:
 - Ronak Shah

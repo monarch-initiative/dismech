@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00223-024-01236-x
+reference_id: "DOI:10.1007/s00223-024-01236-x"
 title: "Osteogenesis Imperfecta: Skeletal and Non-skeletal Challenges in Adulthood"
 authors:
 - Jannie Dahl Hald

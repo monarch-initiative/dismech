@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41416-023-02535-0
+reference_id: "DOI:10.1038/s41416-023-02535-0"
 title: Resistance to BRAF inhibition explored through single circulating tumour cell molecular profiling in BRAF-mutant non-small-cell lung cancer
 authors:
 - Laura Mezquita

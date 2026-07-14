@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00125-024-06092-w
+reference_id: "DOI:10.1007/s00125-024-06092-w"
 title: "Safety, tolerability and immunogenicity of PRV-101, a multivalent vaccine targeting coxsackie B viruses (CVBs) associated with type 1 diabetes: a double-blind randomised placebo-controlled Phase I trial"
 authors:
 - Heikki Hyöty

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s44161-024-00505-0
+reference_id: "DOI:10.1038/s44161-024-00505-0"
 title: Aficamten is a small-molecule cardiac myosin inhibitor designed to treat hypertrophic cardiomyopathy
 authors:
 - James J. Hartman

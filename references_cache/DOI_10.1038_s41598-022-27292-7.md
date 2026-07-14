@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-022-27292-7
+reference_id: "DOI:10.1038/s41598-022-27292-7"
 title: Association between levels of exposure to heavy metals and renal function indicators of residents in environmentally vulnerable areas
 authors:
 - Jung-Yeon Kwon

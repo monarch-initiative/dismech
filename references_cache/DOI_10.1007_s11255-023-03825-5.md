@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11255-023-03825-5
+reference_id: "DOI:10.1007/s11255-023-03825-5"
 title: Strong apoptotic response of testis tumor cells following cisplatin treatment
 authors:
 - Beate Köberle

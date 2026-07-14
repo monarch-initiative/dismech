@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.11.05.24316773
+reference_id: "DOI:10.1101/2024.11.05.24316773"
 title: "Rabies Test Accuracy: Comprehensive Systematic Review and Meta-Analysis for Human and Canine Diagnostics"
 authors:
 - Mayron Antonio Candia-Puma

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41398-023-02585-1
+reference_id: "DOI:10.1038/s41398-023-02585-1"
 title: Genome-wide analysis of anorexia nervosa and major psychiatric disorders and related traits reveals genetic overlap and identifies novel risk loci for anorexia nervosa
 authors:
 - Lasse Bang

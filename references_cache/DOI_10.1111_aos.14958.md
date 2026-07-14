@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/aos.14958
+reference_id: "DOI:10.1111/aos.14958"
 title: "Disease expression caused by different variants in the <i>BEST1</i> gene: genotype and phenotype findings in bestrophinopathies"
 authors:
 - Katarzyna Nowomiejska

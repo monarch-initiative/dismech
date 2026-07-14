@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41569-022-00759-w
+reference_id: "DOI:10.1038/s41569-022-00759-w"
 title: "Inflammatory signalling in atrial cardiomyocytes: a novel unifying principle in atrial fibrillation pathophysiology"
 authors:
 - Dobromir Dobrev

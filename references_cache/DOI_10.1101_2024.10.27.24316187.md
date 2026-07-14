@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.10.27.24316187
+reference_id: "DOI:10.1101/2024.10.27.24316187"
 title: "The Effect of Repeated Mass Drug Administration on the Transmission of Yaws: A Genomic Epidemiology Study"
 authors:
 - Amber Barton

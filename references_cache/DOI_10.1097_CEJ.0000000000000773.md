@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/CEJ.0000000000000773
+reference_id: "DOI:10.1097/CEJ.0000000000000773"
 title: "Dose-risk relationships between cigarette smoking and cervical cancer: a systematic review and meta-analysis"
 authors:
 - Maria Chiara Malevolti

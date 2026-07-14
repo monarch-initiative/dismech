@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12035-023-03266-2
+reference_id: "DOI:10.1007/s12035-023-03266-2"
 title: HPRT1 Deficiency Induces Alteration of Mitochondrial Energy Metabolism in the Brain
 authors:
 - Andrey Y. Vinokurov

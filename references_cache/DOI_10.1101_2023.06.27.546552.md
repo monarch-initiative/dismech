@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2023.06.27.546552
+reference_id: "DOI:10.1101/2023.06.27.546552"
 title: Microglia produce the amyloidogenic ABri peptide in familial British dementia
 authors:
 - Charles Arber

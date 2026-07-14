@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/01.mlg.0000150702.28451.35
+reference_id: "DOI:10.1097/01.mlg.0000150702.28451.35"
 title: Osteoprotegerin in the Inner Ear May Inhibit Bone Remodeling in the Otic Capsule
 authors:
 - Andreas F. Zehnder

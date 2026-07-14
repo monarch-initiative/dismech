@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-55331-6
+reference_id: "DOI:10.1038/s41467-024-55331-6"
 title: AI allows pre-screening of FGFR3 mutational status using routine histology slides of muscle-invasive bladder cancer
 authors:
 - Pierre-Antoine Bannier

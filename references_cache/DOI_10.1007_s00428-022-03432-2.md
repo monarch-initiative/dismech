@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00428-022-03432-2
+reference_id: "DOI:10.1007/s00428-022-03432-2"
 title: "Follicular lymphoma and marginal zone lymphoma: how many diseases?"
 authors:
 - Camille Laurent

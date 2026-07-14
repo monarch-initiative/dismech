@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41541-022-00535-4
+reference_id: "DOI:10.1038/s41541-022-00535-4"
 title: "KSHV (HHV8) vaccine: promises and potential pitfalls for a new anti-cancer vaccine"
 authors:
 - Corey Casper

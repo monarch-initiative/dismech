@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1017/S1355617722000467
+reference_id: "DOI:10.1017/S1355617722000467"
 title: Individuals with Wiedemann-Steiner syndrome show nonverbal reasoning and visuospatial defects with relative verbal skill sparing
 authors:
 - Rowena Ng

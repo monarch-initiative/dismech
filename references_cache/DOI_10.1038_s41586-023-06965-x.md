@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41586-023-06965-x
+reference_id: "DOI:10.1038/s41586-023-06965-x"
 title: Redefining the treponemal history through pre-Columbian genomes from Brazil
 authors:
 - Kerttu Majander

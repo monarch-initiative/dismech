@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/mco2.662
+reference_id: "DOI:10.1002/mco2.662"
 title: "Immunoglobulin class‐switch recombination: Mechanism, regulation, and related diseases"
 authors:
 - Jia‐Chen Liu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41433-025-03894-z
+reference_id: "DOI:10.1038/s41433-025-03894-z"
 title: "Treatment of central serous chorioretinopathy: new options for an old disease"
 authors:
 - Yoon Jeon Kim

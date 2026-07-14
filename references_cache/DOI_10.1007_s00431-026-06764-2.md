@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00431-026-06764-2
+reference_id: "DOI:10.1007/s00431-026-06764-2"
 title: "Noonan syndrome spectrum disorders in real life: patient characteristics and response to growth hormone therapy in a genetically defined single-country multicenter cohort"
 authors:
 - Barbora Jirova

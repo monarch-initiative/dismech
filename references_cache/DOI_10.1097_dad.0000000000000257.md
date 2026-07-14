@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/dad.0000000000000257
+reference_id: "DOI:10.1097/dad.0000000000000257"
 title: Intravascular/Intralymphatic Histiocytosis
 authors:
 - Cuyan Demirkesen

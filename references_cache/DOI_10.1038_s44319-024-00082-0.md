@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s44319-024-00082-0
+reference_id: "DOI:10.1038/s44319-024-00082-0"
 title: PHF6-mediated transcriptional control of NSC via Ephrin receptors is impaired in the intellectual disability syndrome BFLS
 authors:
 - Dilan Rasool

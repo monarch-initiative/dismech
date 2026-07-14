@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41591-024-03443-3
+reference_id: "DOI:10.1038/s41591-024-03443-3"
 title: "Encorafenib, cetuximab and chemotherapy in BRAF-mutant colorectal cancer: a randomized phase 3 trial"
 authors:
 - Scott Kopetz

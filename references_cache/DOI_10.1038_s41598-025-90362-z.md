@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-025-90362-z
+reference_id: "DOI:10.1038/s41598-025-90362-z"
 title: The power spectrum and functional connectivity characteristics of resting-state EEG in patients with generalized anxiety disorder
 authors:
 - Hangwei Wang

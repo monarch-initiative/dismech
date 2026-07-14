@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/neuonc/noaa046
+reference_id: "DOI:10.1093/neuonc/noaa046"
 title: Advancing biology-based therapeutic approaches for atypical teratoid rhabdoid tumors
 authors:
 - Lindsey M Hoffman

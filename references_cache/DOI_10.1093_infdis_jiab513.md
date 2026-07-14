@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/infdis/jiab513
+reference_id: "DOI:10.1093/infdis/jiab513"
 title: Recommendations for Screening and Diagnosis of Chagas Disease in the United States
 authors:
 - Colin J Forsyth

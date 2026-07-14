@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10689-023-00334-3
+reference_id: "DOI:10.1007/s10689-023-00334-3"
 title: Endoscopic and chemopreventive management of familial adenomatous polyposis syndrome
 authors:
 - J. K. Stone

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41420-023-01473-3
+reference_id: "DOI:10.1038/s41420-023-01473-3"
 title: Functional and developmental changes in the inner hair cell ribbon synapses caused by Myosin VI knockout and deafness-inducing point mutation
 authors:
 - Ning Yin

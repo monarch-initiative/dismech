@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/cvr/cvab086
+reference_id: "DOI:10.1093/cvr/cvab086"
 title: "Current progress in clinical, molecular, and genetic aspects of adult fibromuscular dysplasia"
 authors:
 - Alexandre Persu

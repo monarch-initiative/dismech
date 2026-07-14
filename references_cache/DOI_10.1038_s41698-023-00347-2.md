@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41698-023-00347-2
+reference_id: "DOI:10.1038/s41698-023-00347-2"
 title: Genomic landscape of 891 RET fusions detected across diverse solid tumor types
 authors:
 - Vamsi Parimi

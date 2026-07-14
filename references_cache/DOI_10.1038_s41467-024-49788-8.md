@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-49788-8
+reference_id: "DOI:10.1038/s41467-024-49788-8"
 title: Ube3a unsilencer for the potential treatment of Angelman syndrome
 authors:
 - Hanna Vihma

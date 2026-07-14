@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ajmg.1271
+reference_id: "DOI:10.1002/ajmg.1271"
 title: Jackson-Weiss syndrome
 authors:
 - M. Michael Cohen

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s43856-026-01464-2
+reference_id: "DOI:10.1038/s43856-026-01464-2"
 title: Modelling of onchocerciasis-associated skin and ocular disease and the impact of ivermectin treatment
 authors:
 - Matthew A. Dixon

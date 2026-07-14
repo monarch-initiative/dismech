@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/j.1747-4949.2010.00528.x
+reference_id: "DOI:10.1111/j.1747-4949.2010.00528.x"
 title: "Vertebrobasilar Flow Evaluation and Risk of Transient Ischaemic Attack and Stroke Study (Veritas): Rationale and Design"
 authors:
 - Sepideh Amin-Hanjani

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-75383-4
+reference_id: "DOI:10.1038/s41598-024-75383-4"
 title: A systematic review and meta-analysis of GFAP gene variants in Alexander disease
 authors:
 - Alice Grossi

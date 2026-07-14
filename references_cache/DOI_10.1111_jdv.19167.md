@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/jdv.19167
+reference_id: "DOI:10.1111/jdv.19167"
 title: Prevalence of scabies worldwide—An updated systematic literature review in 2022
 authors:
 - S. Schneider

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/bdrc.10025
+reference_id: "DOI:10.1002/bdrc.10025"
 title: Roles of FGF receptors in mammalian development and congenital diseases
 authors:
 - Xavier Coumoul

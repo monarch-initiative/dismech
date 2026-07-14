@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10238-024-01497-8
+reference_id: "DOI:10.1007/s10238-024-01497-8"
 title: "Immunotherapy response and resistance in patients with advanced uveal melanoma: a retrospective cohort study"
 authors:
 - Alexander Maurer

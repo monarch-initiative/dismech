@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ymgme.2011.12.018
+reference_id: "DOI:10.1016/j.ymgme.2011.12.018"
 title: A single mutation in MCCC1 or MCCC2 as a potential cause of positive screening for 3-methylcrotonyl-CoA carboxylase deficiency
 authors:
 - Raphael J. Morscher

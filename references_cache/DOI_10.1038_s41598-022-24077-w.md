@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-022-24077-w
+reference_id: "DOI:10.1038/s41598-022-24077-w"
 title: Whole genome sequencing reveals epistasis effects within RET for Hirschsprung disease
 authors:
 - Yanbing Wang

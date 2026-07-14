@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-48700-8
+reference_id: "DOI:10.1038/s41467-024-48700-8"
 title: Single-cell and spatial transcriptomics analysis of non-small cell lung cancer
 authors:
 - Marco De Zuani

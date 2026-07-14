@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1017/S0033291724002733
+reference_id: "DOI:10.1017/S0033291724002733"
 title: "The efficacy of psychological treatments on body dysmorphic disorder: a meta-analysis and trial sequential analysis of randomized controlled trials"
 authors:
 - Yinong Liu

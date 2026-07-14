@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/1873-3468.12646
+reference_id: "DOI:10.1002/1873-3468.12646"
 title: "<scp>TDP</scp>‐43 and <scp>FUS </scp><i>en route</i> from the nucleus to the cytoplasm"
 authors:
 - Helena Ederle

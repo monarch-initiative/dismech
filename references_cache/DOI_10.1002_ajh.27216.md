@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ajh.27216
+reference_id: "DOI:10.1002/ajh.27216"
 title: "Essential thrombocythemia: 2024 update on diagnosis, risk stratification, and management"
 authors:
 - Ayalew Tefferi

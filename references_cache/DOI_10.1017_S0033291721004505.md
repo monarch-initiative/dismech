@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1017/S0033291721004505
+reference_id: "DOI:10.1017/S0033291721004505"
 title: "Association between panic disorder and childhood adversities: a systematic review and meta-analysis"
 authors:
 - Joyce Zhang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ymgme.2024.108362
+reference_id: "DOI:10.1016/j.ymgme.2024.108362"
 title: "ClinGen variant curation expert panel recommendations for classification of variants in GAMT, GATM and SLC6A8 for cerebral creatine deficiency syndromes"
 authors:
 - Jennifer Goldstein

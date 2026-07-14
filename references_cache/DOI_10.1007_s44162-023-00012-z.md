@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s44162-023-00012-z
+reference_id: "DOI:10.1007/s44162-023-00012-z"
 title: Use of whole genome sequencing to determine the genetic basis of visceral myopathies including Prune Belly syndrome
 authors:
 - Robert M. Geraghty

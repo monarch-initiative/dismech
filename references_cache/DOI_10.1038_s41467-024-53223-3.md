@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-53223-3
+reference_id: "DOI:10.1038/s41467-024-53223-3"
 title: "HER2-related biomarkers predict clinical outcomes with trastuzumab deruxtecan treatment in patients with HER2-expressing metastatic colorectal cancer: biomarker analyses of DESTINY-CRC01"
 authors:
 - Salvatore Siena

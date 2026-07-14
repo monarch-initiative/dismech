@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/gcc.23195
+reference_id: "DOI:10.1002/gcc.23195"
 title: "Constitutional balanced translocations involving <scp><i>SMARCB1</i></scp>: A rare cause of rhabdoid tumor predisposition syndrome"
 authors:
 - Patrick R. Blackburn

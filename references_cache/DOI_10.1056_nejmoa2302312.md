@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/nejmoa2302312
+reference_id: "DOI:10.1056/nejmoa2302312"
 title: Pembrolizumab plus Chemotherapy in Advanced Endometrial Cancer
 authors:
 - Ramez N. Eskander

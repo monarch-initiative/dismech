@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/pde.15440
+reference_id: "DOI:10.1111/pde.15440"
 title: Clinical and molecular features in a cohort of Middle Eastern patients with epidermolysis bullosa
 authors:
 - Shir Bergson

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00520-024-08939-9
+reference_id: "DOI:10.1007/s00520-024-08939-9"
 title: "Antiemetic medications for preventing chemotherapy-induced nausea and vomiting in children: a systematic review and Bayesian network meta-analysis"
 authors:
 - R. Walker

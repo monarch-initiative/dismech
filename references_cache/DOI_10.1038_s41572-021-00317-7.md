@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41572-021-00317-7
+reference_id: "DOI:10.1038/s41572-021-00317-7"
 title: Castleman disease
 authors:
 - Antonino Carbone

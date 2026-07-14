@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41582-022-00679-w
+reference_id: "DOI:10.1038/s41582-022-00679-w"
 title: Clinical implications of the 2021 edition of the WHO classification of central nervous system tumours
 authors:
 - Craig Horbinski

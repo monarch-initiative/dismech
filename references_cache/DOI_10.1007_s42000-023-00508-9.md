@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s42000-023-00508-9
+reference_id: "DOI:10.1007/s42000-023-00508-9"
 title: Genetics of hereditary forms of primary hyperparathyroidism
 authors:
 - Katherine A. English

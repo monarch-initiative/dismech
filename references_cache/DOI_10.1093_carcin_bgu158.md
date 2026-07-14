@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/carcin/bgu158
+reference_id: "DOI:10.1093/carcin/bgu158"
 title: A mouse model of KIF5B-RET fusion-dependent lung tumorigenesis
 authors:
 - Motonobu Saito

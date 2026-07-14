@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/hmg/ddw186
+reference_id: "DOI:10.1093/hmg/ddw186"
 title: A recurrent p.Arg92Trp variant in steroidogenic factor-1 (NR5A1) can act as a molecular switch in human sex development
 authors:
 - Anu Bashamboo

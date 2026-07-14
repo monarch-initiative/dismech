@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s42399-023-01485-1
+reference_id: "DOI:10.1007/s42399-023-01485-1"
 title: "Calcification of Joints and Arteries (CALJA) Is a Rare Cause of Arthritis and Lower Limb Ischemia: Case Report and Literature Review"
 authors:
 - Michele Maffi

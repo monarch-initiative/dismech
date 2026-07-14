@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ajmg.a.63496
+reference_id: "DOI:10.1002/ajmg.a.63496"
 title: "Medulloblastoma and other neoplasms in patients with heterozygous germline <scp><i>SUFU</i></scp> variants: A scoping review"
 authors:
 - Stephanie G. Lee

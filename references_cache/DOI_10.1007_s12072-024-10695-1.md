@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12072-024-10695-1
+reference_id: "DOI:10.1007/s12072-024-10695-1"
 title: Detection of polyreactive immunoglobulin G facilitates diagnosis in children with autoimmune hepatitis
 authors:
 - Bastian Engel

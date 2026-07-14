@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-46159-1
+reference_id: "DOI:10.1038/s41467-024-46159-1"
 title: Deregulated protein homeostasis constrains fetal hematopoietic stem cell pool expansion in Fanconi anemia
 authors:
 - Narasaiah Kovuru

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s43018-024-00831-z
+reference_id: "DOI:10.1038/s43018-024-00831-z"
 title: Multiomic analysis of familial adenomatous polyposis reveals molecular pathways associated with early tumorigenesis
 authors:
 - Edward D. Esplin

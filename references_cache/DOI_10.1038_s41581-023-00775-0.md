@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41581-023-00775-0
+reference_id: "DOI:10.1038/s41581-023-00775-0"
 title: Oxidative stress and the role of redox signalling in chronic kidney disease
 authors:
 - Seiji Kishi

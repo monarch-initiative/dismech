@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/glycob/cwad067
+reference_id: "DOI:10.1093/glycob/cwad067"
 title: "Protein O-mannosylation: one sugar, several pathways, many functions"
 authors:
 - Melissa Koff

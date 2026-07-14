@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.jbc.2024.107995
+reference_id: "DOI:10.1016/j.jbc.2024.107995"
 title: Engineered bacterial lipoate protein ligase A (lplA) restores lipoylation in cell models of lipoylation deficiency
 authors:
 - Nolan R. Bick

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00401-023-02680-z
+reference_id: "DOI:10.1007/s00401-023-02680-z"
 title: Mitochondrial damage and impaired mitophagy contribute to disease progression in SCA6
 authors:
 - Tsz Chui Sophia Leung

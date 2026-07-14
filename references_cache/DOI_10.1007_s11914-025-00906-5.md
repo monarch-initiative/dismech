@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11914-025-00906-5
+reference_id: "DOI:10.1007/s11914-025-00906-5"
 title: "Medical Management of Hypophosphatasia: Review of Data on Asfotase Alfa"
 authors:
 - Kathryn McCrystal Dahir

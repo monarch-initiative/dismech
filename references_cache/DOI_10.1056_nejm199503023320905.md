@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/nejm199503023320905
+reference_id: "DOI:10.1056/nejm199503023320905"
 title: A Familial Syndrome of Arterial Dissections with Lentiginosis
 authors:
 - Wouter I. Schievink

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/jcpp.13774
+reference_id: "DOI:10.1111/jcpp.13774"
 title: "Treatment of childhood disruptive behavior disorders and <scp>callous‐unemotional</scp> traits: a systematic review and two multilevel <scp>meta‐analyses</scp>"
 authors:
 - Samantha Perlstein

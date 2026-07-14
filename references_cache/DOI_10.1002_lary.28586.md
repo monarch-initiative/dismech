@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/lary.28586
+reference_id: "DOI:10.1002/lary.28586"
 title: Distinct Histopathology Characteristics in Empty Nose Syndrome
 authors:
 - Ching‐Lung Wu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/jpc.14399
+reference_id: "DOI:10.1111/jpc.14399"
 title: "The incidence, prevalence and clinical features of<i>MECP2</i>duplication syndrome in Australian children"
 authors:
 - Peter Giudice‐Nairn

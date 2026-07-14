@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.hrthm.2015.11.013
+reference_id: "DOI:10.1016/j.hrthm.2015.11.013"
 title: Genetic testing and genetic counseling in patients with sudden death risk due to heritable arrhythmias
 authors:
 - Katherine G. Spoonamore

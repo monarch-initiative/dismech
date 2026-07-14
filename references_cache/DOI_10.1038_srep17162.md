@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/srep17162
+reference_id: "DOI:10.1038/srep17162"
 title: Repression of AKT signaling by ARQ 092 in cells and tissues from patients with Proteus syndrome
 authors:
 - Marjorie J. Lindhurst

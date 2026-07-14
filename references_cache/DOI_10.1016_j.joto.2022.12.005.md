@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.joto.2022.12.005
+reference_id: "DOI:10.1016/j.joto.2022.12.005"
 title: "Investigation of serum calcium and vitamin D levels in superior semicircular canal dehiscence syndrome: A case control study"
 authors:
 - Theofano Tikka

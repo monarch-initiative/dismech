@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.rcl.2017.06.011
+reference_id: "DOI:10.1016/j.rcl.2017.06.011"
 title: Imaging and Screening of Hereditary Cancer Syndromes
 authors:
 - Venkata S. Katabathina

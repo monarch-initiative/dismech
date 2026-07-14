@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/nejmoa2005651
+reference_id: "DOI:10.1056/nejmoa2005651"
 title: "Efficacy of Selpercatinib in <i>RET</i> -Altered Thyroid Cancers"
 authors:
 - Lori J. Wirth

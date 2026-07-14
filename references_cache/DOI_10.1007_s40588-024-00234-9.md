@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40588-024-00234-9
+reference_id: "DOI:10.1007/s40588-024-00234-9"
 title: "Myeloid Cell Reservoirs: Role in HIV-Host Interplay and Strategies for Myeloid Reservoir Elimination"
 authors:
 - Amber A. Castillo

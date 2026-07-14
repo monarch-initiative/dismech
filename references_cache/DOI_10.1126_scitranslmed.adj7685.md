@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1126/scitranslmed.adj7685
+reference_id: "DOI:10.1126/scitranslmed.adj7685"
 title: SRC inhibition enables formation of a growth suppressive MAGI1-PP2A complex in isocitrate dehydrogenase-mutant cholangiocarcinoma
 authors:
 - Iris S. Luk

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00701-022-05301-y
+reference_id: "DOI:10.1007/s00701-022-05301-y"
 title: "The WHO 2021 Classification of Central Nervous System tumours: a practical update on what neurosurgeons need to know—a minireview"
 authors:
 - Sverre Helge Torp

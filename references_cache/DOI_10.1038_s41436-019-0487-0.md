@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41436-019-0487-0
+reference_id: "DOI:10.1038/s41436-019-0487-0"
 title: ClinGen expert clinical validity curation of 164 hearing loss gene–disease pairs
 authors:
 - Marina T. DiStefano

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-50882-0
+reference_id: "DOI:10.1038/s41467-024-50882-0"
 title: Harnessing DNA replication stress to target RBM10 deficiency in lung adenocarcinoma
 authors:
 - Feras E. Machour

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41408-021-00497-1
+reference_id: "DOI:10.1038/s41408-021-00497-1"
 title: "Acute myeloid leukemia with IDH1 and IDH2 mutations: 2021 treatment algorithm"
 authors:
 - Ghayas C. Issa

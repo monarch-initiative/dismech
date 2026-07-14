@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/jns.12625
+reference_id: "DOI:10.1111/jns.12625"
 title: "Conduction slowing, conduction block and temporal dispersion in demyelinating, dysmyelinating and axonal neuropathies: Electrophysiology meets pathology"
 authors:
 - Antonino Uncini

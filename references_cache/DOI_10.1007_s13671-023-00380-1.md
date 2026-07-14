@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s13671-023-00380-1
+reference_id: "DOI:10.1007/s13671-023-00380-1"
 title: Pityriasis Lichenoides Following SARS-CoV-2 Infection/Vaccination
 authors:
 - Aileen M. Feschuk

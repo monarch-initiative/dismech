@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00467-024-06345-1
+reference_id: "DOI:10.1007/s00467-024-06345-1"
 title: Addressing the psychosocial aspects of transition to adult care in patients with cystinosis
 authors:
 - Stella Stabouli

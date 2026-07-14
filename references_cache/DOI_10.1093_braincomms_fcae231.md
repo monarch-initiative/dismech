@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/braincomms/fcae231
+reference_id: "DOI:10.1093/braincomms/fcae231"
 title: "Excitation/Inhibition balance relates to cognitive function and gene expression in temporal lobe epilepsy: a high density EEG assessment with aperiodic exponent"
 authors:
 - Gian Marco Duma

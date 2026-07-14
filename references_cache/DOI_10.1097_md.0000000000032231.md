@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/md.0000000000032231
+reference_id: "DOI:10.1097/md.0000000000032231"
 title: "Whipple’s disease review, prevalence, mortality, and characteristics in the United States: A cross-sectional national inpatient study"
 authors:
 - Akram I. Ahmad

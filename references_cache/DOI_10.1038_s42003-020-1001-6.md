@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s42003-020-1001-6
+reference_id: "DOI:10.1038/s42003-020-1001-6"
 title: "Mutually suppressive roles of KMT2A and KDM5C in behaviour, neuronal structure, and histone H3K4 methylation"
 authors:
 - Christina N. Vallianatos

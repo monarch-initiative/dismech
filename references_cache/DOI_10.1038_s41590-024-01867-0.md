@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41590-024-01867-0
+reference_id: "DOI:10.1038/s41590-024-01867-0"
 title: Transcriptomic analysis of intestine following administration of a transglutaminase 2 inhibitor to prevent gluten-induced intestinal damage in celiac disease
 authors:
 - Valeriia Dotsenko

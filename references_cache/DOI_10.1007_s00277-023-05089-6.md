@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00277-023-05089-6
+reference_id: "DOI:10.1007/s00277-023-05089-6"
 title: Real-world treatments and thrombotic events in polycythemia vera patients in the USA
 authors:
 - Srdan Verstovsek

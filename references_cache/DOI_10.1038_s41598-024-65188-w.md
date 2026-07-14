@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-65188-w
+reference_id: "DOI:10.1038/s41598-024-65188-w"
 title: An evaluation of inflammatory and endothelial dysfunction markers as determinants of peripheral arterial disease in those with diabetes mellitus
 authors:
 - Sumera Zaib
