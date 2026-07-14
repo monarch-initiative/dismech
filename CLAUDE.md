@@ -1224,11 +1224,17 @@ so apply the same FDR skepticism used for COHD signals.
 
 **Citing a PanelApp gene-panel rating (disease-to-gene):**
 
-PanelApp (Genomics England) supplies broad expert-curated disease-to-gene panel
-ratings. Use it as a **complementary d2g signal** with mode of inheritance and a
-Green/Amber/Red confidence rating — *not* as an independent second confirmation
-alongside ClinGen (`CGGV:`) or Gene2Phenotype, since PanelApp re-aggregates many
-of the same expert sources. A gene-panel id is `PANELAPP:<panel_id>_<gene_symbol>`:
+PanelApp (Genomics England) supplies broad **expert-curated** disease-to-gene
+panel ratings — genes are expert-reviewed and Green ("diagnostic-grade") panels
+are signed off for the NHS Genomic Medicine Service, so it is a curated resource
+in its own right, not a passive aggregator. It complements ClinGen (`CGGV:`),
+which carries its own intensive SOP-scored gene-disease validity curation. The
+one real caveat is **statistical independence, not curation quality**: PanelApp
+reviewers weigh some of the same evidence as ClinGen and Gene2Phenotype, so a
+PanelApp Green and a ClinGen Definitive for the same gene are *correlated*, not
+independent confirmations — cite each for what it distinctly adds (PanelApp:
+panel rating + MOI + clinical sign-off; ClinGen: SOP-scored validity) rather
+than stacking them. A gene-panel id is `PANELAPP:<panel_id>_<gene_symbol>`:
 
 ```yaml
 genetic:

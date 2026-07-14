@@ -215,13 +215,20 @@ exactly.
   IDs `ORPHA:` (Orphanet), `CGGV:`/`CGDS:` (ClinGen), `CIVIC_ASSERTION:`/`CIVIC_EID:`
   (CIViC), `ICEES:` (ICEES KG comorbidity pairs), and `PANELAPP:` (Genomics England
   PanelApp gene-panel ratings).
-- **PanelApp is a complementary d2g signal, not independent evidence.** PanelApp
-  (`PANELAPP:<panel_id>_<gene>`) supplies broad expert-curated disease-to-gene panel
-  ratings (Green/Amber/Red) plus mode of inheritance, and is the panel-level companion to
-  ClinGen Gene-Disease Validity (`CGGV:`) and the EBI Gene2Phenotype audit
-  (`dismech.compare.g2p`). Because PanelApp re-aggregates several of the same expert
-  sources, it must **not** be cited alongside ClinGen or G2P as a second, independent
-  confirmation of the same gene-disease link. Each cache entry carries this caveat inline.
+- **PanelApp and ClinGen are both intensively curated d2g resources; the caveat is
+  non-independence, not curation quality.** ClinGen Gene-Disease Validity (`CGGV:`) is
+  primary expert curation — GCEPs apply the SOP Strength-of-Evidence framework to score
+  genetic and experimental evidence into Definitive/Strong/Moderate/Limited/Disputed/
+  Refuted. PanelApp (`PANELAPP:<panel_id>_<gene>`) is *also* expert-curated, not a passive
+  aggregator: genes are expert-reviewed, Green ("diagnostic-grade") ratings follow defined
+  evidence criteria, and Green panels are signed off for the NHS Genomic Medicine Service.
+  Neither should be flattened to "aggregation." The genuine caveat is **statistical
+  independence**: PanelApp reviewers weigh some of the same underlying evidence (including
+  ClinGen, Gene2Phenotype, OMIM), so a PanelApp Green and a ClinGen Definitive for the same
+  gene are *correlated*, not independent confirmations. Cite each for what it distinctly
+  contributes (PanelApp: expert panel rating, mode of inheritance, clinical sign-off;
+  ClinGen: SOP-scored validity) rather than stacking them as two independent lines of
+  evidence. Each PanelApp cache entry carries this note inline.
 - **Exact-snippet rule**: `snippet` values must be exact substring quotes from the cited
   reference, enforced by `linkml-reference-validator`. Paraphrase fails validation.
 - **Cache files are tool-generated**: `references_cache/*.md` are created exclusively by

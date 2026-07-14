@@ -99,8 +99,9 @@ def test_identifier_and_serialize(synthetic_source: PanelAppSource):
     # Phenotype rows (with embedded MONDO) are also quotable substrings.
     assert "| acute intermittent porphyria, MONDO:0008294 |" in text
     assert "PMID:27539938" in text
-    # The overlap caveat is always present.
-    assert "complementary panel-level signal" in text
+    # The curation note + non-independence caveat are always present.
+    assert "signed off for the NHS Genomic Medicine Service" in text
+    assert "correlated, not independent confirmations" in text
 
 
 def test_serialize_accepts_bare_identifier(synthetic_source: PanelAppSource):

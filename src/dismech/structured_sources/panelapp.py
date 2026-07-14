@@ -31,11 +31,21 @@ versioned and updated continuously, so the pinned sha256 / snapshot date in
 ``PANELAPP_*.md`` cache file is committed, a curator's snippet validates
 against that committed file regardless of later API drift.
 
-**Evidence-independence caveat.** PanelApp re-aggregates several of the same
-expert sources used by ClinGen and Gene2Phenotype. Treat it as a complementary
-panel-level signal, not as an independent second confirmation of a gene-disease
-link; avoid citing PanelApp and ClinGen as two separate lines of evidence for
-the same association.
+PanelApp is itself an **expert-curated** resource, not a passive aggregator:
+genes are reviewed by domain experts, Green ("diagnostic-grade") ratings follow
+defined evidence criteria, and Green panels are signed off for the NHS Genomic
+Medicine Service. It is complementary to — not a substitute for — ClinGen
+Gene-Disease Validity, which carries its own intensive SOP-scored expert
+curation; cite each for what it adds.
+
+**Evidence non-independence caveat.** This is about statistical independence,
+not curation quality. PanelApp reviewers weigh some of the same underlying
+evidence and validity assessments (including ClinGen, Gene2Phenotype, and
+OMIM), so a PanelApp Green rating and a ClinGen Definitive classification for
+the same gene are *correlated*, not independent confirmations. Cite each for
+what it distinctly contributes (PanelApp: expert panel rating, mode of
+inheritance, clinical sign-off; ClinGen: SOP-scored gene-disease validity)
+rather than stacking them as two separate lines of evidence for one link.
 """
 
 from __future__ import annotations
@@ -376,10 +386,13 @@ class PanelAppSource(StructuredSource):
         )
         yield ""
         yield (
-            "Caveat: PanelApp re-aggregates expert sources that overlap with "
-            "ClinGen Gene-Disease Validity and Gene2Phenotype. Treat it as a "
-            "complementary panel-level signal, not an independent confirmation "
-            "of the same gene-disease association."
+            "Curation: PanelApp is expert-reviewed and Green (diagnostic-grade) "
+            "panels are signed off for the NHS Genomic Medicine Service. Caveat "
+            "(statistical independence, not curation quality): PanelApp reviewers "
+            "weigh some of the same evidence as ClinGen Gene-Disease Validity and "
+            "Gene2Phenotype, so a PanelApp rating and a ClinGen classification for "
+            "the same gene are correlated, not independent confirmations. Cite each "
+            "for what it distinctly adds."
         )
         yield ""
         yield (

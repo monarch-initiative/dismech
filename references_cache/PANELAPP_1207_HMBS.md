@@ -54,6 +54,6 @@ content_type: "structured_record"
 
 Genomics England PanelApp snapshot **2026-06-27** (panel "Acute intermittent porphyria" v2.2). PanelApp gene lists are provided by Genomics England in good faith for the benefit of the research community; users must verify accuracy before any use. Publicly available to browse, download, and query.
 
-Caveat: PanelApp re-aggregates expert sources that overlap with ClinGen Gene-Disease Validity and Gene2Phenotype. Treat it as a complementary panel-level signal, not an independent confirmation of the same gene-disease association.
+Curation: PanelApp is expert-reviewed and Green (diagnostic-grade) panels are signed off for the NHS Genomic Medicine Service. Caveat (statistical independence, not curation quality): PanelApp reviewers weigh some of the same evidence as ClinGen Gene-Disease Validity and Gene2Phenotype, so a PanelApp rating and a ClinGen classification for the same gene are correlated, not independent confirmations. Cite each for what it distinctly adds.
 
 [PanelApp panel 1207](https://panelapp.genomicsengland.co.uk/panels/1207/)
