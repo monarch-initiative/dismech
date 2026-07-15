@@ -260,6 +260,60 @@ usable *citation*.
   citation is a *lead* — spot-check that the top hits are actually about the
   intended disease.
 
+## Second-generation search — therapy-specific ("does the abstract name a drug?")
+
+The count-ranked search above is a good *prioritization* tool but a poor
+*evidence-sourcing* tool, and the reason is worth recording: it ranks by how many
+Practice Guidelines exist, which reliably surfaces the **flagship umbrella
+guideline** for a disease — and those abstracts are almost always scope and
+methodology boilerplate (`OBJECTIVE / TARGET POPULATION / EVIDENCE / METHODS`)
+that never name a drug. A guideline abstract that names no drug cannot yield a
+snippet-verified treatment evidence item, no matter how authoritative it is.
+
+The therapy-specific variant therefore asks a different question: *of the
+guidelines for this disease, which ones actually name drugs in the abstract?*
+
+```bash
+uv run python .claude/skills/collect-care-guidelines/scripts/therapy_specific_search.py \
+    spec.json out.json     # spec = [{slug, query, drugs[]}, ...]
+```
+
+It runs `esearch`, fetches each abstract, and scores hits by **drug-naming
+sentence count**, so the usable source floats to the top. Records land in
+[`CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl`](CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl)
+(one per disorder: query, chosen PMID, drug-sentence count, outcome).
+
+**Two query-design lessons (both cost a search round to learn):**
+
+1. **Don't OR `guideline*[Title]` with drug terms.** It matches *studies about*
+   guidelines — "Guideline adherence to aspirin prophylaxis…", "The Nationwide
+   Impact of Guidelines for Prophylactic Aspirin…" — not guidelines themselves.
+   Preeclampsia returned nothing but aspirin adherence/impact studies until the
+   filter was tightened.
+2. **Require `"Practice Guideline"[Publication Type]`**, then rank by drug
+   sentences. Drug terms belong in the *scoring*, not (only) the query — putting
+   them in `[tiab]` biases toward drug trials over guidelines.
+
+**Boilerplate-resistant disorders (negative results, recorded so they are not
+re-litigated).** These have many guidelines but no drug-naming abstract; they
+need full-text access or a different source type, and should be *skipped* by
+abstract-only snippet mining:
+
+| Disorder | Why |
+|---|---|
+| `Non-Small_Cell_Lung_Cancer` | NCCN v4.2026 has **no text abstract**; ASCO Living Guidelines are ~1.9k-char scope-only. Tried twice. |
+| `Metastatic_Colorectal_Cancer` | ESMO CPG abstract is ~12k chars of author affiliations/scope; zero drug sentences. |
+| `Myocardial_Infarction` | ACC/AHA-adjacent, AATS, SIPREC, Latin-American ACS documents all name no drug in-abstract. |
+| `Endometriosis` | SOGC No. 468 and Polish SGO abstracts are `OBJECTIVE/EVIDENCE` structure only. |
+
+**Corollary for source selection:** prefer the *therapy-specific* guideline over
+the flagship (AGA's ascites update over a general cirrhosis guideline; an
+appropriate-use recommendation over a disease overview). Regional and
+specialty-society guidelines (SEOM-GEICO, SEOM-GOTEL, AFU, ALEH, Brazilian
+Psychiatric Association) are frequently **more** snippet-usable than the big
+international ones, because their abstracts summarize recommendations rather
+than describe process.
+
 ## Evidence policy
 
 This is a **discovery** artifact. Any citation ultimately used as dismech
@@ -277,8 +331,14 @@ were each independently re-sourced.
   — batch 2: the 10 rare-disease citation table (same columns).
 - [`CLINICAL_CARE_GUIDELINES/guideline_search_all.jsonl`](CLINICAL_CARE_GUIDELINES/guideline_search_all.jsonl)
   — the full 1,564-disorder search result / prioritization ranking.
+- [`CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl`](CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl)
+  — second-generation therapy-specific searches: one record per disorder with the
+  query, the chosen PMID, its drug-naming sentence count, and the outcome
+  (`USED` / `REJECTED_BOILERPLATE`). Covers enrichment batches 10–14 and records
+  the four boilerplate-resistant disorders so they are not re-searched.
 - `.claude/skills/collect-care-guidelines/` — the reusable Agent Skill
-  (`SKILL.md` + `scripts/collect_guidelines.py`) that regenerates both.
+  (`SKILL.md` + `scripts/collect_guidelines.py` for the count-ranked search,
+  `scripts/therapy_specific_search.py` for the drug-naming variant).
 
 ## Next steps
 
