@@ -353,10 +353,11 @@ were each independently re-sourced.
 - [`CLINICAL_CARE_GUIDELINES/guideline_search_all.jsonl`](CLINICAL_CARE_GUIDELINES/guideline_search_all.jsonl)
   — the full 1,564-disorder search result / prioritization ranking.
 - [`CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl`](CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl)
-  — second-generation therapy-specific searches: one record per disorder with the
-  query, the chosen PMID, its recommendation-sentence count, and the outcome
-  (`USED` / `REJECTED_BOILERPLATE`). Covers enrichment batches 10–14 and records
-  the four boilerplate-resistant disorders so they are not re-searched.
+  — second-generation recommendation-scored searches: one record per disorder
+  with the query, the chosen PMID, its recommendation-sentence count, and the
+  outcome (`USED` / `REJECTED_NO_RECOMMENDATION`). Covers enrichment batches
+  10–14 and records the four recommendation-free disorders so they are not
+  re-searched.
 - `.claude/skills/collect-care-guidelines/` — the reusable Agent Skill
   (`SKILL.md` + `scripts/collect_guidelines.py` for the count-ranked search,
   `scripts/therapy_specific_search.py` for the recommendation-scoring variant).

@@ -134,8 +134,19 @@ def score(text: str, terms: list) -> tuple:
     return recommendation, intervention
 
 
+def build_vocab(terms: list = None) -> list:
+    """Default patterns are deliberate regexes; curator terms are literals.
+
+    A curator passing a real drug or procedure name ("5-HT4 agonist",
+    "atezolizumab + bevacizumab", "Trikafta (ETI)") should not have to know
+    regex — and an unescaped ``+`` or ``(`` would either change the match or
+    raise. Escape the supplied terms, leave the defaults alone.
+    """
+    return DEFAULT_INTERVENTION_TERMS + [re.escape(t) for t in (terms or [])]
+
+
 def run(slug: str, term: str, terms: list = None, retmax: int = 6) -> dict:
-    vocab = DEFAULT_INTERVENTION_TERMS + list(terms or [])
+    vocab = build_vocab(terms)
     pmids = esearch(term, retmax)
     time.sleep(0.4)
     hits = []
@@ -162,9 +173,11 @@ def run(slug: str, term: str, terms: list = None, retmax: int = 6) -> dict:
 
 
 def main(argv: list) -> int:
-    spec = json.load(open(argv[1]))
+    with open(argv[1]) as fh:
+        spec = json.load(fh)
     out = [run(s["slug"], s["query"], s.get("terms")) for s in spec]
-    json.dump(out, open(argv[2], "w"), indent=1)
+    with open(argv[2], "w") as fh:
+        json.dump(out, fh, indent=1)
     for r in out:
         best = r["hits"][0] if r["hits"] else {}
         print(f"{r['slug']}: {r['n_hits']} hits | best PMID:{best.get('pmid')} "
