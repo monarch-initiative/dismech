@@ -260,51 +260,72 @@ usable *citation*.
   citation is a *lead* — spot-check that the top hits are actually about the
   intended disease.
 
-## Second-generation search — therapy-specific ("does the abstract name a drug?")
+## Second-generation search — "does the abstract state a recommendation?"
 
 The count-ranked search above is a good *prioritization* tool but a poor
 *evidence-sourcing* tool, and the reason is worth recording: it ranks by how many
 Practice Guidelines exist, which reliably surfaces the **flagship umbrella
-guideline** for a disease — and those abstracts are almost always scope and
-methodology boilerplate (`OBJECTIVE / TARGET POPULATION / EVIDENCE / METHODS`)
-that never name a drug. A guideline abstract that names no drug cannot yield a
-snippet-verified treatment evidence item, no matter how authoritative it is.
+guideline** for a disease — and those abstracts are frequently scope and process
+metadata (`OBJECTIVE / TARGET POPULATION / EVIDENCE / METHODS`, panel
+composition, or a chapter list) with no concrete recommendation in them. An
+abstract that states no specific recommendation cannot yield a snippet-verified
+evidence item, however authoritative the guideline is.
 
-The therapy-specific variant therefore asks a different question: *of the
-guidelines for this disease, which ones actually name drugs in the abstract?*
+**Scope — this is not about drugs.** Care guidelines cover the whole of clinical
+care: pharmacotherapy is only one branch. A usable abstract is one that states a
+**specific, actionable recommendation** naming an intervention of *any* modality
+— drug, surgical/interventional procedure, radiotherapy, device, diet,
+rehabilitation, monitoring interval — or a **diagnostic action** (screening,
+imaging, biopsy, staging, testing). Scoring only drug names encodes a
+pharmacology bias and wrongly discards surgical, diagnostic and supportive-care
+guidance. (Worked example: a cervical-cancer screening guideline whose abstract
+says *"screening assays should differentiate between HPV genotypes 16 and 18"*
+is perfectly good evidence for a diagnostic recommendation and names no drug at
+all.)
 
 ```bash
 uv run python .claude/skills/collect-care-guidelines/scripts/therapy_specific_search.py \
-    spec.json out.json     # spec = [{slug, query, drugs[]}, ...]
+    spec.json out.json     # spec = [{slug, query, terms?[]}, ...]
 ```
 
-It runs `esearch`, fetches each abstract, and scores hits by **drug-naming
-sentence count**, so the usable source floats to the top. Records land in
-[`CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl`](CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl)
-(one per disorder: query, chosen PMID, drug-sentence count, outcome).
+It runs `esearch`, fetches each abstract, strips the citation/author/affiliation
+front matter, and ranks hits by **`recommendation_sentences`** — sentences
+carrying *both* an intervention/diagnostic term *and* a recommendation cue
+(`we recommend`, `should be offered`, `first-line`, …). The looser
+`intervention_sentences` count is reported alongside for triage. Optional
+per-disease `terms` extend the default modality vocabulary with specific drug or
+procedure names. Records land in
+[`CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl`](CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl).
 
-**Two query-design lessons (both cost a search round to learn):**
+**Query- and scoring-design lessons (each cost a round to learn):**
 
-1. **Don't OR `guideline*[Title]` with drug terms.** It matches *studies about*
-   guidelines — "Guideline adherence to aspirin prophylaxis…", "The Nationwide
-   Impact of Guidelines for Prophylactic Aspirin…" — not guidelines themselves.
-   Preeclampsia returned nothing but aspirin adherence/impact studies until the
-   filter was tightened.
-2. **Require `"Practice Guideline"[Publication Type]`**, then rank by drug
-   sentences. Drug terms belong in the *scoring*, not (only) the query — putting
-   them in `[tiab]` biases toward drug trials over guidelines.
+1. **Don't OR `guideline*[Title]` with intervention terms.** It matches *studies
+   about* guidelines — "Guideline adherence to aspirin prophylaxis…", "The
+   Nationwide Impact of Guidelines for Prophylactic Aspirin…" — not guidelines
+   themselves. Preeclampsia returned nothing but adherence/impact studies until
+   the filter was tightened.
+2. **Require `"Practice Guideline"[Publication Type]`**; put intervention terms
+   in the *scoring*, not the query. Terms in `[tiab]` bias toward trials of that
+   intervention over guidelines about it.
+3. **Require a recommendation cue, and strip the front matter** — bare term
+   matching produces two classic false positives: **author affiliations**
+   ("Department of Surgery, …" — the ESMO metastatic-colorectal abstract scored
+   6 bogus "intervention" hits this way) and **chapter/TOC listings**
+   ("1) Definition; … 5) Surgical management"), neither of which recommends
+   anything.
 
-**Boilerplate-resistant disorders (negative results, recorded so they are not
-re-litigated).** These have many guidelines but no drug-naming abstract; they
-need full-text access or a different source type, and should be *skipped* by
-abstract-only snippet mining:
+**Recommendation-free abstracts (negative results, recorded so they are not
+re-litigated).** These disorders have many guidelines, but the abstracts state
+no specific recommendation of *any* modality — not drug, not procedural, not
+diagnostic. They need full-text access or a different source type, and should be
+*skipped* by abstract-only snippet mining:
 
-| Disorder | Why |
+| Disorder | Why (re-checked with the modality-agnostic scorer) |
 |---|---|
-| `Non-Small_Cell_Lung_Cancer` | NCCN v4.2026 has **no text abstract**; ASCO Living Guidelines are ~1.9k-char scope-only. Tried twice. |
-| `Metastatic_Colorectal_Cancer` | ESMO CPG abstract is ~12k chars of author affiliations/scope; zero drug sentences. |
-| `Myocardial_Infarction` | ACC/AHA-adjacent, AATS, SIPREC, Latin-American ACS documents all name no drug in-abstract. |
-| `Endometriosis` | SOGC No. 468 and Polish SGO abstracts are `OBJECTIVE/EVIDENCE` structure only. |
+| `Non-Small_Cell_Lung_Cancer` | NCCN v4.2026 has **no text abstract**; ASCO Living Guidelines are ~1.9k-char scope-only. The NCCN abstract's single intervention hit is its own scope sentence ("provide recommendations … including diagnosis"). Tried twice. |
+| `Metastatic_Colorectal_Cancer` | ESMO CPG abstract is ~12k chars of author affiliations/scope; `recommendation_sentences = 0` once affiliations are stripped. |
+| `Myocardial_Infarction` | ACC/AHA-adjacent, AATS, SIPREC, Latin-American ACS documents state no specific recommendation in-abstract. |
+| `Endometriosis` | SOGC No. 468 and Polish SGO abstracts are `OBJECTIVE/EVIDENCE` structure only; the French consensus lists chapter headings ("5) Surgical management") rather than recommending. |
 
 **Corollary for source selection:** prefer the *therapy-specific* guideline over
 the flagship (AGA's ascites update over a general cirrhosis guideline; an
@@ -333,12 +354,12 @@ were each independently re-sourced.
   — the full 1,564-disorder search result / prioritization ranking.
 - [`CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl`](CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl)
   — second-generation therapy-specific searches: one record per disorder with the
-  query, the chosen PMID, its drug-naming sentence count, and the outcome
+  query, the chosen PMID, its recommendation-sentence count, and the outcome
   (`USED` / `REJECTED_BOILERPLATE`). Covers enrichment batches 10–14 and records
   the four boilerplate-resistant disorders so they are not re-searched.
 - `.claude/skills/collect-care-guidelines/` — the reusable Agent Skill
   (`SKILL.md` + `scripts/collect_guidelines.py` for the count-ranked search,
-  `scripts/therapy_specific_search.py` for the drug-naming variant).
+  `scripts/therapy_specific_search.py` for the recommendation-scoring variant).
 
 ## Next steps
 
