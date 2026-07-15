@@ -10773,7 +10773,8 @@ window.searchData = [
       "Autophagy-Lysosomal Dysfunction",
       "HSV-1 Reactivation in RORB+ Glutamatergic Neurons",
       "Intercellular Tau Transmission via Extracellular Vesicles",
-      "PARP1-Mediated Parthanatos"
+      "PARP1-Mediated Parthanatos",
+      "Adaptive Immune T Cell Response to Tau Pathology"
     ],
     "cell_types": [
       "Neurons",
@@ -10781,7 +10782,8 @@ window.searchData = [
       "Astrocytes",
       "Endothelial cells",
       "Pericytes",
-      "RORB+ glutamatergic neuron"
+      "RORB+ glutamatergic neuron",
+      "CD8+ cytotoxic T cell"
     ],
     "cell_type_ids": [
       "CL:0000540",
@@ -10789,7 +10791,8 @@ window.searchData = [
       "CL:0000127",
       "CL:0000115",
       "CL:0000669",
-      "CL:0000679"
+      "CL:0000679",
+      "CL:0000625"
     ],
     "biological_processes": [
       "Protein misfolding",
@@ -10815,7 +10818,10 @@ window.searchData = [
       "Extracellular vesicle biogenesis",
       "Tau release in extracellular vesicles",
       "Tau seeding of aggregation in recipient neurons",
-      "DNA damage response"
+      "DNA damage response",
+      "T cell chemotaxis into the brain",
+      "T cell mediated cytotoxicity",
+      "Interferon-gamma (type II interferon) production"
     ],
     "phenotypes": [
       "Memory Loss",
@@ -10872,10 +10878,10 @@ window.searchData = [
     "source_file": "Alzheimer_Disease.yaml",
     "page_url": "../pages/disorders/Alzheimer_Disease.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 12,
     "num_genes": 9,
     "num_treatments": 6,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "6"
   },
   {
@@ -15149,6 +15155,7 @@ window.searchData = [
       "Long-acting Beta Agonist",
       "Leukotriene Modifier",
       "Anti-IgE Therapy",
+      "Biologic Therapy for Severe Asthma",
       "Short-acting Beta Agonist"
     ],
     "environmental": [
@@ -15169,7 +15176,7 @@ window.searchData = [
     "num_phenotypes": 12,
     "num_pathophysiology": 8,
     "num_genes": 17,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
   },
@@ -23311,7 +23318,9 @@ window.searchData = [
       "Mitochondrial Dysfunction",
       "Circadian Rhythm Disruption",
       "Neuroplasticity Alterations",
-      "Neuroinflammation"
+      "Neuroinflammation",
+      "GSK-3\u03b2 Signaling Dysregulation",
+      "Phosphoinositide Signaling Dysregulation"
     ],
     "cell_types": [
       "Dopaminergic Neuron",
@@ -23332,7 +23341,10 @@ window.searchData = [
       "Mitochondrial Function",
       "Circadian Rhythm",
       "Synaptic Plasticity",
-      "Inflammatory Response"
+      "Inflammatory Response",
+      "Canonical Wnt Signaling",
+      "Inositol Phosphate Metabolism",
+      "Phosphatidylinositol-Mediated Signaling"
     ],
     "phenotypes": [
       "Manic Episodes",
@@ -23391,11 +23403,11 @@ window.searchData = [
     "source_file": "Bipolar_Disorder.yaml",
     "page_url": "../pages/disorders/Bipolar_Disorder.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Bird Fancier's Lung",
@@ -32209,6 +32221,93 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Cauda Equina Syndrome",
+    "disease_id": "MONDO:0005693",
+    "category": "Complex",
+    "parents": [
+      "Peripheral nervous system disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "CESI",
+      "CESR"
+    ],
+    "description": "Cauda equina syndrome is a neurosurgical emergency caused by compression of the lumbosacral nerve roots of the cauda equina below the conus medullaris. Compression, most often from a large central lumbar disc herniation, produces a characteristic constellation of low back pain, bilateral sciatica, saddle (perineal) sensory loss, bladder and bowel dysfunction, sexual dysfunction, and lower-limb motor and reflex deficits. Because sustained compression causes irreversible nerve root injury, urgent surgical decompression is required to preserve neurological function.",
+    "pathophysiology": [
+      "Cauda equina nerve root compression",
+      "Nerve root ischemia and demyelination",
+      "Lumbosacral polyradiculopathy"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "response to ischemia"
+    ],
+    "phenotypes": [
+      "Low back pain",
+      "Sciatica",
+      "Saddle anesthesia",
+      "Urinary retention",
+      "Bowel incontinence",
+      "Lower limb weakness",
+      "Lower limb areflexia",
+      "Sexual dysfunction",
+      "Depression and impaired mental wellbeing"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Genitourinary",
+      "Gastrointestinal",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003419",
+      "HP:0033345",
+      "HP:0033748",
+      "HP:0000016",
+      "HP:0002607",
+      "HP:0007340",
+      "HP:0002522",
+      "HP:0000080",
+      "HP:0000716"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Emergency surgical decompression"
+    ],
+    "environmental": [
+      "Obesity and elevated body mass index"
+    ],
+    "biochemical": [],
+    "source_file": "Cauda_Equina_Syndrome.yaml",
+    "page_url": "../pages/disorders/Cauda_Equina_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Celiac Disease",
@@ -47806,7 +47905,8 @@ window.searchData = [
       "Chronic Red Blood Cell Transfusions",
       "Hematopoietic Stem Cell Transplantation",
       "Iron Chelation Therapy",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Clonal Evolution and Malignancy Surveillance"
     ],
     "environmental": [],
     "biochemical": [
@@ -47821,7 +47921,7 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 3,
     "num_genes": 10,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "3"
   },
@@ -51912,6 +52012,7 @@ window.searchData = [
       "Constitutional",
       "Digestive",
       "Immune",
+      "Integument",
       "Metabolism",
       "Nervous System"
     ],
@@ -51920,6 +52021,7 @@ window.searchData = [
       "HP:0001892",
       "HP:0002013",
       "HP:0002014",
+      "HP:0040186",
       "HP:0012378",
       "HP:0003326",
       "HP:0002315",
@@ -59462,6 +59564,7 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
+      "HP:0002196",
       "HP:0003418",
       "HP:0010550",
       "HP:0002385",
@@ -65417,6 +65520,114 @@ window.searchData = [
     "num_genes": 6,
     "num_treatments": 5,
     "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Glioma",
+    "disease_id": "MONDO:0021042",
+    "category": "Cancer",
+    "parents": [
+      "neuroepithelial neoplasm"
+    ],
+    "creation_date": "2026-07-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Glioblastoma, IDH-Wildtype",
+      "IDH-Mutant Astrocytoma",
+      "IDH-Mutant and 1p/19q-Codeleted Oligodendroglioma",
+      "Diffuse Midline Glioma, H3 K27-Altered",
+      "Mixed Neuronal-Glial Tumor",
+      "Pilocytic Astrocytoma"
+    ],
+    "description": "Glioma is the umbrella class of primary central nervous system tumors that arise from glial cells or glial/neural precursor cells \u2014 encompassing astrocytic, oligodendroglial, ependymal, and mixed neuronal-glial lineages and spanning WHO CNS grades 1-4. Under the 5th-edition WHO Classification of Tumors of the Central Nervous System (WHO CNS5, 2021), gliomas are organized primarily by molecular type rather than histology alone, using a layered \"integrated diagnosis.\" Adult-type diffuse gliomas collapse into three molecularly defined types (astrocytoma, IDH-mutant; oligodendroglioma, IDH-mutant and 1p/19q-codeleted; and glioblastoma, IDH-wildtype), while pediatric-type diffuse gliomas, circumscribed astrocytic gliomas, and ependymal tumors form separate families. Shared molecular axes \u2014 IDH1/2 mutation, 1p/19q codeletion, TERT promoter mutation, EGFR amplification, combined chromosome 7 gain / chromosome 10 loss (+7/-10), CDKN2A/B homozygous deletion, and H3 alterations \u2014 define entities and increasingly drive grading. This root entry captures the conserved glial-tumor mechanism and cross-references the molecularly/histologically defined children curated as standalone dismech entries.",
+    "pathophysiology": [
+      "Glial-Lineage Neoplastic Transformation",
+      "IDH-Mutation Oncometabolite Epigenetic Reprogramming",
+      "TERT Promoter Mutation and Telomere Maintenance Reactivation",
+      "EGFR Amplification and RTK-RAS-PI3K Mitogenic Signaling",
+      "Chromosomal Copy-Number Alteration and Genomic Instability",
+      "Diffuse Infiltrative Growth"
+    ],
+    "cell_types": [
+      "glial cell",
+      "neural stem cell",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000125",
+      "CL:0000047",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "gliogenesis",
+      "cell population proliferation",
+      "chromatin organization",
+      "demethylation",
+      "glial cell differentiation",
+      "telomere maintenance",
+      "epidermal growth factor receptor signaling pathway",
+      "chromosome organization",
+      "cell migration"
+    ],
+    "phenotypes": [
+      "Seizure",
+      "Headache",
+      "Cognitive Impairment",
+      "Aphasia",
+      "Focal Motor Deficit",
+      "Fatigue",
+      "Dysphagia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0002315",
+      "HP:0100543",
+      "HP:0002381",
+      "HP:0001324",
+      "HP:0012378",
+      "HP:0002015"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "IDH1",
+      "IDH2",
+      "TERT",
+      "EGFR",
+      "1p/19q",
+      "CDKN2A",
+      "CDKN2B",
+      "Germline Cancer-Predisposition Variants"
+    ],
+    "treatments": [
+      "Maximal Safe Surgical Resection",
+      "Radiotherapy",
+      "Temozolomide Chemotherapy (Stupp Regimen)",
+      "Tumor Treating Fields (TTFields)",
+      "Vorasidenib (Mutant IDH Inhibitor)",
+      "Dexamethasone (Peritumoral Edema Management)",
+      "Levetiracetam (Seizure Management)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Glioma.yaml",
+    "page_url": "../pages/disorders/Glioma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 8,
+    "num_treatments": 7,
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
   },
   {
@@ -88891,6 +89102,7 @@ window.searchData = [
       "Alcohol Abstinence",
       "Antiviral Therapy",
       "Diuretics",
+      "Large-Volume Paracentesis with Albumin",
       "Beta Blockers",
       "Lactulose",
       "Rifaximin",
@@ -88915,7 +89127,7 @@ window.searchData = [
     "num_phenotypes": 9,
     "num_pathophysiology": 6,
     "num_genes": 3,
-    "num_treatments": 8,
+    "num_treatments": 9,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
   },
@@ -91085,7 +91297,8 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "MED13 heterozygous pathogenic variants"
@@ -92700,6 +92913,7 @@ window.searchData = [
       "Electroconvulsive Therapy",
       "Ketamine/Esketamine",
       "Transcranial Magnetic Stimulation",
+      "Lithium Augmentation",
       "Behavioral Activation"
     ],
     "environmental": [
@@ -92718,8 +92932,8 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 8,
     "num_genes": 4,
-    "num_treatments": 7,
-    "causal_graph_edges": "2",
+    "num_treatments": 8,
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "1"
   },
   {
@@ -105131,6 +105345,7 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Digestive",
       "Endocrine",
       "Eye",
       "Genitourinary",
@@ -105141,6 +105356,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0012622",
       "HP:0000822",
+      "HP:0001395",
       "HP:0000510",
       "HP:0001510",
       "HP:0000867",
@@ -107248,19 +107464,28 @@ window.searchData = [
       "Microcephaly",
       "Growth delay",
       "Immunodeficiency",
-      "Lymphoma"
+      "Lymphoma",
+      "Increased sensitivity to ionizing radiation",
+      "Spontaneous chromosomal breakage with 7;14 rearrangements",
+      "Hypergonadotropic hypogonadism"
     ],
     "phenotype_categories": [
       "Neurological",
       "Growth",
       "Immunologic",
-      "Oncologic"
+      "Oncologic",
+      "Laboratory",
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cellular",
+      "Endocrine",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Immune",
+      "Metabolism",
       "Musculoskeletal",
       "Neoplasm",
       "Nervous System"
@@ -107269,7 +107494,10 @@ window.searchData = [
       "HP:0000252",
       "HP:0001510",
       "HP:0002721",
-      "HP:0002665"
+      "HP:0002665",
+      "HP:0011133",
+      "HP:0040012",
+      "HP:0000815"
     ],
     "frequencies": [],
     "genes": [
@@ -107282,7 +107510,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Nijmegen_breakage_syndrome.yaml",
     "page_url": "../pages/disorders/Nijmegen_breakage_syndrome.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 7,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 1,
@@ -109635,14 +109863,21 @@ window.searchData = [
     "updated_date": "2026-04-11T00:41:29Z",
     "subtypes": [],
     "description": "Onchocerciasis (river blindness) is a filarial infection caused by Onchocerca volvulus, transmitted by black flies, leading to pruritus, dermatitis, and ocular disease that can progress to blindness.",
-    "pathophysiology": [],
+    "pathophysiology": [
+      "Microfilarial Skin and Ocular Infiltration",
+      "Wolbachia Endosymbiont-Driven Filarial Pathogenesis"
+    ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "inflammatory response"
+    ],
     "phenotypes": [
       "Pruritus",
       "Dermatitis",
-      "Blindness"
+      "Blindness",
+      "Skin Hypopigmentation",
+      "Keratitis"
     ],
     "phenotype_categories": [
       "Dermatologic",
@@ -109656,7 +109891,9 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000989",
       "HP:0000964",
-      "HP:0000618"
+      "HP:0000618",
+      "HP:0001010",
+      "HP:0000491"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -109664,18 +109901,20 @@ window.searchData = [
     ],
     "genes": [],
     "treatments": [
-      "Ivermectin therapy"
+      "Ivermectin therapy",
+      "Moxidectin therapy",
+      "Doxycycline (anti-Wolbachia therapy)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Onchocerciasis.yaml",
     "page_url": "../pages/disorders/Onchocerciasis.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 0,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Opitz G/BBB syndrome",
@@ -110784,7 +111023,8 @@ window.searchData = [
       "Weight Loss",
       "NSAIDs",
       "Intra-articular Glucocorticoid Injections",
-      "Total Joint Replacement"
+      "Total Joint Replacement",
+      "Duloxetine"
     ],
     "environmental": [
       "Age",
@@ -110797,7 +111037,7 @@ window.searchData = [
     "num_phenotypes": 3,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
   },
@@ -115694,8 +115934,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "pantothenate kinase-associated neurodegeneration",
@@ -116716,7 +116956,8 @@ window.searchData = [
       "Constipation",
       "Depression",
       "REM Sleep Behavior Disorder",
-      "Cognitive Impairment"
+      "Cognitive Impairment",
+      "Dystonia"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -116741,7 +116982,8 @@ window.searchData = [
       "HP:0002019",
       "HP:0000716",
       "HP:5200291",
-      "HP:0100543"
+      "HP:0100543",
+      "HP:0001332"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -116773,7 +117015,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 10,
     "num_pathophysiology": 22,
     "num_genes": 7,
     "num_treatments": 7,
@@ -121666,7 +121908,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "6"
   },
   {
@@ -134693,7 +134935,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 14,
     "num_treatments": 6,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -138698,8 +138940,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Soil-transmitted helminthiases",
@@ -147985,6 +148227,7 @@ window.searchData = [
       "Isoniazid",
       "Rifampicin",
       "Ethambutol",
+      "Drug-Resistant TB Regimen (BPaL/BPaLM)",
       "Directly Observed Therapy (DOT)",
       "Latent TB Treatment",
       "Host-Directed Therapy",
@@ -148008,7 +148251,7 @@ window.searchData = [
     "num_phenotypes": 10,
     "num_pathophysiology": 6,
     "num_genes": 7,
-    "num_treatments": 15,
+    "num_treatments": 16,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "2"
   },
@@ -156121,11 +156364,13 @@ window.searchData = [
       "General"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0002615",
+      "HP:0001899",
       "HP:0000969",
       "HP:0003073"
     ],
@@ -156541,17 +156786,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1583,
-  "total_subtypes": 2436,
-  "total_disorders_and_subtypes": 4019,
-  "total_unique_evidence_sources": 24740,
-  "total_unique_publications": 23267,
+  "total_disorder_pages": 1585,
+  "total_subtypes": 2444,
+  "total_disorders_and_subtypes": 4029,
+  "total_unique_evidence_sources": 24822,
+  "total_unique_publications": 23349,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 216,
-  "total_pathographs": 1577,
-  "total_unique_pathological_events": 7385,
+  "total_pathographs": 1580,
+  "total_unique_pathological_events": 7399,
   "total_modules": 111,
-  "total_research_reports": 1816,
+  "total_research_reports": 1818,
   "total_classifications": 8,
   "total_comorbidities": 16,
   "total_groupings": 47
