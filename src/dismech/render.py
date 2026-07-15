@@ -1485,15 +1485,11 @@ def update_details_provider_docs(
 
     table = render_provider_docs_table(indent=indent)
     block = (
-        f"{DETAILS_PROVIDER_BLOCK_BEGIN}\n"
-        f"{table}\n"
-        f"{indent}{DETAILS_PROVIDER_BLOCK_END}"
+        f"{DETAILS_PROVIDER_BLOCK_BEGIN}\n{table}\n{indent}{DETAILS_PROVIDER_BLOCK_END}"
     )
 
     new_text = (
-        text[:begin_idx]
-        + block
-        + text[end_idx + len(DETAILS_PROVIDER_BLOCK_END):]
+        text[:begin_idx] + block + text[end_idx + len(DETAILS_PROVIDER_BLOCK_END) :]
     )
     details_path.write_text(new_text)
     return details_path
@@ -2269,8 +2265,25 @@ def render_research_index(
 _OBO_CURIE_PREFIXES: dict[str, str] = {
     prefix: prefix
     for prefix in (
-        "MONDO", "HP", "GO", "CL", "UBERON", "CHEBI", "MAXO", "DOID", "GENO",
-        "NCIT", "PATO", "SO", "MP", "PR", "OBA", "UPHENO", "ECO", "RO", "BFO",
+        "MONDO",
+        "HP",
+        "GO",
+        "CL",
+        "UBERON",
+        "CHEBI",
+        "MAXO",
+        "DOID",
+        "GENO",
+        "NCIT",
+        "PATO",
+        "SO",
+        "MP",
+        "PR",
+        "OBA",
+        "UPHENO",
+        "ECO",
+        "RO",
+        "BFO",
     )
 }
 _OBO_CURIE_PREFIXES["NCBITAXON"] = "NCBITaxon"
@@ -2294,9 +2307,7 @@ _REPORT_REF_ENTRY_RE = re.compile(
     r"^(?P<pre>\s*\d+\.\s*)\((?P<tag>[^)]+)\)(?P<post>\s*:)",
     re.MULTILINE,
 )
-_REPORT_REFERENCES_HEADING_RE = re.compile(
-    r"(?mi)^[ \t]*#{0,6}[ \t]*references[ \t]*$"
-)
+_REPORT_REFERENCES_HEADING_RE = re.compile(r"(?mi)^[ \t]*#{0,6}[ \t]*references[ \t]*$")
 
 
 def _curie_url(curie: str | None) -> str | None:
@@ -2398,7 +2409,7 @@ def _link_report_citations(body_md: str) -> str:
         ref_slugs.add(slug)
         return (
             f'{match.group("pre")}<a id="ref-{slug}"></a>'
-            f'({match.group("tag")}){match.group("post")}'
+            f"({match.group('tag')}){match.group('post')}"
         )
 
     refs_md = _REPORT_REF_ENTRY_RE.sub(_anchor, refs_md)
@@ -3589,7 +3600,9 @@ def _coerce_entity_entry(entry: object) -> dict | None:
         if not token:
             return None
         curie = entry.get("id")
-        label = entry.get("label") or entry.get("name") or _display_name_from_slug(token)
+        label = (
+            entry.get("label") or entry.get("name") or _display_name_from_slug(token)
+        )
         return {
             "token": token,
             "id": str(curie) if curie else None,
@@ -3680,7 +3693,9 @@ def _autolink_project_body(body: str, link_map: dict[str, tuple[str, str]]) -> s
     # trailing "." so filename references (e.g. Lynch_Syndrome.yaml) and anchor
     # paths are left untouched.
     pattern = re.compile(
-        r"(?<![\w/\[`#.-])(" + "|".join(re.escape(t) for t in tokens) + r")(?![\w`\]./-])"
+        r"(?<![\w/\[`#.-])("
+        + "|".join(re.escape(t) for t in tokens)
+        + r")(?![\w`\]./-])"
     )
 
     def _sub(match: re.Match) -> str:
@@ -3757,7 +3772,9 @@ def _render_project_html(
     }
     linked_body = _autolink_project_body(body, link_map)
 
-    md = markdown_lib.Markdown(extensions=["tables", "fenced_code", "toc", "sane_lists"])
+    md = markdown_lib.Markdown(
+        extensions=["tables", "fenced_code", "toc", "sane_lists"]
+    )
     body_html = md.convert(linked_body)
 
     summary = _project_summary(md_path, metadata, body, entities)
@@ -3936,7 +3953,10 @@ def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[Optional[
         path.append(current)
         if current == root_id:
             break
-        parents = list(adapter.hierarchical_parents(current))
+        try:
+            parents = list(adapter.hierarchical_parents(current))
+        except Exception:
+            return []
         if not parents:
             break
         current = sorted(parents)[0]
@@ -3971,7 +3991,10 @@ def _augment_mapping_hierarchies(disorder: dict) -> None:
                 if curie is None:
                     labeled_path.append({"label": "...", "is_ellipsis": True})
                     continue
-                label = adapter.label(curie) or curie
+                try:
+                    label = adapter.label(curie) or curie
+                except Exception:
+                    label = curie
                 labeled_path.append({"id": curie, "label": label})
             mapping["hierarchy_path"] = labeled_path
 
@@ -4261,9 +4284,7 @@ def render_all_disorders(
     ]
     if only is not None:
         only_resolved = {path.resolve() for path in only}
-        yaml_files = [
-            path for path in yaml_files if path.resolve() in only_resolved
-        ]
+        yaml_files = [path for path in yaml_files if path.resolve() in only_resolved]
     output_files = []
 
     # Each disorder should have a name,
@@ -4280,7 +4301,9 @@ def render_all_disorders(
     render_classification_pages(input_dir=input_dir)
 
     scope = "changed" if only is not None else "all"
-    print(f"\nGenerated {len(output_files)} disorder HTML pages ({scope}) in {output_dir}")
+    print(
+        f"\nGenerated {len(output_files)} disorder HTML pages ({scope}) in {output_dir}"
+    )
     return output_files
 
 
