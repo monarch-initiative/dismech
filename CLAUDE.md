@@ -223,34 +223,12 @@ pathophysiology:
 - **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
 - **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
 
-**Pathological structure-formation ("Xogenesis") modules:**
-A recurring sub-family of modules captures the **formation of a pathological
-material anatomical entity** X — cyst, calculus/concretion, granuloma, thrombus,
-amyloid deposit, atheroma, fibrous scar, neoplasm. These carry a lightweight,
-consistent open-ontology **anchor stanza** in `notes` linking the module's
-terminal output to existing ontologies (no schema slot — prose CURIEs, kept
-greppable and uniform):
-- **process genus** `OGMS:0000061` pathological bodily process — deliberately
-  *not* GO's `anatomical structure formation` (that genus presupposes normal
-  programmed development). Sub-typed as `OGMS:0000080` **pathological
-  transformation** (a canonical structure *becomes* pathological — cyst,
-  aneurysm) or `OGMS:0000081` **pathological derivation** (a *new* formation
-  replaces/adds to prior tissue — granuloma, thrombus, stone, neoplasm).
-- **output continuant** `OGMS:0000078` pathological anatomical structure (discrete
-  structure) or `OGMS:0000079` portion of pathological body substance
-  (deposit/stone/fluid).
-- **species** an `MPATH:603` (pathological anatomical entity) subtree term for
-  the specific X (cyst `MPATH:62`, concretion `MPATH:614`, granuloma `MPATH:847`,
-  thrombosis `MPATH:125`, …); **site** an `UBERON` term.
-- SNOMED CT "Morphologically abnormal structure" (49755003) is an external
-  census / gap-detection guide only and is **never bound** in dismech data.
-
-Convention: human/clinical module names stay as-is; the consistency is the
-anchor stanza plus a terminal consequence node named for the entity's formation.
-Worked Xogenesis modules: `renal_cystogenesis` (cyst), `granuloma_formation`
-(granuloma), `thrombogenesis` (thrombus), `nephrolithiasis_crystal_nucleation`
-and `cholelithiasis_biliary_supersaturation` (concretion), `fibrotic_response`
-(fibrosis).
+**Creating a module?** Use the `create-module` skill — it covers the module
+schema shape, the trigger→consequence node chain, the treatment
+`target_mechanisms` drug pattern, evidence discipline, and the **Xogenesis**
+(pathological-structure-formation) open-ontology anchor convention (OGMS process
++ MPATH entity + UBERON site; SNOMED as guide-only). See also the primer
+`docs/primers/modules-and-conformance.md`.
 
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
