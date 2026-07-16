@@ -108,8 +108,9 @@ uv run runoak -i sqlite:obo:ogms info OGMS:0000078 -O obo
 ```
 
 Worked Xogenesis modules to copy: `renal_cystogenesis`, `granuloma_formation`,
-`thrombogenesis`, `nephrolithiasis_crystal_nucleation`,
-`cholelithiasis_biliary_supersaturation`, `fibrotic_response`.
+`thrombogenesis`, `atherogenesis`, `amyloidogenesis`,
+`nephrolithiasis_crystal_nucleation`, `cholelithiasis_biliary_supersaturation`,
+`fibrotic_response`.
 
 ## Validation
 
