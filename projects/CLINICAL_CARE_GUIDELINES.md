@@ -339,6 +339,14 @@ diagnostic. They need full-text access or a different source type, and should be
 
 A guideline's own `RECOMMENDATIONS:` section frequently reports in the third person — that is the primary source speaking, not a description of someone else's work. **Check journal and title for primary-vs-commentary before preferring a cleaner sentence.** A bracketed, translated title (`[Highlights and interpretation of …]`) is a strong tell that you are reading commentary.
 
+**`rec = 0` is a prompt to read, not a verdict — the scorer produces false negatives too.** The two failures above inflate the score; this one *suppresses* it. The scorer requires **both** an intervention/diagnostic term **and** a recommendation cue, so a missing noun silently kills a real hit. `Lyme_Disease` scored `rec=0` and was nearly recorded as a dead end, yet its guideline abstract is full of usable guidance:
+
+> "Serology is recommended only in suspected disseminated LB…"
+
+The cue (`is recommended`) matched; **"serology" simply wasn't in the intervention vocabulary**. One missing noun, one lost guideline. The vocabulary now covers laboratory/pathology diagnostics (serology, assay, antibody, antigen, culture, histology, cytology, genotyping, sequencing) — but the vocabulary will *always* be incomplete, so treat `rec=0` on a disease whose care you'd expect to be guideline-rich as a signal to open the abstract.
+
+**How to tell a true negative from a vocabulary gap:** grep the abstract for *cue* language alone (`recommend`, `should`, `shall`, `must`, `advise`, `indicated`, `offer`, `first-line`). If there are **no cues at all**, no vocabulary could rescue it — a true negative. If cues are present but `rec=0`, you have a vocabulary gap. The batch-16 negatives (`Sickle_Cell_Disease`, `Lynch_Syndrome`) were verified this way and hold; they contain no directive language whatsoever.
+
 **Corollary for source selection:** prefer the *therapy-specific* guideline over
 the flagship (AGA's ascites update over a general cirrhosis guideline; an
 appropriate-use recommendation over a disease overview). Regional and
