@@ -57,6 +57,13 @@ EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 TOOL = "tool=dismech&email=jhc@lbl.gov"
 
 # Modality-agnostic: drugs are only one branch of clinical care.
+#
+# NOTE ON ANCHORING: these patterns are OR-joined into a single alternation and
+# matched with re.search, so a bare word matches as a SUBSTRING unless anchored.
+# `test\b` matched inside "latest"/"greatest"/"fastest", scoring sentences like
+# "The latest revision should be consulted" as recommendations. Short common
+# words need `\b` on BOTH sides; longer distinctive stems (r"biopsy",
+# r"serolog\w*") are safe unanchored.
 DEFAULT_INTERVENTION_TERMS = [
     # pharmacological (generic; pass specific drug names via spec "terms")
     r"therapy", r"treatment", r"drug", r"agent", r"regimen", r"dose", r"dosage",
@@ -71,13 +78,13 @@ DEFAULT_INTERVENTION_TERMS = [
     # diagnostic / monitoring
     r"screening", r"surveillance", r"biopsy", r"staging", r"imaging",
     r"colonoscopy", r"endoscopy", r"ultrasound", r"echocardiograph\w*",
-    r"monitoring", r"testing", r"test\b", r"assessment", r"evaluation",
+    r"monitoring", r"testing", r"\btest\b", r"assessment", r"evaluation",
     # laboratory / pathology diagnostics. "serology" was missing and cost a
     # real false negative: the Lyme borreliosis diagnostic guideline says
     # "Serology is recommended only in suspected disseminated LB" -- a clear
     # recommendation that scored 0 because the cue matched but no intervention
     # term did. The scorer requires BOTH, so a missing noun silently kills a hit.
-    r"serolog\w*", r"assay", r"antibod\w*", r"antigen", r"culture",
+    r"serolog\w*", r"assay", r"antibod\w*", r"antigen", r"\bculture",
     r"histolog\w*", r"cytolog\w*", r"genotyping", r"sequencing",
     # supportive / lifestyle
     r"diet\w*", r"nutrition\w*", r"exercise", r"physiotherapy",
