@@ -71,7 +71,14 @@ DEFAULT_INTERVENTION_TERMS = [
     # diagnostic / monitoring
     r"screening", r"surveillance", r"biopsy", r"staging", r"imaging",
     r"colonoscopy", r"endoscopy", r"ultrasound", r"echocardiograph\w*",
-    r"monitoring", r"testing", r"assessment",
+    r"monitoring", r"testing", r"test\b", r"assessment", r"evaluation",
+    # laboratory / pathology diagnostics. "serology" was missing and cost a
+    # real false negative: the Lyme borreliosis diagnostic guideline says
+    # "Serology is recommended only in suspected disseminated LB" -- a clear
+    # recommendation that scored 0 because the cue matched but no intervention
+    # term did. The scorer requires BOTH, so a missing noun silently kills a hit.
+    r"serolog\w*", r"assay", r"antibod\w*", r"antigen", r"culture",
+    r"histolog\w*", r"cytolog\w*", r"genotyping", r"sequencing",
     # supportive / lifestyle
     r"diet\w*", r"nutrition\w*", r"exercise", r"physiotherapy",
     r"rehabilitation", r"counsel\w*", r"supportive care", r"palliative",
