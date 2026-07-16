@@ -326,6 +326,10 @@ diagnostic. They need full-text access or a different source type, and should be
 | `Metastatic_Colorectal_Cancer` | ESMO CPG abstract is ~12k chars of author affiliations/scope; `recommendation_sentences = 0` once affiliations are stripped. |
 | `Myocardial_Infarction` | ACC/AHA-adjacent, AATS, SIPREC, Latin-American ACS documents state no specific recommendation in-abstract. |
 | `Endometriosis` | SOGC No. 468 and Polish SGO abstracts are `OBJECTIVE/EVIDENCE` structure only; the French consensus lists chapter headings ("5) Surgical management") rather than recommending. |
+| `Pulmonary_hypertension` | `recommendation_sentences = 0` across **12 candidates over two passes** (batch 15). Scored with the modality-agnostic vocabulary, so this is not a drug-lens artifact — the abstracts state no specific recommendation of any modality, including the diagnostic ones expected here (right heart catheterization, echocardiography). **NEC caution:** acute pulmonary embolism guidelines surface under PH queries and are a different entity. |
+| `Amyloidosis` | Best hit (41277424) scores `rec=1`, but the sentence is *meta* — "Four conditional recommendations and 3 good practice statements were established to provide guidance for proper testing and workup" — a **count** of recommendations, not a recommendation. See the scorer limitation below. |
+
+**Known scorer limitation.** A recommendation cue also matches sentences that merely *describe recommendations existing* ("N recommendations were established…", "the guideline provides recommendations for…"). These inflate `recommendation_sentences` without offering anything quotable. The score is a triage signal, not a verdict — always read the sampled sentence before committing to a source.
 
 **Corollary for source selection:** prefer the *therapy-specific* guideline over
 the flagship (AGA's ascites update over a general cirrhosis guideline; an
