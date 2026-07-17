@@ -950,8 +950,41 @@ diagnostic. They need full-text access or a different source type, and should be
 <td><code>Endometriosis</code></td>
 <td>SOGC No. 468 and Polish SGO abstracts are <code>OBJECTIVE/EVIDENCE</code> structure only; the French consensus lists chapter headings ("5) Surgical management") rather than recommending.</td>
 </tr>
+<tr>
+<td><code>Pulmonary_hypertension</code></td>
+<td><code>recommendation_sentences = 0</code> across <strong>12 candidates over two passes</strong> (batch 15). Scored with the modality-agnostic vocabulary, so this is not a drug-lens artifact — the abstracts state no specific recommendation of any modality, including the diagnostic ones expected here (right heart catheterization, echocardiography). <strong>NEC caution:</strong> acute pulmonary embolism guidelines surface under PH queries and are a different entity.</td>
+</tr>
+<tr>
+<td><code>Amyloidosis</code></td>
+<td>Best hit (41277424) scores <code>rec=1</code>, but the sentence is <em>meta</em> — "Four conditional recommendations and 3 good practice statements were established to provide guidance for proper testing and workup" — a <strong>count</strong> of recommendations, not a recommendation. See the scorer limitation below.</td>
+</tr>
+<tr>
+<td><code>Sickle_Cell_Disease</code></td>
+<td><code>rec=0</code> across 6 candidates despite <code>iv=12</code> on the best hit — intervention terms present, no recommendation cue. Verified <strong>not</strong> a cue-list gap: abstracts grepped directly for <code>shall</code>/<code>must</code>/<code>advise</code>/<code>indicated</code>/<code>offer</code>/<code>screen</code>; no directive language present.</td>
+</tr>
+<tr>
+<td><code>Lynch_Syndrome</code></td>
+<td><code>rec=0</code> across 4 candidates. A surveillance-heavy disease where a diagnostic recommendation was expected; the abstracts state none. Same direct-grep verification.</td>
+</tr>
+<tr>
+<td><code>Polycystic_Ovary_Syndrome</code></td>
+<td>The 2023 international guideline (37589624) scores <code>rec=0</code> despite a 15k-char abstract. The only <code>rec&gt;0</code> hit scores on <strong>terminology</strong>, not care ("The term <em>female pattern hair loss</em> should be used…").</td>
+</tr>
+<tr>
+<td><code>Chronic_Pancreatitis</code></td>
+<td><strong>NEC risk.</strong> Scored <code>rec=14</code> — highest in the batch-16 sweep — yet unusable: the top hit's leading sentence is meta, and the runner-up recommends Ringer's lactate for <strong>acute</strong> pancreatitis, a different entity. Acute-pancreatitis guidance surfaces under chronic-pancreatitis queries.</td>
+</tr>
 </tbody>
 </table>
+<p><strong>Known scorer limitation.</strong> A recommendation cue also matches sentences that merely <em>describe recommendations existing</em> ("N recommendations were established…", "the guideline provides recommendations for…"). These inflate <code>recommendation_sentences</code> without offering anything quotable. The score is a triage signal, not a verdict — always read the sampled sentence before committing to a source.</p>
+<p><strong>Corollary — don't let the meta heuristic push you onto a secondary source.</strong> The limitation above has a mirror-image failure, and it bit on the very next batch after it was written down. The <strong>primary</strong> ERS bronchiectasis guideline states its own recommendation in reporting voice — "The Task Force recommendations include strong recommendations in favour of airway clearance techniques…" — which <em>reads</em> as meta. A Chinese-language <strong>interpretation of that same guideline</strong> phrased it more crisply ("The guideline strongly recommends airway clearance techniques…"). Scoring on phrasing alone therefore picked the commentary over the guideline itself; review caught it (#6601).</p>
+<p>A guideline's own <code>RECOMMENDATIONS:</code> section frequently reports in the third person — that is the primary source speaking, not a description of someone else's work. <strong>Check journal and title for primary-vs-commentary before preferring a cleaner sentence.</strong> A bracketed, translated title (<code>[Highlights and interpretation of …]</code>) is a strong tell that you are reading commentary.</p>
+<p><strong><code>rec = 0</code> is a prompt to read, not a verdict — the scorer produces false negatives too.</strong> The two failures above inflate the score; this one <em>suppresses</em> it. The scorer requires <strong>both</strong> an intervention/diagnostic term <strong>and</strong> a recommendation cue, so a missing noun silently kills a real hit. <code>Lyme_Disease</code> scored <code>rec=0</code> and was nearly recorded as a dead end, yet its guideline abstract is full of usable guidance:</p>
+<blockquote>
+<p>"Serology is recommended only in suspected disseminated LB…"</p>
+</blockquote>
+<p>The cue (<code>is recommended</code>) matched; <strong>"serology" simply wasn't in the intervention vocabulary</strong>. One missing noun, one lost guideline. The vocabulary now covers laboratory/pathology diagnostics (serology, assay, antibody, antigen, culture, histology, cytology, genotyping, sequencing) — but the vocabulary will <em>always</em> be incomplete, so treat <code>rec=0</code> on a disease whose care you'd expect to be guideline-rich as a signal to open the abstract.</p>
+<p><strong>How to tell a true negative from a vocabulary gap:</strong> grep the abstract for <em>cue</em> language alone (<code>recommend</code>, <code>should</code>, <code>shall</code>, <code>must</code>, <code>advise</code>, <code>indicated</code>, <code>offer</code>, <code>first-line</code>). If there are <strong>no cues at all</strong>, no vocabulary could rescue it — a true negative. If cues are present but <code>rec=0</code>, you have a vocabulary gap. The batch-16 negatives (<code>Sickle_Cell_Disease</code>, <code>Lynch_Syndrome</code>) were verified this way and hold; they contain no directive language whatsoever.</p>
 <p><strong>Corollary for source selection:</strong> prefer the <em>therapy-specific</em> guideline over
 the flagship (AGA's ascites update over a general cirrhosis guideline; an
 appropriate-use recommendation over a disease overview). Regional and
