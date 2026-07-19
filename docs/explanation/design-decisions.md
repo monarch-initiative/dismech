@@ -454,6 +454,37 @@ INTERICTAL`), plus one preclinical `preferred_term`-only phenotype — ictal ele
 seizures in the Scn1a+/- mouse model (sidecar `electrophysiology_modality: EEG`,
 `ictal_state: ICTAL`, `evidence_source: MODEL_ORGANISM`).
 
+**Linking investigation-readout phenotypes into the pathograph (`reports_on`).** Many HP
+terms are *investigation results* rather than states of the organism — an *abnormal
+electroretinogram* (`HP:0000512`), an abnormal EEG, an *elevated circulating creatine kinase
+concentration*. They are legitimately HP phenotypes and stay in `phenotypes` (per the test
+above), but functionally they are **readouts of** an underlying mechanism, not causal
+participants in disease progression. As a result they tend to float as disconnected nodes in
+the pathograph: nothing lists them as a `downstream` target and they carry no `sequelae`. The
+tempting fix — adding a `downstream` edge `mechanism → Abnormal ERG` — is **wrong**, because a
+`downstream`/`causes` edge asserts causal disease progression, whereas the test merely
+*measures* the mechanism.
+
+**Decision.** A phenotype may carry a `reports_on:` list (`PhenotypeReadout`) linking it to
+the pathograph node whose underlying state it measures or reflects, exactly mirroring the
+`Biochemical.readouts` (`BiomarkerReadout`) mechanism already used for molecular biomarkers.
+It reuses the same `BiomarkerReadoutRelationshipEnum` (`READOUT_OF` / `CORRELATES_WITH` /
+`PREDICTS` / `PHARMACODYNAMIC_MARKER_OF`), direction, and endpoint-context vocabularies, and
+renders as the **same dashed observational edge** (`mechanism -.-> readout`, `graph.py`
+`predicate: readout`) — *not* a solid causal arrow. `PhenotypeReadout` is deliberately the
+**lean** counterpart of `BiomarkerReadout`: it omits the surrogate-endpoint/regulatory slots
+(`regulatory_endpoint_refs` and the FDA source-table bridge) that belong only to molecular
+biomarker readouts. This keeps the term where HPO places it (`phenotypes`), preserves the
+"reports-on ≠ caused-by" distinction the schema already encodes for biomarkers, and makes the
+otherwise-orphan test-result phenotype a first-class, evidenced pathograph edge.
+
+**Worked example.** `Bardet-Biedl_Syndrome`'s *Abnormal electroretinogram* phenotype now
+`reports_on` the *Photoreceptor outer-segment transport defect* pathophysiology node
+(`relationship: READOUT_OF`, `direction: NEGATIVE`, `endpoint_context: DIAGNOSTIC`),
+replacing the previous — semantically incorrect — `downstream` causal edge from the
+mechanism to the ERG. The ~200 `Elevated/Decreased circulating … concentration` lab-readout
+phenotypes are candidate backfills (tracked in §11).
+
 ## 11. Gaps
 
 This section details decisions we have **not yet made or formalized**.
@@ -468,6 +499,7 @@ This section details decisions we have **not yet made or formalized**.
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | RadLex-grade imaging-finding granularity | `ImagingFinding` (§9) grounds findings in NCIT + HP, which is patchy for specific radiologic appearances (e.g. contrast enhancement, T2 hyperintensity resolve to procedures or CTCAE grades). Tightening `ImagingFindingTerm` to a RadLex `reachable_from` (and `finding_term` to REQUIRED) is deferred: RadLex is not on EBI OLS4, so it needs a `bioportal:` adapter + API key in `conf/oak_config.yaml`. | schema/ontology follow-up |
 | Non-imaging detection modalities | **Resolved for electrophysiology (§10)** via phenotype post-composition (an `electrophysiology:` sidecar carrying modality + `ictal_state` + `recording_state`), *not* a finding class — because EEG/EMG/EKG terms are already HP phenotypes. `Dravet_syndrome` is the worked example. **Still open:** functional/provocation tests (e.g. tensilon, tilt-table) remain free-text `diagnosis`. | schema follow-up |
+| Investigation-readout phenotype backfill (`reports_on`) | New lean `PhenotypeReadout` slot added (§10): investigation-result phenotypes (abnormal ERG/EEG, `Elevated circulating … concentration`) attach to the mechanism they measure via a dashed observational readout edge instead of floating as orphan nodes or being mis-wired as causal `downstream` edges. `Bardet-Biedl_Syndrome` (Abnormal electroretinogram → Photoreceptor outer-segment transport defect) is the worked exemplar. **First batch done** (`scripts/migrate_readout_phenotypes.py`): 69 mis-wired causal edges across 60 files migrated to `reports_on` — restricted to **pure lab/investigation readouts that are never themselves disease drivers** (tissue-leakage enzymes: transaminases/CK/LDH/aldolase/ALP; acute-phase reactants; tumor markers AFP/β-hCG; newborn-screening acylcarnitines; the electroretinogram), HP-verified via descendants of `HP:0032180`/`HP:0034684`/`HP:0010876`/`HP:0003111`/`HP:0030453`. **Deliberately NOT flipped:** ~179 causally-active analytes where the `downstream` edge is *correct* — ammonia (→ encephalopathy), lactate (→ acidosis), vitamins (deficiency → neuropathy/retinopathy), cholesterol, hormones, ions, immunoglobulins — plus any readout carrying its own `sequelae`. **Second batch done** (floating pure readouts): 55 `reports_on` links added across 47 files by a parallel curation pass, each choosing the best-fit existing mechanism node (liver enzymes → hepatocyte-injury node, CK/aldolase/LDH → myofiber-necrosis node, ERG/EOG → photoreceptor-degeneration node, CRP/acute-phase → inflammation node, AFP/β-hCG/tryptase → tumor/mast-cell node, bone ALP → osteoblast node). **~14 deliberately left unlinked** where the disease pathograph has no node the organ-injury lab measures (e.g. transaminases in Graves/Celiac/Stevens-Johnson, the Murine-typhus organ-injury labs) — these are genuine *modeling gaps* (the entry doesn't yet represent that organ's involvement), not readout-link gaps, and were skipped rather than invent a node. **Open:** the ~58 non-pure floating readouts (causally-active analytes) and the modeling-gap skips; causally-active analytes could also optionally gain a *second* `reports_on` link alongside their (correct) causal edge where the value is used diagnostically. | KB migration (batches 1–2 done) |
 | Wire the existing `PhenotypeCategoryEnum` to `phenotypes.category` | The renderer already **derives** each phenotype's organ-system category from its HPO ancestry (`HpoCategoryProvider` → the 22 top-levels, codified as `PhenotypeCategoryEnum` in `schema/classifications/phenotype_category.yaml`), so the hand-entered `category` (still `range: string`, ~200 inconsistent values, ~4k blank) is not what drives display. The cleanup is to bind that enum to the slot and/or deprecate the free-text field in favour of the derived value — not to invent new category values. (Note: category-gated *rules* are a non-goal — the category is derived from the term, so such a rule would be circular; see §10.) | schema follow-up / KB migration |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
