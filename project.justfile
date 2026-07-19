@@ -1465,6 +1465,22 @@ civic-refresh:
 genesets-refresh:
     uv run python -m dismech.structured_sources.cli refresh mygeneset
 
+# Verify the pinned DepMap synthetic-lethality TSV (pinned by data/depmap/MANIFEST.yaml)
+[group('Research')]
+depmap-refresh:
+    uv run python -m dismech.structured_sources.cli refresh depmap
+
+# Rebuild every references_cache/DEPMAP_*.md from the pinned DepMap TSV
+# Use --id to limit to specific DEPMAP identifiers (e.g. DEPMAP:PARP1 or DEPMAP:MTAP__PRMT5).
+[group('Research')]
+depmap-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild depmap {{args}}
+
+# List the first N DepMap synthetic-lethality / selective-dependency identifiers
+[group('Research')]
+depmap-list limit="20":
+    uv run python -m dismech.structured_sources.cli list depmap --limit {{limit}}
+
 # Rebuild every references_cache/ORPHA_*.md from current bulk XML
 # Use --id to limit to specific ORPHA codes.
 [group('Research')]

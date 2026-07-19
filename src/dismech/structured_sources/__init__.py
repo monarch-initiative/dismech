@@ -17,6 +17,7 @@ from dismech.structured_sources.base import (
 from dismech.structured_sources.clingen import ClinGenSource
 from dismech.structured_sources.clingen_dosage import ClinGenDosageSource
 from dismech.structured_sources.civic import CivicSource
+from dismech.structured_sources.depmap import DepMapSource
 from dismech.structured_sources.mygeneset import MyGenesetSource
 from dismech.structured_sources.icees import ICEESSource
 from dismech.structured_sources.ontology_edges import OntologyEdgeSource
@@ -29,6 +30,7 @@ __all__ = [
     "ClinGenSource",
     "ClinGenDosageSource",
     "CivicSource",
+    "DepMapSource",
     "MyGenesetSource",
     "ICEESSource",
     "OntologyEdgeSource",

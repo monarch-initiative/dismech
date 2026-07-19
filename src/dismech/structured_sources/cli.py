@@ -26,6 +26,7 @@ from dismech.structured_sources.clingen_yaml_audit import (
     format_tsv,
 )
 from dismech.structured_sources.civic import CivicSource
+from dismech.structured_sources.depmap import DepMapSource
 from dismech.structured_sources.mygeneset import MyGenesetSource
 from dismech.structured_sources.icees import ICEESSource
 from dismech.structured_sources.ontology_edges import OntologyEdgeSource
@@ -65,6 +66,11 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             MyGenesetSource.load_manifest(manifest)
         return MyGenesetSource(_DEFAULT_DATA_DIR / "genesets")
+    if name in {"depmap", "dep-map"}:
+        manifest = _DEFAULT_DATA_DIR / "depmap" / "MANIFEST.yaml"
+        if manifest.exists():
+            DepMapSource.load_manifest(manifest)
+        return DepMapSource(_DEFAULT_DATA_DIR / "depmap")
     if name in {"icees", "icees-kg", "icees_kg"}:
         manifest = _DEFAULT_DATA_DIR / "icees-kg" / "MANIFEST.yaml"
         if manifest.exists():

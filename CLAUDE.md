@@ -1407,6 +1407,7 @@ as evidence `snippet:` values.
 | `CIVIC_ASSERTION:`, `CIVIC_EID:` | CIViC accepted assertion and clinical evidence TSVs | One record per accepted CIViC assertion or evidence item | CIViC |
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 | `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
+| `DEPMAP:` | DepMap (Cancer Dependency Map) CRISPR synthetic-lethality / selective dependencies | One record per selective dependency (`DEPMAP:<gene>`) or gene-pair synthetic lethality (`DEPMAP:<A>__<B>`), with per-context differential-dependency rows | CC BY 4.0 |
 
 **Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
 
@@ -1563,6 +1564,33 @@ is a stable quotable substring. **Interpretation caveats:** ICEES cohorts are
 on that base population — not hospital-wide like COHD; and the chi-square values
 are **not multiple-testing corrected** and are inflated by very large cohort N,
 so apply the same FDR skepticism used for COHD signals.
+
+**Citing a DepMap synthetic-lethal / selective dependency:**
+
+`DEPMAP:` ingests CRISPR gene-dependency relationships from the Cancer
+Dependency Map — one cache file per selective dependency (`DEPMAP:<gene>`) or
+gene-pair synthetic lethality (`DEPMAP:<A>__<B>`, symbols sorted). It is the
+functional-genomics complement to the literature-based
+`dna_repair_synthetic_lethality` module. DepMap is pooled cell-line CRISPR data,
+so `evidence_source: IN_VITRO` and — per the evidence policy — it must **never
+be the sole support for a human phenotype**; always record the genomic context
+(the DepMap analog of an ICEES cohort stratifier).
+
+```yaml
+evidence:
+- reference: DEPMAP:PARP1
+  supports: SUPPORT
+  evidence_source: IN_VITRO
+  snippet: "BRCA1/BRCA2-mutant | DIFFERENTIAL_DEPENDENCY | 4.8 | -0.42 | 38"
+  explanation: DepMap shows PARP1 as a selective dependency in BRCA1/2-mutant models.
+```
+
+Each `## Selective dependency statistics` row (`| Context | Metric | Value |
+Effect size | N models |`) is a stable quotable substring; the leading/trailing
+pipes are optional. Build/refresh with `just depmap-refresh`,
+`just depmap-rebuild`, `just depmap-list`. The differential-dependency
+*derivation* from a DepMap release matrix is a tracked follow-up (see
+[`docs/depmap-source.md`](docs/depmap-source.md)).
 
 **How the cache is built:**
 
