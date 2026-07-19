@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from dismech.render import render_disorder
+from dismech.render import _build_hierarchy_path
 
 
 def _extract_graph_data(html: str) -> dict:
@@ -43,6 +44,17 @@ def _connected_component_count(graph_data: dict) -> int:
                     remaining.remove(neighbor)
                     queue.append(neighbor)
     return components
+
+
+def test_hierarchy_path_returns_empty_when_adapter_lookup_fails() -> None:
+    """Optional mapping breadcrumbs should not make rendering depend on a
+    healthy local OAK SQLite cache."""
+
+    class BrokenAdapter:
+        def hierarchical_parents(self, _term_id: str):
+            raise RuntimeError("database disk image is malformed")
+
+    assert _build_hierarchy_path(BrokenAdapter(), "NCIT:C9120", "NCIT:C7057") == []
 
 
 def test_rendered_crohn_pathograph_payload_is_connected(tmp_path: Path) -> None:
