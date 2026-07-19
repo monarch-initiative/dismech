@@ -210,6 +210,51 @@ validate-comorbidity file:
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
+# Full validation of one or more comorbidity files, batched by validator phase.
+# This is intended for CI changed-file validation. Reference validation stays
+# cache-bound (`--no-full-text`) so CI does not expand the reference cache or
+# download PDFs.
+[group('QC')]
+validate-comorbidity-batch *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    # Use real positional args rather than interpolating {{files}} as shell text.
+    for f in "$@"; do
+        if [[ "$f" == {{comorbidity_dir}}/*.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
+        else
+            echo "Skipping non-comorbidity file: $f"
+        fi
+    done
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing comorbidity YAML files to validate."
+        exit 0
+    fi
+
+    exit_code=0
+    echo "Validating ${#existing[@]} comorbidity file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache || exit_code=1
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more comorbidity files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} comorbidity file(s) passed validation."
+
 # Full validation of all comorbidity YAML files (schema + terms + references)
 [group('QC')]
 validate-comorbidities-all:
