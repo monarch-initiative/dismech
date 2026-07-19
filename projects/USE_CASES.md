@@ -35,6 +35,74 @@ knowledge is used for*.
 - [`docs/presentations/Dismech demo - Feb 2026.pdf`](../docs/presentations/Dismech%20demo%20-%20Feb%202026.pdf) — the demo deck.
 - Application-oriented projects: [`GWAS_MECHANISMS`](GWAS_MECHANISMS.md), [`AUTONOMOUS_LABS`](AUTONOMOUS_LABS.md), [`VIRTUAL_CELL`](VIRTUAL_CELL.md), [`TUMOR_MICROENVIRONMENT_MODELING`](TUMOR_MICROENVIRONMENT_MODELING.md), [`SPACE_BIOLOGY`](SPACE_BIOLOGY.md), [`STRUCTURAL_BIOLOGY`](STRUCTURAL_BIOLOGY.md), [`MONDO_EHR_MAPPINGS`](MONDO_EHR_MAPPINGS.md), [`HYPOTHESIS_BASED_PHENOTYPE_ALGORITHMS`](HYPOTHESIS_BASED_PHENOTYPE_ALGORITHMS.md), [`COMORBIDITIES`](COMORBIDITIES.md), [`ORGAN_FIBROSIS_COLLABORATION`](ORGAN_FIBROSIS_COLLABORATION.md), [`NAMO_RD_MODELS`](NAMO_RD_MODELS.md), [`CHILDHOOD_CANCER`](CHILDHOOD_CANCER.md), [`G2P`](G2P.md), [`REACTOME_DISEASES`](REACTOME_DISEASES.md), [`GENESETS`](GENESETS.md), [`INHERITANCE_ENRICHMENT`](INHERITANCE_ENRICHMENT.md).
 
+**Two views of this page.** The [numbered sections](#1-clinical--diagnostic-decision-support)
+below group use cases by **audience/domain** (who it's for). The section
+immediately below groups them by **implementation maturity** (does code that
+consumes DisMech exist yet?). A given use case appears in both.
+
+---
+
+## Tooling view: what actually runs on DisMech
+
+This grouping answers a different question from the domain categories: **which
+use cases are backed by real, runnable code in this repo that consumes the
+knowledge base**, versus which are still scoping/collaboration plans with no
+in-repo tool yet. "Consumes DisMech" means the code reads `kb/**` YAML (or a
+derived export of it) as input.
+
+### A. Implemented — tools/code in this repo that depend on DisMech
+
+| Tool / code | Location | Run | Consumes | Use-case § |
+|-------------|----------|-----|----------|-----------|
+| **Phenomatcher / Phenoagent** — phenopacket ⇄ disease-model matching + agentic explanation + Mermaid match graph | [`src/phenoagent/`](../src/phenoagent/) (`matching.py`, `cyberian_wrapper.py`, `match_graph.py`, `matching_cli.py`, `eval.py`) | `python -m phenoagent.matching_cli` | disorder YAML phenotype frequencies + HPO via OAK | §1.1 |
+| **Multi-space embeddings** — pathophysiology/phenotype/treatment/cell-type + per-mechanism embedding, interactive browser | [`src/dismech/embed.py`](../src/dismech/embed.py), [`app/embeddings/`](../app/embeddings/) | `just embed-index`, `just embed-mechanisms-all` | disorder YAML text projected per space | §3.2, §3.1 |
+| **KGX / Biolink export** | [`src/dismech/export/kgx_export.py`](../src/dismech/export/kgx_export.py) | `just export-kgx` | disorder YAML → typed Biolink edges | §7.1 |
+| **HPOA export** — HPO annotation-format export | [`src/dismech/export/hpoa_export.py`](../src/dismech/export/hpoa_export.py) | `just export-hpoa` | disorder YAML phenotypes | §7.1 |
+| **CX2 / NDEx export** — Cytoscape-exchange pathographs | [`src/dismech/export/cx2_export.py`](../src/dismech/export/cx2_export.py); [`docs/cx2-ndex-publishing.md`](../docs/cx2-ndex-publishing.md) | via export module | pathophysiology causal graphs | §7.1 |
+| **Tabular / DuckDB export** — relational flatten for SQL/ML | [`src/dismech/export/tabular_export.py`](../src/dismech/export/tabular_export.py) | `python -m dismech.export.tabular_export` | all assertions/descriptors/evidence | §7.2 |
+| **Faceted disorder browser** | [`src/dismech/export/browser_export.py`](../src/dismech/export/browser_export.py) → `app/data.js`; [`render.py`](../src/dismech/render.py) | `just gen-browser-data`, `just gen-pages` | disorder YAML | §10.1 |
+| **Pathograph builder / causal graphs** | [`src/dismech/graph.py`](../src/dismech/graph.py), [`src/dismech/export/pathograph_export.py`](../src/dismech/export/pathograph_export.py), [`scripts/pathograph_overlap.py`](../scripts/pathograph_overlap.py) | `just gen-pathographs` | pathophysiology `downstream` edges | §1.1, §1.2 |
+| **Comorbidity signal tools (COHD)** — generate/insert EHR co-occurrence `association_signals` | [`scripts/cohd_pair_to_signal.py`](../scripts/cohd_pair_to_signal.py), [`scripts/cohd_add_signal_to_comorbidity.py`](../scripts/cohd_add_signal_to_comorbidity.py) | `just cohd-signal`, `just cohd-add-signal` | comorbidity YAML + COHD API | §4 |
+| **GWAS gene→program→trait validators** — score Perturb-seq clusters/programs against curated genes | [`scripts/validate_tcell_clusters.py`](../scripts/validate_tcell_clusters.py), [`scripts/validate_k562_programs.py`](../scripts/validate_k562_programs.py); reports in [`docs/`](../docs/gwas-tcell-validation-report.md) | `python scripts/validate_tcell_clusters.py` | disorder genes + GO/cell-type terms | §5.1 |
+| **Gene-set alignment** | [`src/dismech/genesets_align.py`](../src/dismech/genesets_align.py), [`src/dismech/structured_sources/`](../src/dismech/structured_sources/) | `just genesets-align`, `just genesets-rebuild` | disorder genes vs curated gene sets | §5.2 |
+| **Grouping linter/evaluator** — audit/classify grouping membership (OWL-lite) | [`src/dismech/groupings.py`](../src/dismech/groupings.py) | `just check-groupings` | grouping + disorder YAML | §5.2 |
+| **Structured-source ingest** — Orphanet/ClinGen/ICEES/NCIT/gene-sets → `references_cache/` | [`src/dismech/structured_sources/`](../src/dismech/structured_sources/) | `just structured-rebuild-orphanet`, `just clingen-rebuild`, `just icees-rebuild` | external DBs → citable rows | §7.3, §2.3, §4 |
+| **Validation stack** — schema / term / reference anti-hallucination QC | `linkml-validate` + [`scripts/run_term_validator.sh`](../scripts/run_term_validator.sh), [`scripts/run_reference_validator.sh`](../scripts/run_reference_validator.sh), [`reference_cache_frontmatter.py`](../src/dismech/reference_cache_frontmatter.py) | `just qc`, `just validate <file>` | disorder YAML + cached refs | §9.2 |
+| **Compliance & priority dashboards** — weighted scoring, curation triage | [`src/dismech/qc_dashboard.py`](../src/dismech/qc_dashboard.py), [`src/dismech/priority_dashboard.py`](../src/dismech/priority_dashboard.py) | `just compliance-all`, `just gen-dashboard` | all disorder YAML | §9.2 |
+| **OHDSI/OMOP cohort → definition** — computable case-definition ingest | [`scripts/ohdsi_cohort_to_definition.py`](../scripts/ohdsi_cohort_to_definition.py) (`create-definitions-from-ohdsi` skill) | `python scripts/ohdsi_cohort_to_definition.py` | writes `definitions` blocks | §8.2 |
+| **MONDO EHR / priority mapping** — MONDO-driven concept-set + candidate export | [`scripts/export_mondo_priority_candidates.py`](../scripts/export_mondo_priority_candidates.py), [`src/dismech/export/mondo_emc_export.py`](../src/dismech/export/mondo_emc_export.py) | `just export-mondo-tsv` | disorder MONDO mappings | §8.1 |
+| **Reactome cross-reference** | [`scripts/fetch_reactome_disease.py`](../scripts/fetch_reactome_disease.py) | `python scripts/fetch_reactome_disease.py` | disorder ↔ Reactome pathways | §5.2 |
+| **NCIT P302 treatment-indication audit** | [`scripts/ncit_p302_audit.py`](../scripts/ncit_p302_audit.py) | `just ncit-p302-audit` | treatments vs NCIT indications | §2.3 |
+| **Disease inventory census** | [`src/dismech/export/disease_inventory.py`](../src/dismech/export/disease_inventory.py) | `just export-disease-inventory` | all disorder/subtype MONDO status | §5.2, §8.3 |
+
+> Note: Phenoagent lives under `src/phenoagent/` (not `src/dismech/`) but is
+> part of this repository and reads dismech disease models directly — it is the
+> flagship worked example of a downstream consumer.
+
+### B. Partial — script/schema scaffolding exists, full tool still forming
+
+| Capability | What exists | Gap | Use-case § |
+|------------|-------------|-----|-----------|
+| Hypothesis-based EHR case-finding | schema slots (`derivation_basis`, `validation_status`) + [`scripts/hypothesis_deep_research.py`](../scripts/hypothesis_deep_research.py) | no end-to-end EHR query runner | §8.2 |
+| Disease-trajectory mining | `disease-trajectories` skill + COHD tooling | no packaged DT ingester in-repo | §4 |
+| G2P alignment | audit scripts + research artifacts under [`docs/research/`](../docs/research/) | no maintained mapping module | §5.2 |
+
+### C. Aspirational — external dependency or scoping only (no in-repo code yet)
+
+These are collaboration/alignment plans: the "tool" lives in another project or
+doesn't exist yet, and DisMech is the intended knowledge substrate.
+
+| Use case | Depends on | Source |
+|----------|-----------|--------|
+| Autonomous / self-driving labs | OpenScientist (external) | [`AUTONOMOUS_LABS`](AUTONOMOUS_LABS.md) (§6.1) |
+| Tumor-microenvironment / digital-twin modeling | external ABM/RL simulators | [`TUMOR_MICROENVIRONMENT_MODELING`](TUMOR_MICROENVIRONMENT_MODELING.md) (§6.2) |
+| Virtual-cell / single-cell FM alignment | CZI Virtual Cell, CELLxGENE | [`VIRTUAL_CELL`](VIRTUAL_CELL.md) (§6.3) |
+| Structure-guided interpretation | PDB / AlphaFold workflows | [`STRUCTURAL_BIOLOGY`](STRUCTURAL_BIOLOGY.md) (§6.4) |
+| Cross-organ fibrosis atlas integration | Saez-Rodriguez atlas | [`ORGAN_FIBROSIS_COLLABORATION`](ORGAN_FIBROSIS_COLLABORATION.md) (§11) |
+| Rare-disease experimental-model bridge | Monarch NAMO | [`NAMO_RD_MODELS`](NAMO_RD_MODELS.md) (§5.3) |
+| Space-health data alignment | NASA OSDR | [`SPACE_BIOLOGY`](SPACE_BIOLOGY.md) (§11) |
+| Childhood-cancer / CCDI alignment | NCI CCDI ecosystem | [`CHILDHOOD_CANCER`](CHILDHOOD_CANCER.md) (§11) |
+
 ---
 
 ## 1. Clinical & Diagnostic Decision Support
