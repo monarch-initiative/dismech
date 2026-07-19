@@ -140,6 +140,41 @@ enums:
         description: Case definition for surveillance or reporting
       OTHER:
         description: Other definition type
+  DefinitionDerivationBasisEnum:
+    description: >-
+      The epistemic grounding of a definition / phenotype algorithm, orthogonal
+      to definition_type. Records where the definition comes from and how well
+      established it is, so a mechanism-predicated case-finding query is not
+      conflated with a consensus- or gold-standard-validated one. When the basis
+      is a hypothesis, the definition should attaches_to the pathophysiology
+      node(s)/edge(s) it is predicated on, so the basis can be cross-checked
+      against those edges' hypothesis_groups.
+    permissible_values:
+      ESTABLISHED_CRITERIA:
+        description: >-
+          Published consensus criteria or a validated computable phenotype (e.g.
+          an OHDSI Phenotype Library cohort). The implicit default for existing
+          definitions.
+      MECHANISTIC_HYPOTHESIS:
+        description: >-
+          Predicated on a specific, not-yet-proven disease mechanism hypothesis;
+          membership is contingent on that hypothesis holding.
+      MODEL_SYSTEM_EXTRAPOLATION:
+        description: >-
+          Extrapolated from an animal or in-vitro model result not yet
+          demonstrated in humans.
+  AlgorithmValidationStatusEnum:
+    description: >-
+      Validation maturity of a phenotype algorithm / computable case definition.
+    permissible_values:
+      PROPOSED:
+        description: Drafted; never executed against data.
+      UNVALIDATED:
+        description: >-
+          Executable but not yet evaluated against a gold-standard or labeled
+          cohort.
+      VALIDATED_AGAINST_GOLD_STANDARD:
+        description: PPV/sensitivity characterized against a reference standard.
   MappingConsistencyEnum:
     description: Consistency of a mapping relative to another reference source
     permissible_values:
@@ -1480,6 +1515,81 @@ enums:
         title: Other imaging modality
         description: An imaging modality not otherwise enumerated
 
+  ElectrophysiologyModalityEnum:
+    description: >-
+      In-vivo electrophysiologic / neurophysiologic investigation on which an
+      electrophysiologic phenotype was recorded (carried on the
+      ElectrophysiologyContext phenotype sidecar). Meanings bind to the NCI
+      Thesaurus diagnostic-procedure branch.
+    permissible_values:
+      EEG:
+        title: Electroencephalography
+        description: Scalp electroencephalography (routine, prolonged, or ambulatory)
+        meaning: NCIT:C38054
+      VIDEO_EEG:
+        title: Video Electroencephalography
+        description: >-
+          Simultaneous video and EEG monitoring for seizure semiology-EEG
+          correlation. No distinct NCIT procedure term; a specialization of EEG.
+      ECG:
+        title: Electrocardiography
+        description: Electrocardiography, including resting and stress ECG
+        meaning: NCIT:C38053
+      EMG:
+        title: Electromyography
+        description: Needle or surface electromyography
+        meaning: NCIT:C38056
+      NERVE_CONDUCTION_STUDY:
+        title: Nerve Conduction Velocity Test
+        description: Nerve conduction study (motor/sensory conduction velocity and amplitude)
+        meaning: NCIT:C88502
+      EVOKED_POTENTIAL:
+        title: Evoked Potential
+        description: >-
+          Evoked-potential testing (visual, brainstem-auditory, or
+          somatosensory). No clean generic NCIT procedure term.
+      POLYSOMNOGRAPHY:
+        title: Polysomnography
+        description: Overnight sleep study combining EEG, EOG, EMG, ECG, and respiratory channels
+        meaning: NCIT:C114185
+      MEG:
+        title: Magnetoencephalography
+        description: Magnetoencephalography (magnetic-field source localization)
+        meaning: NCIT:C16811
+      OTHER:
+        title: Other electrophysiologic modality
+        description: An electrophysiologic modality not otherwise enumerated
+
+  IctalStateEnum:
+    description: >-
+      Timing of an electrophysiologic finding relative to a seizure or paroxysmal
+      event - the axis a flat HP phenotype term cannot express.
+    permissible_values:
+      ICTAL:
+        description: Recorded during a seizure / paroxysmal event
+      INTERICTAL:
+        description: Recorded between events, in the baseline state
+      POSTICTAL:
+        description: Recorded in the period immediately following an event
+
+  EEGRecordingStateEnum:
+    description: >-
+      Behavioural state or activation procedure under which an EEG finding is
+      recorded, since many findings are state- or provocation-dependent.
+    permissible_values:
+      AWAKE:
+        description: Recorded during wakefulness
+      ASLEEP:
+        description: Recorded during sleep (findings may be sleep-activated)
+      DROWSY:
+        description: Recorded during drowsiness / transition to sleep
+      SLEEP_DEPRIVED:
+        description: Recorded after sleep deprivation (a seizure-activation procedure)
+      PHOTIC_STIMULATION:
+        description: Recorded during intermittent photic stimulation
+      HYPERVENTILATION:
+        description: Recorded during hyperventilation activation
+
   MedicalActionCategoryEnum:
     description: >-
       Broad functional category for a clinical action currently represented in
@@ -2644,6 +2754,22 @@ slots:
   interpretation:
     description: Curator-facing explanation of how to interpret the biomarker relative to the linked pathograph node
     range: string
+  reports_on:
+    description: >-
+      Links an investigation-readout phenotype (e.g. an abnormal electrophysiology
+      or clinical-test finding such as HP:0000512 Abnormal electroretinogram) to the
+      pathograph node whose underlying state it measures or reflects. The target is a
+      named pathophysiology or phenotype node in the same disease file. These are
+      observational readout links, not causal disease-progression edges, so they let
+      an otherwise-disconnected test-result phenotype attach to the mechanism it
+      reports on without asserting that the mechanism "causes" the test result.
+    multivalued: true
+    range: PhenotypeReadout
+    inlined_as_list: true
+    comments:
+      - Use on investigation/test-result phenotypes (electrophysiology, functional testing, laboratory findings) that report on an underlying mechanism rather than participating causally
+      - Target names should match a pathophysiology or phenotype entry name in the same disease file
+      - Rendered as a dashed observational edge (mechanism -.-> readout), like biomarker readouts
   row_id:
     description: Stable row identifier assigned during source-table curation
     range: string
@@ -2942,6 +3068,27 @@ slots:
     inlined: true
     comments:
       - Use NCIT Imaging Finding terms (C176708 / C199145) or HP imaging-observable phenotypes (atrophy, white-matter lesions, hyperintensity)
+  electrophysiology:
+    description: >-
+      Optional electrophysiologic post-composition sidecar for a phenotype whose
+      phenotype_term is an EEG/EMG/EKG finding (HP:0002353 / HP:0003457 /
+      HP:0003115 subtrees). Carries modality plus the ictal and recording-state
+      axes a flat HP term cannot express. Electrophysiologic findings are HP
+      phenotypes, so they stay in `phenotypes`; this only post-composes them.
+    range: ElectrophysiologyContext
+    inlined: true
+    comments:
+      - Use on EEG/EMG/EKG phenotypes; leave absent otherwise
+      - Not for acquisition protocol, per-patient tracings, or decision support
+  electrophysiology_modality:
+    description: The in-vivo electrophysiologic modality on which a phenotype was recorded
+    range: ElectrophysiologyModalityEnum
+  ictal_state:
+    description: Timing of an electrophysiologic finding relative to a seizure/paroxysmal event
+    range: IctalStateEnum
+  recording_state:
+    description: Behavioural state or activation procedure under which an EEG finding is recorded
+    range: EEGRecordingStateEnum
   biochemical:
     multivalued: true
     inlined_as_list: true
@@ -3620,6 +3767,21 @@ slots:
   definition_type:
     description: The type of definition or criteria set
     range: DefinitionTypeEnum
+  derivation_basis:
+    description: >-
+      Epistemic grounding of a definition, orthogonal to definition_type:
+      established criteria vs. a mechanistic hypothesis vs. model-system
+      extrapolation. When MECHANISTIC_HYPOTHESIS, the definition should
+      `attaches_to` the pathophysiology node(s)/edge(s) it is predicated on, so
+      the hypothesis basis can be inferred from those edges' `hypothesis_groups`.
+    range: DefinitionDerivationBasisEnum
+  validation_status:
+    description: >-
+      Structured validation maturity of a phenotype algorithm / computable case
+      definition (a graded status plus a free-text rationale and optional citing
+      evidence).
+    range: AlgorithmValidationStatus
+    inlined: true
   criteria_sets:
     description: Named criteria groupings within a definition
     multivalued: true
@@ -4333,6 +4495,25 @@ classes:
             range: ImagingFindingTerm
             obligation_level: RECOMMENDED
 
+  ElectrophysiologyContext:
+    description: >-
+      An optional post-composition sidecar on a Phenotype, carrying the
+      electrophysiologic axes that a flat HP phenotype term cannot express:
+      the modality it was recorded on, whether it is ictal/interictal/postictal,
+      and the behavioural/activation recording state. Used ONLY on phenotypes
+      whose phenotype_term is an electrophysiologic finding (the HP EEG/EMG/EKG
+      abnormality subtrees, e.g. descendants of HP:0002353). Deliberately NOT a
+      separate finding class: because electrophysiologic findings are already HP
+      phenotypes, they live in `phenotypes` and this block only post-composes
+      them, exactly as temporality/clinical_course/severity/onset do elsewhere.
+    comments:
+      - Attach to a phenotype whose phenotype_term is under HP:0002353 (EEG), HP:0003457 (EMG), or HP:0003115 (EKG)
+      - Preclinical/animal electrophysiology (e.g. an electrographic seizure with no HP term) is a preferred_term-only phenotype carrying this sidecar
+    slots:
+      - electrophysiology_modality
+      - ictal_state
+      - recording_state
+
   LifeCycleStageDescriptor:
     is_a: Descriptor
     description: A descriptor for parasite life cycle stages, bindable to OPL
@@ -4979,6 +5160,48 @@ classes:
         description: Human-readable interpretation of the link for display and curation review.
       evidence:
         description: Evidence supporting this biomarker-to-pathograph-node readout link
+  PhenotypeReadout:
+    description: >-
+      Links an investigation-readout phenotype (an abnormal electrophysiology,
+      functional-test, or clinical-laboratory finding, e.g. HP:0000512 Abnormal
+      electroretinogram) to the pathograph node whose underlying state it measures
+      or reflects. This is an observational readout link, not a causal claim that the
+      target mechanism causes the test result. It is the phenotype-side counterpart of
+      BiomarkerReadout, deliberately lean: it omits the surrogate-endpoint/regulatory
+      slots (regulatory_endpoint_refs and the source-table bridge) that belong only to
+      molecular biomarker readouts.
+    comments:
+      - Use on test-result phenotypes that report on an underlying mechanism rather than participating causally in the pathograph
+      - READOUT_OF is the typical relationship; CORRELATES_WITH / PREDICTS also apply
+      - Reuses the BiomarkerReadout relationship, direction, and endpoint-context vocabularies for consistency
+    slots:
+      - target
+      - relationship
+      - direction
+      - endpoint_context
+      - interpretation
+      - description
+      - evidence
+    slot_usage:
+      target:
+        description: >-
+          Name of the pathograph node this phenotype reports on. Prefer a
+          pathophysiology entry; a phenotype target is also allowed when the
+          readout is tied to another clinical manifestation.
+        required: true
+      relationship:
+        description: How the investigation readout relates to the linked pathograph node.
+        required: true
+      direction:
+        description: >-
+          Direction of association between the readout value/abnormality and the
+          linked event or endpoint.
+      endpoint_context:
+        description: Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate use context.
+      interpretation:
+        description: Human-readable interpretation of the link for display and curation review.
+      evidence:
+        description: Evidence supporting this phenotype-to-pathograph-node readout link
   ReferenceRangeBand:
     description: >-
       A single graded interpretation band within a reference range, mapping a
@@ -5385,6 +5608,8 @@ classes:
       - subtype
       - subtypes
       - phenotype_contexts
+      - electrophysiology
+      - reports_on
   Biochemical:
     slots:
       - name
@@ -5832,8 +6057,11 @@ classes:
     slots:
       - name
       - definition_type
+      - derivation_basis
+      - validation_status
       - description
       - scope
+      - attaches_to
       - criteria_sets
       - inclusion_criteria
       - exclusion_criteria
@@ -5844,6 +6072,32 @@ classes:
         required: true
       definition_type:
         required: true
+      attaches_to:
+        description: >-
+          For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
+          this algorithm is predicated on, using the `[<file>:]<kind>#<name>`
+          hash-anchor grammar (e.g. `pathophysiology#Fever-triggered CaV1.2
+          activation`). Lets the hypothesis basis be inferred from those edges'
+          `hypothesis_groups` rather than duplicated as a standalone id.
+
+  AlgorithmValidationStatus:
+    description: >-
+      Validation maturity of a phenotype algorithm / computable case definition:
+      a graded status plus a free-text rationale and optional citing evidence
+      (the standard EvidenceItem model — reference + verbatim snippet +
+      explanation).
+    slots:
+      - status
+      - rationale
+      - evidence
+    slot_usage:
+      status:
+        range: AlgorithmValidationStatusEnum
+        required: true
+      rationale:
+        description: >-
+          Why this status — what was (or was not) run, against which cohort, with
+          what result.
 
   CriteriaSet:
     description: A named criteria grouping within a definition
