@@ -16,6 +16,8 @@ KB_DIR = ROOT_DIR / "kb" / "disorders"
 COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
 MODULES_DIR = ROOT_DIR / "kb" / "modules"
 GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
+SYNTHESIS_SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "research_synthesis.yaml"
+RESEARCH_DIR = ROOT_DIR / "research"
 
 # Get all disorder YAML files (exclude history snapshots)
 DISORDER_FILES = [
@@ -23,6 +25,7 @@ DISORDER_FILES = [
 ]
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
 GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
+SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
 
 
 def _disease_names():
@@ -1034,6 +1037,70 @@ def test_valid_grouping_files(filepath, validator):
     errors = [r for r in report.results if r.severity.name == "ERROR"]
 
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.fixture(scope="module")
+def synthesis_validator():
+    """Validator bound to the standalone research-synthesis schema."""
+    return Validator(SYNTHESIS_SCHEMA_PATH)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
+def test_valid_research_synthesis_files(filepath, synthesis_validator):
+    """All research-synthesis files validate against the ResearchSynthesis class."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    report = synthesis_validator.validate(data, target_class="ResearchSynthesis")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
+def test_synthesis_provider_references_resolve(filepath):
+    """Every provider_support.provider must be declared in the top-level providers list."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    declared = {p.get("name") for p in data.get("providers", []) or []}
+    errors = []
+    for i, finding in enumerate(data.get("harmonized_findings", []) or []):
+        for support in finding.get("provider_support", []) or []:
+            provider = support.get("provider")
+            if provider not in declared:
+                errors.append(
+                    f"harmonized_findings[{i}] references undeclared provider "
+                    f"{provider!r} (declared: {sorted(declared)})"
+                )
+
+    assert not errors, f"Provider foreign-key errors in {filepath}: {errors}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
+def test_synthesis_best_matching_text_verbatim(filepath):
+    """Every best_matching_text must be a verbatim substring of its source_report."""
+    from dismech.research_synthesis import iter_quote_problems
+
+    problems = list(iter_quote_problems(filepath))
+    assert not problems, f"Quote-verification problems in {filepath}: {problems}"
+
+
+def test_synthesis_derive_consensus():
+    """derive_consensus computes the consensus label from provider stances."""
+    from dismech.research_synthesis import derive_consensus
+
+    def finding(*stances):
+        return {"provider_support": [{"stance": s} for s in stances]}
+
+    assert derive_consensus(finding("CONCORDANT", "CONTRADICTORY")) == "CONFLICT"
+    assert derive_consensus(finding("CONCORDANT", "SILENT")) == "SINGLE"
+    assert derive_consensus(finding("CONCORDANT", "CONCORDANT")) == "UNANIMOUS"
+    assert derive_consensus(finding("CONCORDANT", "PARTIAL")) == "MAJORITY"
+    assert derive_consensus(finding("SILENT", "SILENT")) == "SINGLE"
 
 
 @pytest.mark.kb_data

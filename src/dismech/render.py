@@ -2169,6 +2169,7 @@ def _index_rows_from_reports(reports: list[dict]) -> list[dict]:
         if row_key not in rows:
             rows[row_key] = {
                 "name": report["disorder_name"],
+                "slug": report["slug"],
                 "mondo_id": report["mondo_id"],
                 "href": report["disorder_page_href"],
                 "report_count": 0,
@@ -2211,6 +2212,7 @@ def _index_rows_from_reports(reports: list[dict]) -> list[dict]:
         normalized_rows.append(
             {
                 "name": row["name"],
+                "slug": row["slug"],
                 "mondo_id": row["mondo_id"],
                 "mondo_url": _curie_url(row["mondo_id"]),
                 "href": row["href"],
@@ -2218,6 +2220,7 @@ def _index_rows_from_reports(reports: list[dict]) -> list[dict]:
                 "provider_count": len(providers),
                 "providers": providers,
                 "reports": report_links,
+                "synthesis": None,
             }
         )
 
@@ -2534,11 +2537,159 @@ def render_research_index_page(
     rows = _index_rows_from_reports(reports)
     rendered_path = render_research_index(rows, output_path)
     report_pages = render_all_research_reports(reports, output_dir=output_path.parent)
+    syntheses = _scan_research_syntheses(research_dir)
+    synthesis_by_slug = {s["slug"]: s for s in syntheses}
+    for row in rows:
+        info = synthesis_by_slug.get(row.get("slug"))
+        if info:
+            row["synthesis"] = {
+                "href": info["output_name"],
+                "provider_count": len(info["providers"]),
+                "finding_count": len(info["findings"]),
+            }
+    # Re-render the index now that synthesis links are attached.
+    rendered_path = render_research_index(rows, output_path)
+    synthesis_pages = render_all_research_syntheses(
+        syntheses, output_dir=output_path.parent
+    )
     print(
         f"Rendered research index -> {rendered_path} "
-        f"({len(report_pages)} per-report pages)"
+        f"({len(report_pages)} per-report pages, "
+        f"{len(synthesis_pages)} cross-provider synthesis pages)"
     )
     return rendered_path
+
+
+# ---------------------------------------------------------------------------
+# Cross-provider research synthesis pages (research/*-research-synthesis.yaml)
+# ---------------------------------------------------------------------------
+
+_STANCE_KEYS = {
+    "CONCORDANT": "concordant",
+    "PARTIAL": "partial",
+    "CONTRADICTORY": "contradictory",
+    "SILENT": "silent",
+}
+_CONSENSUS_KEYS = {
+    "UNANIMOUS": "unanimous",
+    "MAJORITY": "majority",
+    "SINGLE": "single",
+    "CONFLICT": "conflict",
+}
+
+
+def _synthesis_output_name(slug: str) -> str:
+    """Per-synthesis HTML filename, e.g. ``ALK_Rearranged_NSCLC`` -> ``ALK_Rearranged_NSCLC-synthesis.html``."""
+    return f"{slug}-synthesis.html"
+
+
+def _scan_research_syntheses(research_dir: Path) -> list[dict]:
+    """Load every ``*-research-synthesis.yaml`` into a normalized render dict."""
+    from dismech.research_synthesis import derive_consensus
+
+    if not research_dir.exists():
+        return []
+
+    syntheses: list[dict] = []
+    for path in sorted(research_dir.glob("*-research-synthesis.yaml")):
+        try:
+            data = yaml.safe_load(path.read_text()) or {}
+        except yaml.YAMLError:
+            continue
+        slug = data.get("disease") or path.name[: -len("-research-synthesis.yaml")]
+        findings = []
+        for finding in data.get("harmonized_findings") or []:
+            consensus = derive_consensus(finding)
+            supports = []
+            for support in finding.get("provider_support") or []:
+                stance = support.get("stance")
+                score = support.get("score")
+                supports.append(
+                    {
+                        "provider": support.get("provider"),
+                        "stance": stance,
+                        "stance_key": _STANCE_KEYS.get(stance, "silent"),
+                        "score": score,
+                        "score_pct": (
+                            round(float(score) * 100) if score is not None else None
+                        ),
+                        "best_matching_text": support.get("best_matching_text"),
+                        "explanation": support.get("explanation"),
+                        "citations": support.get("citations") or [],
+                    }
+                )
+            findings.append(
+                {
+                    "statement": finding.get("statement"),
+                    "sections": finding.get("sections") or [],
+                    "curation_status": finding.get("curation_status"),
+                    "consensus": consensus,
+                    "consensus_key": _CONSENSUS_KEYS.get(consensus, "single"),
+                    "provider_support": supports,
+                    "notes": finding.get("notes"),
+                }
+            )
+        syntheses.append(
+            {
+                "slug": slug,
+                "disease": slug,
+                "display_name": _display_name_from_slug(slug),
+                "mondo_id": data.get("mondo"),
+                "mondo_url": _curie_url(data.get("mondo")),
+                "generated": data.get("generated"),
+                "providers": data.get("providers") or [],
+                "findings": findings,
+                "narrative": data.get("narrative") or {},
+                "notes": data.get("notes"),
+                "output_name": _synthesis_output_name(slug),
+                "source_url": _github_blob_url(Path("research") / path.name),
+            }
+        )
+    return syntheses
+
+
+def render_research_synthesis(
+    synthesis: dict,
+    output_dir: Path = Path("pages/research"),
+    template=None,
+) -> Path:
+    """Render one cross-provider synthesis dict to a standalone HTML page."""
+    if template is None:
+        template_dir = Path(__file__).parent / "templates"
+        env = Environment(
+            loader=FileSystemLoader(template_dir),
+            autoescape=select_autoescape(["html", "j2"]),
+        )
+        template = env.get_template("research_synthesis.html.j2")
+
+    disorder_page = f"{slugify(str(synthesis['disease']))}.html"
+    html = template.render(
+        synthesis=synthesis,
+        disorder_page_href=f"../disorders/{disorder_page}",
+    )
+    output_path = output_dir / synthesis["output_name"]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_research_syntheses(
+    syntheses: list[dict],
+    output_dir: Path = Path("pages/research"),
+) -> list[Path]:
+    """Render standalone HTML pages for every cross-provider synthesis."""
+    if not syntheses:
+        return []
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("research_synthesis.html.j2")
+    return [
+        render_research_synthesis(s, output_dir=output_dir, template=template)
+        for s in syntheses
+    ]
 
 
 def render_all_modules(
