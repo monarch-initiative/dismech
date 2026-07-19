@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/resp.14422"
+reference_id: DOI:10.1111/resp.14422
 title: "Thoracic manifestations of <scp>IgG4</scp>‐related disease"
 authors:
 - Romain Muller
@@ -14,6 +14,7 @@ journal: Respirology
 year: '2023'
 doi: 10.1111/resp.14422
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Thoracic manifestations of <scp>IgG4</scp>‐related disease

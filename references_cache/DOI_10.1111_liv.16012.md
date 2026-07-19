@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/liv.16012"
+reference_id: DOI:10.1111/liv.16012
 title: Practical recommendations for biochemical and genetic diagnosis of the porphyrias
 authors:
 - Aasne K. Aarsand
@@ -11,6 +11,7 @@ journal: Liver International
 year: '2025'
 doi: 10.1111/liv.16012
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Practical recommendations for biochemical and genetic diagnosis of the porphyrias

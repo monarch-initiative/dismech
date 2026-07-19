@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/rheumatology/keae119"
+reference_id: DOI:10.1093/rheumatology/keae119
 title: "Therapeutic strategies and outcomes in neuropsychiatric systemic lupus erythematosus: an international multicentre retrospective study"
 authors:
 - Alessandra Bortoluzzi
@@ -31,7 +31,12 @@ authors:
 journal: Rheumatology
 year: '2024'
 doi: 10.1093/rheumatology/keae119
-content_type: abstract_only
+content_type: full_text_html
+full_text_attempted: true
+full_text_provider: openalex
+full_text_url: "https://hdl.handle.net/11584/461448"
+oa_status: green
+license: other-oa
 ---
 
 # Therapeutic strategies and outcomes in neuropsychiatric systemic lupus erythematosus: an international multicentre retrospective study
@@ -57,3 +62,13 @@ The analysis included 350 events. Immunosuppressants and corticosteroids were mo
 
 Conclusion
 NP manifestations attributed to SLE by clinical judgment and treated with immunosuppressants demonstrated improved 12-month outcomes. This underscores the importance of accurate attribution and timely diagnosis of NPSLE.
+
+Objectives: The management of neuropsychiatric systemic lupus erythematosus (NPSLE) poses considerable challenges due to limited clinical trials. Therapeutic decisions are customized based on suspected pathogenic mechanisms and symptoms severity. This study aimed to investigate therapeutic strategies and disease outcome for patients with NPSLE experiencing their first neuropsychiatric (NP) manifestation. Methods: This retrospective cohort study defined NP events according to the American College of Rheumatology case definition, categorizing them into three clusters: central/diffuse, central/focal and peripheral. Clinical judgment and a validated attribution algorithm were used for NP event attribution. Data included demographic variables, SLE disease activity index, cumulative organ damage, and NP manifestation treatments. The clinical outcome of all NP events was determined by a physician seven-point Likert scale. Predictors of clinical improvement/resolution were investigated in a multivariable logistic regression analysis. Results: The analysis included 350 events. Immunosuppressants and corticosteroids were more frequently initiated/escalated for SLE-attributed central diffuse or focal NP manifestations. At 12 months of follow-up, 64% of patients showed a clinical improvement in NP manifestations. Focal central events and SLE-attributed manifestations correlated with higher rates of clinical improvement. Patients with NP manifestations attributed to SLE according to clinical judgment and treated with immunosuppressants had a significantly higher probability of achieving clinical response (OR 2.55, 95%CI 1.06–6.41, P ¼ 0.04). Age at diagnosis and focal central events emerged as additional response predictors. Conclusion: NP manifestations attributed to SLE by clinical judgment and treated with immunosuppressants demonstrated improved 12-month outcomes. This underscores the importance of accurate attribution and timely diagnosis of NPSLE.
+
+Solo gestori archivio
+
+accesso aperto
+
+I documenti in IRIS sono protetti da copyright e tutti i diritti sono riservati, salvo diversa indicazione.
+
+Sei sicuro che questo prodotto debba essere cancellato?

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2022.12.07.519435"
+reference_id: DOI:10.1101/2022.12.07.519435
 title: Cerebral organoids expressing mutant actin genes reveal cellular mechanism underlying microcephaly
 authors:
 - Indra Niehaus
@@ -24,6 +24,7 @@ authors:
 year: '2022'
 doi: 10.1101/2022.12.07.519435
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cerebral organoids expressing mutant actin genes reveal cellular mechanism underlying microcephaly

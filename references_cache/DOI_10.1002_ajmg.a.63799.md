@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.63799"
+reference_id: DOI:10.1002/ajmg.a.63799
 title: "<scp><i>GPC4</i></scp> truncating variant associated with Keipert syndrome and lacrimal punctal agenesis"
 authors:
 - Yukiko Kuroda
@@ -12,6 +12,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2024'
 doi: 10.1002/ajmg.a.63799
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # <scp><i>GPC4</i></scp> truncating variant associated with Keipert syndrome and lacrimal punctal agenesis

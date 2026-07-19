@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40200-024-01527-y"
+reference_id: DOI:10.1007/s40200-024-01527-y
 title: "The role of the analysis of sialotransferrin isoforms in the management of hereditary fructose intolerance: a systematic review"
 authors:
 - Evelina Maines
@@ -15,6 +15,7 @@ journal: "Journal of Diabetes &amp; Metabolic Disorders"
 year: '2024'
 doi: 10.1007/s40200-024-01527-y
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The role of the analysis of sialotransferrin isoforms in the management of hereditary fructose intolerance: a systematic review

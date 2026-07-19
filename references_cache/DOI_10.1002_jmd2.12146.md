@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jmd2.12146"
+reference_id: DOI:10.1002/jmd2.12146
 title: "Hypoglycemia is not a defining feature of metabolic crisis in mitochondrial <scp>3‐hydroxy‐3‐methylglutaryl‐CoA</scp> synthase deficiency: Further evidence of specific biochemical markers which may aid diagnosis"
 authors:
 - Tracey A. Conlon
@@ -13,6 +13,7 @@ journal: JIMD Reports
 year: '2020'
 doi: 10.1002/jmd2.12146
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hypoglycemia is not a defining feature of metabolic crisis in mitochondrial <scp>3‐hydroxy‐3‐methylglutaryl‐CoA</scp> synthase deficiency: Further evidence of specific biochemical markers which may aid diagnosis

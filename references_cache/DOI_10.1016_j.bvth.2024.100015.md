@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.bvth.2024.100015"
+reference_id: DOI:10.1016/j.bvth.2024.100015
 title: "Targeting the P-selectin/PSGL-1 pathway: discovery of disease-modifying therapeutics for disorders of thromboinflammation"
 authors:
 - Samira Escopy
@@ -8,6 +8,7 @@ journal: "Blood Vessels, Thrombosis &amp; Hemostasis"
 year: '2024'
 doi: 10.1016/j.bvth.2024.100015
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Targeting the P-selectin/PSGL-1 pathway: discovery of disease-modifying therapeutics for disorders of thromboinflammation

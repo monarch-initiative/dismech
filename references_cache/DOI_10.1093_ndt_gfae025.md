@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ndt/gfae025"
+reference_id: DOI:10.1093/ndt/gfae025
 title: "Management of adult patients with podocytopathies: an update from the ERA Immunonephrology Working Group"
 authors:
 - Safak Mirioglu
@@ -24,6 +24,7 @@ journal: Nephrology Dialysis Transplantation
 year: '2024'
 doi: 10.1093/ndt/gfae025
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Management of adult patients with podocytopathies: an update from the ERA Immunonephrology Working Group

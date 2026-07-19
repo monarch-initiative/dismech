@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/978-3-031-29750-2_11"
+reference_id: DOI:10.1007/978-3-031-29750-2_11
 title: Genomic Landscape of Meningiomas
 authors:
 - Justin Z. Wang
@@ -10,6 +10,7 @@ journal: Advances in Experimental Medicine and Biology
 year: '2023'
 doi: 10.1007/978-3-031-29750-2_11
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Genomic Landscape of Meningiomas

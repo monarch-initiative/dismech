@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jmcb/mjae005"
+reference_id: DOI:10.1093/jmcb/mjae005
 title: "Antiviral factors and their counteraction by HIV-1: many uncovered and more to be discovered"
 authors:
 - Dorota Kmiec
@@ -8,6 +8,7 @@ journal: Journal of Molecular Cell Biology
 year: '2024'
 doi: 10.1093/jmcb/mjae005
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Antiviral factors and their counteraction by HIV-1: many uncovered and more to be discovered

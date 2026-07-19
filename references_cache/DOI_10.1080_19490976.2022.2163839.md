@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/19490976.2022.2163839"
+reference_id: DOI:10.1080/19490976.2022.2163839
 title: Immune evasion and persistence in enteric bacterial pathogens
 authors:
 - Micah J. Worley
@@ -7,6 +7,7 @@ journal: Gut Microbes
 year: '2023'
 doi: 10.1080/19490976.2022.2163839
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Immune evasion and persistence in enteric bacterial pathogens

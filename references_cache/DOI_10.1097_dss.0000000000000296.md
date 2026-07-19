@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/dss.0000000000000296"
+reference_id: DOI:10.1097/dss.0000000000000296
 title: Consensus for Nonmelanoma Skin Cancer Treatment
 authors:
 - Arielle N. B. Kauvar
@@ -11,6 +11,7 @@ journal: Dermatologic Surgery
 year: '2015'
 doi: 10.1097/dss.0000000000000296
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Consensus for Nonmelanoma Skin Cancer Treatment

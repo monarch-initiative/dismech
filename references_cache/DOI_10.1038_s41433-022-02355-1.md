@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41433-022-02355-1"
+reference_id: DOI:10.1038/s41433-022-02355-1
 title: "Phenotypic characterization of autosomal dominant progressive cone dystrophies associated with a heterozygous variant c.2512C&gt;T of GUCY2D gene in a large kindred"
 authors:
 - Yunxia Gao
@@ -19,6 +19,7 @@ journal: Eye
 year: '2023'
 doi: 10.1038/s41433-022-02355-1
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Phenotypic characterization of autosomal dominant progressive cone dystrophies associated with a heterozygous variant c.2512C&gt;T of GUCY2D gene in a large kindred

@@ -100,13 +100,29 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
 pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
-weekly-compliance, stale-pr-reassign, post-review-agent) is centralized in
+preprint-scan, weekly-compliance, stale-pr-reassign, post-review-agent) is centralized in
 `.github/cron-profiles.yaml` as named profiles (`slow`/`medium`/`fast`/`fast-weekend`).
 Switch with `just cron-profile <name>` (preview with `just cron-profile-preview <name>`,
 list with `just cron-profiles`), which rewrites the `on.schedule` cron lines in
 each workflow and commits. Do NOT hand-edit those cron lines — edit the profile
 config instead. Page/build crons are intentionally unmanaged. See
 [`docs/cron-profiles.md`](docs/cron-profiles.md).
+
+### Agent Model Config (`.github/agent-config.yaml`)
+The Claude **model** backing each agentic workflow (curation-scanner,
+discussion-scanner, knowledge-gap-scan, literature-scan, preprint-scan,
+post-review-agent, pr-shepherd, weekly-compliance, claude-code-review) is
+centralized in `.github/agent-config.yaml` — one source of truth instead of a
+`--model` hardcoded per workflow. At run time each workflow's `Resolve agent
+config` step (the `.github/actions/resolve-agent-config` composite action) reads
+the config and exports `AGENT_MODEL`; the agent invocation uses `--model ${{
+env.AGENT_MODEL }}`. Resolution order: a `workflow_dispatch` `model:` override >
+the per-workflow `model:` > `default_model`. To bump a model for scheduled runs,
+edit `agent-config.yaml` — do NOT re-add a hardcoded `--model` to a workflow (a
+test enforces this). `curation-scanner`'s per-effort-tier models live in the same
+file as a `matrix:` and drive its strategy matrix via a `setup` job. This
+complements — and is separate from — cron cadence (cron-profiles.yaml); it covers
+the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #5218.
 
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
@@ -120,6 +136,33 @@ config instead. Page/build crons are intentionally unmanaged. See
 
 ### Scripts (`scripts/`)
 - `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
+
+### Research Artifacts (`research/`)
+
+**`research/` is ONLY for deep-research outputs — do not hand-place files here.**
+The directory holds the raw, per-disease outputs of deep-research runs (the
+`/deep-research` skill and DR providers such as Falcon, Asta, OpenScientist,
+Perplexity): the `*-deep-research-*.md` reports, their `*.citations.md`
+sidecars, `*_artifacts/` image folders, `*-research-synthesis.md` roll-ups, and
+Claude Code literature sweeps. These are consumed by curation as first-class
+inputs and indexed by `scripts/index_research_artifacts.py`; evidence `images:`
+paths and DR provenance resolve relative to this directory.
+
+Rules:
+- **Do not manually write ad-hoc research or analysis markdown into `research/`.**
+  Notes about the code internals, project investigations, landscape surveys,
+  pilots, registries, and paper maps do **not** belong here — put them under
+  `docs/` instead (e.g. `docs/superpowers/` for agent investigations/plans/specs,
+  `docs/reports/` for analysis reports, `docs/research/` for research provenance,
+  `docs/curation-notes/` for per-disease curation notes). Everything under `docs/`
+  should also be surfaced in the `mkdocs.yml` nav.
+- **Exception — deterministic script outputs may live in `research/`.** A handful
+  of scripts write generated data here by design (e.g.
+  `scripts/nec_risk_audit.py` → `research/nec_risk_disease_classes.md`,
+  `scripts/grouping_mondo_gaps.py` → `research/grouping_mondo_gaps.md`, the
+  node-embedding worklist, `conforms_to_suggestions.tsv`, `cebm_pilot_*.json`).
+  These are generated, not "manually touched"; regenerate them via their script
+  rather than hand-editing, and leave them in place.
 
 ### Structured-Database Sources (`src/dismech/structured_sources/`)
 - Framework for ingesting structured knowledge bases (Orphanet, ClinGen; OMIM /
@@ -180,6 +223,13 @@ pathophysiology:
 - **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
 - **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
 
+**Creating a module?** Use the `create-module` skill — it covers the module
+schema shape, the trigger→consequence node chain, the treatment
+`target_mechanisms` drug pattern, evidence discipline, and the **Xogenesis**
+(pathological-structure-formation) open-ontology anchor convention (OGMS process
++ MPATH entity + UBERON site; SNOMED as guide-only). See also the primer
+`docs/primers/modules-and-conformance.md`.
+
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
 - `cellular_senescence` — Conserved cellular senescence: senescence-inducing stress → p16INK4a/Rb and p53/p21 cell-cycle arrest → senescence-associated secretory phenotype (SASP) → senescent cell accumulation (when immune clearance is outpaced) → chronic inflammation and tissue dysfunction driving age-related disease. Carries the two canonical senescence biomarkers (p16INK4a/CDKN2A and senescence-associated beta-galactosidase) as `biochemical` readouts, plus the senolytic drug-target pattern (treatments use `target_mechanisms` to link back to "Senescent Cell Accumulation"). Intentionally lean: disease-specific or context-dependent downstream theories (e.g. the age-contextualized accelerated-aging/early-onset-cancer association) are NOT embedded — they belong on the relevant disorder or comorbidity/trajectory entry, which can `conforms_to`/reference this module. Worked conformers: Osteoarthritis (senescent chondrocytes), pulmonary fibrosis (senescent fibroblasts). Key conformance target: `cellular_senescence#Senescent Cell Accumulation`. Complemented by `senescence_tumor_suppression` (the protective arm).
@@ -196,6 +246,7 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `deregulated_cellular_energetics` — Emerging hallmark (metabolic reprogramming): oncogene-driven nutrient uptake → aerobic glycolysis (Warburg effect) → biosynthetic diversion of glycolytic/TCA intermediates for biomass. Metabolically downstream of `sustaining_proliferative_signaling`; driver substitutions include MYC/PI3K glucose addiction, IDH1/2 oncometabolite, VHL/HIF. Worked conformer: Clear_Cell_Ovarian_Carcinoma (HNF1B-driven glycolysis). Key conformance target: `deregulated_cellular_energetics#Aerobic Glycolysis (Warburg Effect)`
 - `genome_instability_mutation` — Enabling characteristic (the mutational engine): genome-maintenance defect or replication stress (MMR/HRR-BRCA/NER loss, oncogene-induced replication stress) → failure of DNA-damage surveillance and repair (compounded by TP53/ATM/CDKN2A loss) → mutator phenotype and chromosomal instability → accelerated clonal evolution. The HRR-deficiency therapeutic vulnerability is detailed in `dna_repair_synthetic_lethality`. Worked conformer: Lynch_Syndrome (MMR loss/MSI). Key conformance target: `genome_instability_mutation#Mutator Phenotype and Chromosomal Instability`
 - `tumor_promoting_inflammation` — Enabling characteristic (the inflammatory engine): chronic inflammatory stimulus (H. pylori, viral hepatitis, IBD, irritants, obesity) → pro-tumorigenic inflammatory microenvironment (TAMs, neutrophils, mast cells secreting growth/pro-angiogenic factors, proteases, cytokines, mutagenic ROS) → hallmark-promoting inflammatory output (proliferation, survival via NF-kB/STAT3, angiogenesis, invasion, genomic instability). Complements `immune_checkpoint_blockade` (adaptive immune-evasion arm). Worked conformers: Classic_Hodgkin_Lymphoma (reactive inflammatory microenvironment), MALT_Lymphoma (H. pylori chronic-inflammation trigger). Key conformance target: `tumor_promoting_inflammation#Pro-Tumorigenic Inflammatory Microenvironment`
+- `viral_oncogenesis` — Enabling characteristic (the viral engine): virus-induced cancer, the conserved mechanism shared by the human tumor viruses (~10-15% of human cancers). Persistent oncogenic-virus infection → viral oncoprotein expression ± host-genome integration → inactivation of the host p53 and RB/p16 tumor-suppressor axes and proliferative/survival-signaling hijack → genomic instability and deregulated proliferation → malignant transformation years-to-decades later. Conforming disorder nodes substitute the virus-specific oncoprotein(s): high-risk HPV E6 (p53 degradation)/E7 (RB inactivation); EBV LMP1/EBNA; HBV HBx; HTLV-1 Tax/HBZ; Merkel cell polyomavirus large T; KSHV LANA/vCyclin/vFLIP. Deliberately complementary to — not a duplicate of — `tumor_promoting_inflammation` (the chronic-inflammation route to viral cancer, e.g. HBV/HCV→HCC), `immune_checkpoint_blockade` (adaptive immune-evasion arm), and the host-genetic hallmark modules (`evading_growth_suppressors`, `genome_instability_mutation`, `enabling_replicative_immortality`), which viral cancers often ALSO conform to; this module isolates the DIRECT viral-oncoprotein arm. Worked conformers: Human_Papillomavirus_Infection (High-Risk Persistence and Transformation; HPV E6/E7), Cervical_Cancer (E6→p53, E7→pRB, HPV genome integration, and genomic-instability nodes — the flagship multi-node conformer), Penile_Cancer (HPV E6/E7-driven transformation), Classic_Hodgkin_Lymphoma (EBV LMP1 NF-kB signaling-hijack arm), Hepatitis_B (HBV DNA integration node), Merkel_Cell_Carcinoma (MCPyV large T antigen — viral-oncoprotein and RB-inactivation nodes), and Adult_T_Cell_Leukemia_Lymphoma (HTLV-1 Tax — viral-oncoprotein, NF-kB signaling-hijack, and genomic-instability nodes). Key conformance target: `viral_oncogenesis#Host Tumor Suppressor Inactivation and Signaling Hijack`
 - `bacterial_cell_wall_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for cell-wall-active antibiotics: peptidoglycan precursor/lipid II synthesis (fosfomycin, cycloserine, bacitracin, glycopeptide targets) → PBP transpeptidase cross-linking (the beta-lactam target) → cell-envelope integrity failure and bactericidal autolysis, with two resistance branches that gate drug choice: acquired resistance/drug inactivation (beta-lactamase, PBP2a, D-Ala-D-Lac remodeling) and intrinsic resistance in cell-wall-deficient organisms (Mycoplasma/Mollicutes have no target). Drug mechanism design pattern: cell-wall-active treatments use `target_mechanisms` to link back to the inhibited node. Key conformance / treatment target: `bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins`. See `projects/ANTIMICROBIAL.md` for the broader drug–bug strategy.
 - `bacterial_protein_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for ribosome-targeting antibiotics: bacterial mRNA translation by the 70S ribosome (the shared target of 30S-acting tetracyclines/aminoglycosides and 50S-acting macrolides, lincosamides, chloramphenicol, oxazolidinones) → suppression of toxin and exoprotein synthesis (the anti-toxin rationale for adjunctive clindamycin/linezolid in toxin-mediated streptococcal/staphylococcal disease, beyond bacterial killing) → ribosomal target resistance (erm rRNA methylation/MLSb, ribosomal mutation, drug-modifying enzymes, efflux). Key conformance / treatment targets: `bacterial_protein_synthesis_inhibition#Bacterial mRNA Translation by the Ribosome` and `#Suppression of Toxin and Exoprotein Synthesis`.
 - `intracellular_pathogen_persistence` — Conserved antibacterial lifestyle-gating pattern for obligate/facultative intracellular bacteria (Rickettsia, Bartonella, Brucella, Coxiella, Legionella, Chlamydia, intracellular Mycobacterium): intracellular niche and beta-lactam exclusion (poorly cell-penetrant drugs cannot reach the organism) → requirement for cell-penetrant antimicrobials (doxycycline, macrolides, fluoroquinolones, rifamycins). This is a pharmacokinetic gating module, not an enzyme target; a conforming disease usually ALSO conforms to a target-based module (ribosome/cell wall) for the drug's molecular mechanism. Key conformance / treatment target: `intracellular_pathogen_persistence#Requirement for Cell-Penetrant Antimicrobials`. Worked multi-module examples: Murine_Typhus and Oroya_Fever conform to both this and `bacterial_protein_synthesis_inhibition`.
@@ -212,7 +263,13 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `axial_segmentation_serial_homology` — The axial counterpart of the limb/digit and pharyngeal-arch serial-homology modules: vertebrae and ribs are serially repeated (metameric) somite derivatives built one segment at a time by the segmentation clock (coupled Notch/Wnt/FGF oscillator) interacting with the FGF/Wnt determination wavefront, so a single clock/Notch lesion perturbs many segments and yields a multi-segment malformation bundle (multiple hemivertebrae, fused/block vertebrae, rib fusions/malalignment) rather than an isolated defect. Segmentation clock / wavefront dysfunction (DLL3/SCDO1, MESP2/SCDO2, LFNG/SCDO3, HES7/SCDO4, TBX6) → disrupted somite boundary formation → vertebral and costal malsegmentation (congenital scoliosis, thoracic insufficiency). Conforming disorder nodes substitute the disorder-specific segmentation-clock gene. Worked conformers: Spondylocostal_Dysostosis (Notch-pathway DLL3/MESP2/LFNG/HES7/TBX6 → disrupted somite formation → multiple vertebral + rib malsegmentation, conforming across all three module nodes), Klippel-Feil_Syndrome (MEOX1 sclerotome-polarity / somite-boundary defect → cervical vertebral fusion; conforms at the somite-boundary and malsegmentation nodes), and TBX6-Associated_Congenital_Scoliosis (compound TBX6 null-plus-hypomorphic dosage insufficiency at the determination wavefront → hemivertebrae/congenital scoliosis; conforms across all three module nodes). Key conformance target: `axial_segmentation_serial_homology#Vertebral and Costal Malsegmentation`
 - `aortopathy_tgfbeta_dysregulation` — Conserved heritable thoracic aortic aneurysm/dissection (TAAD) pattern: aortic-wall ECM or smooth-muscle contractile-apparatus defect → paradoxically increased TGF-beta signaling dysregulation → medial degeneration (smooth muscle cell depletion + elastic fiber fragmentation) and wall weakening → progressive aortic dilation/aneurysm → aortic dissection and rupture. Conforming disorder nodes substitute the disorder-specific primary lesion (FBN1 microfibril deficiency in Marfan/Shprintzen-Goldberg; TGFBR1/2, SMAD3, TGFB2/3 in Loeys-Dietz; COL3A1 in vascular Ehlers-Danlos; SLC2A10 in arterial tortuosity; ACTA2/MYH11/MYLK/PRKG1 in nonsyndromic familial TAAD). Key conformance target: `aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation`
 - `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
+- `renal_cystogenesis` — Conserved epithelial (tubular) renal cyst-formation pattern, the cystogenic-machinery complement of `ciliopathy_dysfunction` (which covers the broader Hedgehog/PCP developmental arm but not the cAMP-CFTR cyst-fluid pathway): polycystin/primary-cilium signaling loss (PKD1/PKD2, and ciliary lesions in ARPKD/nephronophthisis/syndromic ciliopathies) → fall in cilium-dependent calcium → cAMP and vasopressin-V2R signaling activation → cyst-lining epithelial proliferation and CFTR-mediated transepithelial fluid secretion → progressive cyst expansion and kidney enlargement → nephron loss and progressive kidney failure. Carries the vasopressin-V2R-antagonist (tolvaptan) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` to link back to the cAMP/V2R node). Deliberately scoped to cAMP-driven tubular cystogenesis; mechanistically unrelated cysts (arachnoid, dermoid, parasitic hydatid, neoplastic cystadenoma, developmental cavitation) are out of scope. Flagship conformer: Autosomal_Dominant_Polycystic_Kidney_Disease (full-chain conformance across all five module nodes); Polycystic_Kidney_Disease conforms at the cAMP/V2R and proliferation/secretion nodes. Key conformance target: `renal_cystogenesis#Cyst-Lining Epithelial Proliferation and Transepithelial Fluid Secretion`
+- `granuloma_formation` — Conserved granuloma-formation ("Xogenesis") pattern recurring across mycobacterial infection (TB, leprosy), fungal infection, sarcoidosis, Crohn disease, berylliosis, and foreign-body reactions: persistent indigestible stimulus an individual macrophage cannot eradicate → Th1/TNF-driven macrophage recruitment and activation → epithelioid transformation and multinucleated giant-cell formation (macrophage fusion) → organized (± caseating) granuloma assembly → tissue containment versus destruction and fibrosis. Carries the TNF-inhibitor drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the TNF/macrophage-activation node — therapeutic in sterile granulomatous disease, reactivates latent TB). Xogenesis anchor: forms MPATH:847 granuloma (`OGMS:0000078` via `OGMS:0000081` derivation). Key conformance target: `granuloma_formation#Epithelioid Transformation and Multinucleated Giant Cell Formation`
+- `thrombogenesis` — Conserved thrombus-formation ("Xogenesis") pattern recurring across venous thromboembolism, arterial thrombosis (MI, stroke), cancer-associated thrombosis, and antiphospholipid syndrome: Virchow's triad (endothelial injury, stasis, hypercoagulability) → platelet adhesion, activation, and aggregation → coagulation cascade activation and thrombin-driven fibrin formation → fibrin-platelet thrombus propagation and vascular occlusion → thromboembolism and ischemic tissue injury. Carries the anticoagulant (factor Xa / thrombin inhibition) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the coagulation node). Xogenesis anchor: forms a thrombus (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:125 thrombosis — MPATH lacks a distinct thrombus continuant, a noted OBO gap) at UBERON:0001981 blood vessel. Key conformance target: `thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation`
+- `atherogenesis` — Conserved atheroma/atherosclerotic-plaque formation ("Xogenesis") pattern recurring across coronary artery disease, ischemic stroke, and peripheral artery disease: endothelial dysfunction and subendothelial LDL (apoB-lipoprotein) retention → monocyte recruitment and macrophage foam-cell formation → smooth-muscle-cell phenotypic switching and fibrofatty plaque formation → advanced atheroma with necrotic core and fibrous cap → plaque rupture, thrombosis, and ischemic events (feeds `thrombogenesis`). Carries the LDL-lowering (statin) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the LDL-retention trigger). Xogenesis anchor: forms an atheroma (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:28 atherosclerosis — MPATH lacks a distinct atheroma continuant, a noted OBO gap) at UBERON:0001637 artery. Key conformance target: `atherogenesis#Smooth Muscle Cell Switching and Fibrofatty Plaque Formation`
+- `amyloidogenesis` — Conserved amyloid-deposit formation ("Xogenesis") pattern recurring across AL, ATTR, and AA amyloidosis, Alzheimer disease, and type 2 diabetes: amyloidogenic precursor protein → protein misfolding and beta-sheet oligomerization → amyloid fibril formation and extracellular deposition → progressive tissue amyloid accumulation → organ dysfunction. Conforming nodes substitute the precursor (Ig light chain/AL, transthyretin/ATTR, serum amyloid A/AA, amyloid-beta/Alzheimer). Carries the TTR-stabilizer (tafamidis) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the precursor node). Xogenesis anchor: forms an amyloid deposit (`OGMS:0000079` portion of pathological body substance via `OGMS:0000081` derivation); no MPATH amyloid class (a noted OBO gap). Key conformance target: `amyloidogenesis#Amyloid Fibril Formation and Extracellular Deposition`
 - `cardiac_ion_channel_repolarization` — Conserved cardiac channelopathy pattern: cardiac ion-channel or calcium-handling variant → altered action-potential duration / Ca²⁺ handling → arrhythmogenic substrate and triggered activity (EADs/DADs, dispersion of repolarization, reentry) → ventricular tachyarrhythmia → syncope and sudden cardiac death, with a parallel sinoatrial-node automaticity-failure branch producing bradyarrhythmia. For inherited arrhythmia syndromes in structurally normal hearts (Long QT, Short QT, Brugada, RYR2-CPVT, Timothy, torsade/short-coupled VF, familial sick sinus). Key conformance target: `cardiac_ion_channel_repolarization#Arrhythmogenic Substrate and Triggered Activity`
+- `antisense_oligonucleotide_therapy` — Three FDA-approved ASO paradigms: (1) RNase H knockdown: pathogenic mRNA accumulation → RNase H-mediated transcript degradation → reduction of pathogenic protein (SOD1-ALS/tofersen, ATTR/inotersen or eplontersen, FH/mipomersen, FCS/volanesorsen or olezarsen, HAE/donidalorsen, FUS-ALS/jacifusen); (2) Splice-site occlusion: aberrant pre-mRNA splicing → ASO-directed splice redirection → restored protein reading frame (SMA/nusinersen, DMD exon-skipping/eteplirsen, golodirsen, viltolarsen, casimersen); (3) Steric translation blockade: pathogenic viral mRNA translation → steric viral mRNA translation blockade (CMV retinitis/fomivirsen). Key conformance targets: `antisense_oligonucleotide_therapy#Pathogenic mRNA Accumulation`, `antisense_oligonucleotide_therapy#Aberrant Pre-mRNA Splicing`, `antisense_oligonucleotide_therapy#Pathogenic Viral mRNA Translation`
 
 The following modules capture conserved **treatment-toxicity / "side effect as mechanism"** patterns — adverse-drug-reaction pathophysiology that recurs across many culprit drugs, so a drug-toxicity entry can declare conformance rather than re-deriving the chain (the same insult-agnostic convergence logic the `intestinal_barrier_dysfunction` module already applies to drug-induced and disease-intrinsic diarrhea). Note that several mechanism modules above (`peripheral_axonal_degeneration` for chemo-induced peripheral neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT) already double as toxicity targets without a separate "side effect" class:
 - `myelosuppression` — Conserved cytotoxic bone-marrow-toxicity pattern (chemotherapy, radiation, other antiproliferative exposures): cytotoxic insult to proliferating hematopoietic stem/progenitor cells → bone marrow hematopoietic suppression → multilineage peripheral cytopenias (neutropenia/anemia/thrombocytopenia) → cytopenia-related clinical complications (infection/febrile neutropenia, fatigue, bleeding) and dose-limiting toxicity. Conforming disorder nodes substitute the disorder-specific cytotoxic driver and may specialize the cytopenia node to a predominant lineage. Key conformance target: `myelosuppression#Multilineage Peripheral Cytopenias`
@@ -348,6 +405,81 @@ candidate discovery), `Heritable_Thoracic_Aortic_Disease` (NECESSARY with a
 nested AND/OR phenotype branch), and `Lysosomal_Storage_Disorders` (defining
 module criterion + a nested GROUPING member).
 
+### Digenic / Oligogenic Inheritance (Multi-Locus)
+
+Some disorders require variants at **two loci (digenic)** or a **few loci
+(oligogenic/triallelic)** rather than a single Mendelian locus. Curate the
+multi-locus mode of inheritance explicitly so it is machine-queryable — do not
+leave it as free text.
+
+**Where it goes:** add an `Inheritance` block (in the disease-level
+`inheritance:` list, and/or on a `has_subtypes[]` entry when only one subtype is
+multi-locus) with `inheritance_term` bound to the HPO mode-of-inheritance
+subtree:
+
+- `HP:0010984` **Digenic inheritance** (two loci both required)
+- `HP:0010983` **Oligogenic inheritance** (triallelic / a few loci)
+- `HP:0010982` **Polygenic inheritance** (many small-effect loci; use with
+  `relationship_type: SUSCEPTIBILITY` gene typing)
+
+Always **bind the `term:`** — an `inheritance_term` with only a `preferred_term`
+and no `term:` is the common gap. The `Inheritance` class has no `genes` slot, so
+name the contributing genes in the block `description`; put per-gene detail in
+the `genetic:` section (use `relationship_type: MODIFIER` / `SUSCEPTIBILITY` /
+`COOPERATING` for a contributing second locus) or, for a digenic subtype, in the
+`has_subtypes[].genes` list.
+
+**Evidence discipline:** the digenic/oligogenic claim gets its own PMID with an
+exact-quote snippet (typically the double-heterozygote / joint-transmission /
+epistasis sentence), separate from the general disease evidence.
+
+**Exemplar:** `PRPH2-Related_Retinopathy` is the reference implementation — it
+models digenicity both as an RP7-digenic subtype (listing PRPH2 + ROM1) and as a
+top-level `Digenic inheritance` block bound to `HP:0010984`, citing the classic
+double-heterozygote study (`PMID:8202715`). Other worked digenic/oligogenic
+entries: `Alport_Syndrome`, `Usher_Syndrome`,
+`Facioscapulohumeral_Muscular_Dystrophy` (FSHD2),
+`MITF_Waardenburg_Tietz_Spectrum`, `Meckel_Syndrome`, `Hirschsprung_Disease`
+(oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
+`Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
+`Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
+(`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+
+### Hypothesis-Based Phenotype Algorithms
+
+A `definitions[]` entry with `definition_type: PHENOTYPE_ALGORITHM` may be a
+**computable EHR/OMOP case-finding query predicated on an unproven mechanism**
+(e.g. scan for a new arrhythmia/seizure shortly after a fever to surface latent
+CACNA1C carriers), not just a consensus/OHDSI-validated phenotype. Mark the
+epistemic grounding so the two are never conflated (issue #6245):
+
+- **`derivation_basis`** (`DefinitionDerivationBasisEnum`): `ESTABLISHED_CRITERIA`
+  (default — consensus/validated), `MECHANISTIC_HYPOTHESIS` (predicated on an
+  unproven mechanism), or `MODEL_SYSTEM_EXTRAPOLATION` (from an animal/in-vitro
+  result not yet shown in humans).
+- **`attaches_to`** (reused slot, `pathophysiology#<node>` grammar): for a
+  `MECHANISTIC_HYPOTHESIS` definition, link the pathograph node(s)/edge(s) it is
+  predicated on. The hypothesis basis is then inferred from those edges'
+  `hypothesis_groups` → `mechanistic_hypotheses[].status` — do **not** add a
+  standalone hypothesis id on the definition. A test
+  (`test_hypothesis_based_definition_attaches_to_foreign_keys`) requires these
+  refs to resolve.
+- **`validation_status`** (`AlgorithmValidationStatus` object): `status`
+  (`PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD`) + free-text
+  `rationale` + optional `evidence` (standard EvidenceItem — PMID + verified
+  snippet — e.g. the validation study reporting the query's PPV).
+
+The trigger pathophysiology node itself is modeled normally (a node whose
+`downstream` edges opt into `hypothesis_groups: [<id>]`) plus a disease-level
+`mechanistic_hypotheses` entry (usually `status: EMERGING`). Two paired worked
+examples span the spectrum: `Timothy_Syndrome` (`fever_exacerbated_cav1.2`;
+`MECHANISTIC_HYPOTHESIS`/`PROPOSED`, zebrafish) and `Brugada_Syndrome`
+(fever-unmasking of the type-1 ECG; `ESTABLISHED_CRITERIA`/`UNVALIDATED`, an
+established-mechanism definition that still `attaches_to` its fever node). See
+[`docs/hypothesis-based-phenotype-algorithms.md`](docs/hypothesis-based-phenotype-algorithms.md)
+and the candidate register in
+[`docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md`](docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md).
+
 ### Evidence Items
 All evidence must have PMID references and support classification:
 ```yaml
@@ -403,6 +535,19 @@ non-empty list even for single-actor sessions, include `links:` for relevant
 issues, PRs, and other URLs, keep `summary` short, and put rich review/curation
 notes in the required `details` field. For AI-assisted curation, include the
 model plus agent tool/version fields when they are known.
+
+**Any PR that creates or edits a KB entry (`kb/disorders/`, `kb/modules/`,
+`kb/comorbidities/`) should add a matching history record.** CI posts an advisory
+(non-blocking) warning when a KB entry changes without one. Do not hand-write the
+filename/timestamp — scaffold a schema-valid skeleton and edit its `details`:
+
+```bash
+just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
+  --summary "Create: Asthma" --agent-tool claude-code --model claude-opus-4-8 \
+  --sections phenotypes,pathophysiology,evidence --pr 5123 \
+  --details "What was curated and how it was validated."
+# run `just new-history --help` for all options; it prints the created path
+```
 
 Validate history records with:
 
@@ -640,6 +785,61 @@ treatments:
 - A dedicated `treatment.name` (e.g., "Duloxetine") should still match common clinical usage; `therapeutic_agent` carries the machine-readable identifier.
 - Do NOT put the drug name in `preferred_term` on `treatment_term` — `preferred_term` describes the action (Pharmacotherapy), `therapeutic_agent.preferred_term` describes the agent.
 
+#### Named Combination Regimens (`regimen_term`)
+
+`regimen_term` is a **third, distinct** treatment slot — not an alternative spelling of
+`treatment_term` or `therapeutic_agent`. Use it only when the treatment follows an
+established, **named multi-drug protocol** that itself has an NCIT identity (e.g.
+FOLFIRINOX, ABVD, R-CHOP, CHOP). It is bound to the `RegimenTerm` dynamic enum, reachable
+only from `NCIT:C15697` (Treatment Regimen) / `NCIT:C62634` (Chemo/immuno/hormone Therapy
+Regimen) — generic drug-class terms (e.g. `NCIT:C66930` Angiotensin II Receptor
+Antagonist) are **not** reachable from that root and will fail validation if used here;
+those belong in `therapeutic_agent` instead.
+
+**How the three slots divide the work:**
+- `treatment_term`: the medical action/modality (e.g. `MAXO:0000647` chemotherapy, `NCIT:C15986` Pharmacotherapy)
+- `therapeutic_agent`: the individual drug(s) or drug class(es) involved
+- `regimen_term`: the named combination protocol itself, when one exists
+
+```yaml
+treatments:
+- name: ABVD-Based Chemotherapy
+  treatment_term:
+    preferred_term: chemotherapy
+    term:
+      id: MAXO:0000647
+      label: chemotherapy
+    therapeutic_agent:
+    - preferred_term: doxorubicin
+      term:
+        id: CHEBI:28748
+        label: doxorubicin
+    - preferred_term: bleomycin
+      term:
+        id: CHEBI:22907
+        label: bleomycin
+    - preferred_term: vinblastine
+      term:
+        id: CHEBI:27375
+        label: vincaleukoblastine
+    - preferred_term: dacarbazine
+      term:
+        id: CHEBI:4305
+        label: dacarbazine
+  regimen_term:
+    preferred_term: ABVD regimen
+    term:
+      id: NCIT:C9509
+      label: ABVD Regimen
+```
+
+Leave `regimen_term` absent when the treatment is monotherapy or an ad hoc/unnamed drug
+combination — do not invent a regimen identity that OAK can't verify. Worked examples:
+`Pancreatic_Ductal_Adenocarcinoma` (FOLFIRINOX), `Classic_Hodgkin_Lymphoma` (ABVD),
+`Diffuse_Large_B_Cell_Lymphoma` (R-CHOP), `Peripheral_T_Cell_Lymphoma` (CHOP),
+`BRAF_V600E_Mutant_Colorectal_Cancer` (FOLFOXIRI, curated against the closest available
+NCIT term, `Folfirinox Regimen`, since NCIT does not separately code the FOLFOXIRI name).
+
 ### Therapeutic Modality and Antisense Oligonucleotide (ASO) Detail
 
 A treatment's **modality** (the kind of therapeutic platform) is captured by the
@@ -816,6 +1016,76 @@ reference_ranges:
 phenotype-activation points); use reference ranges for measured lab analytes.
 
 The CKD-Mineral Bone Disorder entry is the worked example.
+
+### Prevalence (disease occurrence)
+
+Model disease occurrence with the **structured** `Prevalence` slots, not the
+deprecated free-text `percentage` field (see design decision §8). Each prevalence
+record should separate the four dimensions the old field conflated:
+
+- `population` — cohort / geography only (e.g. `Worldwide`, `Ashkenazi Jewish
+  population`). Do **not** put the measure type here.
+- `measure_type` (`PrevalenceMeasureEnum`) — `POINT_PREVALENCE`, `BIRTH_PREVALENCE`,
+  `LIFETIME_PREVALENCE`, `PERIOD_PREVALENCE`, `ANNUAL_INCIDENCE`, `CARRIER_FREQUENCY`,
+  `CASES_IN_LITERATURE`, or `UNKNOWN`. Never compare a prevalence with an incidence.
+- `prevalence_class` (`PrevalenceClassEnum`) — the coarse, always-fillable band
+  (the population-rate analog of phenotype `FrequencyEnum`). Numeric tiers are the
+  Orphanet classes (`ABOVE_1_IN_1000`, `BAND_1_5_PER_10000`, `BAND_1_9_PER_100000`,
+  `BAND_1_9_PER_1000000`, `BELOW_1_IN_1000000`, `NOT_YET_DOCUMENTED`); qualitative
+  tiers (`COMMON`, `RARE`, `ULTRA_RARE`, `UNKNOWN`) cover prose-only sources.
+- `rate_per_100000` (+ `rate_low` / `rate_high` for ranges) — one normalized number
+  in cases per 100,000 (`% × 1000`; `per million ÷ 10`; `1 in N → 100000/N`).
+- `notes` keeps the verbatim source phrasing; `evidence` is unchanged.
+
+```yaml
+prevalence:
+- population: Worldwide
+  measure_type: POINT_PREVALENCE
+  prevalence_class: BAND_1_5_PER_10000
+  rate_per_100000: 20.0
+  notes: Orphanet worldwide point-prevalence class 1-5 / 10,000.
+  evidence:
+  - reference: ORPHA:558
+    supports: SUPPORT
+    snippet: "1-5 / 10 000 | Worldwide | Point prevalence | PMID:20301510"
+    explanation: Orphanet epidemiology table.
+```
+
+`scripts/migrate_prevalence.py` backfilled existing entries; do not populate
+`percentage` on new records.
+
+#### Per-gene case fractions (genetically heterogeneous diseases)
+
+For a disease where multiple genes each explain some share of cases, record that
+share with structured `Genetic.case_fractions` (multivalued `GeneCaseFraction`),
+**not** the free-text `Genetic.frequency` field. This is the genetic-spectrum
+analog of a `Prevalence` record and is distinct from population occurrence and
+from allele frequency — the share is cohort/ancestry-dependent, so each estimate
+carries its own `population` and `evidence`:
+
+```yaml
+genetic:
+- name: BBS1
+  gene_term:
+    preferred_term: BBS1
+    term:
+      id: hgnc:966
+      label: BBS1
+  frequency: one of the most prevalent BBS genes   # coarse qualitative band (kept)
+  case_fractions:
+  - population: German BBS cohort
+    case_fraction_percent: 24.6
+    notes: Second most common gene in a contemporary German clinical series.
+    evidence:
+    - reference: PMID:35886001
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: "The most common associated genes were BBS10 (32.8%) and BBS1 (24.6%)"
+      explanation: Quantifies the BBS1 share of cases in the German cohort.
+```
+
+Use `case_fraction_low`/`case_fraction_high` for ranges and `cohort_size` when the
+proband count is reported. `Bardet-Biedl_Syndrome` (BBS1/BBS10) is the worked example.
 
 ### Clinical Trials
 
@@ -1374,7 +1644,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `kb/disorders/*.yaml`, `kb/modules/*.yaml` | YES | Core content |
 | `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
-| `research/*.md` | YES | Useful provenance |
+| `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `src/`, `scripts/`, `tests/`, `conf/` | YES | Source code |
 
 ### What NOT to commit

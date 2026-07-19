@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ecco-jcc/jjab123"
+reference_id: DOI:10.1093/ecco-jcc/jjab123
 title: "Pathogenesis of Microscopic Colitis: A Systematic Review"
 authors:
 - Yamile Zabana
@@ -19,6 +19,7 @@ journal: "Journal of Crohn's and Colitis"
 year: '2022'
 doi: 10.1093/ecco-jcc/jjab123
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathogenesis of Microscopic Colitis: A Systematic Review

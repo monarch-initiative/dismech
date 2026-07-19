@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmra2402527"
+reference_id: DOI:10.1056/nejmra2402527
 title: Lead Poisoning
 authors:
 - Bruce Lanphear
@@ -9,6 +9,7 @@ journal: New England Journal of Medicine
 year: '2024'
 doi: 10.1056/nejmra2402527
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Lead Poisoning

@@ -1,0 +1,67 @@
+name: Untrusted Comment Guard
+
+on:
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  guard-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Minimize risky untrusted comment
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const trustGate = require('./.github/scripts/github-trust-gate.js');
+
+            const comment = context.payload.comment || {};
+            const login = comment.user?.login || comment.author?.login || '';
+            const [owner, repo] = [context.repo.owner, context.repo.repo];
+
+            if (!comment.node_id) {
+              core.info('Comment does not expose a GraphQL node_id; skipping moderation.');
+              return;
+            }
+
+            const trusted = await trustGate.isTrustedLogin({
+              github,
+              owner,
+              repo,
+              login,
+              controllers: trustGate.loadControllers(),
+            });
+
+            if (trusted) {
+              core.info(`Comment author ${login || '<unknown>'} is trusted; leaving comment visible.`);
+              return;
+            }
+
+            const risk = trustGate.classifyCommentRisk(comment.body || '');
+            if (!risk.shouldMinimize) {
+              core.info(
+                `Comment author ${login || '<unknown>'} is untrusted, but no risky attachment or agent-trigger pattern was detected.`,
+              );
+              return;
+            }
+
+            core.warning(
+              `Minimizing untrusted comment ${comment.html_url || comment.node_id}; reasons: ${risk.reasons.join(', ')}`,
+            );
+            await trustGate.minimizeComment({
+              github,
+              subjectId: comment.node_id,
+              classifier: risk.classifier,
+            });

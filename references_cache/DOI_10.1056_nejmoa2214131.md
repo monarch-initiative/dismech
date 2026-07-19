@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2214131"
+reference_id: DOI:10.1056/nejmoa2214131
 title: Capivasertib in Hormone Receptor–Positive Advanced Breast Cancer
 authors:
 - Nicholas C. Turner
@@ -29,6 +29,7 @@ journal: New England Journal of Medicine
 year: '2023'
 doi: 10.1056/nejmoa2214131
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Capivasertib in Hormone Receptor–Positive Advanced Breast Cancer

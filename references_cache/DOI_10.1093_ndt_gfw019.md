@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ndt/gfw019"
+reference_id: DOI:10.1093/ndt/gfw019
 title: "Magnesium lactate in the treatment of Gitelman syndrome: patient-reported outcomes"
 authors:
 - Caroline M. Robinson
@@ -8,6 +8,7 @@ journal: Nephrology Dialysis Transplantation
 year: '2017'
 doi: 10.1093/ndt/gfw019
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Magnesium lactate in the treatment of Gitelman syndrome: patient-reported outcomes

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40618-019-01079-6"
+reference_id: DOI:10.1007/s40618-019-01079-6
 title: "Epidemiology, pathogenesis, and diagnosis of Addison’s disease in adults"
 authors:
 - C. Betterle
@@ -9,6 +9,7 @@ journal: Journal of Endocrinological Investigation
 year: '2019'
 doi: 10.1007/s40618-019-01079-6
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Epidemiology, pathogenesis, and diagnosis of Addison’s disease in adults

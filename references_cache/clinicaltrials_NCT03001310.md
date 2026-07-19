@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT03001310"
 title: "An Open Label, Multi-centre, Phase I/II Dose Escalation Trial of a Recombinant Adeno-associated Virus Vector (AAV2/8-hCARp.hCNGB3) for Gene Therapy of Adults and Children With Achromatopsia Owing to Defects in CNGB3"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An Open Label, Multi-centre, Phase I/II Dose Escalation Trial of a Recombinant Adeno-associated Virus Vector (AAV2/8-hCARp.hCNGB3) for Gene Therapy of Adults and Children With Achromatopsia Owing to Defects in CNGB3

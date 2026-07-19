@@ -88,6 +88,7 @@ def validator():
     return Validator(SCHEMA_PATH)
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_valid_disorder_files(filepath, validator):
     """Test that all disorder files validate against the schema."""
@@ -103,6 +104,7 @@ def test_valid_disorder_files(filepath, validator):
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", COMORBIDITY_FILES)
 def test_valid_comorbidity_files(filepath, validator):
     """Test that all comorbidity files validate against the schema."""
@@ -115,6 +117,7 @@ def test_valid_comorbidity_files(filepath, validator):
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_disorder_has_required_fields(filepath):
     """Test that all disorders have required fields."""
@@ -125,6 +128,7 @@ def test_disorder_has_required_fields(filepath):
     assert data["name"], f"Empty 'name' in {filepath}"
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_evidence_items_have_references(filepath):
     """Test that evidence items use supported reference prefixes."""
@@ -134,6 +138,7 @@ def test_evidence_items_have_references(filepath):
     allowed_reference_prefixes = (
         "PMID:",
         "DOI:",
+        "PPR:",  # Europe PMC preprint IDs (supported by the reference validator)
         "clinicaltrials:",
         "file:",
         "url:",
@@ -588,6 +593,7 @@ def test_therapeutic_action_target_check_allows_mechanism_targets():
     assert not _non_therapeutic_action_target_errors(data)
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_non_therapeutic_actions_do_not_use_treatment_targets(filepath):
     """Annotated non-therapeutic medical actions must not use treatment-style target links."""
@@ -613,6 +619,7 @@ def test_all_disorders_have_unique_names():
     assert not duplicates, f"Duplicate disorder names: {set(duplicates)}"
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_subtype_foreign_keys(filepath):
     """Test that subtype references match has_subtypes names."""
@@ -660,6 +667,63 @@ def test_subtype_foreign_keys(filepath):
     assert not errors, (
         f"Subtype FK mismatches in {Path(filepath).name}. "
         f"Valid subtypes: {valid_subtypes}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_hypothesis_based_definition_attaches_to_foreign_keys(filepath):
+    """Hypothesis-based phenotype algorithms must anchor in the pathograph (#6245).
+
+    A `definitions[]` entry whose `derivation_basis` is MECHANISTIC_HYPOTHESIS
+    is predicated on a specific disease mechanism, so it must `attaches_to` at
+    least one node it operationalizes, and any *local* `pathophysiology#<name>`
+    or `phenotype#<name>` reference must resolve to a real node/phenotype in the
+    same entry (the same hash-anchor discipline `discussions.attaches_to` uses).
+    Cross-file references (`<file>:<kind>#<name>`) are not resolved here.
+    """
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    definitions = data.get("definitions", []) or []
+    if not definitions:
+        return
+
+    patho_names = {n.get("name") for n in data.get("pathophysiology", []) or []}
+    pheno_names = {p.get("name") for p in data.get("phenotypes", []) or []}
+
+    errors = []
+    for i, defn in enumerate(definitions):
+        if defn.get("derivation_basis") != "MECHANISTIC_HYPOTHESIS":
+            continue
+        refs = defn.get("attaches_to", []) or []
+        if not refs:
+            errors.append(
+                f"definitions[{i}] ({defn.get('name')!r}) has "
+                f"derivation_basis: MECHANISTIC_HYPOTHESIS but no attaches_to"
+            )
+            continue
+        for ref in refs:
+            if "#" not in ref:
+                errors.append(f"definitions[{i}].attaches_to={ref!r} lacks '#'")
+                continue
+            left, name = ref.split("#", 1)
+            if ":" in left:
+                # Cross-file reference — not resolved here.
+                continue
+            kind = left
+            if kind == "pathophysiology" and name not in patho_names:
+                errors.append(
+                    f"definitions[{i}].attaches_to={ref!r} does not resolve to a "
+                    f"pathophysiology node"
+                )
+            elif kind == "phenotype" and name not in pheno_names:
+                errors.append(
+                    f"definitions[{i}].attaches_to={ref!r} does not resolve to a "
+                    f"phenotype"
+                )
+
+    assert not errors, (
+        f"Hypothesis-based definition FK problems in {Path(filepath).name}: {errors}"
     )
 
 
@@ -714,6 +778,7 @@ def test_phenotype_multivalued_subtypes_fk_catches_bad_refs(tmp_path):
         test_subtype_foreign_keys(str(fake_path))
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_experimental_model_mechanism_targets(filepath):
     """Experimental model links should reference declared pathophysiology nodes."""
@@ -743,6 +808,7 @@ def test_experimental_model_mechanism_targets(filepath):
     )
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_computational_model_mechanism_targets(filepath):
     """Computational model links should reference declared pathophysiology nodes."""
@@ -772,6 +838,7 @@ def test_computational_model_mechanism_targets(filepath):
     )
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_subtypes_have_disease_term(filepath):
     """Test that has_subtypes items have a subtype_term with an ontology grounding.
@@ -956,6 +1023,7 @@ def _module_stem(ref):
     return ref.split("#", 1)[0].strip() if ref else ref
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_valid_grouping_files(filepath, validator):
     """All grouping files validate against the Grouping class."""
@@ -968,6 +1036,7 @@ def test_valid_grouping_files(filepath, validator):
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_grouping_member_foreign_keys(filepath):
     """Each grouping member must resolve to a real Disease, module, or grouping."""
@@ -1000,6 +1069,7 @@ def test_grouping_member_foreign_keys(filepath):
     )
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_grouping_module_references(filepath):
     """Every `module` reference in a grouping must resolve to a module file."""
@@ -1044,6 +1114,7 @@ def test_grouping_unique_names():
     assert not dupes, f"Duplicate grouping names: {dupes}"
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_grouping_criteria_well_formed(filepath):
     """Structured membership-criteria expressions must be well-formed.
@@ -1220,6 +1291,7 @@ def test_grouping_overlap_expands_nested_grouping_members():
     assert find_candidate_members(groupings["Parent"], index, groupings) == ["D"]
 
 
+@pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_grouping_evaluation_runs(filepath):
     """The membership evaluator executes and returns structured results.

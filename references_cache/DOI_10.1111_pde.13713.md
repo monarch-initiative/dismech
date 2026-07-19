@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/pde.13713"
+reference_id: DOI:10.1111/pde.13713
 title: "Biology of human melanocyte development, Piebaldism, and Waardenburg syndrome"
 authors:
 - Mohammed D. Saleem
@@ -7,6 +7,7 @@ journal: Pediatric Dermatology
 year: '2019'
 doi: 10.1111/pde.13713
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Biology of human melanocyte development, Piebaldism, and Waardenburg syndrome

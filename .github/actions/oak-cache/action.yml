@@ -1,0 +1,54 @@
+name: Cache OAK ontology databases
+description: >-
+  Persist OAK's ontology SQLite cache across CI runs so term validation stops
+  re-downloading whole ontology databases from the public bbop-sqlite bucket on
+  every run. Pins PYSTOW_HOME (the directory OAK actually reads) to a stable,
+  runner-local path and restores/saves <PYSTOW_HOME>/oaklib with actions/cache.
+  See docs/explanation/oak-database-caching.md for the full rationale — notably that this is
+  a private, ephemeral build accelerator, not a public redistribution mirror.
+
+inputs:
+  pystow-home:
+    description: >-
+      Directory to use as PYSTOW_HOME. OAK derives its ontology cache from
+      <pystow-home>/oaklib (pystow.module("oaklib")). Leave empty to use a
+      stable runner-local path under RUNNER_TEMP.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # OAK resolves sqlite:obo:<name> databases to $PYSTOW_HOME/oaklib/<name>.db
+    # (default ~/.data/oaklib). It reads ONLY PYSTOW_HOME for this — it does not
+    # honor OAK_DB_DIR — so we pin PYSTOW_HOME explicitly to guarantee the cache
+    # we restore is the exact directory OAK will read from. Without this pin the
+    # restored cache and OAK's lookup path can diverge and OAK silently
+    # re-downloads.
+    - name: Pin OAK cache location (PYSTOW_HOME)
+      shell: bash
+      run: |
+        pystow_home="${{ inputs.pystow-home }}"
+        if [ -z "$pystow_home" ]; then
+          pystow_home="${RUNNER_TEMP}/pystow"
+        fi
+        mkdir -p "${pystow_home}/oaklib"
+        {
+          echo "PYSTOW_HOME=${pystow_home}"
+          echo "OAK_SQLITE_CACHE_DIR=${pystow_home}/oaklib"
+        } >> "$GITHUB_ENV"
+        echo "OAK ontology SQLite cache dir: ${pystow_home}/oaklib"
+
+    # Accumulating-cache pattern: the unique run_id key always misses on the
+    # exact key (so the post-job save always runs and captures any newly
+    # downloaded DBs), while restore-keys restores the most recent prior cache.
+    # Keying on conf/oak_config.yaml invalidates the cache when the adapter
+    # config changes (e.g. an ontology moves between sqlite:obo: and ols:).
+    - name: Restore/save OAK ontology SQLite cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.OAK_SQLITE_CACHE_DIR }}
+        key: oak-sqlite-${{ hashFiles('conf/oak_config.yaml') }}-${{ github.run_id }}
+        restore-keys: |
+          oak-sqlite-${{ hashFiles('conf/oak_config.yaml') }}-
+          oak-sqlite-

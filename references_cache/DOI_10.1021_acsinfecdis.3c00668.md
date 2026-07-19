@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1021/acsinfecdis.3c00668"
+reference_id: DOI:10.1021/acsinfecdis.3c00668
 title: "Interleukin-22 Contributes to Blood–Brain Barrier Disruption via STAT3/VEGFA Activation in <i>Escherichia coli</i> Meningitis"
 authors:
 - Ruicheng Yang
@@ -14,6 +14,7 @@ journal: ACS Infectious Diseases
 year: '2024'
 doi: 10.1021/acsinfecdis.3c00668
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Interleukin-22 Contributes to Blood–Brain Barrier Disruption via STAT3/VEGFA Activation in <i>Escherichia coli</i> Meningitis

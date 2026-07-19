@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/ng.2421"
+reference_id: DOI:10.1038/ng.2421
 title: Mutations in the TGF-β repressor SKI cause Shprintzen-Goldberg syndrome with aortic aneurysm
 authors:
 - Alexander J Doyle
@@ -30,6 +30,7 @@ journal: Nature Genetics
 year: '2012'
 doi: 10.1038/ng.2421
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Mutations in the TGF-β repressor SKI cause Shprintzen-Goldberg syndrome with aortic aneurysm

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2010.05.004"
+reference_id: DOI:10.1016/j.ymgme.2010.05.004
 title: "Pyruvate carboxylase deficiency: Mechanisms, mimics and anaplerosis"
 authors:
 - Isaac Marin-Valencia
@@ -9,6 +9,7 @@ journal: Molecular Genetics and Metabolism
 year: '2010'
 doi: 10.1016/j.ymgme.2010.05.004
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pyruvate carboxylase deficiency: Mechanisms, mimics and anaplerosis

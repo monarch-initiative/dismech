@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/neuonc/nox228"
+reference_id: DOI:10.1093/neuonc/nox228
 title: "Germline <i>SUFU</i> mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis"
 authors:
 - Léa Guerrini-Rousseau
@@ -26,6 +26,7 @@ journal: Neuro-Oncology
 year: '2018'
 doi: 10.1093/neuonc/nox228
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Germline <i>SUFU</i> mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis

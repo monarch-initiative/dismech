@@ -15,6 +15,7 @@ imports:
   - classifications/iuis_immunodeficiency
   - classifications/channelopathies
   - classifications/phenotype_category
+  - classifications/icimd
 
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -139,6 +140,41 @@ enums:
         description: Case definition for surveillance or reporting
       OTHER:
         description: Other definition type
+  DefinitionDerivationBasisEnum:
+    description: >-
+      The epistemic grounding of a definition / phenotype algorithm, orthogonal
+      to definition_type. Records where the definition comes from and how well
+      established it is, so a mechanism-predicated case-finding query is not
+      conflated with a consensus- or gold-standard-validated one. When the basis
+      is a hypothesis, the definition should attaches_to the pathophysiology
+      node(s)/edge(s) it is predicated on, so the basis can be cross-checked
+      against those edges' hypothesis_groups.
+    permissible_values:
+      ESTABLISHED_CRITERIA:
+        description: >-
+          Published consensus criteria or a validated computable phenotype (e.g.
+          an OHDSI Phenotype Library cohort). The implicit default for existing
+          definitions.
+      MECHANISTIC_HYPOTHESIS:
+        description: >-
+          Predicated on a specific, not-yet-proven disease mechanism hypothesis;
+          membership is contingent on that hypothesis holding.
+      MODEL_SYSTEM_EXTRAPOLATION:
+        description: >-
+          Extrapolated from an animal or in-vitro model result not yet
+          demonstrated in humans.
+  AlgorithmValidationStatusEnum:
+    description: >-
+      Validation maturity of a phenotype algorithm / computable case definition.
+    permissible_values:
+      PROPOSED:
+        description: Drafted; never executed against data.
+      UNVALIDATED:
+        description: >-
+          Executable but not yet evaluated against a gold-standard or labeled
+          cohort.
+      VALIDATED_AGAINST_GOLD_STANDARD:
+        description: PPV/sensitivity characterized against a reference standard.
   MappingConsistencyEnum:
     description: Consistency of a mapping relative to another reference source
     permissible_values:
@@ -177,6 +213,100 @@ enums:
         aliases:
           - Very rare
         meaning: HP:0040284
+  PrevalenceMeasureEnum:
+    description: >-
+      The kind of epidemiological measure a Prevalence record reports. Disease
+      occurrence is reported in several non-interchangeable ways; this enum makes
+      the measure explicit so a point prevalence is never silently compared with
+      an incidence rate or a literature case-count. Mirrors the "type" column of
+      the Orphanet epidemiology table.
+    permissible_values:
+      POINT_PREVALENCE:
+        title: Point prevalence
+        description: Proportion of a population affected at a single point in time.
+      BIRTH_PREVALENCE:
+        title: Prevalence at birth
+        description: Proportion of live births (or births) affected; common for congenital disorders.
+        aliases:
+          - Prevalence at birth
+      LIFETIME_PREVALENCE:
+        title: Lifetime prevalence
+        description: Proportion of a population affected at some point during their lifetime.
+      PERIOD_PREVALENCE:
+        title: Period prevalence
+        description: Proportion of a population affected during a defined interval (e.g., five-year period prevalence).
+      ANNUAL_INCIDENCE:
+        title: Annual incidence
+        description: Rate of new cases arising in a population per year (an incidence, not a prevalence).
+        aliases:
+          - Incidence
+          - Annual incidence
+      CARRIER_FREQUENCY:
+        title: Carrier frequency
+        description: Frequency of heterozygous carriers in a population (not affected individuals).
+      CASES_IN_LITERATURE:
+        title: Cases/families reported in the literature
+        description: >-
+          Count of reported cases or families rather than a population rate; used for
+          ultra-rare disorders where no denominator-based estimate exists.
+        aliases:
+          - Cases/families in the literature
+      UNKNOWN:
+        title: Unknown
+        description: The measure type is not stated or cannot be determined from the source.
+  PrevalenceClassEnum:
+    description: >-
+      Coarse, always-fillable band for disease occurrence — the population-rate
+      analog of the HPO-style FrequencyEnum used for phenotype frequency. The
+      numeric bands are the Orphanet prevalence classes (so the ~7% of records
+      already quoting Orphanet map directly and the ICEES/ORPHA structured sources
+      stay aligned); the qualitative tiers cover records that report only
+      prose ("rare", "common") with no numeric estimate. When a numeric estimate
+      exists, also populate rate_per_100000 (or rate_low/rate_high); the band is
+      the queryable summary, the rate carries the precision.
+    permissible_values:
+      ABOVE_1_IN_1000:
+        title: ">1 / 1,000"
+        description: More than 1 in 1,000 (more than 100 per 100,000). Orphanet class.
+      BAND_1_5_PER_10000:
+        title: 1-9 / 10,000
+        description: 1 to 9 per 10,000 (10-99 per 100,000). Combines the Orphanet
+          1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching
+          the other per-decade bands and the _band_from_rate() boundaries.
+      BAND_1_9_PER_100000:
+        title: 1-9 / 100,000
+        description: 1 to 9 per 100,000. Orphanet class.
+      BAND_1_9_PER_1000000:
+        title: 1-9 / 1,000,000
+        description: 1 to 9 per 1,000,000 (0.1-0.9 per 100,000). Orphanet class.
+      BELOW_1_IN_1000000:
+        title: "<1 / 1,000,000"
+        description: Fewer than 1 in 1,000,000 (less than 0.1 per 100,000). Orphanet class.
+      COMMON:
+        title: Common
+        description: >-
+          Qualitative tier for disorders described as common/endemic with no numeric
+          estimate captured. Roughly corresponds to the >1/1,000 region but asserted
+          only qualitatively.
+      RARE:
+        title: Rare
+        description: >-
+          Qualitative tier for disorders described as "rare" in the source without a
+          numeric estimate (the EU rare-disease threshold is <1 in 2,000).
+      ULTRA_RARE:
+        title: Ultra-rare
+        description: >-
+          Qualitative tier for disorders described as ultra-rare / only a handful of
+          reported cases, with no population rate available. Often paired with
+          measure_type CASES_IN_LITERATURE.
+      NOT_YET_DOCUMENTED:
+        title: Not yet documented
+        description: Source states prevalence is not yet documented. Orphanet class.
+        aliases:
+          - Not yet documented
+      UNKNOWN:
+        title: Unknown
+        description: Prevalence is unknown or not stated.
   ClinicalSignificanceEnum:
     description: The clinical significance of a variant for a condition (ACMG guidelines)
     permissible_values:
@@ -922,16 +1052,24 @@ enums:
         - rdfs:subClassOf
   HistopathologyFindingTerm:
     description: >-
-      A histopathologic finding term from NCIT. Includes morphologic findings,
-      architectural patterns, growth patterns, cellular features, and grading.
-      Rooted at NCIT:C35867 (Morphologic Finding) and NCIT:C18000 (Histologic Grade).
+      A histopathologic finding term from NCIT. Covers the full NCIT Histopathology
+      Result branch (NCIT:C83490): morphologic findings, architectural/growth patterns,
+      cellular features, grading, immunophenotype (IHC/flow markers), ultrastructure,
+      and staining intensity.
     comments:
       - NCIT:C35867 Morphologic Finding - architectural patterns, dysplasia, necrosis, etc.
       - NCIT:C18000 Histologic Grade - Fuhrman, Nottingham, WHO grades, etc.
+      - NCIT:C40998 Immunophenotypic Finding - IHC/flow markers (e.g., ER-positive by IHC, CD20-positive cells, loss of SDHB expression)
+      - NCIT:C43265 Ultrastructural Finding - electron-microscopy features (e.g., Weibel-Palade bodies, foot process effacement)
+      - NCIT:C127762 Staining Intensity - graded stain intensity readouts
       - Also includes HP terms for rosettes (HP:0031925-HP:0031930)
     reachable_from:
       source_nodes:
+        - NCIT:C83490  ## Histopathology Result (parent of the whole branch)
         - NCIT:C35867  ## Morphologic Finding
+        - NCIT:C40998  ## Immunophenotypic Finding (IHC/flow markers)
+        - NCIT:C43265  ## Ultrastructural Finding (electron microscopy)
+        - NCIT:C127762 ## Staining Intensity
         - NCIT:C18000  ## Histologic Grade
         - NCIT:C4741   ## Neoplasm by Morphology
         - NCIT:C7062   ## Neoplasm by Special Category
@@ -940,6 +1078,28 @@ enums:
         - NCIT:C188218 ## Neuroendocrine Tumor (PCC/PGL histopathology)
         - NCIT:C37008  ## Neoplastic Large Lymphocyte (e.g., Reed-Sternberg cells)
         - HP:0025461   ## Abnormal cell morphology (for rosettes, inclusion bodies)
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  ImagingFindingTerm:
+    description: >-
+      An in-vivo imaging finding term. Imaging findings are drawn from the NCIT
+      Imaging Finding branch (NCIT:C176708 / NCIT:C199145) and, because most
+      radiologic observations coincide with a described phenotype, from the HP
+      Phenotypic abnormality branch (HP:0000118) - e.g. white-matter lesions,
+      atrophy, hyperintensity. Binding is RECOMMENDED (not REQUIRED): many
+      specific radiologic appearances lack a dedicated NCIT/HP term and are left
+      to preferred_term until a radiology ontology (e.g. RadLex via BioPortal)
+      is wired in.
+    comments:
+      - NCIT:C176708 Imaging Finding - imaging observations
+      - NCIT:C199145 Clinical Finding Detected by Imaging
+      - HP:0000118 Phenotypic abnormality - imaging-observable phenotypes (atrophy, white-matter lesions, hyperintensity)
+    reachable_from:
+      source_nodes:
+        - NCIT:C176708  ## Imaging Finding
+        - NCIT:C199145  ## Clinical Finding Detected by Imaging
+        - HP:0000118    ## Phenotypic abnormality (imaging-observable phenotypes)
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -1306,6 +1466,130 @@ enums:
       RESTORES:
         description: Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)
 
+  ImagingModalityEnum:
+    description: >-
+      In-vivo medical imaging modality by which an ImagingFinding is detected.
+      Meanings bind to the NCI Thesaurus Diagnostic Imaging branch.
+    permissible_values:
+      MRI:
+        title: Magnetic Resonance Imaging
+        description: Magnetic resonance imaging, including structural and contrast-enhanced MRI
+        meaning: NCIT:C16809
+      FUNCTIONAL_MRI:
+        title: Functional Magnetic Resonance Imaging
+        description: Blood-oxygen-level-dependent functional MRI
+        meaning: NCIT:C17958
+      CT:
+        title: Computed Tomography
+        description: X-ray computed tomography
+        meaning: NCIT:C17204
+      PET:
+        title: Positron Emission Tomography
+        description: Positron emission tomography (e.g., FDG-PET, amyloid-PET)
+        meaning: NCIT:C17007
+      SPECT:
+        title: Single Photon Emission Computed Tomography
+        description: Single-photon emission computed tomography
+        meaning: NCIT:C17203
+      ULTRASOUND:
+        title: Ultrasound Imaging
+        description: Diagnostic ultrasonography, including Doppler and echocardiography
+        meaning: NCIT:C17230
+      XRAY:
+        title: X-Ray Imaging
+        description: Projectional radiography (plain film)
+        meaning: NCIT:C38101
+      MAMMOGRAPHY:
+        title: Mammography
+        description: X-ray imaging of the breast
+        meaning: NCIT:C16818
+      ANGIOGRAPHY:
+        title: Angiography
+        description: Imaging of blood vessels (CT, MR, or catheter angiography)
+        meaning: NCIT:C190556
+      OCT:
+        title: Optical Coherence Tomography
+        description: Optical coherence tomography (e.g., retinal OCT)
+        meaning: NCIT:C20828
+      OTHER:
+        title: Other imaging modality
+        description: An imaging modality not otherwise enumerated
+
+  ElectrophysiologyModalityEnum:
+    description: >-
+      In-vivo electrophysiologic / neurophysiologic investigation on which an
+      electrophysiologic phenotype was recorded (carried on the
+      ElectrophysiologyContext phenotype sidecar). Meanings bind to the NCI
+      Thesaurus diagnostic-procedure branch.
+    permissible_values:
+      EEG:
+        title: Electroencephalography
+        description: Scalp electroencephalography (routine, prolonged, or ambulatory)
+        meaning: NCIT:C38054
+      VIDEO_EEG:
+        title: Video Electroencephalography
+        description: >-
+          Simultaneous video and EEG monitoring for seizure semiology-EEG
+          correlation. No distinct NCIT procedure term; a specialization of EEG.
+      ECG:
+        title: Electrocardiography
+        description: Electrocardiography, including resting and stress ECG
+        meaning: NCIT:C38053
+      EMG:
+        title: Electromyography
+        description: Needle or surface electromyography
+        meaning: NCIT:C38056
+      NERVE_CONDUCTION_STUDY:
+        title: Nerve Conduction Velocity Test
+        description: Nerve conduction study (motor/sensory conduction velocity and amplitude)
+        meaning: NCIT:C88502
+      EVOKED_POTENTIAL:
+        title: Evoked Potential
+        description: >-
+          Evoked-potential testing (visual, brainstem-auditory, or
+          somatosensory). No clean generic NCIT procedure term.
+      POLYSOMNOGRAPHY:
+        title: Polysomnography
+        description: Overnight sleep study combining EEG, EOG, EMG, ECG, and respiratory channels
+        meaning: NCIT:C114185
+      MEG:
+        title: Magnetoencephalography
+        description: Magnetoencephalography (magnetic-field source localization)
+        meaning: NCIT:C16811
+      OTHER:
+        title: Other electrophysiologic modality
+        description: An electrophysiologic modality not otherwise enumerated
+
+  IctalStateEnum:
+    description: >-
+      Timing of an electrophysiologic finding relative to a seizure or paroxysmal
+      event - the axis a flat HP phenotype term cannot express.
+    permissible_values:
+      ICTAL:
+        description: Recorded during a seizure / paroxysmal event
+      INTERICTAL:
+        description: Recorded between events, in the baseline state
+      POSTICTAL:
+        description: Recorded in the period immediately following an event
+
+  EEGRecordingStateEnum:
+    description: >-
+      Behavioural state or activation procedure under which an EEG finding is
+      recorded, since many findings are state- or provocation-dependent.
+    permissible_values:
+      AWAKE:
+        description: Recorded during wakefulness
+      ASLEEP:
+        description: Recorded during sleep (findings may be sleep-activated)
+      DROWSY:
+        description: Recorded during drowsiness / transition to sleep
+      SLEEP_DEPRIVED:
+        description: Recorded after sleep deprivation (a seizure-activation procedure)
+      PHOTIC_STIMULATION:
+        description: Recorded during intermittent photic stimulation
+      HYPERVENTILATION:
+        description: Recorded during hyperventilation activation
+
   MedicalActionCategoryEnum:
     description: >-
       Broad functional category for a clinical action currently represented in
@@ -1369,6 +1653,14 @@ enums:
         meaning: NCIT:C20401
         aliases:
           - Monoclonal Antibody
+      NANOBODY:
+        title: Nanobody / single-domain antibody
+        description: Single-domain antibody (sdAb/VHH/Nanobody) — a single variable-domain immunoglobulin fragment (e.g., caplacizumab), distinct from full-size monoclonal antibodies
+        comments:
+          - No generic "single-domain antibody / nanobody" class exists in the configured ontologies (only specific radiolabeled VHH conjugates, e.g. NCIT:C155898); left unmapped
+        aliases:
+          - Single-Domain Antibody
+          - VHH
       ANTISENSE_OLIGONUCLEOTIDE:
         title: Antisense oligonucleotide
         description: Single-stranded antisense oligonucleotide (ASO) acting on RNA via RNase H, splice modulation, or steric blockade
@@ -1588,6 +1880,47 @@ enums:
         description: Co-incident or same-time association
       UNKNOWN:
         description: Directionality is unknown or not established
+
+  ComorbidityEffectDirectionEnum:
+    description: >-
+      The sign (effect direction) of a comorbidity/trajectory association -
+      whether the presence of one condition raises or lowers the risk,
+      incidence, or severity of the other. This is orthogonal to
+      ComorbidityDirectionEnum, which captures only the temporal ordering
+      (which condition comes first), not whether the effect is positive or
+      inverse. A conventional risk comorbidity (A increases risk of B) is
+      RISK; the cancer/Alzheimer's-disease inverse correlation is PROTECTIVE.
+    permissible_values:
+      RISK:
+        title: Risk (positive) association
+        description: >-
+          Positive association: the presence of one condition increases the
+          risk, incidence, or severity of the other. This is the conventional
+          comorbidity direction and the default for most curated pairs.
+      PROTECTIVE:
+        title: Protective (inverse) association
+        description: >-
+          Inverse association: the presence of one condition is associated with
+          a reduced risk or incidence of the other (e.g., the reciprocal
+          cancer/Alzheimer's-disease inverse correlation, atopy and glioma,
+          balancing-selection heterozygote advantage). Quantitatively an odds
+          ratio / hazard ratio / relative risk below 1.
+      MIXED:
+        title: Mixed / direction-dependent association
+        description: >-
+          The effect direction is not uniform: it is protective in some
+          contexts (subtype, direction, population) and risk-conferring in
+          others (e.g., Parkinson's disease shows an inverse association with
+          most cancers but a positive association with melanoma). Use the
+          per-signal effect_direction and notes to record the split.
+      NO_ASSOCIATION:
+        title: No association
+        description: >-
+          Evidence indicates no significant association in either direction
+          (a null result). Useful for recording examined-but-refuted pairs.
+      UNKNOWN:
+        description: >-
+          The effect direction (risk vs. protective) has not been established.
 
   CurationStatusEnum:
     description: Curation workflow status for an association
@@ -2082,6 +2415,12 @@ slots:
       - value: Global
     range: string
   percentage:
+    deprecated: >-
+      Overloaded free-text/Any field that conflated measure type, rate, unit, and
+      qualitative bands in incompatible notations. Superseded by the structured
+      prevalence slots: measure_type, prevalence_class, and rate_per_100000
+      (with rate_low/rate_high for ranges). Retained read-only during migration;
+      do not populate on new records.
     examples:
       - value: '0.1'
     range: Any
@@ -2090,6 +2429,74 @@ slots:
       - range: integer
       - range: string
         description: for ranges
+  measure_type:
+    description: >-
+      Which epidemiological measure this Prevalence record reports (point
+      prevalence, birth prevalence, annual incidence, literature case-count, etc.).
+      Makes explicit a dimension that was previously leaking into population/notes.
+    range: PrevalenceMeasureEnum
+    examples:
+      - value: POINT_PREVALENCE
+  prevalence_class:
+    description: >-
+      Coarse occurrence band (Orphanet prevalence class or qualitative tier) — the
+      always-fillable, queryable summary, analogous to phenotype FrequencyEnum.
+    range: PrevalenceClassEnum
+    examples:
+      - value: BAND_1_9_PER_100000
+  rate_per_100000:
+    description: >-
+      Normalized point estimate of occurrence expressed as cases per 100,000, for
+      machine comparison across records. Convert from any source notation
+      (% -> x1000; "per million" -> /10; "1 in N" -> 100000/N). Leave absent for
+      band-only or qualitative records; use rate_low/rate_high for ranges.
+    range: float
+    examples:
+      - value: '0.82'
+  rate_low:
+    description: Lower bound of the occurrence rate per 100,000 when the source gives a range or a band.
+    range: float
+    examples:
+      - value: '1.0'
+  rate_high:
+    description: Upper bound of the occurrence rate per 100,000 when the source gives a range or a band.
+    range: float
+    examples:
+      - value: '9.0'
+  case_fractions:
+    description: >-
+      Per-cohort estimates of the fraction of cases of a genetically
+      heterogeneous disease attributable to this gene (the genetic-spectrum
+      analog of population Prevalence records). Multivalued because the share
+      varies by cohort/ancestry.
+    multivalued: true
+    inlined_as_list: true
+    range: GeneCaseFraction
+  case_fraction_percent:
+    description: >-
+      Point estimate of the percentage of cases attributable to this gene in the
+      stated cohort (0-100). The structured, queryable counterpart of the
+      free-text genetic `frequency` band. Use case_fraction_low/high for ranges.
+    range: float
+    examples:
+      - value: '24.6'
+  case_fraction_low:
+    description: Lower bound of the case fraction (percent) when the source gives a range.
+    range: float
+    examples:
+      - value: '27.0'
+  case_fraction_high:
+    description: Upper bound of the case fraction (percent) when the source gives a range.
+    range: float
+    examples:
+      - value: '32.8'
+  cohort_size:
+    description: >-
+      Number of probands/cases in the cohort the case fraction was computed in,
+      when reported. Helps weight competing per-gene estimates.
+    range: integer
+    examples:
+      - value: '61'
   phase:
     examples:
       - value: Active TB
@@ -2347,6 +2754,22 @@ slots:
   interpretation:
     description: Curator-facing explanation of how to interpret the biomarker relative to the linked pathograph node
     range: string
+  reports_on:
+    description: >-
+      Links an investigation-readout phenotype (e.g. an abnormal electrophysiology
+      or clinical-test finding such as HP:0000512 Abnormal electroretinogram) to the
+      pathograph node whose underlying state it measures or reflects. The target is a
+      named pathophysiology or phenotype node in the same disease file. These are
+      observational readout links, not causal disease-progression edges, so they let
+      an otherwise-disconnected test-result phenotype attach to the mechanism it
+      reports on without asserting that the mechanism "causes" the test result.
+    multivalued: true
+    range: PhenotypeReadout
+    inlined_as_list: true
+    comments:
+      - Use on investigation/test-result phenotypes (electrophysiology, functional testing, laboratory findings) that report on an underlying mechanism rather than participating causally
+      - Target names should match a pathophysiology or phenotype entry name in the same disease file
+      - Rendered as a dashed observational edge (mechanism -.-> readout), like biomarker readouts
   row_id:
     description: Stable row identifier assigned during source-table curation
     range: string
@@ -2430,7 +2853,7 @@ slots:
     range: HistopathologyFindingDescriptor
     inlined: true
     comments:
-      - Use NCIT terms from Morphologic Finding (C35867) or Histologic Grade (C18000)
+      - Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), or Histologic Grade (C18000)
       - Use HP terms for rosettes and cell morphology abnormalities (HP:0025461 descendants)
   diagnosis_term:
     description: The MAXO term for this diagnostic procedure
@@ -2615,15 +3038,57 @@ slots:
   histopathology:
     description: >-
       Histopathologic findings including microscopic morphology, architectural patterns,
-      cellular features, growth patterns, and histologic grading.
+      cellular features, growth patterns, histologic grading, and immunophenotype.
     multivalued: true
     inlined_as_list: true
     range: HistopathologyFinding
     comments:
       - Separate from phenotypes as these are tissue-level microscopic observations
-      - Use NCIT Morphologic Finding (C35867) or Histologic Grade (C18000) terms
+      - Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), or Histologic Grade (C18000)
       - For cancer: includes grade, differentiation, growth patterns, necrosis
       - For other diseases: may include architectural changes, cellular infiltrates
+  imaging_findings:
+    description: >-
+      In-vivo imaging findings (radiologic, nuclear-medicine, or ultrasound) that
+      reflect disease pathophysiology or define diagnostic criteria. The
+      macroscopic / in-vivo counterpart of the histopathology slot.
+    multivalued: true
+    inlined_as_list: true
+    range: ImagingFinding
+    recommended: false
+    comments:
+      - Separate from phenotypes - names the modality plus the imaging appearance, even when the abnormality is also curated as an HP phenotype
+      - Not for acquisition protocol, per-patient reads, or diagnostic decision support (see the imaging-scope design decision)
+  modality:
+    description: The in-vivo imaging modality by which a finding is detected
+    range: ImagingModalityEnum
+  imaging_finding_term:
+    description: Ontology term for an imaging finding (from the NCIT Imaging Finding branch or HP)
+    range: ImagingFindingDescriptor
+    inlined: true
+    comments:
+      - Use NCIT Imaging Finding terms (C176708 / C199145) or HP imaging-observable phenotypes (atrophy, white-matter lesions, hyperintensity)
+  electrophysiology:
+    description: >-
+      Optional electrophysiologic post-composition sidecar for a phenotype whose
+      phenotype_term is an EEG/EMG/EKG finding (HP:0002353 / HP:0003457 /
+      HP:0003115 subtrees). Carries modality plus the ictal and recording-state
+      axes a flat HP term cannot express. Electrophysiologic findings are HP
+      phenotypes, so they stay in `phenotypes`; this only post-composes them.
+    range: ElectrophysiologyContext
+    inlined: true
+    comments:
+      - Use on EEG/EMG/EKG phenotypes; leave absent otherwise
+      - Not for acquisition protocol, per-patient tracings, or decision support
+  electrophysiology_modality:
+    description: The in-vivo electrophysiologic modality on which a phenotype was recorded
+    range: ElectrophysiologyModalityEnum
+  ictal_state:
+    description: Timing of an electrophysiologic finding relative to a seizure/paroxysmal event
+    range: IctalStateEnum
+  recording_state:
+    description: Behavioural state or activation procedure under which an EEG finding is recorded
+    range: EEGRecordingStateEnum
   biochemical:
     multivalued: true
     inlined_as_list: true
@@ -3260,6 +3725,13 @@ slots:
     description: Channelopathy organ system classification
     range: ChannelopathyAssignment
     inlined: true
+  icimd_category:
+    description: >-
+      International Classification of Inherited Metabolic Disorders (ICIMD)
+      category/group classification (for inherited metabolic disorders)
+    range: ICIMDAssignment
+    inlined: true
+    multivalued: true
   classification_value:
     description: The classification value assigned
     range: string
@@ -3295,6 +3767,21 @@ slots:
   definition_type:
     description: The type of definition or criteria set
     range: DefinitionTypeEnum
+  derivation_basis:
+    description: >-
+      Epistemic grounding of a definition, orthogonal to definition_type:
+      established criteria vs. a mechanistic hypothesis vs. model-system
+      extrapolation. When MECHANISTIC_HYPOTHESIS, the definition should
+      `attaches_to` the pathophysiology node(s)/edge(s) it is predicated on, so
+      the hypothesis basis can be inferred from those edges' `hypothesis_groups`.
+    range: DefinitionDerivationBasisEnum
+  validation_status:
+    description: >-
+      Structured validation maturity of a phenotype algorithm / computable case
+      definition (a graded status plus a free-text rationale and optional citing
+      evidence).
+    range: AlgorithmValidationStatus
+    inlined: true
   criteria_sets:
     description: Named criteria groupings within a definition
     multivalued: true
@@ -3380,6 +3867,15 @@ slots:
   directionality:
     description: Direction of a comorbidity/trajectory association
     range: ComorbidityDirectionEnum
+  effect_direction:
+    description: >-
+      The sign of the association - whether one condition raises (RISK) or
+      lowers (PROTECTIVE) the risk/incidence/severity of the other, is
+      context-dependent (MIXED), null, or unknown. Orthogonal to
+      `directionality` (temporal ordering). Defaults conceptually to RISK for
+      conventional comorbidities; set PROTECTIVE for inverse associations such
+      as the cancer/Alzheimer's-disease paradox.
+    range: ComorbidityEffectDirectionEnum
   composition:
     description: Composition type for a composite condition descriptor
     range: ConditionCompositionEnum
@@ -3963,12 +4459,15 @@ classes:
   HistopathologyFindingDescriptor:
     is_a: Descriptor
     description: >-
-      A descriptor for histopathologic findings, bindable to NCIT Morphologic Finding
-      (C35867), Histologic Grade (C18000), or HP Abnormal cell morphology (HP:0025461)
+      A descriptor for histopathologic findings, bindable to the NCIT Histopathology
+      Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding
+      (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762),
+      Histologic Grade (C18000) - or HP Abnormal cell morphology (HP:0025461)
     comments:
       - Use for architectural patterns (spindle cell, epithelioid, nested, etc.)
       - Use for differentiation status (well/poorly differentiated)
       - Use for specific findings (rosettes, necrosis, mitotic activity)
+      - Use for immunophenotype/IHC markers (ER-positive by IHC, CD20-positive cells, loss of SDHB expression)
       - Use for histologic grades when applicable
     slot_usage:
       term:
@@ -3977,6 +4476,43 @@ classes:
           - binds_value_of: id
             range: HistopathologyFindingTerm
             obligation_level: REQUIRED
+
+  ImagingFindingDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for an in-vivo imaging finding, bindable to the NCIT Imaging
+      Finding branch (C176708 / C199145) or an HP imaging-observable phenotype.
+      Inherits located_in (UBERON body site), laterality, spatial_extent, and
+      modifier from Descriptor for post-composition.
+    comments:
+      - Use for imaging appearances (white-matter lesions, atrophy, enhancement, hyperintensity)
+      - Body site goes in located_in (UBERON); focal/multifocal/diffuse in spatial_extent
+    slot_usage:
+      term:
+        description: NCIT imaging-finding or HP phenotype term reference
+        bindings:
+          - binds_value_of: id
+            range: ImagingFindingTerm
+            obligation_level: RECOMMENDED
+
+  ElectrophysiologyContext:
+    description: >-
+      An optional post-composition sidecar on a Phenotype, carrying the
+      electrophysiologic axes that a flat HP phenotype term cannot express:
+      the modality it was recorded on, whether it is ictal/interictal/postictal,
+      and the behavioural/activation recording state. Used ONLY on phenotypes
+      whose phenotype_term is an electrophysiologic finding (the HP EEG/EMG/EKG
+      abnormality subtrees, e.g. descendants of HP:0002353). Deliberately NOT a
+      separate finding class: because electrophysiologic findings are already HP
+      phenotypes, they live in `phenotypes` and this block only post-composes
+      them, exactly as temporality/clinical_course/severity/onset do elsewhere.
+    comments:
+      - Attach to a phenotype whose phenotype_term is under HP:0002353 (EEG), HP:0003457 (EMG), or HP:0003115 (EKG)
+      - Preclinical/animal electrophysiology (e.g. an electrographic seizure with no HP term) is a preferred_term-only phenotype carrying this sidecar
+    slots:
+      - electrophysiology_modality
+      - ictal_state
+      - recording_state
 
   LifeCycleStageDescriptor:
     is_a: Descriptor
@@ -4624,6 +5160,48 @@ classes:
         description: Human-readable interpretation of the link for display and curation review.
       evidence:
         description: Evidence supporting this biomarker-to-pathograph-node readout link
+  PhenotypeReadout:
+    description: >-
+      Links an investigation-readout phenotype (an abnormal electrophysiology,
+      functional-test, or clinical-laboratory finding, e.g. HP:0000512 Abnormal
+      electroretinogram) to the pathograph node whose underlying state it measures
+      or reflects. This is an observational readout link, not a causal claim that the
+      target mechanism causes the test result. It is the phenotype-side counterpart of
+      BiomarkerReadout, deliberately lean: it omits the surrogate-endpoint/regulatory
+      slots (regulatory_endpoint_refs and the source-table bridge) that belong only to
+      molecular biomarker readouts.
+    comments:
+      - Use on test-result phenotypes that report on an underlying mechanism rather than participating causally in the pathograph
+      - READOUT_OF is the typical relationship; CORRELATES_WITH / PREDICTS also apply
+      - Reuses the BiomarkerReadout relationship, direction, and endpoint-context vocabularies for consistency
+    slots:
+      - target
+      - relationship
+      - direction
+      - endpoint_context
+      - interpretation
+      - description
+      - evidence
+    slot_usage:
+      target:
+        description: >-
+          Name of the pathograph node this phenotype reports on. Prefer a
+          pathophysiology entry; a phenotype target is also allowed when the
+          readout is tied to another clinical manifestation.
+        required: true
+      relationship:
+        description: How the investigation readout relates to the linked pathograph node.
+        required: true
+      direction:
+        description: >-
+          Direction of association between the readout value/abnormality and the
+          linked event or endpoint.
+      endpoint_context:
+        description: Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate use context.
+      interpretation:
+        description: Human-readable interpretation of the link for display and curation review.
+      evidence:
+        description: Evidence supporting this phenotype-to-pathograph-node readout link
   ReferenceRangeBand:
     description: >-
       A single graded interpretation band within a reference range, mapping a
@@ -4932,7 +5510,30 @@ classes:
     slots:
       - subtype
       - population
+      - measure_type
+      - prevalence_class
+      - rate_per_100000
+      - rate_low
+      - rate_high
       - percentage
+      - evidence
+      - notes
+  GeneCaseFraction:
+    description: >-
+      A structured estimate of the fraction of cases of a genetically
+      heterogeneous disease attributable to one gene, in a defined cohort. The
+      genetic-spectrum analog of a population Prevalence record: it pairs a
+      cohort/population with a normalized percentage (plus optional range bounds
+      and cohort size), source notes, and citable evidence. Distinct from
+      population occurrence (Prevalence) and from population allele frequency;
+      this is "what share of patients have their disease explained by this gene".
+      Complements the coarse free-text `frequency` band on the Genetic entry.
+    slots:
+      - population
+      - case_fraction_percent
+      - case_fraction_low
+      - case_fraction_high
+      - cohort_size
       - evidence
       - notes
   ProgressionInfo:
@@ -5007,6 +5608,8 @@ classes:
       - subtype
       - subtypes
       - phenotype_contexts
+      - electrophysiology
+      - reports_on
   Biochemical:
     slots:
       - name
@@ -5059,6 +5662,52 @@ classes:
         description: Whether this finding is pathognomonic or highly diagnostic
       context:
         description: Context in which this finding is observed (e.g., specific subtype)
+  ImagingFinding:
+    description: >-
+      A finding detected by in-vivo medical imaging (MRI, CT, PET, ultrasound,
+      etc.) that reflects disease pathophysiology or defines a diagnostic
+      criterion. The macroscopic / in-vivo counterpart of HistopathologyFinding.
+      Captures the modality plus the imaging appearance - NOT acquisition
+      protocol, per-patient reads, or radiology decision support.
+    comments:
+      - Separate from phenotypes - names the modality plus appearance, even when the abnormality is also an HP phenotype (cross-linked via phenotype_term)
+      - Separate from histopathology - in-vivo / macroscopic, no biopsy
+      - Separate from the generic diagnosis slot - carries a structured finding rather than a free-text test name
+    slots:
+      - name
+      - modality
+      - imaging_finding_term
+      - description
+      - located_in
+      - laterality
+      - spatial_extent
+      - phenotype_term
+      - diagnostic
+      - frequency
+      - modifier
+      - evidence
+      - notes
+      - context
+      - subtype
+    slot_usage:
+      name:
+        description: Name of the imaging finding
+      description:
+        description: Detailed description of the finding and its clinical significance
+        examples:
+          - value: Multifocal periventricular white matter lesions on MRI
+          - value: Gadolinium-enhancing lesion
+          - value: Cerebral atrophy on CT
+      modality:
+        description: The imaging modality by which this finding is detected
+      located_in:
+        description: Anatomical body site of the finding (UBERON)
+      phenotype_term:
+        description: Optional HP phenotype this imaging finding also maps to
+      diagnostic:
+        description: Whether this finding is pathognomonic or defines a diagnostic criterion
+      context:
+        description: Context in which this finding is observed (e.g., specific subtype)
   Genetic:
     slots:
       - name
@@ -5071,6 +5720,7 @@ classes:
       - review_notes
       - subtype
       - frequency
+      - case_fractions
       - inheritance
       - variants
       - features
@@ -5109,6 +5759,7 @@ classes:
       - mechanistic_hypotheses
       - phenotypes
       - histopathology
+      - imaging_findings
       - biochemical
       - stages
       - genetic
@@ -5377,6 +6028,19 @@ classes:
         range: ChannelopathyOrganSystemEnum
         required: true
 
+  ICIMDAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      ICIMD category/group classification assignment for inherited metabolic
+      disorders. Assign the most specific applicable node (usually a group);
+      the parent category is derivable via the enum's ``is_a`` hierarchy.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ICIMDEnum
+        required: true
+
   DiseaseClassifications:
     description: Container for all classification assignments for a disease
     slots:
@@ -5386,14 +6050,18 @@ classes:
       - mechanistic_category
       - iuis_category
       - channelopathy_category
+      - icimd_category
 
   Definition:
     description: A diagnostic or phenotype definition for the disease
     slots:
       - name
       - definition_type
+      - derivation_basis
+      - validation_status
       - description
       - scope
+      - attaches_to
       - criteria_sets
       - inclusion_criteria
       - exclusion_criteria
@@ -5404,6 +6072,32 @@ classes:
         required: true
       definition_type:
         required: true
+      attaches_to:
+        description: >-
+          For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
+          this algorithm is predicated on, using the `[<file>:]<kind>#<name>`
+          hash-anchor grammar (e.g. `pathophysiology#Fever-triggered CaV1.2
+          activation`). Lets the hypothesis basis be inferred from those edges'
+          `hypothesis_groups` rather than duplicated as a standalone id.
+
+  AlgorithmValidationStatus:
+    description: >-
+      Validation maturity of a phenotype algorithm / computable case definition:
+      a graded status plus a free-text rationale and optional citing evidence
+      (the standard EvidenceItem model — reference + verbatim snippet +
+      explanation).
+    slots:
+      - status
+      - rationale
+      - evidence
+    slot_usage:
+      status:
+        range: AlgorithmValidationStatusEnum
+        required: true
+      rationale:
+        description: >-
+          Why this status — what was (or was not) run, against which cohort, with
+          what result.
 
   CriteriaSet:
     description: A named criteria grouping within a definition
@@ -5542,6 +6236,7 @@ classes:
       - disease_a
       - disease_b
       - directionality
+      - effect_direction
       - association_signals
       - literature_evidence
       - hypotheses
@@ -5577,6 +6272,7 @@ classes:
       - limited_precision
       - precision_count_threshold
       - directionality
+      - effect_direction
       - a_before_b
       - b_before_a
       - same_time

@@ -1,0 +1,142 @@
+---
+name: Warm Reference Cache
+
+# Durably resolves the repeated publisher-PDF re-downloads that the
+# reference-validator otherwise re-attempts on every `just validate` run.
+# Drives scripts/warm_reference_cache.py over the cache records that still lack
+# `full_text_attempted`, enriching open-access entries with full text and
+# marking the rest attempted. Idempotent + resumable: each run only touches the
+# unset backlog, so a bounded batch drains it over successive weekly runs and
+# steady-state runs only warm newly-added references.
+#
+# Not a page/build regen and not an "agent" cron, so it is intentionally NOT
+# managed by .github/cron-profiles.yaml — edit the schedule below directly.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # weekly, Monday 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max cache records to warm this run (0 = no cap)'
+        type: string
+        default: '2000'
+
+concurrency:
+  group: warm-reference-cache
+  cancel-in-progress: false
+
+jobs:
+  warm-reference-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: "3.13"
+
+      - name: Install just
+        run: uv tool install rust-just
+
+      - name: Install project
+        run: uv sync --dev
+
+      - name: Warm reference cache
+        run: just warm-reference-cache "${{ github.event.inputs.limit || '2000' }}"
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if git diff --quiet references_cache/; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No cache records were warmed this run."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Warmed cache files:"
+            git diff --stat references_cache/ | tail -1
+          fi
+
+      - name: Create or update Pull Request
+        if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          BRANCH_NAME="auto/warm-reference-cache"
+          git checkout -B "$BRANCH_NAME"
+
+          # Targeted add only — never sweep in derived/generated files.
+          git add references_cache/
+
+          WARMED=$(git diff --cached --name-only references_cache/ | wc -l | tr -d ' ')
+
+          git commit -m "$(cat <<EOF
+          Warm reference cache full-text-attempt state
+
+          Marked/enriched $WARMED reference-cache records so the reference
+          validator stops re-attempting their full-text (publisher-PDF)
+          downloads on every run.
+
+          Automated by .github/workflows/warm-reference-cache.yaml.
+          EOF
+          )"
+
+          git push --force-with-lease origin "$BRANCH_NAME"
+
+          enable_auto_merge() {
+            gh pr merge "$1" --repo "$GITHUB_REPOSITORY" --squash --auto
+          }
+
+          EXISTING_PR="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH_NAME" \
+            --state open \
+            --json number \
+            --limit 1 \
+            --jq '.[0].number // empty')"
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Updated existing PR #$EXISTING_PR; enabling auto-merge."
+            enable_auto_merge "$EXISTING_PR"
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "🔥 Warm reference cache ($(date +%Y-%m-%d))" \
+            --body "$(cat <<EOF
+          ## Summary
+
+          Automated weekly warming of the reference cache. Marks
+          \`full_text_attempted: true\` on (and fetches open-access full text
+          for) cache records that still trigger repeated publisher-PDF
+          downloads during \`just validate\`.
+
+          - Records warmed this run: **$WARMED**
+
+          Idempotent and resumable — each run only touches records that still
+          lack the flag, so the backlog drains over successive weekly runs.
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          EOF
+          )"

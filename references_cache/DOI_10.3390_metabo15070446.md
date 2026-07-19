@@ -9,6 +9,7 @@ journal: Metabolites
 year: '2025'
 doi: 10.3390/metabo15070446
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Amino Acid Metabolism in Liver Mitochondria: From Homeostasis to Disease

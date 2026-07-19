@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/onco.13977"
+reference_id: DOI:10.1002/onco.13977
 title: "Patient-Reported Outcomes with Selpercatinib Treatment Among Patients with <i>RET</i>-Mutant Medullary Thyroid Cancer in the Phase I/II LIBRETTO-001 Trial"
 authors:
 - Lori J Wirth
@@ -17,6 +17,7 @@ journal: The Oncologist
 year: '2022'
 doi: 10.1002/onco.13977
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Patient-Reported Outcomes with Selpercatinib Treatment Among Patients with <i>RET</i>-Mutant Medullary Thyroid Cancer in the Phase I/II LIBRETTO-001 Trial

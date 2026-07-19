@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.08.05.25330579"
+reference_id: DOI:10.1101/2025.08.05.25330579
 title: Genotype-Phenotype Correlation in RBM10-Associated Syndromes – How Variant Function Shapes a Broad Phenotypic Landscape
 authors:
 - Jeanne M. V. Bang
@@ -80,6 +80,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.08.05.25330579
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genotype-Phenotype Correlation in RBM10-Associated Syndromes – How Variant Function Shapes a Broad Phenotypic Landscape

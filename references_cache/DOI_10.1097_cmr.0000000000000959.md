@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/cmr.0000000000000959"
+reference_id: DOI:10.1097/cmr.0000000000000959
 title: Global trends in cutaneous malignant melanoma incidence and mortality
 authors:
 - Giuseppe De Pinto
@@ -12,6 +12,7 @@ journal: Melanoma Research
 year: '2024'
 doi: 10.1097/cmr.0000000000000959
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Global trends in cutaneous malignant melanoma incidence and mortality

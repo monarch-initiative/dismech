@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.heliyon.2024.e38288"
+reference_id: DOI:10.1016/j.heliyon.2024.e38288
 title: "Mechanism of macrophages in gout: Recent progress and perspective"
 authors:
 - Haibo Tan
@@ -15,6 +15,7 @@ journal: Heliyon
 year: '2024'
 doi: 10.1016/j.heliyon.2024.e38288
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Mechanism of macrophages in gout: Recent progress and perspective

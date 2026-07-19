@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/md.0000000000041403"
+reference_id: DOI:10.1097/md.0000000000041403
 title: "Kidney and pregnancy outcomes in pregnancy-associated atypical hemolytic uremic syndrome: A systematic review and meta-analysis"
 authors:
 - Priti Meena
@@ -14,6 +14,7 @@ journal: Medicine
 year: '2025'
 doi: 10.1097/md.0000000000041403
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Kidney and pregnancy outcomes in pregnancy-associated atypical hemolytic uremic syndrome: A systematic review and meta-analysis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.1317788111"
+reference_id: DOI:10.1073/pnas.1317788111
 title: Cohesin and CTCF differentially affect chromatin architecture and gene expression in human cells
 authors:
 - Jessica Zuin
@@ -19,6 +19,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2014'
 doi: 10.1073/pnas.1317788111
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cohesin and CTCF differentially affect chromatin architecture and gene expression in human cells

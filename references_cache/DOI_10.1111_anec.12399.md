@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/anec.12399"
+reference_id: DOI:10.1111/anec.12399
 title: "Persistent atrial standstill following the Cox-maze III procedure: reversal with sustained atrial pacing"
 authors:
 - Harsh Agrawal
@@ -8,7 +8,11 @@ authors:
 journal: Annals of Noninvasive Electrocardiology
 year: '2017'
 doi: 10.1111/anec.12399
-content_type: unavailable
+content_type: full_text_html
+full_text_attempted: true
+full_text_provider: openalex
+full_text_url: "https://www.ncbi.nlm.nih.gov/pmc/articles/6931504"
+oa_status: green
 ---
 
 # Persistent atrial standstill following the Cox-maze III procedure: reversal with sustained atrial pacing
@@ -17,3 +21,37 @@ content_type: unavailable
 **DOI:** [10.1111/anec.12399](https://doi.org/10.1111/anec.12399)
 
 ## Content
+
+Correspondence, 
+Martin A. Alpert, M.D., Room CE‐338, University of Missouri, Health Sciences Center, Columbia, MO, USA, 
+Email:alpertm@health.missouri.edu
+
+Corresponding author.
+
+Collection date 2017 Mar.
+
+Atrial standstill is a rare disorder of cardiac rhythm that is characterized by total absence of electrical activity in one or both atria. We report herein the case of a patient with atrial fibrillation and symptomatic 4.0 s pauses who received a ventricular demand pacemaker. The patient later underwent mitral valve replacement with a pericardial tissue valve and the Cox‐maze III procedure for symptomatic mitral stenosis and atrial fibrillation. Following surgery, he developed atrial standstill and became pacemaker dependent. The pacemaker was later revised to an atrioventricular sequential pacemaker. Twelve hours after revision, atrioventricular sequential pacing was noted and mechanical function of the atria was confirmed by Doppler echocardiography.
+
+Keywords:atrial arrhythmias, bradyarrhythmias, conduction disturbances, pacemakers
+
+Atrial standstill is a rare cardiac disorder that is characterized by total absence of electrical and mechanical atrial activity (Rosenbaum & Levine,1939; Chavez, Brumlik, & Sodi‐Pallares,1946; Magnusson,1946). Atrial standstill has been classified as transient (temporary) or persistent (also referred to as permanent; Ruff, Leier, & Schaal,1979; Woolliscroft & Tuna,1982; Bloomfield & Sinclair‐Smith,1965; Turkoglu, Aliyev, Celiker, & Firatli,2011; Allensworth, Rice, & Lowe,1969). The term partial atrial standstill has been used to describe patients with atrial standstill in one atrium, but not the other and in patients with isolated atrial activity in a single region of the right atrium (Demiralp, Kirilmaz, Cebeci, & Ulusoy,2005; Effendy, Bolognesi, Bianchi, & Visioli,1979; Harley,1976). We describe a case of persistent atrial standstill following the Cox‐maze III procedure for atrial fibrillation during mitral valve replacement that was reversed by sustained pacemaker stimulation of the right atrium.
+
+A 62‐year‐old male with rheumatic mitral stenosis and permanent atrial fibrillation (Fig.1A) received a St. Jude permanent ventricular demand rate‐responsive (VVI‐R) pacemaker in 2008 for 4.0 s pauses associated with presyncope. Subsequent pacemaker interrogation showed that 10% of total beats were paced. By 2013, the patient had developed dyspnea with mild exertion. His transthoracic echocardiogram showed moderately severe mitral stenosis with a mean mitral valve gradient of 8 mmHg, a mitral valve area of 1.1 cm2, severe left atrial enlargement, moderate tricuspid regurgitation, and moderate right atrial enlargement. Coronary angiography showed normal coronary arteries. Cardiac catheterization showed a mean right atrial pressure of 8 mmHg, a pulmonary artery presence of 37/20 mmHg, a mean pulmonary capillary wedge pressure of 20 mmHg, a left ventricular end‐diastolic pressure of 10 mmHg, a cardiac index of 2.3 L min−1, m−2and a mitral valve area of 1.1 cm2.
+
+Rhythm strips obtained before and after mitral valve replacement. (A) Atrial fibrillation prior to mitral valve replacement. (B) Slow atrioventricular (AV) junctional rhythm postoperatively following reprogramming of the paced ventricular rate to 30 beats per minute 1 week after mitral value replacement. (C) Atrial standstill and paced ventricular rhythm following reprogramming of the paced rate to 30/min just prior to revision to an AV sequential pacemaker. (D) AV sequential paced rhythm 12 hr after pacemaker revision
+
+The patient underwent mitral valve replacement with implantation of a 27 mm Edwards pericardial tissue valve. The left atrial appendage was heavily calcified. A Cox‐maze III procedure was performed to convert atrial fibrillation to sinus rhythm. After surgery, there was no evidence of atrial fibrillation. Following reprogramming of the paced ventricular rate to 30/min, atrioventricular (AV) junctional rhythm at a rate of 36/min was noted (Fig.1B). His only postoperative medications were warfarin and bupropion. Following discharge, 24 hr ambulatory electrocardiographic monitoring showed no evidence of atrial activity. Pacemaker interrogation showed 100% paced ventricular rhythm ranging from 70 to 123 beats per minute. By 2014, his dyspnea on exertion, which had improved after surgery, again worsened. Transthoracic echocardiographic and Doppler evaluation showed normal prosthetic valve gradients, but no “A” waves during transmitral and transtricuspid inflow. His electrocardiogram showed ventricular paced rhythm. The ventricular paced rate was temporarily reprogrammed to 30/min 1 week after surgery. This resulted in paced ventricular rhythm at a rate of 30/min (Fig.1C). There was no electrocardiographic evidence of atrial activity. Placement of an atrial lead at multiple right atrial sites failed to demonstrate sensed P waves and failed to immediately produce atrial capture during temporary transvenous pacing. There were no “A” waves during Doppler interrogation of mitral and tricuspid inflow. Despite continued atrial standstill, his pacemaker was revised to a St. Jude AV sequential rate‐responsive (DDD‐R) system. Within 12 hr, the patient developed paced P waves on telemetry (Fig.1D). Pacemaker characteristics 1 day after implantation were as follows: atrial capture threshold (2.5V), pulse width (0.8 ms), pulse amplitude (5V), and impedance (440 ohms). By 1 month after pacemaker revision, atrial capture threshold had decreased to 0.375V, pulse width remained 0.8 ms, pulse amplitude remained at 5V and impedance remained at 440 ohms. Paced AV sequential rhythm was subsequently confirmed on a 12‐lead electrocardiogram obtained 8 months after pacemaker revision (Fig.2) and by the presence “A” waves on Doppler evaluation of mitral and tricuspid inflow signifying restoration of atrial mechanical activity. Left atrial dimension decreased from 5.3 cm prior to pacemaker revision to 4.0 cm 4 months later. Twenty‐one months after pacemaker revision, atrial capture threshold was 0.625V, pulse width was 0.6 ms, pulse amplitude was 1.625V, and impedance was 460 ohms.
+
+Electrocardiogram obtained 8 months after revision to an AV sequential pacemaker. The electrocardiogram shows AV paced rhythm
+
+Atrial standstill is an uncommon cardiac disorder characterized by total absence of electrical and mechanical atrial activity in one or both atria (Rosenbaum & Levine,1939; Chavez et al.,1946; Magnusson,1946; Ruff et al.,1979; Woolliscroft & Tuna,1982; Bloomfield & Sinclair‐Smith,1965; Turkoglu et al.,2011; Allensworth et al.,1969; Demiralp et al.,2005; Effendy et al.,1979; Harley,1976). Its presence is typically suspected with the absence of atrial electrical activity on a 12‐lead surface electrocardiogram. AV junctional escape rhythms are commonly present. The presence of atrial standstill can be confirmed by the absence of atrial contraction on fluoroscopy or the absence of “A” waves on examination of the jugular veins, during mitral, or tricuspid inflow on Doppler echocardiography, or during cardiac catheterization (Rosenbaum & Levine,1939; Chavez et al.,1946; Magnusson,1946; Ruff et al.,1979; Woolliscroft & Tuna,1982).
+
+Previously described causes of transient atrial standstill include hyperkalemia (Surawicz,1963); drug effects or toxicity (digoxin, verapamil, quinidine, proscillaridin; Ruff et al.,1979; Woolliscroft & Tuna,1982; White,1916,1929) reflex forms of syncope, and acute myocardial infarction (Ruff et al.,1979; Woolliscroft & Tuna,1982; James,1961; Koshimizu et al.,2002). Persistent (permanent) atrial standstill has been described in patients with cardiac amyloidosis (Maeda, Tanaka, & Hayashi,1988); various forms of muscular dystrophy (Boriani et al.,2003; Hong et al.,2005); systemic lupus erythematosus, and familial/genetic disorders (such as polymorphism of the connexin 40 genotype and mutation of the SCN5A gene; Woolliscroft & Tuna,1982; Groenewegen et al.,2003). Atrial standstill has also been associated with vertigo (Woolliscroft & Tuna,1982) and stroke (Boriani et al.,2003); and has been described following cardiac surgery (Waldo, Vitikainen, Kaiser, Bowman, & Malm,1972).
+
+In a study of 11 patients by Nakazato et al., supraventricular tachyarrhythmias preceded the onset of atrial standstill in five patients (atrial flutter in three, atrial fibrillation in one, and multifocal atrial tachycardia in one; Nakazato et al.,1995). Electrophysiological mapping in these patients suggested that diminished atrial electrogram voltage occurred initially in the high right atrium, then progressed to the mid‐right atrium, and then to the low right atrium. Rosen and colleagues reported two patients with atrial standstill who died and were autopsied (Rosen, Rahimtoola, Gunnar, & Lev,1971). In one patient with persistent atrial standstill, there was evidence of atherosclerosis, fatty infiltration, fibroelastosis and vacuolization of atrial myocardial cells (Rosen et al.,1971). In another patient with transient atrial standstill, there was total occlusion of the circumflex coronary artery and atherosclerosis of the sinus node artery, possibly predisposing to sinus node ischemia (Rosen et al.,1971). Waldo et al. reported successful reversal of apparent atrial standstill in six of 11 patients early after cardiac (predominantly valve replacement) surgery following intravenous infusion of isoproterenol (Waldo et al.,1972).
+
+The pathogenesis of atrial standstill in our patient is uncertain. It is likely that chronic atrial fibrillation and long‐standing mitral stenosis produced some degree of atrial fibrosis (Waldo et al.,1972; Rosen et al.,1971; Bellmann et al.,2016). However, it is possible that islands of viable atrial myocardium remained intact and responded to sustained atrial pacing. In patients like ours, electrophysiological mapping of the right atrium may identify sites that may be responsive to pacemaker stimulation (Arimotoa et al.,2008). In such patients, apparent persistent atrial standstill may, in fact, be reversible with sustained atrial pacing.
+
+Agrawal H, Aggarwal K, Alpert MA. Persistent atrial standstill following the Cox‐maze III procedure: reversal with sustained atrial pacing. Ann Noninvasive Electrocardiol. 2017;22:e12399. 10.1111/anec.12399
+
+Articles from Annals of Noninvasive Electrocardiology : The Official Journal of the International Society for Holter and Noninvasive Electrocardiology, Inc are provided here courtesy ofInternational Society for Holter and Noninvasive Electrocardiology, Inc. and Wiley Periodicals, Inc.

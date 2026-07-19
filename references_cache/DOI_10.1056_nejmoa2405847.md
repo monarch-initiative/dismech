@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2405847"
+reference_id: DOI:10.1056/nejmoa2405847
 title: "Oveporexton, an Oral Orexin Receptor 2–Selective Agonist, in Narcolepsy Type 1"
 authors:
 - Yves Dauvilliers
@@ -28,6 +28,7 @@ journal: New England Journal of Medicine
 year: '2025'
 doi: 10.1056/nejmoa2405847
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Oveporexton, an Oral Orexin Receptor 2–Selective Agonist, in Narcolepsy Type 1

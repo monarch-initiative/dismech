@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cge.13865"
+reference_id: DOI:10.1111/cge.13865
 title: "Cutis laxa: A comprehensive overview of clinical characteristics and pathophysiology"
 authors:
 - Aude Beyens
@@ -10,6 +10,7 @@ journal: Clinical Genetics
 year: '2021'
 doi: 10.1111/cge.13865
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cutis laxa: A comprehensive overview of clinical characteristics and pathophysiology

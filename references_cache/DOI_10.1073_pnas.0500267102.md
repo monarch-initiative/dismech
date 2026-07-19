@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1073/pnas.0500267102"
-title: "Gain-of-function amino acid substitutions drive positive selection of
-            <i>FGFR2</i>
-            mutations in human spermatogonia"
+reference_id: DOI:10.1073/pnas.0500267102
+title: "Gain-of-function amino acid substitutions drive positive selection of <i>FGFR2</i> mutations in human spermatogonia"
 authors:
 - Anne Goriely
 - Gilean A. T. McVean
@@ -15,11 +13,10 @@ journal: Proceedings of the National Academy of Sciences
 year: '2005'
 doi: 10.1073/pnas.0500267102
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Gain-of-function amino acid substitutions drive positive selection of
-            <i>FGFR2</i>
-            mutations in human spermatogonia
+# Gain-of-function amino acid substitutions drive positive selection of <i>FGFR2</i> mutations in human spermatogonia
 **Authors:** Anne Goriely, Gilean A. T. McVean, Ans M. M. van Pelt, Anthony W. O'Rourke, Steven A. Wall, Dirk G. de Rooij, Andrew O. M. Wilkie
 **Journal:** Proceedings of the National Academy of Sciences (2005)
 **DOI:** [10.1073/pnas.0500267102](https://doi.org/10.1073/pnas.0500267102)

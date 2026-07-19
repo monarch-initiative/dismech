@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamanetworkopen.2025.17937"
+reference_id: DOI:10.1001/jamanetworkopen.2025.17937
 title: "Medullary Thyroid Cancer Risk and Mortality in Carriers of Incidentally Identified MEN2A <i>RET</i> Variants"
 authors:
 - Courtney E. West
@@ -17,6 +17,7 @@ journal: JAMA Network Open
 year: '2025'
 doi: 10.1001/jamanetworkopen.2025.17937
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Medullary Thyroid Cancer Risk and Mortality in Carriers of Incidentally Identified MEN2A <i>RET</i> Variants

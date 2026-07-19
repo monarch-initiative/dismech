@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ddg.15422"
+reference_id: DOI:10.1111/ddg.15422
 title: Combination therapy for Sneddon syndrome to reduce the incidence of cerebrovascular complications
 authors:
 - Albert Narwutsch
@@ -10,6 +10,7 @@ journal: "JDDG: Journal der Deutschen Dermatologischen Gesellschaft"
 year: '2024'
 doi: 10.1111/ddg.15422
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Combination therapy for Sneddon syndrome to reduce the incidence of cerebrovascular complications

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bjh.19682"
+reference_id: DOI:10.1111/bjh.19682
 title: A critical review of management of allogeneic transplant‐eligible adults with Ph+ acute lymphoblastic leukaemia
 authors:
 - Naranie Shanmuganathan
@@ -8,6 +8,7 @@ journal: British Journal of Haematology
 year: '2026'
 doi: 10.1111/bjh.19682
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A critical review of management of allogeneic transplant‐eligible adults with Ph+ acute lymphoblastic leukaemia

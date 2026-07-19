@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.1755-148x.2011.00873.x"
+reference_id: DOI:10.1111/j.1755-148x.2011.00873.x
 title: Clinical outcome and pathological features associated with NRAS mutation in cutaneous melanoma
 authors:
 - Bianca Devitt
@@ -14,6 +14,7 @@ journal: "Pigment Cell &amp; Melanoma Research"
 year: '2011'
 doi: 10.1111/j.1755-148x.2011.00873.x
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical outcome and pathological features associated with NRAS mutation in cutaneous melanoma

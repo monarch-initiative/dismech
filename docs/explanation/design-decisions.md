@@ -249,7 +249,243 @@ See [`CONTRIBUTING.md`](https://github.com/monarch-initiative/dismech/blob/main/
 and the workflow definitions in `.github/workflows/`.
 
 
-## 8. Gaps
+## 8. Prevalence representation
+
+**Decision.** Disease occurrence is modeled with **structured, separated slots** on the
+`Prevalence` class rather than the single overloaded `percentage` field that preceded
+them. The strategy mirrors how phenotype frequency is banded (`FrequencyEnum`), but at
+population scale and without discarding the underlying number.
+
+`Prevalence` now carries:
+
+- **`population`** — cohort / geography only (e.g. "Worldwide", "Ashkenazi Jewish
+  population"). Measure-type qualifiers that used to be jammed in here (e.g. "(Orphanet
+  point prevalence)") belong in `measure_type`.
+- **`measure_type`** (`PrevalenceMeasureEnum`) — which epidemiological measure the record
+  reports: `POINT_PREVALENCE`, `BIRTH_PREVALENCE`, `LIFETIME_PREVALENCE`,
+  `PERIOD_PREVALENCE`, `ANNUAL_INCIDENCE`, `CARRIER_FREQUENCY`, `CASES_IN_LITERATURE`,
+  `UNKNOWN`. This prevents a point prevalence from being silently compared with an
+  incidence rate or a literature head-count.
+- **`prevalence_class`** (`PrevalenceClassEnum`) — the coarse, always-fillable, queryable
+  band. Numeric tiers are the **Orphanet prevalence classes** (`>1/1,000`, `1-5/10,000`,
+  `1-9/100,000`, `1-9/1,000,000`, `<1/1,000,000`, `Not yet documented`), so records that
+  quote Orphanet (and the `ORPHA:` structured source) map directly; qualitative tiers
+  (`COMMON`, `RARE`, `ULTRA_RARE`, `UNKNOWN`) cover prose-only records with no numeric
+  estimate. This is the population-rate analog of phenotype `FrequencyEnum`.
+- **`rate_per_100000`** (+ **`rate_low`** / **`rate_high`** for ranges) — one normalized,
+  machine-comparable number in cases per 100,000. Every source notation (`%`,
+  `per 100,000`, `per million`, `1 in N`, Orphanet `N / M`) converts losslessly into it.
+- **`notes`** retains the verbatim source phrasing; **`evidence`** is unchanged.
+- **`percentage`** is **deprecated** (kept read-only during transition). It was an `Any`
+  (float | int | string) field that, across the KB, conflated measure type, rate, unit,
+  uncertainty, and a qualitative fallback in ~six mutually incompatible notations
+  (audited: of 834 records, only ~5% were an actual percentage; ~18% were unit-ambiguous
+  bare numbers, ~18% qualitative prose, the rest split across `per N` / `1 in N` /
+  Orphanet bands / explicit `%`). Do not populate `percentage` on new records.
+
+**Migration.** `scripts/migrate_prevalence.py` performs a non-destructive,
+idempotent backfill: it parses the deterministic notations into the structured slots and
+**leaves genuinely ambiguous records (bare unit-less numbers, free-text head-counts)
+unconverted**, listing them for manual resolution in
+`research/prevalence_migration_report.md`. Measure type is inferred only from the
+`percentage` value and `population` label, never from prose `notes` (which routinely
+mention "newborn screening" / "carrier frequency" / "incidence" as background and would
+otherwise mislabel ordinary point-prevalence records); auto-defaulted measure types are
+flagged for verification in the same report.
+
+**Rationale.** One field cannot be both honest about imprecision and machine-queryable.
+Splitting the measure out, banding coarsely (Orphanet-aligned), and keeping one normalized
+rate gives a value that is always fillable (the band), precise when the source supports it
+(the rate), and never conflates incompatible epidemiological measures. Because prevalence
+is not yet rendered on disorder pages, the remodel carries no display-breakage risk.
+
+**Per-gene case fractions (the genetic-spectrum analog).** For a genetically
+heterogeneous disease, "what share of cases does each gene explain?" is a *different axis*
+from population occurrence — it is cohort/ancestry-dependent (e.g. BBS1 dominates European
+Bardet-Biedl cohorts, BBS10 others) and needs its own population + evidence per estimate.
+It was previously handled only by the overloaded free-text `Genetic.frequency` field
+(qualitative prose such as "one of the most prevalent BBS genes") with the actual numbers
+trapped inside evidence `snippet:` text. It now has a structured home: `Genetic.case_fractions`
+(multivalued `GeneCaseFraction`), mirroring the Prevalence remodel — `population` (cohort)
++ `case_fraction_percent` (with `case_fraction_low`/`case_fraction_high` and optional
+`cohort_size`) + `evidence` + `notes`, while `frequency` is retained as the coarse,
+always-fillable qualitative band. This keeps the relative genetic spectrum distinct from
+population occurrence (`Prevalence`) and from population allele frequency. Worked example:
+`Bardet-Biedl_Syndrome` carries per-cohort case fractions across five genes — BBS1
+(24.6% German / 27% metabolic / 7% Indian), BBS10 (32.8% / 30% / 10%), and the minor
+genes ARL6/BBS3 (14%), MKKS/BBS6 (10%), and BBS9 (10%) in an Indian cohort — making the
+ancestry-dependence of the genetic spectrum explicit (BBS1 falls from ~25% in Europeans
+to 7% in the Indian cohort).
+
+
+## 9. Imaging & detection modality representation
+
+**Decision.** In-vivo imaging findings are modeled with a **dedicated, ontology-bound
+`ImagingFinding` class** on the `Disease` entry (slot `imaging_findings`), the macroscopic
+/ in-vivo counterpart of `HistopathologyFinding`. The **modality** (the test) and the
+**finding** (what is seen) are represented separately, because they answer different
+questions and bind to different vocabularies:
+
+- **`modality`** (`ImagingModalityEnum`) — a small closed set (MRI, functional MRI, CT,
+  PET, SPECT, ultrasound, X-ray, mammography, angiography, OCT, other), with `meaning:`
+  values bound to the **NCI Thesaurus Diagnostic Imaging branch** (e.g. `NCIT:C16809`
+  Magnetic Resonance Imaging, `NCIT:C17204` Computed Tomography, `NCIT:C17007` PET).
+- **`imaging_finding_term`** (`ImagingFindingDescriptor`) — the imaging appearance, bound
+  via `ImagingFindingTerm` to the **NCIT Imaging Finding branch** (`NCIT:C176708` /
+  `NCIT:C199145`) and/or the **HP Phenotypic-abnormality branch** (`HP:0000118`), since
+  most radiologic observations coincide with a described phenotype (white-matter lesions,
+  atrophy, hyperintensity). The term binding is **RECOMMENDED, not REQUIRED**: many
+  specific radiologic appearances (e.g. "gadolinium-enhancing lesion") lack a dedicated
+  NCIT/HP term and are carried on `preferred_term` alone rather than being forced onto an
+  ill-fitting code or fabricated.
+- **Body site** reuses the existing `located_in` (UBERON) slot, plus `laterality` and
+  `spatial_extent` (focal/multifocal/diffuse), because imaging is inherently spatial. An
+  optional `phenotype_term` cross-links the finding to the HP phenotype it also maps to.
+
+**In scope.** Imaging *findings* that are mechanistically- or diagnostically-meaningful
+readouts — a lesion, an atrophy pattern, a contrast-enhancement behavior that reflects the
+underlying pathophysiology or defines a diagnostic criterion (`diagnostic: true`).
+
+**Out of scope.** Acquisition/protocol parameters, per-patient reads, and radiology
+decision support — consistent with §1 (DisMech is not a diagnostic decision-support tool).
+`ImagingFinding` is the in-vivo/macroscopic sibling of `HistopathologyFinding` (biopsy/
+microscopy) and is distinct from the generic free-text `diagnosis` slot (which records that
+a test was ordered / its presence-absence result) and from the molecular `Biomarker*` /
+`Biochemical` machinery (lab analytes, unchanged).
+
+**Rationale.** Before this decision, imaging leaked into four places — free-text
+`diagnosis` entries (e.g. `"MRI with Gadolinium Contrast"`), free-text `imaging_requirements`
+in criteria sets, HP `phenotypes` / UBERON anatomy, and `notes`/`evidence` prose — none of
+it queryable by modality or finding. Splitting modality from finding makes "which diseases
+show white-matter T2 lesions on MRI?" answerable while keeping the anti-hallucination
+guarantee (every attached term must be a real NCIT/HP/UBERON term with a matching label).
+
+**Ontology choice.** RadLex is the natural radiology vocabulary but is **not hosted on EBI
+OLS4** (it lives on BioPortal, which needs the `bioportal:` adapter + an API key), so it is
+not wired into `conf/oak_config.yaml` today. The grounding therefore uses **NCIT (already
+OLS-served) + HP**, which covers modality cleanly and findings adequately; a future
+tightening to RadLex-grade finding granularity is a deferred follow-up (see §11). Because
+the finding binding is RECOMMENDED, the ontology gap does not block curation.
+
+**Worked example.** `Multiple_Sclerosis` carries two `imaging_findings`: multifocal
+periventricular white-matter lesions on MRI (bound to `HP:0007052`, `located_in`
+`UBERON:0003544` brain white matter, `spatial_extent: MULTIFOCAL`, `diagnostic: true`) and
+a gadolinium-enhancing lesion (modality MRI, `preferred_term`-only — the RECOMMENDED-no-code
+case).
+
+## 10. Electrophysiologic findings: phenotype post-composition, *not* a finding class
+
+**Decision.** In-vivo electrophysiologic findings (EEG, and by extension EMG/EKG) are
+modeled as **ordinary `phenotypes` post-composed with an optional `electrophysiology:`
+sidecar** (`ElectrophysiologyContext`), **not** as a dedicated `ElectrophysiologyFinding`
+class. This is a deliberate, principled *asymmetry* with imaging (§9), and it turns on a
+single test:
+
+> **If the finding term already lives in the phenotype ontology, it belongs in `phenotypes`
+> and needs no separate class. If it doesn't, it needs one.**
+
+Imaging findings bind to the **NCIT Imaging Finding** branch and histopathology to **NCIT
+morphology** — vocabularies *outside* HP — so `ImagingFinding` / `HistopathologyFinding`
+exist to give those terms a home, and their **modality** axis (MRI vs CT vs PET) is a real,
+queryable dimension with its own NCIT branch. **Electrophysiologic findings are different on
+both counts**: the terms *are* HP phenotypes (the EEG subtree `HP:0002353`, EMG `HP:0003457`,
+EKG `HP:0003115` all descend from `HP:0000118`), so they are already correctly typed as
+phenotypes; and the "modality" is near-degenerate (almost always EEG, and implied by the
+term itself). Both pillars that justified a dedicated imaging class collapse for EEG, so a
+sibling class would only *re-home* terms that were already phenotypes and bolt on a
+low-value modality axis.
+
+**The sidecar.** A phenotype whose `phenotype_term` is an EEG/EMG/EKG finding may carry an
+optional `electrophysiology:` block (`ElectrophysiologyContext`) with exactly the axes a
+flat HP term cannot express:
+
+- **`electrophysiology_modality`** (`ElectrophysiologyModalityEnum`; EEG, video-EEG, ECG,
+  EMG, NCS, evoked potential, PSG, MEG) — `meaning:` bound to the NCI Thesaurus
+  diagnostic-procedure branch (`NCIT:C38054` EEG, `NCIT:C38053` ECG, `NCIT:C38056` EMG).
+- **`ictal_state`** (`IctalStateEnum`: ICTAL / INTERICTAL / POSTICTAL).
+- **`recording_state`** (`EEGRecordingStateEnum`: awake / asleep / drowsy / sleep-deprived /
+  photic-stimulation / hyperventilation).
+
+This is the same post-composition move dismech already uses for `temporality`,
+`clinical_course`, `severity`, and `onset` on descriptors — the EEG-specific qualifiers just
+travel in a named sidecar so they don't pollute the generic `PhenotypeDescriptor`.
+Localization/laterality/extent reuse the descriptor slots already on `phenotype_term`; the
+HP term (e.g. "EEG with focal epileptiform discharges") usually already carries them.
+
+**Preclinical / no-HP-term findings** stay phenotypes too — a `preferred_term`-only
+phenotype (no bound `term:`) carrying the sidecar, e.g. an animal-model *electrographic
+seizure* (no HP term exists), tagged `evidence_source: MODEL_ORGANISM`. This keeps ictal
+model-organism EEG alongside the interictal human findings instead of stranding it in prose.
+
+**Rationale / history.** An `ElectrophysiologyFinding` sibling class was first built by
+analogy to §9, then **reverted** once the analogy was checked and found not to hold (EEG
+terms are HP phenotypes; imaging terms are not). Recording the reversal here so the register
+reflects the corrected reasoning, not the false symmetry.
+
+**Category is already HP-derived — the sidecar does not touch it.** The disorder-page
+renderer does *not* group phenotypes by the free-text `phenotypes.category` string; it
+derives the broad category from the **`phenotype_term`'s HPO ancestry**, walking
+`rdfs:subClassOf` to the 22 top-level children of `HP:0000118` (`HpoCategoryProvider` /
+`HPO_TOP_LEVEL_CATEGORIES`, already codified as the `PhenotypeCategoryEnum` in
+`schema/classifications/phenotype_category.yaml`). EEG findings roll up to **Nervous
+System** (`HP:0000707`), so that is the correct `category` value — *not* a novel
+"Electrophysiologic" bucket. **The EEG-ness is carried entirely by the `electrophysiology:`
+sidecar, not by the category**, which is exactly why the sidecar exists: it adds the
+electrophysiologic axes without disturbing the organ-system categorization.
+
+**No category constraint is wanted here.** A rule of the form *category = X ⇒ `phenotype_term`
+under X* would be **circular** — the category is *derived from* the term's HP ancestry, so it
+has no independent content to check — and the 22 top-level categories are too coarse to pick
+out "EEG finding" anyway (EEG rolls up to the whole Nervous System). The sidecar is an
+optional post-composition qualifier exactly like `temporality` / `clinical_course` /
+`severity` / `onset`, **none of which are category-gated or rule-enforced**; this one follows
+the same convention-over-constraint pattern. The only guardrail that would even type-check is
+"sidecar present ⇒ term under `HP:0002353`/`0003457`/`0003115` *or* term-less (the preclinical
+`preferred_term`-only case)", and that is at most an advisory lint, not a schema rule.
+
+**Deferred (see §11).** Independently of EEG, the `PhenotypeCategoryEnum` already exists but
+is not yet wired to the `phenotypes.category` slot (still `range: string`); binding it, or
+deprecating the hand-entered field in favour of the HP-derived value, is a separate cleanup.
+
+**Worked example.** `Dravet_syndrome` carries five EEG phenotypes (`category: Nervous
+System`) — the four interictal human patterns (multifocal / focal / generalized epileptiform
+discharges and interictal epileptiform activity, HP-bound, sidecar `ictal_state:
+INTERICTAL`), plus one preclinical `preferred_term`-only phenotype — ictal electrographic
+seizures in the Scn1a+/- mouse model (sidecar `electrophysiology_modality: EEG`,
+`ictal_state: ICTAL`, `evidence_source: MODEL_ORGANISM`).
+
+**Linking investigation-readout phenotypes into the pathograph (`reports_on`).** Many HP
+terms are *investigation results* rather than states of the organism — an *abnormal
+electroretinogram* (`HP:0000512`), an abnormal EEG, an *elevated circulating creatine kinase
+concentration*. They are legitimately HP phenotypes and stay in `phenotypes` (per the test
+above), but functionally they are **readouts of** an underlying mechanism, not causal
+participants in disease progression. As a result they tend to float as disconnected nodes in
+the pathograph: nothing lists them as a `downstream` target and they carry no `sequelae`. The
+tempting fix — adding a `downstream` edge `mechanism → Abnormal ERG` — is **wrong**, because a
+`downstream`/`causes` edge asserts causal disease progression, whereas the test merely
+*measures* the mechanism.
+
+**Decision.** A phenotype may carry a `reports_on:` list (`PhenotypeReadout`) linking it to
+the pathograph node whose underlying state it measures or reflects, exactly mirroring the
+`Biochemical.readouts` (`BiomarkerReadout`) mechanism already used for molecular biomarkers.
+It reuses the same `BiomarkerReadoutRelationshipEnum` (`READOUT_OF` / `CORRELATES_WITH` /
+`PREDICTS` / `PHARMACODYNAMIC_MARKER_OF`), direction, and endpoint-context vocabularies, and
+renders as the **same dashed observational edge** (`mechanism -.-> readout`, `graph.py`
+`predicate: readout`) — *not* a solid causal arrow. `PhenotypeReadout` is deliberately the
+**lean** counterpart of `BiomarkerReadout`: it omits the surrogate-endpoint/regulatory slots
+(`regulatory_endpoint_refs` and the FDA source-table bridge) that belong only to molecular
+biomarker readouts. This keeps the term where HPO places it (`phenotypes`), preserves the
+"reports-on ≠ caused-by" distinction the schema already encodes for biomarkers, and makes the
+otherwise-orphan test-result phenotype a first-class, evidenced pathograph edge.
+
+**Worked example.** `Bardet-Biedl_Syndrome`'s *Abnormal electroretinogram* phenotype now
+`reports_on` the *Photoreceptor outer-segment transport defect* pathophysiology node
+(`relationship: READOUT_OF`, `direction: NEGATIVE`, `endpoint_context: DIAGNOSTIC`),
+replacing the previous — semantically incorrect — `downstream` causal edge from the
+mechanism to the ERG. The ~200 `Elevated/Decreased circulating … concentration` lab-readout
+phenotypes are candidate backfills (tracked in §11).
+
+## 11. Gaps
 
 This section details decisions we have **not yet made or formalized**.
 
@@ -257,8 +493,15 @@ This section details decisions we have **not yet made or formalized**.
 |---|---|---|
 | Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
+| Hypothesis-based phenotype algorithms | **ENACTED (2026-07-12, `@cmungall`-approved).** `definition_type: PHENOTYPE_ALGORITHM` previously assumed established/validated grounding. `Definition` now carries an orthogonal `derivation_basis` (`ESTABLISHED_CRITERIA` / `MECHANISTIC_HYPOTHESIS` / `MODEL_SYSTEM_EXTRAPOLATION`); **reuses the existing `attaches_to` slot** to link the pathograph node(s)/edge(s) it is predicated on (so the hypothesis basis is *inferred* from those edges' `hypothesis_groups` → `mechanistic_hypotheses[].status`, not stored as a drift-prone duplicate ID); and a **structured `validation_status` object** (`AlgorithmValidationStatus`: `status` enum `PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD` + free-text `rationale` + optional `evidence`). Net effect: a mechanism-predicated EHR case-finding query (e.g. fever-triggered arrhythmia surfacing latent CACNA1C carriers) is not conflated with a consensus/OHDSI-validated phenotype. Gated by `test_hypothesis_based_definition_attaches_to_foreign_keys` (a `MECHANISTIC_HYPOTHESIS` definition must have resolving `attaches_to` refs). Worked examples spanning the spectrum: `Timothy_Syndrome` (`fever_exacerbated_cav1.2`; `MECHANISTIC_HYPOTHESIS`/`PROPOSED`, zebrafish), `Brugada_Syndrome` (fever-unmasking of the type-1 ECG; `ESTABLISHED_CRITERIA`/`UNVALIDATED`), `Long_QT_Syndrome` (QT-prolonging-*drug* unmasking of latent congenital LQTS; `ESTABLISHED_CRITERIA`/`UNVALIDATED` — a pharmacological rather than physiological trigger), and `Malignant_Hyperthermia_of_Anesthesia` (*anesthetic* trigger, skeletal-muscle RYR1/CACNA1S; `ESTABLISHED_CRITERIA`/`UNVALIDATED` — the first non-cardiac example, whose definition `attaches_to` the entry's existing trigger node). See [hypothesis-based-phenotype-algorithms.md](../hypothesis-based-phenotype-algorithms.md) and the candidate register in [reports/hypothesis-driven-ehr-case-finding](../reports/hypothesis-driven-ehr-case-finding-2026-07-12.md). **Remaining follow-ups:** advisory declared-vs-inferred consistency lint; renderer badge; KGX/BioLink export treatment (suppress or specially mark). | [#6245](https://github.com/monarch-initiative/dismech/issues/6245) |
 | `updated_date` field | Deprecated in favor of git history; legacy entries may retain it pending bulk cleanup | — |
+| Deprecated `prevalence.percentage` cleanup | `percentage` superseded by structured prevalence slots (§8) and deprecated. The bare-number unit-ambiguity backlog is effectively resolved: of 199 records, **166 are converted** via `scripts/resolve_bare_prevalence.py` plus reviewed batches — 91 low-value rare-disease prevalences, 47 high-percent population/cohort prevalences (conditional ones qualified by their `population` field), 9 hand-fixed `DISAGREE`, and 19 final records (12 uncorroborated-but-legit + 7 filter false-positives) using the rule **decimal = percent, scientific-notation = proportion** (e.g. CHIME `1e-06` = 1/million; Cockayne `4e-06` = 1/250,000; carrier/birth measures set where stated). All additive; `percentage` preserved. The **33 not converted are not a unit problem**: 32 are records that are *not population prevalence at all* (`MISPLACED_STAT` in `research/prevalence_bare_number_report.md` — metastatic-cancer 5-year survival, staging fractions, complication rates, and fraction-of-category such as "X% of all lymphomas/leukemias/cancers"), which belong in a different slot and need **relocation, not unit-fixing** — a distinct data-quality task pending a schema home for survival/staging/subtype-share data; plus 1 genuinely-ambiguous record (Nephronophthisis `0.1-1.0`, neither a clean percent nor proportion with no corroborating evidence). Plus ~8 free-prose head-counts. `percentage` field removal is deferred until the misplaced-data relocation lands. **Post-migration correction (PR review):** a systematic scan found **19 records across 16 files** where a *fraction-of-category* or *penetrance* value (with the qualifier living in `notes`, so the percentage-only guard missed it) had been wrongly converted to a population `rate_per_100000` — e.g. Osteogenesis_Imperfecta_Type_II `50%` (half of prenatal-onset OI cases → 50,000/100k), HPAH/FXTAS carrier **penetrance** (~40% → 40,000/100k), Minimal_Change_Disease (70–90% of idiopathic NS), Cholesteatoma (419/1710 otitis-media patients). These had their `measure_type`/`prevalence_class`/`rate_*` slots stripped (bare `percentage` preserved). The migration guard was hardened accordingly: `FRACTION_OF_CATEGORY_RE` now also matches cohort head-counts (`N of M`) and `% of <solved/idiopathic/sporadic/typhoidal/…>` categories stated in the percentage, and a new `PENETRANCE_RE` (safe to run against `notes`) catches penetrance/lifetime-risk qualifiers. Bare-percentage cohort fractions whose qualifier is *only* in prose remain inherently ambiguous from the value alone and are corrected by hand rather than by an aggressive notes scan (which would false-positive on records like Lathyrism, whose notes cite a cohort count but whose `percentage` is a genuine population estimate). **Second correction batch (PR review):** a follow-up KB-wide scan surfaced a further class of measure-type/conditional errors on rate-bearing records — (a) **genotype-conditional cumulative incidence / penetrance** stated as "N% diagnosed by age X" (Hemochromatosis male C282Y homozygotes 56.4% by age 80) or "cumulative risk of new cases up to age N" (Oppositional_Defiant_Disorder), which were stripped like the penetrance records; (b) **wrong measure_type** where the type lived only in `notes`/snippet — lifetime prevalence tagged POINT (Anorexia_Nervosa, Migraine_with_Aura → LIFETIME_PREVALENCE) and 12-month prevalence tagged POINT (Obsessive-Compulsive_Disorder → PERIOD_PREVALENCE); (c) **cohort-conditional risk-factor rates** (Furunculosis S. aureus nasal-carriage 60%/36%, Acute_Hypotension 88% intraoperative-event rate in ASA 3–4 surgical patients), stripped; and (d) a **two-figure percentage** where the parser captured the incidence not the prevalence (Systemic_Lupus_Erythematosus North America "23.2/100k incidence; 241/100k prevalence"), split into separate POINT_PREVALENCE (241) and ANNUAL_INCIDENCE (23.2) records. `PENETRANCE_RE` was extended with `cumulative incidence/risk` and `diagnosed by age` (verified against the KB to add no false positives on legitimate rate-bearing records). **Third correction batch (PR review):** a further scan found cohort-conditional / diagnostic-procedure rates whose qualifier lives only in the **`population` label** (not `percentage`/`notes`), which the guards do not parse: e.g. FICUS_syndrome (PICS-F among ICU family members), Coronary_Vasospasm (spasm among ANOCA patients), Refeeding_Syndrome (event rate in hospitalized/PN patients), Aortitis (histology among aortic-surgery patients), Brucellosis (pooled prevalence among included study populations), Silent_Sinus_Syndrome (radiologic finding among head-CT patients), Laryngotracheoesophageal_Cleft (proportion among endoscopy referrals) — structured slots stripped. Plus three `measure_type` corrections to BIRTH_PREVALENCE (Klinefelter_Syndrome, Wolf-Hirschhorn_Syndrome, MECP2_Duplication_Syndrome) where the birth-prevalence language was in the snippet only. Population-label conditionality is deliberately **not** auto-guarded: the label alone cannot separate a selected referral cohort ("adults undergoing head CT") from a legitimate large-scale screening population that approximates the general rate ("Pregnant women undergoing genome-wide NIPS", 333,187 women → 6.9/100,000), so this class stays manual-review. | migration follow-up + schema follow-up (destination for survival/staging/subtype-share) |
+| Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8). `Bardet-Biedl_Syndrome` backfilled for five genes (BBS1, BBS10, ARL6/BBS3, MKKS/BBS6, BBS9) across European, metabolic, and Indian cohorts. **Method/caveat:** dominant-gene fractions (BBS1, BBS10) appear in citable abstracts; minor-gene fractions are recoverable only from **open-access full-text** cohort papers/reviews whose cache is `full_text_xml` (the Indian-cohort figures came from PMID:27853007), since abstracts and the GeneReviews table (NBK1363 T3) and the Niederlová meta-analysis abstract (PMID:31283077) do not carry them. Backfilling the remaining minor genes is gated on finding such full-text-cacheable sources — figures must **not** be filled from memory (anti-hallucination policy, §6). Whether to deprecate the overloaded `frequency` field is also outstanding; no automated extractor yet. | schema follow-up |
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
+| RadLex-grade imaging-finding granularity | `ImagingFinding` (§9) grounds findings in NCIT + HP, which is patchy for specific radiologic appearances (e.g. contrast enhancement, T2 hyperintensity resolve to procedures or CTCAE grades). Tightening `ImagingFindingTerm` to a RadLex `reachable_from` (and `finding_term` to REQUIRED) is deferred: RadLex is not on EBI OLS4, so it needs a `bioportal:` adapter + API key in `conf/oak_config.yaml`. | schema/ontology follow-up |
+| Non-imaging detection modalities | **Resolved for electrophysiology (§10)** via phenotype post-composition (an `electrophysiology:` sidecar carrying modality + `ictal_state` + `recording_state`), *not* a finding class — because EEG/EMG/EKG terms are already HP phenotypes. `Dravet_syndrome` is the worked example. **Still open:** functional/provocation tests (e.g. tensilon, tilt-table) remain free-text `diagnosis`. | schema follow-up |
+| Investigation-readout phenotype backfill (`reports_on`) | New lean `PhenotypeReadout` slot added (§10): investigation-result phenotypes (abnormal ERG/EEG, `Elevated circulating … concentration`) attach to the mechanism they measure via a dashed observational readout edge instead of floating as orphan nodes or being mis-wired as causal `downstream` edges. `Bardet-Biedl_Syndrome` (Abnormal electroretinogram → Photoreceptor outer-segment transport defect) is the worked exemplar. **First batch done** (`scripts/migrate_readout_phenotypes.py`): 69 mis-wired causal edges across 60 files migrated to `reports_on` — restricted to **pure lab/investigation readouts that are never themselves disease drivers** (tissue-leakage enzymes: transaminases/CK/LDH/aldolase/ALP; acute-phase reactants; tumor markers AFP/β-hCG; newborn-screening acylcarnitines; the electroretinogram), HP-verified via descendants of `HP:0032180`/`HP:0034684`/`HP:0010876`/`HP:0003111`/`HP:0030453`. **Deliberately NOT flipped:** ~179 causally-active analytes where the `downstream` edge is *correct* — ammonia (→ encephalopathy), lactate (→ acidosis), vitamins (deficiency → neuropathy/retinopathy), cholesterol, hormones, ions, immunoglobulins — plus any readout carrying its own `sequelae`. **Second batch done** (floating pure readouts): 55 `reports_on` links added across 47 files by a parallel curation pass, each choosing the best-fit existing mechanism node (liver enzymes → hepatocyte-injury node, CK/aldolase/LDH → myofiber-necrosis node, ERG/EOG → photoreceptor-degeneration node, CRP/acute-phase → inflammation node, AFP/β-hCG/tryptase → tumor/mast-cell node, bone ALP → osteoblast node). **~14 deliberately left unlinked** where the disease pathograph has no node the organ-injury lab measures (e.g. transaminases in Graves/Celiac/Stevens-Johnson, the Murine-typhus organ-injury labs) — these are genuine *modeling gaps* (the entry doesn't yet represent that organ's involvement), not readout-link gaps, and were skipped rather than invent a node. **Open:** the ~58 non-pure floating readouts (causally-active analytes) and the modeling-gap skips; causally-active analytes could also optionally gain a *second* `reports_on` link alongside their (correct) causal edge where the value is used diagnostically. | KB migration (batches 1–2 done) |
+| Wire the existing `PhenotypeCategoryEnum` to `phenotypes.category` | The renderer already **derives** each phenotype's organ-system category from its HPO ancestry (`HpoCategoryProvider` → the 22 top-levels, codified as `PhenotypeCategoryEnum` in `schema/classifications/phenotype_category.yaml`), so the hand-entered `category` (still `range: string`, ~200 inconsistent values, ~4k blank) is not what drives display. The cleanup is to bind that enum to the slot and/or deprecate the free-text field in favour of the derived value — not to invent new category values. (Note: category-gated *rules* are a non-goal — the category is derived from the term, so such a rule would be circular; see §10.) | schema follow-up / KB migration |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
 | Schema docs vs. script docs separation | Schema element pages currently mix in script docs | [#2737](https://github.com/monarch-initiative/dismech/issues/2737) |

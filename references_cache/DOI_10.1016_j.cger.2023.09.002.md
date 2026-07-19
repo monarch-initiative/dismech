@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.cger.2023.09.002"
+reference_id: DOI:10.1016/j.cger.2023.09.002
 title: Diagnosis and Management of Bullous Disease
 authors:
 - Amanda A. Onalaja-Underwood
@@ -9,6 +9,7 @@ journal: Clinics in Geriatric Medicine
 year: '2024'
 doi: 10.1016/j.cger.2023.09.002
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Diagnosis and Management of Bullous Disease

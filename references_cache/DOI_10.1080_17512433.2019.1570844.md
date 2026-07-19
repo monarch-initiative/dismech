@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/17512433.2019.1570844"
+reference_id: DOI:10.1080/17512433.2019.1570844
 title: "Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics"
 authors:
 - Lance R. McMahon
@@ -7,6 +7,7 @@ journal: Expert Review of Clinical Pharmacology
 year: '2019'
 doi: 10.1080/17512433.2019.1570844
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Green tobacco sickness: mecamylamine, varenicline, and nicotine vaccine as clinical research tools and potential therapeutics

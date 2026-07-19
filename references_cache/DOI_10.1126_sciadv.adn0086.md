@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/sciadv.adn0086"
+reference_id: DOI:10.1126/sciadv.adn0086
 title: MLL/WDR5 complex recruits centriolar satellite protein Cep72 to regulate microtubule nucleation and spindle formation
 authors:
 - Swathi Chodisetty
@@ -11,6 +11,7 @@ journal: Science Advances
 year: '2024'
 doi: 10.1126/sciadv.adn0086
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # MLL/WDR5 complex recruits centriolar satellite protein Cep72 to regulate microtubule nucleation and spindle formation

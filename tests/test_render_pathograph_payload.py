@@ -529,10 +529,13 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         (
             "Campomelic_Dysplasia.yaml",
             {
-                ("SOX9 Pathogenic Variants", "SOX9-Mediated Chondrogenesis Disruption"),
-                ("SOX9 Pathogenic Variants", "Disrupted 46,XY Sex Determination"),
+                (
+                    "SOX9 Pathogenic Variation",
+                    "SOX9-Mediated Chondrogenesis Disruption",
+                ),
+                ("SOX9 Pathogenic Variation", "Disrupted 46,XY Sex Determination"),
             },
-            {"SOX9 Pathogenic Variants": "genetic"},
+            {"SOX9 Pathogenic Variation": "genetic"},
             {
                 "SOX9-Mediated Chondrogenesis Disruption": [
                     "DNA-binding transcription factor activity, RNA polymerase II-specific"
@@ -559,10 +562,15 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "Achondrogenesis_Type_II.yaml",
-            {("COL2A1 Mutations", "Type II Collagen Structural Defect")},
-            {"COL2A1 Mutations": "genetic"},
             {
-                "Type II Collagen Structural Defect": [
+                (
+                    "Heterozygous Pathogenic COL2A1 Variant",
+                    "Type II Collagen Triple-Helix Destabilization",
+                )
+            },
+            {"Heterozygous Pathogenic COL2A1 Variant": "pathophysiology"},
+            {
+                "Heterozygous Pathogenic COL2A1 Variant": [
                     "extracellular matrix structural constituent"
                 ]
             },

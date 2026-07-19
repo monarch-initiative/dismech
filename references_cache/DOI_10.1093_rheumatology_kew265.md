@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/rheumatology/kew265"
+reference_id: DOI:10.1093/rheumatology/kew265
 title: "Mixed connective tissue disease—enigma variations?"
 authors:
 - Natalia C. O. Ciang
@@ -9,6 +9,7 @@ journal: Rheumatology
 year: '2016'
 doi: 10.1093/rheumatology/kew265
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Mixed connective tissue disease—enigma variations?

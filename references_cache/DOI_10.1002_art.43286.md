@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1002/art.43286"
-title: "Linking Skin and Joint Inflammation in Psoriatic Arthritis through Shared CD8
-                    <sup>+</sup>
-                    T Cell Clones"
+reference_id: DOI:10.1002/art.43286
+title: "Linking Skin and Joint Inflammation in Psoriatic Arthritis through Shared CD8 <sup>+</sup> T Cell Clones"
 authors:
 - Lucy E. Durham
 - Frances Humby
@@ -23,11 +21,10 @@ journal: "Arthritis &amp; Rheumatology"
 year: '2026'
 doi: 10.1002/art.43286
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Linking Skin and Joint Inflammation in Psoriatic Arthritis through Shared CD8
-                    <sup>+</sup>
-                    T Cell Clones
+# Linking Skin and Joint Inflammation in Psoriatic Arthritis through Shared CD8 <sup>+</sup> T Cell Clones
 **Authors:** Lucy E. Durham, Frances Humby, Nora Ng, Roman Laddach, Elizabeth H. Gray, Sarah E. Ryan, Kathryn J. A. Steel, Rosie Ross, Giovanni A. M. Povoleri, Rosamond Nuamah, Kathy Fung, Athul Menon Kallayil, Pawan Dhami, Bruce W. Kirkham, Leonie S. Taams
 **Journal:** Arthritis &amp; Rheumatology (2026)
 **DOI:** [10.1002/art.43286](https://doi.org/10.1002/art.43286)

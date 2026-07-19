@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddx029"
+reference_id: DOI:10.1093/hmg/ddx029
 title: A point mutation in Fgf9 impedes joint interzone formation leading to multiple synostoses syndrome
 authors:
 - Lingyun Tang
@@ -21,6 +21,7 @@ journal: Human Molecular Genetics
 year: '2017'
 doi: 10.1093/hmg/ddx029
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A point mutation in Fgf9 impedes joint interzone formation leading to multiple synostoses syndrome

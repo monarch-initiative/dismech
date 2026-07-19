@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.04.30.591261"
+reference_id: DOI:10.1101/2024.04.30.591261
 title: The Streptococcus pneumoniae transcriptome in patient cerebrospinal fluid identifies novel virulence factors required for meningitis
 authors:
 - Emma C Wall
@@ -25,6 +25,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.04.30.591261
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Streptococcus pneumoniae transcriptome in patient cerebrospinal fluid identifies novel virulence factors required for meningitis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.isci.2025.113130"
+reference_id: DOI:10.1016/j.isci.2025.113130
 title: Interferon signaling modulates Down syndrome-associated Alzheimer’s disease pathology in a mouse model
 authors:
 - Paula Araya
@@ -22,6 +22,7 @@ journal: iScience
 year: '2025'
 doi: 10.1016/j.isci.2025.113130
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Interferon signaling modulates Down syndrome-associated Alzheimer’s disease pathology in a mouse model

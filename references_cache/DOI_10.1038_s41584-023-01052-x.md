@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41584-023-01052-x"
+reference_id: DOI:10.1038/s41584-023-01052-x
 title: "Profiling joint tissues at single-cell resolution: advances and insights"
 authors:
 - Akshay Pandey
@@ -8,6 +8,7 @@ journal: Nature Reviews Rheumatology
 year: '2024'
 doi: 10.1038/s41584-023-01052-x
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Profiling joint tissues at single-cell resolution: advances and insights

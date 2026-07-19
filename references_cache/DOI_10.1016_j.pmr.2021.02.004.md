@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.pmr.2021.02.004"
+reference_id: DOI:10.1016/j.pmr.2021.02.004
 title: Acute Flaccid Myelitis
 authors:
 - William Ide
@@ -9,6 +9,7 @@ journal: Physical Medicine and Rehabilitation Clinics of North America
 year: '2021'
 doi: 10.1016/j.pmr.2021.02.004
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Acute Flaccid Myelitis

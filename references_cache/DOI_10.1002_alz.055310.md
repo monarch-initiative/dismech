@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/alz.055310"
+reference_id: DOI:10.1002/alz.055310
 title: "Is it a new phenotype? Right temporal variant frontotemporal dementia"
 authors:
 - Hulya Ulugut Erkoyun
@@ -8,6 +8,7 @@ journal: "Alzheimer's &amp; Dementia"
 year: '2021'
 doi: 10.1002/alz.055310
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Is it a new phenotype? Right temporal variant frontotemporal dementia

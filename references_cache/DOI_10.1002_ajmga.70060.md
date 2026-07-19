@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmga.70060"
+reference_id: DOI:10.1002/ajmga.70060
 title: "Neuropathic Pain and Enlarged Nerves in Adult Noonan Syndrome and Noonan Syndrome With Multiple Lentigines: Health‐Related Quality of Life and Neurologic Symptoms"
 authors:
 - Jos M. T. Draaisma
@@ -19,6 +19,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2026'
 doi: 10.1002/ajmga.70060
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Neuropathic Pain and Enlarged Nerves in Adult Noonan Syndrome and Noonan Syndrome With Multiple Lentigines: Health‐Related Quality of Life and Neurologic Symptoms

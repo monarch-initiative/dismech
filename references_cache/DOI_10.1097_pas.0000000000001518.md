@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/pas.0000000000001518"
+reference_id: DOI:10.1097/pas.0000000000001518
 title: Genomic and Immunophenotypic Landscape of Aggressive NK-Cell Leukemia
 authors:
 - Siba El Hussein
@@ -16,6 +16,7 @@ journal: American Journal of Surgical Pathology
 year: '2020'
 doi: 10.1097/pas.0000000000001518
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genomic and Immunophenotypic Landscape of Aggressive NK-Cell Leukemia

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.lpm.2013.07.005"
+reference_id: DOI:10.1016/j.lpm.2013.07.005
 title: Drugs induced pulmonary arterial hypertension
 authors:
 - Andrei Seferian
@@ -13,6 +13,7 @@ journal: La Presse Médicale
 year: '2013'
 doi: 10.1016/j.lpm.2013.07.005
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Drugs induced pulmonary arterial hypertension

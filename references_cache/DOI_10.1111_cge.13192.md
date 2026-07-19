@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cge.13192"
+reference_id: DOI:10.1111/cge.13192
 title: Phenotype expansion and development in Kosaki overgrowth syndrome
 authors:
 - P. Gawliński
@@ -19,6 +19,7 @@ journal: Clinical Genetics
 year: '2018'
 doi: 10.1111/cge.13192
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Phenotype expansion and development in Kosaki overgrowth syndrome

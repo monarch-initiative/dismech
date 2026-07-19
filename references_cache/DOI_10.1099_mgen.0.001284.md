@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1099/mgen.0.001284"
+reference_id: DOI:10.1099/mgen.0.001284
 title: Capturing clinically relevant Campylobacter attributes through direct whole genome sequencing of stool
 authors:
 - Bilal Djeghout
@@ -16,6 +16,7 @@ journal: Microbial Genomics
 year: '2024'
 doi: 10.1099/mgen.0.001284
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Capturing clinically relevant Campylobacter attributes through direct whole genome sequencing of stool

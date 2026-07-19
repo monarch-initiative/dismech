@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.09.16.613292"
+reference_id: DOI:10.1101/2024.09.16.613292
 title: MPXV Infects Human PBMCs in a Type I Interferon-Sensitive Manner
 authors:
 - Laure Bosquillon de Jarcy
@@ -12,6 +12,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.09.16.613292
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # MPXV Infects Human PBMCs in a Type I Interferon-Sensitive Manner

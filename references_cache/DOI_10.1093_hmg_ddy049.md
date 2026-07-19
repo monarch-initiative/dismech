@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddy049"
+reference_id: DOI:10.1093/hmg/ddy049
 title: A recurrent de novo missense mutation in UBTF causes developmental neuroregression
 authors:
 - Camilo Toro
@@ -25,6 +25,7 @@ journal: Human Molecular Genetics
 year: '2018'
 doi: 10.1093/hmg/ddy049
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A recurrent de novo missense mutation in UBTF causes developmental neuroregression

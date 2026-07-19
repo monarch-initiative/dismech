@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14737175.2022.2108705"
+reference_id: DOI:10.1080/14737175.2022.2108705
 title: "Neurosarcoidosis: an update on diagnosis and therapy"
 authors:
 - Patompong Ungprasert
@@ -11,6 +11,7 @@ journal: Expert Review of Neurotherapeutics
 year: '2022'
 doi: 10.1080/14737175.2022.2108705
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Neurosarcoidosis: an update on diagnosis and therapy

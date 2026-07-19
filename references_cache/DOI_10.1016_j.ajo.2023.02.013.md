@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajo.2023.02.013"
+reference_id: DOI:10.1016/j.ajo.2023.02.013
 title: "Visual Outcomes Following Plasma Exchange for Optic Neuritis: An International Multicenter Retrospective Analysis of 395 Optic Neuritis Attacks"
 authors:
 - John J. Chen
@@ -46,6 +46,7 @@ journal: American Journal of Ophthalmology
 year: '2023'
 doi: 10.1016/j.ajo.2023.02.013
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Visual Outcomes Following Plasma Exchange for Optic Neuritis: An International Multicenter Retrospective Analysis of 395 Optic Neuritis Attacks

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00018-020-03753-y"
+reference_id: DOI:10.1007/s00018-020-03753-y
 title: PDGF receptor mutations in human diseases
 authors:
 - Emilie Guérit
@@ -11,6 +11,7 @@ journal: Cellular and Molecular Life Sciences
 year: '2021'
 doi: 10.1007/s00018-020-03753-y
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # PDGF receptor mutations in human diseases

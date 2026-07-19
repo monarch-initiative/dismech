@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2015.08.001"
+reference_id: DOI:10.1016/j.ajhg.2015.08.001
 title: Recurrent De Novo Mutations Affecting Residue Arg138 of Pyrroline-5-Carboxylate Synthase Cause a Progeroid Form of Autosomal-Dominant Cutis Laxa
 authors:
 - Björn Fischer-Zirnsak
@@ -40,6 +40,7 @@ journal: The American Journal of Human Genetics
 year: '2015'
 doi: 10.1016/j.ajhg.2015.08.001
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Recurrent De Novo Mutations Affecting Residue Arg138 of Pyrroline-5-Carboxylate Synthase Cause a Progeroid Form of Autosomal-Dominant Cutis Laxa

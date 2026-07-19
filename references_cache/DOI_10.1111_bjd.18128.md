@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bjd.18128"
+reference_id: DOI:10.1111/bjd.18128
 title: Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa
 authors:
 - C. Has
@@ -19,6 +19,7 @@ journal: British Journal of Dermatology
 year: '2020'
 doi: 10.1111/bjd.18128
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Clinical practice guidelines for laboratory diagnosis of epidermolysis bullosa

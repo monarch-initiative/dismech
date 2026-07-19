@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12202"
+reference_id: DOI:10.1002/jimd.12202
 title: "Pathophysiology and targets for treatment in hereditary galactosemia: A systematic review of animal and cellular models"
 authors:
 - Minela Haskovic
@@ -15,6 +15,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2020'
 doi: 10.1002/jimd.12202
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathophysiology and targets for treatment in hereditary galactosemia: A systematic review of animal and cellular models

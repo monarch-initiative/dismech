@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04120493"
 title: "A Phase 1/2, Randomized, Double-Blind, Sham Control and Open-Label Study to Explore Safety, Tolerability, and Efficacy Signals of Multiple Doses of Striatally-Administered rAAV5-miHTT Total Huntingtin Gene (HTT) Lowering Therapy (AMT-130) in Early Manifest Huntington's Disease"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 1/2, Randomized, Double-Blind, Sham Control and Open-Label Study to Explore Safety, Tolerability, and Efficacy Signals of Multiple Doses of Striatally-Administered rAAV5-miHTT Total Huntingtin Gene (HTT) Lowering Therapy (AMT-130) in Early Manifest Huntington's Disease

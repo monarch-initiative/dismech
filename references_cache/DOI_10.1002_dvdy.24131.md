@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/dvdy.24131"
+reference_id: DOI:10.1002/dvdy.24131
 title: Mechanisms and models of endoplasmic reticulum stress in chondrodysplasia
 authors:
 - Sara E. Patterson
@@ -8,6 +8,7 @@ journal: Developmental Dynamics
 year: '2014'
 doi: 10.1002/dvdy.24131
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mechanisms and models of endoplasmic reticulum stress in chondrodysplasia

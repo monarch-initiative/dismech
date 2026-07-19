@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/acps.12839"
+reference_id: DOI:10.1111/acps.12839
 title: Neurodevelopmental origins of abnormal cortical morphology in dissociative identity disorder
 authors:
 - A. A. T. S. Reinders
@@ -14,6 +14,7 @@ journal: Acta Psychiatrica Scandinavica
 year: '2018'
 doi: 10.1111/acps.12839
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Neurodevelopmental origins of abnormal cortical morphology in dissociative identity disorder

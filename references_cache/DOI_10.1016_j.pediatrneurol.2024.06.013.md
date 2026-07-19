@@ -16,6 +16,7 @@ journal: Pediatric Neurology
 year: '2024'
 doi: 10.1016/j.pediatrneurol.2024.06.013
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Unraveling the Link: Seizure Characteristics and Ammonia Levels in Urea Cycle Disorder During Hyperammonemic Crises

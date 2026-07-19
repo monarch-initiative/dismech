@@ -516,7 +516,13 @@ def test_compare_tsv_output_does_not_leak_summary_to_stdout(tmp_path: Path) -> N
     kb_dir, g2p_path = _build_single_gene_fixture(tmp_path)
     output_path = tmp_path / "report.tsv"
 
-    runner = CliRunner(mix_stderr=False)
+    # Click >= 8.2 removed the mix_stderr parameter and always captures
+    # stdout/stderr separately (which is what this test asserts). Older Click
+    # needs mix_stderr=False to get the same separation.
+    try:
+        runner = CliRunner(mix_stderr=False)
+    except TypeError:
+        runner = CliRunner()
     result = runner.invoke(
         g2p_compare_app,
         [

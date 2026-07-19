@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ddg.12876"
+reference_id: DOI:10.1111/ddg.12876
 title: Diagnostic criteria of Netherton syndrome using noninvasive reflectance confocal microscopy
 authors:
 - Elisa Berthold
@@ -11,6 +11,7 @@ journal: "JDDG: Journal der Deutschen Dermatologischen Gesellschaft"
 year: '2016'
 doi: 10.1111/ddg.12876
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Diagnostic criteria of Netherton syndrome using noninvasive reflectance confocal microscopy

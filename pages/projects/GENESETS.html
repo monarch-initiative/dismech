@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gene Sets - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Gene Sets</h1>
+            <div class="hero-meta">
+                <span class="badge status-ACTIVE">Active</span>
+                <span class="tag">INFRASTRUCTURE</span><span class="tag">GENE_SETS</span><span class="tag">GO</span><span class="tag">ALIGNMENT</span>
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Gene Sets</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (30)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Asthma.html">Asthma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Colon_Adenocarcinoma.html">Colon Adenocarcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Sickle_Cell_Disease.html">Sickle Cell Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Acute_Myeloid_Leukemia,_IDH-Mutated.html">IDH Mutant AML</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Alzheimer_Disease.html">Alzheimer Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Amyotrophic_Lateral_Sclerosis.html">Amyotrophic Lateral Sclerosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/arrhythmogenic_right_ventricular_cardiomyopathy.html">Arrhythmogenic Right Ventricular Cardiomyopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Basal_Cell_Carcinoma.html">Basal Cell Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive.html">Chronic Myeloid Leukemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Dilated_Cardiomyopathy.html">Dilated Cardiomyopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/MSI-High_Endometrial_Cancer.html">MSI High Endometrial Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Huntington_Disease.html">Huntington Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hypertrophic_Cardiomyopathy.html">Hypertrophic Cardiomyopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Parkinson&#39;s_Disease.html">Parkinsons Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rheumatoid_Arthritis.html">Rheumatoid Arthritis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Small_Cell_Lung_Cancer.html">Small Cell Lung Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Type_2_Diabetes_Mellitus.html">Type 2 Diabetes Mellitus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Type_I_Diabetes.html">Type I Diabetes</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cholera.html">Cholera</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/22q11.2_Deletion_Syndrome.html">22q11.2 Deletion Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Duchenne_Muscular_Dystrophy.html">Duchenne Muscular Dystrophy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ebola_Virus_Disease_EVD.html">Ebola Virus Disease EVD</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Chylomicronemia_Syndrome.html">Familial Chylomicronemia Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Hypercholesterolemia.html">Familial Hypercholesterolemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Fragile_X_Syndrome.html">Fragile X Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/HPV-Negative_Head_and_Neck_Cancer.html">HPV Negative Head and Neck Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Idiopathic_Pulmonary_Fibrosis.html">Idiopathic Pulmonary Fibrosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Non-Small_Cell_Lung_Cancer.html">Non-Small Cell Lung Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Renal_Cell_Carcinoma.html">Renal Cell Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Systemic_Lupus_Erythematosus.html">Systemic Lupus Erythematosus</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/GENESETS.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="gene-sets">Gene Sets</h1>
+<p>dismech consumes curated gene sets and their GO interpretations from
+<a href="https://github.com/monarch-initiative/genesets"><code>monarch-initiative/genesets</code></a>
+(MSigDB/KEGG/WikiPathways/Hallmark pathways and cell-type signatures). Two things
+work with them:</p>
+<ol>
+<li><strong>Cite a gene set as evidence</strong> — each set is a structured reference source
+   (<code>MYGENESET:&lt;id&gt;</code>) cached as line-oriented markdown.</li>
+<li><strong>Align a gene set's curated biological processes to a disease pathograph</strong> —
+   <code>just genesets-align</code> scores how well a disorder's curated mechanism covers the
+   gene set's GO terms.</li>
+</ol>
+<h2 id="just-targets"><code>just</code> targets</h2>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>just genesets-refresh</code></td>
+<td>Fetch interpretation YAMLs (pinned commit) + mygeneset.info membership into <code>data/genesets/</code>.</td>
+</tr>
+<tr>
+<td><code>just genesets-rebuild</code></td>
+<td>(Re)write <code>references_cache/MYGENESET_*.md</code> (<code>--id KEGG_ASTHMA</code> to limit).</td>
+</tr>
+<tr>
+<td><code>just genesets-list</code></td>
+<td>List ingestable gene-set ids.</td>
+</tr>
+<tr>
+<td><code>just genesets-align &lt;disease&gt; &lt;set&gt;</code></td>
+<td>Compare one gene set's curated GO terms to a disorder's pathograph BPs.</td>
+</tr>
+<tr>
+<td><code>just genesets-align-all</code></td>
+<td>Catalog-wide BP-alignment audit (every disease-context set ↔ its disorder).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="structured-source-mygeneset">Structured source: <code>MYGENESET:</code></h2>
+<p><code>src/dismech/structured_sources/mygeneset.py</code> ingests <strong>100</strong> gene sets into
+<code>references_cache/MYGENESET_&lt;id&gt;.md</code>. Identity is keyed on
+<a href="https://mygeneset.info">mygeneset.info</a>: the reference id is <code>MYGENESET:&lt;_id&gt;</code>
+(the bare set name, e.g. <code>KEGG_ASTHMA</code>). The pin lives in
+<code>data/genesets/MANIFEST.yaml</code> (genesets repo commit + mygeneset/mygene base URLs);
+<code>data/genesets/interpretations/</code> and <code>membership/</code> are fetched, not committed.</p>
+<p>Each cache file has these sections, with every row a quotable evidence <code>snippet:</code>:</p>
+<ul>
+<li><strong>Description</strong>, <strong>Context</strong> (disease/tissue <code>MONDO</code>/<code>UBERON</code>),</li>
+<li><strong>Curated GO interpretation</strong> — <code>GO id | label | aspect | role | confidence</code>,</li>
+<li><strong>Members</strong> — <code>symbol | hgnc:id</code> (NCBIGene→HGNC resolved via mygene.info;
+  NCBIGene fallback only for loci with no HGNC),</li>
+<li><strong>Source</strong> — genesets commit + mygeneset + upstream <code>gene_set_id</code> xref.</li>
+</ul>
+<p>Citing a row as evidence (a gene-set row is a <em>lead</em>, not mechanism — back disease
+claims with a primary PMID too):</p>
+<pre><code class="language-yaml">evidence:
+- reference: MYGENESET:KEGG_ASTHMA
+  supports: SUPPORT
+  snippet: &quot;GO:0045064 | T-helper 2 cell differentiation | biological_process | core_process | high&quot;
+  explanation: The curated KEGG_ASTHMA interpretation lists Th2 differentiation as a core process.
+</code></pre>
+<h2 id="the-gene_sets-slot">The <code>gene_sets</code> slot</h2>
+<p>A <code>Disease</code> declares its gene sets via the <code>gene_sets</code> slot
+(<code>GeneSetAssociation</code>: <code>gene_set</code> + <code>relationship</code> + <code>note</code>). This is the precise,
+curated disease↔set link — membership and the GO interpretation stay in the cache
+file, so the slot never re-duplicates genes.</p>
+<pre><code class="language-yaml">gene_sets:
+- gene_set: MYGENESET:KEGG_ASTHMA          # → references_cache/MYGENESET_KEGG_ASTHMA.md
+  relationship: CANONICAL_PATHWAY
+  note: KEGG legacy asthma pathway; overlaps the Th2 + inflammatory arms.
+</code></pre>
+<p><code>GeneSetRelationshipEnum</code>: <code>CANONICAL_PATHWAY</code>, <code>CELL_TYPE_SIGNATURE</code>,
+<code>PERTURBATION_SIGNATURE</code>, <code>DISEASE_SIGNATURE</code>, <code>OTHER</code>.</p>
+<p><strong>30 disorders</strong> declare <code>gene_sets</code> (see the disease list above). Each declared
+link is a precise, per-entry mapping — e.g. <code>KEGG_COLORECTAL_CANCER</code> is on
+<code>Colon_Adenocarcinoma</code>, while metastasis/EMT-specific sets belong on the
+metastatic entries.</p>
+<h2 id="bp-alignment">BP alignment</h2>
+<p><code>src/dismech/genesets_align.py</code> compares a gene set's curated GO terms to a
+disorder's <code>biological_processes</code> + <code>cellular_components</code> + <code>protein_complexes</code>,
+matched over GO via OAK:</p>
+<ul>
+<li><strong>Match status</strong>: <code>EXACT</code> and <code>DESCENDANT</code> (pathograph term is <em>more specific</em>)
+  count as represented; <code>ANCESTOR</code> (pathograph has only a <em>more general</em> term)
+  is shown but does <strong>not</strong> count.</li>
+<li><strong>Role-weighted</strong>: corroboration is scored over the set's <code>core_process</code>/
+  <code>core_component</code> BPs; <code>nonspecific</code>/<code>false_association</code> BPs are expected absent
+  and only lint if they appear in the pathograph.</li>
+<li><strong>Output</strong>: per-BP status, a corroboration fraction (core BPs represented), and
+  the core-BP gap list.</li>
+</ul>
+<p><code>genesets-align-all</code> runs this across the catalog, preferring the explicit
+<code>gene_sets</code> links (marked <code>declared</code>) and falling back to a one-disorder-per-MONDO
+guess (marked <code>mondo?</code>) for sets no disorder declares. Recurring gaps it surfaces:
+<code>MHC class II protein complex</code> (a GO cellular-component, modeled via CL in dismech)
+across Asthma/RA/T1D; <code>mitochondrion</code> + <code>neuron apoptotic process</code> across
+neurodegeneration; <code>regulation of cell population proliferation</code> across the cancer
+pathways.</p>
+<h2 id="coverage">Coverage</h2>
+<p>100 ingested sets; 56 are disease-context. 30 are wired to a disorder via
+<code>gene_sets</code>. The rest either have no dismech disorder yet, or are cell-type /
+process / signature sets that attach to phenotypes or modules rather than a single
+disease. The IL6→JAK/STAT MEDICUS set is a signaling pathway, not a disease — it
+belongs on a mechanism module.</p>
+        </article>
+    </div>
+</body>
+</html>

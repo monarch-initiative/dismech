@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/humu.21576"
+reference_id: DOI:10.1002/humu.21576
 title: "Kindler syndrome: Extension of FERMT1 mutational spectrum and natural history"
 authors:
 - Cristina Has
@@ -18,6 +18,7 @@ journal: Human Mutation
 year: '2011'
 doi: 10.1002/humu.21576
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Kindler syndrome: Extension of FERMT1 mutational spectrum and natural history

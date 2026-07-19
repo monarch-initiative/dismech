@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41571-024-00904-z"
+reference_id: DOI:10.1038/s41571-024-00904-z
 title: "Epidemiology of HPV-associated cancers past, present and future: towards prevention and elimination"
 authors:
 - Talía Malagón
@@ -10,6 +10,7 @@ journal: Nature Reviews Clinical Oncology
 year: '2024'
 doi: 10.1038/s41571-024-00904-z
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Epidemiology of HPV-associated cancers past, present and future: towards prevention and elimination

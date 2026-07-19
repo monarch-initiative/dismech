@@ -129,6 +129,14 @@ def canonical_ref(raw: str) -> str | None:
     if value.upper().startswith("DOI:"):
         doi = value.split(":", 1)[1].strip().lower()
         return f"DOI:{doi}" if doi else None
+    # Preprint references (Europe PMC SRC:PPR ids), first-class since
+    # linkml-reference-validator >=0.2.1rc2. Used by preprint_scan for
+    # already-cited detection.
+    if value.upper().startswith("PPR:"):
+        # Europe PMC PPR ids are uppercase (PPR1253390); normalize for robust
+        # matching against the scanner's `PPR:<id>` form.
+        ppr = value.split(":", 1)[1].strip().upper()
+        return f"PPR:{ppr}" if ppr else None
     return None
 
 

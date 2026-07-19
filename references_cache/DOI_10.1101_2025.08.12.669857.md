@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1101/2025.08.12.669857"
-title: "Immune dysregulation in the prostates of C57BL/6
-                  <sup>Aire-/-</sup>
-                  mice mirrors that seen in human benign prostatic hyperplasia"
+reference_id: DOI:10.1101/2025.08.12.669857
+title: "Immune dysregulation in the prostates of C57BL/6 <sup>Aire-/-</sup> mice mirrors that seen in human benign prostatic hyperplasia"
 authors:
 - Nadia A. Lanman
 - Meaghan M. Broman
@@ -20,11 +18,10 @@ authors:
 year: '2025'
 doi: 10.1101/2025.08.12.669857
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Immune dysregulation in the prostates of C57BL/6
-                  <sup>Aire-/-</sup>
-                  mice mirrors that seen in human benign prostatic hyperplasia
+# Immune dysregulation in the prostates of C57BL/6 <sup>Aire-/-</sup> mice mirrors that seen in human benign prostatic hyperplasia
 **Authors:** Nadia A. Lanman, Meaghan M. Broman, Harish Kothandaraman, Gregory M. Cresswell, Gada D. Awdalkreem, Dilinaer Wusiman, Andree K. Kolliegbo, Alexander P. Glaser, Brian T. Helfand, Renee E. Vickman, Jiang Yang, Simon W. Hayward, Timothy L. Ratliff
 **DOI:** [10.1101/2025.08.12.669857](https://doi.org/10.1101/2025.08.12.669857)
 

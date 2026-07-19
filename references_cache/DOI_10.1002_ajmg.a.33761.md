@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.33761"
+reference_id: DOI:10.1002/ajmg.a.33761
 title: Brachydactyly type A1 with short humerus and associated skeletal features
 authors:
 - Didier Lacombe
@@ -15,6 +15,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2010'
 doi: 10.1002/ajmg.a.33761
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Brachydactyly type A1 with short humerus and associated skeletal features

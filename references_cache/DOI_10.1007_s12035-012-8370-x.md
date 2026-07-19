@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12035-012-8370-x"
+reference_id: DOI:10.1007/s12035-012-8370-x
 title: The PMP22 Gene and Its Related Diseases
 authors:
 - Jun Li
@@ -11,6 +11,7 @@ journal: Molecular Neurobiology
 year: '2013'
 doi: 10.1007/s12035-012-8370-x
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The PMP22 Gene and Its Related Diseases

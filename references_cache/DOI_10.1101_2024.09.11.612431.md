@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.09.11.612431"
+reference_id: DOI:10.1101/2024.09.11.612431
 title: Integrated single-cell atlas of human atherosclerotic plaques
 authors:
 - K. Traeuble
@@ -14,6 +14,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.09.11.612431
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Integrated single-cell atlas of human atherosclerotic plaques

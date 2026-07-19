@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/bjs/znae178"
+reference_id: DOI:10.1093/bjs/znae178
 title: "Neoadjuvant 177Lu-DOTATATE for non-functioning pancreatic neuroendocrine tumours (NEOLUPANET): multicentre phase II study"
 authors:
 - Stefano Partelli
@@ -16,6 +16,7 @@ journal: British Journal of Surgery
 year: '2024'
 doi: 10.1093/bjs/znae178
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Neoadjuvant 177Lu-DOTATATE for non-functioning pancreatic neuroendocrine tumours (NEOLUPANET): multicentre phase II study

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/der2.70028"
+reference_id: DOI:10.1002/der2.70028
 title: The Role of Keratinocytes in Skin Health and Disease
 authors:
 - Mohammed Saleh Al‐Dhubaibi
@@ -12,6 +12,7 @@ journal: Dermatological Reviews
 year: '2025'
 doi: 10.1002/der2.70028
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of Keratinocytes in Skin Health and Disease

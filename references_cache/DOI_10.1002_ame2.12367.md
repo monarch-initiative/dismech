@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ame2.12367"
+reference_id: DOI:10.1002/ame2.12367
 title: "Towards system genetics analysis of head and neck squamous cell carcinoma using the mouse model, cellular platform, and clinical human data"
 authors:
 - Osayd Zohud
@@ -10,6 +10,7 @@ journal: Animal Models and Experimental Medicine
 year: '2023'
 doi: 10.1002/ame2.12367
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Towards system genetics analysis of head and neck squamous cell carcinoma using the mouse model, cellular platform, and clinical human data

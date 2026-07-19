@@ -18,6 +18,33 @@ Use UTC timestamps in filenames, for example
 `2026-05-31T174412Z-codex-a3f9c2.yaml`. The short suffix prevents same-second
 collisions when multiple sessions touch the same target.
 
+## Creating a record
+
+Do not hand-write the path, timestamp, or session id. Scaffold a schema-valid
+skeleton with the helper, then edit the emitted `details`:
+
+```bash
+just new-history --kind disorder --slug Asthma \
+  --event CREATE --outcome changed \
+  --summary "Create: Asthma" \
+  --agent-tool claude-code --model claude-opus-4-8 \
+  --sections phenotypes,pathophysiology,evidence \
+  --pr 5123 --issue 2892 \
+  --details "One-paragraph summary of what was curated and how it was validated."
+```
+
+`--kind` is `disorder`, `module`, `comorbidity`, `schema`, or `other`
+(`schema`/`other` require an explicit `--path`). `--event` is one of
+`CREATE`/`EDIT`/`REVIEW`/`AUDIT`/`GENERAL`; `--outcome` is
+`changed`/`no_change`/`needs_followup`/`blocked`. `--issue`/`--pr`/`--url` accept
+bare numbers (expanded to repo URLs) or full URLs and repeat. Run
+`just new-history --help` for the full option list. The command prints the path
+it created; validate it with `just validate-history <path>` and `git add history/`.
+
+Any PR that creates or edits a KB entry (`kb/disorders/`, `kb/modules/`,
+`kb/comorbidities/`) should include a matching record — CI posts an advisory
+(non-blocking) warning when one is missing.
+
 Legacy `kb/disorders/*.history.yaml` files were compacted into this layout as
 `GENERAL` entry-history summaries. They summarize old `edit_history` activity
 by action, date range, model, agent tool, and agent version instead of

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jbmr/zjae021"
+reference_id: DOI:10.1093/jbmr/zjae021
 title: "Risk factors for hip and vertebral fractures in chronic kidney disease: the CRIC study"
 authors:
 - Simon Hsu
@@ -18,6 +18,7 @@ journal: Journal of Bone and Mineral Research
 year: '2024'
 doi: 10.1093/jbmr/zjae021
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Risk factors for hip and vertebral fractures in chronic kidney disease: the CRIC study

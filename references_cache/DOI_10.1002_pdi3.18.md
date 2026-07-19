@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/pdi3.18"
+reference_id: DOI:10.1002/pdi3.18
 title: Metabolic reprogramming in osteosarcoma
 authors:
 - Yulu Shi
@@ -9,6 +9,7 @@ journal: Pediatric Discovery
 year: '2023'
 doi: 10.1002/pdi3.18
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Metabolic reprogramming in osteosarcoma

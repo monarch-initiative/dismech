@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/stcltm/szab019"
+reference_id: DOI:10.1093/stcltm/szab019
 title: Alterations in Hematopoietic and Mesenchymal Stromal Cell Components of the Osteopetrotic Bone Marrow Niche
 authors:
 - Inci Cevher Zeytin
@@ -11,6 +11,7 @@ journal: Stem Cells Translational Medicine
 year: '2022'
 doi: 10.1093/stcltm/szab019
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Alterations in Hematopoietic and Mesenchymal Stromal Cell Components of the Osteopetrotic Bone Marrow Niche

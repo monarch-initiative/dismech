@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2022.06.03.494707"
+reference_id: DOI:10.1101/2022.06.03.494707
 title: Spatiotemporal mapping of immune and stem cell dysregulation after volumetric muscle loss
 authors:
 - Jacqueline A. Larouche
@@ -14,6 +14,7 @@ authors:
 year: '2022'
 doi: 10.1101/2022.06.03.494707
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Spatiotemporal mapping of immune and stem cell dysregulation after volumetric muscle loss

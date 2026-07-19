@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ajd.14097"
+reference_id: DOI:10.1111/ajd.14097
 title: "Dupilumab in paediatric Netherton syndrome: Can we do better?"
 authors:
 - Astrid Herzum
@@ -11,6 +11,7 @@ journal: Australasian Journal of Dermatology
 year: '2023'
 doi: 10.1111/ajd.14097
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Dupilumab in paediatric Netherton syndrome: Can we do better?

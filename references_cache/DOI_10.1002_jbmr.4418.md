@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jbmr.4418"
+reference_id: DOI:10.1002/jbmr.4418
 title: "Ectopic Calcification and Hypophosphatemic Rickets: Natural History of ENPP1 and ABCC6 Deficiencies"
 authors:
 - Carlos R Ferreira
@@ -21,6 +21,7 @@ journal: Journal of Bone and Mineral Research
 year: '2021'
 doi: 10.1002/jbmr.4418
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Ectopic Calcification and Hypophosphatemic Rickets: Natural History of ENPP1 and ABCC6 Deficiencies

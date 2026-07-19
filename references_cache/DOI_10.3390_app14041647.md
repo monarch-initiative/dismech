@@ -19,6 +19,7 @@ journal: Applied Sciences
 year: '2024'
 doi: 10.3390/app14041647
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Argininemia: Pathophysiology and Novel Methods for Evaluation of the Disease
