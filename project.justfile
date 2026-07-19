@@ -963,6 +963,11 @@ gen-project-pages:
     uv run python -m dismech.render --project projects
     @echo "Generated $(ls -1 pages/projects/*.html 2>/dev/null | wc -l | tr -d ' ') project pages"
 
+# Generate the NIH funding-topic coverage summary page (pages/nih-topics/index.html)
+[group('Pages')]
+gen-nih-topics-page:
+    uv run python scripts/gen_nih_topics_summary.py
+
 # Generate static schema docs site via MkDocs (served at /elements/)
 [group('Pages')]
 gen-schema-docs:
@@ -975,7 +980,7 @@ gen-schema-docs:
 
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-schema-docs
+gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-nih-topics-page gen-schema-docs
     @echo "Generated browser data, pathographs, disorder/comorbidity/grouping/project pages, and schema docs"
 
 # ============== KGX Export ==============

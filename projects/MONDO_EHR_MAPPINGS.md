@@ -1,6 +1,8 @@
 ---
 title: MONDO-Driven EHR Rare Disease Mapping Refactor
 status: IN_PROGRESS
+nih_topics:
+  - NIH_HT_79_data_usage_utility_to_advance_biomedical
 description: Replace brittle, hand-maintained SQL IN (...) code lists with a reproducible MONDO-driven mapping pipeline that generates versioned SNOMED/ICD concept sets for OMOP queries.
 ---
 
