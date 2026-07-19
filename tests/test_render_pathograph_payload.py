@@ -436,14 +436,14 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             "Acromesomelic_Dysplasia_Maroteaux_Type.yaml",
             {
                 (
-                    "NPR2 Loss-of-Function Mutations",
-                    "Impaired CNP-NPR-B-cGMP Signaling in Growth Plate",
+                    "Biallelic NPR2 Loss-of-Function Variants",
+                    "Biallelic NPR2 Loss of Function",
                 )
             },
-            {"NPR2 Loss-of-Function Mutations": "genetic"},
+            {"Biallelic NPR2 Loss-of-Function Variants": "genetic"},
             {
-                "Impaired CNP-NPR-B-cGMP Signaling in Growth Plate": [
-                    "receptor guanylyl cyclase activity",
+                "Reduced CNP-Stimulated Guanylyl Cyclase Activity and cGMP": [
+                    "guanylate cyclase activity",
                     "natriuretic peptide receptor activity",
                 ]
             },
