@@ -922,36 +922,27 @@ window.searchData = [
     "creation_date": "2026-07-08T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "3-Methylglutaconic aciduria type I (MGA1) is an autosomal recessive inborn error of leucine catabolism caused by biallelic variants in AUH, which encodes the mitochondrial enzyme 3-methylglutaconyl-CoA hydratase. The enzyme catalyzes the conversion of 3-methylglutaconyl-CoA to 3-hydroxy-3-methylglutaryl-CoA, the only step of leucine degradation that had long remained uncharacterized at the enzyme and gene level. Its deficiency produces a distinctive organic-acid profile with elevated urinary excretion of 3-methylglutaconic acid, 3-methylglutaric acid, and 3-hydroxyisovaleric acid \u2014 the biochemical hallmark and diagnostic key. MGA1 is the only \"primary\" 3-methylglutaconic aciduria, mechanistically distinct from the \"secondary\" 3-methylglutaconic acidurias (e.g., Barth/TAZ, MEGDEL/SERAC1, Costeff/OPA3, DCMA/DNAJC19, TMEM70), in which the aciduria reflects mitochondrial membrane or phospholipid-remodeling defects rather than a leucine-pathway block. The clinical phenotype is strikingly variable, ranging from asymptomatic detection on newborn screening and isolated delayed speech in childhood to a highly characteristic, slowly progressive adult-onset leukoencephalopathy with ataxia, spasticity, optic atrophy, and dementia. The mechanism linking metabolite accumulation to white-matter injury is not established, and complete absence of the enzyme is compatible with normal development in some individuals.\n",
+    "description": "3-Methylglutaconic aciduria type I (MGA1) is an autosomal recessive defect of leucine catabolism caused by biallelic pathogenic variants in AUH, which encodes mitochondrial 3-methylglutaconyl-CoA hydratase. The established phenotype is biochemical: deficient enzyme activity causes persistent urinary 3-methylglutaconic acid, variably accompanied by 3-methylglutaric and 3-hydroxyisovaleric acids, and can produce an elevated C5-OH newborn-screening signal. Clinical penetrance is unresolved. Long-term newborn-screened individuals have remained asymptomatic without treatment, whereas small, clinically ascertained series and case reports describe nonspecific pediatric neurodevelopmental findings and a possible adult-onset progressive leukoencephalopathy. Ascertainment bias prevents treating those neurologic findings as established consequences of the biochemical defect. MGA1 is the disorder historically termed primary 3-methylglutaconic aciduria; secondary 3-methylglutaconic acidurias arise through other mitochondrial mechanisms rather than an AUH-dependent leucine-pathway block.",
     "pathophysiology": [
-      "3-Methylglutaconyl-CoA Hydratase Deficiency",
-      "Accumulation of Leucine-Pathway Organic Acids",
-      "Slowly Progressive Leukoencephalopathy"
+      "AUH-dependent 3-methylglutaconyl-CoA hydratase deficiency",
+      "Leucine-pathway organic-acid accumulation",
+      "Reported adult leukoencephalopathy association of uncertain causality",
+      "Reported pediatric neurodevelopmental association of uncertain causality"
     ],
-    "cell_types": [
-      "fibroblast",
-      "oligodendrocyte",
-      "neuron"
-    ],
-    "cell_type_ids": [
-      "CL:0000057",
-      "CL:0000128",
-      "CL:0000540"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
       "L-leucine catabolic process"
     ],
     "phenotypes": [
       "3-Methylglutaconic aciduria",
       "Delayed speech and language development",
-      "Intellectual disability",
-      "Ataxia",
+      "Severe global developmental delay",
+      "Progressive ataxia",
       "Leukoencephalopathy",
       "Optic atrophy",
       "Spasticity",
-      "Dementia",
-      "Febrile seizure",
-      "Attention deficit hyperactivity disorder"
+      "Dementia"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -964,37 +955,37 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0003535",
       "HP:0000750",
-      "HP:0001249",
+      "HP:0001263",
       "HP:0001251",
       "HP:0002352",
       "HP:0000648",
       "HP:0001257",
-      "HP:0000726",
-      "HP:0002373",
-      "HP:0007018"
+      "HP:0000726"
     ],
-    "frequencies": [
-      "VERY_FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
-      "AUH variants"
+      "Biallelic AUH pathogenic variants"
     ],
     "treatments": [
-      "Leucine-restricted diet"
+      "Leucine-restricted diet",
+      "Levocarnitine supplementation"
     ],
     "environmental": [],
     "biochemical": [
-      "3-Methylglutaconic acid (3-MGC)",
-      "3-Methylglutaric acid (3-MG)",
-      "3-Hydroxyisovaleric acid (3-HIV)"
+      "Urinary 3-methylglutaconic acid",
+      "Urinary 3-methylglutaric acid",
+      "Urinary 3-hydroxyisovaleric acid",
+      "Blood 3-hydroxyisovalerylcarnitine (C5-OH)",
+      "3-methylglutaconyl-CoA hydratase activity in fibroblasts",
+      "Cerebrospinal-fluid 3-hydroxyisovaleric acid"
     ],
     "source_file": "3-Methylglutaconic_Aciduria_Type_I.yaml",
     "page_url": "../pages/disorders/3-Methylglutaconic_Aciduria_Type_I.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "3",
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "3"
   },
   {
@@ -10773,7 +10764,8 @@ window.searchData = [
       "Autophagy-Lysosomal Dysfunction",
       "HSV-1 Reactivation in RORB+ Glutamatergic Neurons",
       "Intercellular Tau Transmission via Extracellular Vesicles",
-      "PARP1-Mediated Parthanatos"
+      "PARP1-Mediated Parthanatos",
+      "Adaptive Immune T Cell Response to Tau Pathology"
     ],
     "cell_types": [
       "Neurons",
@@ -10781,7 +10773,8 @@ window.searchData = [
       "Astrocytes",
       "Endothelial cells",
       "Pericytes",
-      "RORB+ glutamatergic neuron"
+      "RORB+ glutamatergic neuron",
+      "CD8+ cytotoxic T cell"
     ],
     "cell_type_ids": [
       "CL:0000540",
@@ -10789,7 +10782,8 @@ window.searchData = [
       "CL:0000127",
       "CL:0000115",
       "CL:0000669",
-      "CL:0000679"
+      "CL:0000679",
+      "CL:0000625"
     ],
     "biological_processes": [
       "Protein misfolding",
@@ -10815,7 +10809,10 @@ window.searchData = [
       "Extracellular vesicle biogenesis",
       "Tau release in extracellular vesicles",
       "Tau seeding of aggregation in recipient neurons",
-      "DNA damage response"
+      "DNA damage response",
+      "T cell chemotaxis into the brain",
+      "T cell mediated cytotoxicity",
+      "Interferon-gamma (type II interferon) production"
     ],
     "phenotypes": [
       "Memory Loss",
@@ -10872,10 +10869,10 @@ window.searchData = [
     "source_file": "Alzheimer_Disease.yaml",
     "page_url": "../pages/disorders/Alzheimer_Disease.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 12,
     "num_genes": 9,
     "num_treatments": 6,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "6"
   },
   {
@@ -14752,6 +14749,111 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Asbestosis",
+    "disease_id": "MONDO:0016466",
+    "category": "Respiratory Disease",
+    "parents": [
+      "Respiratory Disease",
+      "Lung Disease",
+      "Pneumoconiosis"
+    ],
+    "creation_date": "2026-07-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Asbestosis is a chronic, diffuse interstitial pulmonary fibrosis caused by the inhalation and retention of asbestos mineral fibers. It is a dose-dependent pneumoconiosis with a long latency (typically 15-40 years from first exposure) in which biopersistent fibers deposited in the distal airways and alveoli provoke sustained oxidative injury, chronic inflammation, and progressive, irreversible lower-zone-predominant fibrosis. Asbestosis denotes the parenchymal fibrosis specifically and is distinct from the other asbestos-related diseases (benign pleural plaques and effusions, diffuse pleural thickening, lung carcinoma, and malignant mesothelioma), which arise by overlapping but separable mechanisms.",
+    "pathophysiology": [
+      "Biopersistent asbestos fiber deposition",
+      "Frustrated phagocytosis of asbestos fibers",
+      "Iron-catalyzed reactive oxygen species generation",
+      "NLRP3 inflammasome activation",
+      "Chronic sterile alveolitis",
+      "Pro-fibrotic mediator release",
+      "Myofibroblast differentiation",
+      "Excessive extracellular matrix deposition",
+      "Interstitial fibrosis and architectural distortion",
+      "Restrictive ventilatory failure"
+    ],
+    "cell_types": [
+      "alveolar macrophage",
+      "alveolar type I epithelial cell",
+      "alveolar type II epithelial cell",
+      "neutrophil",
+      "lung fibroblast",
+      "myofibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000583",
+      "CL:0002062",
+      "CL:0002063",
+      "CL:0000775",
+      "CL:0000057",
+      "CL:0000186"
+    ],
+    "biological_processes": [
+      "frustrated phagocytosis of asbestos fibers",
+      "reactive oxygen species generation",
+      "response to oxidative stress",
+      "NLRP3 inflammasome complex assembly",
+      "inflammatory response",
+      "transforming growth factor beta production",
+      "fibroblast migration",
+      "TGF-beta receptor signaling",
+      "myofibroblast differentiation",
+      "collagen fibril organization",
+      "extracellular matrix organization",
+      "wound healing"
+    ],
+    "phenotypes": [
+      "Exertional dyspnea",
+      "Chronic cough",
+      "Bibasilar inspiratory crackles",
+      "Diffuse interstitial pulmonary fibrosis",
+      "Abnormal pulmonary interstitial morphology",
+      "Restrictive ventilatory defect",
+      "Digital clubbing"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0012735",
+      "HP:0030830",
+      "HP:0550005",
+      "HP:0006530",
+      "HP:0002091",
+      "HP:0001217"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GSTM1",
+      "GSTT1"
+    ],
+    "treatments": [
+      "Smoking cessation",
+      "Supplemental oxygen therapy",
+      "Pulmonary rehabilitation",
+      "Lung transplantation",
+      "Removal from ongoing asbestos exposure",
+      "Vaccination"
+    ],
+    "environmental": [
+      "Occupational asbestos inhalation"
+    ],
+    "biochemical": [],
+    "source_file": "Asbestosis.yaml",
+    "page_url": "../pages/disorders/Asbestosis.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 10,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Asparagine synthetase deficiency",
     "disease_id": "MONDO:0014258",
     "category": "Mendelian",
@@ -15149,6 +15251,7 @@ window.searchData = [
       "Long-acting Beta Agonist",
       "Leukotriene Modifier",
       "Anti-IgE Therapy",
+      "Biologic Therapy for Severe Asthma",
       "Short-acting Beta Agonist"
     ],
     "environmental": [
@@ -15169,7 +15272,7 @@ window.searchData = [
     "num_phenotypes": 12,
     "num_pathophysiology": 8,
     "num_genes": 17,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
   },
@@ -23311,7 +23414,9 @@ window.searchData = [
       "Mitochondrial Dysfunction",
       "Circadian Rhythm Disruption",
       "Neuroplasticity Alterations",
-      "Neuroinflammation"
+      "Neuroinflammation",
+      "GSK-3\u03b2 Signaling Dysregulation",
+      "Phosphoinositide Signaling Dysregulation"
     ],
     "cell_types": [
       "Dopaminergic Neuron",
@@ -23332,7 +23437,10 @@ window.searchData = [
       "Mitochondrial Function",
       "Circadian Rhythm",
       "Synaptic Plasticity",
-      "Inflammatory Response"
+      "Inflammatory Response",
+      "Canonical Wnt Signaling",
+      "Inositol Phosphate Metabolism",
+      "Phosphatidylinositol-Mediated Signaling"
     ],
     "phenotypes": [
       "Manic Episodes",
@@ -23391,11 +23499,11 @@ window.searchData = [
     "source_file": "Bipolar_Disorder.yaml",
     "page_url": "../pages/disorders/Bipolar_Disorder.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Bird Fancier's Lung",
@@ -26384,6 +26492,113 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "CDKL5 Deficiency Disorder",
+    "disease_id": "MONDO:0100039",
+    "category": "Mendelian",
+    "parents": [
+      "Epilepsy",
+      "Neurodevelopmental Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CDKL5 deficiency disorder (CDD) is an X-linked developmental and epileptic encephalopathy caused by loss-of-function variants in CDKL5, which encodes a serine/threonine protein kinase essential for neuronal maturation and synapse development. It is characterized by severe early-onset (usually first months of life), intractable epilepsy - frequently including epileptic spasms - together with profound developmental impairment, a complex movement disorder (chorea, dystonia, and stereotypies), cerebral (cortical) visual impairment, and autonomic disturbances. Females (heterozygous) are affected roughly four times as often as hemizygous males, but severity in both sexes can be equivalent and is modulated by variant type/position, X-chromosome inactivation, and postzygotic mosaicism. Nearly all cases are simplex, arising from a de novo CDKL5 variant.",
+    "pathophysiology": [
+      "CDKL5 Loss-of-Function Variant",
+      "Loss of CDKL5 Kinase Activity in Neurons",
+      "Impaired Dendritic Spine and Synapse Development",
+      "Disrupted Cortical Excitation-Inhibition Balance",
+      "Neuronal Network Hyperexcitability",
+      "Early-Onset Intractable Epilepsy",
+      "Impaired Neurodevelopment",
+      "Movement Disorder",
+      "Cortical Visual Impairment",
+      "Autonomic Dysfunction"
+    ],
+    "cell_types": [
+      "Neuron",
+      "GABAergic interneuron",
+      "Autonomic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000617",
+      "CL:0000107"
+    ],
+    "biological_processes": [
+      "Protein phosphorylation",
+      "Dendritic spine development",
+      "Regulation of synapse structure or activity"
+    ],
+    "phenotypes": [
+      "Early-Onset Seizures",
+      "Epileptic Spasms",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Cerebral Visual Impairment",
+      "Chorea",
+      "Dystonia",
+      "Motor Stereotypies",
+      "Autonomic Dysfunction",
+      "Hypotonia",
+      "Sleep Disturbance",
+      "Feeding Difficulties",
+      "Constipation",
+      "Gastroesophageal Reflux",
+      "Postnatal Microcephaly",
+      "Scoliosis",
+      "Spasticity"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0011097",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0100704",
+      "HP:0002072",
+      "HP:0001332",
+      "HP:0000733",
+      "HP:0012332",
+      "HP:0001252",
+      "HP:0002360",
+      "HP:0011968",
+      "HP:0002019",
+      "HP:0002020",
+      "HP:0005484",
+      "HP:0002650",
+      "HP:0001257"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CDKL5"
+    ],
+    "treatments": [
+      "Ganaxolone (Ztalmy)",
+      "Antiseizure Medication",
+      "Ketogenic Diet Therapy",
+      "Multidisciplinary Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CDKL5_Deficiency_Disorder.yaml",
+    "page_url": "../pages/disorders/CDKL5_Deficiency_Disorder.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "CFAP418-related retinal ciliopathy",
@@ -32211,6 +32426,93 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cauda Equina Syndrome",
+    "disease_id": "MONDO:0005693",
+    "category": "Complex",
+    "parents": [
+      "Peripheral nervous system disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "CESI",
+      "CESR"
+    ],
+    "description": "Cauda equina syndrome is a neurosurgical emergency caused by compression of the lumbosacral nerve roots of the cauda equina below the conus medullaris. Compression, most often from a large central lumbar disc herniation, produces a characteristic constellation of low back pain, bilateral sciatica, saddle (perineal) sensory loss, bladder and bowel dysfunction, sexual dysfunction, and lower-limb motor and reflex deficits. Because sustained compression causes irreversible nerve root injury, urgent surgical decompression is required to preserve neurological function.",
+    "pathophysiology": [
+      "Cauda equina nerve root compression",
+      "Nerve root ischemia and demyelination",
+      "Lumbosacral polyradiculopathy"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "response to ischemia"
+    ],
+    "phenotypes": [
+      "Low back pain",
+      "Sciatica",
+      "Saddle anesthesia",
+      "Urinary retention",
+      "Bowel incontinence",
+      "Lower limb weakness",
+      "Lower limb areflexia",
+      "Sexual dysfunction",
+      "Depression and impaired mental wellbeing"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Genitourinary",
+      "Gastrointestinal",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003419",
+      "HP:0033345",
+      "HP:0033748",
+      "HP:0000016",
+      "HP:0002607",
+      "HP:0007340",
+      "HP:0002522",
+      "HP:0000080",
+      "HP:0000716"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Emergency surgical decompression"
+    ],
+    "environmental": [
+      "Obesity and elevated body mass index"
+    ],
+    "biochemical": [],
+    "source_file": "Cauda_Equina_Syndrome.yaml",
+    "page_url": "../pages/disorders/Cauda_Equina_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Celiac Disease",
     "disease_id": "MONDO:0005130",
     "category": "Complex",
@@ -35109,6 +35411,91 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Childhood Absence Epilepsy",
+    "disease_id": "MONDO:0010826",
+    "category": "Complex",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Childhood absence epilepsy (CAE) is a common genetic (idiopathic) generalized epilepsy of childhood, with onset typically between 4 and 10 years of age. It is characterized by very frequent, brief typical absence seizures - sudden behavioral arrest with impaired awareness - accompanied on EEG by bilaterally synchronous, generalized 3-Hz spike-and-wave discharges. The seizures arise from abnormal oscillatory activity in the reciprocal thalamocortical circuit: a genetically influenced shift in the balance between low-threshold (T-type) calcium currents in thalamic neurons and GABAergic inhibition within the thalamus converts normal sleep-spindle-like rhythms into pathological hypersynchronous spike-wave oscillations. Most children have normal cognition and a good prognosis, with many outgrowing the seizures; a minority have a GLUT1 (SLC2A1) transporter defect, which is important to recognize because it is treatable with the ketogenic diet.",
+    "pathophysiology": [
+      "Genetic Susceptibility to Absence Epilepsy",
+      "Enhanced Thalamic T-type Calcium Current",
+      "Aberrant Thalamic GABAergic Inhibition",
+      "Abnormal Thalamocortical Oscillation and Hypersynchrony",
+      "Bilateral Generalized 3-Hz Spike-Wave Discharges",
+      "Absence Seizures"
+    ],
+    "cell_types": [
+      "Thalamic excitatory neuron",
+      "GABAergic neuron",
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:4023068",
+      "CL:0000617",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Regulation of membrane potential",
+      "GABA signaling pathway"
+    ],
+    "phenotypes": [
+      "Typical Absence Seizures",
+      "Generalized 3-Hz Spike-Wave on EEG",
+      "Generalized-Onset Seizures",
+      "Generalized Tonic-Clonic Seizures",
+      "Hypoglycorrhachia (GLUT1 Subset)",
+      "Attention and Behavioral Comorbidity"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011147",
+      "HP:0010848",
+      "HP:0002197",
+      "HP:0002069",
+      "HP:0011972",
+      "HP:0007018"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CACNA1H",
+      "GABRG2",
+      "GABRB3",
+      "GABRA1",
+      "SLC2A1"
+    ],
+    "treatments": [
+      "Ethosuximide",
+      "Valproate",
+      "Lamotrigine",
+      "Ketogenic Diet"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "CSF Glucose (Hypoglycorrhachia in GLUT1 Subset)"
+    ],
+    "source_file": "Childhood_Absence_Epilepsy.yaml",
+    "page_url": "../pages/disorders/Childhood_Absence_Epilepsy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 5,
+    "num_treatments": 4,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Cholangiocarcinoma",
     "disease_id": "MONDO:0019087",
     "category": "",
@@ -36337,6 +36724,127 @@ window.searchData = [
     "num_treatments": 10,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Chronic Beryllium Disease",
+    "disease_id": "MONDO:0015274",
+    "category": "Respiratory Disease",
+    "parents": [
+      "Respiratory Disease",
+      "Lung Disease",
+      "Pneumoconiosis"
+    ],
+    "creation_date": "2026-07-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chronic beryllium disease (CBD, berylliosis) is a granulomatous interstitial lung disease caused by a beryllium-specific, cell-mediated (delayed-type, type IV) immune response to inhaled beryllium. It is the archetypal gene-environment disease: inhaled beryllium is presented by HLA-DP molecules carrying a glutamic acid at position 69 of the beta chain (HLA-DPB1 Glu69), which creates the acidic pocket that binds beryllium and displays a beryllium-modified self-peptide neoantigen to CD4+ T cells. The resulting beryllium-specific CD4+ T-helper-1 response (detected as beryllium sensitization by the beryllium lymphocyte proliferation test) drives interferon-gamma and TNF secretion, macrophage activation, and the assembly of non-caseating granulomas in the lung that progress to interstitial fibrosis. Beryllium sensitization precedes and is necessary but not sufficient for the organ disease; a subset of sensitized individuals progress to CBD. CBD is clinically and histologically nearly indistinguishable from sarcoidosis and is distinguished by a documented beryllium exposure plus a positive beryllium-specific lymphocyte response.",
+    "pathophysiology": [
+      "Inhaled Beryllium Particle Deposition and Alveolar Macrophage Uptake",
+      "Beryllium-Modified Self-Peptide Neoantigen Formation",
+      "HLA-DP Glu69-Restricted Antigen Presentation",
+      "Beryllium-Specific CD4+ T Cell Sensitization",
+      "Beryllium-Specific Th1 Cytokine Response",
+      "Th1 and TNF-Driven Macrophage Recruitment and Activation",
+      "Epithelioid Transformation and Multinucleated Giant Cell Formation",
+      "Noncaseating Granuloma Assembly",
+      "Progressive Pulmonary Fibrosis and Restrictive Lung Disease"
+    ],
+    "cell_types": [
+      "alveolar macrophage",
+      "dendritic cell",
+      "beryllium-specific CD4+ T cell",
+      "beryllium-specific T-helper 1 cell",
+      "macrophage",
+      "epithelioid macrophage",
+      "multinucleated giant cell",
+      "CD4+ T lymphocyte",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000583",
+      "CL:0000451",
+      "CL:0000624",
+      "CL:0000545",
+      "CL:0000235",
+      "CL:0002150",
+      "CL:0000647",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "chronic inflammatory response",
+      "antigen processing and presentation of peptide antigen via MHC class II",
+      "T cell proliferation",
+      "type II interferon production",
+      "tumor necrosis factor production",
+      "macrophage activation",
+      "syncytium formation by cell-cell fusion",
+      "inflammatory response",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Exertional dyspnea",
+      "Chronic dry cough",
+      "Fatigue",
+      "Weight loss",
+      "Chest pain",
+      "Non-caseating pulmonary granulomas",
+      "Pulmonary granulomatosis",
+      "Interstitial pneumonitis",
+      "Pulmonary fibrosis",
+      "Restrictive ventilatory defect",
+      "Mediastinal and hilar lymphadenopathy",
+      "Digital clubbing"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Growth",
+      "Immune",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory",
+      "Thoracic Cavity"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0031246",
+      "HP:0012378",
+      "HP:0001824",
+      "HP:0100749",
+      "HP:0012220",
+      "HP:0030250",
+      "HP:0006515",
+      "HP:0002206",
+      "HP:0002091",
+      "HP:0100721",
+      "HP:0100759"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HLA-DPB1"
+    ],
+    "treatments": [
+      "Beryllium exposure cessation",
+      "Systemic corticosteroid therapy",
+      "Steroid-sparing immunosuppression",
+      "TNF inhibitor therapy",
+      "Lung transplantation",
+      "Supportive care"
+    ],
+    "environmental": [
+      "Occupational beryllium inhalation"
+    ],
+    "biochemical": [],
+    "source_file": "Chronic_Beryllium_Disease.yaml",
+    "page_url": "../pages/disorders/Chronic_Beryllium_Disease.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Chronic Granulomatous Disease",
@@ -47806,7 +48314,8 @@ window.searchData = [
       "Chronic Red Blood Cell Transfusions",
       "Hematopoietic Stem Cell Transplantation",
       "Iron Chelation Therapy",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Clonal Evolution and Malignancy Surveillance"
     ],
     "environmental": [],
     "biochemical": [
@@ -47821,7 +48330,7 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 3,
     "num_genes": 10,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "3"
   },
@@ -51912,6 +52421,7 @@ window.searchData = [
       "Constitutional",
       "Digestive",
       "Immune",
+      "Integument",
       "Metabolism",
       "Nervous System"
     ],
@@ -51920,6 +52430,7 @@ window.searchData = [
       "HP:0001892",
       "HP:0002013",
       "HP:0002014",
+      "HP:0040186",
       "HP:0012378",
       "HP:0003326",
       "HP:0002315",
@@ -59462,6 +59973,7 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
+      "HP:0002196",
       "HP:0003418",
       "HP:0010550",
       "HP:0002385",
@@ -65417,6 +65929,114 @@ window.searchData = [
     "num_genes": 6,
     "num_treatments": 5,
     "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Glioma",
+    "disease_id": "MONDO:0021042",
+    "category": "Cancer",
+    "parents": [
+      "neuroepithelial neoplasm"
+    ],
+    "creation_date": "2026-07-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Glioblastoma, IDH-Wildtype",
+      "IDH-Mutant Astrocytoma",
+      "IDH-Mutant and 1p/19q-Codeleted Oligodendroglioma",
+      "Diffuse Midline Glioma, H3 K27-Altered",
+      "Mixed Neuronal-Glial Tumor",
+      "Pilocytic Astrocytoma"
+    ],
+    "description": "Glioma is the umbrella class of primary central nervous system tumors that arise from glial cells or glial/neural precursor cells \u2014 encompassing astrocytic, oligodendroglial, ependymal, and mixed neuronal-glial lineages and spanning WHO CNS grades 1-4. Under the 5th-edition WHO Classification of Tumors of the Central Nervous System (WHO CNS5, 2021), gliomas are organized primarily by molecular type rather than histology alone, using a layered \"integrated diagnosis.\" Adult-type diffuse gliomas collapse into three molecularly defined types (astrocytoma, IDH-mutant; oligodendroglioma, IDH-mutant and 1p/19q-codeleted; and glioblastoma, IDH-wildtype), while pediatric-type diffuse gliomas, circumscribed astrocytic gliomas, and ependymal tumors form separate families. Shared molecular axes \u2014 IDH1/2 mutation, 1p/19q codeletion, TERT promoter mutation, EGFR amplification, combined chromosome 7 gain / chromosome 10 loss (+7/-10), CDKN2A/B homozygous deletion, and H3 alterations \u2014 define entities and increasingly drive grading. This root entry captures the conserved glial-tumor mechanism and cross-references the molecularly/histologically defined children curated as standalone dismech entries.",
+    "pathophysiology": [
+      "Glial-Lineage Neoplastic Transformation",
+      "IDH-Mutation Oncometabolite Epigenetic Reprogramming",
+      "TERT Promoter Mutation and Telomere Maintenance Reactivation",
+      "EGFR Amplification and RTK-RAS-PI3K Mitogenic Signaling",
+      "Chromosomal Copy-Number Alteration and Genomic Instability",
+      "Diffuse Infiltrative Growth"
+    ],
+    "cell_types": [
+      "glial cell",
+      "neural stem cell",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000125",
+      "CL:0000047",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "gliogenesis",
+      "cell population proliferation",
+      "chromatin organization",
+      "demethylation",
+      "glial cell differentiation",
+      "telomere maintenance",
+      "epidermal growth factor receptor signaling pathway",
+      "chromosome organization",
+      "cell migration"
+    ],
+    "phenotypes": [
+      "Seizure",
+      "Headache",
+      "Cognitive Impairment",
+      "Aphasia",
+      "Focal Motor Deficit",
+      "Fatigue",
+      "Dysphagia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0002315",
+      "HP:0100543",
+      "HP:0002381",
+      "HP:0001324",
+      "HP:0012378",
+      "HP:0002015"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "IDH1",
+      "IDH2",
+      "TERT",
+      "EGFR",
+      "1p/19q",
+      "CDKN2A",
+      "CDKN2B",
+      "Germline Cancer-Predisposition Variants"
+    ],
+    "treatments": [
+      "Maximal Safe Surgical Resection",
+      "Radiotherapy",
+      "Temozolomide Chemotherapy (Stupp Regimen)",
+      "Tumor Treating Fields (TTFields)",
+      "Vorasidenib (Mutant IDH Inhibitor)",
+      "Dexamethasone (Peritumoral Edema Management)",
+      "Levetiracetam (Seizure Management)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Glioma.yaml",
+    "page_url": "../pages/disorders/Glioma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 8,
+    "num_treatments": 7,
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
   },
   {
@@ -81585,6 +82205,79 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Juvenile Myoclonic Epilepsy",
+    "disease_id": "MONDO:0009696",
+    "category": "Complex",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Juvenile myoclonic epilepsy (JME) is the most common genetic (idiopathic) generalized epilepsy syndrome, typically beginning in adolescence. It is defined by early-morning myoclonic jerks of the upper limbs, generalized tonic-clonic seizures, and, in about a third of patients, typical absence seizures. Seizures are provoked by sleep deprivation, alcohol, and fatigue, and photosensitivity is common. The syndrome arises from a genetically influenced shift toward cortical (particularly motor-system) and thalamocortical hyperexcitability - reduced GABAergic inhibition together with susceptibility variants in genes such as GABRA1, EFHC1, CACNB4, and GABRD - producing generalized polyspike-and-wave discharges. Cognition is usually preserved and seizures generally respond well to medication, but the tendency to seizures is typically lifelong.",
+    "pathophysiology": [
+      "Genetic Susceptibility to JME",
+      "Impaired GABAergic Cortical Inhibition",
+      "EFHC1-Related Neuronal Dysregulation",
+      "Cortical and Thalamocortical Hyperexcitability",
+      "Generalized Polyspike-Wave Discharges",
+      "Myoclonic and Generalized Seizures"
+    ],
+    "cell_types": [
+      "GABAergic neuron",
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000617",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "GABA signaling pathway",
+      "Regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Myoclonic Jerks on Awakening",
+      "Generalized Tonic-Clonic Seizures",
+      "Typical Absence Seizures",
+      "Generalized Polyspike-Wave on EEG",
+      "Photosensitivity"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002123",
+      "HP:0002069",
+      "HP:0011147",
+      "HP:0002392",
+      "HP:0001327"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EFHC1",
+      "GABRA1",
+      "CACNB4",
+      "GABRD"
+    ],
+    "treatments": [
+      "Valproate",
+      "Levetiracetam",
+      "Lifestyle Measures (Trigger Avoidance)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Juvenile_Myoclonic_Epilepsy.yaml",
+    "page_url": "../pages/disorders/Juvenile_Myoclonic_Epilepsy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
+    "num_treatments": 3,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Juvenile Open Angle Glaucoma",
     "disease_id": "MONDO:0020367",
     "category": "Mendelian",
@@ -82150,6 +82843,77 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "KCNQ2 Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0013387",
+    "category": "Mendelian",
+    "parents": [
+      "Epilepsy",
+      "Neurodevelopmental Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "KCNQ2 developmental and epileptic encephalopathy (KCNQ2-NEO-DEE, DEE7) is the severe end of the KCNQ2-related disorder continuum, whose mild end is self-limited (benign) familial neonatal epilepsy. It presents with multiple daily, mostly tonic seizures beginning in the first week of life, a burst-suppression or multifocal epileptiform EEG, and moderate-to-profound developmental impairment. KCNQ2 encodes the Kv7.2 subunit of the neuronal M channel, which carries the slow, non-inactivating M-current that stabilizes the resting membrane potential and restrains repetitive firing. NEO-DEE is caused by heterozygous (usually de novo) pathogenic variants that impair M channel function, most often by a dominant-negative mechanism (some variants are instead gain-of-function), whereas the benign end results from milder loss-of-function/haploinsufficiency. Seizures typically remit between about nine months and four years of age, but the developmental encephalopathy persists.",
+    "pathophysiology": [
+      "KCNQ2 Pathogenic Variant",
+      "Neuronal M Channel Dysfunction",
+      "Loss of M-Current Control of Neuronal Excitability",
+      "Neuronal Hyperexcitability",
+      "Neonatal-Onset Seizures with Burst-Suppression EEG",
+      "Neonatal-Onset Developmental Encephalopathy"
+    ],
+    "cell_types": [
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Neonatal-Onset Seizures",
+      "Tonic Seizures",
+      "EEG with Burst Suppression",
+      "Apnea",
+      "Global Developmental Delay",
+      "Intellectual Disability"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0032792",
+      "HP:0010851",
+      "HP:0002104",
+      "HP:0001263",
+      "HP:0001249"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KCNQ2"
+    ],
+    "treatments": [
+      "Sodium Channel Blocker Therapy",
+      "M-Channel Opener Therapy",
+      "Antiseizure Medication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "KCNQ2_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/KCNQ2_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "KCNV2-Related Retinopathy",
@@ -87006,6 +87770,92 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Lennox-Gastaut Syndrome",
+    "disease_id": "MONDO:0016532",
+    "category": "Complex",
+    "parents": [
+      "Epilepsy",
+      "Neurodevelopmental Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lennox-Gastaut syndrome (LGS) is a severe childhood-onset developmental and epileptic encephalopathy defined by a triad of multiple drug-resistant seizure types (notably tonic seizures, atonic/drop attacks, and atypical absences), a characteristic interictal EEG showing diffuse slow (<2.5 Hz) spike-and-wave complexes together with sleep-activated generalized paroxysmal fast activity, and cognitive impairment with behavioural problems. Onset is typically between ages 1 and 8 years (peak 3-5). LGS is etiologically heterogeneous: roughly two-thirds of cases are symptomatic of an identifiable structural, genetic, metabolic, or acquired brain insult, a substantial subset evolves from infantile spasms (West syndrome), and the remainder are of unknown cause. It is best understood as a shared, age-dependent electroclinical final common pathway of diffuse thalamocortical network dysfunction rather than a single disease with a single mechanism.",
+    "pathophysiology": [
+      "Heterogeneous Etiologic Brain Insult",
+      "Age-Dependent Evolution from Infantile Spasms",
+      "Diffuse Thalamocortical Network Dysfunction",
+      "Cortical Excitation-Inhibition Imbalance",
+      "Slow Spike-and-Wave Discharge Generation",
+      "Generalized Paroxysmal Fast Activity and Tonic Seizure Generation",
+      "Atonic Drop Attack Generation",
+      "Interictal Epileptiform Activity-Driven Cognitive Impairment",
+      "Multiple Drug-Resistant Seizure Types",
+      "Cognitive Impairment and Developmental Plateau"
+    ],
+    "cell_types": [
+      "Neuron",
+      "GABAergic interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000617"
+    ],
+    "biological_processes": [
+      "Regulation of GABAergic synaptic transmission"
+    ],
+    "phenotypes": [
+      "Tonic Seizures",
+      "Atonic Seizures (Drop Attacks)",
+      "Atypical Absence Seizures",
+      "Epileptic Encephalopathy",
+      "Intellectual Disability",
+      "Myoclonic Seizures",
+      "Generalized Tonic-Clonic Seizures",
+      "Nonconvulsive Status Epilepticus",
+      "Global Developmental Delay",
+      "Behavioral Abnormalities"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010818",
+      "HP:0010819",
+      "HP:0007270",
+      "HP:0200134",
+      "HP:0001249",
+      "HP:0032794",
+      "HP:0002069",
+      "HP:0002133",
+      "HP:0001263",
+      "HP:0000708"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Genetically heterogeneous developmental and epileptic encephalopathy genes"
+    ],
+    "treatments": [
+      "Broad-Spectrum Antiseizure Medication",
+      "LGS-Indicated Adjunctive Antiseizure Agents",
+      "Ketogenic Diet Therapy",
+      "Corpus Callosotomy",
+      "Vagus Nerve Stimulation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lennox-Gastaut_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lennox-Gastaut_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Lenz-Majewski hyperostotic dwarfism",
     "disease_id": "MONDO:0007892",
     "category": "Mendelian",
@@ -88891,6 +89741,7 @@ window.searchData = [
       "Alcohol Abstinence",
       "Antiviral Therapy",
       "Diuretics",
+      "Large-Volume Paracentesis with Albumin",
       "Beta Blockers",
       "Lactulose",
       "Rifaximin",
@@ -88915,7 +89766,7 @@ window.searchData = [
     "num_phenotypes": 9,
     "num_pathophysiology": 6,
     "num_genes": 3,
-    "num_treatments": 8,
+    "num_treatments": 9,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
   },
@@ -91085,7 +91936,8 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "MED13 heterozygous pathogenic variants"
@@ -92700,6 +93552,7 @@ window.searchData = [
       "Electroconvulsive Therapy",
       "Ketamine/Esketamine",
       "Transcranial Magnetic Stimulation",
+      "Lithium Augmentation",
       "Behavioral Activation"
     ],
     "environmental": [
@@ -92718,8 +93571,8 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 8,
     "num_genes": 4,
-    "num_treatments": 7,
-    "causal_graph_edges": "2",
+    "num_treatments": 8,
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "1"
   },
   {
@@ -105131,6 +105984,7 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Digestive",
       "Endocrine",
       "Eye",
       "Genitourinary",
@@ -105141,6 +105995,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0012622",
       "HP:0000822",
+      "HP:0001395",
       "HP:0000510",
       "HP:0001510",
       "HP:0000867",
@@ -107248,19 +108103,28 @@ window.searchData = [
       "Microcephaly",
       "Growth delay",
       "Immunodeficiency",
-      "Lymphoma"
+      "Lymphoma",
+      "Increased sensitivity to ionizing radiation",
+      "Spontaneous chromosomal breakage with 7;14 rearrangements",
+      "Hypergonadotropic hypogonadism"
     ],
     "phenotype_categories": [
       "Neurological",
       "Growth",
       "Immunologic",
-      "Oncologic"
+      "Oncologic",
+      "Laboratory",
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cellular",
+      "Endocrine",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Immune",
+      "Metabolism",
       "Musculoskeletal",
       "Neoplasm",
       "Nervous System"
@@ -107269,7 +108133,10 @@ window.searchData = [
       "HP:0000252",
       "HP:0001510",
       "HP:0002721",
-      "HP:0002665"
+      "HP:0002665",
+      "HP:0011133",
+      "HP:0040012",
+      "HP:0000815"
     ],
     "frequencies": [],
     "genes": [
@@ -107282,7 +108149,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Nijmegen_breakage_syndrome.yaml",
     "page_url": "../pages/disorders/Nijmegen_breakage_syndrome.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 7,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 1,
@@ -109635,14 +110502,21 @@ window.searchData = [
     "updated_date": "2026-04-11T00:41:29Z",
     "subtypes": [],
     "description": "Onchocerciasis (river blindness) is a filarial infection caused by Onchocerca volvulus, transmitted by black flies, leading to pruritus, dermatitis, and ocular disease that can progress to blindness.",
-    "pathophysiology": [],
+    "pathophysiology": [
+      "Microfilarial Skin and Ocular Infiltration",
+      "Wolbachia Endosymbiont-Driven Filarial Pathogenesis"
+    ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "inflammatory response"
+    ],
     "phenotypes": [
       "Pruritus",
       "Dermatitis",
-      "Blindness"
+      "Blindness",
+      "Skin Hypopigmentation",
+      "Keratitis"
     ],
     "phenotype_categories": [
       "Dermatologic",
@@ -109656,7 +110530,9 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000989",
       "HP:0000964",
-      "HP:0000618"
+      "HP:0000618",
+      "HP:0001010",
+      "HP:0000491"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -109664,18 +110540,20 @@ window.searchData = [
     ],
     "genes": [],
     "treatments": [
-      "Ivermectin therapy"
+      "Ivermectin therapy",
+      "Moxidectin therapy",
+      "Doxycycline (anti-Wolbachia therapy)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Onchocerciasis.yaml",
     "page_url": "../pages/disorders/Onchocerciasis.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 0,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Opitz G/BBB syndrome",
@@ -110784,7 +111662,8 @@ window.searchData = [
       "Weight Loss",
       "NSAIDs",
       "Intra-articular Glucocorticoid Injections",
-      "Total Joint Replacement"
+      "Total Joint Replacement",
+      "Duloxetine"
     ],
     "environmental": [
       "Age",
@@ -110797,7 +111676,7 @@ window.searchData = [
     "num_phenotypes": 3,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
   },
@@ -113887,6 +114766,84 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "PCDH19 Clustering Epilepsy",
+    "disease_id": "MONDO:0010246",
+    "category": "Mendelian",
+    "parents": [
+      "Epilepsy",
+      "Neurodevelopmental Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PCDH19 clustering epilepsy (PCDH19-CE; historically epilepsy and mental retardation limited to females, EFMR; DEE9) is an X-linked developmental and epileptic encephalopathy with a distinctive inheritance pattern: heterozygous females are affected whereas hemizygous males are typically unaffected carriers. It presents in infancy or early childhood with fever-sensitive seizures that characteristically occur in clusters, and is variably associated with intellectual disability and behavioral features (autistic traits, hyperactivity, aggression). The paradoxical female-limited expression is explained by cellular interference: random X-chromosome inactivation in heterozygous females produces a mosaic of protocadherin-19-positive and protocadherin-19-negative neurons that cannot interact normally, whereas hemizygous males have a uniform (all-negative) neuronal population and are spared; rare mosaic males (somatic PCDH19 variant) are affected, supporting the model.",
+    "pathophysiology": [
+      "PCDH19 Loss-of-Function Variant",
+      "Mosaic Protocadherin-19 Expression",
+      "Cellular Interference and Impaired Homophilic Adhesion",
+      "Disrupted Neuronal Network Assembly",
+      "Neuronal Network Hyperexcitability",
+      "Fever-Sensitive Clustering Seizures",
+      "Cognitive and Behavioral Impairment"
+    ],
+    "cell_types": [
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Homophilic cell-cell adhesion"
+    ],
+    "phenotypes": [
+      "Clustering Seizures",
+      "Focal-Onset Seizures",
+      "Fever-Sensitive Seizures",
+      "Bilateral Tonic-Clonic Seizures",
+      "Absence Seizures",
+      "Intellectual Disability",
+      "Autistic Behavior",
+      "Aggressive Behavior",
+      "Myoclonic Seizures",
+      "Atonic Seizures"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0033349",
+      "HP:0007359",
+      "HP:0002373",
+      "HP:0002069",
+      "HP:0002121",
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0000718",
+      "HP:0032794",
+      "HP:0010819"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PCDH19"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Neurosteroid Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PCDH19_Clustering_Epilepsy.yaml",
+    "page_url": "../pages/disorders/PCDH19_Clustering_Epilepsy.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "PCWH syndrome",
     "disease_id": "MONDO:0012198",
     "category": "Mendelian",
@@ -114459,6 +115416,84 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "PNPO Deficiency",
+    "disease_id": "MONDO:0012407",
+    "category": "Mendelian",
+    "parents": [
+      "Epilepsy",
+      "Inborn Errors of Metabolism",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-07-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PNPO deficiency (pyridox(am)ine 5'-phosphate oxidase deficiency) is an autosomal recessive, treatable metabolic epilepsy. PNPO is the enzyme that oxidizes pyridoxine 5'-phosphate and pyridoxamine 5'-phosphate to pyridoxal 5'-phosphate (PLP), the active cofactor form of vitamin B6. Its deficiency causes PLP insufficiency and, because PLP is the cofactor for glutamic acid decarboxylase and many neuronal enzymes, impairs GABA synthesis and produces neonatal-onset seizures that resist standard antiseizure medication but respond to a B6 vitamer - PLP in most individuals and pyridoxine in a minority. Onset is usually in the neonatal period (classic form). Developmental impairment is common, particularly with diagnostic delay. The disorder is the PLP-synthesis-failure counterpart of ALDH7A1 pyridoxine-dependent epilepsy, with both converging on intracellular PLP deficiency.",
+    "pathophysiology": [
+      "PNPO Deficiency",
+      "Impaired Synthesis of Pyridoxal 5-Phosphate",
+      "Pyridoxal 5-Phosphate Deficiency",
+      "Impaired PLP-Dependent GABA Synthesis and Excitation-Inhibition Imbalance",
+      "Neuronal Hyperexcitability",
+      "B6-Vitamer-Responsive Neonatal Seizures",
+      "Neurodevelopmental Impairment"
+    ],
+    "cell_types": [
+      "GABAergic interneuron",
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000617",
+      "CL:0000540"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Neonatal-Onset Seizures",
+      "Status Epilepticus",
+      "Myoclonic Seizures",
+      "Tonic Seizures",
+      "Developmental Impairment",
+      "Hypotonia",
+      "Dystonia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0032807",
+      "HP:0002133",
+      "HP:0032794",
+      "HP:0032792",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001332"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PNPO"
+    ],
+    "treatments": [
+      "Pyridoxal 5-Phosphate Supplementation",
+      "Pyridoxine Supplementation",
+      "Antiseizure Medications to Avoid"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated Urinary Vanillactic Acid",
+      "Low CSF Pyridoxal 5-Phosphate",
+      "Elevated CSF Glycine"
+    ],
+    "source_file": "PNPO_Deficiency.yaml",
+    "page_url": "../pages/disorders/PNPO_Deficiency.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "POEMS Syndrome",
@@ -115694,8 +116729,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "pantothenate kinase-associated neurodegeneration",
@@ -116716,7 +117751,8 @@ window.searchData = [
       "Constipation",
       "Depression",
       "REM Sleep Behavior Disorder",
-      "Cognitive Impairment"
+      "Cognitive Impairment",
+      "Dystonia"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -116741,7 +117777,8 @@ window.searchData = [
       "HP:0002019",
       "HP:0000716",
       "HP:5200291",
-      "HP:0100543"
+      "HP:0100543",
+      "HP:0001332"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -116773,7 +117810,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 10,
     "num_pathophysiology": 22,
     "num_genes": 7,
     "num_treatments": 7,
@@ -121666,7 +122703,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "6"
   },
   {
@@ -126107,6 +127144,7 @@ window.searchData = [
     ],
     "genes": [],
     "treatments": [
+      "Conventional Synthetic DMARD Therapy",
       "Targeted Cytokine Biologic Therapy",
       "JAK Inhibitor Therapy"
     ],
@@ -126117,7 +127155,7 @@ window.searchData = [
     "num_phenotypes": 9,
     "num_pathophysiology": 6,
     "num_genes": 0,
-    "num_treatments": 2,
+    "num_treatments": 3,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
   },
@@ -126693,6 +127731,85 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "25",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Pyridoxine-Dependent Epilepsy",
+    "disease_id": "MONDO:0020741",
+    "category": "Mendelian",
+    "parents": [
+      "Epilepsy",
+      "Inborn Errors of Metabolism",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-07-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pyridoxine-dependent epilepsy - ALDH7A1 (PDE-ALDH7A1) is an autosomal recessive, treatable metabolic epilepsy caused by deficiency of antiquitin (alpha-aminoadipic semialdehyde dehydrogenase), an enzyme of lysine degradation. Loss of antiquitin causes accumulation of alpha-aminoadipic semialdehyde (alpha-AASA) and its cyclic equilibrium form delta-1-piperideine-6-carboxylate (P6C); P6C chemically inactivates pyridoxal 5'-phosphate (PLP, the active form of vitamin B6), producing a secondary intracellular PLP deficiency. Because PLP is the cofactor for glutamic acid decarboxylase and many other neuronal enzymes, its depletion impairs GABA synthesis and drives neonatal-onset seizures that are resistant to standard antiseizure medication but respond to pharmacologic pyridoxine. Intellectual disability is common despite seizure control, motivating adjunct lysine-lowering therapy.",
+    "pathophysiology": [
+      "Antiquitin (ALDH7A1) Deficiency",
+      "Accumulation of Alpha-AASA and P6C",
+      "P6C-Mediated Inactivation of Pyridoxal 5-Phosphate",
+      "Secondary Pyridoxal 5-Phosphate Deficiency",
+      "Impaired PLP-Dependent GABA Synthesis and Excitation-Inhibition Imbalance",
+      "Neuronal Hyperexcitability",
+      "Pyridoxine-Responsive Neonatal Seizures",
+      "Neurodevelopmental Impairment"
+    ],
+    "cell_types": [
+      "Neuron",
+      "GABAergic interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000617"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Neonatal-Onset Seizures",
+      "Status Epilepticus",
+      "Infantile Spasms",
+      "Intellectual Disability",
+      "Hypoplasia of the Corpus Callosum",
+      "Ventriculomegaly",
+      "Autistic Features",
+      "Global Developmental Delay"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0032807",
+      "HP:0002133",
+      "HP:0012469",
+      "HP:0001249",
+      "HP:0002079",
+      "HP:0002119",
+      "HP:0000717",
+      "HP:0001263"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ALDH7A1"
+    ],
+    "treatments": [
+      "Pyridoxine Supplementation",
+      "Lysine-Restricted Diet",
+      "Arginine Supplementation",
+      "Folinic Acid"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated Alpha-Aminoadipic Semialdehyde (alpha-AASA)"
+    ],
+    "source_file": "Pyridoxine-Dependent_Epilepsy.yaml",
+    "page_url": "../pages/disorders/Pyridoxine-Dependent_Epilepsy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Pyruvate Carboxylase Deficiency Disease",
@@ -128780,6 +129897,7 @@ window.searchData = [
     "treatments": [
       "Radical Nephrectomy",
       "Targeted Systemic Therapy",
+      "Adjuvant Pembrolizumab",
       "Belzutifan"
     ],
     "environmental": [],
@@ -128789,7 +129907,7 @@ window.searchData = [
     "num_phenotypes": 2,
     "num_pathophysiology": 3,
     "num_genes": 0,
-    "num_treatments": 3,
+    "num_treatments": 4,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
   },
@@ -131200,6 +132318,76 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "SCN2A-Related Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0013388",
+    "category": "Genetic",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SCN2A-related developmental and epileptic encephalopathy (DEE11) is caused by pathogenic variants in SCN2A, which encodes the voltage-gated sodium channel Nav1.2. The disorder has a striking mechanistic dichotomy with opposite treatment implications. Gain-of-function variants increase Nav1.2 sodium current and typically produce early-infantile-onset (usually before three months) epilepsy that often responds to sodium-channel-blocking drugs. Loss-of-function variants reduce Nav1.2 current and typically produce later-onset (after three months) epilepsy and/or autism and intellectual disability, in which sodium-channel blockers can paradoxically worsen seizures. Determining the functional consequence of the variant is therefore central to management.",
+    "pathophysiology": [
+      "SCN2A Variant (Nav1.2 Dysfunction)",
+      "Increased Nav1.2 Sodium Current (Gain of Function)",
+      "Decreased Nav1.2 Sodium Current (Loss of Function)",
+      "Neuronal Hyperexcitability and Network Dysfunction",
+      "Seizures and Developmental Encephalopathy"
+    ],
+    "cell_types": [
+      "Neuron",
+      "Pyramidal (excitatory) neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000598"
+    ],
+    "biological_processes": [
+      "Sodium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Focal Seizures",
+      "Epileptic Spasms",
+      "Epileptic Encephalopathy",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Autistic Behavior"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007359",
+      "HP:0011097",
+      "HP:0200134",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000729"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SCN2A"
+    ],
+    "treatments": [
+      "Sodium-Channel-Blocking Antiseizure Medication",
+      "Broad-Spectrum Antiseizure Medication and Ketogenic Diet",
+      "Elsunersen (SCN2A-Directed Antisense Oligonucleotide)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SCN2A-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/SCN2A-Related_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "SCO1-Related COX Deficiency",
     "disease_id": "MONDO:0033636",
     "category": "Mendelian",
@@ -133186,6 +134374,102 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "SYNGAP1-Related Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0012960",
+    "category": "Mendelian",
+    "parents": [
+      "Epilepsy",
+      "Neurodevelopmental Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SYNGAP1-related developmental and epileptic encephalopathy (also called SYNGAP1-related intellectual disability, MRD5) is an autosomal dominant neurodevelopmental disorder caused by haploinsufficiency of SYNGAP1, which encodes SynGAP - a Ras/Rap GTPase-activating protein highly enriched at excitatory postsynaptic densities. Essentially all affected individuals have developmental delay or intellectual disability; most (~84%) have generalized epilepsy, and about half have autism spectrum disorder or other behavioral problems. A characteristic subset has myoclonic-astatic epilepsy (Doose syndrome) or epilepsy with myoclonic absences. Because SynGAP restrains Ras-ERK signaling and AMPA-receptor insertion during synapse maturation, its reduction accelerates excitatory synapse maturation and tips cortical circuits toward excitation. Most cases arise de novo.",
+    "pathophysiology": [
+      "SYNGAP1 Haploinsufficiency",
+      "Reduced SynGAP at the Excitatory Postsynaptic Density",
+      "Dysregulated Ras Signaling and AMPA Receptor Trafficking",
+      "Premature Excitatory Synapse and Dendritic Spine Maturation",
+      "Cortical Excitation-Inhibition Imbalance",
+      "Neuronal Network Hyperexcitability",
+      "Generalized Epilepsy",
+      "Impaired Cognitive Development",
+      "Autism and Behavioral Abnormalities"
+    ],
+    "cell_types": [
+      "Glutamatergic neuron",
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Regulation of Ras protein signal transduction",
+      "Dendritic spine development"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Generalized-Onset Seizures",
+      "Myoclonic Seizures",
+      "Absence Seizures",
+      "Autistic Behavior",
+      "Motor Stereotypies",
+      "Feeding Difficulties",
+      "Hypotonia",
+      "Eyelid Myoclonia with Absences",
+      "Eating-Induced Seizures",
+      "High Pain Threshold",
+      "Ataxia",
+      "Sleep Disturbance"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0002197",
+      "HP:0032794",
+      "HP:0002121",
+      "HP:0000729",
+      "HP:0000733",
+      "HP:0011968",
+      "HP:0001252",
+      "HP:0011149",
+      "HP:0020208",
+      "HP:0007021",
+      "HP:0001251",
+      "HP:0002360"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SYNGAP1"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Developmental and Behavioral Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SYNGAP1-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/SYNGAP1-Related_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "SYT1-Associated Neurodevelopmental Disorder",
     "disease_id": "MONDO:0033864",
     "category": "Mendelian",
@@ -134693,7 +135977,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 14,
     "num_treatments": 6,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -135895,6 +137179,78 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Self-Limited Epilepsy with Centrotemporal Spikes",
+    "disease_id": "MONDO:0007295",
+    "category": "Complex",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Self-limited epilepsy with centrotemporal spikes (SeLECTS; formerly benign epilepsy with centrotemporal spikes / benign Rolandic epilepsy) is the most common focal epilepsy of childhood. It presents between about ages 3 and 14 years (peak 8-9) in a developmentally normal child, with infrequent focal seizures - characteristically nocturnal, involving one side of the face and the oropharynx (hemifacial twitching, hypersalivation, speech arrest), sometimes evolving to a bilateral tonic-clonic seizure. The EEG hallmark is high-amplitude centrotemporal (Rolandic) spikes that are markedly activated by sleep. Seizures remit by adolescence in almost all cases. It is understood as an age-dependent, genetically influenced disorder of maturation of the perirolandic sensorimotor cortex; during the active period, transient language and cognitive difficulties can occur and improve with remission.",
+    "pathophysiology": [
+      "Genetic Predisposition to Cortical Hyperexcitability",
+      "Age-Dependent Perirolandic Cortical Hyperexcitability",
+      "Sleep-Activated Centrotemporal Epileptiform Discharges",
+      "Focal Sensorimotor (Rolandic) Seizures",
+      "Transient Language and Cognitive Dysfunction",
+      "Age-Dependent Remission"
+    ],
+    "cell_types": [
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Focal-Onset Seizures",
+      "Centrotemporal Spikes on EEG",
+      "Bilateral Tonic-Clonic Seizures",
+      "Speech Arrest and Dysarthria",
+      "Hypersalivation (Drooling)",
+      "Perioral Paresthesia",
+      "Language and Learning Difficulties",
+      "Febrile Seizures"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007359",
+      "HP:0012557",
+      "HP:0002069",
+      "HP:0001260",
+      "HP:0002307",
+      "HP:0003401",
+      "HP:0001328",
+      "HP:0002373"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ELP4",
+      "GRIN2A"
+    ],
+    "treatments": [
+      "Antiseizure Medication (Often Not Required)",
+      "Watchful Observation and Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Self-Limited_Epilepsy_with_Centrotemporal_Spikes.yaml",
+    "page_url": "../pages/disorders/Self-Limited_Epilepsy_with_Centrotemporal_Spikes.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Semantic Dementia",
@@ -137431,6 +138787,114 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Silicosis",
+    "disease_id": "MONDO:0005960",
+    "category": "Environmental Lung Disease",
+    "parents": [
+      "Pneumoconiosis",
+      "Occupational Lung Disease"
+    ],
+    "creation_date": "2026-07-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Chronic Silicosis",
+      "Accelerated Silicosis",
+      "Acute Silicosis"
+    ],
+    "description": "Silicosis is a fibrotic lung disease (pneumoconiosis) caused by the inhalation of respirable crystalline silica dust, most commonly quartz. It is one of the oldest recognized occupational diseases, historically affecting miners, quarry and foundry workers, sandblasters, and stonemasons; a contemporary epidemic is driven by the fabrication of engineered (\"artificial\") stone benchtops, which have a very high crystalline-silica content. Inhaled silica particles that reach the alveoli are phagocytosed by alveolar macrophages, destabilize the phagolysosome, and activate the NLRP3 inflammasome, driving a self-perpetuating cycle of macrophage death, re-uptake of silica, chronic inflammation, and fibroblast activation. The characteristic lesion is the silicotic nodule \u2014 a whorled, hyalinized collagen nodule containing birefringent silica particles, with upper-lobe predominance. Disease presents along a spectrum: chronic simple silicosis (after 10-30 years of exposure), accelerated silicosis (5-10 years), and acute silicosis / silicoproteinosis (after intense exposure over months to a few years). Nodules can coalesce into progressive massive fibrosis. Silica exposure also raises the risk of tuberculosis (silicotuberculosis), lung cancer, chronic obstructive pulmonary disease, chronic kidney disease, and autoimmune disease. There is no curative therapy; management is supportive and prevention through dust control is paramount.",
+    "pathophysiology": [
+      "Alveolar Macrophage Phagocytosis of Respirable Silica",
+      "Phagolysosomal Membrane Rupture and Cathepsin B Release",
+      "Reactive Oxygen Species Generation",
+      "NLRP3 Inflammasome Assembly and Caspase-1 Activation",
+      "IL-1beta and IL-18 Maturation and Secretion",
+      "Macrophage Pyroptosis and Silica Re-uptake",
+      "Neutrophilic Alveolitis and Inflammatory Amplification",
+      "Fibroblast-to-Myofibroblast Activation",
+      "Excess Collagen Deposition and Silicotic Nodule Formation"
+    ],
+    "cell_types": [
+      "alveolar macrophage",
+      "neutrophil",
+      "fibroblast",
+      "myofibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000583",
+      "CL:0000775",
+      "CL:0000057",
+      "CL:0000186"
+    ],
+    "biological_processes": [
+      "phagocytosis",
+      "response to reactive oxygen species",
+      "NLRP3 inflammasome complex assembly",
+      "interleukin-1 beta production",
+      "pyroptotic inflammatory response",
+      "macrophage apoptotic process",
+      "inflammatory response",
+      "neutrophil chemotaxis",
+      "TGF-beta receptor signaling",
+      "collagen biosynthetic process",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Dyspnea",
+      "Cough",
+      "Pulmonary Fibrosis",
+      "Restrictive Ventilatory Defect",
+      "Respiratory Insufficiency",
+      "Increased Susceptibility to Tuberculosis",
+      "Increased Lung Cancer Risk",
+      "Airway Obstruction",
+      "Autoantibody Positivity and Connective-Tissue Disease Association"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Immunological",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0012735",
+      "HP:0002206",
+      "HP:0002091",
+      "HP:0002093",
+      "HP:0032262",
+      "HP:0100526",
+      "HP:0006536",
+      "HP:0003493"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TNF"
+    ],
+    "treatments": [
+      "Silica Exposure Cessation and Dust Control",
+      "Supportive Care",
+      "Whole-Lung Lavage",
+      "Lung Transplantation",
+      "Pirfenidone (Investigational Antifibrotic)"
+    ],
+    "environmental": [
+      "Occupational Respirable Crystalline Silica Exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Silicosis.yaml",
+    "page_url": "../pages/disorders/Silicosis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Silver-Russell Syndrome",
     "disease_id": "MONDO:0008394",
     "category": "Mendelian",
@@ -138130,6 +139594,107 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Small Intestine Cancer",
+    "disease_id": "MONDO:0000956",
+    "category": "",
+    "parents": [
+      "intestinal cancer",
+      "digestive system neoplasm"
+    ],
+    "creation_date": "2026-07-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Adenocarcinoma",
+      "Neuroendocrine Tumor",
+      "Lymphoma",
+      "Sarcoma"
+    ],
+    "description": "Small intestine cancer is a heterogeneous group of malignant neoplasms arising in the duodenum, jejunum, or ileum. Despite the small bowel comprising the majority of the length and mucosal surface area of the gastrointestinal tract, small intestinal malignancies are rare, accounting for only a few percent of GI cancers. Proposed explanations for this relative resistance to carcinogenesis include rapid transit time limiting mucosal carcinogen exposure, dilute liquid luminal contents, low bacterial load, high mucosal IgA and lymphoid (GALT) immune surveillance, and efficient epithelial detoxification/apoptosis. Four major histological types dominate: adenocarcinoma (the predominant epithelial type, often arising on a background of chronic inflammation or a hereditary polyposis/mismatch-repair syndrome), well-differentiated neuroendocrine tumors (carcinoids, the classic midgut primary and the most common small-bowel malignancy in some series), lymphoma (usually B-cell/MALT, with enteropathy-associated T-cell lymphoma as a celiac-disease complication of the jejunoileum), and sarcoma. The mesenchymal gastrointestinal stromal tumor (GIST) is curated separately and cross-referenced here rather than duplicated. Because early tumors are typically clinically silent and the small bowel is difficult to image and endoscope, small intestinal cancers frequently present late with obstruction, occult or overt bleeding, or metastatic disease.",
+    "pathophysiology": [
+      "Chronic Mucosal Inflammation and Dysplasia",
+      "Adenoma-Carcinoma Sequence and Wnt-APC Activation",
+      "Mismatch Repair Deficiency and Microsatellite Instability",
+      "Enterochromaffin Cell Neoplasia and Serotonin Hypersecretion",
+      "Carcinoid Syndrome",
+      "Invasion and Late-Stage Presentation"
+    ],
+    "cell_types": [
+      "epithelial cell of small intestine",
+      "enteroendocrine cell of small intestine"
+    ],
+    "cell_type_ids": [
+      "CL:0002254",
+      "CL:0009006"
+    ],
+    "biological_processes": [
+      "canonical Wnt signaling pathway",
+      "mismatch repair",
+      "serotonin secretion",
+      "epithelial to mesenchymal transition"
+    ],
+    "phenotypes": [
+      "Abdominal pain",
+      "Intestinal obstruction",
+      "Gastrointestinal hemorrhage",
+      "Iron deficiency anemia",
+      "Weight loss",
+      "Small intestinal neoplasm",
+      "Flushing",
+      "Diarrhea"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0005214",
+      "HP:0002239",
+      "HP:0001891",
+      "HP:0001824",
+      "HP:0100833",
+      "HP:0031284",
+      "HP:0002014"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Lynch syndrome (mismatch repair)",
+      "MSH2",
+      "MSH6",
+      "PMS2",
+      "EPCAM",
+      "APC (familial adenomatous polyposis)",
+      "STK11 (Peutz-Jeghers syndrome)",
+      "MUTYH (MUTYH-associated polyposis)"
+    ],
+    "treatments": [
+      "Surgical resection",
+      "Fluoropyrimidine-based chemotherapy",
+      "Somatostatin analog therapy",
+      "Peptide receptor radionuclide therapy (PRRT)",
+      "Immune checkpoint blockade (dMMR/MSI-H)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Chromogranin A",
+      "Serotonin / urinary 5-HIAA"
+    ],
+    "source_file": "Small_Intestine_Cancer.yaml",
+    "page_url": "../pages/disorders/Small_Intestine_Cancer.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 8,
+    "num_treatments": 5,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Smith-Lemli-Opitz syndrome",
     "disease_id": "MONDO:0010035",
     "category": "Mendelian",
@@ -138698,8 +140263,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Soil-transmitted helminthiases",
@@ -141551,6 +143116,98 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "35",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Sturge-Weber Syndrome",
+    "disease_id": "MONDO:0008501",
+    "category": "Genetic",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Sturge-Weber syndrome (SWS) is a sporadic neurocutaneous disorder caused by a postzygotic (somatic mosaic) activating mutation in GNAQ - most often the p.Arg183Gln variant - arising in progenitor cells and producing constitutive Gq signaling. The mosaic distribution yields the classic triad: a facial capillary malformation (port-wine birthmark, typically in the ophthalmic trigeminal territory), a leptomeningeal capillary-venous malformation (leptomeningeal angioma) overlying the brain, and ocular involvement (glaucoma). The leptomeningeal malformation impairs cortical venous drainage, causing chronic hypoperfusion, progressive cortical injury with the characteristic gyriform (\"tram-track\") calcification and atrophy, and early-onset, often drug-resistant seizures, together with stroke-like episodes, hemiparesis, and variable cognitive impairment.",
+    "pathophysiology": [
+      "Somatic GNAQ Activating Mutation",
+      "Constitutive Gq Signaling and Dysregulated Vascular Development",
+      "PLC-beta3-PKC-NF-kB Signaling Activation",
+      "ANGPT2-TIE2 Angiopoietin Signaling",
+      "RAS-MAPK/ERK Pathway Activation",
+      "PI3K-AKT-mTOR Pathway Activation",
+      "Leptomeningeal Capillary-Venous Malformation",
+      "Impaired Cortical Venous Drainage and Chronic Hypoperfusion",
+      "Progressive Cortical Injury",
+      "Neuronal Hyperexcitability",
+      "Seizures",
+      "Neurological Deficits"
+    ],
+    "cell_types": [
+      "Endothelial cell",
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Phospholipase C-activating GPCR signaling pathway",
+      "Angiogenesis",
+      "MAPK cascade",
+      "TOR signaling"
+    ],
+    "phenotypes": [
+      "Facial Port-Wine Birthmark",
+      "Seizures",
+      "Glaucoma",
+      "Hemiparesis",
+      "Stroke-Like Episodes",
+      "Choroidal Hemangioma",
+      "Glaucomatous Visual Field Defect",
+      "Intellectual Disability"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001052",
+      "HP:0001250",
+      "HP:0000501",
+      "HP:0001269",
+      "HP:0002401",
+      "HP:0007872",
+      "HP:0007854",
+      "HP:0001249"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GNAQ (somatic mosaic)",
+      "GNA11 (somatic mosaic, minority)"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Low-Dose Aspirin",
+      "Epilepsy Surgery",
+      "Pulsed-Dye Laser for Port-Wine Birthmark",
+      "Sirolimus (mTOR Inhibitor)",
+      "Glaucoma Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sturge-Weber_Syndrome.yaml",
+    "page_url": "../pages/disorders/Sturge-Weber_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 12,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Subacute Inflammatory Demyelinating Polyneuropathy",
@@ -147985,6 +149642,7 @@ window.searchData = [
       "Isoniazid",
       "Rifampicin",
       "Ethambutol",
+      "Drug-Resistant TB Regimen (BPaL/BPaLM)",
       "Directly Observed Therapy (DOT)",
       "Latent TB Treatment",
       "Host-Directed Therapy",
@@ -148008,7 +149666,7 @@ window.searchData = [
     "num_phenotypes": 10,
     "num_pathophysiology": 6,
     "num_genes": 7,
-    "num_treatments": 15,
+    "num_treatments": 16,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "2"
   },
@@ -150042,7 +151700,9 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Second-Generation H1 Antihistamines"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Urticaria.yaml",
@@ -150050,7 +151710,7 @@ window.searchData = [
     "num_phenotypes": 1,
     "num_pathophysiology": 1,
     "num_genes": 0,
-    "num_treatments": 0,
+    "num_treatments": 1,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -156121,11 +157781,13 @@ window.searchData = [
       "General"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0002615",
+      "HP:0001899",
       "HP:0000969",
       "HP:0003073"
     ],
@@ -156541,17 +158203,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1583,
-  "total_subtypes": 2436,
-  "total_disorders_and_subtypes": 4019,
-  "total_unique_evidence_sources": 24740,
-  "total_unique_publications": 23267,
-  "total_unique_disease_categories": 42,
+  "total_disorder_pages": 1601,
+  "total_subtypes": 2451,
+  "total_disorders_and_subtypes": 4052,
+  "total_unique_evidence_sources": 24955,
+  "total_unique_publications": 23478,
+  "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 216,
-  "total_pathographs": 1577,
-  "total_unique_pathological_events": 7385,
-  "total_modules": 111,
-  "total_research_reports": 1816,
+  "total_pathographs": 1596,
+  "total_unique_pathological_events": 7510,
+  "total_modules": 116,
+  "total_research_reports": 1834,
   "total_classifications": 8,
   "total_comorbidities": 16,
   "total_groupings": 47
