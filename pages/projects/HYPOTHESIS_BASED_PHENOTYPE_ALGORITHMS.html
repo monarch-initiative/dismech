@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hypothesis-Based Phenotype Algorithms &amp; Trigger-Provoked Latent-Disease EHR Case-Finding - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Hypothesis-Based Phenotype Algorithms &amp; Trigger-Provoked Latent-Disease EHR Case-Finding</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">METHODOLOGY</span><span class="tag">EHR</span><span class="tag">PHENOTYPE_ALGORITHM</span><span class="tag">NAM</span><span class="tag">CHANNELOPATHY</span>
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Hypothesis-Based Phenotype Algorithms &amp; Trigger-Provoked Latent-Disease EHR Case-Finding</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (4)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Timothy_Syndrome.html">Timothy Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Brugada_syndrome.html">Brugada Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Long_QT_Syndrome.html">Long QT Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Malignant_hyperthermia_of_anesthesia.html">Malignant Hyperthermia of Anesthesia</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                <div class="panel">
+                    <h2>Phenotypes (2)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/HP_0001250">Seizure</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/HP_0001657">Prolonged QT interval</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/HYPOTHESIS_BASED_PHENOTYPE_ALGORITHMS.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="hypothesis-based-phenotype-algorithms-trigger-provoked-latent-disease-ehr-case-finding">Hypothesis-Based Phenotype Algorithms &amp; Trigger-Provoked Latent-Disease EHR Case-Finding</h1>
+<h2 id="motivation">Motivation</h2>
+<p>A zebrafish Timothy-syndrome study (<a href="https://github.com/monarch-initiative/dismech/issues/6245">#6245</a>,
+PMID:42426269) showed that fever elicits arrhythmia and seizures <strong>even in overtly
+normal CACNA1C heterozygotes</strong>. That implies a computable idea: scan EHRs for a
+new arrhythmia or seizure shortly after a fever, to surface <em>latent/mild</em> carriers
+a classical case definition would never catch. But such a query is valid only if
+the mechanism holds — so running it is simultaneously case-finding <strong>and</strong> a test
+of the mechanism. A standard PheKB/OHDSI phenotype library cannot say which of its
+algorithms is speculative; DisMech can, because it links the algorithm to the
+mechanism.</p>
+<h2 id="the-archetype-trigger-provoked-latent-disease">The archetype: trigger-provoked latent disease</h2>
+<blockquote>
+<p>A physiological / pharmacological / procedural <strong>trigger</strong> transiently unmasks a
+<strong>latent channel/enzyme defect</strong>. Most carriers are asymptomatic at baseline. An
+EHR query for <strong>trigger-associated events</strong> is enriched for latent carriers, and
+that enrichment tests the mechanism.</p>
+</blockquote>
+<h2 id="what-was-built">What was built</h2>
+<ol>
+<li><strong>Schema</strong> (enacted, <code>@cmungall</code>-approved) — <code>Definition</code> gained
+   <code>derivation_basis</code> (<code>ESTABLISHED_CRITERIA</code> / <code>MECHANISTIC_HYPOTHESIS</code> /
+   <code>MODEL_SYSTEM_EXTRAPOLATION</code>), a structured <code>validation_status</code> object
+   (<code>status</code> + <code>rationale</code> + <code>evidence</code>), and reuses <code>attaches_to</code> to link the
+   pathograph node(s) a hypothesis-based algorithm is predicated on. Gated by
+   <code>test_hypothesis_based_definition_attaches_to_foreign_keys</code>. See
+   <a href="../hypothesis-based-phenotype-algorithms.md">the design write-up</a>.</li>
+<li><strong>Worked examples</strong> — each carries a <code>PHENOTYPE_ALGORITHM</code> case-finding
+   definition <strong>and</strong> a NAM confirmation experiment (below).</li>
+<li><strong>Candidate register + validation guidance</strong> — see
+   <a href="../reports/hypothesis-driven-ehr-case-finding-2026-07-12.md">the survey report</a>.</li>
+</ol>
+<h2 id="worked-examples">Worked examples</h2>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th>Trigger</th>
+<th>Trigger type</th>
+<th>System</th>
+<th><code>derivation_basis</code></th>
+<th>Genotype yield of a hit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/Timothy_Syndrome.html">Timothy Syndrome</a></td>
+<td>fever</td>
+<td>physiological</td>
+<td>cardiac + CNS</td>
+<td><code>MECHANISTIC_HYPOTHESIS</code></td>
+<td>(unknown — hypothesis)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Brugada_syndrome.html">Brugada Syndrome</a></td>
+<td>fever</td>
+<td>physiological</td>
+<td>cardiac</td>
+<td><code>ESTABLISHED_CRITERIA</code></td>
+<td>~26% SCN5A</td>
+</tr>
+<tr>
+<td><a href="../disorders/Familial_Long_QT_Syndrome.html">Long QT Syndrome</a></td>
+<td>QT-prolonging drug</td>
+<td>pharmacological</td>
+<td>cardiac</td>
+<td><code>ESTABLISHED_CRITERIA</code></td>
+<td>~10–15%</td>
+</tr>
+<tr>
+<td><a href="../disorders/Malignant_hyperthermia_of_anesthesia.html">Malignant Hyperthermia of Anesthesia</a></td>
+<td>volatile anesthetic / succinylcholine</td>
+<td>procedural</td>
+<td>skeletal muscle</td>
+<td><code>ESTABLISHED_CRITERIA</code></td>
+<td>50–&gt;70%</td>
+</tr>
+</tbody>
+</table>
+<p><a href="../disorders/Timothy_Syndrome.html">Timothy Syndrome</a> is the one genuine <code>MECHANISTIC_HYPOTHESIS</code> (zebrafish-derived,
+human validity open); the other three are established mechanisms where the <em>EHR
+operationalization</em> is the new artifact. Together they span emerging↔established
+grounding × physiological/pharmacological/procedural triggers × cardiac/muscle.</p>
+<h2 id="two-armed-test-strategy-population-mechanistic">Two-armed test strategy: population × mechanistic</h2>
+<p>Each hypothesis has two complementary tests, both first-class in the schema:</p>
+<ul>
+<li><strong>Population arm</strong> — the <code>PHENOTYPE_ALGORITHM</code> definition run against a
+  <strong>genotype-linked EHR biobank</strong> (eMERGE/PheKB, All of Us, UK Biobank; not MIMIC
+  — no linked DNA, ICU-confounded). This is what flips <code>validation_status</code> to
+  <code>VALIDATED_AGAINST_GOLD_STANDARD</code>.</li>
+<li><strong>Mechanistic arm</strong> — a <strong>New Approach Methodology</strong> <code>proposed_experiment</code>
+  (NAMO-aligned <code>model_systems</code>: iPSC-derived cells, organ-on-chip, in-silico).
+  For <a href="../disorders/Timothy_Syndrome.html">Timothy Syndrome</a> the NAM <em>bridges the <code>HUMAN_MODEL_MISMATCH</code></em> (is the
+  zebrafish effect human-relevant?); for the established examples it <em>functionally
+  confirms / risk-stratifies</em> the carriers the query surfaces (VUS resolution).</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th>Mechanistic NAM experiment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/Timothy_Syndrome.html">Timothy Syndrome</a></td>
+<td>iPSC-CM + iPSC-neuron + heart-on-chip + in-silico hyperthermia challenge (<code>exp_ts_fever_ipsc_nam_challenge</code>)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Brugada_syndrome.html">Brugada Syndrome</a></td>
+<td>iPSC-CM + heterologous Nav1.5 temperature ramp (<code>exp_brs_nav15_temperature_nam</code>)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Familial_Long_QT_Syndrome.html">Long QT Syndrome</a></td>
+<td><strong>CiPA</strong> (in-vitro hERG/multi-channel + in-silico O'Hara-Rudy/ToR-ORd) + iPSC-CM drug challenge (<code>exp_lqt_cipa_nam_confirmation</code>)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Malignant_hyperthermia_of_anesthesia.html">Malignant Hyperthermia of Anesthesia</a></td>
+<td>RyR1 Ca²⁺-release + iPSC-myotube caffeine/4-CmC/halothane challenge, an in-vitro complement to the invasive CHCT (<code>exp_mh_ryr1_ipsc_calcium_nam</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>This connects to two adjacent projects: <code>NAMO_RD_MODELS</code> (the NAMO bridge) and
+<code>MONDO_EHR_MAPPINGS</code> (MONDO-driven OMOP concept sets the population arm would use).</p>
+<h2 id="status-worklist">Status &amp; worklist</h2>
+<ul>
+<li>[x] Schema extension enacted + gating test + docs (proposal, design-decisions §11, CLAUDE.md)</li>
+<li>[x] <a href="../disorders/Timothy_Syndrome.html">Timothy Syndrome</a> — hypothesis, fever nodes/edges, case-finding definition, HUMAN_MODEL_MISMATCH discussion, NAM experiment</li>
+<li>[x] <a href="../disorders/Brugada_syndrome.html">Brugada Syndrome</a> — fever-unmasking node, definition, NAM experiment</li>
+<li>[x] <a href="../disorders/Familial_Long_QT_Syndrome.html">Long QT Syndrome</a> — drug-unmasking node, definition, CiPA NAM experiment</li>
+<li>[x] <a href="../disorders/Malignant_hyperthermia_of_anesthesia.html">Malignant Hyperthermia of Anesthesia</a> — definition + NAM experiment (attaches to existing trigger node)</li>
+<li>[x] Candidate register + validation-pathway (MIMIC vs genotype-linked biobank) + NAM guidance</li>
+<li>[ ] Next candidates: <code>RYR2_CPVT</code> (exercise/catecholamine), <code>Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency</code> (oxidant drug — first hematologic/metabolic example)</li>
+<li>[ ] Follow-ups: renderer badge (⚗ hypothesis-based), declared-vs-inferred consistency lint, KGX/BioLink export treatment</li>
+<li>[ ] Pilot the population arm on a genotype-linked biobank to move a <code>validation_status</code> toward <code>VALIDATED_AGAINST_GOLD_STANDARD</code></li>
+</ul>
+<h2 id="links">Links</h2>
+<ul>
+<li>Design write-up: <a href="../hypothesis-based-phenotype-algorithms.md"><code>docs/hypothesis-based-phenotype-algorithms.md</code></a></li>
+<li>Candidate register &amp; datasets: <a href="../reports/hypothesis-driven-ehr-case-finding-2026-07-12.md"><code>docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md</code></a></li>
+<li>Decision register: <a href="../explanation/design-decisions.md">Design Decisions §11</a></li>
+<li>Driving issue: <a href="https://github.com/monarch-initiative/dismech/issues/6245">#6245</a></li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>
