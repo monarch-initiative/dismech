@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biology14020129"
+reference_id: DOI:10.3390/biology14020129
 title: "Advances in Huntington’s Disease Biomarkers: A 10-Year Bibliometric Analysis and a Comprehensive Review"
 authors:
 - Sarah Aqel
@@ -13,6 +13,7 @@ journal: Biology
 year: '2025'
 doi: 10.3390/biology14020129
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advances in Huntington’s Disease Biomarkers: A 10-Year Bibliometric Analysis and a Comprehensive Review

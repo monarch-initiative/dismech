@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/20503121231221941"
+reference_id: DOI:10.1177/20503121231221941
 title: "Hereditary spastic paraplegia: Novel insights into the pathogenesis and management"
 authors:
 - Wireko Andrew Awuah
@@ -25,6 +25,7 @@ journal: SAGE Open Medicine
 year: '2024'
 doi: 10.1177/20503121231221941
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hereditary spastic paraplegia: Novel insights into the pathogenesis and management

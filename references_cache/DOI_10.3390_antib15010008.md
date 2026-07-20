@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/antib15010008"
+reference_id: DOI:10.3390/antib15010008
 title: "Paraneoplastic Neurological Syndromes: Advances and Future Perspectives in Immunopathogenesis and Management"
 authors:
 - Stoimen Dimitrov
@@ -11,6 +11,7 @@ journal: Antibodies
 year: '2026'
 doi: 10.3390/antib15010008
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Paraneoplastic Neurological Syndromes: Advances and Future Perspectives in Immunopathogenesis and Management

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/nxg.0000000000200056"
+reference_id: DOI:10.1212/nxg.0000000000200056
 title: Clinical Manifestation of Nebulin-Associated Nemaline Myopathy
 authors:
 - Cristiane Araujo Martins Moreno
@@ -20,6 +20,7 @@ journal: Neurology Genetics
 year: '2023'
 doi: 10.1212/nxg.0000000000200056
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Clinical Manifestation of Nebulin-Associated Nemaline Myopathy

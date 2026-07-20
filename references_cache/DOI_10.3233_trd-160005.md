@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3233/trd-160005"
+reference_id: DOI:10.3233/trd-160005
 title: Lysosomal storage diseases
 authors:
 - Carlos R. Ferreira
@@ -8,6 +8,7 @@ journal: Translational Science of Rare Diseases
 year: '2017'
 doi: 10.3233/trd-160005
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Lysosomal storage diseases

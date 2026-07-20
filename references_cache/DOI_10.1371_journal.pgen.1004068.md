@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1371/journal.pgen.1004068"
+reference_id: DOI:10.1371/journal.pgen.1004068
 title: Molecular Identification of Collagen 17a1 as a Major Genetic Modifier of Laminin Gamma 2 Mutation-Induced Junctional Epidermolysis Bullosa in Mice
 authors:
 - Thomas J. Sproule
@@ -15,6 +15,7 @@ journal: PLoS Genetics
 year: '2014'
 doi: 10.1371/journal.pgen.1004068
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Molecular Identification of Collagen 17a1 as a Major Genetic Modifier of Laminin Gamma 2 Mutation-Induced Junctional Epidermolysis Bullosa in Mice

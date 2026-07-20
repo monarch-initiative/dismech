@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/17588359231171574"
+reference_id: DOI:10.1177/17588359231171574
 title: "Updated survival outcomes with ivosidenib in patients with previously treated IDH1-mutated intrahepatic-cholangiocarcinoma: an Italian real-world experience"
 authors:
 - Margherita Rimini
@@ -24,6 +24,7 @@ journal: Therapeutic Advances in Medical Oncology
 year: '2023'
 doi: 10.1177/17588359231171574
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Updated survival outcomes with ivosidenib in patients with previously treated IDH1-mutated intrahepatic-cholangiocarcinoma: an Italian real-world experience

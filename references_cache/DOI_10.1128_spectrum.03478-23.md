@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1128/spectrum.03478-23"
-title: "Single-cell ATAC sequencing identifies sleepy macrophages during reciprocity of cytokines in
-            <i>L. major</i>
-            infection"
+reference_id: DOI:10.1128/spectrum.03478-23
+title: "Single-cell ATAC sequencing identifies sleepy macrophages during reciprocity of cytokines in <i>L. major</i> infection"
 authors:
 - Shweta Khandibharad
 - Shailza Singh
@@ -10,11 +8,10 @@ journal: Microbiology Spectrum
 year: '2024'
 doi: 10.1128/spectrum.03478-23
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Single-cell ATAC sequencing identifies sleepy macrophages during reciprocity of cytokines in
-            <i>L. major</i>
-            infection
+# Single-cell ATAC sequencing identifies sleepy macrophages during reciprocity of cytokines in <i>L. major</i> infection
 **Authors:** Shweta Khandibharad, Shailza Singh
 **Journal:** Microbiology Spectrum (2024)
 **DOI:** [10.1128/spectrum.03478-23](https://doi.org/10.1128/spectrum.03478-23)

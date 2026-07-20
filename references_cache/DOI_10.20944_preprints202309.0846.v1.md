@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.20944/preprints202309.0846.v1"
+reference_id: DOI:10.20944/preprints202309.0846.v1
 title: "Rhabdomyosarcoma: Current Therapy, Challenges, and Future Approaches to Treatment Strategies"
 authors:
 - Ali Zarrabi
@@ -33,6 +33,7 @@ authors:
 year: '2023'
 doi: 10.20944/preprints202309.0846.v1
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Rhabdomyosarcoma: Current Therapy, Challenges, and Future Approaches to Treatment Strategies

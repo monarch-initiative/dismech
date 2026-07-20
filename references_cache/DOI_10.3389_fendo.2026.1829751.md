@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fendo.2026.1829751"
+reference_id: DOI:10.3389/fendo.2026.1829751
 title: "Rare SRY-negative 46,XX disorder of sex development with male phenotype and ectopic gonads: a case report"
 authors:
 - Jianxu Luo
@@ -15,6 +15,7 @@ journal: Frontiers in Endocrinology
 year: '2026'
 doi: 10.3389/fendo.2026.1829751
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Rare SRY-negative 46,XX disorder of sex development with male phenotype and ectopic gonads: a case report

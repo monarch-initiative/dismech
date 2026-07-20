@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/03000605231216633"
+reference_id: DOI:10.1177/03000605231216633
 title: Three novel SLC37A4 variants in glycogen storage disease type 1b and a literature review
 authors:
 - Zhuolin Wang
@@ -12,6 +12,7 @@ journal: Journal of International Medical Research
 year: '2023'
 doi: 10.1177/03000605231216633
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Three novel SLC37A4 variants in glycogen storage disease type 1b and a literature review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2500/jfa.2024.6.240002"
+reference_id: DOI:10.2500/jfa.2024.6.240002
 title: "Anaphylaxis: Definition and criteria"
 authors:
 - Marcus S. Shaker
@@ -7,6 +7,7 @@ journal: Journal of Food Allergy
 year: '2024'
 doi: 10.2500/jfa.2024.6.240002
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Anaphylaxis: Definition and criteria

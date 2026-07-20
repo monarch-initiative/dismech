@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-24-1611"
+reference_id: DOI:10.1158/1078-0432.ccr-24-1611
 title: "Update on Pediatric Cancer Surveillance Recommendations for Patients with Neurofibromatosis Type 1, Noonan Syndrome, CBL Syndrome, Costello Syndrome, and Related RASopathies"
 authors:
 - Melissa R. Perrino
@@ -33,6 +33,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-24-1611
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Update on Pediatric Cancer Surveillance Recommendations for Patients with Neurofibromatosis Type 1, Noonan Syndrome, CBL Syndrome, Costello Syndrome, and Related RASopathies

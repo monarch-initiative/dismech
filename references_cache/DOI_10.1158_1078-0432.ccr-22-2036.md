@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-22-2036"
+reference_id: DOI:10.1158/1078-0432.ccr-22-2036
 title: "FDA Approval Summary: Pemigatinib for Previously Treated, Unresectable Locally Advanced or Metastatic Cholangiocarcinoma with FGFR2 Fusion or Other Rearrangement"
 authors:
 - Timil H. Patel
@@ -23,6 +23,7 @@ journal: Clinical Cancer Research
 year: '2023'
 doi: 10.1158/1078-0432.ccr-22-2036
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # FDA Approval Summary: Pemigatinib for Previously Treated, Unresectable Locally Advanced or Metastatic Cholangiocarcinoma with FGFR2 Fusion or Other Rearrangement

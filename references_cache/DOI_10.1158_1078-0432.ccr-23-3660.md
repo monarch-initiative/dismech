@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-23-3660"
+reference_id: DOI:10.1158/1078-0432.ccr-23-3660
 title: Minimal Residual Disease using a Plasma-Only Circulating Tumor DNA Assay to Predict Recurrence of Metastatic Colorectal Cancer Following Curative Intent Treatment
 authors:
 - Aparna R. Parikh
@@ -24,6 +24,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-23-3660
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Minimal Residual Disease using a Plasma-Only Circulating Tumor DNA Assay to Predict Recurrence of Metastatic Colorectal Cancer Following Curative Intent Treatment

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/wjps-2024-000903"
+reference_id: DOI:10.1136/wjps-2024-000903
 title: "Causes and consequences: development and pathophysiology of Hirschsprung disease"
 authors:
 - Alan J Burns
@@ -8,6 +8,7 @@ journal: World Journal of Pediatric Surgery
 year: '2024'
 doi: 10.1136/wjps-2024-000903
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Causes and consequences: development and pathophysiology of Hirschsprung disease

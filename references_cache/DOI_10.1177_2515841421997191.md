@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/2515841421997191"
+reference_id: DOI:10.1177/2515841421997191
 title: "Bestrophinopathies: perspectives on clinical disease, Bestrophin-1 function and developing therapies"
 authors:
 - Simranjeet Singh Grewal
@@ -9,6 +9,7 @@ journal: Therapeutic Advances in Ophthalmology
 year: '2021'
 doi: 10.1177/2515841421997191
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Bestrophinopathies: perspectives on clinical disease, Bestrophin-1 function and developing therapies

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/16000617.0156-2023"
+reference_id: DOI:10.1183/16000617.0156-2023
 title: "Pulmonary veno-occlusive disease: illustrative cases and literature review"
 authors:
 - Benoit Lechartier
@@ -14,6 +14,7 @@ journal: European Respiratory Review
 year: '2024'
 doi: 10.1183/16000617.0156-2023
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pulmonary veno-occlusive disease: illustrative cases and literature review

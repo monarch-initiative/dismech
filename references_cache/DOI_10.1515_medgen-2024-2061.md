@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1515/medgen-2024-2061"
+reference_id: DOI:10.1515/medgen-2024-2061
 title: Genetic diagnosis of the Ehlers-Danlos syndromes
 authors:
 - Johannes Zschocke
@@ -9,6 +9,7 @@ journal: Medizinische Genetik
 year: '2024'
 doi: 10.1515/medgen-2024-2061
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic diagnosis of the Ehlers-Danlos syndromes

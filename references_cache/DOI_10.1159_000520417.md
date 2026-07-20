@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000520417"
+reference_id: DOI:10.1159/000520417
 title: A Systematic Review on Cannabis Hyperemesis Syndrome and Its Management Options
 authors:
 - Helen Senderovich
@@ -10,6 +10,7 @@ journal: Medical Principles and Practice
 year: '2022'
 doi: 10.1159/000520417
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Systematic Review on Cannabis Hyperemesis Syndrome and Its Management Options

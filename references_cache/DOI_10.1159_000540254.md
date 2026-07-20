@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000540254"
+reference_id: DOI:10.1159/000540254
 title: "Adult Moyamoya disease and moyamoya syndrome: what’s new?"
 authors:
 - Shinichiro Uchiyama
@@ -8,6 +8,7 @@ journal: Cerebrovascular Diseases Extra
 year: '2024'
 doi: 10.1159/000540254
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Adult Moyamoya disease and moyamoya syndrome: what’s new?

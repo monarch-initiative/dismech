@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/12034754221078201"
+reference_id: DOI:10.1177/12034754221078201
 title: "Effect of Nicotinamide in Skin Cancer and Actinic Keratoses Chemoprophylaxis, and Adverse Effects Related to Nicotinamide: A Systematic Review and Meta-Analysis"
 authors:
 - Laurence Mainville
@@ -9,6 +9,7 @@ journal: Journal of Cutaneous Medicine and Surgery
 year: '2022'
 doi: 10.1177/12034754221078201
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Effect of Nicotinamide in Skin Cancer and Actinic Keratoses Chemoprophylaxis, and Adverse Effects Related to Nicotinamide: A Systematic Review and Meta-Analysis

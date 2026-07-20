@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1128/spectrum.01028-24"
-title: "Genotypic characterization and antimicrobial susceptibility of human
-            <i>Campylobacter jejuni</i>
-            isolates in Southern Spain"
+reference_id: DOI:10.1128/spectrum.01028-24
+title: "Genotypic characterization and antimicrobial susceptibility of human <i>Campylobacter jejuni</i> isolates in Southern Spain"
 authors:
 - Pablo Fernández-Palacios
 - Fátima Galán-Sánchez
@@ -17,11 +15,10 @@ journal: Microbiology Spectrum
 year: '2024'
 doi: 10.1128/spectrum.01028-24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Genotypic characterization and antimicrobial susceptibility of human
-            <i>Campylobacter jejuni</i>
-            isolates in Southern Spain
+# Genotypic characterization and antimicrobial susceptibility of human <i>Campylobacter jejuni</i> isolates in Southern Spain
 **Authors:** Pablo Fernández-Palacios, Fátima Galán-Sánchez, Carlos S. Casimiro-Soriguer, Estefanía Jurado-Tarifa, Federico Arroyo, María Lara, J. Alberto Chaves, Joaquín Dopazo, Manuel A. Rodríguez-Iglesias
 **Journal:** Microbiology Spectrum (2024)
 **DOI:** [10.1128/spectrum.01028-24](https://doi.org/10.1128/spectrum.01028-24)

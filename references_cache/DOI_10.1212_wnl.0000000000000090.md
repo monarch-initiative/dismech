@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/wnl.0000000000000090"
+reference_id: DOI:10.1212/wnl.0000000000000090
 title: Progressive hemiparesis (Mills syndrome) with aphasia in amyotrophic lateral sclerosis
 authors:
 - Dirk Bäumer
@@ -12,6 +12,7 @@ journal: Neurology
 year: '2014'
 doi: 10.1212/wnl.0000000000000090
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Progressive hemiparesis (Mills syndrome) with aphasia in amyotrophic lateral sclerosis

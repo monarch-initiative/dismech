@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3171/2023.1.JNS222434"
+reference_id: DOI:10.3171/2023.1.JNS222434
 title: "Clinical presentation, hemorrhage risk, and outcome in patients with familial cavernous malformations: a pragmatic prospective analysis of 75 patients"
 authors:
 - Mohammed O. Alalfi
@@ -9,6 +9,7 @@ journal: Journal of Neurosurgery
 year: '2023'
 doi: 10.3171/2023.1.JNS222434
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical presentation, hemorrhage risk, and outcome in patients with familial cavernous malformations: a pragmatic prospective analysis of 75 patients

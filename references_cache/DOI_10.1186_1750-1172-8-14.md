@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1186/1750-1172-8-14"
+reference_id: DOI:10.1186/1750-1172-8-14
 title: "Autosomal dominant cerebellar ataxia type III: a review of the phenotypic and genotypic characteristics"
 authors:
 - Shinsuke Fujioka
@@ -9,6 +9,7 @@ journal: Orphanet Journal of Rare Diseases
 year: '2013'
 doi: 10.1186/1750-1172-8-14
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Autosomal dominant cerebellar ataxia type III: a review of the phenotypic and genotypic characteristics

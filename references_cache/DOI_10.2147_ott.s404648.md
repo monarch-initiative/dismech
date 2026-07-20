@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2147/ott.s404648"
+reference_id: DOI:10.2147/ott.s404648
 title: "c-Kit Receptors as a Therapeutic Target in Cancer: Current Insights"
 authors:
 - Mona Abdellateif
@@ -9,6 +9,7 @@ journal: OncoTargets and Therapy
 year: '2023'
 doi: 10.2147/ott.s404648
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # c-Kit Receptors as a Therapeutic Target in Cancer: Current Insights

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000522353"
+reference_id: DOI:10.1159/000522353
 title: "Clinical Features of Okur-Chung Neurodevelopmental Syndrome: Case Report and Literature Review"
 authors:
 - Hossein Jafari Khamirani
@@ -13,6 +13,7 @@ journal: Molecular Syndromology
 year: '2022'
 doi: 10.1159/000522353
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical Features of Okur-Chung Neurodevelopmental Syndrome: Case Report and Literature Review

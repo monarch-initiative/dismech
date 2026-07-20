@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fgene.2021.705284"
+reference_id: DOI:10.3389/fgene.2021.705284
 title: NOTCH3 Variants and Genotype-Phenotype Features in Chinese CADASIL Patients
 authors:
 - Yacen Hu
@@ -19,6 +19,7 @@ journal: Frontiers in Genetics
 year: '2021'
 doi: 10.3389/fgene.2021.705284
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # NOTCH3 Variants and Genotype-Phenotype Features in Chinese CADASIL Patients

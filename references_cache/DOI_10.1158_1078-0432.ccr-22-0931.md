@@ -1,12 +1,6 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-22-0931"
-title: "Detection of
-                    <i>BRCA1</i>
-                    ,
-                    <i>BRCA2</i>
-                    , and
-                    <i>ATM</i>
-                    Alterations in Matched Tumor Tissue and Circulating Tumor DNA in Patients with Prostate Cancer Screened in PROfound"
+reference_id: DOI:10.1158/1078-0432.ccr-22-0931
+title: "Detection of <i>BRCA1</i> , <i>BRCA2</i> , and <i>ATM</i> Alterations in Matched Tumor Tissue and Circulating Tumor DNA in Patients with Prostate Cancer Screened in PROfound"
 authors:
 - Kim N. Chi
 - Alan Barnicle
@@ -30,15 +24,10 @@ journal: Clinical Cancer Research
 year: '2023'
 doi: 10.1158/1078-0432.ccr-22-0931
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Detection of
-                    <i>BRCA1</i>
-                    ,
-                    <i>BRCA2</i>
-                    , and
-                    <i>ATM</i>
-                    Alterations in Matched Tumor Tissue and Circulating Tumor DNA in Patients with Prostate Cancer Screened in PROfound
+# Detection of <i>BRCA1</i> , <i>BRCA2</i> , and <i>ATM</i> Alterations in Matched Tumor Tissue and Circulating Tumor DNA in Patients with Prostate Cancer Screened in PROfound
 **Authors:** Kim N. Chi, Alan Barnicle, Caroline Sibilla, Zhongwu Lai, Claire Corcoran, J. Carl Barrett, Carrie A. Adelman, Ping Qiu, Ashley Easter, Simon Dearden, Geoffrey R. Oxnard, Neeraj Agarwal, Arun Azad, Johann de Bono, Joaquin Mateo, David Olmos, Antoine Thiery-Vuillemin, Elizabeth A. Harrington
 **Journal:** Clinical Cancer Research (2023)
 **DOI:** [10.1158/1078-0432.ccr-22-0931](https://doi.org/10.1158/1078-0432.ccr-22-0931)

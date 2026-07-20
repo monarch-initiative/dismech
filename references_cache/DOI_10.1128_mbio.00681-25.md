@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1128/mbio.00681-25"
-title: "Lactate metabolism is exploited by
-                    <i>Francisella tularensis</i>
-                    via its O-antigen capsule to limit macrophage-mediated activation and cell death"
+reference_id: DOI:10.1128/mbio.00681-25
+title: "Lactate metabolism is exploited by <i>Francisella tularensis</i> via its O-antigen capsule to limit macrophage-mediated activation and cell death"
 authors:
 - Forrest Jessop
 - Eric Borhnsen
@@ -16,11 +14,10 @@ journal: mBio
 year: '2025'
 doi: 10.1128/mbio.00681-25
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Lactate metabolism is exploited by
-                    <i>Francisella tularensis</i>
-                    via its O-antigen capsule to limit macrophage-mediated activation and cell death
+# Lactate metabolism is exploited by <i>Francisella tularensis</i> via its O-antigen capsule to limit macrophage-mediated activation and cell death
 **Authors:** Forrest Jessop, Eric Borhnsen, Benjamin Schwarz, Kaitlin A. Stromberg, Molly Miltko, Tyler Jones, Tara Wehrly, Catharine M. Bosio
 **Journal:** mBio (2025)
 **DOI:** [10.1128/mbio.00681-25](https://doi.org/10.1128/mbio.00681-25)

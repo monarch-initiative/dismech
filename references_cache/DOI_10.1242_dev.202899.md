@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1242/dev.202899"
+reference_id: DOI:10.1242/dev.202899
 title: "Axin1 regulates tooth root development by inhibiting AKT1-mTORC1 activation and Shh translation in Hertwig's epithelial root sheath"
 authors:
 - Xiaoyu Zheng
@@ -15,6 +15,7 @@ journal: Development
 year: '2024'
 doi: 10.1242/dev.202899
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Axin1 regulates tooth root development by inhibiting AKT1-mTORC1 activation and Shh translation in Hertwig's epithelial root sheath

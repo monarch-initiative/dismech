@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/str.0000000000000475"
+reference_id: DOI:10.1161/str.0000000000000475
 title: "2024 Guideline for the Primary Prevention of Stroke: A Guideline From the American Heart Association/American Stroke Association"
 authors:
 - Cheryl Bushnell
@@ -32,6 +32,7 @@ journal: Stroke
 year: '2024'
 doi: 10.1161/str.0000000000000475
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # 2024 Guideline for the Primary Prevention of Stroke: A Guideline From the American Heart Association/American Stroke Association

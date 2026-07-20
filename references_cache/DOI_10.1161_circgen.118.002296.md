@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1161/circgen.118.002296"
-title: "Single-Nucleotide Polymorphism of the
-            <i>MLX</i>
-            Gene Is Associated With Takayasu Arteritis"
+reference_id: DOI:10.1161/circgen.118.002296
+title: "Single-Nucleotide Polymorphism of the <i>MLX</i> Gene Is Associated With Takayasu Arteritis"
 authors:
 - Natsuko Tamura
 - Yasuhiro Maejima
@@ -20,11 +18,10 @@ journal: "Circulation: Genomic and Precision Medicine"
 year: '2018'
 doi: 10.1161/circgen.118.002296
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Single-Nucleotide Polymorphism of the
-            <i>MLX</i>
-            Gene Is Associated With Takayasu Arteritis
+# Single-Nucleotide Polymorphism of the <i>MLX</i> Gene Is Associated With Takayasu Arteritis
 **Authors:** Natsuko Tamura, Yasuhiro Maejima, Takayoshi Matsumura, Rick B. Vega, Eisuke Amiya, Yusuke Ito, Yuka Shiheido-Watanabe, Takashi Ashikaga, Issei Komuro, Daniel P. Kelly, Kenzo Hirao, Mitsuaki Isobe
 **Journal:** Circulation: Genomic and Precision Medicine (2018)
 **DOI:** [10.1161/circgen.118.002296](https://doi.org/10.1161/circgen.118.002296)

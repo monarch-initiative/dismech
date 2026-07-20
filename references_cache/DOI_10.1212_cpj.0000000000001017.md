@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/cpj.0000000000001017"
+reference_id: DOI:10.1212/cpj.0000000000001017
 title: Fampridine and Acetazolamide in EA2 and Related Familial EA
 authors:
 - Carolin Muth
@@ -14,6 +14,7 @@ journal: Neurology Clinical Practice
 year: '2021'
 doi: 10.1212/cpj.0000000000001017
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Fampridine and Acetazolamide in EA2 and Related Familial EA

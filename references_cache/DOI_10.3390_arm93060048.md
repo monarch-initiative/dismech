@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/arm93060048"
+reference_id: DOI:10.3390/arm93060048
 title: "Pulmonary Veno-Occlusive Disease: A Comprehensive Review of Diagnostic Challenges, Therapeutic Limitations, and Evolving Management"
 authors:
 - Brian Foster
@@ -10,6 +10,7 @@ journal: Advances in Respiratory Medicine
 year: '2025'
 doi: 10.3390/arm93060048
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pulmonary Veno-Occlusive Disease: A Comprehensive Review of Diagnostic Challenges, Therapeutic Limitations, and Evolving Management

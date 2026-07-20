@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2023012044"
+reference_id: DOI:10.1182/bloodadvances.2023012044
 title: Long-term treatment with rilzabrutinib in patients with immune thrombocytopenia
 authors:
 - David J. Kuter
@@ -24,6 +24,7 @@ journal: Blood Advances
 year: '2024'
 doi: 10.1182/bloodadvances.2023012044
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Long-term treatment with rilzabrutinib in patients with immune thrombocytopenia

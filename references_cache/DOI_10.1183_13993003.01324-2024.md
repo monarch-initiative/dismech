@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/13993003.01324-2024"
+reference_id: DOI:10.1183/13993003.01324-2024
 title: "Definition, classification and diagnosis of pulmonary hypertension"
 authors:
 - Gabor Kovacs
@@ -14,6 +14,7 @@ journal: European Respiratory Journal
 year: '2024'
 doi: 10.1183/13993003.01324-2024
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Definition, classification and diagnosis of pulmonary hypertension

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1242/dmm.050720"
+reference_id: DOI:10.1242/dmm.050720
 title: "Dominantly inherited muscle disorders: understanding their complexity and exploring therapeutic approaches"
 authors:
 - Andrew R. Findlay
@@ -7,6 +7,7 @@ journal: "Disease Models &amp; Mechanisms"
 year: '2024'
 doi: 10.1242/dmm.050720
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Dominantly inherited muscle disorders: understanding their complexity and exploring therapeutic approaches

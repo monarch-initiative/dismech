@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/hematology.2024000655"
+reference_id: DOI:10.1182/hematology.2024000655
 title: "Hypoxia-inducible factor activators: a novel class of oral drugs for the treatment of anemia of chronic kidney disease"
 authors:
 - Volker H. Haase
@@ -9,6 +9,7 @@ journal: Hematology
 year: '2024'
 doi: 10.1182/hematology.2024000655
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hypoxia-inducible factor activators: a novel class of oral drugs for the treatment of anemia of chronic kidney disease

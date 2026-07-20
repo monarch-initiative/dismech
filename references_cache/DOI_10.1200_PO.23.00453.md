@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/PO.23.00453"
+reference_id: DOI:10.1200/PO.23.00453
 title: "Cancer Risks Associated With <i>TP53</i> Pathogenic Variants: Maximum Likelihood Analysis of Extended Pedigrees for Diagnosis of First Cancers Beyond the Li-Fraumeni Syndrome Spectrum"
 authors:
 - Cristina Fortuno
@@ -148,6 +148,7 @@ journal: JCO Precision Oncology
 year: '2024'
 doi: 10.1200/PO.23.00453
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cancer Risks Associated With <i>TP53</i> Pathogenic Variants: Maximum Likelihood Analysis of Extended Pedigrees for Diagnosis of First Cancers Beyond the Li-Fraumeni Syndrome Spectrum

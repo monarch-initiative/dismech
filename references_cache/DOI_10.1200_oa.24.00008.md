@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/oa.24.00008"
+reference_id: DOI:10.1200/oa.24.00008
 title: "Disparities in Utilization of Immune Checkpoint Inhibitor Therapy Among Older Patients With Advanced Non–Small Cell Lung Cancer: A SEER-Medicare Analysis"
 authors:
 - Danting Yang
@@ -19,6 +19,7 @@ journal: JCO Oncology Advances
 year: '2024'
 doi: 10.1200/oa.24.00008
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Disparities in Utilization of Immune Checkpoint Inhibitor Therapy Among Older Patients With Advanced Non–Small Cell Lung Cancer: A SEER-Medicare Analysis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.21037/tgh-23-104"
+reference_id: DOI:10.21037/tgh-23-104
 title: "Revamping hepatitis C global eradication efforts: towards simplified and enhanced screening, prevention, and treatment"
 authors:
 - Calvin Q. Pan
@@ -8,6 +8,7 @@ journal: Translational Gastroenterology and Hepatology
 year: '2024'
 doi: 10.21037/tgh-23-104
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Revamping hepatitis C global eradication efforts: towards simplified and enhanced screening, prevention, and treatment

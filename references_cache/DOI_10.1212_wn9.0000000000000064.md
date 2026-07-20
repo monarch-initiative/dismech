@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/wn9.0000000000000064"
+reference_id: DOI:10.1212/wn9.0000000000000064
 title: White Matter Hyperintensities in Behavioral Variant Frontotemporal Dementia and Semantic Variant Primary Progressive Aphasia
 authors:
 - Rafi Hadad
@@ -20,6 +20,7 @@ journal: Neurology Open Access
 year: '2026'
 doi: 10.1212/wn9.0000000000000064
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # White Matter Hyperintensities in Behavioral Variant Frontotemporal Dementia and Semantic Variant Primary Progressive Aphasia

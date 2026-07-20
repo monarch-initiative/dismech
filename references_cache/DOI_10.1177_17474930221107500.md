@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/17474930221107500"
+reference_id: DOI:10.1177/17474930221107500
 title: "Treatment of posterior circulation stroke: Acute management and secondary prevention"
 authors:
 - Hugh S Markus
@@ -8,6 +8,7 @@ journal: International Journal of Stroke
 year: '2022'
 doi: 10.1177/17474930221107500
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatment of posterior circulation stroke: Acute management and secondary prevention

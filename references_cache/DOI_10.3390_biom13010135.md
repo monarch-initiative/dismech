@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biom13010135"
+reference_id: DOI:10.3390/biom13010135
 title: "The Missing Pieces: The Role of Secretion Systems in Campylobacter jejuni Virulence"
 authors:
 - Amber D. Gabbert
@@ -14,6 +14,7 @@ journal: Biomolecules
 year: '2023'
 doi: 10.3390/biom13010135
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Missing Pieces: The Role of Secretion Systems in Campylobacter jejuni Virulence

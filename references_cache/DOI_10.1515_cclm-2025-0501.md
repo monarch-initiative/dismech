@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1515/cclm-2025-0501"
+reference_id: DOI:10.1515/cclm-2025-0501
 title: "HCV serology: an unfinished agenda"
 authors:
 - Claudio Galli
@@ -8,6 +8,7 @@ journal: Clinical Chemistry and Laboratory Medicine (CCLM)
 year: '2025'
 doi: 10.1515/cclm-2025-0501
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # HCV serology: an unfinished agenda

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fmed.2021.809118"
+reference_id: DOI:10.3389/fmed.2021.809118
 title: "Gene Therapy Advances: A Meta-Analysis of AAV Usage in Clinical Settings"
 authors:
 - Hau Kiu Edna Au
@@ -9,6 +9,7 @@ journal: Frontiers in Medicine
 year: '2022'
 doi: 10.3389/fmed.2021.809118
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gene Therapy Advances: A Meta-Analysis of AAV Usage in Clinical Settings

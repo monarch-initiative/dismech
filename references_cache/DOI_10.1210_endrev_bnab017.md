@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1210/endrev/bnab017"
+reference_id: DOI:10.1210/endrev/bnab017
 title: "Osteogenesis Imperfecta: Mechanisms and Signaling Pathways Connecting Classical and Rare OI Types"
 authors:
 - Milena Jovanovic
@@ -9,6 +9,7 @@ journal: Endocrine Reviews
 year: '2022'
 doi: 10.1210/endrev/bnab017
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Osteogenesis Imperfecta: Mechanisms and Signaling Pathways Connecting Classical and Rare OI Types

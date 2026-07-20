@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2022007112"
+reference_id: DOI:10.1182/bloodadvances.2022007112
 title: Siltuximab is associated with improved progression-free survival in idiopathic multicentric Castleman disease
 authors:
 - Frits van Rhee
@@ -13,6 +13,7 @@ journal: Blood Advances
 year: '2022'
 doi: 10.1182/bloodadvances.2022007112
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Siltuximab is associated with improved progression-free survival in idiopathic multicentric Castleman disease

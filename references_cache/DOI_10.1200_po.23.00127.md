@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/po.23.00127"
+reference_id: DOI:10.1200/po.23.00127
 title: Tumor-Informed Circulating Tumor DNA for Minimal Residual Disease Detection in the Management of Colorectal Cancer
 authors:
 - Oluwadunni E. Emiloju
@@ -20,6 +20,7 @@ journal: JCO Precision Oncology
 year: '2024'
 doi: 10.1200/po.23.00127
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Tumor-Informed Circulating Tumor DNA for Minimal Residual Disease Detection in the Management of Colorectal Cancer

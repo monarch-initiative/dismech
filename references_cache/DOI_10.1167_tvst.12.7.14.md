@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1167/tvst.12.7.14"
+reference_id: DOI:10.1167/tvst.12.7.14
 title: A Systematic Review and Meta-Analysis of Applying Deep Learning in the Prediction of the Risk of Cardiovascular Diseases From Retinal Images
 authors:
 - Wenyi Hu
@@ -17,6 +17,7 @@ journal: "Translational Vision Science &amp; Technology"
 year: '2023'
 doi: 10.1167/tvst.12.7.14
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A Systematic Review and Meta-Analysis of Applying Deep Learning in the Prediction of the Risk of Cardiovascular Diseases From Retinal Images

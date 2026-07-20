@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3322/caac.21811"
+reference_id: DOI:10.3322/caac.21811
 title: "Screening for lung cancer: 2023 guideline update from the American Cancer Society"
 authors:
 - Andrew M. D. Wolf
@@ -21,6 +21,7 @@ journal: "CA: A Cancer Journal for Clinicians"
 year: '2024'
 doi: 10.3322/caac.21811
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Screening for lung cancer: 2023 guideline update from the American Cancer Society

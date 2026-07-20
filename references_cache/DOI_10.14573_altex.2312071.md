@@ -1,10 +1,11 @@
 ---
-reference_id: "DOI:10.14573/altex.2312071"
+reference_id: DOI:10.14573/altex.2312071
 title: A sensitive cell-based assay for testing potency of Botulinum neurotoxin type A
 journal: ALTEX
 year: '2024'
 doi: 10.14573/altex.2312071
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A sensitive cell-based assay for testing potency of Botulinum neurotoxin type A

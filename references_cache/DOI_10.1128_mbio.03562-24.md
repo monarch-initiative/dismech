@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1128/mbio.03562-24"
-title: "The interplay between host immunity and
-            <i>Clostridioides difficile</i>
-            infection"
+reference_id: DOI:10.1128/mbio.03562-24
+title: "The interplay between host immunity and <i>Clostridioides difficile</i> infection"
 authors:
 - Danyang Li
 - Pedro H. V. Saavedra
@@ -10,11 +8,10 @@ journal: mBio
 year: '2025'
 doi: 10.1128/mbio.03562-24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# The interplay between host immunity and
-            <i>Clostridioides difficile</i>
-            infection
+# The interplay between host immunity and <i>Clostridioides difficile</i> infection
 **Authors:** Danyang Li, Pedro H. V. Saavedra
 **Journal:** mBio (2025)
 **DOI:** [10.1128/mbio.03562-24](https://doi.org/10.1128/mbio.03562-24)

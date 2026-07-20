@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1242/jcs.264141"
+reference_id: DOI:10.1242/jcs.264141
 title: "Urinary renal epithelial cells can be used for <i>NPHP1</i> phenotyping and a personalized therapeutic strategy"
 authors:
 - Praveen Dhondurao Sudhindar
@@ -17,6 +17,7 @@ journal: Journal of Cell Science
 year: '2025'
 doi: 10.1242/jcs.264141
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Urinary renal epithelial cells can be used for <i>NPHP1</i> phenotyping and a personalized therapeutic strategy

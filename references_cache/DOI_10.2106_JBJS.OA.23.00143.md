@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2106/JBJS.OA.23.00143"
+reference_id: DOI:10.2106/JBJS.OA.23.00143
 title: Midterm Outcomes of Surgical Reconstruction and Spontaneous Recovery of Upper-Extremity Paralysis Following Acute Flaccid Myelitis
 authors:
 - Kazuteru Doi
@@ -12,6 +12,7 @@ journal: JBJS Open Access
 year: '2024'
 doi: 10.2106/JBJS.OA.23.00143
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Midterm Outcomes of Surgical Reconstruction and Spontaneous Recovery of Upper-Extremity Paralysis Following Acute Flaccid Myelitis

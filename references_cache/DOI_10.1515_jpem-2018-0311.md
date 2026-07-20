@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1515/jpem-2018-0311"
+reference_id: DOI:10.1515/jpem-2018-0311
 title: "Clinical, biochemical, and molecular spectrum of short/branched-chain acyl-CoA dehydrogenase deficiency: two new cases and review of literature"
 authors:
 - Francesco Porta
@@ -10,6 +10,7 @@ journal: Journal of Pediatric Endocrinology and Metabolism
 year: '2019'
 doi: 10.1515/jpem-2018-0311
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical, biochemical, and molecular spectrum of short/branched-chain acyl-CoA dehydrogenase deficiency: two new cases and review of literature

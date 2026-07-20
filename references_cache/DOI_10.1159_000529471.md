@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000529471"
+reference_id: DOI:10.1159/000529471
 title: "The CARDINAL Trial of Bardoxolone Methyl in Alport Syndrome: When Marketing Interests Prevail over Patients Clinical Needs"
 authors:
 - Piero Ruggenenti
@@ -7,6 +7,7 @@ journal: Nephron
 year: '2023'
 doi: 10.1159/000529471
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The CARDINAL Trial of Bardoxolone Methyl in Alport Syndrome: When Marketing Interests Prevail over Patients Clinical Needs

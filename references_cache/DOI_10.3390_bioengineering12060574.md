@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/bioengineering12060574"
+reference_id: DOI:10.3390/bioengineering12060574
 title: Towards Extracellular Vesicles in the Treatment of Epidermolysis Bullosa
 authors:
 - Aaron Gabriel W. Sandoval
@@ -8,6 +8,7 @@ journal: Bioengineering
 year: '2025'
 doi: 10.3390/bioengineering12060574
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Towards Extracellular Vesicles in the Treatment of Epidermolysis Bullosa

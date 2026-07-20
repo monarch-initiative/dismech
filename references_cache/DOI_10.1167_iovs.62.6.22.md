@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1167/iovs.62.6.22"
+reference_id: DOI:10.1167/iovs.62.6.22
 title: Phenotypic and Genetic Spectrum of Autosomal Recessive Bestrophinopathy and Best Vitelliform Macular Dystrophy
 authors:
 - Tyler A. Pfister
@@ -13,6 +13,7 @@ journal: "Investigative Opthalmology &amp; Visual Science"
 year: '2021'
 doi: 10.1167/iovs.62.6.22
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Phenotypic and Genetic Spectrum of Autosomal Recessive Bestrophinopathy and Best Vitelliform Macular Dystrophy

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fgene.2023.1035887"
+reference_id: DOI:10.3389/fgene.2023.1035887
 title: "Case report: Identification of novel fibrillin-2 variants impacting disulfide bond and causing congenital contractural arachnodactyly"
 authors:
 - An-Lei Li
@@ -15,6 +15,7 @@ journal: Frontiers in Genetics
 year: '2023'
 doi: 10.3389/fgene.2023.1035887
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Case report: Identification of novel fibrillin-2 variants impacting disulfide bond and causing congenital contractural arachnodactyly

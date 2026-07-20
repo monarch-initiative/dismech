@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1210/jendso/bvae158"
+reference_id: DOI:10.1210/jendso/bvae158
 title: "Single-Institution Experience of Larotrectinib Therapy for Patients With <i>NTRK</i> Fusion-Positive Thyroid Carcinoma"
 authors:
 - Omar Elghawy
@@ -12,6 +12,7 @@ journal: Journal of the Endocrine Society
 year: '2024'
 doi: 10.1210/jendso/bvae158
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Single-Institution Experience of Larotrectinib Therapy for Patients With <i>NTRK</i> Fusion-Positive Thyroid Carcinoma

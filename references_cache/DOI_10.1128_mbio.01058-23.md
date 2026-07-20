@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/mbio.01058-23"
+reference_id: DOI:10.1128/mbio.01058-23
 title: Contemporary enterovirus-D68 isolates infect human spinal cord organoids
 authors:
 - Gabrielle Aguglia
@@ -11,6 +11,7 @@ journal: mBio
 year: '2023'
 doi: 10.1128/mbio.01058-23
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Contemporary enterovirus-D68 isolates infect human spinal cord organoids

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3174/ajnr.a7995"
+reference_id: DOI:10.3174/ajnr.a7995
 title: "Neuroimaging Findings in Axenfeld-Rieger Syndrome: A Case Series"
 authors:
 - Samuel White
@@ -14,6 +14,7 @@ journal: American Journal of Neuroradiology
 year: '2023'
 doi: 10.3174/ajnr.a7995
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Neuroimaging Findings in Axenfeld-Rieger Syndrome: A Case Series

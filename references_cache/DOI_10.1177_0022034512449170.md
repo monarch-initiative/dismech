@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/0022034512449170"
+reference_id: DOI:10.1177/0022034512449170
 title: "Muenke Syndrome Mutation, <i>FgfR3<sup>P244R</sup></i>, Causes TMJ Defects"
 authors:
 - T. Yasuda
@@ -15,6 +15,7 @@ journal: Journal of Dental Research
 year: '2012'
 doi: 10.1177/0022034512449170
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Muenke Syndrome Mutation, <i>FgfR3<sup>P244R</sup></i>, Causes TMJ Defects

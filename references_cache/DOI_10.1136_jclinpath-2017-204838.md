@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jclinpath-2017-204838"
+reference_id: DOI:10.1136/jclinpath-2017-204838
 title: Genetics and genomics of breast fibroadenomas
 authors:
 - Benjamin Nathanael Loke
@@ -13,6 +13,7 @@ journal: Journal of Clinical Pathology
 year: '2018'
 doi: 10.1136/jclinpath-2017-204838
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetics and genomics of breast fibroadenomas

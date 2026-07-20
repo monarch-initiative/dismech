@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/0194599816628524"
+reference_id: DOI:10.1177/0194599816628524
 title: 2015 Equilibrium Committee Amendment to the 1995 AAO‐HNS Guidelines for the Definition of Ménière’s Disease
 authors:
 - Joel A Goebel
@@ -7,6 +7,7 @@ journal: Otolaryngology–Head and Neck Surgery
 year: '2016'
 doi: 10.1177/0194599816628524
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # 2015 Equilibrium Committee Amendment to the 1995 AAO‐HNS Guidelines for the Definition of Ménière’s Disease

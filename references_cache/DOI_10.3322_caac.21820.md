@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3322/caac.21820"
+reference_id: DOI:10.3322/caac.21820
 title: "Cancer statistics, 2024"
 authors:
 - Rebecca L. Siegel
@@ -9,6 +9,7 @@ journal: "CA: A Cancer Journal for Clinicians"
 year: '2024'
 doi: 10.3322/caac.21820
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cancer statistics, 2024

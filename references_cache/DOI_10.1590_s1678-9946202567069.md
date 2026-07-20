@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1590/s1678-9946202567069"
+reference_id: DOI:10.1590/s1678-9946202567069
 title: Pathological characterization of hepatic and mesenteric neotropical Echinococcosis in Brazilian Amazonian patients using light and scanning electron microscopy
 authors:
 - Fernanda Barbosa de Almeida
@@ -15,6 +15,7 @@ journal: Revista do Instituto de Medicina Tropical de São Paulo
 year: '2025'
 doi: 10.1590/s1678-9946202567069
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathological characterization of hepatic and mesenteric neotropical Echinococcosis in Brazilian Amazonian patients using light and scanning electron microscopy

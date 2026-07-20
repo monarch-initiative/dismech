@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000527524"
+reference_id: DOI:10.1159/000527524
 title: Differential Diagnosis of Pulmonary Veno-Occlusive Disease and/or Pulmonary Capillary Hemangiomatosis after Identification of Two Novel EIF2AK4 Variants by Whole-Exome Sequencing
 authors:
 - Jong Eun Park
@@ -12,6 +12,7 @@ journal: Molecular Syndromology
 year: '2023'
 doi: 10.1159/000527524
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Differential Diagnosis of Pulmonary Veno-Occlusive Disease and/or Pulmonary Capillary Hemangiomatosis after Identification of Two Novel EIF2AK4 Variants by Whole-Exome Sequencing

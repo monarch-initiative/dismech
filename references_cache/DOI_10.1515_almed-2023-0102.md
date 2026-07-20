@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1515/almed-2023-0102"
+reference_id: DOI:10.1515/almed-2023-0102
 title: "Clinical, biochemical, and molecular profiles of three Sri Lankan neonates with pyruvate carboxylase deficiency"
 authors:
 - Eresha Jasinge
@@ -19,6 +19,7 @@ journal: Advances in Laboratory Medicine / Avances en Medicina de Laboratorio
 year: '2024'
 doi: 10.1515/almed-2023-0102
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical, biochemical, and molecular profiles of three Sri Lankan neonates with pyruvate carboxylase deficiency

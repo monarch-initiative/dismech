@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/nxi.0000000000200109"
+reference_id: DOI:10.1212/nxi.0000000000200109
 title: Therapies in Stiff-Person Syndrome
 authors:
 - Marinos C. Dalakas
@@ -7,6 +7,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2023'
 doi: 10.1212/nxi.0000000000200109
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Therapies in Stiff-Person Syndrome

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1155/2021/5529256"
+reference_id: DOI:10.1155/2021/5529256
 title: "The Controversial Role of Glucose‐6‐Phosphate Dehydrogenase Deficiency on Cardiovascular Disease: A Narrative Review"
 authors:
 - Maria Pina Dore
@@ -10,6 +10,7 @@ journal: Oxidative Medicine and Cellular Longevity
 year: '2021'
 doi: 10.1155/2021/5529256
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Controversial Role of Glucose‐6‐Phosphate Dehydrogenase Deficiency on Cardiovascular Disease: A Narrative Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2139/ssrn.4257523"
+reference_id: DOI:10.2139/ssrn.4257523
 title: CYP24A1 and SLC34A1 Mutations in Five Cases with Idiopathic Infantile Hypercalcemia
 authors:
 - Qiao Wang
@@ -13,6 +13,7 @@ journal: SSRN Electronic Journal
 year: '2022'
 doi: 10.2139/ssrn.4257523
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # CYP24A1 and SLC34A1 Mutations in Five Cases with Idiopathic Infantile Hypercalcemia

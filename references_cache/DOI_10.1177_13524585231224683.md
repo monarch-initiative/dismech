@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/13524585231224683"
+reference_id: DOI:10.1177/13524585231224683
 title: Prevalence of neuromyelitis optica spectrum disorder in the United States
 authors:
 - Farren BS Briggs
@@ -8,6 +8,7 @@ journal: Multiple Sclerosis Journal
 year: '2024'
 doi: 10.1177/13524585231224683
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Prevalence of neuromyelitis optica spectrum disorder in the United States

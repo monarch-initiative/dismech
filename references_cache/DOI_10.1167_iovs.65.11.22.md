@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1167/iovs.65.11.22"
+reference_id: DOI:10.1167/iovs.65.11.22
 title: "iPSC-Derived LCHADD Retinal Pigment Epithelial Cells Are Susceptible to Lipid Peroxidation and Rescued by Transfection of a Wildtype AAV-<i>HADHA</i> Vector"
 authors:
 - Tiffany DeVine
@@ -15,6 +15,7 @@ journal: "Investigative Ophthalmology &amp; Visual Science"
 year: '2024'
 doi: 10.1167/iovs.65.11.22
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # iPSC-Derived LCHADD Retinal Pigment Epithelial Cells Are Susceptible to Lipid Peroxidation and Rescued by Transfection of a Wildtype AAV-<i>HADHA</i> Vector

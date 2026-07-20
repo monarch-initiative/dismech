@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.21873/anticanres.17341"
+reference_id: DOI:10.21873/anticanres.17341
 title: Therapeutic Strategies in Neurocutaneous Melanocytosis
 authors:
 - DIPANJAN BASU
@@ -7,6 +7,7 @@ journal: Anticancer Research
 year: '2024'
 doi: 10.21873/anticanres.17341
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Therapeutic Strategies in Neurocutaneous Melanocytosis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/10732748241310573"
+reference_id: DOI:10.1177/10732748241310573
 title: "Burden of Hepatocellular Carcinoma and Its Underlying Etiologies in China, 1990-2021: Findings From the Global Burden of Disease Study 2021"
 authors:
 - Jiaye Long
@@ -11,6 +11,7 @@ journal: Cancer Control
 year: '2024'
 doi: 10.1177/10732748241310573
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Burden of Hepatocellular Carcinoma and Its Underlying Etiologies in China, 1990-2021: Findings From the Global Burden of Disease Study 2021

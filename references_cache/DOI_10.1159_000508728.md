@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000508728"
+reference_id: DOI:10.1159/000508728
 title: 3-Hydroxyisobutyryl-CoA Hydrolase Deficiency in a Turkish Child with a Novel HIBCH Gene Mutation and Literature Review
 authors:
 - Mustafa Kılıç
@@ -8,6 +8,7 @@ journal: Molecular Syndromology
 year: '2020'
 doi: 10.1159/000508728
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # 3-Hydroxyisobutyryl-CoA Hydrolase Deficiency in a Turkish Child with a Novel HIBCH Gene Mutation and Literature Review

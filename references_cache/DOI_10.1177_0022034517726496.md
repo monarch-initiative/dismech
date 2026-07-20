@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1177/0022034517726496"
-title: "The Use of Variant Maps to Explore Domain-Specific Mutations of
-                    <i>FGFR1</i>"
+reference_id: DOI:10.1177/0022034517726496
+title: "The Use of Variant Maps to Explore Domain-Specific Mutations of <i>FGFR1</i>"
 authors:
 - L.A. Lansdon
 - H.V. Bernabe
@@ -13,10 +12,10 @@ journal: Journal of Dental Research
 year: '2017'
 doi: 10.1177/0022034517726496
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# The Use of Variant Maps to Explore Domain-Specific Mutations of
-                    <i>FGFR1</i>
+# The Use of Variant Maps to Explore Domain-Specific Mutations of <i>FGFR1</i>
 **Authors:** L.A. Lansdon, H.V. Bernabe, N. Nidey, J. Standley, M.J. Schnieders, J.C. Murray
 **Journal:** Journal of Dental Research (2017)
 **DOI:** [10.1177/0022034517726496](https://doi.org/10.1177/0022034517726496)

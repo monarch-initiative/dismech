@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/09612033241272961"
+reference_id: DOI:10.1177/09612033241272961
 title: Blood-based biomarkers of neuronal and glial injury in active major neuropsychiatric systemic lupus erythematosus
 authors:
 - Ryan Kammeyer
@@ -19,6 +19,7 @@ journal: Lupus
 year: '2024'
 doi: 10.1177/09612033241272961
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Blood-based biomarkers of neuronal and glial injury in active major neuropsychiatric systemic lupus erythematosus

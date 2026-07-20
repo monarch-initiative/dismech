@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/nxi.0000000000000004"
+reference_id: DOI:10.1212/nxi.0000000000000004
 title: Predictors of recurrence following an initial episode of transverse myelitis
 authors:
 - Dorlan J. Kimbrough
@@ -10,6 +10,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2014'
 doi: 10.1212/nxi.0000000000000004
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Predictors of recurrence following an initial episode of transverse myelitis

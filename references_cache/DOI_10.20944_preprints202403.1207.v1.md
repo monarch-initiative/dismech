@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.20944/preprints202403.1207.v1"
+reference_id: DOI:10.20944/preprints202403.1207.v1
 title: "Protozoan Infections Acquired from Food or Drinking Water: An Update"
 authors:
 - Franca Rossi
@@ -10,6 +10,7 @@ authors:
 year: '2024'
 doi: 10.20944/preprints202403.1207.v1
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Protozoan Infections Acquired from Food or Drinking Water: An Update

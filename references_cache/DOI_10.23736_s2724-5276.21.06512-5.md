@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.23736/s2724-5276.21.06512-5"
+reference_id: DOI:10.23736/s2724-5276.21.06512-5
 title: "Differences of sex development in the newborn: from clinical scenario to molecular diagnosis"
 authors:
 - Anastasia IBBA
@@ -14,6 +14,7 @@ journal: Minerva Pediatrics
 year: '2022'
 doi: 10.23736/s2724-5276.21.06512-5
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Differences of sex development in the newborn: from clinical scenario to molecular diagnosis

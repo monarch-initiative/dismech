@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000444020"
+reference_id: DOI:10.1159/000444020
 title: The Frequency of Huntington Disease and Huntington Disease-Like 2 in the South African Population
 authors:
 - Fiona K. Baine
@@ -9,6 +9,7 @@ journal: Neuroepidemiology
 year: '2016'
 doi: 10.1159/000444020
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Frequency of Huntington Disease and Huntington Disease-Like 2 in the South African Population

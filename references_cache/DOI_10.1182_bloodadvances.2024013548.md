@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2024013548"
+reference_id: DOI:10.1182/bloodadvances.2024013548
 title: "The clinical picture of Castleman disease: a systematic review and meta-analysis"
 authors:
 - Christian Hoffmann
@@ -12,6 +12,7 @@ journal: Blood Advances
 year: '2024'
 doi: 10.1182/bloodadvances.2024013548
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The clinical picture of Castleman disease: a systematic review and meta-analysis

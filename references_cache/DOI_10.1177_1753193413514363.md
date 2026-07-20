@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/1753193413514363"
+reference_id: DOI:10.1177/1753193413514363
 title: Embryology of familial (non-syndromic) brachydactyly of the hand
 authors:
 - M. M. Al-Qattan
@@ -7,6 +7,7 @@ journal: Journal of Hand Surgery (European Volume)
 year: '2014'
 doi: 10.1177/1753193413514363
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Embryology of familial (non-syndromic) brachydactyly of the hand

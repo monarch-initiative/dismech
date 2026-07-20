@@ -1,11 +1,12 @@
 ---
-reference_id: "DOI:10.20944/preprints202504.1947.v1"
+reference_id: DOI:10.20944/preprints202504.1947.v1
 title: Intraepithelial Lymphocytes and LAIR1 Expression in Celiac Disease
 authors:
 - Joaquim Carreras
 year: '2025'
 doi: 10.20944/preprints202504.1947.v1
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Intraepithelial Lymphocytes and LAIR1 Expression in Celiac Disease

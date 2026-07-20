@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1128/spectrum.01925-24"
-title: "Differential vasoproliferative traits of
-            <i>Bartonella henselae</i>
-            strains associated with autotransporter BafA variants"
+reference_id: DOI:10.1128/spectrum.01925-24
+title: "Differential vasoproliferative traits of <i>Bartonella henselae</i> strains associated with autotransporter BafA variants"
 authors:
 - Yuka Kondo
 - Masahiro Suzuki
@@ -17,11 +15,10 @@ journal: Microbiology Spectrum
 year: '2025'
 doi: 10.1128/spectrum.01925-24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Differential vasoproliferative traits of
-            <i>Bartonella henselae</i>
-            strains associated with autotransporter BafA variants
+# Differential vasoproliferative traits of <i>Bartonella henselae</i> strains associated with autotransporter BafA variants
 **Authors:** Yuka Kondo, Masahiro Suzuki, Shingo Sato, Soichi Maruyama, Akiko Sei, Xingyan Ma, Kota Nakano, Yohei Doi, Kentaro Tsukamoto
 **Journal:** Microbiology Spectrum (2025)
 **DOI:** [10.1128/spectrum.01925-24](https://doi.org/10.1128/spectrum.01925-24)

@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1128/msphere.00706-24"
-title: "Metagenomic, metabolomic, and lipidomic shifts associated with fecal microbiota transplantation for recurrent
-            <i>Clostridioides difficile</i>
-            infection"
+reference_id: DOI:10.1128/msphere.00706-24
+title: "Metagenomic, metabolomic, and lipidomic shifts associated with fecal microbiota transplantation for recurrent <i>Clostridioides difficile</i> infection"
 authors:
 - Arthur S. McMillan
 - Guozhi Zhang
@@ -15,11 +13,10 @@ journal: mSphere
 year: '2024'
 doi: 10.1128/msphere.00706-24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Metagenomic, metabolomic, and lipidomic shifts associated with fecal microbiota transplantation for recurrent
-            <i>Clostridioides difficile</i>
-            infection
+# Metagenomic, metabolomic, and lipidomic shifts associated with fecal microbiota transplantation for recurrent <i>Clostridioides difficile</i> infection
 **Authors:** Arthur S. McMillan, Guozhi Zhang, Michael K. Dougherty, Sarah K. McGill, Ajay S. Gulati, Erin S. Baker, Casey M. Theriot
 **Journal:** mSphere (2024)
 **DOI:** [10.1128/msphere.00706-24](https://doi.org/10.1128/msphere.00706-24)

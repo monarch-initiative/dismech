@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/13993003.00656-2022"
+reference_id: DOI:10.1183/13993003.00656-2022
 title: "An emerging phenotype of pulmonary arterial hypertension patients carrying<i>SOX17</i>variants"
 authors:
 - David Montani
@@ -28,6 +28,7 @@ journal: European Respiratory Journal
 year: '2022'
 doi: 10.1183/13993003.00656-2022
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # An emerging phenotype of pulmonary arterial hypertension patients carrying<i>SOX17</i>variants

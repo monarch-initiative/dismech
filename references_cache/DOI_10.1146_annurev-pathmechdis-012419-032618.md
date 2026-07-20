@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1146/annurev-pathmechdis-012419-032618"
+reference_id: DOI:10.1146/annurev-pathmechdis-012419-032618
 title: Autophagy Defects in Skeletal Myopathies
 authors:
 - Marta Margeta
@@ -7,6 +7,7 @@ journal: "Annual Review of Pathology: Mechanisms of Disease"
 year: '2020'
 doi: 10.1146/annurev-pathmechdis-012419-032618
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Autophagy Defects in Skeletal Myopathies

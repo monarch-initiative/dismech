@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fonc.2024.1504142"
+reference_id: DOI:10.3389/fonc.2024.1504142
 title: "The evolution of BRAF-targeted therapies in melanoma: overcoming hurdles and unleashing novel strategies"
 authors:
 - Saber Imani
@@ -12,6 +12,7 @@ journal: Frontiers in Oncology
 year: '2024'
 doi: 10.3389/fonc.2024.1504142
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The evolution of BRAF-targeted therapies in melanoma: overcoming hurdles and unleashing novel strategies

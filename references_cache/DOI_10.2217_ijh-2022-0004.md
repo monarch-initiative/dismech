@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2217/ijh-2022-0004"
+reference_id: DOI:10.2217/ijh-2022-0004
 title: Therapy-Related Core Binding Factor Acute Myeloid Leukemia
 authors:
 - Binsah George
@@ -10,6 +10,7 @@ journal: International Journal of Hematologic Oncology
 year: '2023'
 doi: 10.2217/ijh-2022-0004
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Therapy-Related Core Binding Factor Acute Myeloid Leukemia

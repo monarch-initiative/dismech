@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/nxi.0000000000000837"
+reference_id: DOI:10.1212/nxi.0000000000000837
 title: Treatment and outcome of aquaporin-4 antibody–positive NMOSD
 authors:
 - Renata Barbosa Paolilo
@@ -31,6 +31,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2020'
 doi: 10.1212/nxi.0000000000000837
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Treatment and outcome of aquaporin-4 antibody–positive NMOSD

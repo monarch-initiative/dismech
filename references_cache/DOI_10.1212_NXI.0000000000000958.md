@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/NXI.0000000000000958"
+reference_id: DOI:10.1212/NXI.0000000000000958
 title: Long-term Functional Outcomes and Relapse of Anti-NMDA Receptor Encephalitis
 authors:
 - Xue Gong
@@ -14,6 +14,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2021'
 doi: 10.1212/NXI.0000000000000958
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Long-term Functional Outcomes and Relapse of Anti-NMDA Receptor Encephalitis

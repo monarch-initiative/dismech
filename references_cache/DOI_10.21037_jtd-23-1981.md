@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.21037/jtd-23-1981"
+reference_id: DOI:10.21037/jtd-23-1981
 title: "Development of neuromodulation for atrial fibrillation: a narrative review"
 authors:
 - Ning Yang
@@ -12,6 +12,7 @@ journal: Journal of Thoracic Disease
 year: '2024'
 doi: 10.21037/jtd-23-1981
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Development of neuromodulation for atrial fibrillation: a narrative review

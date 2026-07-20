@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/17562864231181177"
+reference_id: DOI:10.1177/17562864231181177
 title: "Long-term safety and effectiveness of eculizumab in patients with aquaporin-4 antibody-positive neuromyelitis optica spectrum disorder: a 2-year interim analysis of post-marketing surveillance in Japan"
 authors:
 - Ichiro Nakashima
@@ -13,6 +13,7 @@ journal: Therapeutic Advances in Neurological Disorders
 year: '2023'
 doi: 10.1177/17562864231181177
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Long-term safety and effectiveness of eculizumab in patients with aquaporin-4 antibody-positive neuromyelitis optica spectrum disorder: a 2-year interim analysis of post-marketing surveillance in Japan

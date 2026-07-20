@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fmed.2024.1439338"
+reference_id: DOI:10.3389/fmed.2024.1439338
 title: "Efficacy and safety of Janus kinase inhibitors in non-infectious inflammatory ocular diseases: a prospective cohort study from the international AIDA network registries"
 authors:
 - Antonio Vitale
@@ -27,6 +27,7 @@ journal: Frontiers in Medicine
 year: '2024'
 doi: 10.3389/fmed.2024.1439338
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Efficacy and safety of Janus kinase inhibitors in non-infectious inflammatory ocular diseases: a prospective cohort study from the international AIDA network registries

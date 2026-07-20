@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/09636897241281869"
+reference_id: DOI:10.1177/09636897241281869
 title: "Ovarian Cancer Patient-Derived Organoids Used as a Model for Replicating Genetic Characteristics and Testing Drug Responsiveness: A Preliminary Study"
 authors:
 - Yu-Hsun Chang
@@ -10,6 +10,7 @@ journal: Cell Transplantation
 year: '2024'
 doi: 10.1177/09636897241281869
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Ovarian Cancer Patient-Derived Organoids Used as a Model for Replicating Genetic Characteristics and Testing Drug Responsiveness: A Preliminary Study

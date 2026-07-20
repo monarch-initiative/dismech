@@ -1,6 +1,6 @@
 ---
-reference_id: "DOI:10.1158/1541-7786.mcr-23-0930"
-title: "DROSHA Regulates Mesenchymal Gene Expression in Wilms Tumor"
+reference_id: DOI:10.1158/1541-7786.mcr-23-0930
+title: DROSHA Regulates Mesenchymal Gene Expression in Wilms Tumor
 authors:
 - Patricia D.B. Tiburcio
 - Kavita Desai
@@ -18,10 +18,10 @@ journal: Molecular Cancer Research
 year: '2024'
 doi: 10.1158/1541-7786.mcr-23-0930
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>DROSHA</i>
-                    Regulates Mesenchymal Gene Expression in Wilms Tumor
+# DROSHA Regulates Mesenchymal Gene Expression in Wilms Tumor
 **Authors:** Patricia D.B. Tiburcio, Kavita Desai, Jiwoong Kim, Qinbo Zhou, Lei Guo, Xue Xiao, Li Zhou, Aysen Yuksel, Daniel R. Catchpoole, James F. Amatruda, Lin Xu, Kenneth S. Chen
 **Journal:** Molecular Cancer Research (2024)
 **DOI:** [10.1158/1541-7786.mcr-23-0930](https://doi.org/10.1158/1541-7786.mcr-23-0930)

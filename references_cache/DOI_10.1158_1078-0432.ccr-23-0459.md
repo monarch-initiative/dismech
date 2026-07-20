@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-23-0459"
-title: "FDA Approval Summary: Selpercatinib for the Treatment of Advanced
-                    <i>RET</i>
-                    Fusion-Positive Solid Tumors"
+reference_id: DOI:10.1158/1078-0432.ccr-23-0459
+title: "FDA Approval Summary: Selpercatinib for the Treatment of Advanced <i>RET</i> Fusion-Positive Solid Tumors"
 authors:
 - Elizabeth S. Duke
 - Diana Bradford
@@ -30,11 +28,10 @@ journal: Clinical Cancer Research
 year: '2023'
 doi: 10.1158/1078-0432.ccr-23-0459
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# FDA Approval Summary: Selpercatinib for the Treatment of Advanced
-                    <i>RET</i>
-                    Fusion-Positive Solid Tumors
+# FDA Approval Summary: Selpercatinib for the Treatment of Advanced <i>RET</i> Fusion-Positive Solid Tumors
 **Authors:** Elizabeth S. Duke, Diana Bradford, Michelle Marcovitz, Anup K. Amatya, Pallavi S. Mishra-Kalyani, Emily Nguyen, Lauren S.L. Price, Jeanne Fourie Zirkelbach, Yangbing Li, Youwei Bi, Jeffrey Kraft, Sarah E. Dorff, Barbara Scepura, Maritsa Stephenson, Idara Ojofeitimi, Abhilasha Nair, Yu Han, Zivana Tezak, Steven J. Lemery, Richard Pazdur, Erin Larkins, Harpreet Singh
 **Journal:** Clinical Cancer Research (2023)
 **DOI:** [10.1158/1078-0432.ccr-23-0459](https://doi.org/10.1158/1078-0432.ccr-23-0459)

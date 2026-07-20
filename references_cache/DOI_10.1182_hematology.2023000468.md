@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/hematology.2023000468"
+reference_id: DOI:10.1182/hematology.2023000468
 title: "Pyruvate kinase activators: targeting red cell metabolism in thalassemia"
 authors:
 - Kevin H.M. Kuo
@@ -7,6 +7,7 @@ journal: Hematology
 year: '2023'
 doi: 10.1182/hematology.2023000468
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pyruvate kinase activators: targeting red cell metabolism in thalassemia

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/0284185120943040"
+reference_id: DOI:10.1177/0284185120943040
 title: Diverse MRI findings and clinical outcomes of acute Marchiafava-Bignami disease
 authors:
 - Wei Li
@@ -9,6 +9,7 @@ journal: Acta Radiologica
 year: '2021'
 doi: 10.1177/0284185120943040
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Diverse MRI findings and clinical outcomes of acute Marchiafava-Bignami disease

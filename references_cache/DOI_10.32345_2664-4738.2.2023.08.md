@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.32345/2664-4738.2.2023.08"
+reference_id: DOI:10.32345/2664-4738.2.2023.08
 title: INHERITED 15Q DUPLICATION IN THREE NOT RELATED UKRAINIAN FAMILIES
 authors:
 - S. H. Levandivska
@@ -12,6 +12,7 @@ journal: Medical Science of Ukraine (MSU)
 year: '2023'
 doi: 10.32345/2664-4738.2.2023.08
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # INHERITED 15Q DUPLICATION IN THREE NOT RELATED UKRAINIAN FAMILIES

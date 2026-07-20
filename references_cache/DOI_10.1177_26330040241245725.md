@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/26330040241245725"
+reference_id: DOI:10.1177/26330040241245725
 title: "Developing a pathway to clinical trials for <i>CACNA1A</i>-related epilepsies: A patient organization perspective"
 authors:
 - Pangkong M. Fox
@@ -11,6 +11,7 @@ journal: Therapeutic Advances in Rare Disease
 year: '2024'
 doi: 10.1177/26330040241245725
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Developing a pathway to clinical trials for <i>CACNA1A</i>-related epilepsies: A patient organization perspective

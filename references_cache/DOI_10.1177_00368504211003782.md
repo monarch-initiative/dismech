@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/00368504211003782"
+reference_id: DOI:10.1177/00368504211003782
 title: "Rationale, design, and methods of a randomized, controlled, open-label clinical trial with open-label extension to investigate the safety of vosoritide in infants, and young children with achondroplasia at risk of requiring cervicomedullary decompression surgery"
 authors:
 - Ravi Savarirayan
@@ -19,6 +19,7 @@ journal: Science Progress
 year: '2021'
 doi: 10.1177/00368504211003782
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Rationale, design, and methods of a randomized, controlled, open-label clinical trial with open-label extension to investigate the safety of vosoritide in infants, and young children with achondroplasia at risk of requiring cervicomedullary decompression surgery

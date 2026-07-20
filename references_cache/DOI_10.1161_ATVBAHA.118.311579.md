@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/ATVBAHA.118.311579"
+reference_id: DOI:10.1161/ATVBAHA.118.311579
 title: CD73 (Cluster of Differentiation 73) and the Differences Between Mice and Humans
 authors:
 - Pouya Joolharzadeh
@@ -8,6 +8,7 @@ journal: "Arteriosclerosis, Thrombosis, and Vascular Biology"
 year: '2019'
 doi: 10.1161/ATVBAHA.118.311579
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # CD73 (Cluster of Differentiation 73) and the Differences Between Mice and Humans

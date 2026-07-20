@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/annrheumdis-2019-216561"
+reference_id: DOI:10.1136/annrheumdis-2019-216561
 title: The 2019 American College of Rheumatology/European League Against Rheumatism classification criteria for IgG4-related disease
 authors:
 - Zachary S Wallace
@@ -26,6 +26,7 @@ journal: Annals of the Rheumatic Diseases
 year: '2020'
 doi: 10.1136/annrheumdis-2019-216561
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The 2019 American College of Rheumatology/European League Against Rheumatism classification criteria for IgG4-related disease

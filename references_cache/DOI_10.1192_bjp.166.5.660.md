@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1192/bjp.166.5.660"
+reference_id: DOI:10.1192/bjp.166.5.660
 title: Long-Term Fluoxetine Treatment of Bulimia Nervosa
 authors:
 - David J. Goldstein
@@ -11,6 +11,7 @@ journal: British Journal of Psychiatry
 year: '1995'
 doi: 10.1192/bjp.166.5.660
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Long-Term Fluoxetine Treatment of Bulimia Nervosa

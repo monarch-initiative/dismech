@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2022009010"
+reference_id: DOI:10.1182/bloodadvances.2022009010
 title: Comparison and validation of the 2022 European LeukemiaNet guidelines in acute myeloid leukemia
 authors:
 - Curtis A. Lachowiez
@@ -24,6 +24,7 @@ journal: Blood Advances
 year: '2023'
 doi: 10.1182/bloodadvances.2022009010
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Comparison and validation of the 2022 European LeukemiaNet guidelines in acute myeloid leukemia

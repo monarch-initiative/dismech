@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/antib12030050"
+reference_id: DOI:10.3390/antib12030050
 title: Diagnosis and Treatment of Paraneoplastic Neurologic Syndromes
 authors:
 - Daniel Chiu
@@ -9,6 +9,7 @@ journal: Antibodies
 year: '2023'
 doi: 10.3390/antib12030050
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Diagnosis and Treatment of Paraneoplastic Neurologic Syndromes

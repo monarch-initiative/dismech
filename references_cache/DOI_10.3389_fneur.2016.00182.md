@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fneur.2016.00182"
+reference_id: DOI:10.3389/fneur.2016.00182
 title: Clinical Subgroups in Bilateral Meniere Disease
 authors:
 - Lidia Frejo
@@ -24,6 +24,7 @@ journal: Frontiers in Neurology
 year: '2016'
 doi: 10.3389/fneur.2016.00182
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Clinical Subgroups in Bilateral Meniere Disease

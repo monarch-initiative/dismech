@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/nxi.0000000000000134"
+reference_id: DOI:10.1212/nxi.0000000000000134
 title: Update on biomarkers in neuromyelitis optica
 authors:
 - Esther Melamed
@@ -62,6 +62,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2015'
 doi: 10.1212/nxi.0000000000000134
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Update on biomarkers in neuromyelitis optica

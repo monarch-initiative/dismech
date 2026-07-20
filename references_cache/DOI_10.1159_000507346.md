@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000507346"
+reference_id: DOI:10.1159/000507346
 title: "Splenic Rhythms and Postprandial Dynamics in Physiology, Portal Hypertension, and Functional Hyposplenism: A Review"
 authors:
 - Johannes Weinzirl
@@ -11,6 +11,7 @@ journal: Digestion
 year: '2021'
 doi: 10.1159/000507346
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Splenic Rhythms and Postprandial Dynamics in Physiology, Portal Hypertension, and Functional Hyposplenism: A Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.14288/1.0422939"
+reference_id: DOI:10.14288/1.0422939
 title: Investigation into the early pathogenesis of lynch syndrome associated endometrial cancer
 authors:
 - "DeGrood, Maya Kevorkova"
@@ -7,6 +7,7 @@ journal: University of British Columbia
 year: '2023'
 doi: 10.14288/1.0422939
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Investigation into the early pathogenesis of lynch syndrome associated endometrial cancer
