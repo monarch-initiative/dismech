@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mgg3.2315"
+reference_id: DOI:10.1002/mgg3.2315
 title: "Severe Zellweger spectrum disorder due to a novel missense variant in the <i>PEX13</i> gene: A case report and the literature review"
 authors:
 - Ling Su
@@ -11,6 +11,7 @@ journal: "Molecular Genetics &amp; Genomic Medicine"
 year: '2024'
 doi: 10.1002/mgg3.2315
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Severe Zellweger spectrum disorder due to a novel missense variant in the <i>PEX13</i> gene: A case report and the literature review

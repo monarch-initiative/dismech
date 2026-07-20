@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/nop/npad005"
+reference_id: DOI:10.1093/nop/npad005
 title: Current advances in immunotherapy for atypical teratoid rhabdoid tumor (ATRT)
 authors:
 - Son Tran
@@ -10,6 +10,7 @@ journal: Neuro-Oncology Practice
 year: '2023'
 doi: 10.1093/nop/npad005
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Current advances in immunotherapy for atypical teratoid rhabdoid tumor (ATRT)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.11.25.24317899"
+reference_id: DOI:10.1101/2024.11.25.24317899
 title: "Impact of Scabies on Quality of Life and Recent Advances in Management: A Systematic Review"
 authors:
 - Sakshi Kumari
@@ -15,6 +15,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.11.25.24317899
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Impact of Scabies on Quality of Life and Recent Advances in Management: A Systematic Review

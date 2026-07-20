@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.1708-8305.2007.00148.x"
+reference_id: DOI:10.1111/j.1708-8305.2007.00148.x
 title: Hookworm‐Related Cutaneous Larva Migrans
 authors:
 - Patrick Hochedez
@@ -8,6 +8,7 @@ journal: Journal of Travel Medicine
 year: '2007'
 doi: 10.1111/j.1708-8305.2007.00148.x
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Hookworm‐Related Cutaneous Larva Migrans

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.nbd.2015.10.003"
+reference_id: DOI:10.1016/j.nbd.2015.10.003
 title: Oxidative stress and mitochondria-mediated cell death mechanisms triggered by the familial Danish dementia ADan amyloid
 authors:
 - Krysti Todd
@@ -9,6 +9,7 @@ journal: Neurobiology of Disease
 year: '2016'
 doi: 10.1016/j.nbd.2015.10.003
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Oxidative stress and mitochondria-mediated cell death mechanisms triggered by the familial Danish dementia ADan amyloid

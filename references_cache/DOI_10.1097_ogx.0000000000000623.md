@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/ogx.0000000000000623"
+reference_id: DOI:10.1097/ogx.0000000000000623
 title: "Association of Endometrial Cancer Risk With Postmenopausal Bleeding in Women: A Systematic Review and Meta-analysis"
 authors:
 - Megan A. Clarke
@@ -12,6 +12,7 @@ journal: "Obstetrical &amp; Gynecological Survey"
 year: '2018'
 doi: 10.1097/ogx.0000000000000623
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Association of Endometrial Cancer Risk With Postmenopausal Bleeding in Women: A Systematic Review and Meta-analysis

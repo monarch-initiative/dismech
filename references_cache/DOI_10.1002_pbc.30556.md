@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/pbc.30556"
+reference_id: DOI:10.1002/pbc.30556
 title: "Children's Oncology Group's 2023 blueprint for research: Soft tissue sarcomas"
 authors:
 - Sapna Oberoi
@@ -15,6 +15,7 @@ journal: "Pediatric Blood &amp; Cancer"
 year: '2023'
 doi: 10.1002/pbc.30556
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Children's Oncology Group's 2023 blueprint for research: Soft tissue sarcomas

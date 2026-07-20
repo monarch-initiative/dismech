@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2009192117"
+reference_id: DOI:10.1073/pnas.2009192117
 title: Machine-learning–driven biomarker discovery for the discrimination between allergic and irritant contact dermatitis
 authors:
 - Vittorio Fortino
@@ -22,6 +22,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2020'
 doi: 10.1073/pnas.2009192117
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Machine-learning–driven biomarker discovery for the discrimination between allergic and irritant contact dermatitis

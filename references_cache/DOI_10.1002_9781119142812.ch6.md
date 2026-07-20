@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/9781119142812.ch6"
+reference_id: DOI:10.1002/9781119142812.ch6
 title: Transient Skin Disorders in the Neonate and Young Infant
 authors:
 - Margarita Larralde
@@ -8,6 +8,7 @@ journal: "Harper's Textbook of Pediatric Dermatology"
 year: '2019'
 doi: 10.1002/9781119142812.ch6
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Transient Skin Disorders in the Neonate and Young Infant

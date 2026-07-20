@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT02599922"
 title: "A Multiple-Site, Phase 1/2, Safety and Efficacy Trial of a Recombinant Adeno-associated Virus Vector Expressing CNGB3 in Patients With Congenital Achromatopsia Caused by Mutations in the CNGB3 Gene"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Multiple-Site, Phase 1/2, Safety and Efficacy Trial of a Recombinant Adeno-associated Virus Vector Expressing CNGB3 in Patients With Congenital Achromatopsia Caused by Mutations in the CNGB3 Gene

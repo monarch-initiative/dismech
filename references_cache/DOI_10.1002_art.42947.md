@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/art.42947"
+reference_id: DOI:10.1002/art.42947
 title: A Genome‐Wide Association Study Suggests New Susceptibility Loci for Primary Antiphospholipid Syndrome
 authors:
 - Desiré Casares‐Marfil
@@ -24,6 +24,7 @@ journal: "Arthritis &amp; Rheumatology"
 year: '2024'
 doi: 10.1002/art.42947
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Genome‐Wide Association Study Suggests New Susceptibility Loci for Primary Antiphospholipid Syndrome

@@ -7,6 +7,7 @@ journal: Biomolecules
 year: '2023'
 doi: 10.3390/biom13020396
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cellular Pathogenesis of Hepatic Encephalopathy: An Update

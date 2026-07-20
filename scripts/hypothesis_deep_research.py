@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
-"""Run deep research against disease-level mechanistic hypotheses."""
+"""Run deep research against disease-level mechanistic hypotheses.
+
+OpenScientist operational notes (learned the hard way):
+
+* Jobs are long-running (~50-90 min each). The OpenScientist provider's
+  client-side poll ``timeout`` defaults to 3600s and *cancels a still-running
+  job* at that mark, even though the backend would let it finish. This script
+  therefore auto-injects ``--param timeout=7200`` (the API maximum) for the
+  ``openscientist`` provider unless you override it, and defaults the subprocess
+  wall-clock timeout above that. See OPENSCIENTIST_JOB_TIMEOUT_SECONDS.
+
+* Keep OpenScientist concurrency LOW (~2-3 jobs at once). The backend does not
+  scale to many simultaneous jobs: submitting ~9-10 at once starves them so most
+  never finish inside the 2h window, whereas the same jobs run at concurrency
+  <=3 complete in ~50-65 min. Do not fan out a large batch in parallel; run in
+  small waves and commit finished outputs between waves.
+"""
 
 from __future__ import annotations
 
@@ -22,6 +38,19 @@ FRONTMATTER_DELIMITER = "---"
 PROVIDER_ALIASES = {
     "edison": "falcon",
 }
+
+# OpenScientist runs iterative hypothesis-driven jobs that routinely take
+# 60-90 minutes. The provider's *client-side* poll timeout (deep-research-client
+# OpenScientist `timeout` param) defaults to only 3600s, so the client cancels
+# still-running jobs at the 60-minute mark even though the OpenScientist backend
+# would let them finish (observed completions at ~3800s). We therefore default
+# the OpenScientist poll window to the API-allowed maximum (7200s / 2h) unless
+# the caller overrides it via `-- --param timeout=<seconds>`.
+OPENSCIENTIST_JOB_TIMEOUT_SECONDS = 7200
+# The subprocess wall-clock timeout MUST exceed the provider poll window above,
+# or subprocess.run() kills the client before the job can complete. Keep this
+# comfortably above OPENSCIENTIST_JOB_TIMEOUT_SECONDS.
+DEFAULT_SUBPROCESS_TIMEOUT_SECONDS = 7800
 
 
 class LiteralString(str):
@@ -260,6 +289,7 @@ def build_command(
     for key, value in template_vars(record).items():
         command.extend(["--var", f"{key}={value}"])
     command.extend(build_provider_args(normalized))
+    command.extend(provider_default_params(normalized, extra_args))
     command.extend(
         [
             "--output",
@@ -270,6 +300,20 @@ def build_command(
     )
     command.extend(extra_args)
     return command
+
+
+def provider_default_params(provider: str, extra_args: Sequence[str]) -> list[str]:
+    """Inject provider-specific default --param values not already supplied.
+
+    OpenScientist's default 3600s poll timeout prematurely cancels long jobs, so
+    we raise it to the API maximum unless the caller passed an explicit
+    ``--param timeout=...``.
+    """
+    if normalize_provider(provider) != "openscientist":
+        return []
+    if any(str(arg).startswith("timeout=") for arg in extra_args):
+        return []
+    return ["--param", f"timeout={OPENSCIENTIST_JOB_TIMEOUT_SECONDS}"]
 
 
 def shell_join(parts: Sequence[str]) -> str:
@@ -512,7 +556,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     run_parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     run_parser.add_argument("--dry-run", action="store_true")
     run_parser.add_argument("--overwrite", action="store_true")
-    run_parser.add_argument("--timeout-seconds", type=int, default=5400)
+    run_parser.add_argument(
+        "--timeout-seconds", type=int, default=DEFAULT_SUBPROCESS_TIMEOUT_SECONDS
+    )
 
     missing_parser = subparsers.add_parser(
         "run-missing", help="Run hypothesis searches missing a provider."
@@ -524,7 +570,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     missing_parser.add_argument("--dry-run", action="store_true")
     missing_parser.add_argument("--overwrite", action="store_true")
     missing_parser.add_argument("--report-dir", type=Path, default=Path("output"))
-    missing_parser.add_argument("--timeout-seconds", type=int, default=5400)
+    missing_parser.add_argument(
+        "--timeout-seconds", type=int, default=DEFAULT_SUBPROCESS_TIMEOUT_SECONDS
+    )
     missing_parser.add_argument("--max-hypotheses", type=int)
     missing_parser.add_argument("--stop-on-error", action="store_true")
 

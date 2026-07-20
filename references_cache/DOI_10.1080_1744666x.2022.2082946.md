@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/1744666x.2022.2082946"
+reference_id: DOI:10.1080/1744666x.2022.2082946
 title: "Role of complement, anti-complement therapeutics, and other targeted immunotherapies in myasthenia gravis"
 authors:
 - Marinos C Dalakas
@@ -7,6 +7,7 @@ journal: Expert Review of Clinical Immunology
 year: '2022'
 doi: 10.1080/1744666x.2022.2082946
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Role of complement, anti-complement therapeutics, and other targeted immunotherapies in myasthenia gravis

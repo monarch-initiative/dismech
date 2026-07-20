@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.36648"
+reference_id: DOI:10.1002/ajmg.a.36648
 title: "Severe manifestations of hand‐foot‐genital syndrome associated with a novel <i>HOXA13</i> mutation"
 authors:
 - Eri Imagawa
@@ -15,6 +15,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2014'
 doi: 10.1002/ajmg.a.36648
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Severe manifestations of hand‐foot‐genital syndrome associated with a novel <i>HOXA13</i> mutation

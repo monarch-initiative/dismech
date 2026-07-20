@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.celrep.2024.115072"
+reference_id: DOI:10.1016/j.celrep.2024.115072
 title: Pathogenic role for CD101-negative neutrophils in the type I interferon-mediated immunopathogenesis of tuberculosis
 authors:
 - Mohd Saqib
@@ -16,6 +16,7 @@ journal: Cell Reports
 year: '2025'
 doi: 10.1016/j.celrep.2024.115072
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pathogenic role for CD101-negative neutrophils in the type I interferon-mediated immunopathogenesis of tuberculosis

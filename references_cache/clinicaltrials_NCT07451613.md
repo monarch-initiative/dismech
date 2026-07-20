@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT07451613"
 title: "Phase 1B/2A Study of the Safety and Tolerability of Human Neural Stem Cells for Huntington's Disease"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase 1B/2A Study of the Safety and Tolerability of Human Neural Stem Cells for Huntington's Disease

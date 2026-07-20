@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2011.11.011"
+reference_id: DOI:10.1016/j.ajhg.2011.11.011
 title: "Lipoic Acid Synthetase Deficiency Causes Neonatal-Onset Epilepsy, Defective Mitochondrial Energy Metabolism, and Glycine Elevation"
 authors:
 - Johannes A. Mayr
@@ -15,6 +15,7 @@ journal: The American Journal of Human Genetics
 year: '2011'
 doi: 10.1016/j.ajhg.2011.11.011
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Lipoic Acid Synthetase Deficiency Causes Neonatal-Onset Epilepsy, Defective Mitochondrial Energy Metabolism, and Glycine Elevation

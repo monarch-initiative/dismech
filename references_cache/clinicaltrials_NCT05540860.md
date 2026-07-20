@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT05540860"
 title: "A 2-part Phase 2 Study of Safety, Pharmacokinetics and Biomarkers in Children With Duchenne Muscular Dystrophy Including a Randomized, Double-Blind, Placebo-Controlled Part A, Followed by an Open-Label Part B"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A 2-part Phase 2 Study of Safety, Pharmacokinetics and Biomarkers in Children With Duchenne Muscular Dystrophy Including a Randomized, Double-Blind, Placebo-Controlled Part A, Followed by an Open-Label Part B

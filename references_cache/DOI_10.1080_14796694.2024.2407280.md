@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14796694.2024.2407280"
+reference_id: DOI:10.1080/14796694.2024.2407280
 title: An updated overview of K-RAS G12C inhibitors in advanced stage non-small cell lung cancer
 authors:
 - Ates Kutay Tenekeci
@@ -10,6 +10,7 @@ journal: Future Oncology
 year: '2024'
 doi: 10.1080/14796694.2024.2407280
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # An updated overview of K-RAS G12C inhibitors in advanced stage non-small cell lung cancer

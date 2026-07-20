@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.pathophys.2017.12.004"
+reference_id: DOI:10.1016/j.pathophys.2017.12.004
 title: "Basal cell nevus syndrome (Gorlin syndrome): genetic insights, diagnostic challenges, and unmet milestones"
 authors:
 - Maryam Akbari
@@ -11,6 +11,7 @@ journal: Pathophysiology
 year: '2018'
 doi: 10.1016/j.pathophys.2017.12.004
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Basal cell nevus syndrome (Gorlin syndrome): genetic insights, diagnostic challenges, and unmet milestones

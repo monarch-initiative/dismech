@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmra2405573"
+reference_id: DOI:10.1056/nejmra2405573
 title: Ph-Positive Acute Lymphoblastic Leukemia — 25 Years of Progress
 authors:
 - Robin Foà
@@ -7,6 +7,7 @@ journal: New England Journal of Medicine
 year: '2025'
 doi: 10.1056/nejmra2405573
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Ph-Positive Acute Lymphoblastic Leukemia — 25 Years of Progress

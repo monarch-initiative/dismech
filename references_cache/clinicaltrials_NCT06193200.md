@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT06193200"
 title: "A Multi-center, Randomized, Double-blind, Placebo-controlled Trial to Evaluate the Neurological Effects of EryDex on Subjects With Ataxia Telangiectasia (NEAT)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Multi-center, Randomized, Double-blind, Placebo-controlled Trial to Evaluate the Neurological Effects of EryDex on Subjects With Ataxia Telangiectasia (NEAT)

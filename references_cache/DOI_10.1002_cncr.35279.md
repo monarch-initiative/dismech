@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/cncr.35279"
+reference_id: DOI:10.1002/cncr.35279
 title: Evolving concepts in meningioma management in the era of genomics
 authors:
 - Annie L. Hsieh
@@ -11,6 +11,7 @@ journal: Cancer
 year: '2024'
 doi: 10.1002/cncr.35279
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Evolving concepts in meningioma management in the era of genomics

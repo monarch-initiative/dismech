@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/9781119142812.ch11"
+reference_id: DOI:10.1002/9781119142812.ch11
 title: "Vesiculopustular, Bullous and Erosive Diseases of the Neonate"
 authors:
 - Caroline Mahon
@@ -8,6 +8,7 @@ journal: "Harper's Textbook of Pediatric Dermatology"
 year: '2019'
 doi: 10.1002/9781119142812.ch11
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Vesiculopustular, Bullous and Erosive Diseases of the Neonate

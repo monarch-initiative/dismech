@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/pas.0b013e31825485c5"
+reference_id: DOI:10.1097/pas.0b013e31825485c5
 title: Tumors With EWSR1-CREB1 and EWSR1-ATF1 Fusions
 authors:
 - Khin Thway
@@ -8,6 +8,7 @@ journal: American Journal of Surgical Pathology
 year: '2012'
 doi: 10.1097/pas.0b013e31825485c5
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Tumors With EWSR1-CREB1 and EWSR1-ATF1 Fusions

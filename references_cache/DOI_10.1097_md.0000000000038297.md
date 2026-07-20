@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/md.0000000000038297"
+reference_id: DOI:10.1097/md.0000000000038297
 title: "Pure 46, XY gonadal dysgenesis and 46, XY complete androgen insensitivity syndrome: A case report"
 authors:
 - Tengge Yu
@@ -8,6 +8,7 @@ journal: Medicine
 year: '2024'
 doi: 10.1097/md.0000000000038297
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pure 46, XY gonadal dysgenesis and 46, XY complete androgen insensitivity syndrome: A case report

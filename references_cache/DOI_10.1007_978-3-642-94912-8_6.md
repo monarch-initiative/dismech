@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/978-3-642-94912-8_6"
+reference_id: DOI:10.1007/978-3-642-94912-8_6
 title: Subsepsis allergica
 authors:
 - Hans Wissler
@@ -7,6 +7,7 @@ journal: Ergebnisse der Inneren Medizin und Kinderheilkunde
 year: '1965'
 doi: 10.1007/978-3-642-94912-8_6
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Subsepsis allergica
@@ -15,6 +16,7 @@ content_type: abstract_only
 **DOI:** [10.1007/978-3-642-94912-8_6](https://doi.org/10.1007/978-3-642-94912-8_6)
 
 ## Content
+
 1943 habe ich anhand von 5 Fällen unter dem Titel “Über eine besondere Form
 sepsisähnlicher Krankheiten“ das Krankheitsbild der “Subsepsis hyperergica“
 beschrieben. Fanconi hat 1946 einen weiteren Fall mitgeteilt und den Namen in

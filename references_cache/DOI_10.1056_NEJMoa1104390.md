@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/NEJMoa1104390"
+reference_id: DOI:10.1056/NEJMoa1104390
 title: Incorporation of Bevacizumab in the Primary Treatment of Ovarian Cancer
 authors:
 - Robert A. Burger
@@ -19,6 +19,7 @@ journal: New England Journal of Medicine
 year: '2011'
 doi: 10.1056/NEJMoa1104390
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Incorporation of Bevacizumab in the Primary Treatment of Ovarian Cancer

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.omtm.2024.101276"
+reference_id: DOI:10.1016/j.omtm.2024.101276
 title: Systemic delivery of AAV-GCDH ameliorates HLD-induced phenotype in a glutaric aciduria type I mouse model
 authors:
 - Anna Mateu-Bosch
@@ -16,6 +16,7 @@ journal: "Molecular Therapy - Methods &amp; Clinical Development"
 year: '2024'
 doi: 10.1016/j.omtm.2024.101276
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Systemic delivery of AAV-GCDH ameliorates HLD-induced phenotype in a glutaric aciduria type I mouse model

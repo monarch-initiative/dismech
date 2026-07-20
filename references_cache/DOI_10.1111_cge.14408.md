@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cge.14408"
+reference_id: DOI:10.1111/cge.14408
 title: "Inherited <scp>CSNK2A1</scp> variants in families with <scp>Okur‐Chung</scp> neurodevelopmental syndrome"
 authors:
 - Newell Belnap
@@ -25,6 +25,7 @@ journal: Clinical Genetics
 year: '2023'
 doi: 10.1111/cge.14408
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Inherited <scp>CSNK2A1</scp> variants in families with <scp>Okur‐Chung</scp> neurodevelopmental syndrome

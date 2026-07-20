@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajh.27002"
+reference_id: DOI:10.1002/ajh.27002
 title: "Polycythemia vera: 2024 update on diagnosis, risk‐stratification, and management"
 authors:
 - Ayalew Tefferi
@@ -8,6 +8,7 @@ journal: American Journal of Hematology
 year: '2023'
 doi: 10.1002/ajh.27002
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Polycythemia vera: 2024 update on diagnosis, risk‐stratification, and management

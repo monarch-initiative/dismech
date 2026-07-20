@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from dismech.render import render_disorder
+from dismech.render import _build_hierarchy_path
 
 
 def _extract_graph_data(html: str) -> dict:
@@ -43,6 +44,17 @@ def _connected_component_count(graph_data: dict) -> int:
                     remaining.remove(neighbor)
                     queue.append(neighbor)
     return components
+
+
+def test_hierarchy_path_returns_empty_when_adapter_lookup_fails() -> None:
+    """Optional mapping breadcrumbs should not make rendering depend on a
+    healthy local OAK SQLite cache."""
+
+    class BrokenAdapter:
+        def hierarchical_parents(self, _term_id: str):
+            raise RuntimeError("database disk image is malformed")
+
+    assert _build_hierarchy_path(BrokenAdapter(), "NCIT:C9120", "NCIT:C7057") == []
 
 
 def test_rendered_crohn_pathograph_payload_is_connected(tmp_path: Path) -> None:
@@ -436,14 +448,14 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             "Acromesomelic_Dysplasia_Maroteaux_Type.yaml",
             {
                 (
-                    "NPR2 Loss-of-Function Mutations",
-                    "Impaired CNP-NPR-B-cGMP Signaling in Growth Plate",
+                    "Biallelic NPR2 Loss-of-Function Variants",
+                    "Biallelic NPR2 Loss of Function",
                 )
             },
-            {"NPR2 Loss-of-Function Mutations": "genetic"},
+            {"Biallelic NPR2 Loss-of-Function Variants": "genetic"},
             {
-                "Impaired CNP-NPR-B-cGMP Signaling in Growth Plate": [
-                    "receptor guanylyl cyclase activity",
+                "Reduced CNP-Stimulated Guanylyl Cyclase Activity and cGMP": [
+                    "guanylate cyclase activity",
                     "natriuretic peptide receptor activity",
                 ]
             },
@@ -529,10 +541,13 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         (
             "Campomelic_Dysplasia.yaml",
             {
-                ("SOX9 Pathogenic Variants", "SOX9-Mediated Chondrogenesis Disruption"),
-                ("SOX9 Pathogenic Variants", "Disrupted 46,XY Sex Determination"),
+                (
+                    "SOX9 Pathogenic Variation",
+                    "SOX9-Mediated Chondrogenesis Disruption",
+                ),
+                ("SOX9 Pathogenic Variation", "Disrupted 46,XY Sex Determination"),
             },
-            {"SOX9 Pathogenic Variants": "genetic"},
+            {"SOX9 Pathogenic Variation": "genetic"},
             {
                 "SOX9-Mediated Chondrogenesis Disruption": [
                     "DNA-binding transcription factor activity, RNA polymerase II-specific"
@@ -559,10 +574,15 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "Achondrogenesis_Type_II.yaml",
-            {("COL2A1 Mutations", "Type II Collagen Structural Defect")},
-            {"COL2A1 Mutations": "genetic"},
             {
-                "Type II Collagen Structural Defect": [
+                (
+                    "Heterozygous Pathogenic COL2A1 Variant",
+                    "Type II Collagen Triple-Helix Destabilization",
+                )
+            },
+            {"Heterozygous Pathogenic COL2A1 Variant": "pathophysiology"},
+            {
+                "Heterozygous Pathogenic COL2A1 Variant": [
                     "extracellular matrix structural constituent"
                 ]
             },

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12608"
+reference_id: DOI:10.1002/jimd.12608
 title: Exploring genotype–phenotype correlations in glutaric aciduria type 1
 authors:
 - Imke M. E. Schuurmans
@@ -15,6 +15,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2023'
 doi: 10.1002/jimd.12608
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring genotype–phenotype correlations in glutaric aciduria type 1

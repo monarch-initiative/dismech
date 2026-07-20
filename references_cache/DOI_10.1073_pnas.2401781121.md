@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1073/pnas.2401781121"
-title: "Splice modulation strategy applied to deep intronic variants in
-            <i>COL7A1</i>
-            causing recessive dystrophic epidermolysis bullosa"
+reference_id: DOI:10.1073/pnas.2401781121
+title: "Splice modulation strategy applied to deep intronic variants in <i>COL7A1</i> causing recessive dystrophic epidermolysis bullosa"
 authors:
 - Nathalie Pironon
 - Emmanuelle Bourrat
@@ -15,11 +13,10 @@ journal: Proceedings of the National Academy of Sciences
 year: '2024'
 doi: 10.1073/pnas.2401781121
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Splice modulation strategy applied to deep intronic variants in
-            <i>COL7A1</i>
-            causing recessive dystrophic epidermolysis bullosa
+# Splice modulation strategy applied to deep intronic variants in <i>COL7A1</i> causing recessive dystrophic epidermolysis bullosa
 **Authors:** Nathalie Pironon, Emmanuelle Bourrat, Catherine Prost, Mei Chen, David T. Woodley, Matthias Titeux, Alain Hovnanian
 **Journal:** Proceedings of the National Academy of Sciences (2024)
 **DOI:** [10.1073/pnas.2401781121](https://doi.org/10.1073/pnas.2401781121)

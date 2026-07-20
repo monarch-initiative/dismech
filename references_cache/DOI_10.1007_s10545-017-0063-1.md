@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10545-017-0063-1"
+reference_id: DOI:10.1007/s10545-017-0063-1
 title: Amino acid synthesis deficiencies
 authors:
 - T. J. de Koning
@@ -7,6 +7,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2017'
 doi: 10.1007/s10545-017-0063-1
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Amino acid synthesis deficiencies

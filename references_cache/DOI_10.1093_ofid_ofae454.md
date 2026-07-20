@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ofid/ofae454"
+reference_id: DOI:10.1093/ofid/ofae454
 title: "Clinical Characteristics and Mortality Risks Among Patients With Culture-Proven Coccidioidomycosis Who Are Critically Ill: A Multicenter Study in an Endemic Region"
 authors:
 - James Lim
@@ -13,6 +13,7 @@ journal: Open Forum Infectious Diseases
 year: '2024'
 doi: 10.1093/ofid/ofae454
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical Characteristics and Mortality Risks Among Patients With Culture-Proven Coccidioidomycosis Who Are Critically Ill: A Multicenter Study in an Endemic Region

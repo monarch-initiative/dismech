@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14656566.2024.2392021"
+reference_id: DOI:10.1080/14656566.2024.2392021
 title: Current evidence for janus kinase inhibitors in adult and juvenile dermatomyositis and key comparisons
 authors:
 - Rachel S. Wallwork
@@ -9,6 +9,7 @@ journal: Expert Opinion on Pharmacotherapy
 year: '2024'
 doi: 10.1080/14656566.2024.2392021
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Current evidence for janus kinase inhibitors in adult and juvenile dermatomyositis and key comparisons

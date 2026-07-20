@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/sciadv.adg6218"
+reference_id: DOI:10.1126/sciadv.adg6218
 title: Multidimensional definition of the interferonopathy of Down syndrome and its response to JAK inhibition
 authors:
 - Matthew D. Galbraith
@@ -20,6 +20,7 @@ journal: Science Advances
 year: '2023'
 doi: 10.1126/sciadv.adg6218
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Multidimensional definition of the interferonopathy of Down syndrome and its response to JAK inhibition

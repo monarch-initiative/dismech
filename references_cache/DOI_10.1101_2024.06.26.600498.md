@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.06.26.600498"
+reference_id: DOI:10.1101/2024.06.26.600498
 title: "Structure-Mechanics Principles and Mechanobiology of Fibrocartilage Pericellular Matrix: A Pivotal Role of Type V Collagen"
 authors:
 - Chao Wang
@@ -19,6 +19,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.06.26.600498
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Structure-Mechanics Principles and Mechanobiology of Fibrocartilage Pericellular Matrix: A Pivotal Role of Type V Collagen

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12502"
+reference_id: DOI:10.1002/jimd.12502
 title: "Genetic, biochemical, and clinical spectrum of patients with mitochondrial trifunctional protein deficiency identified after the introduction of newborn screening in the Netherlands"
 authors:
 - Marit Schwantje
@@ -24,6 +24,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2022'
 doi: 10.1002/jimd.12502
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic, biochemical, and clinical spectrum of patients with mitochondrial trifunctional protein deficiency identified after the introduction of newborn screening in the Netherlands

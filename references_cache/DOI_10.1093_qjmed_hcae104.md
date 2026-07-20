@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/qjmed/hcae104"
+reference_id: DOI:10.1093/qjmed/hcae104
 title: Genotypic and phenotypic spectrum of maple syrup urine disease in Zhejiang of China
 authors:
 - X Yang
@@ -19,6 +19,7 @@ journal: "QJM: An International Journal of Medicine"
 year: '2024'
 doi: 10.1093/qjmed/hcae104
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genotypic and phenotypic spectrum of maple syrup urine disease in Zhejiang of China

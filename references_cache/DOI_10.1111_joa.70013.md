@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/joa.70013"
+reference_id: DOI:10.1111/joa.70013
 title: "The influence of closed sutures on cranial morphology in Apert and Crouzon syndromes: A quantitative analysis"
 authors:
 - Ombline Delassus
@@ -16,6 +16,7 @@ journal: Journal of Anatomy
 year: '2026'
 doi: 10.1111/joa.70013
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The influence of closed sutures on cranial morphology in Apert and Crouzon syndromes: A quantitative analysis

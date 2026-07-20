@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT03852498"
 title: A Phase 3 Study of Lenti-D Drug Product After Myeloablative Conditioning Using Busulfan and Fludarabine in Subjects ≤17 Years of Age With Cerebral Adrenoleukodystrophy (CALD)
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3 Study of Lenti-D Drug Product After Myeloablative Conditioning Using Busulfan and Fludarabine in Subjects ≤17 Years of Age With Cerebral Adrenoleukodystrophy (CALD)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/opx.0000000000000403"
+reference_id: DOI:10.1097/opx.0000000000000403
 title: Electrooculography and Optical Coherence Tomography Reveal Late‐Onset Best Disease
 authors:
 - Ravie Makati
@@ -10,6 +10,7 @@ journal: Optometry and Vision Science
 year: '2014'
 doi: 10.1097/opx.0000000000000403
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Electrooculography and Optical Coherence Tomography Reveal Late‐Onset Best Disease

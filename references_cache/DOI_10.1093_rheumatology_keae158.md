@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/rheumatology/keae158"
+reference_id: DOI:10.1093/rheumatology/keae158
 title: "Machine learning–driven immunophenotypic stratification of mixed connective tissue disease, corroborating the clinical heterogeneity"
 authors:
 - Shinji Izuka
@@ -16,6 +16,7 @@ journal: Rheumatology
 year: '2025'
 doi: 10.1093/rheumatology/keae158
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Machine learning–driven immunophenotypic stratification of mixed connective tissue disease, corroborating the clinical heterogeneity

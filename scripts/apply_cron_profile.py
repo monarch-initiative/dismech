@@ -6,12 +6,13 @@ with no native parameterisation. This script makes them switchable from a single
 source of truth (`.github/cron-profiles.yaml`): pick a profile, and every managed
 workflow's ``on.schedule`` cron block is rewritten to match.
 
-Only the cron entries inside the ``schedule:`` block are touched. Everything else
-(``workflow_dispatch`` inputs, ``jobs``, comments outside the schedule block) is
-left byte-for-byte intact. We deliberately do *not* round-trip the whole workflow
-through a YAML parser — GitHub's ``on:`` key is parsed as the YAML 1.1 boolean
-``True``, which corrupts naive re-dumps — so the rewrite is a surgical,
-line-based replacement of the schedule's cron lines.
+Only the ``schedule:`` block under ``on:`` is touched: profiles with cron entries
+replace or add that block, while profiles with an empty entry list remove it.
+Everything else (``workflow_dispatch`` inputs, ``jobs``, comments outside the
+schedule block) is left byte-for-byte intact. We deliberately do *not* round-trip
+the whole workflow through a YAML parser — GitHub's ``on:`` key is parsed as the
+YAML 1.1 boolean ``True``, which corrupts naive re-dumps — so the rewrite is a
+surgical, line-based edit.
 
 Usage:
     python scripts/apply_cron_profile.py <profile>            # rewrite + commit
@@ -36,6 +37,7 @@ DEFAULT_CONFIG = REPO_ROOT / ".github" / "cron-profiles.yaml"
 WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 
 SCHEDULE_RE = re.compile(r"^(?P<indent>\s*)schedule:\s*$")
+ON_RE = re.compile(r"^(?P<indent>\s*)on:\s*$")
 CRON_LINE_RE = re.compile(r"^\s*-\s*cron:\s*")
 COMMENT_LINE_RE = re.compile(r"^\s*#")
 
@@ -81,8 +83,8 @@ def load_config(path: Path) -> dict:
     # Validate cron expressions up front.
     for name, profile in profiles.items():
         for wf, entries in profile["workflows"].items():
-            if not isinstance(entries, list) or not entries:
-                raise ConfigError(f"{name}/{wf}: expected a non-empty list of cron entries")
+            if not isinstance(entries, list):
+                raise ConfigError(f"{name}/{wf}: expected a list of cron entries")
             for entry in entries:
                 expr = (entry or {}).get("cron")
                 if not isinstance(expr, str) or len(expr.split()) != 5:
@@ -99,7 +101,9 @@ def resolve_workflow_file(stem: str) -> Path:
     if not found:
         raise ConfigError(f"no workflow file for '{stem}' (tried .yml/.yaml)")
     if len(found) > 1:
-        raise ConfigError(f"ambiguous workflow stem '{stem}': {[f.name for f in found]}")
+        raise ConfigError(
+            f"ambiguous workflow stem '{stem}': {[f.name for f in found]}"
+        )
     return found[0]
 
 
@@ -117,13 +121,18 @@ def render_cron_lines(entries: list[dict], indent: str) -> list[str]:
     return lines
 
 
-def rewrite_schedule(text: str, entries: list[dict], *, wf_name: str) -> str:
-    """Replace the cron entries in the first ``schedule:`` block of *text*."""
-    lines = text.splitlines(keepends=True)
+def render_schedule_block(entries: list[dict], indent: str) -> list[str]:
+    """Render a complete ``schedule:`` block at *indent*."""
+    return [f"{indent}schedule:\n"] + render_cron_lines(entries, indent + "  ")
 
+
+def find_schedule_region(
+    lines: list[str], *, wf_name: str
+) -> tuple[int, int, int, str] | None:
+    """Return ``(schedule_idx, entries_start, entries_end, cron_indent)`` if present."""
     sched_idx = next((i for i, ln in enumerate(lines) if SCHEDULE_RE.match(ln)), None)
     if sched_idx is None:
-        raise ConfigError(f"{wf_name}: no `schedule:` block found")
+        return None
 
     # The managed region runs from the line after `schedule:` while lines are
     # either cron entries or comments; it stops at the first other line (a blank
@@ -140,7 +149,9 @@ def rewrite_schedule(text: str, entries: list[dict], *, wf_name: str) -> str:
         else:
             break
     if not saw_cron:
-        raise ConfigError(f"{wf_name}: `schedule:` block has no `- cron:` entries to replace")
+        raise ConfigError(
+            f"{wf_name}: `schedule:` block has no `- cron:` entries to replace"
+        )
 
     # Preserve the existing cron-line indentation.
     indent = "    "
@@ -148,11 +159,40 @@ def rewrite_schedule(text: str, entries: list[dict], *, wf_name: str) -> str:
         if CRON_LINE_RE.match(ln):
             indent = ln[: len(ln) - len(ln.lstrip())]
             break
+    return sched_idx, start, end, indent
 
-    new_lines = lines[:start] + render_cron_lines(entries, indent) + lines[end:]
-    new_text = "".join(new_lines)
 
-    # Sanity: the rewritten file must still parse as YAML.
+def rewrite_schedule(text: str, entries: list[dict], *, wf_name: str) -> str:
+    """Add, replace, or remove the first ``on.schedule`` block of *text*."""
+    lines = text.splitlines(keepends=True)
+    region = find_schedule_region(lines, wf_name=wf_name)
+
+    if not entries:
+        if region is None:
+            return text
+        sched_idx, _start, end, _indent = region
+        new_text = "".join(lines[:sched_idx] + lines[end:])
+    elif region is None:
+        on_idx = next((i for i, ln in enumerate(lines) if ON_RE.match(ln)), None)
+        if on_idx is None:
+            raise ConfigError(f"{wf_name}: no `on:` block found")
+
+        on_indent = ON_RE.match(lines[on_idx]).group("indent")  # type: ignore[union-attr]
+        sched_indent = on_indent + "  "
+        new_text = "".join(
+            lines[: on_idx + 1]
+            + render_schedule_block(entries, sched_indent)
+            + lines[on_idx + 1 :]
+        )
+    else:
+        _sched_idx, start, end, indent = region
+        new_text = "".join(
+            lines[:start] + render_cron_lines(entries, indent) + lines[end:]
+        )
+
+    # Sanity: the rewritten file must still parse as YAML. This is intentionally
+    # parse-only; we do not dump it back to YAML because YAML 1.1 treats `on` as
+    # a boolean key.
     try:
         yaml.safe_load(new_text)
     except yaml.YAMLError as exc:  # pragma: no cover - defensive
@@ -161,8 +201,10 @@ def rewrite_schedule(text: str, entries: list[dict], *, wf_name: str) -> str:
 
 
 def set_active(config_text: str, profile: str) -> str:
+    # Quote the value so profile names that YAML 1.1 would coerce to a boolean
+    # (e.g. `off`, `on`, `no`, `yes`) round-trip back as the string profile name.
     new_text, n = re.subn(
-        r"^active:.*$", f"active: {profile}", config_text, count=1, flags=re.MULTILINE
+        r"^active:.*$", f'active: "{profile}"', config_text, count=1, flags=re.MULTILINE
     )
     if n == 0:
         raise ConfigError("config has no top-level `active:` line to update")
@@ -197,8 +239,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("profile", nargs="?", help="profile name to apply")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--list", action="store_true", help="list profiles and exit")
-    parser.add_argument("--dry-run", action="store_true", help="show diffs, write nothing")
-    parser.add_argument("--no-commit", action="store_true", help="write files but do not commit")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="show diffs, write nothing"
+    )
+    parser.add_argument(
+        "--no-commit", action="store_true", help="write files but do not commit"
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -263,7 +309,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  set active: {args.profile} in {args.config.relative_to(REPO_ROOT)}")
 
     if args.no_commit:
-        print("\n--no-commit: changes written to the working tree (unstaged) for your review.")
+        print(
+            "\n--no-commit: changes written to the working tree (unstaged) for your review."
+        )
         return 0
 
     git_commit(commit_paths, args.profile)

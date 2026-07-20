@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT05985161"
 title: A Multi-Center Phase II Study of Selinexor in Treating Recurrent or Refractory Wilms Tumor and Other Pediatric Solid Tumors
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Multi-Center Phase II Study of Selinexor in Treating Recurrent or Refractory Wilms Tumor and Other Pediatric Solid Tumors

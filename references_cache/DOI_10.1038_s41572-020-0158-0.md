@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41572-020-0158-0"
+reference_id: DOI:10.1038/s41572-020-0158-0
 title: Uveal melanoma
 authors:
 - Martine J. Jager
@@ -17,6 +17,7 @@ journal: Nature Reviews Disease Primers
 year: '2020'
 doi: 10.1038/s41572-020-0158-0
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Uveal melanoma

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/nyas.12426"
+reference_id: DOI:10.1111/nyas.12426
 title: "AP1S1 defect causing MEDNIK syndrome: a new adaptinopathy associated with defective copper metabolism"
 authors:
 - Diego Martinelli
@@ -8,6 +8,7 @@ journal: Annals of the New York Academy of Sciences
 year: '2014'
 doi: 10.1111/nyas.12426
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # AP1S1 defect causing MEDNIK syndrome: a new adaptinopathy associated with defective copper metabolism

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.b.32332"
+reference_id: DOI:10.1002/ajmg.b.32332
 title: "Junctophilin 3 (<i>JPH3</i>) expansion mutations causing Huntington disease like 2 (HDL2) are common in South African patients with African ancestry and a Huntington disease phenotype"
 authors:
 - Amanda Krause
@@ -15,6 +15,7 @@ journal: "American Journal of Medical Genetics Part B: Neuropsychiatric Genetics
 year: '2015'
 doi: 10.1002/ajmg.b.32332
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Junctophilin 3 (<i>JPH3</i>) expansion mutations causing Huntington disease like 2 (HDL2) are common in South African patients with African ancestry and a Huntington disease phenotype

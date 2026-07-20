@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/toxres/tfad111"
+reference_id: DOI:10.1093/toxres/tfad111
 title: "Arsenic toxicity: sources, pathophysiology and mechanism"
 authors:
 - Shahid Yousuf Ganie
@@ -10,6 +10,7 @@ journal: Toxicology Research
 year: '2024'
 doi: 10.1093/toxres/tfad111
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Arsenic toxicity: sources, pathophysiology and mechanism

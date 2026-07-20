@@ -1,0 +1,7 @@
+# RAB33B-Related Smith-McCort Dysplasia 2 Citations
+
+- PMID:23042644
+- PMID:28127940
+- PMID:31408960
+- PMID:37359363
+- PMID:41506134

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ijd.15264"
+reference_id: DOI:10.1111/ijd.15264
 title: "Mal de Pinta, first autochthonous case from South of Brazil"
 authors:
 - Ralph Vighi da Rosa
@@ -10,6 +10,7 @@ journal: International Journal of Dermatology
 year: '2021'
 doi: 10.1111/ijd.15264
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Mal de Pinta, first autochthonous case from South of Brazil

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ebiom.2023.104738"
+reference_id: DOI:10.1016/j.ebiom.2023.104738
 title: BRCA-deficient metastatic prostate cancer has an adverse prognosis and distinct genomic phenotype
 authors:
 - Heidi Fettke
@@ -23,6 +23,7 @@ journal: eBioMedicine
 year: '2023'
 doi: 10.1016/j.ebiom.2023.104738
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # BRCA-deficient metastatic prostate cancer has an adverse prognosis and distinct genomic phenotype

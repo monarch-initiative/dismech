@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.1399-0004.2007.00809.x"
+reference_id: DOI:10.1111/j.1399-0004.2007.00809.x
 title: "Assessment of the prevalence of the 985A&gt;G MCAD mutation in the French‐Canadian population using allele‐specific PCR"
 authors:
 - S Giroux
@@ -13,6 +13,7 @@ journal: Clinical Genetics
 year: '2007'
 doi: 10.1111/j.1399-0004.2007.00809.x
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Assessment of the prevalence of the 985A&gt;G MCAD mutation in the French‐Canadian population using allele‐specific PCR

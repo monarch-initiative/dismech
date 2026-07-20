@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11897-023-00592-3"
+reference_id: DOI:10.1007/s11897-023-00592-3
 title: Cardiac Involvement in Mitochondrial Disorders
 authors:
 - Tudor-Alexandru Popoiu
@@ -10,6 +10,7 @@ journal: Current Heart Failure Reports
 year: '2023'
 doi: 10.1007/s11897-023-00592-3
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cardiac Involvement in Mitochondrial Disorders

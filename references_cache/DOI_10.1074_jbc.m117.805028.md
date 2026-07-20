@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1074/jbc.m117.805028"
+reference_id: DOI:10.1074/jbc.m117.805028
 title: Discovery of a widespread prokaryotic 5-oxoprolinase that was hiding in plain sight
 authors:
 - Thomas D. Niehaus
@@ -11,6 +11,7 @@ journal: Journal of Biological Chemistry
 year: '2017'
 doi: 10.1074/jbc.m117.805028
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Discovery of a widespread prokaryotic 5-oxoprolinase that was hiding in plain sight

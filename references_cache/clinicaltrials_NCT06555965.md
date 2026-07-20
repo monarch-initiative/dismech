@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT06555965"
 title: STXBP1 and SYNGAP1 Related Disorders (RD) Natural History Study
 content_type: summary
+full_text_attempted: true
 ---
 
 # STXBP1 and SYNGAP1 Related Disorders (RD) Natural History Study

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.1412487111"
+reference_id: DOI:10.1073/pnas.1412487111
 title: Human NLRP3 inflammasome senses multiple types of bacterial RNAs
 authors:
 - Wenwen Sha
@@ -17,6 +17,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2014'
 doi: 10.1073/pnas.1412487111
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Human NLRP3 inflammasome senses multiple types of bacterial RNAs

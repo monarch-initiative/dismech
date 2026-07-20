@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/82_2016_48"
+reference_id: DOI:10.1007/82_2016_48
 title: "Two Feet on the Membrane: Uptake of Clostridial Neurotoxins"
 authors:
 - Andreas Rummel
@@ -7,6 +7,7 @@ journal: Current Topics in Microbiology and Immunology
 year: '2016'
 doi: 10.1007/82_2016_48
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Two Feet on the Membrane: Uptake of Clostridial Neurotoxins

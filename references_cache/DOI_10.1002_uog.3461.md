@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/uog.3461"
+reference_id: DOI:10.1002/uog.3461
 title: "P02.29: Achondrogenesis type II‐hypochondrogenesis: a case report"
 authors:
 - A. Carmo
@@ -12,6 +12,7 @@ journal: "Ultrasound in Obstetrics &amp; Gynecology"
 year: '2006'
 doi: 10.1002/uog.3461
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # P02.29: Achondrogenesis type II‐hypochondrogenesis: a case report

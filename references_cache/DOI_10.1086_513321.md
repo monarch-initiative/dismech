@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1086/513321"
+reference_id: DOI:10.1086/513321
 title: Filamin A Is Mutated in X-Linked Chronic Idiopathic Intestinal Pseudo-Obstruction with Central Nervous System Involvement
 authors:
 - Annagiusi Gargiulo
@@ -15,6 +15,7 @@ journal: The American Journal of Human Genetics
 year: '2007'
 doi: 10.1086/513321
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Filamin A Is Mutated in X-Linked Chronic Idiopathic Intestinal Pseudo-Obstruction with Central Nervous System Involvement

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/MPG.0000000000003196"
+reference_id: DOI:10.1097/MPG.0000000000003196
 title: "Pediatric Wilson's Disease"
 authors:
 - Eduardo Couchonnal
@@ -25,6 +25,7 @@ journal: Journal of Pediatric Gastroenterology and Nutrition
 year: '2021'
 doi: 10.1097/MPG.0000000000003196
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pediatric Wilson's Disease

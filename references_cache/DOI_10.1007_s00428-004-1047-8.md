@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00428-004-1047-8"
+reference_id: DOI:10.1007/s00428-004-1047-8
 title: Wilson disease
 authors:
 - Cord Langner
@@ -8,6 +8,7 @@ journal: Virchows Archiv
 year: '2004'
 doi: 10.1007/s00428-004-1047-8
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Wilson disease

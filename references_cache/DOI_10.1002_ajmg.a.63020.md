@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.63020"
+reference_id: DOI:10.1002/ajmg.a.63020
 title: "Obstetrical and neonatal outcomes of cardio‐facio‐cutaneous syndrome: Prenatal consequences of Ras/<scp>MAPK</scp> dysregulation"
 authors:
 - Angie C. Jelin
@@ -11,6 +11,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2023'
 doi: 10.1002/ajmg.a.63020
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Obstetrical and neonatal outcomes of cardio‐facio‐cutaneous syndrome: Prenatal consequences of Ras/<scp>MAPK</scp> dysregulation

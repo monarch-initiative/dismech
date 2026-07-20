@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0905696106"
+reference_id: DOI:10.1073/pnas.0905696106
 title: Diminished dosage of 22q11 genes disrupts neurogenesis and cortical development in a mouse model of 22q11 deletion/DiGeorge syndrome
 authors:
 - Daniel W. Meechan
@@ -10,6 +10,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2009'
 doi: 10.1073/pnas.0905696106
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Diminished dosage of 22q11 genes disrupts neurogenesis and cortical development in a mouse model of 22q11 deletion/DiGeorge syndrome

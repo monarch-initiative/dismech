@@ -1,10 +1,6 @@
 ---
-reference_id: "DOI:10.1073/pnas.0805462105"
-title: "Metastatic osteosarcoma induced by inactivation of
-                    <i>Rb</i>
-                    and
-                    <i>p53</i>
-                    in the osteoblast lineage"
+reference_id: DOI:10.1073/pnas.0805462105
+title: "Metastatic osteosarcoma induced by inactivation of <i>Rb</i> and <i>p53</i> in the osteoblast lineage"
 authors:
 - Seth D. Berman
 - Eliezer Calo
@@ -22,13 +18,10 @@ journal: Proceedings of the National Academy of Sciences
 year: '2008'
 doi: 10.1073/pnas.0805462105
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Metastatic osteosarcoma induced by inactivation of
-                    <i>Rb</i>
-                    and
-                    <i>p53</i>
-                    in the osteoblast lineage
+# Metastatic osteosarcoma induced by inactivation of <i>Rb</i> and <i>p53</i> in the osteoblast lineage
 **Authors:** Seth D. Berman, Eliezer Calo, Allison S. Landman, Paul S. Danielian, Emily S. Miller, Julie C. West, Borel Djouedjong Fonhoue, Alicia Caron, Roderick Bronson, Mary L. Bouxsein, Siddhartha Mukherjee, Jacqueline A. Lees
 **Journal:** Proceedings of the National Academy of Sciences (2008)
 **DOI:** [10.1073/pnas.0805462105](https://doi.org/10.1073/pnas.0805462105)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddz149"
+reference_id: DOI:10.1093/hmg/ddz149
 title: A gene regulatory network explains RET–EDNRB epistasis in Hirschsprung disease
 authors:
 - Sumantra Chatterjee
@@ -8,6 +8,7 @@ journal: Human Molecular Genetics
 year: '2019'
 doi: 10.1093/hmg/ddz149
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A gene regulatory network explains RET–EDNRB epistasis in Hirschsprung disease

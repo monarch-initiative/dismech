@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2021.06.24.449787"
+reference_id: DOI:10.1101/2021.06.24.449787
 title: Familial Danish dementia young Knock-in rats expressing humanized APP and human Aβ show impaired pre and postsynaptic glutamatergic transmission
 authors:
 - Tao Yin
@@ -9,6 +9,7 @@ authors:
 year: '2021'
 doi: 10.1101/2021.06.24.449787
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Familial Danish dementia young Knock-in rats expressing humanized APP and human Aβ show impaired pre and postsynaptic glutamatergic transmission

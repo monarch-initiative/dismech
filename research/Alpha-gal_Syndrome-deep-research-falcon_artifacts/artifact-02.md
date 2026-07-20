@@ -1,0 +1,13 @@
+| Phenotype/Symptom | HPO Term | Frequency | Onset Timing | Severity | Notes |
+|---|---|---|---|---|---|
+| Urticaria / hives | HP:0001025 | Very common (about 60–80%) | Typically 2–6 hours after ingestion of mammalian meat/products | Mild to severe | Most common cutaneous manifestation; often part of delayed multisystem reactions in AGS (pqac-00000008, pqac-00000011, pqac-00000013) |
+| Anaphylaxis | HP:0011844 | Common (up to about 60%) | Usually delayed 2–6 hours after exposure | Severe / life-threatening | Can involve ≥2 organ systems; 75% of patients in one US cohort met anaphylaxis criteria (pqac-00000011, pqac-00000012, pqac-00000013) |
+| Angioedema | HP:0100665 | Common | Typically 2–6 hours after ingestion | Moderate to severe | Frequently accompanies urticaria and may occur with broader systemic reactions (pqac-00000008, pqac-00000011) |
+| Gastrointestinal symptoms (abdominal pain, nausea, vomiting, diarrhea) | HP:0002027, HP:0002018, HP:0002013, HP:0002014 | Common (about 59–79%) | Typically 2–6 hours after ingestion | Mild to severe | Can present in isolation without skin findings; often overlaps with IBS-like symptoms and may be under-recognized (pqac-00000008, pqac-00000009, pqac-00000012, pqac-00000020) |
+| Pruritus | HP:0000989 | Very common | Typically 2–6 hours after ingestion | Mild to moderate | Common early allergic manifestation; often accompanies hives or angioedema (pqac-00000011, pqac-00000007) |
+| Cardiovascular symptoms | HP:0001626 | Uncommon | Variable; may occur during systemic reactions or in association studies | Potentially severe | Reported associations include noncalcified plaque, obstructive coronary artery disease, and STEMI; evidence includes sensitization/cardiovascular links beyond classic food reactions (pqac-00000000, pqac-00000044) |
+| Hypotension / shock | HP:0002615 | Uncommon | During anaphylaxis | Severe | Represents severe systemic involvement and requires prompt epinephrine-based management (pqac-00000019, pqac-00000070) |
+| Respiratory distress | HP:0002098 | Less common | During anaphylaxis | Severe | Part of the anaphylactic cascade; more concerning in severe systemic AGS reactions (pqac-00000019, pqac-00000049, pqac-00000050) |
+
+
+*Table: This table summarizes the major clinical phenotypes of Alpha-gal Syndrome, including suggested HPO terms, approximate frequencies, timing, severity, and clinically useful notes. It is useful for structuring phenotype annotations in a disease knowledge base.*

@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04378075"
 title: Efficacy and Safety Study of Vatiquinone for the Treatment of Mitochondrial Disease Subjects With Refractory Epilepsy
 content_type: summary
+full_text_attempted: true
 ---
 
 # Efficacy and Safety Study of Vatiquinone for the Treatment of Mitochondrial Disease Subjects With Refractory Epilepsy

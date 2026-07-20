@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2200721119"
+reference_id: DOI:10.1073/pnas.2200721119
 title: "An immature, dedifferentiated, and lineage-deconstrained cone precursor origin of N-Myc–initiated retinoblastoma"
 authors:
 - Hardeep P. Singh
@@ -13,6 +13,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2022'
 doi: 10.1073/pnas.2200721119
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # An immature, dedifferentiated, and lineage-deconstrained cone precursor origin of N-Myc–initiated retinoblastoma

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/noajnl/vdaa109"
+reference_id: DOI:10.1093/noajnl/vdaa109
 title: Frequency of false-positive FISH 1p/19q codeletion in adult diffuse astrocytic gliomas
 authors:
 - Matthew K Ball
@@ -17,6 +17,7 @@ journal: Neuro-Oncology Advances
 year: '2020'
 doi: 10.1093/noajnl/vdaa109
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Frequency of false-positive FISH 1p/19q codeletion in adult diffuse astrocytic gliomas

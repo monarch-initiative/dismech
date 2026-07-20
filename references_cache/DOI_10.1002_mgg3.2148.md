@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mgg3.2148"
+reference_id: DOI:10.1002/mgg3.2148
 title: The current benefit of genome sequencing compared to exome sequencing in patients with developmental or epileptic encephalopathies
 authors:
 - Anna Grether
@@ -17,6 +17,7 @@ journal: "Molecular Genetics &amp; Genomic Medicine"
 year: '2023'
 doi: 10.1002/mgg3.2148
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The current benefit of genome sequencing compared to exome sequencing in patients with developmental or epileptic encephalopathies

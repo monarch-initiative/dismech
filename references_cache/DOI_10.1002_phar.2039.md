@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/phar.2039"
+reference_id: DOI:10.1002/phar.2039
 title: "Midostaurin: A New Oral Agent Targeting <scp>FMS</scp>‐Like Tyrosine Kinase 3‐Mutant Acute Myeloid Leukemia"
 authors:
 - Lindsay C. Stansfield
@@ -8,6 +8,7 @@ journal: "Pharmacotherapy: The Journal of Human Pharmacology and Drug Therapy"
 year: '2017'
 doi: 10.1002/phar.2039
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Midostaurin: A New Oral Agent Targeting <scp>FMS</scp>‐Like Tyrosine Kinase 3‐Mutant Acute Myeloid Leukemia

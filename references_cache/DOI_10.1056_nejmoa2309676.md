@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2309676"
+reference_id: DOI:10.1056/nejmoa2309676
 title: Exagamglogene Autotemcel for Severe Sickle Cell Disease
 authors:
 - Haydar Frangoul
@@ -34,6 +34,7 @@ journal: New England Journal of Medicine
 year: '2024'
 doi: 10.1056/nejmoa2309676
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Exagamglogene Autotemcel for Severe Sickle Cell Disease

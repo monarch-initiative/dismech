@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14737140.2017.1374177"
+reference_id: DOI:10.1080/14737140.2017.1374177
 title: Binimetinib for the treatment of NRAS-mutant melanoma
 authors:
 - Paola Queirolo
@@ -8,6 +8,7 @@ journal: Expert Review of Anticancer Therapy
 year: '2017'
 doi: 10.1080/14737140.2017.1374177
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Binimetinib for the treatment of NRAS-mutant melanoma

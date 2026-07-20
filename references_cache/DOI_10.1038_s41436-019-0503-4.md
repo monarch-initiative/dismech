@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41436-019-0503-4"
+reference_id: DOI:10.1038/s41436-019-0503-4
 title: "Biallelic loss-of-function P4HTM gene variants cause hypotonia, hypoventilation, intellectual disability, dysautonomia, epilepsy, and eye abnormalities (HIDEA syndrome)"
 authors:
 - Elisa Rahikkala
@@ -32,6 +32,7 @@ journal: Genetics in Medicine
 year: '2019'
 doi: 10.1038/s41436-019-0503-4
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Biallelic loss-of-function P4HTM gene variants cause hypotonia, hypoventilation, intellectual disability, dysautonomia, epilepsy, and eye abnormalities (HIDEA syndrome)

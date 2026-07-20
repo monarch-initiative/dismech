@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.04.02.646923"
+reference_id: DOI:10.1101/2025.04.02.646923
 title: Deciphering human heart failure with preserved ejection fraction (HFpEF) at single cell resolution
 authors:
 - Lukas Zanders
@@ -24,6 +24,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.04.02.646923
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Deciphering human heart failure with preserved ejection fraction (HFpEF) at single cell resolution

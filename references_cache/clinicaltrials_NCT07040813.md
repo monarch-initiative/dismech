@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT07040813"
 title: A Randomized Placebo-controlled Double-blind Phase III Trial to Investigate the Reduction of Monthly Migraine Days (MMDs) Over 12 Weeks of Treatment With CGRP mAbs and Onabotulinumtoxin A Intramuscularly Compared With CGRP mAbs and Placebo in Chronic Migraine
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized Placebo-controlled Double-blind Phase III Trial to Investigate the Reduction of Monthly Migraine Days (MMDs) Over 12 Weeks of Treatment With CGRP mAbs and Onabotulinumtoxin A Intramuscularly Compared With CGRP mAbs and Placebo in Chronic Migraine

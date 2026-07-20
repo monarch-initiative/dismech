@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2013.03.021"
+reference_id: DOI:10.1016/j.ymgme.2013.03.021
 title: Prevalence and mutation analysis of short/branched chain acyl-CoA dehydrogenase deficiency (SBCADD) detected on newborn screening in Wisconsin
 authors:
 - Sandra C. Van Calcar
@@ -19,6 +19,7 @@ journal: Molecular Genetics and Metabolism
 year: '2013'
 doi: 10.1016/j.ymgme.2013.03.021
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Prevalence and mutation analysis of short/branched chain acyl-CoA dehydrogenase deficiency (SBCADD) detected on newborn screening in Wisconsin

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/noajnl/vdae090.044"
+reference_id: DOI:10.1093/noajnl/vdae090.044
 title: IMUN-05 PHASE II STUDY OF NIVOLUMAB (NIVO) IN COMBINATION WITH RELATLIMAB (RELA) IN PATIENTS WITH ACTIVE MELANOMA BRAIN METASTASES (MBM)
 authors:
 - Suzanne Phillips
@@ -21,6 +21,7 @@ journal: Neuro-Oncology Advances
 year: '2024'
 doi: 10.1093/noajnl/vdae090.044
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # IMUN-05 PHASE II STUDY OF NIVOLUMAB (NIVO) IN COMBINATION WITH RELATLIMAB (RELA) IN PATIENTS WITH ACTIVE MELANOMA BRAIN METASTASES (MBM)

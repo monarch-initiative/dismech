@@ -1,0 +1,17 @@
+| Viral Protein | Host Target | Mechanism | Signaling Pathway | Biological Consequence |
+|---|---|---|---|---|
+| E6 | TP53 (p53) via E6AP/UBE3A | Forms E6–E6AP complex that ubiquitinates and degrades p53 | p53/cell-cycle checkpoint, apoptosis | Loss of G1/S arrest, impaired DNA-damage response, reduced apoptosis, mutation accumulation (pqac-00000010, pqac-00000011, pqac-00000012, pqac-00000014) |
+| E6 | hTERT promoter/telomerase machinery | Induces hTERT expression and telomerase activation | Telomere maintenance/immortalization | Cellular immortalization and prolonged survival of infected cells (pqac-00000011, pqac-00000012, pqac-00000015) |
+| E6 | PTEN/TSC2 and upstream PI3K regulators | Inactivates PTEN and promotes mTOR signaling, enhancing PI3K/AKT activity | PI3K/AKT/mTOR | Increased proliferation, survival, autophagy inhibition, treatment resistance (pqac-00000009, pqac-00000010, pqac-00000016) |
+| E6 | β-catenin regulatory axis | Stabilizes/activates nuclear β-catenin and oncogenic transcription | Wnt/β-catenin | Upregulation of c-Myc/cyclin D1, enhanced growth and transformation (pqac-00000009, pqac-00000016) |
+| E6 | NOTCH1 and associated control of differentiation | Disrupts NOTCH1 signaling and p53-linked differentiation/senescence programs | Notch signaling | Loss of differentiation, escape from senescence, tumor progression (pqac-00000009, pqac-00000010, pqac-00000016) |
+| E7 | RB1 (pRb) via LXCXE motif | Binds pocket proteins and promotes pRb degradation/inactivation | pRb/E2F cell-cycle control | Unchecked G1-to-S progression and viral/cellular DNA synthesis (pqac-00000010, pqac-00000012, pqac-00000014) |
+| E7 | E2F transcription factors | Releases E2F after pRb inactivation | E2F-driven transcription | Increased S-phase entry, replication gene expression, uncontrolled proliferation (pqac-00000010, pqac-00000012, pqac-00000014) |
+| E7 | Centrosome duplication machinery | Perturbs centrosome control and mitotic fidelity | Chromosomal stability/mitotic control | Aneuploidy, chromosomal instability, invasive transformation (pqac-00000054) |
+| E5 | EGFR | Enhances EGFR signaling and downstream kinase activation | EGFR/MAPK/ERK, PI3K/AKT | Increased proliferation, survival, migration, oncogene induction (including c-Fos) (pqac-00000009, pqac-00000013, pqac-00000016) |
+| E5 | MHC-I trafficking machinery | Retains MHC-I in ER/Golgi and reduces surface antigen presentation | Antigen presentation/immune evasion | Reduced CD8+ T-cell recognition and viral persistence (pqac-00000009, pqac-00000013) |
+| E5 | STING (TMEM173) innate sensing pathway | Interferes with STING signaling and downstream interferon induction | cGAS–STING / innate antiviral response | Blunted interferon response and enhanced immune escape/persistence (pqac-00000013) |
+| APOBEC3B induction in HPV-driven cells | Host genomic DNA (cytidines), linked to E6-driven dysregulation | Cytidine deamination produces APOBEC mutational signatures and hotspot mutations | APOBEC mutagenesis / genomic instability | C→T transition burden, oncogenic mutations (e.g., PIK3CA hotspots), malignant progression (pqac-00000049, pqac-00000052) |
+
+
+*Table: This table summarizes the major HPV molecular mechanisms most relevant to persistence, immune evasion, and carcinogenesis. It highlights how E5, E6, E7, and APOBEC-associated processes map onto host targets and signaling pathways.*

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/myc.70144"
+reference_id: DOI:10.1111/myc.70144
 title: "Neglected Mycoses in Brazil: A Population‐Based Study of Mortality and In‐Hospital Mortality Over 25 Years"
 authors:
 - Anderson Fuentes Ferreira
@@ -15,6 +15,7 @@ journal: Mycoses
 year: '2026'
 doi: 10.1111/myc.70144
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Neglected Mycoses in Brazil: A Population‐Based Study of Mortality and In‐Hospital Mortality Over 25 Years

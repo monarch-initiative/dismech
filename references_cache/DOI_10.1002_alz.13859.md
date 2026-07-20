@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/alz.13859"
+reference_id: DOI:10.1002/alz.13859
 title: "Revised criteria for diagnosis and staging of Alzheimer's disease: Alzheimer's Association Workgroup"
 authors:
 - Clifford R. Jack
@@ -26,6 +26,7 @@ journal: "Alzheimer's &amp; Dementia"
 year: '2024'
 doi: 10.1002/alz.13859
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Revised criteria for diagnosis and staging of Alzheimer's disease: Alzheimer's Association Workgroup

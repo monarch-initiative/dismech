@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jbc.2023.105154"
+reference_id: DOI:10.1016/j.jbc.2023.105154
 title: Quantitative proteomics and phosphoproteomics of PP2A-PPP2R5D variants reveal deregulation of RPS6 phosphorylation via converging signaling cascades
 authors:
 - Kali A. Smolen
@@ -15,6 +15,7 @@ journal: Journal of Biological Chemistry
 year: '2023'
 doi: 10.1016/j.jbc.2023.105154
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Quantitative proteomics and phosphoproteomics of PP2A-PPP2R5D variants reveal deregulation of RPS6 phosphorylation via converging signaling cascades

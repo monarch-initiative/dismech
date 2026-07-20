@@ -576,6 +576,30 @@ Compliance report (completeness, term and evidence coverage):
 just compliance kb/disorders/<Disease_Name>.yaml
 ```
 
+### Step 6b: Record a history entry
+
+Add an append-only curation history record so provenance keeps pace with the KB
+entry. CI posts an advisory warning when a KB entry changes without one. Scaffold
+it with the helper (never hand-write the path, timestamp, or session id):
+
+```bash
+just new-history --kind disorder --slug <Disease_Name> \
+  --event CREATE --outcome changed \
+  --summary "Create: <Disease_Name>" \
+  --agent-tool claude-code --model <model-id> \
+  --sections phenotypes,pathophysiology,evidence,treatments \
+  --details "What was curated, which deep-research provider(s) were used, and how it was validated."
+```
+
+Use `--event EDIT` when augmenting an existing entry. Then validate and stage it:
+
+```bash
+just validate-history <path-printed-by-new-history>
+git add history/
+```
+
+See `docs/history.md` for the full format and event/outcome vocabularies.
+
 ### Step 7: Review
 
 Use the `dismech-pr-review/` to do an initial round of review. Use a subagent for fresh context
@@ -698,7 +722,7 @@ When asked to address review comments on an existing PR:
 
 ```bash
 # ONLY stage disorder-relevant files
-git add kb/disorders/ references_cache/ research/
+git add kb/disorders/ references_cache/ research/ history/
 
 # NEVER do this — picks up generated files from other disorders
 # git add -A
@@ -728,3 +752,4 @@ Before finalizing a new disorder file, verify:
 - [ ] `just validate` passes
 - [ ] `just validate-terms-file` passes
 - [ ] `just validate-references` passes
+- [ ] History record scaffolded (`just new-history`) and `just validate-history` passes

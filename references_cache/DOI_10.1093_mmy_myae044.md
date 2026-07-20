@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/mmy/myae044"
+reference_id: DOI:10.1093/mmy/myae044
 title: "Eumycetoma causative agents: A systematic review to inform the World Health Organization priority list of fungal pathogens"
 authors:
 - Julia E Clark
@@ -28,6 +28,7 @@ journal: Medical Mycology
 year: '2024'
 doi: 10.1093/mmy/myae044
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Eumycetoma causative agents: A systematic review to inform the World Health Organization priority list of fungal pathogens

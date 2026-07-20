@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bjd.18977"
+reference_id: DOI:10.1111/bjd.18977
 title: Systematic review of the efficacies and adverse effects of treatments for pityriasis lichenoides
 authors:
 - F. Jung
@@ -11,6 +11,7 @@ journal: British Journal of Dermatology
 year: '2020'
 doi: 10.1111/bjd.18977
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Systematic review of the efficacies and adverse effects of treatments for pityriasis lichenoides

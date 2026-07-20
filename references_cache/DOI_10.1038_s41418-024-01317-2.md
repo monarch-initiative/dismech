@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41418-024-01317-2"
+reference_id: DOI:10.1038/s41418-024-01317-2
 title: "PD-L2 drives resistance to EGFR-TKIs: dynamic changes of the tumor immune environment and targeted therapy"
 authors:
 - Simeng Wang
@@ -20,6 +20,7 @@ journal: "Cell Death &amp; Differentiation"
 year: '2024'
 doi: 10.1038/s41418-024-01317-2
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # PD-L2 drives resistance to EGFR-TKIs: dynamic changes of the tumor immune environment and targeted therapy

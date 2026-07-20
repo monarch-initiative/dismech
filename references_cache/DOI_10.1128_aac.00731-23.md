@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/aac.00731-23"
+reference_id: DOI:10.1128/aac.00731-23
 title: "Antigiardial and antiamebic activities of fexinidazole and its metabolites: new drug leads for giardiasis and amebiasis"
 authors:
 - Jose Ignacio Escrig
@@ -11,6 +11,7 @@ journal: Antimicrobial Agents and Chemotherapy
 year: '2024'
 doi: 10.1128/aac.00731-23
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Antigiardial and antiamebic activities of fexinidazole and its metabolites: new drug leads for giardiasis and amebiasis
