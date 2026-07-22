@@ -35523,6 +35523,104 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Cherubism",
+    "disease_id": "MONDO:0007315",
+    "category": "Mendelian",
+    "parents": [
+      "Bone Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-07-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cherubism is a rare childhood-onset autoinflammatory fibro-osseous disease of the jaws, in most cases caused by autosomal dominant gain-of-function mutations in SH3BP2. The mutations lie in the binding region for the ubiquitin-ligase adaptor Tankyrase, so the mutant SH3BP2 protein escapes normal degradation and accumulates in myeloid cells. Stabilized SH3BP2 hyperactivates SYK-ERK signaling in macrophages, driving overproduction of TNF-alpha and enhanced RANKL-dependent osteoclastogenesis. Excessive osteoclastic resorption of mandibular and maxillary bone, with replacement by fibrovascular tissue rich in multinucleated giant cells, produces progressive, typically symmetric bilateral jaw expansion that gives affected children a cherubic facial appearance. The disease usually appears in early childhood, progresses until puberty, and then stabilizes and regresses in adulthood. A rare autosomal recessive form is caused by biallelic loss-of-function variants in OGFRL1.",
+    "pathophysiology": [
+      "SH3BP2 Gain-of-Function Stabilization",
+      "Hyperactive Myeloid SYK-ERK Signaling",
+      "Macrophage TNF-alpha Overproduction",
+      "Enhanced Osteoclastogenesis",
+      "Excessive Osteoclastic Bone Resorption",
+      "Fibro-osseous Giant-Cell Lesion Formation"
+    ],
+    "cell_types": [
+      "macrophage",
+      "osteoclast",
+      "multinucleated giant cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000092",
+      "CL:0000647",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "protein stabilization",
+      "ERK cascade",
+      "immunoreceptor signaling",
+      "positive regulation of TNF production",
+      "macrophage activation",
+      "positive regulation of osteoclast differentiation",
+      "bone resorption"
+    ],
+    "phenotypes": [
+      "Bilateral Mandibular Enlargement",
+      "Maxillary Enlargement",
+      "Cherubic Facial Appearance",
+      "Dental Malocclusion and Tooth Displacement",
+      "Premature Tooth Loss and Dental Anomalies",
+      "Expansile Jaw Osteolysis",
+      "Orbital Involvement with Proptosis",
+      "Obstructive Sleep Apnea"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Dental",
+      "Radiologic",
+      "Ophthalmologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000277",
+      "HP:0000326",
+      "HP:0000283",
+      "HP:0000689",
+      "HP:0000164",
+      "HP:0012062",
+      "HP:0000520",
+      "HP:0002870"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SH3BP2",
+      "OGFRL1"
+    ],
+    "treatments": [
+      "Observation and Watchful Waiting",
+      "Surgical Contouring and Curettage",
+      "Denosumab",
+      "Tacrolimus"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cherubism.yaml",
+    "page_url": "../pages/disorders/Cherubism.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Chickenpox",
     "disease_id": "MONDO:0005700",
     "category": "Infectious Disease",
@@ -55299,6 +55397,116 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Erythropoietic Protoporphyria",
+    "disease_id": "MONDO:0001676",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-07-21T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "EPP",
+      "XLP"
+    ],
+    "description": "Erythropoietic protoporphyria (EPP) is an inherited disorder of heme biosynthesis caused by deficient activity of ferrochelatase (FECH), the terminal enzyme that inserts ferrous iron into protoporphyrin IX to form heme. Reduced ferrochelatase activity causes metal-free protoporphyrin IX to accumulate, chiefly in bone-marrow reticulocytes and circulating erythrocytes, and to distribute into plasma, skin, and the hepatobiliary system. Photoexcitation of protoporphyrin IX in dermal blood vessels by violet light generates reactive oxygen species that injure the vascular endothelium, producing the cardinal feature of acute, painful, non-blistering photosensitivity that begins in early childhood. Because protoporphyrin IX is lipophilic and excreted only in bile, it can also accumulate in hepatocytes and precipitate a cholestatic protoporphyric liver disease that, in a minority of patients, progresses to acute liver failure. Most classic EPP results from a loss-of-function FECH mutation in trans to the common hypomorphic low-expression allele IVS3-48C; a phenotypically identical X-linked form (X-linked protoporphyria) is caused by gain-of-function mutations in the erythroid-specific 5-aminolevulinate synthase ALAS2, which overproduce the protoporphyrin precursor pool despite normal ferrochelatase.",
+    "pathophysiology": [
+      "Ferrochelatase Enzymatic Deficiency",
+      "ALAS2 Gain-of-Function Precursor Overproduction",
+      "Erythroid Protoporphyrin IX Accumulation",
+      "Cutaneous Photoexcitation of Protoporphyrin IX",
+      "Phototoxic Reactive Oxygen Species Dermal Injury",
+      "Hepatobiliary Protoporphyrin Loading",
+      "Cholestatic Protoporphyric Hepatopathy"
+    ],
+    "cell_types": [
+      "erythroid progenitor cell",
+      "reticulocyte",
+      "erythrocyte",
+      "dermal microvascular endothelial cell",
+      "mast cell",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000038",
+      "CL:0000558",
+      "CL:0000232",
+      "CL:0002139",
+      "CL:0000097",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "heme biosynthesis",
+      "porphyrin biosynthesis",
+      "response to light",
+      "reactive oxygen species production",
+      "cellular response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Acute Photosensitivity",
+      "Photo-induced Edema",
+      "Photo-induced Erythema",
+      "Chronic Photodamage Skin Changes",
+      "Protoporphyrin Gallstones",
+      "Cholestatic Liver Disease",
+      "Protoporphyric Liver Failure",
+      "Mild Microcytic Anemia"
+    ],
+    "phenotype_categories": [
+      "Cutaneous",
+      "Hepatobiliary",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000992",
+      "HP:0000969",
+      "HP:0010783",
+      "HP:0100725",
+      "HP:0001081",
+      "HP:0002611",
+      "HP:0001399",
+      "HP:0001935"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FECH",
+      "ALAS2"
+    ],
+    "treatments": [
+      "Afamelanotide",
+      "Sunlight Avoidance and Photoprotection",
+      "Bile Acid Sequestrant Therapy",
+      "Vitamin D Supplementation",
+      "Liver Transplantation",
+      "Hematopoietic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated Erythrocyte Protoporphyrin IX",
+      "Zinc Protoporphyrin Fraction"
+    ],
+    "source_file": "Erythropoietic_Protoporphyria.yaml",
+    "page_url": "../pages/disorders/Erythropoietic_Protoporphyria.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Esophageal Adenocarcinoma",
     "disease_id": "MONDO:0005028",
     "category": "",
@@ -63841,6 +64049,111 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "GRIN2B-Related Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0014505",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-07-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "GRIN2B-related developmental and epileptic encephalopathy (DEE27) is a neurodevelopmental disorder caused by de novo heterozygous variants in GRIN2B, which encodes the GluN2B subunit of the N-methyl-D-aspartate (NMDA) glutamate receptor. GluN2B-containing NMDA receptors are the dominant NMDA receptors in the developing brain and are central to excitatory synaptic transmission, calcium-dependent signaling, and activity-dependent synapse maturation and plasticity. Pathogenic GRIN2B variants fall into two broad functional classes: gain-of-function variants that increase NMDA receptor activity, and loss-of-function variants that reduce receptor function or surface expression. Both classes disrupt tightly regulated NMDA-receptor signaling, impairing synaptic development and plasticity (producing developmental delay and intellectual disability) and altering the cortical excitation-inhibition balance (producing seizures). The disorder presents in infancy or early childhood with a spectrum from intellectual disability and autism without epilepsy to severe early-onset epileptic encephalopathy.",
+    "pathophysiology": [
+      "GRIN2B Variant Altering the GluN2B NMDA Receptor Subunit",
+      "NMDA Receptor Gain-of-Function",
+      "NMDA Receptor Loss-of-Function",
+      "Dysregulated NMDA Receptor Signaling",
+      "Impaired Synaptic Development and Plasticity",
+      "Cortical Excitation-Inhibition Imbalance"
+    ],
+    "cell_types": [
+      "glutamatergic neuron",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "glutamate receptor signaling",
+      "calcium ion transmembrane transport",
+      "regulation of glutamatergic synaptic transmission",
+      "modulation of chemical synaptic transmission",
+      "long-term synaptic potentiation",
+      "synapse organization",
+      "dendrite development",
+      "regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Epileptic Encephalopathy",
+      "Seizures",
+      "Infantile Spasms",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Autistic Behavior",
+      "Hypotonia",
+      "Spasticity",
+      "Feeding Difficulties",
+      "Movement Disorder",
+      "Cerebral Visual Impairment",
+      "Microcephaly",
+      "Malformation of Cortical Development"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neurodevelopmental",
+      "Gastrointestinal",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0011968",
+      "HP:0002487",
+      "HP:0100704",
+      "HP:0000252",
+      "HP:0002536"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "GRIN2B"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "NMDA Receptor Antagonist Therapy",
+      "L-Serine Supplementation",
+      "Developmental and Supportive Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GRIN2B-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/GRIN2B-Related_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "GUCY2D-Related Retinopathy",
@@ -159106,17 +159419,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1609,
-  "total_subtypes": 2473,
-  "total_disorders_and_subtypes": 4082,
-  "total_unique_evidence_sources": 24669,
-  "total_unique_publications": 23108,
+  "total_disorder_pages": 1612,
+  "total_subtypes": 2475,
+  "total_disorders_and_subtypes": 4087,
+  "total_unique_evidence_sources": 24692,
+  "total_unique_publications": 23127,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 223,
-  "total_pathographs": 1604,
-  "total_unique_pathological_events": 7790,
+  "total_pathographs": 1607,
+  "total_unique_pathological_events": 7807,
   "total_modules": 116,
-  "total_research_reports": 1841,
+  "total_research_reports": 1844,
   "total_classifications": 9,
   "total_comorbidities": 16,
   "total_groupings": 47
