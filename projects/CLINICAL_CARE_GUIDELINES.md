@@ -260,6 +260,101 @@ usable *citation*.
   citation is a *lead* — spot-check that the top hits are actually about the
   intended disease.
 
+## Second-generation search — "does the abstract state a recommendation?"
+
+The count-ranked search above is a good *prioritization* tool but a poor
+*evidence-sourcing* tool, and the reason is worth recording: it ranks by how many
+Practice Guidelines exist, which reliably surfaces the **flagship umbrella
+guideline** for a disease — and those abstracts are frequently scope and process
+metadata (`OBJECTIVE / TARGET POPULATION / EVIDENCE / METHODS`, panel
+composition, or a chapter list) with no concrete recommendation in them. An
+abstract that states no specific recommendation cannot yield a snippet-verified
+evidence item, however authoritative the guideline is.
+
+**Scope — this is not about drugs.** Care guidelines cover the whole of clinical
+care: pharmacotherapy is only one branch. A usable abstract is one that states a
+**specific, actionable recommendation** naming an intervention of *any* modality
+— drug, surgical/interventional procedure, radiotherapy, device, diet,
+rehabilitation, monitoring interval — or a **diagnostic action** (screening,
+imaging, biopsy, staging, testing). Scoring only drug names encodes a
+pharmacology bias and wrongly discards surgical, diagnostic and supportive-care
+guidance. (Worked example: a cervical-cancer screening guideline whose abstract
+says *"screening assays should differentiate between HPV genotypes 16 and 18"*
+is perfectly good evidence for a diagnostic recommendation and names no drug at
+all.)
+
+```bash
+uv run python .claude/skills/collect-care-guidelines/scripts/therapy_specific_search.py \
+    spec.json out.json     # spec = [{slug, query, terms?[]}, ...]
+```
+
+It runs `esearch`, fetches each abstract, strips the citation/author/affiliation
+front matter, and ranks hits by **`recommendation_sentences`** — sentences
+carrying *both* an intervention/diagnostic term *and* a recommendation cue
+(`we recommend`, `should be offered`, `first-line`, …). The looser
+`intervention_sentences` count is reported alongside for triage. Optional
+per-disease `terms` extend the default modality vocabulary with specific drug or
+procedure names. Records land in
+[`CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl`](CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl).
+
+**Query- and scoring-design lessons (each cost a round to learn):**
+
+1. **Don't OR `guideline*[Title]` with intervention terms.** It matches *studies
+   about* guidelines — "Guideline adherence to aspirin prophylaxis…", "The
+   Nationwide Impact of Guidelines for Prophylactic Aspirin…" — not guidelines
+   themselves. Preeclampsia returned nothing but adherence/impact studies until
+   the filter was tightened.
+2. **Require `"Practice Guideline"[Publication Type]`**; put intervention terms
+   in the *scoring*, not the query. Terms in `[tiab]` bias toward trials of that
+   intervention over guidelines about it.
+3. **Require a recommendation cue, and strip the front matter** — bare term
+   matching produces two classic false positives: **author affiliations**
+   ("Department of Surgery, …" — the ESMO metastatic-colorectal abstract scored
+   6 bogus "intervention" hits this way) and **chapter/TOC listings**
+   ("1) Definition; … 5) Surgical management"), neither of which recommends
+   anything.
+
+**Recommendation-free abstracts (negative results, recorded so they are not
+re-litigated).** These disorders have many guidelines, but the abstracts state
+no specific recommendation of *any* modality — not drug, not procedural, not
+diagnostic. They need full-text access or a different source type, and should be
+*skipped* by abstract-only snippet mining:
+
+| Disorder | Why (re-checked with the modality-agnostic scorer) |
+|---|---|
+| `Non-Small_Cell_Lung_Cancer` | NCCN v4.2026 has **no text abstract**; ASCO Living Guidelines are ~1.9k-char scope-only. The NCCN abstract's single intervention hit is its own scope sentence ("provide recommendations … including diagnosis"). Tried twice. |
+| `Metastatic_Colorectal_Cancer` | ESMO CPG abstract is ~12k chars of author affiliations/scope; `recommendation_sentences = 0` once affiliations are stripped. |
+| `Myocardial_Infarction` | ACC/AHA-adjacent, AATS, SIPREC, Latin-American ACS documents state no specific recommendation in-abstract. |
+| `Endometriosis` | SOGC No. 468 and Polish SGO abstracts are `OBJECTIVE/EVIDENCE` structure only; the French consensus lists chapter headings ("5) Surgical management") rather than recommending. |
+| `Pulmonary_hypertension` | `recommendation_sentences = 0` across **12 candidates over two passes** (batch 15). Scored with the modality-agnostic vocabulary, so this is not a drug-lens artifact — the abstracts state no specific recommendation of any modality, including the diagnostic ones expected here (right heart catheterization, echocardiography). **NEC caution:** acute pulmonary embolism guidelines surface under PH queries and are a different entity. |
+| `Amyloidosis` | Best hit (41277424) scores `rec=1`, but the sentence is *meta* — "Four conditional recommendations and 3 good practice statements were established to provide guidance for proper testing and workup" — a **count** of recommendations, not a recommendation. See the scorer limitation below. |
+| `Sickle_Cell_Disease` | `rec=0` across 6 candidates despite `iv=12` on the best hit — intervention terms present, no recommendation cue. Verified **not** a cue-list gap: abstracts grepped directly for `shall`/`must`/`advise`/`indicated`/`offer`/`screen`; no directive language present. |
+| `Lynch_Syndrome` | `rec=0` across 4 candidates. A surveillance-heavy disease where a diagnostic recommendation was expected; the abstracts state none. Same direct-grep verification. |
+| `Polycystic_Ovary_Syndrome` | The 2023 international guideline (37589624) scores `rec=0` despite a 15k-char abstract. The only `rec>0` hit scores on **terminology**, not care ("The term *female pattern hair loss* should be used…"). |
+| `Chronic_Pancreatitis` | **NEC risk.** Scored `rec=14` — highest in the batch-16 sweep — yet unusable: the top hit's leading sentence is meta, and the runner-up recommends Ringer's lactate for **acute** pancreatitis, a different entity. Acute-pancreatitis guidance surfaces under chronic-pancreatitis queries. |
+
+**Known scorer limitation.** A recommendation cue also matches sentences that merely *describe recommendations existing* ("N recommendations were established…", "the guideline provides recommendations for…"). These inflate `recommendation_sentences` without offering anything quotable. The score is a triage signal, not a verdict — always read the sampled sentence before committing to a source.
+
+**Corollary — don't let the meta heuristic push you onto a secondary source.** The limitation above has a mirror-image failure, and it bit on the very next batch after it was written down. The **primary** ERS bronchiectasis guideline states its own recommendation in reporting voice — "The Task Force recommendations include strong recommendations in favour of airway clearance techniques…" — which *reads* as meta. A Chinese-language **interpretation of that same guideline** phrased it more crisply ("The guideline strongly recommends airway clearance techniques…"). Scoring on phrasing alone therefore picked the commentary over the guideline itself; review caught it (#6601).
+
+A guideline's own `RECOMMENDATIONS:` section frequently reports in the third person — that is the primary source speaking, not a description of someone else's work. **Check journal and title for primary-vs-commentary before preferring a cleaner sentence.** A bracketed, translated title (`[Highlights and interpretation of …]`) is a strong tell that you are reading commentary.
+
+**`rec = 0` is a prompt to read, not a verdict — the scorer produces false negatives too.** The two failures above inflate the score; this one *suppresses* it. The scorer requires **both** an intervention/diagnostic term **and** a recommendation cue, so a missing noun silently kills a real hit. `Lyme_Disease` scored `rec=0` and was nearly recorded as a dead end, yet its guideline abstract is full of usable guidance:
+
+> "Serology is recommended only in suspected disseminated LB…"
+
+The cue (`is recommended`) matched; **"serology" simply wasn't in the intervention vocabulary**. One missing noun, one lost guideline. The vocabulary now covers laboratory/pathology diagnostics (serology, assay, antibody, antigen, culture, histology, cytology, genotyping, sequencing) — but the vocabulary will *always* be incomplete, so treat `rec=0` on a disease whose care you'd expect to be guideline-rich as a signal to open the abstract.
+
+**How to tell a true negative from a vocabulary gap:** grep the abstract for *cue* language alone (`recommend`, `should`, `shall`, `must`, `advise`, `indicated`, `offer`, `first-line`). If there are **no cues at all**, no vocabulary could rescue it — a true negative. If cues are present but `rec=0`, you have a vocabulary gap. The batch-16 negatives (`Sickle_Cell_Disease`, `Lynch_Syndrome`) were verified this way and hold; they contain no directive language whatsoever.
+
+**Corollary for source selection:** prefer the *therapy-specific* guideline over
+the flagship (AGA's ascites update over a general cirrhosis guideline; an
+appropriate-use recommendation over a disease overview). Regional and
+specialty-society guidelines (SEOM-GEICO, SEOM-GOTEL, AFU, ALEH, Brazilian
+Psychiatric Association) are frequently **more** snippet-usable than the big
+international ones, because their abstracts summarize recommendations rather
+than describe process.
+
 ## Evidence policy
 
 This is a **discovery** artifact. Any citation ultimately used as dismech
@@ -277,8 +372,15 @@ were each independently re-sourced.
   — batch 2: the 10 rare-disease citation table (same columns).
 - [`CLINICAL_CARE_GUIDELINES/guideline_search_all.jsonl`](CLINICAL_CARE_GUIDELINES/guideline_search_all.jsonl)
   — the full 1,564-disorder search result / prioritization ranking.
+- [`CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl`](CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl)
+  — second-generation recommendation-scored searches: one record per disorder
+  with the query, the chosen PMID, its recommendation-sentence count, and the
+  outcome (`USED` / `REJECTED_NO_RECOMMENDATION`). Covers enrichment batches
+  10–14 and records the four recommendation-free disorders so they are not
+  re-searched.
 - `.claude/skills/collect-care-guidelines/` — the reusable Agent Skill
-  (`SKILL.md` + `scripts/collect_guidelines.py`) that regenerates both.
+  (`SKILL.md` + `scripts/collect_guidelines.py` for the count-ranked search,
+  `scripts/therapy_specific_search.py` for the recommendation-scoring variant).
 
 ## Next steps
 
