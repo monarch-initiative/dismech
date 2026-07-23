@@ -497,12 +497,12 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             {
                 (
                     "SLC26A2 Pathogenic Variants",
-                    "Sulfate Transport Deficiency in Chondrocytes",
+                    "Loss of SLC26A2 Sulfate Transport in Chondrocytes",
                 )
             },
             {"SLC26A2 Pathogenic Variants": "genetic"},
             {
-                "Sulfate Transport Deficiency in Chondrocytes": [
+                "Loss of SLC26A2 Sulfate Transport in Chondrocytes": [
                     "sulfate transmembrane transporter activity"
                 ]
             },
@@ -638,13 +638,13 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             "Atelosteogenesis_Type_I.yaml",
             {
                 (
-                    "FLNB Pathogenic Variants",
-                    "FLNB Gain-of-Function Cytoskeletal Dysregulation",
+                    "Heterozygous gain-of-function FLNB pathogenic variants",
+                    "Monoallelic FLNB gain-of-function and abnormal actin binding",
                 )
             },
-            {"FLNB Pathogenic Variants": "genetic"},
+            {"Heterozygous gain-of-function FLNB pathogenic variants": "genetic"},
             {
-                "FLNB Gain-of-Function Cytoskeletal Dysregulation": [
+                "Monoallelic FLNB gain-of-function and abnormal actin binding": [
                     "actin filament binding"
                 ]
             },
