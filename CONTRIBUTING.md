@@ -3,11 +3,13 @@
 Thank you for your interest in contributing to the Disorder Mechanisms Knowledge Base!
 
 > [!WARNING]
-> This guide is aimed at real humans. Agents are welcome to read this for context,
+> This guide is aimed at **real humans**. Agents are welcome to read this for context,
 > but instructions aimed at people should not be confused for instructions for agents.
+> Agent instructions are in the usual places.
 
 Most of this guide assumes some familiarity with running agent harnesses such as claude code
-or codex. Even if you are not familiar with these, you are welcome to file issues.
+or codex. Even if you are not familiar with these, you are welcome to file issues
+(__UPDATE__ see [#5833](https://github.com/monarch-initiative/dismech/issues/6833) for filing issues as a non-collaborator)
 
 This guide also assumes you are a member of the Monarch Initiative and specifically the dismech team.
 While we welcome contributions from anyone, if you intend to make a PR, please read the note below
@@ -375,6 +377,11 @@ default = no-refresh
 
 - **Issues**: [GitHub Issues](https://github.com/monarch-initiative/dismech/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/monarch-initiative/dismech/discussions)
+
+See also
+
+ - https://github.com/monarch-initiative/dismech/issues/6833
+ - https://github.com/monarch-initiative/dismech/issues/4794
 
 ## Code of Conduct
 

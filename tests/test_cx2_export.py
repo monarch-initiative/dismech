@@ -184,7 +184,7 @@ def test_disorder_to_cx2_exports_event_location_links() -> None:
     aspects = _aspect_map(cx2)
     nodes, _ = _nodes_by_name(aspects)
 
-    event_node = nodes["Promyelocyte Accumulation"]
+    event_node = nodes["Promyelocyte Compartment Expansion"]
     assert event_node["v"]["location_ids"] == ["UBERON:0002371"]
     assert "UBERON:0002371" in event_node["v"]["location_links"]
     assert event_node["v"]["cell_type_ids"] == ["CL:0000836"]

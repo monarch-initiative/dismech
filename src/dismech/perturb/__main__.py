@@ -63,8 +63,12 @@ def _print_variable_table(
         ref_v = reference.get(var_name, 0)
         pert_v = result[var_name]
         base_v = baseline.get(var_name, 0)
-        delta_ref = ((pert_v - ref_v) / ref_v * 100) if ref_v != 0 else 0
-        delta_base = ((pert_v - base_v) / base_v * 100) if base_v != 0 else 0
+        # Guard against near-zero denominators (e.g. beta-cell mass / insulin
+        # collapsing to ~0 at the pathological fixed point), which otherwise
+        # produce meaningless astronomical percentages.
+        eps = 1e-9
+        delta_ref = ((pert_v - ref_v) / ref_v * 100) if abs(ref_v) > eps else 0.0
+        delta_base = ((pert_v - base_v) / base_v * 100) if abs(base_v) > eps else 0.0
         marker = " <<<" if abs(delta_ref) > 20 else ""
         print(
             f"  {vm.label:<30} {ref_v:>12.2f} {pert_v:>12.2f} {delta_ref:>+9.1f}% {delta_base:>+11.1f}%{marker}"
@@ -112,8 +116,11 @@ def perturb(
         raise typer.Exit(1)
 
     typer.echo(f"Model: {config.model_id}")
-    typer.echo("Computing healthy baseline (GFR=6.0)...")
-    baseline_result = run_perturbation(config, gfr=6.0)
+    baseline_gfr = config.coupling.baseline_gfr
+    typer.echo(
+        f"Computing healthy baseline ({config.coupling.gfr_parameter}={baseline_gfr})..."
+    )
+    baseline_result = run_perturbation(config, gfr=baseline_gfr)
     baseline = baseline_result.variables
 
     if all_scenarios:

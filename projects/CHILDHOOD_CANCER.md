@@ -1,6 +1,9 @@
 ---
 title: Childhood Cancer / CCDI Alignment Project
 status: IN_PROGRESS
+nih_topics:
+  - NIH_HT_68_childhood_adolescent_young_adult_aya_cancer
+  - NIH_HT_79_data_usage_utility_to_advance_biomedical
 description: Explore how dismech can contribute to the childhood / pediatric / AYA cancer data ecosystem, with a focus on structured disease mechanism curation for pediatric malignancies and direct alignment with the NCI Childhood Cancer Data Initiative (CCDI).
 ---
 

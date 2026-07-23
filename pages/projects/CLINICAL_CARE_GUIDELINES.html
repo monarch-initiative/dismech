@@ -873,6 +873,92 @@ usable <em>citation</em>.</p>
   citation is a <em>lead</em> — spot-check that the top hits are actually about the
   intended disease.</li>
 </ul>
+<h2 id="second-generation-search-does-the-abstract-state-a-recommendation">Second-generation search — "does the abstract state a recommendation?"</h2>
+<p>The count-ranked search above is a good <em>prioritization</em> tool but a poor
+<em>evidence-sourcing</em> tool, and the reason is worth recording: it ranks by how many
+Practice Guidelines exist, which reliably surfaces the <strong>flagship umbrella
+guideline</strong> for a disease — and those abstracts are frequently scope and process
+metadata (<code>OBJECTIVE / TARGET POPULATION / EVIDENCE / METHODS</code>, panel
+composition, or a chapter list) with no concrete recommendation in them. An
+abstract that states no specific recommendation cannot yield a snippet-verified
+evidence item, however authoritative the guideline is.</p>
+<p><strong>Scope — this is not about drugs.</strong> Care guidelines cover the whole of clinical
+care: pharmacotherapy is only one branch. A usable abstract is one that states a
+<strong>specific, actionable recommendation</strong> naming an intervention of <em>any</em> modality
+— drug, surgical/interventional procedure, radiotherapy, device, diet,
+rehabilitation, monitoring interval — or a <strong>diagnostic action</strong> (screening,
+imaging, biopsy, staging, testing). Scoring only drug names encodes a
+pharmacology bias and wrongly discards surgical, diagnostic and supportive-care
+guidance. (Worked example: a cervical-cancer screening guideline whose abstract
+says <em>"screening assays should differentiate between HPV genotypes 16 and 18"</em>
+is perfectly good evidence for a diagnostic recommendation and names no drug at
+all.)</p>
+<pre><code class="language-bash">uv run python .claude/skills/collect-care-guidelines/scripts/therapy_specific_search.py \
+    spec.json out.json     # spec = [{slug, query, terms?[]}, ...]
+</code></pre>
+<p>It runs <code>esearch</code>, fetches each abstract, strips the citation/author/affiliation
+front matter, and ranks hits by <strong><code>recommendation_sentences</code></strong> — sentences
+carrying <em>both</em> an intervention/diagnostic term <em>and</em> a recommendation cue
+(<code>we recommend</code>, <code>should be offered</code>, <code>first-line</code>, …). The looser
+<code>intervention_sentences</code> count is reported alongside for triage. Optional
+per-disease <code>terms</code> extend the default modality vocabulary with specific drug or
+procedure names. Records land in
+<a href="CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl"><code>CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl</code></a>.</p>
+<p><strong>Query- and scoring-design lessons (each cost a round to learn):</strong></p>
+<ol>
+<li><strong>Don't OR <code>guideline*[Title]</code> with intervention terms.</strong> It matches <em>studies
+   about</em> guidelines — "Guideline adherence to aspirin prophylaxis…", "The
+   Nationwide Impact of Guidelines for Prophylactic Aspirin…" — not guidelines
+   themselves. Preeclampsia returned nothing but adherence/impact studies until
+   the filter was tightened.</li>
+<li><strong>Require <code>"Practice Guideline"[Publication Type]</code></strong>; put intervention terms
+   in the <em>scoring</em>, not the query. Terms in <code>[tiab]</code> bias toward trials of that
+   intervention over guidelines about it.</li>
+<li><strong>Require a recommendation cue, and strip the front matter</strong> — bare term
+   matching produces two classic false positives: <strong>author affiliations</strong>
+   ("Department of Surgery, …" — the ESMO metastatic-colorectal abstract scored
+   6 bogus "intervention" hits this way) and <strong>chapter/TOC listings</strong>
+   ("1) Definition; … 5) Surgical management"), neither of which recommends
+   anything.</li>
+</ol>
+<p><strong>Recommendation-free abstracts (negative results, recorded so they are not
+re-litigated).</strong> These disorders have many guidelines, but the abstracts state
+no specific recommendation of <em>any</em> modality — not drug, not procedural, not
+diagnostic. They need full-text access or a different source type, and should be
+<em>skipped</em> by abstract-only snippet mining:</p>
+<table>
+<thead>
+<tr>
+<th>Disorder</th>
+<th>Why (re-checked with the modality-agnostic scorer)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Non-Small_Cell_Lung_Cancer</code></td>
+<td>NCCN v4.2026 has <strong>no text abstract</strong>; ASCO Living Guidelines are ~1.9k-char scope-only. The NCCN abstract's single intervention hit is its own scope sentence ("provide recommendations … including diagnosis"). Tried twice.</td>
+</tr>
+<tr>
+<td><code>Metastatic_Colorectal_Cancer</code></td>
+<td>ESMO CPG abstract is ~12k chars of author affiliations/scope; <code>recommendation_sentences = 0</code> once affiliations are stripped.</td>
+</tr>
+<tr>
+<td><code>Myocardial_Infarction</code></td>
+<td>ACC/AHA-adjacent, AATS, SIPREC, Latin-American ACS documents state no specific recommendation in-abstract.</td>
+</tr>
+<tr>
+<td><code>Endometriosis</code></td>
+<td>SOGC No. 468 and Polish SGO abstracts are <code>OBJECTIVE/EVIDENCE</code> structure only; the French consensus lists chapter headings ("5) Surgical management") rather than recommending.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Corollary for source selection:</strong> prefer the <em>therapy-specific</em> guideline over
+the flagship (AGA's ascites update over a general cirrhosis guideline; an
+appropriate-use recommendation over a disease overview). Regional and
+specialty-society guidelines (SEOM-GEICO, SEOM-GOTEL, AFU, ALEH, Brazilian
+Psychiatric Association) are frequently <strong>more</strong> snippet-usable than the big
+international ones, because their abstracts summarize recommendations rather
+than describe process.</p>
 <h2 id="evidence-policy">Evidence policy</h2>
 <p>This is a <strong>discovery</strong> artifact. Any citation ultimately used as dismech
 evidence must still pass the standard snippet-verification workflow
@@ -888,8 +974,15 @@ were each independently re-sourced.</p>
   — batch 2: the 10 rare-disease citation table (same columns).</li>
 <li><a href="CLINICAL_CARE_GUIDELINES/guideline_search_all.jsonl"><code>CLINICAL_CARE_GUIDELINES/guideline_search_all.jsonl</code></a>
   — the full 1,564-disorder search result / prioritization ranking.</li>
+<li><a href="CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl"><code>CLINICAL_CARE_GUIDELINES/therapy_specific_searches.jsonl</code></a>
+  — second-generation recommendation-scored searches: one record per disorder
+  with the query, the chosen PMID, its recommendation-sentence count, and the
+  outcome (<code>USED</code> / <code>REJECTED_NO_RECOMMENDATION</code>). Covers enrichment batches
+  10–14 and records the four recommendation-free disorders so they are not
+  re-searched.</li>
 <li><code>.claude/skills/collect-care-guidelines/</code> — the reusable Agent Skill
-  (<code>SKILL.md</code> + <code>scripts/collect_guidelines.py</code>) that regenerates both.</li>
+  (<code>SKILL.md</code> + <code>scripts/collect_guidelines.py</code> for the count-ranked search,
+  <code>scripts/therapy_specific_search.py</code> for the recommendation-scoring variant).</li>
 </ul>
 <h2 id="next-steps">Next steps</h2>
 <ol>
