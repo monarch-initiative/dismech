@@ -18159,65 +18159,49 @@ window.searchData = [
       "SCA5",
       "SCA6",
       "SCA11",
-      "SCA14",
-      "SCA15",
-      "SCA23",
-      "SCA25",
-      "SCA31",
-      "SCA43",
-      "SCA46"
+      "SCA26",
+      "SCA30",
+      "SCA31"
     ],
-    "description": "Autosomal dominant cerebellar ataxia type III (ADCA-III) is Harding's classification for hereditary ataxias with a pure or predominantly cerebellar syndrome without prominent extracerebellar features such as pyramidal tract signs, peripheral neuropathy, ophthalmoplegia, retinal degeneration, or dementia. The defining clinical hallmarks are progressive gait and limb ataxia, dysarthria, and nystagmus. ADCA-III encompasses a genetically heterogeneous group of conditions \u2014 including SCA5, SCA6, SCA11, SCA14, SCA15/16, SCA23, SCA25, SCA31, SCA43, and SCA46 \u2014 whose shared pathological endpoint is predominant degeneration of Purkinje cells in the cerebellar cortex. Some rare molecular subtypes assigned to this clinical class, notably SCA25 and SCA43, can include sensory neuropathy; the parent class therefore captures the pure-cerebellar Harding pattern while recording subtype-specific exceptions. The heterogeneous molecular causes include voltage-gated calcium channel dysfunction (CACNA1A/SCA6), perturbation of IP3 receptor-mediated calcium signalling (ITPR1/SCA15), scaffold and cytoskeletal protein defects (SPTBN2/SCA5), tau kinase impairment (TTBK2/SCA11), PKC signalling dysregulation (PRKCG/SCA14), mitochondrial RNA-processing defects (PNPT1/SCA25), pentanucleotide-repeat RNA toxicity (BEAN1/TK2/SCA31), neprilysin dysfunction (MME/SCA43), and candidate lysosomal/synaptic mechanisms involving PLD3 in SCA46.",
+    "description": "Autosomal dominant cerebellar ataxia type III (ADCA-III) is Harding's clinicophenotypic class of dominantly inherited, mostly pure cerebellar syndromes. It is not spinocerebellar ataxia type 3 (SCA3/Machado-Joseph disease): the Roman numeral denotes Harding's broad class, not an individual numbered SCA. The canonical disease concept comprises SCA5, SCA6, SCA11, SCA26, SCA30, and SCA31. Gait and limb ataxia, dysarthria, abnormal eye movements, and predominantly cerebellar atrophy define the class, although mild pyramidal, neuropathic, parkinsonian, dystonic, or tremor features can occur in individual families. The molecular causes are heterogeneous: SPTBN2-associated postsynaptic organization defects in SCA5, a CACNA1A CAG expansion with polyglutamine proteotoxicity in SCA6, truncating TTBK2 alleles that disrupt cilia in SCA11, an EEF2 p.Pro596His variant that impairs translational fidelity in the original SCA26 family, and a noncoding BEAN1/TK2-region pentanucleotide insertion producing toxic repeat RNA in SCA31. SCA30 remains mapped to chromosome 4q34.3-q35.1 without an established causal gene.",
     "pathophysiology": [
-      "Purkinje Cell Calcium Dysregulation",
-      "Cytoskeletal and Scaffold Protein Defects in Purkinje Cells",
-      "Tau-Tubulin Kinase 2 Loss and Purkinje Cell Dysfunction",
-      "PKC Gamma Signaling Dysregulation",
-      "IP3R1 Haploinsufficiency and Calcium Release Defects",
-      "Purkinje Cell Degeneration and Cerebellar Cortical Atrophy",
-      "Prodynorphin Neuropeptide Toxicity in SCA23",
-      "Pentanucleotide Repeat RNA Foci in SCA31",
-      "Neprilysin-Dependent Neuropeptide Catabolism Defect in SCA43",
-      "Candidate PLD3-Linked Lysosomal and Synaptic Mechanism in SCA46",
-      "Mitochondrial dsRNA Accumulation and Interferon Activation in SCA25"
+      "SPTBN2-Dependent Postsynaptic Organization Defect",
+      "CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation",
+      "TTBK2 Dominant-Negative Ciliary Dysfunction",
+      "EEF2 Translational-Fidelity and Proteostasis Defect",
+      "SCA31 Repeat-RNA Toxicity",
+      "Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy"
     ],
     "cell_types": [
-      "Purkinje cell",
-      "neuron"
+      "Purkinje cell"
     ],
     "cell_type_ids": [
-      "CL:0000121",
-      "CL:0000540"
+      "CL:0000121"
     ],
     "biological_processes": [
-      "intracellular calcium ion homeostasis",
-      "calcium ion transmembrane transport",
       "cytoskeleton organization",
-      "L-glutamate import across plasma membrane",
-      "cilium assembly",
-      "microtubule cytoskeleton organization",
-      "protein kinase C signaling",
-      "long-term synaptic depression",
-      "neuron apoptotic process",
       "modulation of chemical synaptic transmission",
+      "endoplasmic reticulum unfolded protein response",
+      "regulation of membrane potential",
+      "cilium assembly",
+      "translational elongation",
+      "response to unfolded protein",
       "regulation of alternative mRNA splicing, via spliceosome",
-      "protein catabolic process",
-      "lysosome organization",
-      "chemical synaptic transmission",
-      "innate immune response"
+      "neuron apoptotic process"
     ],
     "phenotypes": [
       "Progressive Gait Ataxia",
       "Limb Ataxia",
       "Dysarthria",
       "Nystagmus",
-      "Pyramidal Signs",
-      "Peripheral Neuropathy"
+      "Dysphagia",
+      "Falls"
     ],
     "phenotype_categories": [
       "Neurologic"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Eye",
       "Nervous System"
     ],
@@ -18226,40 +18210,33 @@ window.searchData = [
       "HP:0002070",
       "HP:0001260",
       "HP:0000639",
-      "HP:0007256",
-      "HP:0009830"
+      "HP:0002015",
+      "HP:0002527"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "FREQUENT"
     ],
     "genes": [
       "SPTBN2 (SCA5)",
-      "CACNA1A (SCA6)",
+      "CACNA1A CAG expansion (SCA6)",
       "TTBK2 (SCA11)",
-      "PRKCG (SCA14)",
-      "PDYN (SCA23)",
-      "ITPR1 (SCA15/SCA16)",
-      "PNPT1 (SCA25)",
-      "BEAN1/TK2 repeat locus (SCA31)",
-      "MME (SCA43)",
-      "PLD3 (SCA46)"
+      "EEF2 p.Pro596His (SCA26)",
+      "BEAN1/TK2 repeat locus (SCA31)"
     ],
     "treatments": [
-      "Supportive care and rehabilitation",
-      "Acetazolamide for episodic features (SCA6)"
+      "Multidisciplinary supportive care and rehabilitation"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Cerebellar_Ataxia_Type_III.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Cerebellar_Ataxia_Type_III.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 11,
-    "num_genes": 10,
-    "num_treatments": 2,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "2"
+    "num_pathophysiology": 6,
+    "num_genes": 5,
+    "num_treatments": 1,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Autosomal Dominant Dopa-Responsive Dystonia",
@@ -19010,17 +18987,13 @@ window.searchData = [
     "creation_date": "2026-05-11T21:02:17Z",
     "updated_date": "2026-05-11T21:44:11Z",
     "subtypes": [],
-    "description": "Autosomal dominant striatal neurodegeneration is an ultra-rare adult-onset movement disorder caused by heterozygous PDE8B pathogenic variants. Reported families show slowly progressive parkinsonism with bradykinesia, rigidity, dysarthria, gait disturbance, dysphagia, dysdiadochokinesis, and characteristic striatal MRI abnormalities involving the putamen, caudate nucleus, or striatum.",
+    "description": "Autosomal dominant striatal neurodegeneration is an ultra-rare adult-onset movement disorder caused by heterozygous loss-of-function PDE8B variants. Reported families show a slowly progressive striatal movement disorder, usually with parkinsonism, bradykinesia, rigidity, dysarthria, and gait disturbance, together with characteristic signal abnormalities of the putamen and caudate. Ataxia, tremor without parkinsonism, and limb dystonia expand the phenotype in individual reports. The link from impaired PDE8B cyclic-nucleotide hydrolysis to selective striatal injury remains unresolved.",
     "pathophysiology": [
       "PDE8B Cyclic Nucleotide Phosphodiesterase Loss",
-      "Striatal Degeneration"
+      "Degeneration of the striatum"
     ],
-    "cell_types": [
-      "medium spiny neuron"
-    ],
-    "cell_type_ids": [
-      "CL:1001474"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
       "cAMP catabolic process"
     ],
@@ -19034,7 +19007,8 @@ window.searchData = [
       "Dysdiadochokinesis",
       "Ataxia",
       "Abnormality of movement",
-      "Parkinsonism"
+      "Parkinsonism",
+      "Tremor"
     ],
     "phenotype_categories": [
       "Neurologic"
@@ -19054,7 +19028,8 @@ window.searchData = [
       "HP:0002075",
       "HP:0001251",
       "HP:0100022",
-      "HP:0001300"
+      "HP:0001300",
+      "HP:0001337"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -19068,11 +19043,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Striatal_Neurodegeneration.yaml",
     "page_url": "../pages/disorders/Autosomal_dominant_striatal_neurodegeneration.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 11,
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -19166,17 +19141,17 @@ window.searchData = [
   {
     "name": "Autosomal Recessive Ataxia Due to Ubiquinone Deficiency",
     "disease_id": "MONDO:0012784",
-    "category": "Neurological Disorder",
+    "category": "Mendelian",
     "parents": [
       "Mendelian Disorder",
-      "Neurological Disorder"
+      "Neurological Disorder",
+      "Metabolic Disorder",
+      "Mitochondrial Disorder"
     ],
     "creation_date": "2026-04-23T00:00:00Z",
-    "updated_date": "2026-05-19T15:31:15Z",
-    "subtypes": [
-      "COQ8A-ataxia"
-    ],
-    "description": "Biallelic loss-of-function variants in COQ8A disrupt coenzyme Q10 biosynthesis, producing a primary coenzyme Q10 deficiency. Reduced coenzyme Q10 impairs mitochondrial respiratory-chain electron transport and oxidative phosphorylation, generating oxidative stress and an energy deficit that preferentially injures the cerebellum. The result is early-onset progressive cerebellar ataxia with cerebellar atrophy, sometimes accompanied by epilepsy, cognitive impairment, and hyperkinetic movement disorders.",
+    "updated_date": "2026-07-23T00:00:00Z",
+    "subtypes": [],
+    "description": "Autosomal recessive ataxia due to ubiquinone deficiency is the COQ8A-related form of primary coenzyme Q10 deficiency, also called COQ8A-ataxia, ARCA2, SCAR9, or primary coenzyme Q10 deficiency-4. Biallelic pathogenic COQ8A variants impair the atypical mitochondrial ATPase that stabilizes the coenzyme Q biosynthesis complex, lowering coenzyme Q10 and compromising respiratory-chain electron transfer. The core phenotype is childhood-onset, slowly progressive cerebellar ataxia with cerebellar atrophy, but onset can range into adulthood and the spectrum includes cognitive impairment, epilepsy, dystonia, myoclonus, tremor, and myopathic features. Oral coenzyme Q10 is mechanistically rational and observational cohorts report improvement in some patients, but response is variable and no randomized COQ8A-specific efficacy trial has established an optimal dose or formulation.",
     "pathophysiology": [
       "COQ8A-Dependent Coenzyme Q10 Deficiency",
       "Impaired Oxidative Phosphorylation",
@@ -19204,6 +19179,7 @@ window.searchData = [
       "Tremor",
       "Cerebellar Atrophy",
       "Seizure",
+      "Status Epilepticus",
       "Cognitive Impairment",
       "Developmental Regression",
       "Exercise Intolerance",
@@ -19227,6 +19203,7 @@ window.searchData = [
       "HP:0001337",
       "HP:0001272",
       "HP:0001250",
+      "HP:0002133",
       "HP:0100543",
       "HP:0002376",
       "HP:0003546",
@@ -19246,7 +19223,8 @@ window.searchData = [
       "COQ8A"
     ],
     "treatments": [
-      "Coenzyme Q10 supplementation"
+      "Coenzyme Q10 supplementation",
+      "Ketogenic intermittent fasting with medium-chain triglycerides"
     ],
     "environmental": [],
     "biochemical": [
@@ -19255,11 +19233,11 @@ window.searchData = [
     ],
     "source_file": "Autosomal_Recessive_Ataxia_Due_to_Ubiquinone_Deficiency.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Ataxia_Due_to_Ubiquinone_Deficiency.html",
-    "num_phenotypes": 14,
+    "num_phenotypes": 15,
     "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "26",
+    "num_treatments": 2,
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "5"
   },
   {
@@ -19267,72 +19245,106 @@ window.searchData = [
     "disease_id": "MONDO:0018129",
     "category": "Mendelian",
     "parents": [
-      "Hereditary Ataxia"
+      "Hereditary Ataxia",
+      "Hereditary Spastic Paraplegia"
     ],
     "creation_date": "2026-06-13T00:00:00Z",
-    "updated_date": null,
+    "updated_date": "2026-07-23T00:00:00Z",
     "subtypes": [],
-    "description": "Autosomal recessive cerebellar ataxia with late-onset spasticity is a GBA2-related spastic-ataxia disorder, overlapping spastic paraplegia 46 (SPG46). It is caused by biallelic GBA2 variants encoding the microsomal nonlysosomal glucosylceramidase that converts glucosylceramide to glucose and ceramide. Loss of GBA2 activity causes glucosylceramide accumulation and motor neuron and cerebellar dysfunction, producing a complex phenotype of cerebellar ataxia with spastic paraplegia, often with cerebellar and corpus callosum atrophy, cognitive impairment, cataract, and (in males) hypogonadism.",
+    "description": "Autosomal recessive cerebellar ataxia with late-onset spasticity is one presentation of the biallelic GBA2 disease spectrum, most often termed hereditary spastic paraplegia 46 (SPG46). Presentations range from ataxia-predominant disease in which spasticity emerges later to early-onset complex hereditary spastic paraplegia and a Marinesco-Sj\u00f6gren-like phenotype. Across these labels, cerebellar ataxia and lower-limb spasticity coexist, with variable peripheral neuropathy, cognitive impairment, cataracts, scoliosis, hypogonadism, movement disorders, and characteristic but inconsistent MRI abnormalities. Biallelic GBA2 variants severely reduce the nonlysosomal glucosylceramidase that hydrolyzes glucosylceramide to glucose and ceramide. Glucosylceramide accumulation is established in patient material, but the downstream mechanism linking lipid imbalance to selective corticospinal, cerebellar, peripheral-nerve, ocular, and endocrine manifestations remains incompletely resolved.",
     "pathophysiology": [
-      "GBA2 Nonlysosomal Glucosylceramidase Deficiency",
-      "Glucosylceramide Accumulation and Motor Neuron/Cerebellar Dysfunction"
+      "Biallelic GBA2 Loss of Function",
+      "Nonlysosomal Glucosylceramidase Deficiency",
+      "Glucosylceramide Accumulation and Sphingolipid Imbalance",
+      "Axonal and Neurite Dysfunction",
+      "Central and Peripheral Neurologic Syndrome",
+      "Variable Multisystem Expression With Unresolved Intermediates"
     ],
     "cell_types": [
+      "motor neuron",
       "neuron"
     ],
     "cell_type_ids": [
+      "CL:0000100",
       "CL:0000540"
     ],
     "biological_processes": [
-      "glucosylceramide catabolic process"
+      "glucosylceramide catabolic process",
+      "actin cytoskeleton organization",
+      "neuron projection development"
     ],
     "phenotypes": [
       "Cerebellar ataxia",
       "Spastic paraplegia",
-      "Cerebellar atrophy",
-      "Thin/atrophic corpus callosum",
+      "Peripheral neuropathy",
       "Cognitive impairment",
+      "Dystonia",
+      "Tremor",
+      "Vertical supranuclear gaze palsy",
+      "Urinary urgency",
       "Cataract",
       "Hypogonadism",
-      "Peripheral neuropathy",
+      "Scoliosis",
+      "Pes cavus",
+      "Cerebellar atrophy",
+      "Corpus callosum atrophy",
       "Cerebral white matter abnormalities"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Endocrine",
+      "Musculoskeletal",
+      "Imaging"
+    ],
     "phenotype_hpo_categories": [
       "Endocrine",
       "Eye",
       "Genitourinary",
+      "Limbs",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001251",
       "HP:0001258",
-      "HP:0001272",
-      "HP:0007371",
-      "HP:0001249",
+      "HP:0009830",
+      "HP:0100543",
+      "HP:0001332",
+      "HP:0001337",
+      "HP:0000511",
+      "HP:0000012",
       "HP:0000518",
       "HP:0000135",
-      "HP:0009830",
+      "HP:0002650",
+      "HP:0001761",
+      "HP:0001272",
+      "HP:0007371",
       "HP:0002500"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
-      "GBA2 pathogenic variants"
+      "Biallelic GBA2 pathogenic variants"
     ],
     "treatments": [
-      "Supportive Care"
+      "Multidisciplinary supportive care",
+      "Individualized physical and occupational rehabilitation",
+      "Symptomatic antispastic pharmacotherapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Cerebellar_Ataxia_With_Late_Onset_Spasticity.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Cerebellar_Ataxia_With_Late-Onset_Spasticity.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Autosomal Recessive Congenital Ichthyosis",
@@ -27045,6 +27057,93 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 4,
     "causal_graph_edges": "20",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "CHD2-Related Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0014150",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-07-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CHD2-related developmental and epileptic encephalopathy (DEE94) is a childhood-onset neurodevelopmental disorder caused by de novo heterozygous loss-of-function variants in CHD2, which encodes chromodomain helicase DNA-binding protein 2, an ATP-dependent chromatin-remodeling enzyme. CHD2 regulates nucleosome positioning and the accessibility of DNA to the transcriptional machinery, and is required for the coordinated gene-expression programs of neuronal development. Haploinsufficiency for CHD2 dysregulates chromatin remodeling and neuronal gene expression, producing a combination of developmental delay/intellectual disability and a characteristic epilepsy with prominent myoclonic and absence seizures, photosensitivity, and frequent developmental regression around seizure onset. Seizures usually begin in early childhood, are frequently fever-sensitive (reported in roughly one third of individuals), and are often refractory to treatment.",
+    "pathophysiology": [
+      "CHD2 Haploinsufficiency",
+      "Dysregulated Chromatin Remodeling",
+      "Aberrant Neuronal Gene Expression",
+      "Impaired Neuronal Development",
+      "Cortical Network Hyperexcitability"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "chromatin remodeling",
+      "regulation of transcription",
+      "regulation of gene expression",
+      "neuron differentiation",
+      "nervous system development",
+      "regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Epileptic Encephalopathy",
+      "Myoclonic Seizures",
+      "Absence Seizures",
+      "Atonic Seizures",
+      "Photosensitive Seizures",
+      "EEG Abnormality",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Developmental Regression",
+      "Autistic Behavior"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neurodevelopmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0002123",
+      "HP:0002121",
+      "HP:0010819",
+      "HP:0020216",
+      "HP:0002353",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0002376",
+      "HP:0000729"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CHD2"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Photic Trigger Avoidance",
+      "Developmental and Supportive Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CHD2-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/CHD2-Related_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
   },
   {
@@ -35521,6 +35620,104 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Cherubism",
+    "disease_id": "MONDO:0007315",
+    "category": "Mendelian",
+    "parents": [
+      "Bone Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-07-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cherubism is a rare childhood-onset autoinflammatory fibro-osseous disease of the jaws, in most cases caused by autosomal dominant gain-of-function mutations in SH3BP2. The mutations lie in the binding region for the ubiquitin-ligase adaptor Tankyrase, so the mutant SH3BP2 protein escapes normal degradation and accumulates in myeloid cells. Stabilized SH3BP2 hyperactivates SYK-ERK signaling in macrophages, driving overproduction of TNF-alpha and enhanced RANKL-dependent osteoclastogenesis. Excessive osteoclastic resorption of mandibular and maxillary bone, with replacement by fibrovascular tissue rich in multinucleated giant cells, produces progressive, typically symmetric bilateral jaw expansion that gives affected children a cherubic facial appearance. The disease usually appears in early childhood, progresses until puberty, and then stabilizes and regresses in adulthood. A rare autosomal recessive form is caused by biallelic loss-of-function variants in OGFRL1.",
+    "pathophysiology": [
+      "SH3BP2 Gain-of-Function Stabilization",
+      "Hyperactive Myeloid SYK-ERK Signaling",
+      "Macrophage TNF-alpha Overproduction",
+      "Enhanced Osteoclastogenesis",
+      "Excessive Osteoclastic Bone Resorption",
+      "Fibro-osseous Giant-Cell Lesion Formation"
+    ],
+    "cell_types": [
+      "macrophage",
+      "osteoclast",
+      "multinucleated giant cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000092",
+      "CL:0000647",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "protein stabilization",
+      "ERK cascade",
+      "immunoreceptor signaling",
+      "positive regulation of TNF production",
+      "macrophage activation",
+      "positive regulation of osteoclast differentiation",
+      "bone resorption"
+    ],
+    "phenotypes": [
+      "Bilateral Mandibular Enlargement",
+      "Maxillary Enlargement",
+      "Cherubic Facial Appearance",
+      "Dental Malocclusion and Tooth Displacement",
+      "Premature Tooth Loss and Dental Anomalies",
+      "Expansile Jaw Osteolysis",
+      "Orbital Involvement with Proptosis",
+      "Obstructive Sleep Apnea"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Dental",
+      "Radiologic",
+      "Ophthalmologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000277",
+      "HP:0000326",
+      "HP:0000283",
+      "HP:0000689",
+      "HP:0000164",
+      "HP:0012062",
+      "HP:0000520",
+      "HP:0002870"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SH3BP2",
+      "OGFRL1"
+    ],
+    "treatments": [
+      "Observation and Watchful Waiting",
+      "Surgical Contouring and Curettage",
+      "Denosumab",
+      "Tacrolimus"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cherubism.yaml",
+    "page_url": "../pages/disorders/Cherubism.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Chickenpox",
@@ -55299,6 +55496,116 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Erythropoietic Protoporphyria",
+    "disease_id": "MONDO:0001676",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-07-21T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "EPP",
+      "XLP"
+    ],
+    "description": "Erythropoietic protoporphyria (EPP) is an inherited disorder of heme biosynthesis caused by deficient activity of ferrochelatase (FECH), the terminal enzyme that inserts ferrous iron into protoporphyrin IX to form heme. Reduced ferrochelatase activity causes metal-free protoporphyrin IX to accumulate, chiefly in bone-marrow reticulocytes and circulating erythrocytes, and to distribute into plasma, skin, and the hepatobiliary system. Photoexcitation of protoporphyrin IX in dermal blood vessels by violet light generates reactive oxygen species that injure the vascular endothelium, producing the cardinal feature of acute, painful, non-blistering photosensitivity that begins in early childhood. Because protoporphyrin IX is lipophilic and excreted only in bile, it can also accumulate in hepatocytes and precipitate a cholestatic protoporphyric liver disease that, in a minority of patients, progresses to acute liver failure. Most classic EPP results from a loss-of-function FECH mutation in trans to the common hypomorphic low-expression allele IVS3-48C; a phenotypically identical X-linked form (X-linked protoporphyria) is caused by gain-of-function mutations in the erythroid-specific 5-aminolevulinate synthase ALAS2, which overproduce the protoporphyrin precursor pool despite normal ferrochelatase.",
+    "pathophysiology": [
+      "Ferrochelatase Enzymatic Deficiency",
+      "ALAS2 Gain-of-Function Precursor Overproduction",
+      "Erythroid Protoporphyrin IX Accumulation",
+      "Cutaneous Photoexcitation of Protoporphyrin IX",
+      "Phototoxic Reactive Oxygen Species Dermal Injury",
+      "Hepatobiliary Protoporphyrin Loading",
+      "Cholestatic Protoporphyric Hepatopathy"
+    ],
+    "cell_types": [
+      "erythroid progenitor cell",
+      "reticulocyte",
+      "erythrocyte",
+      "dermal microvascular endothelial cell",
+      "mast cell",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000038",
+      "CL:0000558",
+      "CL:0000232",
+      "CL:0002139",
+      "CL:0000097",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "heme biosynthesis",
+      "porphyrin biosynthesis",
+      "response to light",
+      "reactive oxygen species production",
+      "cellular response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Acute Photosensitivity",
+      "Photo-induced Edema",
+      "Photo-induced Erythema",
+      "Chronic Photodamage Skin Changes",
+      "Protoporphyrin Gallstones",
+      "Cholestatic Liver Disease",
+      "Protoporphyric Liver Failure",
+      "Mild Microcytic Anemia"
+    ],
+    "phenotype_categories": [
+      "Cutaneous",
+      "Hepatobiliary",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000992",
+      "HP:0000969",
+      "HP:0010783",
+      "HP:0100725",
+      "HP:0001081",
+      "HP:0002611",
+      "HP:0001399",
+      "HP:0001935"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FECH",
+      "ALAS2"
+    ],
+    "treatments": [
+      "Afamelanotide",
+      "Sunlight Avoidance and Photoprotection",
+      "Bile Acid Sequestrant Therapy",
+      "Vitamin D Supplementation",
+      "Liver Transplantation",
+      "Hematopoietic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated Erythrocyte Protoporphyrin IX",
+      "Zinc Protoporphyrin Fraction"
+    ],
+    "source_file": "Erythropoietic_Protoporphyria.yaml",
+    "page_url": "../pages/disorders/Erythropoietic_Protoporphyria.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Esophageal Adenocarcinoma",
     "disease_id": "MONDO:0005028",
     "category": "",
@@ -63841,6 +64148,111 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "GRIN2B-Related Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0014505",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-07-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "GRIN2B-related developmental and epileptic encephalopathy (DEE27) is a neurodevelopmental disorder caused by de novo heterozygous variants in GRIN2B, which encodes the GluN2B subunit of the N-methyl-D-aspartate (NMDA) glutamate receptor. GluN2B-containing NMDA receptors are the dominant NMDA receptors in the developing brain and are central to excitatory synaptic transmission, calcium-dependent signaling, and activity-dependent synapse maturation and plasticity. Pathogenic GRIN2B variants fall into two broad functional classes: gain-of-function variants that increase NMDA receptor activity, and loss-of-function variants that reduce receptor function or surface expression. Both classes disrupt tightly regulated NMDA-receptor signaling, impairing synaptic development and plasticity (producing developmental delay and intellectual disability) and altering the cortical excitation-inhibition balance (producing seizures). The disorder presents in infancy or early childhood with a spectrum from intellectual disability and autism without epilepsy to severe early-onset epileptic encephalopathy.",
+    "pathophysiology": [
+      "GRIN2B Variant Altering the GluN2B NMDA Receptor Subunit",
+      "NMDA Receptor Gain-of-Function",
+      "NMDA Receptor Loss-of-Function",
+      "Dysregulated NMDA Receptor Signaling",
+      "Impaired Synaptic Development and Plasticity",
+      "Cortical Excitation-Inhibition Imbalance"
+    ],
+    "cell_types": [
+      "glutamatergic neuron",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "glutamate receptor signaling",
+      "calcium ion transmembrane transport",
+      "regulation of glutamatergic synaptic transmission",
+      "modulation of chemical synaptic transmission",
+      "long-term synaptic potentiation",
+      "synapse organization",
+      "dendrite development",
+      "regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Epileptic Encephalopathy",
+      "Seizures",
+      "Infantile Spasms",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Autistic Behavior",
+      "Hypotonia",
+      "Spasticity",
+      "Feeding Difficulties",
+      "Movement Disorder",
+      "Cerebral Visual Impairment",
+      "Microcephaly",
+      "Malformation of Cortical Development"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neurodevelopmental",
+      "Gastrointestinal",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0011968",
+      "HP:0002487",
+      "HP:0100704",
+      "HP:0000252",
+      "HP:0002536"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "GRIN2B"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "NMDA Receptor Antagonist Therapy",
+      "L-Serine Supplementation",
+      "Developmental and Supportive Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GRIN2B-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/GRIN2B-Related_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "GUCY2D-Related Retinopathy",
@@ -159106,17 +159518,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1609,
-  "total_subtypes": 2473,
-  "total_disorders_and_subtypes": 4082,
-  "total_unique_evidence_sources": 24669,
-  "total_unique_publications": 23108,
+  "total_disorder_pages": 1613,
+  "total_subtypes": 2470,
+  "total_disorders_and_subtypes": 4083,
+  "total_unique_evidence_sources": 24668,
+  "total_unique_publications": 23095,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 223,
-  "total_pathographs": 1604,
-  "total_unique_pathological_events": 7790,
+  "total_pathographs": 1608,
+  "total_unique_pathological_events": 7812,
   "total_modules": 116,
-  "total_research_reports": 1841,
+  "total_research_reports": 1845,
   "total_classifications": 9,
   "total_comorbidities": 16,
   "total_groupings": 47
