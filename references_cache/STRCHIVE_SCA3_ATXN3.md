@@ -107,6 +107,6 @@ Benign alleles range from 11-44 repeats [@pmid:37906407], with intermediate alle
 
 STRchive (https://strchive.org), version **2.1.0** (snapshot 2026-07-23). A centralized catalog of tandem-repeat disease loci. Content is for research use and does not constitute medical guidance.
 
-License: CC BY 4.0.
+License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). This record is a reformatted and field-subset rendering of one locus from the STRchive `STRchive-loci.json` catalog; the source data are unmodified in substance.
 
 [STRchive](https://strchive.org) · [source repository](https://github.com/hdashnow/STRchive)

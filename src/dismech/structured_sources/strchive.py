@@ -323,7 +323,12 @@ class StrchiveSource(StructuredSource):
             "guidance."
         )
         yield ""
-        yield "License: CC BY 4.0."
+        yield (
+            "License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). "
+            "This record is a reformatted and field-subset rendering of one "
+            "locus from the STRchive `STRchive-loci.json` catalog; the source "
+            "data are unmodified in substance."
+        )
         yield ""
         yield "[STRchive](https://strchive.org) · [source repository](https://github.com/hdashnow/STRchive)"
 
