@@ -1529,6 +1529,43 @@ as evidence `snippet:` values.
 | `CIVIC_ASSERTION:`, `CIVIC_EID:` | CIViC accepted assertion and clinical evidence TSVs | One record per accepted CIViC assertion or evidence item | CIViC |
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 | `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
+| `STRCHIVE:` | STRchive loci JSON (strchive.org) | One record per tandem-repeat disease locus (73 loci): repeat motif, benign/intermediate/pathogenic repeat-count thresholds, genomic coordinates, mechanism, inheritance, disease-ontology xrefs | CC-BY 4.0 |
+
+**Citing a STRchive tandem-repeat disease locus:**
+
+STRchive (https://strchive.org) is a centralized catalog of the tandem-repeat
+(TR / short-tandem-repeat, STR) loci that cause disease when they expand. Each
+`references_cache/STRCHIVE_<locus>.md` file holds one locus (e.g.
+`STRCHIVE_SCA3_ATXN3.md`) with a `## Repeat-count thresholds` table, a
+`## Repeat` motif table, `## Genomic coordinates`, and a `## Cross-references`
+table — each row a stable quotable substring. Repeat motifs and pathogenic
+repeat-count thresholds currently live only as free prose in disorder entries;
+citing STRchive grounds those numbers in a snippet-validated structured source:
+
+```yaml
+evidence:
+- reference: STRCHIVE:SCA3_ATXN3
+  supports: SUPPORT
+  evidence_source: OTHER
+  snippet: "| Pathogenic | 60 | 87 |"
+  explanation: STRchive gives the pathogenic ATXN3 CAG repeat range (60-87) for SCA3.
+```
+
+As with ORPHA/ICEES rows, a quoted table snippet may include or omit the
+leading and trailing pipes — both substring-match against the cached body. The
+high-volume `additional_literature` tracking bibliography is intentionally
+excluded from the cache body; the curated `references` list is kept. The STR
+domain is complementary to the two repeat-expansion mechanism modules
+(`polyglutamine_expansion_proteotoxicity`, `fame_pentanucleotide_repeat_rna_toxicity`)
+and the `Polyglutamine_Disorders` grouping, which carry these thresholds only
+as prose today. Build/refresh with:
+
+```bash
+just strchive-refresh                      # download + verify the pinned loci JSON
+just strchive-rebuild                       # rebuild all references_cache/STRCHIVE_*.md
+just strchive-rebuild --id STRCHIVE:HD_HTT  # one locus
+just strchive-list                          # list locus identifiers
+```
 
 **Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
 
