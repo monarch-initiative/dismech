@@ -405,6 +405,42 @@ candidate discovery), `Heritable_Thoracic_Aortic_Disease` (NECESSARY with a
 nested AND/OR phenotype branch), and `Lysosomal_Storage_Disorders` (defining
 module criterion + a nested GROUPING member).
 
+### Pathophysiology Biological Scale Tag
+
+Each `Pathophysiology` node may carry an optional `biological_scale:` value
+tagging the node with the primary biological scale of its substrate. The
+enum is small and closed — one of `MOLECULAR`, `CELLULAR`, `TISSUE`, or
+`ORGANISM`. Each value covers both ongoing processes and persistent states
+at that scale (e.g. `MOLECULAR` includes both a kinase's activity and a
+fusion protein's existence; `ORGANISM` includes both cytokine storm and
+chronic hyperphenylalaninemia).
+
+```yaml
+pathophysiology:
+- name: SHP2 Gain-of-Function Activation
+  biological_scale: MOLECULAR
+  molecular_functions:
+  - preferred_term: protein tyrosine phosphatase activity
+    term: {id: GO:0004725, label: protein tyrosine phosphatase activity}
+- name: ERK Cascade Hyperactivation
+  biological_scale: CELLULAR
+- name: Pulmonary Valve Dysplasia
+  biological_scale: TISSUE
+- name: Coagulopathy
+  biological_scale: ORGANISM
+```
+
+**When to use:** on any pathophysiology node when the primary scale is
+clear. Legacy nodes without the tag validate unchanged — it is optional.
+
+**Single-value discipline.** Pick one value. If a node would naturally take
+two (e.g. a fusion protein event bundled with its cellular consequence),
+that is a signal the node bundles two mechanistic claims and should be
+split into atomic nodes.
+
+**Reference.** `projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md` records the
+survey that fixed the enum at these four values and the bundle patterns
+curators should watch for.
 ### Digenic / Oligogenic Inheritance (Multi-Locus)
 
 Some disorders require variants at **two loci (digenic)** or a **few loci
@@ -444,6 +480,41 @@ entries: `Alport_Syndrome`, `Usher_Syndrome`,
 `Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
 `Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
 (`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+
+### Hypothesis-Based Phenotype Algorithms
+
+A `definitions[]` entry with `definition_type: PHENOTYPE_ALGORITHM` may be a
+**computable EHR/OMOP case-finding query predicated on an unproven mechanism**
+(e.g. scan for a new arrhythmia/seizure shortly after a fever to surface latent
+CACNA1C carriers), not just a consensus/OHDSI-validated phenotype. Mark the
+epistemic grounding so the two are never conflated (issue #6245):
+
+- **`derivation_basis`** (`DefinitionDerivationBasisEnum`): `ESTABLISHED_CRITERIA`
+  (default — consensus/validated), `MECHANISTIC_HYPOTHESIS` (predicated on an
+  unproven mechanism), or `MODEL_SYSTEM_EXTRAPOLATION` (from an animal/in-vitro
+  result not yet shown in humans).
+- **`attaches_to`** (reused slot, `pathophysiology#<node>` grammar): for a
+  `MECHANISTIC_HYPOTHESIS` definition, link the pathograph node(s)/edge(s) it is
+  predicated on. The hypothesis basis is then inferred from those edges'
+  `hypothesis_groups` → `mechanistic_hypotheses[].status` — do **not** add a
+  standalone hypothesis id on the definition. A test
+  (`test_hypothesis_based_definition_attaches_to_foreign_keys`) requires these
+  refs to resolve.
+- **`validation_status`** (`AlgorithmValidationStatus` object): `status`
+  (`PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD`) + free-text
+  `rationale` + optional `evidence` (standard EvidenceItem — PMID + verified
+  snippet — e.g. the validation study reporting the query's PPV).
+
+The trigger pathophysiology node itself is modeled normally (a node whose
+`downstream` edges opt into `hypothesis_groups: [<id>]`) plus a disease-level
+`mechanistic_hypotheses` entry (usually `status: EMERGING`). Two paired worked
+examples span the spectrum: `Timothy_Syndrome` (`fever_exacerbated_cav1.2`;
+`MECHANISTIC_HYPOTHESIS`/`PROPOSED`, zebrafish) and `Brugada_Syndrome`
+(fever-unmasking of the type-1 ECG; `ESTABLISHED_CRITERIA`/`UNVALIDATED`, an
+established-mechanism definition that still `attaches_to` its fever node). See
+[`docs/hypothesis-based-phenotype-algorithms.md`](docs/hypothesis-based-phenotype-algorithms.md)
+and the candidate register in
+[`docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md`](docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md).
 
 ### Evidence Items
 All evidence must have PMID references and support classification:

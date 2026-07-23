@@ -16,6 +16,8 @@ KB_DIR = ROOT_DIR / "kb" / "disorders"
 COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
 MODULES_DIR = ROOT_DIR / "kb" / "modules"
 GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
+SYNTHESIS_SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "research_synthesis.yaml"
+RESEARCH_DIR = ROOT_DIR / "research"
 
 # Get all disorder YAML files (exclude history snapshots)
 DISORDER_FILES = [
@@ -23,6 +25,7 @@ DISORDER_FILES = [
 ]
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
 GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
+SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
 
 
 def _disease_names():
@@ -207,6 +210,57 @@ def test_schema_validity(validator):
     """Test that the schema itself is valid LinkML."""
     # If we got here without errors, schema is valid
     assert validator is not None
+
+
+def test_biological_scale_enum_and_pathophysiology_slot():
+    """BiologicalScaleEnum has exactly the 4 expected scale values, and the
+    biological_scale slot is wired into Pathophysiology.
+
+    Guards against silent enum drift — the value set is load-bearing for the
+    feasibility analysis in projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md and
+    should only change with a corresponding design update.
+    """
+    from linkml_runtime.utils.schemaview import SchemaView
+
+    sv = SchemaView(str(SCHEMA_PATH))
+
+    enum = sv.get_enum("BiologicalScaleEnum")
+    assert enum is not None, "BiologicalScaleEnum missing from schema"
+    assert set(enum.permissible_values.keys()) == {
+        "MOLECULAR",
+        "CELLULAR",
+        "TISSUE",
+        "ORGANISM",
+    }, (
+        "BiologicalScaleEnum values changed unexpectedly; if intentional, update "
+        "this test and projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md"
+    )
+
+    slot = sv.get_slot("biological_scale")
+    assert slot is not None, "biological_scale slot missing from schema"
+    assert slot.range == "BiologicalScaleEnum", (
+        f"biological_scale slot range should be BiologicalScaleEnum, got {slot.range}"
+    )
+
+    assert "biological_scale" in sv.class_slots("Pathophysiology"), (
+        "biological_scale slot not wired into Pathophysiology class"
+    )
+
+
+def test_biological_scale_pathophysiology_accepts_enum_value(validator):
+    """A Pathophysiology entry with a biological_scale value should validate."""
+    data = {
+        "name": "Test Disease",
+        "pathophysiology": [
+            {
+                "name": "Test node",
+                "biological_scale": "MOLECULAR",
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
 
 
 def test_environmental_food_source_slot_validates(validator):
@@ -670,6 +724,63 @@ def test_subtype_foreign_keys(filepath):
     )
 
 
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_hypothesis_based_definition_attaches_to_foreign_keys(filepath):
+    """Hypothesis-based phenotype algorithms must anchor in the pathograph (#6245).
+
+    A `definitions[]` entry whose `derivation_basis` is MECHANISTIC_HYPOTHESIS
+    is predicated on a specific disease mechanism, so it must `attaches_to` at
+    least one node it operationalizes, and any *local* `pathophysiology#<name>`
+    or `phenotype#<name>` reference must resolve to a real node/phenotype in the
+    same entry (the same hash-anchor discipline `discussions.attaches_to` uses).
+    Cross-file references (`<file>:<kind>#<name>`) are not resolved here.
+    """
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    definitions = data.get("definitions", []) or []
+    if not definitions:
+        return
+
+    patho_names = {n.get("name") for n in data.get("pathophysiology", []) or []}
+    pheno_names = {p.get("name") for p in data.get("phenotypes", []) or []}
+
+    errors = []
+    for i, defn in enumerate(definitions):
+        if defn.get("derivation_basis") != "MECHANISTIC_HYPOTHESIS":
+            continue
+        refs = defn.get("attaches_to", []) or []
+        if not refs:
+            errors.append(
+                f"definitions[{i}] ({defn.get('name')!r}) has "
+                f"derivation_basis: MECHANISTIC_HYPOTHESIS but no attaches_to"
+            )
+            continue
+        for ref in refs:
+            if "#" not in ref:
+                errors.append(f"definitions[{i}].attaches_to={ref!r} lacks '#'")
+                continue
+            left, name = ref.split("#", 1)
+            if ":" in left:
+                # Cross-file reference — not resolved here.
+                continue
+            kind = left
+            if kind == "pathophysiology" and name not in patho_names:
+                errors.append(
+                    f"definitions[{i}].attaches_to={ref!r} does not resolve to a "
+                    f"pathophysiology node"
+                )
+            elif kind == "phenotype" and name not in pheno_names:
+                errors.append(
+                    f"definitions[{i}].attaches_to={ref!r} does not resolve to a "
+                    f"phenotype"
+                )
+
+    assert not errors, (
+        f"Hypothesis-based definition FK problems in {Path(filepath).name}: {errors}"
+    )
+
+
 def test_phenotype_multivalued_subtypes_validates(validator, tmp_path):
     """Issue #963: a phenotype may be associated with multiple subtypes.
 
@@ -977,6 +1088,70 @@ def test_valid_grouping_files(filepath, validator):
     errors = [r for r in report.results if r.severity.name == "ERROR"]
 
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.fixture(scope="module")
+def synthesis_validator():
+    """Validator bound to the standalone research-synthesis schema."""
+    return Validator(SYNTHESIS_SCHEMA_PATH)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
+def test_valid_research_synthesis_files(filepath, synthesis_validator):
+    """All research-synthesis files validate against the ResearchSynthesis class."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    report = synthesis_validator.validate(data, target_class="ResearchSynthesis")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
+def test_synthesis_provider_references_resolve(filepath):
+    """Every provider_support.provider must be declared in the top-level providers list."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    declared = {p.get("name") for p in data.get("providers", []) or []}
+    errors = []
+    for i, finding in enumerate(data.get("harmonized_findings", []) or []):
+        for support in finding.get("provider_support", []) or []:
+            provider = support.get("provider")
+            if provider not in declared:
+                errors.append(
+                    f"harmonized_findings[{i}] references undeclared provider "
+                    f"{provider!r} (declared: {sorted(declared)})"
+                )
+
+    assert not errors, f"Provider foreign-key errors in {filepath}: {errors}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
+def test_synthesis_best_matching_text_verbatim(filepath):
+    """Every best_matching_text must be a verbatim substring of its source_report."""
+    from dismech.research_synthesis import iter_quote_problems
+
+    problems = list(iter_quote_problems(filepath))
+    assert not problems, f"Quote-verification problems in {filepath}: {problems}"
+
+
+def test_synthesis_derive_consensus():
+    """derive_consensus computes the consensus label from provider stances."""
+    from dismech.research_synthesis import derive_consensus
+
+    def finding(*stances):
+        return {"provider_support": [{"stance": s} for s in stances]}
+
+    assert derive_consensus(finding("CONCORDANT", "CONTRADICTORY")) == "CONFLICT"
+    assert derive_consensus(finding("CONCORDANT", "SILENT")) == "SINGLE"
+    assert derive_consensus(finding("CONCORDANT", "CONCORDANT")) == "UNANIMOUS"
+    assert derive_consensus(finding("CONCORDANT", "PARTIAL")) == "MAJORITY"
+    assert derive_consensus(finding("SILENT", "SILENT")) == "SINGLE"
 
 
 @pytest.mark.kb_data
