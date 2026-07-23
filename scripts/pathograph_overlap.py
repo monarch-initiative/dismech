@@ -209,7 +209,7 @@ def _oak_parents(prefix, terms, cache="/tmp/oak_parents.json"):
         out = subprocess.run(
             ["uv", "run", "runoak", "-i", f"sqlite:obo:{onto}",
              "relationships", "-p", "i"] + chunk,
-            capture_output=True, text=True, timeout=600).stdout
+            capture_output=True, text=True, timeout=600, check=False).stdout
         for t in chunk:
             store.setdefault(t, [])
         for line in out.splitlines()[1:]:

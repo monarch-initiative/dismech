@@ -7,13 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from dismech.render import render_disorder
-from dismech.render import _build_hierarchy_path
+from dismech.render import _build_hierarchy_path, render_disorder
 
 
 def _extract_graph_data(html: str) -> dict:
     """Extract the embedded graphData payload from a rendered disorder page."""
-    match = re.search(r"var graphData = JSON\.parse\((\".*?\")\);", html, re.S)
+    match = re.search(r"var graphData = JSON\.parse\((\".*?\")\);", html, re.DOTALL)
     assert match is not None, "Rendered HTML did not include graphData payload"
     return json.loads(json.loads(match.group(1)))
 

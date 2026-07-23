@@ -9,12 +9,12 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Sequence, TextIO
+from typing import TextIO
 
 import yaml
-
 
 RESEARCH_FILE_RE = re.compile(r"^(?P<disorder>.+)-deep-research-(?P<provider>.+)\.md$")
 FRONTMATTER_DELIMITER = "---"

@@ -8,13 +8,15 @@ from typing import Any
 
 import typer
 
-from .g2p import build_dismech_gene_index
-from .g2p import compare_gene
-from .g2p import compute_release_overview
-from .g2p import load_g2p_index
-from .g2p import survey_genes
-from .g2p import write_batch_summary
-from .g2p import write_summary
+from .g2p import (
+    build_dismech_gene_index,
+    compare_gene,
+    compute_release_overview,
+    load_g2p_index,
+    survey_genes,
+    write_batch_summary,
+    write_summary,
+)
 from .support import default_kb_dir
 
 __all__ = ["app", "audit", "compare_gene", "load_g2p_index", "survey_genes"]

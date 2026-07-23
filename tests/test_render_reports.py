@@ -1,4 +1,5 @@
 import pytest
+
 from dismech.render import collect_reports
 
 
@@ -39,5 +40,5 @@ def test_collect_reports_fallback_title(reports_dir):
         "Just some text without a heading.\n"
     )
     results = collect_reports("Test_Disorder", reports_root=reports_dir / "reports")
-    no_heading = [r for r in results if r["filename"] == "03-no-heading.md"][0]
+    no_heading = next(r for r in results if r["filename"] == "03-no-heading.md")
     assert no_heading["title"] == "03-no-heading"

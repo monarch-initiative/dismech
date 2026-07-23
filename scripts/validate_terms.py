@@ -11,9 +11,10 @@ and validates them against OAK adapters.
 """
 
 import sys
-import yaml
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
+
+import yaml
 from oaklib import get_adapter
 
 

@@ -10,12 +10,12 @@ import os
 import re
 import time
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Set
+from typing import Any
 
 import yaml
-
 
 RESEARCH_FILE_RE = re.compile(
     r"^(?P<name>.+)-deep-research-(?P<provider>[^.]+)\.md(?:\.citations\.md)?$"
@@ -134,8 +134,8 @@ def canonical_ref(raw: str) -> str | None:
     return None
 
 
-def extract_refs(text: str) -> Set[str]:
-    refs: Set[str] = set()
+def extract_refs(text: str) -> set[str]:
+    refs: set[str] = set()
 
     def add(raw: str) -> None:
         canon = canonical_ref(raw)
@@ -160,8 +160,8 @@ def cache_path_for_ref(reference: str, references_cache_dir: str) -> Path:
     return Path(references_cache_dir) / f"{safe}.md"
 
 
-def research_provider_map(research_dir: str) -> Dict[str, Set[str]]:
-    providers: Dict[str, Set[str]] = defaultdict(set)
+def research_provider_map(research_dir: str) -> dict[str, set[str]]:
+    providers: dict[str, set[str]] = defaultdict(set)
     for path in glob.glob(os.path.join(research_dir, "*-deep-research-*.md*")):
         filename = os.path.basename(path)
         if filename.startswith("com_"):
@@ -173,8 +173,8 @@ def research_provider_map(research_dir: str) -> Dict[str, Set[str]]:
     return providers
 
 
-def citation_ref_map(research_dir: str) -> Dict[str, Dict[str, Set[str]]]:
-    refs: Dict[str, Dict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
+def citation_ref_map(research_dir: str) -> dict[str, dict[str, set[str]]]:
+    refs: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
     pattern = os.path.join(research_dir, "*-deep-research-*.md.citations.md")
     for path in glob.glob(pattern):
         filename = os.path.basename(path)
@@ -191,7 +191,7 @@ def citation_ref_map(research_dir: str) -> Dict[str, Dict[str, Set[str]]]:
     return refs
 
 
-def collect_existing_refs(node: Any, out: Set[str]) -> None:
+def collect_existing_refs(node: Any, out: set[str]) -> None:
     if isinstance(node, dict):
         for key, value in node.items():
             if key == "reference" and isinstance(value, str):
@@ -205,8 +205,8 @@ def collect_existing_refs(node: Any, out: Set[str]) -> None:
             collect_existing_refs(item, out)
 
 
-def collect_top_reference_found_in(data: Mapping[str, Any]) -> Dict[str, Set[str]]:
-    out: Dict[str, Set[str]] = {}
+def collect_top_reference_found_in(data: Mapping[str, Any]) -> dict[str, set[str]]:
+    out: dict[str, set[str]] = {}
     references = data.get("references")
     if not isinstance(references, list):
         return out
@@ -221,7 +221,7 @@ def collect_top_reference_found_in(data: Mapping[str, Any]) -> Dict[str, Set[str
         if not canon:
             continue
         raw_found_in = item.get("found_in")
-        found_in_set: Set[str] = set()
+        found_in_set: set[str] = set()
         if isinstance(raw_found_in, str):
             val = raw_found_in.strip()
             if val:
@@ -246,7 +246,7 @@ def has_holder_bucket(data: Mapping[str, Any]) -> bool:
     return False
 
 
-def write_report(rows: List[DisorderQCRow], output_dir: str) -> Path:
+def write_report(rows: list[DisorderQCRow], output_dir: str) -> Path:
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     ts = time.strftime("%Y%m%d-%H%M%S")
     path = Path(output_dir) / f"qc_deep_research_{ts}.tsv"
@@ -304,12 +304,12 @@ def main() -> int:
     provider_map = research_provider_map(args.research_dir)
     citation_map = citation_ref_map(args.research_dir)
 
-    rows: List[DisorderQCRow] = []
+    rows: list[DisorderQCRow] = []
 
     for path in disorder_paths:
         disorder = path.stem
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        existing_refs: Set[str] = set()
+        existing_refs: set[str] = set()
         collect_existing_refs(data, existing_refs)
 
         providers = provider_map.get(disorder, set())
@@ -389,7 +389,7 @@ def main() -> int:
     report_path = write_report(rows, args.output_dir)
     print(f"- report: {report_path}")
 
-    failures: List[str] = []
+    failures: list[str] = []
     if args.fail_on_second_provider and bad_second:
         failures.append(f"{len(bad_second)} disorder(s) missing second provider")
     if args.fail_on_missing_reference and bad_missing:

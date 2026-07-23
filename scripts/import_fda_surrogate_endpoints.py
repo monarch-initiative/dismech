@@ -12,7 +12,6 @@ from typing import Any
 import openpyxl
 import yaml
 
-
 FDA_SOURCE_URL = (
     "https://www.fda.gov/drugs/development-resources/"
     "table-surrogate-endpoints-were-basis-drug-approval-or-licensure"
@@ -361,7 +360,7 @@ def main() -> None:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--kb-dir", default=Path("kb/disorders"), type=Path)
     parser.add_argument("--content-current-as-of", default="2026-04-29")
-    parser.add_argument("--retrieved-date", default=date.today().isoformat())
+    parser.add_argument("--retrieved-date", default=date.today().isoformat())  # noqa: DTZ011
     args = parser.parse_args()
 
     collection = import_workbook(

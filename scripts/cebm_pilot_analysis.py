@@ -27,8 +27,9 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import requests
 import yaml

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from linkml.validator import Validator
 
 # Paths
@@ -1178,9 +1177,8 @@ def test_grouping_member_foreign_keys(filepath):
         elif mtype == "MODULE":
             if _module_stem(ref) not in module_stems:
                 errors.append(f"members[{i}].member={ref!r} (type MODULE)")
-        elif mtype == "GROUPING":
-            if ref not in grouping_names:
-                errors.append(f"members[{i}].member={ref!r} (type GROUPING)")
+        elif mtype == "GROUPING" and ref not in grouping_names:
+            errors.append(f"members[{i}].member={ref!r} (type GROUPING)")
 
     assert not errors, (
         f"Grouping member FK mismatches in {Path(filepath).name}. Bad refs: {errors}"

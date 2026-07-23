@@ -26,7 +26,6 @@ from typing import Any
 
 import requests
 
-
 DEFAULT_BASE_URL = "https://www.iembase.com/api/v2"
 DEFAULT_DATA_DIR = Path("data/iembase")
 USER_AGENT = (
@@ -217,7 +216,7 @@ def prefetch(args: argparse.Namespace) -> int:
             try:
                 _, status = future.result()
                 counts[status] = counts.get(status, 0) + 1
-            except Exception as exc:  # noqa: BLE001 - report all failed ids together
+            except Exception as exc:
                 failures.append((disease_id, str(exc)))
             if done_count % args.progress_every == 0 or done_count == len(futures):
                 print(

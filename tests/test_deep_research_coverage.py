@@ -7,7 +7,6 @@ import sys
 from io import StringIO
 from pathlib import Path
 
-
 ROOT = Path(__file__).parent.parent
 SCRIPT_PATH = ROOT / "scripts" / "deep_research_coverage.py"
 SPEC = importlib.util.spec_from_file_location("deep_research_coverage", SCRIPT_PATH)

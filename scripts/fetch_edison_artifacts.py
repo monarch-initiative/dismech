@@ -28,7 +28,6 @@ from pathlib import Path
 
 import yaml
 
-
 # ---------------------------------------------------------------------------
 # API key helpers
 # ---------------------------------------------------------------------------
@@ -141,10 +140,10 @@ def fetch_artifacts(trajectory_id: str, output_file: Path) -> int:
 
     Returns the number of artifacts saved.
     """
+    from deep_research_client.models import ProviderConfig
+    from deep_research_client.providers.falcon import FalconProvider
     from edison_client import EdisonClient
     from edison_client.models.app import TaskResponseVerbose
-    from deep_research_client.providers.falcon import FalconProvider
-    from deep_research_client.models import ProviderConfig
 
     api_key = _load_api_key()
     client = EdisonClient(api_key=api_key)

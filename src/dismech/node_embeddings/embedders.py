@@ -18,7 +18,8 @@ imports cleanly without them installed.
 from __future__ import annotations
 
 import os
-from typing import Protocol, Sequence, runtime_checkable
+from collections.abc import Sequence
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
