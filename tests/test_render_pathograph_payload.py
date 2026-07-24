@@ -610,10 +610,10 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "Ataxia_Telangiectasia.yaml",
-            {("ATM", "ATM kinase deficiency and defective DNA damage signaling")},
+            {("ATM", "ATM kinase deficiency and defective DNA-damage signaling")},
             {"ATM": "genetic"},
             {
-                "ATM kinase deficiency and defective DNA damage signaling": [
+                "ATM kinase deficiency and defective DNA-damage signaling": [
                     "protein serine/threonine kinase activity"
                 ]
             },
