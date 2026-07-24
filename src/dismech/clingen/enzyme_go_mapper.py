@@ -83,10 +83,9 @@ def extract_enzyme_names(text: str) -> list[str]:
                 continue
 
             # Skip if doesn't look like an enzyme (must contain enzyme suffix)
-            if not any(enzyme.endswith(suffix) for suffix in ENZYME_SUFFIXES):
-                # Also check for general -ase ending
-                if not enzyme.endswith("ase"):
-                    continue
+            # Also check for general -ase ending
+            if not any(enzyme.endswith(suffix) for suffix in ENZYME_SUFFIXES) and not enzyme.endswith("ase"):
+                continue
 
             enzymes.add(enzyme)
 
@@ -231,20 +230,20 @@ def main():
     test_cases = [
         (
             "ADA",
-            "Presented the first characterization of ADA activity, catalyzing the "
-            "hydrolytic deamination of adenosine to inosine, within the lysosomal "
-            "compartment of human fibroblasts."
+            ("Presented the first characterization of ADA activity, catalyzing the "
+             "hydrolytic deamination of adenosine to inosine, within the lysosomal "
+             "compartment of human fibroblasts.")
         ),
         (
             "ACAD8",
-            "ACAD8 encodes Isobutyryl-CoA dehydrogenase which catalyzes the 3rd step "
-            "in the degradation of valine."
+            ("ACAD8 encodes Isobutyryl-CoA dehydrogenase which catalyzes the 3rd step "
+             "in the degradation of valine.")
         ),
         (
             "ABCA3",
-            "ABCA3 encodes the ATP-binding cassette phospholipid transporter, which "
-            "is required for the normal organization and packaging of surfactant "
-            "phospholipids into specialized secretory organelles."
+            ("ABCA3 encodes the ATP-binding cassette phospholipid transporter, which "
+             "is required for the normal organization and packaging of surfactant "
+             "phospholipids into specialized secretory organelles.")
         ),
     ]
 

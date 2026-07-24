@@ -7,9 +7,10 @@ import html
 import json
 import re
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from collections.abc import Iterable, Iterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 import yaml
 
@@ -311,8 +312,8 @@ def _parse_date(value: Any) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _query_ancestor_map(
@@ -1036,17 +1037,13 @@ def _render_capability_metrics_page(
         )
 
     cards = "\n".join(
-        """
+        f"""
             <div class="card">
-                <h3>{title}</h3>
-                <div class="value">{value}</div>
-                <p>{detail}</p>
+                <h3>{html.escape(title)}</h3>
+                <div class="value">{_format_metric_value(value)}</div>
+                <p>{html.escape(detail)}</p>
             </div>
-        """.format(
-            title=html.escape(title),
-            value=_format_metric_value(value),
-            detail=html.escape(detail),
-        )
+        """
         for title, value, detail in card_values
     )
     mondo_panel = _render_mondo_coverage_panel(mondo if isinstance(mondo, dict) else None)
@@ -1329,7 +1326,7 @@ def generate_uncurated_dashboard_report(
     """Build uncurated disease link report pages for the QC dashboard."""
     rows = collect_uncurated_disease_references(kb_dir)
     summary = _build_summary(rows)
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     dashboard_dir.mkdir(parents=True, exist_ok=True)
     json_path = dashboard_dir / "not_yet_curated.json"
@@ -1370,7 +1367,7 @@ def generate_capability_metrics_report(
         reports_path=reports_path,
         mondo_db_path=mondo_db_path,
     )
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     dashboard_dir.mkdir(parents=True, exist_ok=True)
     json_path = dashboard_dir / "capability_metrics.json"

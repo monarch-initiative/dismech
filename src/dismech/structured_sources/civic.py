@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import csv
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Iterable
+from typing import ClassVar
 
 from dismech.structured_sources.base import (
     BulkFile,

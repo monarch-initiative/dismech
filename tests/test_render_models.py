@@ -93,7 +93,7 @@ def test_render_disorder_combines_experimental_and_computational_models(
     assert re.search(
         r'<div class="card" id="models">\s*<div class="card-header">.*?Experimental Models',
         html,
-        re.S,
+        re.DOTALL,
     )
 
 
@@ -129,7 +129,7 @@ def test_render_disorder_anchors_models_to_experimental_section_when_only_experi
     assert re.search(
         r'<div class="card" id="models">\s*<div class="card-header">.*?Experimental Models',
         html,
-        re.S,
+        re.DOTALL,
     )
 
 
@@ -182,7 +182,7 @@ def test_render_disorder_keeps_computational_models_working(
     assert re.search(
         r'<div class="card" id="models">\s*<div class="card-header">.*?Computational Models',
         html,
-        re.S,
+        re.DOTALL,
     )
 
 

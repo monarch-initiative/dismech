@@ -5,8 +5,8 @@ Add MAXO treatment terms to all disorder files.
 
 import re
 from pathlib import Path
-import yaml
 
+import yaml
 
 # Mapping from treatment keywords to MAXO terms
 # Order matters: more specific patterns should come first
@@ -233,7 +233,7 @@ MAXO_MAPPINGS = [
 ]
 
 
-def find_maxo_term(treatment_name: str, treatment_desc: str = None) -> dict | None:
+def find_maxo_term(treatment_name: str, treatment_desc: str | None = None) -> dict | None:
     """Find the best MAXO term for a treatment based on name and description."""
     text = treatment_name.lower()
     if treatment_desc:

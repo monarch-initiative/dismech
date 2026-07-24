@@ -7,13 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from dismech.render import render_disorder
-from dismech.render import _build_hierarchy_path
+from dismech.render import _build_hierarchy_path, render_disorder
 
 
 def _extract_graph_data(html: str) -> dict:
     """Extract the embedded graphData payload from a rendered disorder page."""
-    match = re.search(r"var graphData = JSON\.parse\((\".*?\")\);", html, re.S)
+    match = re.search(r"var graphData = JSON\.parse\((\".*?\")\);", html, re.DOTALL)
     assert match is not None, "Rendered HTML did not include graphData payload"
     return json.loads(json.loads(match.group(1)))
 
@@ -497,12 +496,12 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             {
                 (
                     "SLC26A2 Pathogenic Variants",
-                    "Sulfate Transport Deficiency in Chondrocytes",
+                    "Loss of SLC26A2 Sulfate Transport in Chondrocytes",
                 )
             },
             {"SLC26A2 Pathogenic Variants": "genetic"},
             {
-                "Sulfate Transport Deficiency in Chondrocytes": [
+                "Loss of SLC26A2 Sulfate Transport in Chondrocytes": [
                     "sulfate transmembrane transporter activity"
                 ]
             },
@@ -638,13 +637,13 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             "Atelosteogenesis_Type_I.yaml",
             {
                 (
-                    "FLNB Pathogenic Variants",
-                    "FLNB Gain-of-Function Cytoskeletal Dysregulation",
+                    "Heterozygous gain-of-function FLNB pathogenic variants",
+                    "Monoallelic FLNB gain-of-function and abnormal actin binding",
                 )
             },
-            {"FLNB Pathogenic Variants": "genetic"},
+            {"Heterozygous gain-of-function FLNB pathogenic variants": "genetic"},
             {
-                "FLNB Gain-of-Function Cytoskeletal Dysregulation": [
+                "Monoallelic FLNB gain-of-function and abnormal actin binding": [
                     "actin filament binding"
                 ]
             },

@@ -40,7 +40,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-import literature_scan  # noqa: E402
+import literature_scan
 
 
 def build_query(date_from: str, date_to: str, profile: str = "mechanisms") -> str:

@@ -80,7 +80,7 @@ CASE_COUNT_RE = re.compile(
     r"|fewer than \d+"
     r"|<\s*\d+ reported"
     r"|\d+ reported",
-    re.I,
+    re.IGNORECASE,
 )
 
 
@@ -98,7 +98,7 @@ FRACTION_OF_CATEGORY_RE = re.compile(
     # sporadic/typhoidal cohorts, probands, isolates) — not population denominators
     r"|of\s+(?:solved|genetically\s+solved|idiopathic\s+nephrotic|sporadic\b|"
     r"typhoidal\s+Salmonella|OI\s+probands|autosomal\s+dominant\b|isolates\b|probands\b)",
-    re.I,
+    re.IGNORECASE,
 )
 
 # Conditional-risk qualifiers that mark a percentage as penetrance / lifetime
@@ -112,7 +112,7 @@ PENETRANCE_RE = re.compile(
     r"|\blifetime\s+(?:risk|penetrance)\b"
     r"|\bcumulative\s+(?:incidence|risk)\b"
     r"|\bdiagnosed\s+by\s+age\b",
-    re.I,
+    re.IGNORECASE,
 )
 
 
@@ -210,7 +210,7 @@ def parse_rate(raw: str):
     m = re.search(
         r"(?:([<>])|\b(less than|fewer than|under|below)\b|\b(more than|greater than|over|at least)\b)"
         r"\s*([\d.]+)\s*(?:/|per|:)\s*([\d ,]+|million|thousand|billion)",
-        s, re.I,
+        s, re.IGNORECASE,
     )
     if m:
         denom = DENOM_WORDS.get((m.group(5) or "").lower()) or _to_float(m.group(5))
@@ -240,7 +240,7 @@ def parse_rate(raw: str):
     unit_noun = r"(?:\s*(?:cases?|persons?|people|individuals?|patients?|births?|inhabitants?))?"
     m = re.search(
         rf"([\d.]+)\s*(?:-|to)\s*([\d.]+){unit_noun}\s*(?:per|/)\s*([\d ,]+|million|thousand|billion)",
-        s, re.I,
+        s, re.IGNORECASE,
     )
     if m:
         a, b = _to_float(m.group(1)), _to_float(m.group(2))
@@ -248,7 +248,7 @@ def parse_rate(raw: str):
         if denom and a is not None and b is not None:
             low, high = a / denom * 1e5, b / denom * 1e5
             return {"low": low, "high": high, "point": None, "klass": _band_from_rate((low + high) / 2)}
-    m = re.search(rf"([\d.]+){unit_noun}\s*(?:per|/)\s*([\d ,]+|million|thousand|billion)", s, re.I)
+    m = re.search(rf"([\d.]+){unit_noun}\s*(?:per|/)\s*([\d ,]+|million|thousand|billion)", s, re.IGNORECASE)
     if m:
         a = _to_float(m.group(1))
         denom = DENOM_WORDS.get(m.group(2).lower()) or _to_float(m.group(2))
@@ -257,10 +257,10 @@ def parse_rate(raw: str):
             return {"low": None, "high": None, "point": rate, "klass": _band_from_rate(rate)}
 
     # --- "1 in N [to|- N]" ratios (also "one in N") ------------------------
-    denoms = [_to_float(x) for x in re.findall(r"(?:1|one)\s*(?:in|:)\s*([\d ,]+)", s, re.I)]
+    denoms = [_to_float(x) for x in re.findall(r"(?:1|one)\s*(?:in|:)\s*([\d ,]+)", s, re.IGNORECASE)]
     # pick up a trailing second bound without a repeated "1 in": "1 in 30,000-50,000"
     if len(denoms) == 1:
-        tail = re.search(r"(?:1|one)\s*(?:in|:)\s*[\d ,]+\s*(?:-|to)\s*([\d ,]{3,})", s, re.I)
+        tail = re.search(r"(?:1|one)\s*(?:in|:)\s*[\d ,]+\s*(?:-|to)\s*([\d ,]{3,})", s, re.IGNORECASE)
         if tail:
             d2 = _to_float(tail.group(1))
             if d2:
@@ -285,7 +285,7 @@ def parse_rate(raw: str):
         a = _to_float(m.group(1))
         if a is not None:
             rate = a * 1000
-            if re.search(r"up to|<|under|below", s, re.I):
+            if re.search(r"up to|<|under|below", s, re.IGNORECASE):
                 return {"low": None, "high": rate, "point": None, "klass": _band_from_rate(rate)}
             return {"low": None, "high": None, "point": rate, "klass": _band_from_rate(rate)}
 
@@ -491,7 +491,7 @@ def main():
             text = _fh.read()  # preserve CRLF/LF; never normalize
         try:
             data = _pyyaml.safe_load(text)
-        except Exception as e:  # noqa
+        except Exception as e:
             print(f"!! parse error {path.name}: {e}", file=sys.stderr)
             continue
         if not isinstance(data, dict):

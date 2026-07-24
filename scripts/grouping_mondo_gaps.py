@@ -45,9 +45,8 @@ def _mondo_ids(obj):
     """Yield every MONDO id appearing as term.id anywhere under obj."""
     if isinstance(obj, dict):
         term = obj.get("term")
-        if isinstance(term, dict) and isinstance(term.get("id"), str):
-            if term["id"].startswith("MONDO:"):
-                yield term["id"]
+        if isinstance(term, dict) and isinstance(term.get("id"), str) and term["id"].startswith("MONDO:"):
+            yield term["id"]
         for v in obj.values():
             yield from _mondo_ids(v)
     elif isinstance(obj, list):

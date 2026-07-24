@@ -9,11 +9,13 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from dismech.compare.mondo_priority import app
-from dismech.compare.mondo_priority import build_coverage_index
-from dismech.compare.mondo_priority import load_candidates
-from dismech.compare.mondo_priority import load_config
-from dismech.compare.mondo_priority import score_candidates
+from dismech.compare.mondo_priority import (
+    app,
+    build_coverage_index,
+    load_candidates,
+    load_config,
+    score_candidates,
+)
 
 
 def _write_yaml(path: Path, payload: dict) -> None:

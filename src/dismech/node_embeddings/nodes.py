@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import glob
 import os
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator
 
 import yaml
 
