@@ -24,6 +24,8 @@ TRUSTED_BOTS = frozenset(
     }
 )
 TRUSTED_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
+EXPECTED_RUNTIME_TOOLS = frozenset({"Glob", "Grep", "Read"})
+EXPECTED_PERMISSION_MODE = "dontAsk"
 
 
 class ObserverError(RuntimeError):
@@ -218,6 +220,77 @@ def _flatten_pages(payload: Any) -> list[dict[str, Any]]:
     return pulls
 
 
+def _load_execution_events(
+    execution_file: Path,
+    runner_temp: Path,
+) -> list[dict[str, Any]]:
+    """Load a pinned-action execution stream confined to ``RUNNER_TEMP``."""
+
+    try:
+        runner_root = runner_temp.resolve(strict=True)
+        resolved = execution_file.resolve(strict=True)
+        resolved.relative_to(runner_root)
+        raw = resolved.read_text(encoding="utf-8").strip()
+    except (OSError, ValueError) as error:
+        raise ObserverError(
+            "Claude execution file is missing or outside RUNNER_TEMP"
+        ) from error
+    if not raw:
+        raise ObserverError("Claude execution file is empty")
+
+    try:
+        payload = json.loads(raw)
+        events = payload if isinstance(payload, list) else [payload]
+    except json.JSONDecodeError:
+        try:
+            events = [json.loads(line) for line in raw.splitlines() if line.strip()]
+        except json.JSONDecodeError as error:
+            raise ObserverError(
+                "Claude execution file contains invalid JSON"
+            ) from error
+
+    if not events or not all(isinstance(event, dict) for event in events):
+        raise ObserverError("Claude execution file has an invalid event stream")
+    return events
+
+
+def verify_runtime_boundary(execution_file: Path, runner_temp: Path) -> None:
+    """Attest that the pinned Claude runtime honored the observer boundary."""
+
+    events = _load_execution_events(execution_file, runner_temp)
+    initializations = [
+        event
+        for event in events
+        if event.get("type") == "system" and event.get("subtype") == "init"
+    ]
+    if len(initializations) != 1:
+        raise ObserverError(
+            "Claude execution stream must contain exactly one initialization event"
+        )
+
+    initialization = initializations[0]
+    tools = initialization.get("tools")
+    if (
+        not isinstance(tools, list)
+        or not all(isinstance(tool, str) for tool in tools)
+        or len(tools) != len(EXPECTED_RUNTIME_TOOLS)
+        or set(tools) != EXPECTED_RUNTIME_TOOLS
+    ):
+        raise ObserverError("Claude runtime exposed an unexpected tool set")
+    if initialization.get("permissionMode") != EXPECTED_PERMISSION_MODE:
+        raise ObserverError("Claude runtime used an unexpected permission mode")
+    if initialization.get("mcp_servers") != []:
+        raise ObserverError("Claude runtime exposed an MCP server")
+    if initialization.get("slash_commands") != []:
+        raise ObserverError("Claude runtime exposed a slash command")
+
+    print(
+        "observer runtime boundary verified: "
+        "permissionMode=dontAsk; tools=Glob,Grep,Read; "
+        "mcp_servers=0; slash_commands=0"
+    )
+
+
 def resolve(repo: str, specific: str, snapshot: Path, output: Path) -> None:
     if specific and not specific.isdigit():
         raise ObserverError("pr_number must contain digits only")
@@ -330,6 +403,10 @@ def main() -> int:
     probe_parser.add_argument("--repo", required=True)
     probe_parser.add_argument("--snapshot", type=Path, required=True)
 
+    runtime_parser = subparsers.add_parser("verify-runtime")
+    runtime_parser.add_argument("--execution-file", type=Path, required=True)
+    runtime_parser.add_argument("--runner-temp", type=Path, required=True)
+
     args = parser.parse_args()
     try:
         if args.command == "resolve":
@@ -339,8 +416,10 @@ def main() -> int:
                 args.snapshot,
                 args.github_output,
             )
-        else:
+        elif args.command == "probe":
             probe(args.repo, args.snapshot)
+        else:
+            verify_runtime_boundary(args.execution_file, args.runner_temp)
     except ObserverError as error:
         print(f"::error::{error}", file=sys.stderr)
         return 1

@@ -101,8 +101,11 @@ jobs:
           # Full output includes every model message and tool result. Keep it
           # out of public logs; the execution_file output feeds the summary.
           show_full_output: false
+          # allowedTools is the pinned action's explicit permission grant;
+          # tools independently constrains the runtime's available inventory.
           claude_args: |
             --permission-mode dontAsk
+            --allowedTools "Read,Glob,Grep"
             --tools "Read,Glob,Grep"
             --add-dir "${{ runner.temp }}/pr-shepherd-input"
             --setting-sources user
@@ -134,6 +137,17 @@ jobs:
             REVIEW_REQUIRED. Report the evidence from the snapshot, the safe next
             action a trusted operator should take, and every blocker. Never claim
             an action was performed. End with a concise observer summary.
+
+      - name: Verify observer runtime boundary
+        if: always() && steps.candidates.outputs.has_candidates == 'true'
+        env:
+          EXECUTION_FILE: ${{ steps.pr-shepherd.outputs.execution_file }}
+        run: |
+          set -euo pipefail
+          test -n "$EXECUTION_FILE"
+          python3 .github/scripts/pr_shepherd_observer.py verify-runtime \
+            --execution-file "$EXECUTION_FILE" \
+            --runner-temp "$RUNNER_TEMP"
 
       - name: Write step summary
         if: always()

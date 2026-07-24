@@ -70,6 +70,17 @@ def _observation(number: int, head: str, rollup: list[dict] | None = None) -> di
     }
 
 
+def _runtime_initialization() -> dict:
+    return {
+        "type": "system",
+        "subtype": "init",
+        "tools": ["Glob", "Grep", "Read"],
+        "permissionMode": "dontAsk",
+        "mcp_servers": [],
+        "slash_commands": [],
+    }
+
+
 def test_candidate_gate_accepts_only_same_repo_trusted_sources():
     pulls = [
         _pull(1),
@@ -209,6 +220,70 @@ def test_probe_rejects_a_head_race(
         observer.probe(repo, snapshot)
 
 
+def test_runtime_boundary_accepts_exact_pinned_action_initialization(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+):
+    execution_file = tmp_path / "claude-execution-output.json"
+    execution_file.write_text(
+        json.dumps(
+            [
+                _runtime_initialization(),
+                {"type": "result", "subtype": "success", "is_error": False},
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    observer.verify_runtime_boundary(execution_file, tmp_path)
+
+    assert "tools=Glob,Grep,Read" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("tools", ["Bash", "Glob", "Grep", "Read"], "unexpected tool set"),
+        ("tools", ["Glob", "Grep"], "unexpected tool set"),
+        ("permissionMode", "bypassPermissions", "unexpected permission mode"),
+        (
+            "mcp_servers",
+            [{"name": "github", "status": "connected"}],
+            "exposed an MCP server",
+        ),
+        ("slash_commands", ["review"], "exposed a slash command"),
+    ],
+)
+def test_runtime_boundary_fails_closed_on_capability_drift(
+    tmp_path: Path,
+    field: str,
+    value: object,
+    message: str,
+):
+    initialization = _runtime_initialization()
+    initialization[field] = value
+    execution_file = tmp_path / "claude-execution-output.json"
+    execution_file.write_text(json.dumps([initialization]), encoding="utf-8")
+
+    with pytest.raises(observer.ObserverError, match=message):
+        observer.verify_runtime_boundary(execution_file, tmp_path)
+
+
+def test_runtime_boundary_rejects_execution_file_outside_runner_temp(
+    tmp_path: Path,
+):
+    runner_temp = tmp_path / "runner"
+    runner_temp.mkdir()
+    execution_file = tmp_path / "claude-execution-output.json"
+    execution_file.write_text(
+        json.dumps([_runtime_initialization()]),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(observer.ObserverError, match="outside RUNNER_TEMP"):
+        observer.verify_runtime_boundary(execution_file, runner_temp)
+
+
 def test_workflow_has_read_only_permissions_and_no_write_secret():
     workflow, text = _workflow()
 
@@ -240,6 +315,7 @@ def test_model_step_is_pinned_and_observer_only():
 
     args = model_step["with"]["claude_args"]
     assert "--permission-mode dontAsk" in args
+    assert '--allowedTools "Read,Glob,Grep"' in args
     assert '--tools "Read,Glob,Grep"' in args
     assert "--setting-sources user" in args
     assert "--disable-slash-commands" in args
@@ -267,6 +343,26 @@ def test_candidate_snapshot_and_probe_precede_model():
     assert "candidate-snapshot.json" in text
     assert "statusCheckRollup" in OBSERVER_PATH.read_text(encoding="utf-8")
     assert "check-runs?per_page=1" in OBSERVER_PATH.read_text(encoding="utf-8")
+
+
+def test_runtime_boundary_verification_runs_after_model_even_on_failure():
+    workflow, _text = _workflow()
+    steps = workflow["jobs"]["shepherd"]["steps"]
+    names = [step["name"] for step in steps]
+    boundary = next(
+        step for step in steps if step["name"] == "Verify observer runtime boundary"
+    )
+
+    assert (
+        names.index("Run PR Shepherd")
+        < names.index("Verify observer runtime boundary")
+        < names.index("Write step summary")
+    )
+    assert "always()" in boundary["if"]
+    assert boundary["env"]["EXECUTION_FILE"] == (
+        "${{ steps.pr-shepherd.outputs.execution_file }}"
+    )
+    assert "verify-runtime" in boundary["run"]
 
 
 def test_summary_escapes_execution_file_result():
