@@ -650,9 +650,18 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "Atelosteogenesis_Type_III.yaml",
-            {("FLNB Pathogenic Variants", "FLNB Cytoskeletal Signaling Dysfunction")},
-            {"FLNB Pathogenic Variants": "genetic"},
-            {"FLNB Cytoskeletal Signaling Dysfunction": ["actin filament binding"]},
+            {
+                (
+                    "Heterozygous gain-of-function FLNB pathogenic variants",
+                    "Monoallelic FLNB gain-of-function cytoskeletal disorder",
+                )
+            },
+            {"Heterozygous gain-of-function FLNB pathogenic variants": "genetic"},
+            {
+                "Monoallelic FLNB gain-of-function cytoskeletal disorder": [
+                    "actin filament binding"
+                ]
+            },
         ),
         (
             "FLNA_Intestinal_Pseudoobstruction.yaml",
