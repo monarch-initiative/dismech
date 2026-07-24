@@ -53,7 +53,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          token: ${{ secrets.PAT_FOR_PR }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Do not write the token into .git/config; the agent step authenticates
+          # git via the gh credential helper (configured below) using GH_TOKEN.
+          persist-credentials: false
 
       - name: Resolve agent config
         uses: ./.github/actions/resolve-agent-config
@@ -61,10 +64,16 @@ jobs:
           workflow: pr-shepherd
           model-override: ${{ inputs.model }}
 
-      - name: Configure git identity
+      - name: Configure git identity and credential helper
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "dragon-ai-agent"
           git config --global user.email "dragon-ai-agent@users.noreply.github.com"
+          # Serve the run-scoped GITHUB_TOKEN to git on demand (from GH_TOKEN in env)
+          # instead of persisting it in .git/config. Requires GH_TOKEN at push time,
+          # which the agent step already sets.
+          gh auth setup-git
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -81,11 +90,11 @@ jobs:
         id: pr-shepherd
         uses: anthropics/claude-code-action@v1
         env:
-          GH_TOKEN: ${{ secrets.PAT_FOR_PR }}
-          GITHUB_TOKEN: ${{ secrets.PAT_FOR_PR }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.PAT_FOR_PR }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           show_full_output: true
           allowed_bots: "dragon-ai-agent,claude,github-actions"
           claude_args: |
@@ -102,9 +111,14 @@ jobs:
             You are the automated PR Shepherd for the dismech repository. Your job is to tend
             stuck bot-authored pull requests and move at most MAX_PRS of them forward in this run.
 
-            You are authenticated as dragon-ai-agent through GH_TOKEN. Use that
-            token for all GitHub operations, including branch updates, comments, workflow dispatches,
-            and merges.
+            You are authenticated as the github-actions bot through the run-scoped GITHUB_TOKEN
+            (exposed as GH_TOKEN). Use that token for all GitHub operations, including branch
+            updates, comments, workflow dispatches, and merges. NOTE: because this is the built-in
+            GITHUB_TOKEN, a plain `git push` to a PR branch will NOT automatically start the
+            claude-code-review workflow (GitHub suppresses workflow runs triggered by GITHUB_TOKEN,
+            except workflow_dispatch). So whenever you push a fix commit to a PR branch, you MUST
+            explicitly re-trigger review afterward with:
+            `gh workflow run claude-code-review.yml --repo "$REPO" --ref main -f pr_number=PR_NUMBER`
 
             Start by reading the full contents of CLAUDE.md. Follow all repository conventions,
             especially the rule that references_cache/*.md must never be created or hand-edited.
