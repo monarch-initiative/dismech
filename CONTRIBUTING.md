@@ -154,6 +154,28 @@ Then start curating using the `curate` skill:
 
 For more guidance on AI-assisted curation workflows, see [ai4curation/aidocs](https://github.com/ai4curation/aidocs).
 
+### Running dismech in Claude Code on the web
+
+You can curate from [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
+instead of the local CLI. The repo is cloned for you, and when you're done you
+just press **Create PR** — commits and the PR are handled for you.
+
+The one non-obvious part is a **one-time cloud environment setup**. Create a
+cloud environment (name it whatever you like — e.g. `research`), then:
+
+1. Set its **network access to Full**.
+2. Add your deep-research API keys as environment variables:
+   ```bash
+   EDISON_API_KEY=<YOUR_EDISON_KEY>
+   OPENSCIENTIST_API_KEY=<YOUR_OPENSCIENTIST_KEY>
+   ```
+   These are the same keys as the local setup — see
+   [Set Up a Deep Research Provider](#3-set-up-a-deep-research-provider-required)
+   above for how to obtain them.
+
+That's the only hard part. Once the environment exists, curation works the same
+as local — `/curate` a disorder, then create the PR when ready.
+
 ## Curation Model: AI-Assisted with Human Oversight
 
 This knowledge base uses an **AI-first curation model**:
