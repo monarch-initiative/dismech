@@ -40,7 +40,7 @@ import argparse
 import re
 import secrets
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -98,7 +98,7 @@ def _split_csv(value: str | None) -> list[str]:
 
 
 def build_record(args: argparse.Namespace) -> tuple[dict, Path]:
-    now = datetime.now(timezone.utc).replace(microsecond=0)
+    now = datetime.now(UTC).replace(microsecond=0)
     file_ts = now.strftime("%Y-%m-%dT%H%M%SZ")
     iso_ts = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     shortid = secrets.token_hex(3)

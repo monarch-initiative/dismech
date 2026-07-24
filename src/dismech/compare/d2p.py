@@ -649,8 +649,7 @@ def _format_cell(match_str: str, record: dict[str, Any] | None) -> str:
         parts.append(f"freq={record['frequency']}")
 
     # Add PMIDs
-    for pmid in record.get("pmids", []):
-        parts.append(pmid)
+    parts.extend(record.get("pmids", []))
 
     return ";".join(parts)
 
@@ -767,8 +766,7 @@ def _resolve_disease_ref(ref: str) -> tuple[str, Path]:
         if not path.is_file():
             raise ValueError(f"Disease reference path is not a file: {path}")
         slug = path.stem
-        if slug.endswith(".history"):
-            slug = slug[: -len(".history")]
+        slug = slug.removesuffix(".history")
         return slug, path
 
     disorder_dir = _default_kb_dir()
@@ -785,8 +783,7 @@ def _resolve_disease_ref(ref: str) -> tuple[str, Path]:
         candidate_path = disorder_dir / candidate
         if candidate_path.exists() and candidate_path.is_file():
             slug = candidate_path.stem
-            if slug.endswith(".history"):
-                slug = slug[: -len(".history")]
+            slug = slug.removesuffix(".history")
             return slug, candidate_path.resolve()
 
     disease_files = _iter_disease_files(disorder_dir)

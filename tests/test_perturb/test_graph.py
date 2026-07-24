@@ -1,15 +1,15 @@
 """Tests for causal graph extraction with perturbation enrichment."""
 
-import yaml
 from pathlib import Path
 
 import pytest
+import yaml
 
 from dismech.perturb.graph import (
+    CausalEdgeEnriched,
+    PerturbationGraph,
     build_perturbation_graph,
     extract_causal_edges,
-    PerturbationGraph,
-    CausalEdgeEnriched,
     trace_causal_paths,
 )
 

@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import re
 import sys
-from functools import lru_cache
+from collections.abc import Iterable
+from functools import cache
 from pathlib import Path
-from typing import Iterable
 
 import yaml
 
@@ -55,7 +55,7 @@ def derive_consensus(finding: dict) -> str:
     return "MAJORITY"
 
 
-@lru_cache(maxsize=None)
+@cache
 def _normalized_report(path: str) -> str:
     return _norm(Path(path).read_text(encoding="utf-8"))
 

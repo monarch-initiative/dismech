@@ -34,7 +34,11 @@ from __future__ import annotations
 from typing import Any, Protocol, runtime_checkable
 
 from linkml_data_qc.config import QCConfig
-from linkml_data_qc.models import AggregatedPathScore, ComplianceReport, ThresholdViolation
+from linkml_data_qc.models import (
+    AggregatedPathScore,
+    ComplianceReport,
+    ThresholdViolation,
+)
 
 from dismech.graph import _genetic_item_infers_mechanism_edges, build_causal_graph
 
