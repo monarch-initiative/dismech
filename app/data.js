@@ -5753,38 +5753,54 @@ window.searchData = [
     "creation_date": "2026-05-04T19:32:38Z",
     "updated_date": "2026-07-09T13:20:18Z",
     "subtypes": [],
-    "description": "Acute hepatitis C virus infection is the early phase after HCV exposure, generally within the first six months, before either spontaneous viral clearance or chronic infection is established. Many infections are clinically silent, but acute hepatitis can include jaundice, nausea, fatigue, abdominal pain, and elevated hepatic transaminases. Diagnosis requires HCV RNA and serologic testing because antibody seroconversion can lag early viremia.",
+    "description": "Acute hepatitis C virus infection is the early phase after acquisition of hepatitis C virus (HCV), before either spontaneous viral clearance or persistent infection is established. The course is often clinically silent; symptomatic hepatitis can include jaundice, nausea, fatigue, anorexia, and elevated hepatic transaminases. Diagnosis requires both evidence of current infection and evidence that acquisition was recent because anti-HCV and HCV RNA results considered at a single time point do not reliably separate acute from chronic infection. Early direct-acting antiviral therapy can eradicate viremia and prevent chronic infection.",
     "pathophysiology": [
-      "Early HCV infection of hepatocytes",
-      "HCV viral innate immune evasion",
-      "Immune-mediated viral clearance versus persistence",
-      "Chronic hepatitis C virus infection"
+      "HCV attachment and hepatocyte entry",
+      "HCV genome replication and early viremia",
+      "Interferon-driven innate and NK-cell activation",
+      "NS3/4A-mediated innate immune evasion",
+      "HCV-specific adaptive immune response",
+      "IFNL3 rs12979860 host-clearance modifier",
+      "Spontaneous viral clearance",
+      "Persistent HCV viremia",
+      "Chronic hepatitis C virus infection",
+      "Immune-associated hepatocellular injury"
     ],
     "cell_types": [
       "hepatocyte",
+      "natural killer cell",
       "T cell"
     ],
     "cell_type_ids": [
       "CL:0000182",
+      "CL:0000623",
       "CL:0000084"
     ],
     "biological_processes": [
-      "viral process",
-      "symbiont-mediated suppression of host type I interferon-mediated signaling pathway",
+      "symbiont entry into host cell",
+      "viral genome replication",
+      "natural killer cell activation",
       "type I interferon-mediated signaling pathway",
+      "symbiont-mediated suppression of host type I interferon-mediated signaling pathway",
+      "T cell activation",
       "response to virus",
-      "T cell activation"
+      "viral process"
     ],
     "phenotypes": [
       "Jaundice",
       "Nausea",
+      "Fatigue",
+      "Anorexia",
       "Elevated hepatic transaminases"
     ],
     "phenotype_categories": [
+      "Hepatic",
       "Gastrointestinal",
+      "Constitutional",
       "Laboratory"
     ],
     "phenotype_hpo_categories": [
+      "Constitutional",
       "Digestive",
       "Integument",
       "Metabolism"
@@ -5792,25 +5808,34 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000952",
       "HP:0002018",
+      "HP:0012378",
+      "HP:0002039",
       "HP:0002910"
     ],
     "frequencies": [],
-    "genes": [],
+    "genes": [
+      "IFNL3 (IL28B) rs12979860 clearance modifier"
+    ],
     "treatments": [
-      "Direct-acting antiviral therapy"
+      "Immediate direct-acting antiviral treatment after confirmed acute HCV viremia",
+      "Eight-week glecaprevir/pibrentasvir therapy"
     ],
     "environmental": [
-      "Parenteral and blood-borne exposure"
+      "Blood-exposure risk contexts"
     ],
-    "biochemical": [],
+    "biochemical": [
+      "HCV RNA",
+      "Anti-HCV antibody",
+      "Alanine aminotransferase"
+    ],
     "source_file": "Acute_Hepatitis_C_Virus_Infection.yaml",
     "page_url": "../pages/disorders/Acute_Hepatitis_C_Virus_Infection.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 4,
-    "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "2"
+    "num_phenotypes": 5,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Acute Hypotension",
@@ -5821,13 +5846,18 @@ window.searchData = [
       "Hypotensive disorder"
     ],
     "creation_date": "2026-05-04T19:32:38Z",
-    "updated_date": "2026-07-09T13:14:53Z",
+    "updated_date": null,
     "subtypes": [],
-    "description": "Acute hypotension is an abrupt, clinically significant fall in arterial blood pressure that can impair tissue perfusion and progress to shock physiology. It is a syndrome-level disorder rather than a single etiology, occurring in contexts such as sepsis, hemorrhage, anaphylaxis, perioperative care, post-intubation care, and postoperative critical illness.",
+    "description": "Acute hypotension is an abrupt fall in arterial blood pressure or an acutely low measured pressure relative to the clinical context. It is a syndrome-level hemodynamic finding with heterogeneous thresholds, causes, and consequences. Acute hypotension is not synonymous with circulatory shock or organ hypoperfusion: tissue blood flow can be preserved despite a low pressure, while shock can occur without hypotension.",
     "pathophysiology": [
-      "Reduced effective arterial perfusion",
-      "Shock physiology",
-      "Adrenergic compensation and vasopressor-responsive vascular tone"
+      "Reduced Effective Circulating Volume",
+      "Reduced Cardiac Output",
+      "Reduced Systemic Vascular Resistance",
+      "Obstructed Cardiac Filling or Ejection",
+      "Acute Arterial Pressure Fall",
+      "Context-Dependent Organ Hypoperfusion",
+      "Cerebral Hypoperfusion",
+      "Renal Hypoperfusion and Ischemic Stress"
     ],
     "cell_types": [
       "vascular associated smooth muscle cell"
@@ -5836,10 +5866,6 @@ window.searchData = [
       "CL:0000359"
     ],
     "biological_processes": [
-      "regulation of blood pressure",
-      "response to hypoxia",
-      "inflammatory response",
-      "adrenergic receptor signaling pathway",
       "vascular associated smooth muscle contraction"
     ],
     "phenotypes": [
@@ -5865,21 +5891,19 @@ window.searchData = [
     "frequencies": [],
     "genes": [],
     "treatments": [
-      "Intravenous fluid resuscitation",
-      "Acute hemodynamic support",
-      "Postoperative and critical-care monitoring",
-      "Epinephrine for anaphylaxis-associated hypotension"
+      "Intravenous Fluid Resuscitation for Volume-Responsive Hypotension",
+      "Norepinephrine for Vasodilatory Hypotension"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Acute_Hypotension.yaml",
     "page_url": "../pages/disorders/Acute_Hypotension.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 8,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Acute Intermittent Porphyria",
@@ -6110,65 +6134,71 @@ window.searchData = [
       "leukemia"
     ],
     "creation_date": "2026-05-08T12:00:00Z",
-    "updated_date": "2026-06-02T00:00:00Z",
+    "updated_date": "2026-07-20T21:53:22Z",
     "subtypes": [
-      "B-ALL with ETV6-RUNX1",
-      "B-ALL with TCF3-PBX1",
-      "B-ALL with KMT2A rearrangement",
-      "Ph+ ALL",
-      "Ph-like ALL",
-      "T-ALL"
+      "B-ALL",
+      "T-ALL",
+      "ETP-ALL",
+      "Ph-positive",
+      "Ph-like",
+      "KMT2A-rearranged",
+      "ETV6-RUNX1",
+      "TCF3-PBX1",
+      "High hyperdiploidy",
+      "Hypodiploidy",
+      "iAMP21",
+      "PAX5-altered"
     ],
-    "description": "Acute lymphoblastic leukemia (ALL) is a malignancy of immature B- or T-lymphoid precursors (lymphoblasts) that proliferate uncontrollably in the bone marrow, blood, and extramedullary sites. It is the most common childhood cancer and the leading cause of cancer-related death in children. Pathogenesis involves acquisition of recurrent genetic lesions (translocations, aneuploidy, gene fusions, and cooperating mutations) that produce a developmental block in lymphoid maturation, driving clonal expansion of blasts and replacement of normal hematopoiesis with consequent marrow failure. Subtypes are defined by lineage (B-ALL versus T-ALL) and by recurrent molecular drivers (e.g., ETV6-RUNX1, TCF3-PBX1, KMT2A rearrangements, BCR-ABL1 / Philadelphia chromosome). Risk stratification, treatment intensity, and prognosis are largely determined by these molecular subtypes.",
+    "description": "Acute lymphoblastic leukemia (ALL) is a precursor lymphoid malignancy in which an abnormal clone of B- or T-lineage lymphoblasts expands in bone marrow, blood, and sometimes extramedullary sites. Modern classification integrates lineage, ploidy, recurrent rearrangements, sequence variants, and expression-defined entities. These biologically distinct routes converge on impaired lymphoid differentiation, abnormal survival or proliferation, and accumulation of blasts that disrupt normal hematopoiesis.",
     "pathophysiology": [
-      "Acquisition of Initiating Genetic Lesion in Lymphoid Progenitor",
-      "Disruption of Lymphoid Transcriptional Program",
-      "Block in Lymphoid Differentiation",
-      "Constitutive Proliferation and Survival Signaling",
-      "Clonal Expansion of Lymphoblasts",
+      "B-Lineage Developmental Program Disruption",
+      "Kinase-Activated B-ALL Signaling",
+      "T-ALL NOTCH1 and T-Cell Transcriptional Activation",
+      "T-ALL INK4-ARF Checkpoint Loss",
+      "Common Lymphoblast Clonal Expansion",
       "Bone Marrow Failure",
-      "Extramedullary Disease"
+      "Extramedullary Leukemic Involvement"
     ],
     "cell_types": [
-      "lymphoid lineage restricted progenitor cell",
-      "common lymphoid progenitor"
+      "precursor B cell",
+      "lymphoblast"
     ],
     "cell_type_ids": [
-      "CL:0000838",
-      "CL:0000051"
+      "CL:0000817",
+      "CL:0017005"
     ],
     "biological_processes": [
-      "regulation of transcription by RNA polymerase II",
-      "lymphocyte differentiation",
-      "signal transduction",
-      "apoptotic process",
-      "hematopoiesis"
+      "B cell differentiation",
+      "RAS protein signal transduction",
+      "ERK1 and ERK2 cascade",
+      "PI3K-AKT signal transduction",
+      "Notch signaling pathway",
+      "T cell differentiation",
+      "negative regulation of cell cycle",
+      "negative regulation of cyclin-dependent protein kinase activity",
+      "cell population proliferation",
+      "hemopoiesis"
     ],
     "phenotypes": [
-      "Pancytopenia",
       "Anemia",
       "Thrombocytopenia",
-      "Leukocytosis with Circulating Blasts",
+      "Leukopenia",
+      "Abnormal Bleeding or Bruising",
       "Fatigue",
-      "Fever",
+      "Recurrent Infections",
       "Lymphadenopathy",
       "Hepatosplenomegaly",
-      "Bone Pain",
-      "Bleeding Tendency",
-      "Recurrent Infections",
-      "CNS Involvement",
+      "Central Nervous System Involvement",
       "Mediastinal Mass"
     ],
     "phenotype_categories": [
       "Hematologic",
       "Constitutional",
+      "Immune",
       "Lymphatic",
       "Abdominal",
-      "Skeletal",
-      "Hemorrhagic",
-      "Infectious",
-      "Neurological",
-      "Respiratory"
+      "Neurologic",
+      "Thoracic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -6176,67 +6206,55 @@ window.searchData = [
       "Constitutional",
       "Digestive",
       "Immune",
-      "Metabolism",
-      "Musculoskeletal",
-      "Neoplasm",
       "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
-      "HP:0001876",
       "HP:0001903",
       "HP:0001873",
-      "HP:0001974",
+      "HP:0001882",
+      "HP:0001892",
       "HP:0012378",
-      "HP:0001945",
+      "HP:0002719",
       "HP:0002716",
       "HP:0001433",
-      "HP:0002653",
-      "HP:0001892",
-      "HP:0002719",
-      "HP:0100006",
+      "HP:0002011",
       "HP:0033827"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
-      "BCR-ABL1 Fusion (Philadelphia chromosome)",
-      "ETV6-RUNX1 Fusion",
-      "TCF3-PBX1 Fusion",
+      "BCR::ABL1 Fusion",
       "KMT2A Rearrangement",
-      "NOTCH1 Activating Mutations",
-      "IKZF1 Deletion",
-      "CDKN2A/CDKN2B Deletion"
+      "ETV6::RUNX1 Fusion",
+      "TCF3::PBX1 Fusion",
+      "PAX5 Alterations",
+      "NOTCH1 Activating Mutation",
+      "IKZF1 Alteration",
+      "CDKN2A-CDKN2B Loss"
     ],
     "treatments": [
-      "Induction Chemotherapy",
-      "Consolidation and Maintenance Chemotherapy",
-      "CNS-Directed Therapy",
-      "Tyrosine Kinase Inhibitors",
-      "Blinatumomab (CD19-CD3 BiTE)",
-      "Inotuzumab Ozogamicin",
-      "CD19 CAR-T Cell Therapy",
-      "Allogeneic CD19 CAR-T Cell Therapy",
+      "Risk-Adapted Multi-Agent Chemotherapy",
+      "CNS-Directed Intrathecal Chemotherapy",
+      "ABL-Directed Tyrosine Kinase Inhibitor Therapy",
+      "Blinatumomab CD19-CD3 Bispecific Therapy",
+      "Inotuzumab Ozogamicin CD22-Directed Therapy",
+      "Tisagenlecleucel CD19 CAR-T Cell Therapy",
+      "Investigational Allogeneic CD19 CAR-T Cell Therapy (Phase 1)",
+      "Nelarabine-Containing Therapy for T-ALL",
       "Allogeneic Hematopoietic Stem Cell Transplantation",
-      "Supportive Care"
+      "Supportive and Toxicity-Directed Care"
     ],
     "environmental": [],
     "biochemical": [
-      "Peripheral Blood and Bone Marrow Blasts",
-      "Immunophenotyping",
-      "Cytogenetics and Molecular Diagnostics",
-      "Minimal Residual Disease (MRD)"
+      "Measurable Residual Disease"
     ],
     "source_file": "Acute_Lymphoblastic_Leukemia.yaml",
     "page_url": "../pages/disorders/Acute_Lymphoblastic_Leukemia.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 10,
     "num_pathophysiology": 7,
-    "num_genes": 7,
+    "num_genes": 8,
     "num_treatments": 10,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "4"
   },
   {
@@ -8931,16 +8949,10 @@ window.searchData = [
     ],
     "description": "Akinetopsia (motion blindness) is a rare visual cortical disorder characterized by impaired perception of visual motion, with moving objects perceived as disjointed jumps or freeze-frames. The condition is linked to dysfunction of motion-processing regions in the visual cortex, especially area V5/MT.",
     "pathophysiology": [
-      "V5/MT motion-processing cortex dysfunction",
-      "Left V5/MT susceptibility to acute interference",
-      "Right-hemispheric V5/MT predominance in clinical cases",
-      "Severity depends on surviving motion network components and stimulus speed",
-      "Structural neurological damage to motion network",
-      "Paroxysmal or intoxication-related cortical dysfunction",
-      "Epileptic hyperexcitability of MT/V5 cortex",
-      "Induced disruption from TMS or medications",
-      "Bilateral V5/MT lesions",
-      "Global akinetopsia with chronic course"
+      "Cortical Visual-Motion Integration Failure",
+      "Structural V5/MT Network Injury",
+      "Paroxysmal MT/V5 Hyperexcitability",
+      "Transient Exogenous Motion-Network Interference"
     ],
     "cell_types": [
       "neuron"
@@ -8950,41 +8962,37 @@ window.searchData = [
     ],
     "biological_processes": [],
     "phenotypes": [
-      "Visual motion blindness with freeze-frame perception",
-      "Hemiakinetopsia"
+      "Global Akinetopsia",
+      "Hemifield Akinetopsia"
     ],
     "phenotype_categories": [
       "Visual"
     ],
     "phenotype_hpo_categories": [
-      "Eye",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0030222",
-      "HP:0001123"
+      "HP:0030222"
     ],
     "frequencies": [],
     "genes": [],
     "treatments": [
-      "Treat underlying condition",
+      "Underlying-condition-directed treatment",
       "Carbamazepine for seizure-related akinetopsia"
     ],
     "environmental": [
-      "Structural neurological lesions",
-      "Intoxications or paroxysmal neurological disorders",
       "Transcranial magnetic stimulation exposure",
-      "Medication-induced motion blindness"
+      "Medication or intoxication exposure"
     ],
     "biochemical": [],
     "source_file": "Akinetopsia.yaml",
     "page_url": "../pages/disorders/Akinetopsia.html",
     "num_phenotypes": 2,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Alagille syndrome",
@@ -11972,72 +11980,70 @@ window.searchData = [
     "disease_id": "MONDO:0020325",
     "category": "Cancer",
     "parents": [
-      "Lymphoma"
+      "Mature T-cell and NK-cell non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-04-13T05:41:42Z",
-    "updated_date": "2026-06-02T00:00:00Z",
+    "updated_date": null,
     "subtypes": [
       "Systemic ALK-Positive",
       "Systemic ALK-Negative",
-      "Primary Cutaneous",
-      "Breast Implant-Associated"
+      "Primary Cutaneous"
     ],
-    "description": "Anaplastic large cell lymphoma (ALCL) is a CD30-positive mature T-cell lymphoma family that includes systemic ALK-positive disease, systemic ALK-negative disease, primary cutaneous disease, and breast implant-associated disease. This entry models ALCL as a single disease-level mechanism graph with subtype-scoped mechanisms, phenotypes, biomarkers, and treatments rather than splitting every ontology subclass into a separate dismech page.",
+    "description": "Anaplastic large cell lymphoma (ALCL) is a CD30-positive mature T-cell lymphoma family comprising systemic ALK-positive, systemic ALK-negative, and primary cutaneous disease. Breast implant-associated ALCL is represented in its own MONDO:0850112 disorder entry because it is an exposure-associated entity outside the MONDO:0020325 descendant branch.",
     "pathophysiology": [
-      "ALK Fusion Oncogene Formation",
+      "Constitutive ALK Fusion Kinase Activity",
       "ALK-Driven STAT3 Activation",
       "BCL2L1-Mediated Apoptosis Resistance",
       "PD-L1-Mediated Immune Evasion",
-      "JAK/STAT3 Pathway Alteration in ALK-Negative ALCL",
-      "PI3K-AKT and MAPK Signaling Upregulation in Primary Cutaneous ALCL"
+      "JAK/STAT3 Activation in Systemic ALK-Negative ALCL",
+      "Systemic CD30-Positive Malignant T-Cell Expansion",
+      "PI3K-AKT and MAPK Signaling Upregulation in Primary Cutaneous ALCL",
+      "Skin-Homing CD30-Positive Malignant T-Cell Expansion"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
       "cell surface receptor signaling pathway via JAK-STAT",
-      "cell surface receptor protein tyrosine kinase signaling pathway",
       "apoptotic process",
-      "negative regulation of T cell mediated immunity"
+      "negative regulation of T cell mediated immunity",
+      "cell population proliferation"
     ],
     "phenotypes": [
+      "Advanced-Stage Systemic Presentation",
       "Ulcerating Skin Nodules",
-      "Regional Lymph Node Involvement",
-      "Capsular Mass"
+      "Regional Lymph Node Involvement"
     ],
     "phenotype_categories": [
+      "General",
       "Cutaneous",
-      "Lymphatic",
-      "Device-associated mass"
+      "Lymphatic"
     ],
     "phenotype_hpo_categories": [
-      "Breast",
       "Cardiovascular",
       "Immune",
       "Integument"
     ],
     "phenotype_ids": [
       "HP:0200036",
-      "HP:0002716",
-      "HP:0032408"
+      "HP:0002716"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "OCCASIONAL"
+      "FREQUENT"
     ],
     "genes": [
       "ALK Rearrangement",
+      "NPM1 Fusion Partner",
       "DUSP22 Rearrangement",
       "TP63 Rearrangement",
       "JAK1 Mutation",
       "STAT3 Mutation"
     ],
     "treatments": [
-      "Anthracycline-Based Combination Chemotherapy",
+      "CHOP-Based Anthracycline Chemotherapy",
       "Brentuximab Vedotin Plus CHP",
       "Single-Agent Brentuximab Vedotin",
       "Crizotinib",
-      "Radiation Therapy",
-      "Complete Surgical Excision with Implant Removal"
+      "Radiation Therapy"
     ],
     "environmental": [],
     "biochemical": [
@@ -12047,11 +12053,11 @@ window.searchData = [
     "source_file": "Anaplastic_Large_Cell_Lymphoma.yaml",
     "page_url": "../pages/disorders/Anaplastic_Large_Cell_Lymphoma.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 6,
-    "num_genes": 5,
-    "num_treatments": 6,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "3"
+    "num_pathophysiology": 8,
+    "num_genes": 6,
+    "num_treatments": 5,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Anaplastic Thyroid Carcinoma",
@@ -18159,65 +18165,49 @@ window.searchData = [
       "SCA5",
       "SCA6",
       "SCA11",
-      "SCA14",
-      "SCA15",
-      "SCA23",
-      "SCA25",
-      "SCA31",
-      "SCA43",
-      "SCA46"
+      "SCA26",
+      "SCA30",
+      "SCA31"
     ],
-    "description": "Autosomal dominant cerebellar ataxia type III (ADCA-III) is Harding's classification for hereditary ataxias with a pure or predominantly cerebellar syndrome without prominent extracerebellar features such as pyramidal tract signs, peripheral neuropathy, ophthalmoplegia, retinal degeneration, or dementia. The defining clinical hallmarks are progressive gait and limb ataxia, dysarthria, and nystagmus. ADCA-III encompasses a genetically heterogeneous group of conditions \u2014 including SCA5, SCA6, SCA11, SCA14, SCA15/16, SCA23, SCA25, SCA31, SCA43, and SCA46 \u2014 whose shared pathological endpoint is predominant degeneration of Purkinje cells in the cerebellar cortex. Some rare molecular subtypes assigned to this clinical class, notably SCA25 and SCA43, can include sensory neuropathy; the parent class therefore captures the pure-cerebellar Harding pattern while recording subtype-specific exceptions. The heterogeneous molecular causes include voltage-gated calcium channel dysfunction (CACNA1A/SCA6), perturbation of IP3 receptor-mediated calcium signalling (ITPR1/SCA15), scaffold and cytoskeletal protein defects (SPTBN2/SCA5), tau kinase impairment (TTBK2/SCA11), PKC signalling dysregulation (PRKCG/SCA14), mitochondrial RNA-processing defects (PNPT1/SCA25), pentanucleotide-repeat RNA toxicity (BEAN1/TK2/SCA31), neprilysin dysfunction (MME/SCA43), and candidate lysosomal/synaptic mechanisms involving PLD3 in SCA46.",
+    "description": "Autosomal dominant cerebellar ataxia type III (ADCA-III) is Harding's clinicophenotypic class of dominantly inherited, mostly pure cerebellar syndromes. It is not spinocerebellar ataxia type 3 (SCA3/Machado-Joseph disease): the Roman numeral denotes Harding's broad class, not an individual numbered SCA. The canonical disease concept comprises SCA5, SCA6, SCA11, SCA26, SCA30, and SCA31. Gait and limb ataxia, dysarthria, abnormal eye movements, and predominantly cerebellar atrophy define the class, although mild pyramidal, neuropathic, parkinsonian, dystonic, or tremor features can occur in individual families. The molecular causes are heterogeneous: SPTBN2-associated postsynaptic organization defects in SCA5, a CACNA1A CAG expansion with polyglutamine proteotoxicity in SCA6, truncating TTBK2 alleles that disrupt cilia in SCA11, an EEF2 p.Pro596His variant that impairs translational fidelity in the original SCA26 family, and a noncoding BEAN1/TK2-region pentanucleotide insertion producing toxic repeat RNA in SCA31. SCA30 remains mapped to chromosome 4q34.3-q35.1 without an established causal gene.",
     "pathophysiology": [
-      "Purkinje Cell Calcium Dysregulation",
-      "Cytoskeletal and Scaffold Protein Defects in Purkinje Cells",
-      "Tau-Tubulin Kinase 2 Loss and Purkinje Cell Dysfunction",
-      "PKC Gamma Signaling Dysregulation",
-      "IP3R1 Haploinsufficiency and Calcium Release Defects",
-      "Purkinje Cell Degeneration and Cerebellar Cortical Atrophy",
-      "Prodynorphin Neuropeptide Toxicity in SCA23",
-      "Pentanucleotide Repeat RNA Foci in SCA31",
-      "Neprilysin-Dependent Neuropeptide Catabolism Defect in SCA43",
-      "Candidate PLD3-Linked Lysosomal and Synaptic Mechanism in SCA46",
-      "Mitochondrial dsRNA Accumulation and Interferon Activation in SCA25"
+      "SPTBN2-Dependent Postsynaptic Organization Defect",
+      "CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation",
+      "TTBK2 Dominant-Negative Ciliary Dysfunction",
+      "EEF2 Translational-Fidelity and Proteostasis Defect",
+      "SCA31 Repeat-RNA Toxicity",
+      "Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy"
     ],
     "cell_types": [
-      "Purkinje cell",
-      "neuron"
+      "Purkinje cell"
     ],
     "cell_type_ids": [
-      "CL:0000121",
-      "CL:0000540"
+      "CL:0000121"
     ],
     "biological_processes": [
-      "intracellular calcium ion homeostasis",
-      "calcium ion transmembrane transport",
       "cytoskeleton organization",
-      "L-glutamate import across plasma membrane",
-      "cilium assembly",
-      "microtubule cytoskeleton organization",
-      "protein kinase C signaling",
-      "long-term synaptic depression",
-      "neuron apoptotic process",
       "modulation of chemical synaptic transmission",
+      "endoplasmic reticulum unfolded protein response",
+      "regulation of membrane potential",
+      "cilium assembly",
+      "translational elongation",
+      "response to unfolded protein",
       "regulation of alternative mRNA splicing, via spliceosome",
-      "protein catabolic process",
-      "lysosome organization",
-      "chemical synaptic transmission",
-      "innate immune response"
+      "neuron apoptotic process"
     ],
     "phenotypes": [
       "Progressive Gait Ataxia",
       "Limb Ataxia",
       "Dysarthria",
       "Nystagmus",
-      "Pyramidal Signs",
-      "Peripheral Neuropathy"
+      "Dysphagia",
+      "Falls"
     ],
     "phenotype_categories": [
       "Neurologic"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Eye",
       "Nervous System"
     ],
@@ -18226,40 +18216,33 @@ window.searchData = [
       "HP:0002070",
       "HP:0001260",
       "HP:0000639",
-      "HP:0007256",
-      "HP:0009830"
+      "HP:0002015",
+      "HP:0002527"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "FREQUENT"
     ],
     "genes": [
       "SPTBN2 (SCA5)",
-      "CACNA1A (SCA6)",
+      "CACNA1A CAG expansion (SCA6)",
       "TTBK2 (SCA11)",
-      "PRKCG (SCA14)",
-      "PDYN (SCA23)",
-      "ITPR1 (SCA15/SCA16)",
-      "PNPT1 (SCA25)",
-      "BEAN1/TK2 repeat locus (SCA31)",
-      "MME (SCA43)",
-      "PLD3 (SCA46)"
+      "EEF2 p.Pro596His (SCA26)",
+      "BEAN1/TK2 repeat locus (SCA31)"
     ],
     "treatments": [
-      "Supportive care and rehabilitation",
-      "Acetazolamide for episodic features (SCA6)"
+      "Multidisciplinary supportive care and rehabilitation"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Cerebellar_Ataxia_Type_III.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Cerebellar_Ataxia_Type_III.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 11,
-    "num_genes": 10,
-    "num_treatments": 2,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "2"
+    "num_pathophysiology": 6,
+    "num_genes": 5,
+    "num_treatments": 1,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Autosomal Dominant Dopa-Responsive Dystonia",
@@ -19010,17 +18993,13 @@ window.searchData = [
     "creation_date": "2026-05-11T21:02:17Z",
     "updated_date": "2026-05-11T21:44:11Z",
     "subtypes": [],
-    "description": "Autosomal dominant striatal neurodegeneration is an ultra-rare adult-onset movement disorder caused by heterozygous PDE8B pathogenic variants. Reported families show slowly progressive parkinsonism with bradykinesia, rigidity, dysarthria, gait disturbance, dysphagia, dysdiadochokinesis, and characteristic striatal MRI abnormalities involving the putamen, caudate nucleus, or striatum.",
+    "description": "Autosomal dominant striatal neurodegeneration is an ultra-rare adult-onset movement disorder caused by heterozygous loss-of-function PDE8B variants. Reported families show a slowly progressive striatal movement disorder, usually with parkinsonism, bradykinesia, rigidity, dysarthria, and gait disturbance, together with characteristic signal abnormalities of the putamen and caudate. Ataxia, tremor without parkinsonism, and limb dystonia expand the phenotype in individual reports. The link from impaired PDE8B cyclic-nucleotide hydrolysis to selective striatal injury remains unresolved.",
     "pathophysiology": [
       "PDE8B Cyclic Nucleotide Phosphodiesterase Loss",
-      "Striatal Degeneration"
+      "Degeneration of the striatum"
     ],
-    "cell_types": [
-      "medium spiny neuron"
-    ],
-    "cell_type_ids": [
-      "CL:1001474"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
       "cAMP catabolic process"
     ],
@@ -19034,7 +19013,8 @@ window.searchData = [
       "Dysdiadochokinesis",
       "Ataxia",
       "Abnormality of movement",
-      "Parkinsonism"
+      "Parkinsonism",
+      "Tremor"
     ],
     "phenotype_categories": [
       "Neurologic"
@@ -19054,7 +19034,8 @@ window.searchData = [
       "HP:0002075",
       "HP:0001251",
       "HP:0100022",
-      "HP:0001300"
+      "HP:0001300",
+      "HP:0001337"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -19068,11 +19049,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Striatal_Neurodegeneration.yaml",
     "page_url": "../pages/disorders/Autosomal_dominant_striatal_neurodegeneration.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 11,
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -19166,17 +19147,17 @@ window.searchData = [
   {
     "name": "Autosomal Recessive Ataxia Due to Ubiquinone Deficiency",
     "disease_id": "MONDO:0012784",
-    "category": "Neurological Disorder",
+    "category": "Mendelian",
     "parents": [
       "Mendelian Disorder",
-      "Neurological Disorder"
+      "Neurological Disorder",
+      "Metabolic Disorder",
+      "Mitochondrial Disorder"
     ],
     "creation_date": "2026-04-23T00:00:00Z",
-    "updated_date": "2026-05-19T15:31:15Z",
-    "subtypes": [
-      "COQ8A-ataxia"
-    ],
-    "description": "Biallelic loss-of-function variants in COQ8A disrupt coenzyme Q10 biosynthesis, producing a primary coenzyme Q10 deficiency. Reduced coenzyme Q10 impairs mitochondrial respiratory-chain electron transport and oxidative phosphorylation, generating oxidative stress and an energy deficit that preferentially injures the cerebellum. The result is early-onset progressive cerebellar ataxia with cerebellar atrophy, sometimes accompanied by epilepsy, cognitive impairment, and hyperkinetic movement disorders.",
+    "updated_date": "2026-07-23T00:00:00Z",
+    "subtypes": [],
+    "description": "Autosomal recessive ataxia due to ubiquinone deficiency is the COQ8A-related form of primary coenzyme Q10 deficiency, also called COQ8A-ataxia, ARCA2, SCAR9, or primary coenzyme Q10 deficiency-4. Biallelic pathogenic COQ8A variants impair the atypical mitochondrial ATPase that stabilizes the coenzyme Q biosynthesis complex, lowering coenzyme Q10 and compromising respiratory-chain electron transfer. The core phenotype is childhood-onset, slowly progressive cerebellar ataxia with cerebellar atrophy, but onset can range into adulthood and the spectrum includes cognitive impairment, epilepsy, dystonia, myoclonus, tremor, and myopathic features. Oral coenzyme Q10 is mechanistically rational and observational cohorts report improvement in some patients, but response is variable and no randomized COQ8A-specific efficacy trial has established an optimal dose or formulation.",
     "pathophysiology": [
       "COQ8A-Dependent Coenzyme Q10 Deficiency",
       "Impaired Oxidative Phosphorylation",
@@ -19204,6 +19185,7 @@ window.searchData = [
       "Tremor",
       "Cerebellar Atrophy",
       "Seizure",
+      "Status Epilepticus",
       "Cognitive Impairment",
       "Developmental Regression",
       "Exercise Intolerance",
@@ -19227,6 +19209,7 @@ window.searchData = [
       "HP:0001337",
       "HP:0001272",
       "HP:0001250",
+      "HP:0002133",
       "HP:0100543",
       "HP:0002376",
       "HP:0003546",
@@ -19246,7 +19229,8 @@ window.searchData = [
       "COQ8A"
     ],
     "treatments": [
-      "Coenzyme Q10 supplementation"
+      "Coenzyme Q10 supplementation",
+      "Ketogenic intermittent fasting with medium-chain triglycerides"
     ],
     "environmental": [],
     "biochemical": [
@@ -19255,11 +19239,11 @@ window.searchData = [
     ],
     "source_file": "Autosomal_Recessive_Ataxia_Due_to_Ubiquinone_Deficiency.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Ataxia_Due_to_Ubiquinone_Deficiency.html",
-    "num_phenotypes": 14,
+    "num_phenotypes": 15,
     "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "26",
+    "num_treatments": 2,
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "5"
   },
   {
@@ -19267,72 +19251,106 @@ window.searchData = [
     "disease_id": "MONDO:0018129",
     "category": "Mendelian",
     "parents": [
-      "Hereditary Ataxia"
+      "Hereditary Ataxia",
+      "Hereditary Spastic Paraplegia"
     ],
     "creation_date": "2026-06-13T00:00:00Z",
-    "updated_date": null,
+    "updated_date": "2026-07-23T00:00:00Z",
     "subtypes": [],
-    "description": "Autosomal recessive cerebellar ataxia with late-onset spasticity is a GBA2-related spastic-ataxia disorder, overlapping spastic paraplegia 46 (SPG46). It is caused by biallelic GBA2 variants encoding the microsomal nonlysosomal glucosylceramidase that converts glucosylceramide to glucose and ceramide. Loss of GBA2 activity causes glucosylceramide accumulation and motor neuron and cerebellar dysfunction, producing a complex phenotype of cerebellar ataxia with spastic paraplegia, often with cerebellar and corpus callosum atrophy, cognitive impairment, cataract, and (in males) hypogonadism.",
+    "description": "Autosomal recessive cerebellar ataxia with late-onset spasticity is one presentation of the biallelic GBA2 disease spectrum, most often termed hereditary spastic paraplegia 46 (SPG46). Presentations range from ataxia-predominant disease in which spasticity emerges later to early-onset complex hereditary spastic paraplegia and a Marinesco-Sj\u00f6gren-like phenotype. Across these labels, cerebellar ataxia and lower-limb spasticity coexist, with variable peripheral neuropathy, cognitive impairment, cataracts, scoliosis, hypogonadism, movement disorders, and characteristic but inconsistent MRI abnormalities. Biallelic GBA2 variants severely reduce the nonlysosomal glucosylceramidase that hydrolyzes glucosylceramide to glucose and ceramide. Glucosylceramide accumulation is established in patient material, but the downstream mechanism linking lipid imbalance to selective corticospinal, cerebellar, peripheral-nerve, ocular, and endocrine manifestations remains incompletely resolved.",
     "pathophysiology": [
-      "GBA2 Nonlysosomal Glucosylceramidase Deficiency",
-      "Glucosylceramide Accumulation and Motor Neuron/Cerebellar Dysfunction"
+      "Biallelic GBA2 Loss of Function",
+      "Nonlysosomal Glucosylceramidase Deficiency",
+      "Glucosylceramide Accumulation and Sphingolipid Imbalance",
+      "Axonal and Neurite Dysfunction",
+      "Central and Peripheral Neurologic Syndrome",
+      "Variable Multisystem Expression With Unresolved Intermediates"
     ],
     "cell_types": [
+      "motor neuron",
       "neuron"
     ],
     "cell_type_ids": [
+      "CL:0000100",
       "CL:0000540"
     ],
     "biological_processes": [
-      "glucosylceramide catabolic process"
+      "glucosylceramide catabolic process",
+      "actin cytoskeleton organization",
+      "neuron projection development"
     ],
     "phenotypes": [
       "Cerebellar ataxia",
       "Spastic paraplegia",
-      "Cerebellar atrophy",
-      "Thin/atrophic corpus callosum",
+      "Peripheral neuropathy",
       "Cognitive impairment",
+      "Dystonia",
+      "Tremor",
+      "Vertical supranuclear gaze palsy",
+      "Urinary urgency",
       "Cataract",
       "Hypogonadism",
-      "Peripheral neuropathy",
+      "Scoliosis",
+      "Pes cavus",
+      "Cerebellar atrophy",
+      "Corpus callosum atrophy",
       "Cerebral white matter abnormalities"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Endocrine",
+      "Musculoskeletal",
+      "Imaging"
+    ],
     "phenotype_hpo_categories": [
       "Endocrine",
       "Eye",
       "Genitourinary",
+      "Limbs",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001251",
       "HP:0001258",
-      "HP:0001272",
-      "HP:0007371",
-      "HP:0001249",
+      "HP:0009830",
+      "HP:0100543",
+      "HP:0001332",
+      "HP:0001337",
+      "HP:0000511",
+      "HP:0000012",
       "HP:0000518",
       "HP:0000135",
-      "HP:0009830",
+      "HP:0002650",
+      "HP:0001761",
+      "HP:0001272",
+      "HP:0007371",
       "HP:0002500"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
-      "GBA2 pathogenic variants"
+      "Biallelic GBA2 pathogenic variants"
     ],
     "treatments": [
-      "Supportive Care"
+      "Multidisciplinary supportive care",
+      "Individualized physical and occupational rehabilitation",
+      "Symptomatic antispastic pharmacotherapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Cerebellar_Ataxia_With_Late_Onset_Spasticity.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Cerebellar_Ataxia_With_Late-Onset_Spasticity.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Autosomal Recessive Congenital Ichthyosis",
@@ -19437,31 +19455,36 @@ window.searchData = [
       "Movement Disorder"
     ],
     "creation_date": "2026-05-06T07:55:00Z",
-    "updated_date": "2026-05-06T07:55:00Z",
+    "updated_date": null,
     "subtypes": [
       "TH-deficient DRD",
       "Infantile parkinsonism",
       "Progressive infantile encephalopathy"
     ],
-    "description": "Autosomal recessive dopa-responsive dystonia is a very rare neurometabolic disorder, classically caused by biallelic TH pathogenic variants, in which tyrosine hydroxylase deficiency limits catecholamine and dopamine synthesis. The phenotype ranges from levodopa-responsive childhood dystonia to infantile parkinsonism with motor delay and progressive infantile encephalopathy. Orphanet also lists loss-of-function TSPOAP1 variants for this disease entry, linking presynaptic active-zone dysfunction to recessive dystonia.",
+    "description": "TH-deficient dopa-responsive dystonia is a very rare autosomal recessive neurometabolic disorder caused by biallelic pathogenic variants in TH. Reduced tyrosine hydroxylase activity limits the rate-limiting conversion of tyrosine to L-dopa and depletes dopamine and other catecholamines in the central nervous system. Clinical expression is continuous, ranging from childhood-onset, levodopa-responsive dystonia to infantile parkinsonism with motor delay and severe early encephalopathy with variable levodopa response.",
     "pathophysiology": [
-      "TH Enzymatic Deficiency",
-      "Central Dopamine Biosynthesis Impairment",
-      "Infantile Dopamine Deficiency Encephalopathy",
-      "TSPOAP1 Presynaptic Active-Zone Dysfunction"
+      "Biallelic TH Loss of Function",
+      "Cerebral Catecholamine Deficiency",
+      "Dopamine-Responsive Motor Circuit Dysfunction",
+      "Infantile Catecholamine Deficiency Encephalopathy",
+      "Autonomic Catecholamine Dysfunction",
+      "Stress-Triggered Neurologic Decompensation",
+      "Striatal Inhibitory Circuit Remodeling"
     ],
     "cell_types": [
       "dopaminergic neuron",
-      "Purkinje cell"
+      "GABAergic neuron"
     ],
     "cell_type_ids": [
       "CL:0000700",
-      "CL:0000121"
+      "CL:0000617"
     ],
     "biological_processes": [
       "catecholamine biosynthetic process",
+      "dopamine biosynthetic process from tyrosine",
       "dopamine biosynthetic process",
-      "neurotransmitter secretion"
+      "axonal transport",
+      "regulation of neuronal synaptic plasticity"
     ],
     "phenotypes": [
       "Ptosis",
@@ -19472,13 +19495,12 @@ window.searchData = [
       "Lethargy",
       "Mild Intellectual Disability",
       "Motor Delay",
-      "Generalized Hypotonia",
+      "Axial Hypotonia",
       "Parkinsonism",
       "Myoclonus",
       "Brisk Reflexes",
       "Pes Cavus",
       "Talipes Equinovarus",
-      "Fever",
       "Constipation",
       "Rigidity",
       "Gait Ataxia",
@@ -19503,7 +19525,6 @@ window.searchData = [
       "Neurologic",
       "Developmental",
       "Musculoskeletal",
-      "Constitutional",
       "Gastrointestinal",
       "Autonomic",
       "Biochemical"
@@ -19527,13 +19548,12 @@ window.searchData = [
       "HP:0001254",
       "HP:0001256",
       "HP:0001270",
-      "HP:0001290",
+      "HP:0008936",
       "HP:0001300",
       "HP:0001336",
       "HP:0001348",
       "HP:0001761",
       "HP:0001762",
-      "HP:0001945",
       "HP:0002019",
       "HP:0002063",
       "HP:0002066",
@@ -19559,25 +19579,28 @@ window.searchData = [
       "VERY_RARE"
     ],
     "genes": [
-      "TH biallelic pathogenic variants",
-      "TSPOAP1 biallelic loss-of-function variants"
+      "TH biallelic pathogenic variants"
     ],
     "treatments": [
-      "Levodopa with decarboxylase inhibitor",
-      "Agents/Circumstances to Avoid"
+      "Severity-adapted levodopa with a decarboxylase inhibitor",
+      "Monoamine oxidase inhibitor adjunct",
+      "Multidisciplinary developmental and supportive care",
+      "Avoid antidopaminergic agents"
     ],
     "environmental": [],
     "biochemical": [
-      "CSF homovanillic acid"
+      "Low CSF homovanillic acid",
+      "Low CSF 3-methoxy-4-hydroxyphenylethylene glycol",
+      "Normal CSF 5-hydroxyindoleacetic acid"
     ],
     "source_file": "Autosomal_Recessive_Dopa_Responsive_Dystonia.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Dopa-Responsive_Dystonia.html",
-    "num_phenotypes": 33,
-    "num_pathophysiology": 4,
-    "num_genes": 2,
-    "num_treatments": 2,
-    "causal_graph_edges": "40",
-    "causal_graph_longest_path": "4"
+    "num_phenotypes": 32,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "57",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Autosomal Recessive Limb-Girdle Muscular Dystrophy",
@@ -20326,13 +20349,14 @@ window.searchData = [
       "Inborn Disorder of Branched-Chain Amino Acid Metabolism"
     ],
     "creation_date": "2026-06-04T12:00:00Z",
-    "updated_date": null,
+    "updated_date": "2026-07-23T00:00:00Z",
     "subtypes": [],
-    "description": "Branched-chain keto acid dehydrogenase kinase (BCKDK) deficiency is a rare, autosomal recessive, potentially treatable neurometabolic disorder of branched-chain amino acid (BCAA) metabolism. BCKDK is the mitochondrial kinase that phosphorylates and inactivates the E1-alpha subunit of the branched-chain ketoacid dehydrogenase (BCKDH) complex, the rate-limiting, flux-generating step of BCAA catabolism. Biallelic loss-of-function variants in BCKDK remove this inhibitory brake, leaving BCKDH constitutively active and driving excessive catabolism of leucine, isoleucine, and valine. The result is markedly reduced plasma and cerebrospinal fluid BCAA concentrations and a neurodevelopmental phenotype of autism spectrum disorder, intellectual disability/developmental delay, epilepsy/epileptic encephalopathy, and (often progressive postnatal) microcephaly. Unlike maple syrup urine disease (which features toxic BCAA accumulation from BCKDH deficiency), BCKDK deficiency produces BCAA depletion, and dietary BCAA supplementation with a high-protein diet is the principal disease-directed therapy, improving seizure control in particular.",
+    "description": "Branched-chain keto acid dehydrogenase kinase (BCKDK) deficiency is a rare, autosomal recessive, potentially treatable neurometabolic disorder of branched-chain amino acid (BCAA) metabolism. BCKDK is the mitochondrial kinase that phosphorylates and inactivates the E1-alpha subunit of the branched-chain ketoacid dehydrogenase (BCKDH) complex, the rate-limiting, flux-generating step of BCAA catabolism. Biallelic loss-of-function variants in BCKDK remove this inhibitory brake, leaving BCKDH constitutively active and driving excessive catabolism of leucine, isoleucine, and valine. The result is markedly reduced plasma and cerebrospinal fluid BCAA concentrations and a neurodevelopmental phenotype of autism spectrum disorder, intellectual disability/developmental delay, epilepsy/epileptic encephalopathy, and (often progressive postnatal) microcephaly. Motor and language impairment, regression, movement disorder, feeding difficulty, and sensorineural hearing loss broaden the recognized spectrum. Unlike classic maple syrup urine disease, which features toxic BCAA accumulation from deficient BCKDH activity, recessive BCKDK loss produces BCAA depletion. Dietitian-directed high-protein intake and BCAA supplementation are the principal disease-directed interventions in reported human cohorts, especially when started early, although mouse studies show that simply raising systemic BCAAs may not correct aberrant catabolic flux or brain delivery.",
     "pathophysiology": [
       "BCKDK loss of function",
       "Constitutive BCKDH activation and excessive BCAA catabolism",
       "Systemic and CSF BCAA depletion",
+      "Reduced BCAA-derived nitrogen delivery and brain nutrient-stress response",
       "Neurodevelopmental and epileptic phenotype",
       "Aberrant catabolic flux beyond simple BCAA insufficiency"
     ],
@@ -20355,6 +20379,11 @@ window.searchData = [
       "Epileptic encephalopathy",
       "Seizures",
       "Microcephaly",
+      "Motor delay",
+      "Language impairment",
+      "Developmental regression",
+      "Sensorineural hearing impairment",
+      "Feeding difficulties",
       "Hypovalinemia",
       "Hypoleucinemia",
       "Hypoisoleucinemia",
@@ -20364,6 +20393,8 @@ window.searchData = [
       "Laboratory"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
       "Head and Neck",
       "Metabolism",
       "Musculoskeletal",
@@ -20376,17 +20407,26 @@ window.searchData = [
       "HP:0200134",
       "HP:0001250",
       "HP:0000252",
+      "HP:0001270",
+      "HP:0002463",
+      "HP:0002376",
+      "HP:0000407",
+      "HP:0011968",
       "HP:0500132",
       "HP:0500143",
       "HP:0500144",
       "HP:0500188"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
       "BCKDK pathogenic variants"
     ],
     "treatments": [
       "BCAA-enriched high-protein dietary supplementation",
+      "Metabolic and developmental surveillance",
       "Genetic counseling"
     ],
     "environmental": [],
@@ -20395,12 +20435,12 @@ window.searchData = [
     ],
     "source_file": "BCKDK_Deficiency.yaml",
     "page_url": "../pages/disorders/BCKDK_Deficiency.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 3,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "BEST1-Related Dominant Retinopathy",
@@ -20854,40 +20894,43 @@ window.searchData = [
   },
   {
     "name": "BRAF V600E-Mutant Non-Small Cell Lung Cancer",
-    "disease_id": "MONDO:0005061",
+    "disease_id": "MONDO:0005233",
     "category": "",
     "parents": [
       "non-small cell lung carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-05-06T05:33:39Z",
-    "subtypes": [
-      "BRAF V600E Adenocarcinoma",
-      "BRAF Non-V600 Mutant NSCLC"
-    ],
-    "description": "BRAF V600E-mutant non-small cell lung cancer (NSCLC) is a molecularly-defined lung cancer subtype driven by the BRAF V600E activating mutation. BRAF V600E occurs in approximately 1-2% of NSCLC and represents about half of all BRAF mutations in lung cancer. The V600E mutation causes constitutive activation of the RAF-MEK-ERK pathway independent of upstream RAS signaling. The combination of dabrafenib (BRAF inhibitor) plus trametinib (MEK inhibitor) provides effective targeted therapy, analogous to treatment of BRAF V600E melanoma. Encorafenib plus binimetinib is an additional BRAF/MEK-targeted option supported by the PHAROS trial, making broad molecular profiling essential for advanced NSCLC.",
+    "updated_date": "2026-07-23T00:00:00Z",
+    "subtypes": [],
+    "description": "BRAF V600E-mutant non-small cell lung cancer (NSCLC) is a molecularly defined lung-cancer subtype whose tumor cells carry the somatic BRAF c.1799T>A (p.Val600Glu) driver. The class-I mutant signals as a RAS-independent active monomer and sustains MEK-ERK output, creating a therapeutically actionable oncogene dependence. Most reported tumors are adenocarcinomas, but this entry remains scoped to NSCLC because BRAF V600E is a molecular classifier rather than a histology-exclusive entity. Dual BRAF/MEK inhibition with dabrafenib plus trametinib or encorafenib plus binimetinib has prospective phase-II evidence in metastatic disease. Acquired resistance can reactivate MAPK signaling or engage bypass pathways, so repeat molecular assessment at progression is clinically informative.",
     "pathophysiology": [
-      "BRAF V600E Oncogenic Mutation",
-      "Constitutive MAPK Pathway Activation",
-      "Cell Proliferation and Survival",
-      "BRAF/MEK Inhibitor Resistance"
+      "Somatic BRAF p.Val600Glu Driver",
+      "Sustained MEK-ERK Signaling",
+      "MAPK-Dependent Tumor-Cell Proliferation and Survival",
+      "Cooperating Tumor-Suppressor and Lineage-State Alterations",
+      "Lung Adenocarcinoma",
+      "Invasion and Metastatic Dissemination",
+      "BRAF-MEK Inhibitor Selection Pressure",
+      "MAPK Reactivation and Bypass Resistance"
     ],
     "cell_types": [
-      "type II pneumocyte"
+      "pulmonary alveolar type 2 cell"
     ],
     "cell_type_ids": [
       "CL:0002063"
     ],
     "biological_processes": [
-      "protein kinase activity",
-      "MAPK cascade",
+      "ERK1 and ERK2 cascade",
       "cell population proliferation",
-      "response to drug"
+      "apoptotic process",
+      "cell migration",
+      "response to xenobiotic stimulus",
+      "phosphatidylinositol 3-kinase signaling"
     ],
     "phenotypes": [
       "Lung Adenocarcinoma",
-      "Neoplasm of the Lung",
-      "Brain Metastases"
+      "Brain Metastases",
+      "Progressive Metastatic Disease"
     ],
     "phenotype_categories": [
       "Neoplastic",
@@ -20900,35 +20943,35 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0030078",
-      "HP:0100526",
-      "HP:0004375"
+      "HP:0030692",
+      "HP:0002664"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT"
+      "OCCASIONAL"
     ],
     "genes": [
-      "BRAF"
+      "BRAF p.Val600Glu"
     ],
     "treatments": [
-      "Dabrafenib plus Trametinib",
-      "Dabrafenib Monotherapy",
-      "Encorafenib plus Binimetinib",
-      "Immunotherapy",
-      "Chemotherapy"
+      "Dabrafenib Plus Trametinib",
+      "Encorafenib Plus Binimetinib",
+      "Platinum-Based Chemotherapy",
+      "Immune-Checkpoint-Based Therapy"
     ],
     "environmental": [],
     "biochemical": [
-      "BRAF Mutation Testing"
+      "Tumor BRAF V600E Detection",
+      "Plasma BRAF V600E Circulating Tumor DNA"
     ],
     "source_file": "BRAF_V600E_Mutant_NSCLC.yaml",
     "page_url": "../pages/disorders/BRAF_V600E-Mutant_Non-Small_Cell_Lung_Cancer.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 5,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "BRAF V600 Mutant Melanoma",
@@ -25561,6 +25604,66 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Breast Implant-Associated Anaplastic Large Cell Lymphoma",
+    "disease_id": "MONDO:0850112",
+    "category": "Cancer",
+    "parents": [
+      "Mature T-cell and NK-cell non-Hodgkin lymphoma"
+    ],
+    "creation_date": "2026-07-21T02:53:02Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Breast implant-associated anaplastic large cell lymphoma (BIA-ALCL) is a rare mature T-cell lymphoma arising in the peri-implant capsule, usually after textured breast-implant exposure. It is represented separately from the MONDO:0020325 ALCL branch because MONDO assigns it the distinct identifier MONDO:0850112 under mature T-cell and NK-cell non-Hodgkin lymphoma.",
+    "pathophysiology": [
+      "JAK/STAT Activation in BIA-ALCL",
+      "Periprosthetic CD30-Positive Malignant T-Cell Expansion"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "cell surface receptor signaling pathway via JAK-STAT",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Delayed Peri-Implant Seroma",
+      "Capsular Mass"
+    ],
+    "phenotype_categories": [
+      "Breast"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast"
+    ],
+    "phenotype_ids": [
+      "HP:0032408"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "JAK1 Mutation",
+      "STAT3 Mutation"
+    ],
+    "treatments": [
+      "Complete Surgical Excision with Implant Removal"
+    ],
+    "environmental": [
+      "Textured Breast Implant Exposure"
+    ],
+    "biochemical": [
+      "CD30/TNFRSF8 Expression"
+    ],
+    "source_file": "Breast_Implant_Associated_Anaplastic_Large_Cell_Lymphoma.yaml",
+    "page_url": "../pages/disorders/Breast_Implant-Associated_Anaplastic_Large_Cell_Lymphoma.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 2,
+    "num_genes": 2,
+    "num_treatments": 1,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Bronchiectasis",
     "disease_id": "MONDO:0004822",
     "category": "Respiratory Disease",
@@ -27045,6 +27148,93 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 4,
     "causal_graph_edges": "20",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "CHD2-Related Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0014150",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-07-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CHD2-related developmental and epileptic encephalopathy (DEE94) is a childhood-onset neurodevelopmental disorder caused by de novo heterozygous loss-of-function variants in CHD2, which encodes chromodomain helicase DNA-binding protein 2, an ATP-dependent chromatin-remodeling enzyme. CHD2 regulates nucleosome positioning and the accessibility of DNA to the transcriptional machinery, and is required for the coordinated gene-expression programs of neuronal development. Haploinsufficiency for CHD2 dysregulates chromatin remodeling and neuronal gene expression, producing a combination of developmental delay/intellectual disability and a characteristic epilepsy with prominent myoclonic and absence seizures, photosensitivity, and frequent developmental regression around seizure onset. Seizures usually begin in early childhood, are frequently fever-sensitive (reported in roughly one third of individuals), and are often refractory to treatment.",
+    "pathophysiology": [
+      "CHD2 Haploinsufficiency",
+      "Dysregulated Chromatin Remodeling",
+      "Aberrant Neuronal Gene Expression",
+      "Impaired Neuronal Development",
+      "Cortical Network Hyperexcitability"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "chromatin remodeling",
+      "regulation of transcription",
+      "regulation of gene expression",
+      "neuron differentiation",
+      "nervous system development",
+      "regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Epileptic Encephalopathy",
+      "Myoclonic Seizures",
+      "Absence Seizures",
+      "Atonic Seizures",
+      "Photosensitive Seizures",
+      "EEG Abnormality",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Developmental Regression",
+      "Autistic Behavior"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neurodevelopmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0002123",
+      "HP:0002121",
+      "HP:0010819",
+      "HP:0020216",
+      "HP:0002353",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0002376",
+      "HP:0000729"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CHD2"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Photic Trigger Avoidance",
+      "Developmental and Supportive Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CHD2-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/CHD2-Related_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
   },
   {
@@ -35521,6 +35711,104 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Cherubism",
+    "disease_id": "MONDO:0007315",
+    "category": "Mendelian",
+    "parents": [
+      "Bone Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-07-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cherubism is a rare childhood-onset autoinflammatory fibro-osseous disease of the jaws, in most cases caused by autosomal dominant gain-of-function mutations in SH3BP2. The mutations lie in the binding region for the ubiquitin-ligase adaptor Tankyrase, so the mutant SH3BP2 protein escapes normal degradation and accumulates in myeloid cells. Stabilized SH3BP2 hyperactivates SYK-ERK signaling in macrophages, driving overproduction of TNF-alpha and enhanced RANKL-dependent osteoclastogenesis. Excessive osteoclastic resorption of mandibular and maxillary bone, with replacement by fibrovascular tissue rich in multinucleated giant cells, produces progressive, typically symmetric bilateral jaw expansion that gives affected children a cherubic facial appearance. The disease usually appears in early childhood, progresses until puberty, and then stabilizes and regresses in adulthood. A rare autosomal recessive form is caused by biallelic loss-of-function variants in OGFRL1.",
+    "pathophysiology": [
+      "SH3BP2 Gain-of-Function Stabilization",
+      "Hyperactive Myeloid SYK-ERK Signaling",
+      "Macrophage TNF-alpha Overproduction",
+      "Enhanced Osteoclastogenesis",
+      "Excessive Osteoclastic Bone Resorption",
+      "Fibro-osseous Giant-Cell Lesion Formation"
+    ],
+    "cell_types": [
+      "macrophage",
+      "osteoclast",
+      "multinucleated giant cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000092",
+      "CL:0000647",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "protein stabilization",
+      "ERK cascade",
+      "immunoreceptor signaling",
+      "positive regulation of TNF production",
+      "macrophage activation",
+      "positive regulation of osteoclast differentiation",
+      "bone resorption"
+    ],
+    "phenotypes": [
+      "Bilateral Mandibular Enlargement",
+      "Maxillary Enlargement",
+      "Cherubic Facial Appearance",
+      "Dental Malocclusion and Tooth Displacement",
+      "Premature Tooth Loss and Dental Anomalies",
+      "Expansile Jaw Osteolysis",
+      "Orbital Involvement with Proptosis",
+      "Obstructive Sleep Apnea"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Dental",
+      "Radiologic",
+      "Ophthalmologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000277",
+      "HP:0000326",
+      "HP:0000283",
+      "HP:0000689",
+      "HP:0000164",
+      "HP:0012062",
+      "HP:0000520",
+      "HP:0002870"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SH3BP2",
+      "OGFRL1"
+    ],
+    "treatments": [
+      "Observation and Watchful Waiting",
+      "Surgical Contouring and Curettage",
+      "Denosumab",
+      "Tacrolimus"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cherubism.yaml",
+    "page_url": "../pages/disorders/Cherubism.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Chickenpox",
@@ -55299,6 +55587,116 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Erythropoietic Protoporphyria",
+    "disease_id": "MONDO:0001676",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-07-21T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "EPP",
+      "XLP"
+    ],
+    "description": "Erythropoietic protoporphyria (EPP) is an inherited disorder of heme biosynthesis caused by deficient activity of ferrochelatase (FECH), the terminal enzyme that inserts ferrous iron into protoporphyrin IX to form heme. Reduced ferrochelatase activity causes metal-free protoporphyrin IX to accumulate, chiefly in bone-marrow reticulocytes and circulating erythrocytes, and to distribute into plasma, skin, and the hepatobiliary system. Photoexcitation of protoporphyrin IX in dermal blood vessels by violet light generates reactive oxygen species that injure the vascular endothelium, producing the cardinal feature of acute, painful, non-blistering photosensitivity that begins in early childhood. Because protoporphyrin IX is lipophilic and excreted only in bile, it can also accumulate in hepatocytes and precipitate a cholestatic protoporphyric liver disease that, in a minority of patients, progresses to acute liver failure. Most classic EPP results from a loss-of-function FECH mutation in trans to the common hypomorphic low-expression allele IVS3-48C; a phenotypically identical X-linked form (X-linked protoporphyria) is caused by gain-of-function mutations in the erythroid-specific 5-aminolevulinate synthase ALAS2, which overproduce the protoporphyrin precursor pool despite normal ferrochelatase.",
+    "pathophysiology": [
+      "Ferrochelatase Enzymatic Deficiency",
+      "ALAS2 Gain-of-Function Precursor Overproduction",
+      "Erythroid Protoporphyrin IX Accumulation",
+      "Cutaneous Photoexcitation of Protoporphyrin IX",
+      "Phototoxic Reactive Oxygen Species Dermal Injury",
+      "Hepatobiliary Protoporphyrin Loading",
+      "Cholestatic Protoporphyric Hepatopathy"
+    ],
+    "cell_types": [
+      "erythroid progenitor cell",
+      "reticulocyte",
+      "erythrocyte",
+      "dermal microvascular endothelial cell",
+      "mast cell",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000038",
+      "CL:0000558",
+      "CL:0000232",
+      "CL:0002139",
+      "CL:0000097",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "heme biosynthesis",
+      "porphyrin biosynthesis",
+      "response to light",
+      "reactive oxygen species production",
+      "cellular response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Acute Photosensitivity",
+      "Photo-induced Edema",
+      "Photo-induced Erythema",
+      "Chronic Photodamage Skin Changes",
+      "Protoporphyrin Gallstones",
+      "Cholestatic Liver Disease",
+      "Protoporphyric Liver Failure",
+      "Mild Microcytic Anemia"
+    ],
+    "phenotype_categories": [
+      "Cutaneous",
+      "Hepatobiliary",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000992",
+      "HP:0000969",
+      "HP:0010783",
+      "HP:0100725",
+      "HP:0001081",
+      "HP:0002611",
+      "HP:0001399",
+      "HP:0001935"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FECH",
+      "ALAS2"
+    ],
+    "treatments": [
+      "Afamelanotide",
+      "Sunlight Avoidance and Photoprotection",
+      "Bile Acid Sequestrant Therapy",
+      "Vitamin D Supplementation",
+      "Liver Transplantation",
+      "Hematopoietic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated Erythrocyte Protoporphyrin IX",
+      "Zinc Protoporphyrin Fraction"
+    ],
+    "source_file": "Erythropoietic_Protoporphyria.yaml",
+    "page_url": "../pages/disorders/Erythropoietic_Protoporphyria.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Esophageal Adenocarcinoma",
     "disease_id": "MONDO:0005028",
     "category": "",
@@ -63841,6 +64239,111 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "GRIN2B-Related Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0014505",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-07-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "GRIN2B-related developmental and epileptic encephalopathy (DEE27) is a neurodevelopmental disorder caused by de novo heterozygous variants in GRIN2B, which encodes the GluN2B subunit of the N-methyl-D-aspartate (NMDA) glutamate receptor. GluN2B-containing NMDA receptors are the dominant NMDA receptors in the developing brain and are central to excitatory synaptic transmission, calcium-dependent signaling, and activity-dependent synapse maturation and plasticity. Pathogenic GRIN2B variants fall into two broad functional classes: gain-of-function variants that increase NMDA receptor activity, and loss-of-function variants that reduce receptor function or surface expression. Both classes disrupt tightly regulated NMDA-receptor signaling, impairing synaptic development and plasticity (producing developmental delay and intellectual disability) and altering the cortical excitation-inhibition balance (producing seizures). The disorder presents in infancy or early childhood with a spectrum from intellectual disability and autism without epilepsy to severe early-onset epileptic encephalopathy.",
+    "pathophysiology": [
+      "GRIN2B Variant Altering the GluN2B NMDA Receptor Subunit",
+      "NMDA Receptor Gain-of-Function",
+      "NMDA Receptor Loss-of-Function",
+      "Dysregulated NMDA Receptor Signaling",
+      "Impaired Synaptic Development and Plasticity",
+      "Cortical Excitation-Inhibition Imbalance"
+    ],
+    "cell_types": [
+      "glutamatergic neuron",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "glutamate receptor signaling",
+      "calcium ion transmembrane transport",
+      "regulation of glutamatergic synaptic transmission",
+      "modulation of chemical synaptic transmission",
+      "long-term synaptic potentiation",
+      "synapse organization",
+      "dendrite development",
+      "regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Epileptic Encephalopathy",
+      "Seizures",
+      "Infantile Spasms",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Autistic Behavior",
+      "Hypotonia",
+      "Spasticity",
+      "Feeding Difficulties",
+      "Movement Disorder",
+      "Cerebral Visual Impairment",
+      "Microcephaly",
+      "Malformation of Cortical Development"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neurodevelopmental",
+      "Gastrointestinal",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0011968",
+      "HP:0002487",
+      "HP:0100704",
+      "HP:0000252",
+      "HP:0002536"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "GRIN2B"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "NMDA Receptor Antagonist Therapy",
+      "L-Serine Supplementation",
+      "Developmental and Supportive Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GRIN2B-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/GRIN2B-Related_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "GUCY2D-Related Retinopathy",
@@ -90652,6 +91155,7 @@ window.searchData = [
       "Metabolic Shift and Oxidative Stress",
       "Mast Cell Activation",
       "Neuroinflammation",
+      "Striatal Dopaminergic Dysfunction",
       "Blood-Brain Barrier Permeability",
       "Gut Microbiome Dysbiosis",
       "Autoantibody Production"
@@ -90666,6 +91170,7 @@ window.searchData = [
       "mast cell",
       "microglial cell",
       "macrophage",
+      "Midbrain dopaminergic neuron",
       "brain microvascular endothelial cell",
       "astrocyte",
       "B cell"
@@ -90680,6 +91185,7 @@ window.searchData = [
       "CL:0000097",
       "CL:0000129",
       "CL:0000235",
+      "CL:0000700",
       "CL:2000044",
       "CL:0000127"
     ],
@@ -90702,6 +91208,8 @@ window.searchData = [
       "ATP biosynthetic process",
       "glycolytic process",
       "response to oxidative stress",
+      "dopaminergic synaptic transmission",
+      "cellular senescence",
       "cell junction assembly"
     ],
     "phenotypes": [
@@ -90716,6 +91224,7 @@ window.searchData = [
       "Sleep Disturbance",
       "Anxiety",
       "Depression",
+      "Apathy",
       "Post-traumatic Stress Symptoms",
       "Anosmia",
       "Ageusia",
@@ -90728,7 +91237,9 @@ window.searchData = [
       "Diarrhea",
       "Nausea"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neuropsychiatric"
+    ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Constitutional",
@@ -90749,6 +91260,7 @@ window.searchData = [
       "HP:0002360",
       "HP:0000739",
       "HP:0000716",
+      "HP:0000741",
       "HP:0033676",
       "HP:0000458",
       "HP:0041051",
@@ -90788,11 +91300,11 @@ window.searchData = [
     ],
     "source_file": "Long_COVID.yaml",
     "page_url": "../pages/disorders/Long_COVID.html",
-    "num_phenotypes": 22,
-    "num_pathophysiology": 15,
+    "num_phenotypes": 23,
+    "num_pathophysiology": 16,
     "num_genes": 0,
     "num_treatments": 8,
-    "causal_graph_edges": "64",
+    "causal_graph_edges": "67",
     "causal_graph_longest_path": "5"
   },
   {
@@ -120409,10 +120921,11 @@ window.searchData = [
       "HP:0002415",
       "HP:0002240",
       "HP:0001396",
-      "HP:0012622",
+      "HP:0012211",
       "HP:0000488",
       "HP:0000365",
       "HP:0000846",
+      "HP:0010655",
       "HP:0001873",
       "HP:0001638",
       "HP:0001635"
@@ -159106,17 +159619,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1609,
+  "total_disorder_pages": 1614,
   "total_subtypes": 2473,
-  "total_disorders_and_subtypes": 4082,
-  "total_unique_evidence_sources": 24669,
-  "total_unique_publications": 23108,
+  "total_disorders_and_subtypes": 4087,
+  "total_unique_evidence_sources": 24516,
+  "total_unique_publications": 22937,
   "total_unique_disease_categories": 43,
-  "total_unique_phenotype_categories": 223,
-  "total_pathographs": 1604,
-  "total_unique_pathological_events": 7790,
+  "total_unique_phenotype_categories": 221,
+  "total_pathographs": 1609,
+  "total_unique_pathological_events": 7833,
   "total_modules": 116,
-  "total_research_reports": 1841,
+  "total_research_reports": 1845,
   "total_classifications": 9,
   "total_comorbidities": 16,
   "total_groupings": 47
