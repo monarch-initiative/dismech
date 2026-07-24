@@ -10,11 +10,11 @@ import re
 import textwrap
 import time
 from collections import defaultdict
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, MutableMapping, Set
+from typing import Any
 
 import yaml
-
 
 RESEARCH_FILE_RE = re.compile(
     r"^(?P<name>.+)-deep-research-(?P<provider>[^.]+)\.md(?:\.citations\.md)?$"
@@ -89,8 +89,8 @@ def canonical_ref(raw: str) -> str | None:
     return None
 
 
-def extract_refs(text: str) -> List[str]:
-    refs: Set[str] = set()
+def extract_refs(text: str) -> list[str]:
+    refs: set[str] = set()
 
     def add(raw: str) -> None:
         canon = canonical_ref(raw)
@@ -116,8 +116,8 @@ def load_yaml(path: Path) -> MutableMapping[str, Any]:
     return data or {}
 
 
-def collect_existing_research(research_dir: str) -> Dict[str, Set[str]]:
-    providers: Dict[str, Set[str]] = defaultdict(set)
+def collect_existing_research(research_dir: str) -> dict[str, set[str]]:
+    providers: dict[str, set[str]] = defaultdict(set)
     for path in glob.glob(os.path.join(research_dir, "*-deep-research-*.md*")):
         filename = os.path.basename(path)
         if filename.startswith("com_"):
@@ -129,8 +129,8 @@ def collect_existing_research(research_dir: str) -> Dict[str, Set[str]]:
     return providers
 
 
-def collect_citations_for_disorder(research_dir: str, disorder: str) -> List[str]:
-    refs: Set[str] = set()
+def collect_citations_for_disorder(research_dir: str, disorder: str) -> list[str]:
+    refs: set[str] = set()
     pattern = os.path.join(research_dir, f"{disorder}-deep-research-*.md.citations.md")
     for path in glob.glob(pattern):
         text = Path(path).read_text(encoding="utf-8", errors="ignore")
@@ -152,7 +152,7 @@ def collect_reference_count(node: Any) -> int:
     return total
 
 
-def top_mechanisms(data: Mapping[str, Any], max_items: int = 12) -> List[str]:
+def top_mechanisms(data: Mapping[str, Any], max_items: int = 12) -> list[str]:
     items = []
     for entry in data.get("pathophysiology", []) or []:
         if isinstance(entry, Mapping):
@@ -167,8 +167,8 @@ def top_mechanisms(data: Mapping[str, Any], max_items: int = 12) -> List[str]:
 def write_codex_files(
     disorder: str,
     data: Mapping[str, Any],
-    providers: List[str],
-    refs: List[str],
+    providers: list[str],
+    refs: list[str],
     research_dir: str,
     max_citations: int,
     overwrite: bool,
@@ -266,7 +266,7 @@ def main() -> int:
     )
     existing = collect_existing_research(args.research_dir)
 
-    candidates: List[Path] = []
+    candidates: list[Path] = []
     for kb_file in kb_files:
         disorder = kb_file.stem
         if only and disorder not in only:

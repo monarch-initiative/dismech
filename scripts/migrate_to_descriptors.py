@@ -15,6 +15,7 @@ To:
 
 import sys
 from pathlib import Path
+
 from ruamel.yaml import YAML
 
 # Fields to migrate and their locations in the data structure

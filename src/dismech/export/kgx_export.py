@@ -7,11 +7,10 @@ Each function extracts edges from a specific collection type within the disorder
 
 import re
 import uuid
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import koza
-from koza import KozaTransform
-
 from biolink_model.datamodel.pydanticmodel_v2 import (
     AgentTypeEnum,
     AnatomicalEntity,
@@ -40,7 +39,7 @@ from biolink_model.datamodel.pydanticmodel_v2 import (
     PhenotypicFeature,
     Treatment,
 )
-
+from koza import KozaTransform
 
 # Knowledge source for all edges
 KNOWLEDGE_SOURCE = "infores:dismech"

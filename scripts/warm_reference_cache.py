@@ -45,12 +45,13 @@ import sys
 import time
 from pathlib import Path
 
-# Applying the dismech network-resilience patch also imports the validator.
-import dismech.patch_reference_validator  # noqa: F401
 from linkml_reference_validator.etl.reference_fetcher import (
     NEEDS_FULL_TEXT_TYPES,
     ReferenceFetcher,
 )
+
+# Applying the dismech network-resilience patch also imports the validator.
+import dismech.patch_reference_validator  # noqa: F401
 
 try:
     # Reuse the CLI's config loader so we honor conf/reference_validator_config.yaml

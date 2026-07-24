@@ -247,7 +247,7 @@ def load_model_config(config_path: Path, disorder: dict | None = None) -> ModelC
 
     coupling_raw = raw.get("coupling") or {}
     feedback_rules: list[FeedbackRule] = []
-    for name, fb_raw in (coupling_raw.get("feedback") or {}).items():
+    for fb_raw in (coupling_raw.get("feedback") or {}).values():
         feedback_rules.append(
             FeedbackRule(
                 source=fb_raw["source"],

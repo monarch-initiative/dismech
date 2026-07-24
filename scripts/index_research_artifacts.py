@@ -20,11 +20,10 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
-
 
 # ---------------------------------------------------------------------------
 # Frontmatter parsing
@@ -148,7 +147,7 @@ def build_index(research_dir: Path) -> dict:
     reports_with_artifacts = [r for r in all_reports if r["artifact_count"] > 0]
 
     return {
-        "generated": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generated": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "report_count": len(all_reports),
         "reports_with_artifacts_count": len(reports_with_artifacts),
         "artifact_total": sum(e["artifact_count"] for e in reports_with_artifacts),

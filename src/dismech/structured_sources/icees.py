@@ -36,9 +36,10 @@ import gzip
 import json
 import logging
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar, Iterable, Iterator
+from typing import ClassVar
 
 from dismech.structured_sources.base import (
     BulkFile,
@@ -205,15 +206,12 @@ class ICEESSource(StructuredSource):
 
                 # Sort the unordered pair so subject/object order does not matter.
                 if a_pref <= b_pref:
-                    (a_pref, a_raw, a_name), (b_pref, b_raw, b_name) = (
-                        (a_pref, subj, s_node["name"]),
-                        (b_pref, obj, o_node["name"]),
-                    )
+                    a_raw, a_name = subj, s_node["name"]
+                    b_raw, b_name = obj, o_node["name"]
                 else:
-                    (a_pref, a_raw, a_name), (b_pref, b_raw, b_name) = (
-                        (b_pref, obj, o_node["name"]),
-                        (a_pref, subj, s_node["name"]),
-                    )
+                    a_pref, b_pref = b_pref, a_pref
+                    a_raw, a_name = obj, o_node["name"]
+                    b_raw, b_name = subj, s_node["name"]
 
                 ref_id = _pair_reference_id(a_pref, b_pref)
                 rec = records.get(ref_id)

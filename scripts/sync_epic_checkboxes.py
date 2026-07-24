@@ -34,7 +34,6 @@ from pathlib import Path
 from dismech.compare.mondo_priority import iter_covered_mondo_ids
 from dismech.compare.support import iter_disease_files, load_yaml_object
 
-
 _CHECKBOX_PATTERN = re.compile(
     r"^(?P<indent>[ \t]*)- (?P<state>\[ \]|\[x\]|\[X\]) "
     r"(?P<rest>\[.+?\]\(https://monarchinitiative\.org/(?P<mondo_id>MONDO:\d+)\).*)"

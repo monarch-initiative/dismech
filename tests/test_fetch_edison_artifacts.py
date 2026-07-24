@@ -24,10 +24,8 @@ pytest.importorskip("edison_client", reason="edison_client not installed")
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-import fetch_edison_artifacts as fea  # noqa: E402  (import after sys.path manipulation)
-
-from deep_research_client.models import ResearchArtifact  # noqa: E402
-
+import fetch_edison_artifacts as fea
+from deep_research_client.models import ResearchArtifact
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -128,7 +126,7 @@ def test_update_research_file_adds_trajectory_id(tmp_path):
 
     fea._update_research_file(report, "traj-abc-123", [artifact])
 
-    fm = yaml.safe_load(report.read_text().split("\n---\n")[0].lstrip("---\n"))
+    fm = yaml.safe_load(report.read_text().split("\n---\n")[0].removeprefix("---\n"))
     assert fm["trajectory_id"] == "traj-abc-123"
 
 
@@ -141,7 +139,7 @@ def test_update_research_file_adds_artifact_count(tmp_path):
 
     fea._update_research_file(report, "traj-xyz", artifacts)
 
-    fm = yaml.safe_load(report.read_text().split("\n---\n")[0].lstrip("---\n"))
+    fm = yaml.safe_load(report.read_text().split("\n---\n")[0].removeprefix("---\n"))
     assert fm["artifact_count"] == 2
     assert len(fm["artifacts"]) == 2
 
@@ -154,7 +152,7 @@ def test_update_research_file_preserves_existing_fields(tmp_path):
 
     fea._update_research_file(report, "traj-1", [artifact])
 
-    fm = yaml.safe_load(report.read_text().split("\n---\n")[0].lstrip("---\n"))
+    fm = yaml.safe_load(report.read_text().split("\n---\n")[0].removeprefix("---\n"))
     assert fm["provider"] == "falcon"
     assert fm["citation_count"] == 3
 
@@ -167,7 +165,7 @@ def test_update_research_file_overwrites_existing_trajectory_id(tmp_path):
 
     fea._update_research_file(report, "new-traj", [artifact])
 
-    fm = yaml.safe_load(report.read_text().split("\n---\n")[0].lstrip("---\n"))
+    fm = yaml.safe_load(report.read_text().split("\n---\n")[0].removeprefix("---\n"))
     assert fm["trajectory_id"] == "new-traj"
 
 

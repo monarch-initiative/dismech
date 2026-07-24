@@ -7,10 +7,10 @@ extracting experimental evidence and searching for GO term references.
 import csv
 import re
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from io import StringIO
 from pathlib import Path
-from typing import Iterator
 
 import httpx
 from bs4 import BeautifulSoup
