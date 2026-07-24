@@ -135,6 +135,21 @@ Note: if you are affiliated with an academic institution you should be able to r
 
 We no longer recommend Asta for the deep research role
 
+#### 3b. Set up Open Scientist for hypothesis exploration
+
+Any agent can use openscientist in two ways
+
+1. as a literature deep research tool
+2. as a tool combining literature search, hypothesis generation, data analysis, and data exploration
+
+In fact, 1 is really just a subset of 2.
+
+In both cases, you will need to obtain an API key from [openscientist.io](https://openscientist.io)
+
+```bash
+   export OPENSCIENTIST_API_KEY=your_key_here
+   ```
+
 ### 4. Clone and Start
 ```bash
 git clone https://github.com/monarch-initiative/dismech.git
@@ -271,7 +286,8 @@ To understand the curation guidelines:
 
 ## Regenerating Site Content
 
-After making changes to `kb/disorders/*.yaml` files, regenerate the static site:
+After making changes to `kb/disorders/*.yaml` files, a github job will generate the site. You don't need to
+know the details but we provide them here anyway:
 
 ### Browser App & HTML Pages
 
@@ -298,9 +314,7 @@ This:
 2. Computes UMAP/t-SNE coordinates
 3. Generates `app/embeddings/data.js`
 
-**When to run:** After adding new disorders or making significant content changes.
-
-**View the explorer:**
+**View the explorer locally:**
 ```bash
 open app/embeddings/index.html
 ```
@@ -316,7 +330,7 @@ open app/embeddings/index.html
 
 ### Quality Standards
 
-All contributions must pass validation:
+All contributions must pass validation (this is done for you, your PR will not be merged until your agent resolves these)
 
 ```bash
 # Schema validation
@@ -329,11 +343,6 @@ just validate-terms
 just validate-references kb/disorders/YourFile.yaml
 ```
 
-Disease entries should also maintain lifecycle metadata timestamps:
-- `creation_date`: when the file/entry was first created
-- `updated_date`: last substantive content update
-
-Use ISO 8601/RFC 3339 datetime strings (for example, `2025-06-12T20:16:27Z`), and keep `creation_date` unchanged after initial creation.
 
 ### Ontology databases and constrained environments
 
@@ -351,6 +360,8 @@ from the public [`bbop-sqlite`](https://s3.amazonaws.com/bbop-sqlite) bucket int
 In network- or disk-constrained environments (Claude Code on the web, sandboxed
 agents, metered connections) an interrupted big-file download can abort a
 validation run. Two things make this manageable:
+
+NOTE: we should be using OLS for the above now
 
 - **Single-file validation does not force these downloads.** `just validate`,
   `just validate-terms`, `just validate-module`, `just validate-grouping`, and
