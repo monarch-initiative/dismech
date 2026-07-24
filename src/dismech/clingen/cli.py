@@ -14,12 +14,12 @@ from pathlib import Path
 import typer
 
 from dismech.clingen.client import ClinGenClient, GeneDiseaseValidity
-from dismech.clingen.go_mapper import get_all_go_mappings, GOMapping
 from dismech.clingen.go_annotations import (
     GOAnnotationFetcher,
     compare_clingen_to_go,
     get_experimental_evidence_codes,
 )
+from dismech.clingen.go_mapper import GOMapping, get_all_go_mappings
 
 app = typer.Typer(
     name="clingen-go",

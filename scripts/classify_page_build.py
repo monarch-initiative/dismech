@@ -89,13 +89,7 @@ def _is_local_page_input(path: str) -> bool:
             and "/" not in path[len(prefix):]
         ):
             return True
-    if (
-        path.startswith("research/")
-        and path.endswith(".md")
-        and "/" not in path[len("research/"):]
-    ):
-        return True
-    return False
+    return bool(path.startswith("research/") and path.endswith(".md") and "/" not in path[len("research/"):])
 
 
 def _is_neutral(path: str) -> bool:
@@ -106,9 +100,7 @@ def _is_neutral(path: str) -> bool:
     if path in NEUTRAL_EXACT:
         return True
     # Top-level markdown/readme etc. never feeds page rendering.
-    if "/" not in path and path.endswith(".md"):
-        return True
-    return False
+    return bool("/" not in path and path.endswith(".md"))
 
 
 def _is_global(path: str) -> bool:
@@ -134,15 +126,14 @@ def classify(entries: list[tuple[str, str]]) -> Decision:
 
     for status, path in entries:
         status = (status or "").strip().upper()
-        deleted_or_renamed = status.startswith("D") or status.startswith("R")
+        deleted_or_renamed = status.startswith(("D", "R"))
 
         if _is_global(path):
             reasons.append(f"global input changed: {path}")
             continue
         if _is_local_page_input(path):
             if deleted_or_renamed and (
-                path.startswith(("kb/disorders/", "kb/comorbidities/", "kb/modules/"))
-                or path.startswith("research/")
+                path.startswith(("kb/disorders/", "kb/comorbidities/", "kb/modules/", "research/"))
             ):
                 reasons.append(f"page input {status} (removed/renamed): {path}")
                 continue

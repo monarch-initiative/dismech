@@ -11,14 +11,14 @@ import re
 import subprocess
 import time
 from collections import defaultdict
+from collections.abc import Iterable, Mapping, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Set, Tuple
+from typing import Any
 
 import yaml
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
-
 
 CITATION_FILE_RE = re.compile(r"^(?P<name>.+)-deep-research-[^.]+\.md\.citations\.md$")
 PMID_RE = re.compile(r"\bPMID\s*[:#]?\s*(\d{4,9})\b", re.IGNORECASE)
@@ -171,12 +171,12 @@ def valid_doi(doi: str) -> bool:
     return re.fullmatch(r"10\.\d{4,9}/\S+", doi) is not None
 
 
-def extract_refs(text: str) -> Set[str]:
-    refs: Set[str] = set()
+def extract_refs(text: str) -> set[str]:
+    refs: set[str] = set()
 
     def add_ref(raw: str) -> None:
         value = canonical_ref(raw)
-        if value and (value.startswith("PMID:") or value.startswith("DOI:")):
+        if value and (value.startswith(("PMID:", "DOI:"))):
             refs.add(value)
 
     for pmid in PMID_RE.findall(text):
@@ -197,8 +197,8 @@ def extract_refs(text: str) -> Set[str]:
     return refs
 
 
-def citations_by_disorder(research_dir: str) -> Dict[str, Dict[str, Set[str]]]:
-    by_disorder: Dict[str, Dict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
+def citations_by_disorder(research_dir: str) -> dict[str, dict[str, set[str]]]:
+    by_disorder: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
     for path in glob.glob(
         os.path.join(research_dir, "*-deep-research-*.md.citations.md")
     ):
@@ -217,7 +217,7 @@ def citations_by_disorder(research_dir: str) -> Dict[str, Dict[str, Set[str]]]:
     return by_disorder
 
 
-def collect_existing_refs(node: Any, out: Set[str]) -> None:
+def collect_existing_refs(node: Any, out: set[str]) -> None:
     if isinstance(node, dict):
         for key, value in node.items():
             if key == "reference" and isinstance(value, str):
@@ -284,7 +284,7 @@ def normalize_title(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
 
 
-def collect_existing_titles(node: Any, out: Set[str]) -> None:
+def collect_existing_titles(node: Any, out: set[str]) -> None:
     if isinstance(node, dict):
         for key, value in node.items():
             if key in {"title", "reference_title"} and isinstance(value, str):
@@ -592,7 +592,7 @@ def append_publication_reference(
     refs.append(ref_item)
 
 
-def normalize_found_in_entries(value: Any) -> Set[str]:
+def normalize_found_in_entries(value: Any) -> set[str]:
     if isinstance(value, str):
         entry = value.strip()
         return {entry} if entry else set()
@@ -635,7 +635,7 @@ def migrate_holder_to_references(
         return 0
 
     refs = ensure_references_list(data)
-    existing_top_refs: Set[str] = set()
+    existing_top_refs: set[str] = set()
     for item in refs:
         if isinstance(item, Mapping) and isinstance(item.get("reference"), str):
             canon = canonical_ref(item.get("reference", ""))
@@ -698,8 +698,8 @@ def main() -> int:
     yaml_rt.indent(mapping=2, sequence=2, offset=0)
     now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
-    results: List[DisorderResult] = []
-    unresolved_rows: List[Tuple[str, str, str]] = []
+    results: list[DisorderResult] = []
+    unresolved_rows: list[tuple[str, str, str]] = []
 
     for idx, disorder in enumerate(disorders, start=1):
         yaml_path = kb_paths[disorder]
@@ -711,12 +711,12 @@ def main() -> int:
         if data is None:
             continue
 
-        existing_refs: Set[str] = set()
+        existing_refs: set[str] = set()
         collect_existing_refs(data, existing_refs)
-        existing_titles: Set[str] = set()
+        existing_titles: set[str] = set()
         collect_existing_titles(data, existing_titles)
 
-        preloaded_titles: Dict[str, str] = {}
+        preloaded_titles: dict[str, str] = {}
         missing_refs = []
         for ref in sorted(cited_refs):
             if ref in existing_refs:
@@ -751,8 +751,8 @@ def main() -> int:
 
         if missing_refs:
             refs = ensure_references_list(data)
-            top_ref_items: Dict[str, MutableMapping[str, Any]] = {}
-            top_ref_titles: Dict[str, MutableMapping[str, Any]] = {}
+            top_ref_items: dict[str, MutableMapping[str, Any]] = {}
+            top_ref_titles: dict[str, MutableMapping[str, Any]] = {}
             for item in refs:
                 if (
                     isinstance(item, MutableMapping)
@@ -787,15 +787,14 @@ def main() -> int:
                         if not cache_path.exists() and args.fetch_missing_cache:
                             fetch_reference(canon, args.fetch_timeout_seconds)
                         title = existing_item.get("title")
-                        if isinstance(title, str) and title.strip():
-                            if append_auto_finding(
-                                existing_item,
-                                canon,
-                                title.strip(),
-                                disorder,
-                                cache_path,
-                            ):
-                                changed = True
+                        if isinstance(title, str) and title.strip() and append_auto_finding(
+                            existing_item,
+                            canon,
+                            title.strip(),
+                            disorder,
+                            cache_path,
+                        ):
+                            changed = True
 
             for reference in missing_refs:
                 if reference in top_ref_items:
@@ -887,15 +886,14 @@ def main() -> int:
                     if not cache_path.exists() and args.fetch_missing_cache:
                         fetch_reference(canon, args.fetch_timeout_seconds)
                     title = item.get("title")
-                    if isinstance(title, str) and title.strip():
-                        if append_auto_finding(
-                            item,
-                            canon,
-                            title.strip(),
-                            disorder,
-                            cache_path,
-                        ):
-                            changed = True
+                    if isinstance(title, str) and title.strip() and append_auto_finding(
+                        item,
+                        canon,
+                        title.strip(),
+                        disorder,
+                        cache_path,
+                    ):
+                        changed = True
 
         if args.repair_findings:
             refs = ensure_references_list(data)

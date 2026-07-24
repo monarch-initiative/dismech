@@ -968,14 +968,14 @@ def main():
     try:
         commit_hash = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, cwd=yaml_path.parent
+            capture_output=True, text=True, cwd=yaml_path.parent, check=False
         ).stdout.strip() or "unknown"
     except Exception:
         commit_hash = "unknown"
 
     md = template.render(
         d=data,
-        now=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        now=datetime.now().strftime("%Y-%m-%d %H:%M"),  # noqa: DTZ005
         commit_hash=commit_hash,
     )
     # Clean up excessive blank lines
@@ -999,7 +999,7 @@ def main():
             ["pandoc", "-f", "markdown", "-t", "html5", "--standalone",
              "--metadata", f"title={data.name}",
              "--css", "/dev/null"],
-            input=md, capture_output=True, text=True
+            input=md, capture_output=True, text=True, check=False
         )
         if result.returncode != 0:
             print(f"Pandoc error: {result.stderr}")
@@ -1015,7 +1015,7 @@ def main():
          f"--print-to-pdf={pdf_path}",
          "--print-to-pdf-no-header",
          f"file://{tmp_path}"],
-        capture_output=True
+        capture_output=True, check=False
     )
     Path(tmp_path).unlink()
     print(f"PDF written to {pdf_path}")

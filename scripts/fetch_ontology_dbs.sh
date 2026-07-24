@@ -29,7 +29,7 @@
 # See docs/explanation/oak-database-caching.md.
 set -euo pipefail
 
-BASE_URL="https://s3.amazonaws.com/bbop-sqlite"
+BASE_URL="https://semanticsql.berkeleybop.io"
 OAK_CONFIG="${OAK_CONFIG:-conf/oak_config.yaml}"
 # The directory OAK will actually read from, derived exactly as pystow does.
 OAK_READ_DIR="${PYSTOW_HOME:-$HOME/.data}/oaklib"

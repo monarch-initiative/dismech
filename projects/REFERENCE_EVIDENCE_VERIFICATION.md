@@ -1,6 +1,8 @@
 ---
 title: 'GOAL: Reference-Title Backfill & Evidence Re-Verification'
 status: PROPOSED
+nih_topics:
+  - NIH_HT_66_scientific_rigor_transparency_replicability
 description: >-
   One-off campaign to visit every disorder entry whose references or inlined
   evidence lack a title, backfill the missing title, AND manually re-read each

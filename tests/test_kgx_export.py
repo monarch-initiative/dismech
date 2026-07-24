@@ -32,8 +32,8 @@ from biolink_model.datamodel.pydanticmodel_v2 import (
 
 from dismech.export.kgx_export import (
     KNOWLEDGE_SOURCE,
-    biomarker_to_edge,
     biological_process_to_edge,
+    biomarker_to_edge,
     cell_type_to_edge,
     cellular_component_to_edge,
     chemical_entity_to_edge,
@@ -51,8 +51,8 @@ from dismech.export.kgx_export import (
     protein_complex_to_edge,
     therapeutic_agent_to_edge,
     transform,
-    treatment_to_edge,
     treatment_target_phenotype_to_edge,
+    treatment_to_edge,
 )
 
 

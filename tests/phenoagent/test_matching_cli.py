@@ -1,8 +1,8 @@
 """Tests for matching CLI helpers and disease reference resolution."""
 
+import json
 from pathlib import Path
 
-import json
 import yaml
 
 from phenoagent.matching import resolve_disease_reference

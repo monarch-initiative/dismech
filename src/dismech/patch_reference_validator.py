@@ -137,8 +137,8 @@ def _wrap_fulltext_method(original):
 def apply_patch():
     """Apply monkey-patches for network resilience and cache compatibility."""
     try:
-        from linkml_reference_validator.etl.sources.pmid import PMIDSource
         from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
+        from linkml_reference_validator.etl.sources.pmid import PMIDSource
     except ImportError:
         logger.debug("linkml-reference-validator not installed, skipping patch")
         return
