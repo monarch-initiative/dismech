@@ -131,7 +131,7 @@ For comprehensive biomedical literature research, we recommend **Edison Scientif
 
 Note: if you are affiliated with an academic institution you should be able to request bonus credits with Edison
 
-**Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details)
+**Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details). For example, `openscientist` uses its own `OPENSCIENTIST_API_KEY` — see [3b](#3b-set-up-open-scientist-for-hypothesis-exploration) below.
 
 We no longer recommend Asta for the deep research role
 
