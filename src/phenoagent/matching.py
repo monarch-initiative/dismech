@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from pathlib import Path
 import re
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -144,8 +144,7 @@ def resolve_disease_reference(
         if not path.is_file():
             raise ValueError(f"Disease reference path is not a file: {path}")
         slug = path.stem
-        if slug.endswith(".history"):
-            slug = slug[: -len(".history")]
+        slug = slug.removesuffix(".history")
         return slug, path
 
     disorder_dir = kb_dir or _default_kb_dir()
@@ -162,8 +161,7 @@ def resolve_disease_reference(
         candidate_path = disorder_dir / candidate
         if candidate_path.exists() and candidate_path.is_file():
             slug = candidate_path.stem
-            if slug.endswith(".history"):
-                slug = slug[: -len(".history")]
+            slug = slug.removesuffix(".history")
             return slug, candidate_path.resolve()
 
     disease_files = _iter_disease_files(disorder_dir)
@@ -453,7 +451,7 @@ def build_unmatched_run_from_phenopacket(
         "run_id": run_id,
         "case_id": case_id,
         "disease_slug": disease_slug,
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "explanations": _default_explanations(),
         "matches": matches,
     }
@@ -528,7 +526,7 @@ def build_matching_run_from_phenopacket(
         "run_id": run_id,
         "case_id": case_id,
         "disease_slug": disease_slug,
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "explanations": _default_explanations(),
         "matches": matches,
     }

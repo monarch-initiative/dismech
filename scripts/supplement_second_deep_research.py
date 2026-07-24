@@ -10,10 +10,9 @@ import os
 import re
 import subprocess
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Set
-
 
 RESEARCH_FILE_RE = re.compile(
     r"^(?P<name>.+)-deep-research-(?P<provider>[^.]+)\.md(?:\.citations\.md)?$"
@@ -89,7 +88,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def disorder_names(kb_dir: str) -> List[str]:
+def disorder_names(kb_dir: str) -> list[str]:
     names = []
     for path in sorted(glob.glob(os.path.join(kb_dir, "*.yaml"))):
         stem = Path(path).stem
@@ -99,8 +98,8 @@ def disorder_names(kb_dir: str) -> List[str]:
     return names
 
 
-def research_providers_by_disorder(research_dir: str) -> Dict[str, Set[str]]:
-    providers: Dict[str, Set[str]] = {}
+def research_providers_by_disorder(research_dir: str) -> dict[str, set[str]]:
+    providers: dict[str, set[str]] = {}
     for path in glob.glob(os.path.join(research_dir, "*-deep-research-*.md*")):
         filename = os.path.basename(path)
         if filename.startswith("com_"):
@@ -115,7 +114,7 @@ def research_providers_by_disorder(research_dir: str) -> Dict[str, Set[str]]:
 
 
 def choose_provider(
-    existing_targeted: Set[str], provider_order: Iterable[str]
+    existing_targeted: set[str], provider_order: Iterable[str]
 ) -> str | None:
     for provider in provider_order:
         if provider not in existing_targeted:
@@ -123,7 +122,7 @@ def choose_provider(
     return None
 
 
-def build_command(disorder: str, provider: str, max_tokens: int) -> List[str]:
+def build_command(disorder: str, provider: str, max_tokens: int) -> list[str]:
     if provider == "cyberian-codex":
         return [
             "just",
@@ -139,7 +138,7 @@ def build_command(disorder: str, provider: str, max_tokens: int) -> List[str]:
 
 def run_attempt(
     disorder: str,
-    existing_all: Set[str],
+    existing_all: set[str],
     provider: str,
     timeout_seconds: int,
     max_tokens: int,
@@ -176,7 +175,7 @@ def run_attempt(
         )
 
 
-def write_report(attempts: List[Attempt], output_dir: str) -> Path:
+def write_report(attempts: list[Attempt], output_dir: str) -> Path:
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     report_path = Path(output_dir) / f"second_provider_attempts_{timestamp}.tsv"
@@ -214,7 +213,7 @@ def main() -> int:
     by_disorder = research_providers_by_disorder(args.research_dir)
     only = set(args.only or [])
 
-    queue: List[tuple[str, Set[str], Set[str], str]] = []
+    queue: list[tuple[str, set[str], set[str], str]] = []
     for disorder in names:
         if only and disorder not in only:
             continue
@@ -234,7 +233,7 @@ def main() -> int:
 
     print(f"Candidate disorders: {len(queue)}")
 
-    attempts: List[Attempt] = []
+    attempts: list[Attempt] = []
     for i, (disorder, existing_all, _existing_targeted, provider) in enumerate(
         queue, start=1
     ):

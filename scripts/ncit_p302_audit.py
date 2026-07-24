@@ -42,7 +42,7 @@ import yaml
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from dismech.structured_sources.ontology_edges import OntologyEdgeSource  # noqa: E402
+from dismech.structured_sources.ontology_edges import OntologyEdgeSource
 
 _KB_DIR = _REPO_ROOT / "kb" / "disorders"
 _MANIFEST = _REPO_ROOT / "data" / "ncit-edges" / "MANIFEST.yaml"

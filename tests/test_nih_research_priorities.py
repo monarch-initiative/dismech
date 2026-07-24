@@ -38,6 +38,7 @@ def test_generated_enum_in_sync_with_snapshot() -> None:
     result = subprocess.run(
         [sys.executable, str(SCRIPT), "--check"],
         capture_output=True, text=True, cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 0, (
         "nih_research_priorities.yaml is stale — run "
@@ -108,7 +109,7 @@ def test_summary_page_builds_and_embeds_all_topics() -> None:
     mod = _load_summary_module()
     html_out = mod.build()
     assert html_out.lstrip().startswith("<!doctype html>")
-    m = re.search(r"const DATA = (\[.*?\]);\n", html_out, re.S)
+    m = re.search(r"const DATA = (\[.*?\]);\n", html_out, re.DOTALL)
     assert m, "embedded DATA array not found"
     data = json.loads(m.group(1))
     assert len(data) == len(_enum_values()) == 72

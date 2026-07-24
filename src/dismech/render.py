@@ -9,9 +9,10 @@ import json
 import os
 import re
 from collections import defaultdict
-from functools import lru_cache
+from collections.abc import Callable
+from functools import cache, lru_cache
 from pathlib import Path
-from typing import Callable, Optional, TypedDict
+from typing import TypedDict
 
 import markdown as markdown_lib
 import yaml
@@ -1684,8 +1685,8 @@ def collect_hypothesis_research_links(
 
 def render_disorder(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
 ) -> Path:
     """
     Render a single disorder YAML file to HTML.
@@ -1889,8 +1890,8 @@ def _resolve_comorbidity_disorders_dir(yaml_path: Path) -> Path:
 
 def render_comorbidity(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
 ) -> Path:
     """
     Render a single comorbidity YAML file to HTML.
@@ -1966,8 +1967,8 @@ def render_comorbidity(
 
 def render_module(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
     usage_index: dict[str, list[dict]] | None = None,
@@ -2706,7 +2707,7 @@ def render_all_research_syntheses(
 def render_all_modules(
     input_dir: Path = Path("kb/modules"),
     output_dir: Path = Path("pages/modules"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
 ) -> list[Path]:
@@ -2747,7 +2748,7 @@ def render_all_modules(
 def render_all_comorbidities(
     input_dir: Path = Path("kb/comorbidities"),
     output_dir: Path = Path("pages/comorbidities"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
 ) -> list[Path]:
     """
     Render all comorbidity YAML files to HTML pages.
@@ -3564,8 +3565,8 @@ def _render_grouping_document(
     grouping: dict,
     summary: dict,
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
 ) -> Path:
     """Render a loaded and annotated grouping to HTML."""
     yaml_content = yaml_path.read_text()
@@ -3603,8 +3604,8 @@ def _render_grouping_document(
 
 def render_grouping(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
 ) -> Path:
@@ -3687,7 +3688,7 @@ def render_grouping_index(
 def render_all_groupings(
     input_dir: Path = Path("kb/groupings"),
     output_dir: Path = Path("pages/groupings"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
 ) -> list[Path]:
@@ -3913,7 +3914,7 @@ def _autolink_project_body(body: str, link_map: dict[str, tuple[str, str]]) -> s
     in_fence = False
     for line in body.split("\n"):
         stripped = line.lstrip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
+        if stripped.startswith(("```", "~~~")):
             in_fence = not in_fence
             out_lines.append(line)
             continue
@@ -3955,7 +3956,7 @@ def _render_project_html(
     body: str,
     entities: dict[str, list[dict]],
     output_path: Path,
-    template_path: Optional[Path],
+    template_path: Path | None,
 ) -> Path:
     """Render an already-parsed/resolved project to HTML and write it out.
 
@@ -4008,8 +4009,8 @@ def _render_project_html(
 
 def render_project(
     md_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
     modules_dir: Path = Path("kb/modules"),
@@ -4066,7 +4067,7 @@ def render_project_index(
 def render_all_projects(
     input_dir: Path = Path("projects"),
     output_dir: Path = Path("pages/projects"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
     modules_dir: Path = Path("kb/modules"),
@@ -4121,7 +4122,7 @@ def _load_schema() -> dict:
         return {}
 
 
-@lru_cache(maxsize=None)
+@cache
 def _get_oak_adapter(adapter_str: str):
     try:
         from oaklib import get_adapter
@@ -4143,7 +4144,7 @@ def _compact_hierarchy_path(
     return head + [None] + tail
 
 
-def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[Optional[str]]:
+def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[str | None]:
     path: list[str] = []
     current = term_id
     visited = set()
@@ -4158,7 +4159,7 @@ def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[Optional[
             return []
         if not parents:
             break
-        current = sorted(parents)[0]
+        current = min(parents)
     return list(reversed(path))
 
 
@@ -4243,7 +4244,7 @@ def _classification_slot_to_enum(
     return mapping
 
 
-def _find_enum_for_value(value: str, enums: dict) -> Optional[str]:
+def _find_enum_for_value(value: str, enums: dict) -> str | None:
     for enum_name, enum_info in enums.items():
         enum_def = enum_info.get("definition") or {}
         if value in (enum_def.get("permissible_values") or {}):
@@ -4325,7 +4326,7 @@ def render_classification_index(
 def render_classification_pages(
     input_dir: Path = Path("kb/disorders"),
     output_dir: Path = Path("pages/classifications"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
 ) -> list[Path]:
     enums = _load_classification_enums()
     if not enums:
@@ -4445,8 +4446,8 @@ def render_classification_pages(
 def render_all_disorders(
     input_dir: Path = Path("kb/disorders"),
     output_dir: Path = Path("pages/disorders"),
-    template_path: Optional[Path] = None,
-    only: Optional[set[Path]] = None,
+    template_path: Path | None = None,
+    only: set[Path] | None = None,
     render_research: bool = True,
 ) -> list[Path]:
     """

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from html import escape as html_escape
 import json
 import re
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from html import escape as html_escape
 from pathlib import Path
 from typing import Any
 
@@ -528,7 +528,7 @@ def render_matching_causal_html(
     generated_at = matching_run.get("generated_at")
     pr_is_diagnosis = matching_run.get("pr_is_diagnosis")
 
-    rendered_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    rendered_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     graph_json = json.dumps(mermaid)
 
     metadata_rows = [

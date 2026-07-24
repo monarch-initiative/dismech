@@ -1,11 +1,11 @@
 """Tests for cyberian wrapper orchestration."""
 
-from pathlib import Path
 import re
 import sys
+from pathlib import Path
 
-from cyberian.models import Task
 import yaml
+from cyberian.models import Task
 
 from phenoagent import cyberian_wrapper
 
