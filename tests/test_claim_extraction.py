@@ -7,8 +7,7 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from dismech.claims import extract_claim_rows
-from dismech.claims import extract_claim_rows_from_file
+from dismech.claims import extract_claim_rows, extract_claim_rows_from_file
 from dismech.cli import app
 
 

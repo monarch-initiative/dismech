@@ -739,7 +739,7 @@ class DisorderEmbedder:
 
         # Update styling
         fig.update_traces(
-            marker=dict(size=10, opacity=0.8, line=dict(width=0.5, color="white"))
+            marker={"size": 10, "opacity": 0.8, "line": {"width": 0.5, "color": "white"}}
         )
         fig.update_layout(
             hovermode="closest",

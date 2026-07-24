@@ -7,19 +7,18 @@ Usage:
 """
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 import yaml
 
 from dismech.perturb.graph import extract_causal_edges, trace_causal_paths
+from dismech.perturb.phenotypes import evaluate_phenotypes
 from dismech.perturb.simulate import (
     ModelConfig,
     SimulationResult,
     load_model_config,
     run_perturbation,
 )
-from dismech.perturb.phenotypes import evaluate_phenotypes
 
 app = typer.Typer(help="Causal perturbation analysis for dismech disorders.")
 
@@ -83,9 +82,9 @@ def _get_causal_edges(disorder: dict):
 @app.command()
 def perturb(
     disorder_yaml: Path = typer.Argument(..., help="Path to disorder YAML file"),
-    gene: Optional[str] = typer.Option(None, "--gene", "-g", help="Gene to perturb"),
-    effect: Optional[str] = typer.Option(None, "--effect", "-e", help="LoF or GoF"),
-    param: Optional[list[str]] = typer.Option(
+    gene: str | None = typer.Option(None, "--gene", "-g", help="Gene to perturb"),
+    effect: str | None = typer.Option(None, "--effect", "-e", help="LoF or GoF"),
+    param: list[str] | None = typer.Option(
         None, "--param", "-p", help="Parameter override (name=multiplier)"
     ),
     gfr: float = typer.Option(
@@ -94,10 +93,10 @@ def perturb(
     all_scenarios: bool = typer.Option(
         False, "--all", "-a", help="Run all predefined scenarios"
     ),
-    models_dir: Optional[Path] = typer.Option(
+    models_dir: Path | None = typer.Option(
         None, "--models-dir", "-m", help="Directory containing model files"
     ),
-    scenario: Optional[str] = typer.Option(
+    scenario: str | None = typer.Option(
         None, "--scenario", "-s", help="Run a named scenario from config"
     ),
 ) -> None:
@@ -278,7 +277,7 @@ def _print_gene_phenotype_matrix(
     if not gene_scenarios:
         return
 
-    hp_labels = sorted(set(pt.hp_label for pt in config.phenotype_thresholds))
+    hp_labels = sorted({pt.hp_label for pt in config.phenotype_thresholds})
 
     print(f"\n\n{'=' * 100}")
     print("GENE -> PHENOTYPE MATRIX")

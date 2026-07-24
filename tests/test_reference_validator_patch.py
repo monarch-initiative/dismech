@@ -9,7 +9,7 @@ from linkml_reference_validator.models import ReferenceValidationConfig
 
 
 def test_clinicaltrials_cache_path_uses_repo_lowercase_naming(tmp_path):
-    import dismech.patch_reference_validator  # noqa: F401
+    import dismech.patch_reference_validator  # noqa: F401  # side-effect: applies the cache-path patch
 
     fetcher = ReferenceFetcher(ReferenceValidationConfig(cache_dir=tmp_path))
 

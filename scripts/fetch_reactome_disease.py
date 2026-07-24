@@ -28,7 +28,6 @@ from pathlib import Path
 
 import yaml
 
-
 VARIANT_TSV_URL = (
     "https://reactome.org/download/current/disease_variant_ewas_mapping.tsv"
 )
@@ -445,12 +444,8 @@ def _search_disease_pathways(name: str, doid_bare: str) -> list[DiseasePathway]:
         # not as a substring of the whole line (which would match within Reactome IDs).
         disease_fields = parts[2:]
         doid_exact_match = any(f.strip() == doid_bare or f.strip() == f"DOID:{doid_bare}" for f in disease_fields)
-        if name_lower in pname_lower or doid_exact_match:
-            if pid not in pathways:
-                pathways[pid] = DiseasePathway(stable_id=pid, name=pname)
-        elif len(name_terms) >= 2 and all(t in pname_lower for t in name_terms):
-            if pid not in pathways:
-                pathways[pid] = DiseasePathway(stable_id=pid, name=pname)
+        if (name_lower in pname_lower or doid_exact_match or len(name_terms) >= 2 and all(t in pname_lower for t in name_terms)) and pid not in pathways:
+            pathways[pid] = DiseasePathway(stable_id=pid, name=pname)
 
     return sorted(pathways.values(), key=lambda p: p.name)
 

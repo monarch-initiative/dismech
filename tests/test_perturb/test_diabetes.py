@@ -53,6 +53,7 @@ def test_diabetes_insulin_resistance_activates_hyperglycemia():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "ACTIVATED PHENOTYPES" in result.stdout
@@ -67,6 +68,7 @@ def test_diabetes_sglt2_inhibitor_rescues():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     # Rescued: hyperglycemia is NOT among the activated phenotypes.
@@ -81,6 +83,7 @@ def test_diabetes_sulfonylurea_fails_after_collapse():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     # Not rescued: hyperglycemia remains activated.

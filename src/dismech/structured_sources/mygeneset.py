@@ -30,9 +30,10 @@ import json
 import logging
 import os
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar, Iterable, Iterator, Optional
+from typing import ClassVar
 
 import requests
 
@@ -175,7 +176,7 @@ class MyGenesetSource(StructuredSource):
             and e["path"].endswith(".yaml")
         )
 
-    def _fetch_membership(self, local_id: str) -> Optional[list[dict]]:
+    def _fetch_membership(self, local_id: str) -> list[dict] | None:
         """Fetch gene membership for one set from mygeneset.info."""
         url = (
             f"{self._mygeneset_base}/geneset/{local_id}"
@@ -272,7 +273,7 @@ class MyGenesetSource(StructuredSource):
         """Strip a ``<SOURCE>:`` prefix to get the mygeneset ``_id``."""
         return gene_set_id.split(":", 1)[1] if ":" in gene_set_id else gene_set_id
 
-    def _parse_interpretation(self, path: Path) -> Optional[_GeneSetRecord]:
+    def _parse_interpretation(self, path: Path) -> _GeneSetRecord | None:
         from ruamel.yaml import YAML
 
         yaml = YAML(typ="safe")
@@ -396,9 +397,9 @@ class MyGenesetSource(StructuredSource):
         yield "## Source"
         yield ""
         parts = [
-            f"Curated GO interpretation from "
-            f"[`{self._repo}`](https://github.com/{self._repo}) "
-            f"(`{self._interpretation_dir}/{rec.local_id}.yaml`",
+            (f"Curated GO interpretation from "
+             f"[`{self._repo}`](https://github.com/{self._repo}) "
+             f"(`{self._interpretation_dir}/{rec.local_id}.yaml`"),
         ]
         footer = parts[0]
         if self._ref:

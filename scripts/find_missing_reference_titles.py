@@ -33,14 +33,12 @@ def walk(node, missing_ev, missing_ref):
         for key, val in node.items():
             if key == "evidence" and isinstance(val, list):
                 for item in val:
-                    if isinstance(item, dict) and "reference" in item:
-                        if is_blank(item.get("reference_title")):
-                            missing_ev.append(item.get("reference"))
+                    if isinstance(item, dict) and "reference" in item and is_blank(item.get("reference_title")):
+                        missing_ev.append(item.get("reference"))
             elif key == "references" and isinstance(val, list):
                 for item in val:
-                    if isinstance(item, dict) and "reference" in item:
-                        if is_blank(item.get("title")):
-                            missing_ref.append(item.get("reference"))
+                    if isinstance(item, dict) and "reference" in item and is_blank(item.get("title")):
+                        missing_ref.append(item.get("reference"))
             # recurse into every value regardless (evidence/references nest deeply)
             walk(val, missing_ev, missing_ref)
     elif isinstance(node, list):

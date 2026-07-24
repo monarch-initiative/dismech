@@ -7,7 +7,6 @@ from pathlib import Path
 
 import yaml
 
-
 FDA_ENDPOINTS_PATH = Path("kb/surrogate_endpoints/fda_surrogate_endpoints.yaml")
 
 

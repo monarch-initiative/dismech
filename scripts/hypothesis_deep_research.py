@@ -24,12 +24,12 @@ import csv
 import subprocess
 import sys
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import yaml
-
 
 DEFAULT_KB_DIR = Path("kb/disorders")
 DEFAULT_OUTPUT_ROOT = Path("kb/hypotheses")
