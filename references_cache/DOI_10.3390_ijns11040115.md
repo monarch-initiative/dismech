@@ -16,6 +16,7 @@ journal: International Journal of Neonatal Screening
 year: '2025'
 doi: 10.3390/ijns11040115
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Psychological Impact of Newborn Screening for 3-Methylcrotonyl-CoA Carboxylase Deficiency: The Parental Experience

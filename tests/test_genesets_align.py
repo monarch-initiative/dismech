@@ -6,7 +6,6 @@ from pathlib import Path
 
 from dismech import genesets_align as ga
 
-
 CACHE_MD = """\
 ---
 reference_id: "MYGENESET:DEMO"

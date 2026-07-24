@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04903626"
+reference_id: clinicaltrials:NCT04903626
 title: "A Multicenter, Single-Arm Prospective Study to Evaluate Safety and Efficacy of GLE/PIB 8-Week Treatment in Adults and Adolescents With Acute Hepatitis C Virus (HCV) Infection"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Multicenter, Single-Arm Prospective Study to Evaluate Safety and Efficacy of GLE/PIB 8-Week Treatment in Adults and Adolescents With Acute Hepatitis C Virus (HCV) Infection
