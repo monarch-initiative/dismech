@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Resolve and probe read-only PR Shepherd candidates.
 
 The model receives only the snapshot produced here. This script performs all
