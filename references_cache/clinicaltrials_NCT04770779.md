@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04770779"
+reference_id: clinicaltrials:NCT04770779
 title: "A Phase 3, Double-Blind, Randomized, Placebo-Controlled, Multicenter Study Evaluating the Efficacy and Safety of Mitapivat in Subjects With Transfusion-Dependent Alpha- or Beta-Thalassemia (ENERGIZE-T)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3, Double-Blind, Randomized, Placebo-Controlled, Multicenter Study Evaluating the Efficacy and Safety of Mitapivat in Subjects With Transfusion-Dependent Alpha- or Beta-Thalassemia (ENERGIZE-T)
