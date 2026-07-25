@@ -364,11 +364,51 @@ prose-only.
    quotes, honest `PARTIAL` grading, contradicting evidence preserved rather than
    dropped, and limits of single-case data stated explicitly.
 
-## Suggested order of work
+## Disposition
 
-1. Mechanical enum/field corrections — M1, M3, O1, C6 (no literature work needed).
-2. Snippet swaps where a better quote is already in the cached abstract — A2, K1.
-3. Deletions of non-supporting items — M4, C1, C2, C3, D2.
-4. Frequency re-scoping — D1 (via `subtype:`), O2, S2, C5, S3.
-5. Citation gaps needing new literature — A1 (human GBM lamellation / FSGS), A3, A4,
-   M5, C4, D3, S1.
+Fourteen findings were fixed in place on `claude/ecm-disorders-review-ky690u`; the
+remainder are tracked as issues because they need new literature, clinical input, or
+a curation-policy decision.
+
+### Fixed
+
+| Finding | Entry | Fix |
+|---|---|---|
+| M1 | Marfan | 4 `REFUTE` → `SUPPORT`/`PARTIAL`; dropped one non-bearing item |
+| M2 | Marfan | `prevalence_class` → `BAND_1_9_PER_100000`, matching the recorded rate |
+| M3 | Marfan | `REFUTE` → `SUPPORT` (6.5/100,000 is inside the interval); stale explanations rewritten |
+| M4 | Marfan | Removed PMID:7911041 from `Aortic Aneurysm` |
+| M6 | Marfan | Rewrote two stale `progression` explanations |
+| C1 | cEDS | Removed unsupported `Myopia` phenotype + its causal edge |
+| C2 | cEDS | Removed the `NO_EVIDENCE` item contradicting its own claim |
+| C3 | cEDS | Dropped 4 `NO_EVIDENCE` items; hEDS-cohort item `SUPPORT` → `PARTIAL` |
+| C5 | cEDS | `Delayed Wound Healing` `VERY_FREQUENT` → `FREQUENT` |
+| C6 | cEDS | `evidence_source` added where unambiguous (5 items) |
+| O1 | OI type I | 6 ORPHA rows `HUMAN_CLINICAL` → `OTHER` |
+| O3 | OI type I | 3 truncated snippets replaced with clean sentences |
+| A2 | Alport | Digenic snippet swapped for the paper's METHODS + CONCLUSIONS |
+| K1 | Kniest | Attached the 5/7 clefting evidence to `Cleft Palate Repair` |
+| S3 | Stickler | 2 conflicting Orphanet rows `SUPPORT` → `PARTIAL` |
+| D2 | DEB | Removed the mismatched citation from the mucosal-blistering node |
+
+All seven edited files pass `linkml-validate`; the full `tests/test_data.py` suite
+passes (1648 tests); and every snippet still substring-matches its cache file.
+
+### Tracked as issues
+
+| Issue | Findings | Why deferred |
+|---|---|---|
+| [#6951](https://github.com/monarch-initiative/dismech/issues/6951) | O2, S2, D1 | Grouping/spectrum `frequency:` leakage — needs a curation policy plus a DEB `subtype:` migration |
+| [#6952](https://github.com/monarch-initiative/dismech/issues/6952) | A1, A3, A4 | Alport phenotypes needing human citations |
+| [#6953](https://github.com/monarch-initiative/dismech/issues/6953) | M5 | Exercise direction-of-effect — needs clinical input on dynamic vs isometric framing |
+| [#6954](https://github.com/monarch-initiative/dismech/issues/6954) | C4, C6 (bulk) | ~45 remaining `evidence_source` tags; uncited frameshift variant class; cross-subtype pain evidence |
+| [#6955](https://github.com/monarch-initiative/dismech/issues/6955) | cross-cutting | QC proposal: lint `supports` enums against their own `explanation` |
+| [#6956](https://github.com/monarch-initiative/dismech/issues/6956) | S1 | Stickler prevalence reconciliation — needs epidemiology judgment |
+
+### Note on tooling
+
+`linkml-reference-validator` reports `Total checks: 0` in this environment, including
+on files untouched by these edits — an environmental issue, not a content one.
+Snippet verification here was done with an offline substring checker against
+`references_cache/` implementing the same contract (ellipsis-split, whitespace- and
+Unicode-normalised).
