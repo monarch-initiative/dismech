@@ -24950,14 +24950,17 @@ window.searchData = [
       "Congenital hypogonadotropic hypogonadism"
     ],
     "creation_date": "2026-05-07T07:20:00Z",
-    "updated_date": "2026-05-07T07:20:00Z",
+    "updated_date": "2026-07-24T13:19:06Z",
     "subtypes": [],
-    "description": "Bosma arhinia microphthalmia syndrome is an ultra-rare congenital malformation syndrome characterized by arhinia or severe nasal hypoplasia, choanal or nasopharyngeal obstruction, ocular hypoplasia or microphthalmia, olfactory and taste impairment, dental and midface anomalies, and hypogonadotropic hypogonadism with otherwise usually preserved intelligence. Most molecularly explained cases involve heterozygous missense variants in the ATPase domain of SMCHD1, typically de novo, with evidence for altered chromatin regulation, neural crest migration defects, and disrupted nasal and craniofacial development.",
+    "description": "Bosma arhinia microphthalmia syndrome is an ultra-rare congenital malformation syndrome characterized by arhinia or severe nasal hypoplasia, choanal or nasopharyngeal obstruction, ocular hypoplasia or microphthalmia, olfactory and taste impairment, dental and midface anomalies, and hypogonadotropic hypogonadism with otherwise usually preserved intelligence. Most molecularly explained cases involve heterozygous missense variants in the ATPase domain of SMCHD1. Variants are commonly de novo, although inherited disease with markedly variable expressivity is documented. Patient-derived cell studies implicate both impaired neural-crest migration and defective cranial-placode differentiation and adhesion in disrupted nasal and craniofacial development.",
     "pathophysiology": [
-      "SMCHD1 ATPase-domain epigenetic dysregulation",
-      "Neural crest migration and AKT signaling imbalance",
-      "Abrogated nasal and olfactory development",
-      "Craniofacial, ocular, and reproductive malformation syndrome"
+      "SMCHD1 ATPase-domain chromatin regulatory alteration",
+      "Neural crest transcriptional, adhesion, and migration dysregulation",
+      "Cranial placode differentiation and adhesion defect",
+      "Disrupted nasal, olfactory, and midfacial development",
+      "Ocular developmental disruption",
+      "GnRH deficiency and variable reproductive-axis development",
+      "Unresolved body-wall developmental consequences"
     ],
     "cell_types": [
       "neural crest cell"
@@ -24968,7 +24971,11 @@ window.searchData = [
     "biological_processes": [
       "chromatin organization",
       "neural crest cell migration",
-      "nose development"
+      "cell adhesion",
+      "ectodermal placode development",
+      "nose development",
+      "eye morphogenesis",
+      "gonadotropin secretion"
     ],
     "phenotypes": [
       "Inguinal hernia",
@@ -24978,12 +24985,16 @@ window.searchData = [
       "Cleft palate",
       "Submucous cleft hard palate",
       "Bifid uvula",
+      "High palate",
+      "Abnormality of taste sensation",
       "Abnormal midface morphology",
+      "Hypertelorism",
       "Hypoplasia of the maxilla",
       "Choanal atresia",
       "Anosmia",
       "Cataract",
       "Anophthalmia",
+      "Lacrimal duct atresia",
       "Microphthalmia",
       "Visual loss",
       "Iris coloboma",
@@ -24995,11 +25006,13 @@ window.searchData = [
       "External genital hypoplasia",
       "Hyposmia",
       "Failure of eruption of permanent teeth",
+      "Paranasal sinus hypoplasia",
       "Hypoplasia of penis",
       "Abdominal wall muscle weakness",
       "Aplasia/Hypoplasia involving the nose",
       "Aplasia of the nose",
       "Single naris",
+      "Feeding difficulties",
       "Dacryocystocele",
       "Hypoplasia of the olfactory bulb",
       "Absent nares"
@@ -25009,6 +25022,7 @@ window.searchData = [
       "Genitourinary",
       "Endocrine",
       "Craniofacial",
+      "Sensory",
       "Olfactory",
       "Ophthalmologic",
       "Dental",
@@ -25023,7 +25037,8 @@ window.searchData = [
       "Genitourinary",
       "Head and Neck",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0000023",
@@ -25033,12 +25048,16 @@ window.searchData = [
       "HP:0000175",
       "HP:0000176",
       "HP:0000193",
+      "HP:0000218",
+      "HP:0000223",
       "HP:0000309",
+      "HP:0000316",
       "HP:0000327",
       "HP:0000453",
       "HP:0000458",
       "HP:0000518",
       "HP:0000528",
+      "HP:0000564",
       "HP:0000568",
       "HP:0000572",
       "HP:0000612",
@@ -25050,11 +25069,13 @@ window.searchData = [
       "HP:0003241",
       "HP:0004409",
       "HP:0006352",
+      "HP:0006784",
       "HP:0008736",
       "HP:0009023",
       "HP:0009924",
       "HP:0009927",
       "HP:0009932",
+      "HP:0011968",
       "HP:0030752",
       "HP:0040326",
       "HP:0100596"
@@ -25068,19 +25089,23 @@ window.searchData = [
       "SMCHD1 ATPase-domain missense variants"
     ],
     "treatments": [
+      "Neonatal airway stabilization",
+      "Neonatal feeding adaptation",
       "Staged nasal and midface reconstruction",
+      "Customized postoperative nasal stenting",
+      "Early multidisciplinary craniofacial, lacrimal, and endocrine follow-up",
       "Genetic counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Bosma_Arhinia_Microphthalmia_Syndrome.yaml",
     "page_url": "../pages/disorders/Bosma_Arhinia_Microphthalmia_Syndrome.html",
-    "num_phenotypes": 32,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 38,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "37",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 6,
+    "causal_graph_edges": "54",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Botulism",
@@ -46594,6 +46619,83 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "DEPDC5-Related Epilepsy",
+    "disease_id": "MONDO:0005384",
+    "category": "Mendelian",
+    "parents": [
+      "Epilepsy"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DEPDC5-related epilepsy is the gene-anchored spectrum of focal epilepsies caused by loss-of-function variants in DEPDC5, which encodes a subunit of the GATOR1 complex (with NPRL2 and NPRL3) that inhibits the amino-acid-sensing branch of mTORC1. Loss of GATOR1 restraint releases mTORC1 into constitutive hyperactivation, defining a focal \"mTORopathy.\" Mechanistically the disorder is distinguished by a germline-plus-brain-somatic two-hit model: a heterozygous germline loss-of-function allele is inherited with incomplete penetrance, and a focal brain-somatic second hit produces biallelic DEPDC5 loss in a neuronal clone, driving focal cortical dysplasia. Clinically it spans familial focal epilepsy with variable foci, sleep-related (frontal-lobe/hypermotor) focal epilepsy, familial mesial temporal lobe epilepsy, focal epilepsy with focal cortical dysplasia, and severe early-onset developmental and epileptic encephalopathy, and it carries a notably elevated risk of sudden unexpected death in epilepsy (SUDEP). This entry is scoped to the DEPDC5/GATOR1-to-mTORC1 mechanism, the two-hit lesion model, and the resulting precision-therapy rationale (mTOR inhibitors); the familial variable-foci clinical syndrome as such is curated separately in Familial Focal Epilepsy With Variable Foci.",
+    "pathophysiology": [
+      "DEPDC5 Germline Loss of Function and GATOR1 Complex Dysfunction",
+      "Brain-Somatic Second-Hit Biallelic DEPDC5 Loss",
+      "Constitutive mTORC1 Hyperactivation",
+      "Dysmorphic Neurons and Focal Cortical Dysplasia",
+      "Focal Cortical Hyperexcitability and Focal-Onset Seizures",
+      "Elevated Risk of Sudden Unexpected Death in Epilepsy"
+    ],
+    "cell_types": [
+      "neuron",
+      "pyramidal neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000598"
+    ],
+    "biological_processes": [
+      "negative regulation of TOR signaling",
+      "positive regulation of TOR signaling",
+      "TOR signaling"
+    ],
+    "phenotypes": [
+      "Focal-Onset Seizures With Variable Foci",
+      "Sleep-Related Hypermotor (Frontal-Lobe) Seizures",
+      "Nocturnal (Sleep-Related) Seizures",
+      "Focal Cortical Dysplasia",
+      "Variable Cognition (Normal to Impaired)",
+      "Elevated SUDEP Risk"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007359",
+      "HP:0011174",
+      "HP:0031951",
+      "HP:0032046",
+      "HP:0100543",
+      "HP:0033258"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DEPDC5"
+    ],
+    "treatments": [
+      "Antiseizure Medication Therapy",
+      "mTOR Inhibitor Precision Therapy (Sirolimus/Everolimus)",
+      "Epilepsy Surgery for Drug-Resistant Focal Cortical Dysplasia"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "DEPDC5-Related_Epilepsy.yaml",
+    "page_url": "../pages/disorders/DEPDC5-Related_Epilepsy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "DK1-congenital disorder of glycosylation",
     "disease_id": "MONDO:0012556",
     "category": "Mendelian",
@@ -60768,6 +60870,104 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "32",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Febrile Infection-Related Epilepsy Syndrome",
+    "disease_id": "MONDO:0015584",
+    "category": "Complex",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-07-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Febrile infection-related epilepsy syndrome (FIRES) is a catastrophic epileptic encephalopathy that strikes previously healthy school-aged children a few days to two weeks after a nonspecific febrile illness. It is defined as the subgroup of new-onset refractory status epilepticus (NORSE) that requires a preceding febrile infection, and it develops without an identified acute structural, toxic, metabolic, or infectious (CNS pathogen) cause. The leading mechanistic model is a disorder of innate immunity: a febrile trigger drives microglial/inflammasome activation and a pro-convulsant cytokine surge (interleukin-1-beta, interleukin-6), which - together with blood-brain barrier dysfunction - lowers seizure threshold and produces explosive, multifocal, drug-resistant status epilepticus. The illness is biphasic: an acute super-refractory status epilepticus phase (often requiring prolonged anesthetic burst-suppression) is followed, in survivors, by a chronic phase of drug-resistant epilepsy with cognitive and behavioral sequelae. Because the acute and chronic phases are mechanistically distinct endpoints of the same cascade, this entry keeps them as separate downstream nodes rather than bundling them.",
+    "pathophysiology": [
+      "Preceding Febrile Infection Trigger",
+      "Functional IL-1RA Deficiency (Permissive Host Factor)",
+      "Innate Neuroinflammatory Activation",
+      "Cytokine-Driven Lowering of Seizure Threshold",
+      "Blood-Brain Barrier Dysfunction",
+      "Cortical Excitation-Inhibition Imbalance",
+      "Super-Refractory Status Epilepticus",
+      "Neuronal Injury and Network Reorganization",
+      "Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae"
+    ],
+    "cell_types": [
+      "Leukocyte",
+      "Microglial cell",
+      "Astrocyte",
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000738",
+      "CL:0000129",
+      "CL:0000127",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Microglial cell activation",
+      "Interleukin-1 beta production",
+      "Interleukin-6 production",
+      "Inflammatory response",
+      "Acute inflammatory response"
+    ],
+    "phenotypes": [
+      "Refractory Status Epilepticus",
+      "Focal Seizures",
+      "Bilateral Tonic-Clonic Seizures",
+      "Preceding Fever",
+      "Encephalopathy",
+      "Cognitive Impairment",
+      "Intellectual Disability",
+      "Behavioral Abnormality",
+      "Chronic Drug-Resistant Epilepsy"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Constitutional",
+      "Neurodevelopmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002133",
+      "HP:0007359",
+      "HP:0002069",
+      "HP:0001945",
+      "HP:0001298",
+      "HP:0100543",
+      "HP:0001249",
+      "HP:0000708",
+      "HP:0001250"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IL1RN"
+    ],
+    "treatments": [
+      "Anakinra (IL-1 Receptor Antagonist)",
+      "Tocilizumab (IL-6 Receptor Antagonist)",
+      "Ketogenic Diet",
+      "First-Line Immunotherapy",
+      "Anesthetic Burst-Suppression",
+      "Cannabidiol"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated CSF and Serum Pro-Inflammatory Cytokines"
+    ],
+    "source_file": "Febrile_Infection-Related_Epilepsy_Syndrome.yaml",
+    "page_url": "../pages/disorders/Febrile_Infection-Related_Epilepsy_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Feingold Syndrome",
@@ -96971,8 +97171,7 @@ window.searchData = [
       "HP:0002090"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "OCCASIONAL"
+      "VERY_FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -97175,7 +97374,7 @@ window.searchData = [
       "Transcriptional Regulation Disorder"
     ],
     "creation_date": "2026-04-11T00:00:00Z",
-    "updated_date": "2026-05-02T17:00:00Z",
+    "updated_date": null,
     "subtypes": [
       "MED13",
       "MED13L",
@@ -110857,25 +111056,31 @@ window.searchData = [
       "Intermittent Hypoxia",
       "Sleep Fragmentation",
       "Sympathetic Overactivation",
-      "Systemic Inflammation"
+      "Systemic Inflammation",
+      "Ocular Surface Inflammation and Dry Eye Disease"
     ],
     "cell_types": [
       "Genioglossus pharyngeal dilator muscle cell",
       "Sympathetic postganglionic neuron",
       "Vascular endothelial cell",
-      "Macrophage"
+      "Macrophage",
+      "Meibomian (sebaceous) gland cell"
     ],
     "cell_type_ids": [
       "CL:0002673",
       "CL:0011103",
       "CL:0002139",
-      "CL:0000235"
+      "CL:0000235",
+      "CL:2000021"
     ],
     "biological_processes": [
       "Muscle Relaxation",
       "Response to Hypoxia",
       "Sleep Regulation",
-      "Inflammatory Response"
+      "Inflammatory Response",
+      "Ocular Surface Inflammation",
+      "Response to Oxidative Stress",
+      "Meibomian Lipid Metabolism"
     ],
     "phenotypes": [
       "Snoring",
@@ -110883,6 +111088,7 @@ window.searchData = [
       "Excessive Daytime Sleepiness",
       "Morning Headaches",
       "Nocturia",
+      "Dry Eye Disease",
       "Cognitive Impairment",
       "Hypertension"
     ],
@@ -110890,11 +111096,15 @@ window.searchData = [
       "Respiratory",
       "Neurological",
       "Urological",
+      "Ophthalmologic",
       "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Eye",
       "Genitourinary",
+      "Head and Neck",
+      "Immune",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -110903,6 +111113,7 @@ window.searchData = [
       "HP:0001262",
       "HP:0002315",
       "HP:0000017",
+      "HP:0001097",
       "HP:0100543",
       "HP:0000822"
     ],
@@ -110937,8 +111148,8 @@ window.searchData = [
     ],
     "source_file": "Obstructive_Sleep_Apnea.yaml",
     "page_url": "../pages/disorders/Obstructive_Sleep_Apnea.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 7,
     "causal_graph_edges": "0",
@@ -118020,7 +118231,8 @@ window.searchData = [
       "Surgical Resection (Whipple Procedure)",
       "FOLFIRINOX Chemotherapy",
       "Gemcitabine-Based Chemotherapy",
-      "PARP Inhibitor Therapy"
+      "PARP Inhibitor Therapy",
+      "Daraxonrasib (RAS(ON) Multiselective Inhibitor)"
     ],
     "environmental": [
       "Tobacco Smoking",
@@ -118036,9 +118248,9 @@ window.searchData = [
     "num_phenotypes": 6,
     "num_pathophysiology": 5,
     "num_genes": 5,
-    "num_treatments": 4,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 5,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Pancreatic Mucinous Cystadenoma",
@@ -118772,9 +118984,7 @@ window.searchData = [
       "HP:0001945"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "VERY_FREQUENT"
     ],
     "genes": [],
     "treatments": [
@@ -121328,7 +121538,7 @@ window.searchData = [
       "Craniofacial Dysmorphism",
       "Adrenal Insufficiency",
       "Chondrodysplasia Punctata",
-      "Thrombocytopenia",
+      "Abnormal Bleeding",
       "Cardiomyopathy",
       "Heart Failure"
     ],
@@ -121368,7 +121578,7 @@ window.searchData = [
       "HP:0000365",
       "HP:0000846",
       "HP:0010655",
-      "HP:0001873",
+      "HP:0001892",
       "HP:0001638",
       "HP:0001635"
     ],
@@ -141171,7 +141381,8 @@ window.searchData = [
       "Hydroxychloroquine",
       "Rituximab",
       "Nintedanib",
-      "Tofacitinib"
+      "Tofacitinib",
+      "Ianalumab"
     ],
     "environmental": [],
     "biochemical": [
@@ -141186,7 +141397,7 @@ window.searchData = [
     "num_phenotypes": 31,
     "num_pathophysiology": 6,
     "num_genes": 4,
-    "num_treatments": 6,
+    "num_treatments": 7,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
   },
@@ -160248,17 +160459,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1618,
+  "total_disorder_pages": 1620,
   "total_subtypes": 2506,
-  "total_disorders_and_subtypes": 4124,
-  "total_unique_evidence_sources": 24350,
-  "total_unique_publications": 22734,
+  "total_disorders_and_subtypes": 4126,
+  "total_unique_evidence_sources": 24381,
+  "total_unique_publications": 22760,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 223,
-  "total_pathographs": 1613,
-  "total_unique_pathological_events": 7893,
+  "total_pathographs": 1615,
+  "total_unique_pathological_events": 7909,
   "total_modules": 116,
-  "total_research_reports": 1848,
+  "total_research_reports": 1849,
   "total_classifications": 9,
   "total_comorbidities": 16,
   "total_groupings": 47
