@@ -9,15 +9,10 @@ on:
         default: "48"
         type: string
       model:
-        description: "Claude model to use for discussion scanning"
+        description: "Optional model ID override (blank = use the configured default in agent-config.yaml)"
         required: false
-        default: claude-opus-4-8
-        type: choice
-        options:
-          - claude-haiku-4-5-20251001
-          - claude-sonnet-4-6
-          - claude-opus-4-7
-          - claude-opus-4-8
+        default: ""
+        type: string
       note:
         description: "Optional note for the manual scanner run"
         required: false
@@ -42,11 +37,19 @@ jobs:
       LOOKBACK_HOURS: ${{ inputs.lookback_hours || '48' }}
 
     steps:
+      - name: Generate ai4c-agent token
+        id: ai4c-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
-          token: ${{ secrets.PAT_FOR_PR }}
+          token: ${{ steps.ai4c-token.outputs.token }}
+          persist-credentials: false
 
       - name: Resolve agent config
         uses: ./.github/actions/resolve-agent-config
@@ -54,13 +57,24 @@ jobs:
           workflow: discussion-scanner
           model-override: ${{ inputs.model }}
 
+      - name: Configure git identity and credential helper
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          APP_SLUG: ${{ steps.ai4c-token.outputs.app-slug }}
+        run: |
+          # Act as the ai4c-agent App bot (the writer identity), distinct from ai4c-reviewer.
+          APP_USER_ID="$(gh api "/users/${APP_SLUG}[bot]" --jq .id)"
+          git config --global user.name "${APP_SLUG}[bot]"
+          git config --global user.email "${APP_USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+          gh auth setup-git
+
       - name: Build trusted discussion candidate packet
         id: discussion-candidates
         uses: actions/github-script@v8
         env:
           LOOKBACK_HOURS: ${{ env.LOOKBACK_HOURS }}
         with:
-          github-token: ${{ secrets.PAT_FOR_PR }}
+          github-token: ${{ steps.ai4c-token.outputs.token }}
           script: |
             const trustGate = require('./.github/scripts/github-trust-gate.js');
             const parsedLookbackHours = Number(process.env.LOOKBACK_HOURS || 48);
@@ -77,13 +91,13 @@ jobs:
       - name: Run Discussion Scanner
         id: discussion-scanner
         if: steps.discussion-candidates.outputs.candidate_count != '0'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1
         env:
-          GH_TOKEN: ${{ secrets.PAT_FOR_PR }}
-          GITHUB_TOKEN: ${{ secrets.PAT_FOR_PR }}
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.ai4c-token.outputs.token }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.PAT_FOR_PR }}
+          github_token: ${{ steps.ai4c-token.outputs.token }}
           show_full_output: true
           claude_args: |
             --dangerously-skip-permissions
