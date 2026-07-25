@@ -1,6 +1,9 @@
 # Diabetes mellitus: grouping refactor + pathophysiology migration map
 
-**Status:** proposed (grouping file landed; umbrella not yet edited — awaiting decision on the shared-cascade question below)
+**Status:** in progress — **A2 chosen**. Grouping landed; the shared cascade is
+now the `diabetic_vascular_complications` module and T1D/T2D/T5 conform to it.
+The umbrella `Diabetes_Mellitus.yaml` mechanism-graph retirement is the remaining
+step (see "Remaining: umbrella slimming" below).
 
 ## Problem
 
@@ -99,3 +102,51 @@ Recommendation: **A2** long-term (the complication cascade is a genuine conserve
 final-common-pathway and is exactly what modules are for), but **A1** is a safe
 first step that can land now and be followed by A2. Decision needed before editing
 the big file.
+
+## Decision: A2 (taken)
+
+The shared cascade was promoted to the mechanism module
+`kb/modules/diabetic_vascular_complications.yaml` (5 nodes: Chronic Hyperglycemia
+→ Hyperglycemia-Induced Oxidative Stress and AGE-RAGE Activation → **Endothelial
+Dysfunction and Vascular Inflammation** [central_effector / key conformance
+target] → Diabetic Micro- and Macrovascular Injury → Diabetic End-Organ
+Complications; SGLT2-inhibitor drug-target on the trigger). The three type
+entries now declare `conforms_to`:
+- **Type I Diabetes** — existing `Hyperglycemia` node → `#Chronic Hyperglycemia`;
+  existing `Chronic Complications` node → `#Diabetic End-Organ Complications`.
+- **Type 2 Diabetes Mellitus** — added a `Chronic Hyperglycemia` pathophysiology
+  node → `#Chronic Hyperglycemia` (wired downstream to its existing retinopathy /
+  neuropathy phenotypes).
+- **Malnutrition-Related Diabetes Mellitus** — added a `Chronic hyperglycemia and
+  vascular complication risk` node → `#Chronic Hyperglycemia`.
+
+End-state target: "diabetes mellitus" = Grouping (owns MONDO:0005015) + module +
+per-type entries.
+
+## Remaining: umbrella slimming (`Diabetes_Mellitus.yaml`)
+
+The blended 30-node pathophysiology graph in the umbrella Disease is now redundant
+with the module + per-type entries and should be retired. **Wrinkle discovered
+during A2:** the umbrella is NOT purely redundant — it is the only home for the
+`has_subtypes` catalog (LADA, gestational, MODY 1–14, neonatal/transient/permanent,
+RCAD, MIDD, lipoatrophic, DKA) that have **no standalone `Disease` entries** and
+are **not** members of the 3-member Grouping. So the umbrella cannot simply be
+deleted without losing that subtype enumeration.
+
+Proposed umbrella end-state (to confirm before editing):
+1. **Remove** the type-specific pathophysiology nodes already covered by the
+   standalone entries (autoimmune arm → T1D; insulin-resistance arm → T2D;
+   pancreatogenic arm → T5) and the shared-cascade nodes (now the module).
+2. **Replace** the mechanism graph with a single pathophysiology node that
+   `conforms_to: "diabetic_vascular_complications#Endothelial Dysfunction and
+   Vascular Inflammation"`, so the umbrella still points at the shared mechanism
+   without re-deriving it.
+3. **Keep** `has_subtypes` (the subtype catalog), the case-definition and USPSTF
+   screening `definitions`, and disease-level framing.
+4. **Reallocate** the blended `phenotypes` / `biochemical` / `genetic` /
+   `treatments` / `clinical_trials` / `datasets` / `computational_models`:
+   cross-cutting items stay; type-specific items are dropped if already covered by
+   the standalone entry, migrated if not.
+5. Longer term, consider promoting the high-value subtypes (esp. MODY genes,
+   neonatal diabetes) to standalone entries + Grouping members, at which point the
+   umbrella Disease could be fully retired.
