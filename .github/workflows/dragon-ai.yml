@@ -5,15 +5,16 @@ env:
   TOOLS_DIR: ${{ github.workspace }}/tools
 
 on:
-  # `assigned` lets authorized controllers dispatch work by assigning
-  # `dragon-ai-agent` directly. Context: PR #1614
-  # https://github.com/monarch-initiative/dismech/pull/1614
+  # Trigger is a `@dragon-ai-agent please …` mention from an authorized controller
+  # (a text keyword — the dragon-ai-agent machine account is retired). Assignment
+  # dispatch was dropped: GitHub Apps cannot be assignees, and the programmatic
+  # assigner (stale-pr-reassign) was retired.
   issues:
-    types: [opened, edited, assigned]
+    types: [opened, edited]
   issue_comment:
     types: [created, edited]
   pull_request:
-    types: [opened, edited, assigned]
+    types: [opened, edited]
   pull_request_review_comment:
     types: [created, edited]
 
@@ -34,7 +35,7 @@ jobs:
         id: check
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.PAT_FOR_PR }}  # Use PAT instead of default token
+          github-token: ${{ secrets.GITHUB_TOKEN }}  # read-only mention check
           script: |
             // Load allowed users from config
             const fs = require('fs');
@@ -55,16 +56,12 @@ jobs:
 
             if (context.eventName === 'issues') {
               content = context.payload.issue.body || '';
-              userLogin = context.payload.action === 'assigned'
-                ? (context.payload.sender?.login || context.payload.issue.user.login)
-                : context.payload.issue.user.login;
+              userLogin = context.payload.issue.user.login;
               itemType = 'issue';
               itemNumber = context.payload.issue.number;
             } else if (context.eventName === 'pull_request') {
               content = context.payload.pull_request.body || '';
-              userLogin = context.payload.action === 'assigned'
-                ? (context.payload.sender?.login || context.payload.pull_request.user.login)
-                : context.payload.pull_request.user.login;
+              userLogin = context.payload.pull_request.user.login;
               itemType = 'pull_request';
               itemNumber = context.payload.pull_request.number;
             } else if (context.eventName === 'issue_comment') {
@@ -83,26 +80,12 @@ jobs:
             const isAllowed = allowedUsers.includes(userLogin);
             const mentionRegex = /@dragon-ai-agent\s+please\s+(.*)/i;
             const mentionMatch = content.match(mentionRegex);
-            // Assignment is a valid trigger, but it must preserve the same
-            // allowlist boundary as explicit `@dragon-ai-agent please ...`
-            // requests. Context: PR #1614
-            // https://github.com/monarch-initiative/dismech/pull/1614
-            const isDragonAssignment =
-              (context.eventName === 'issues' || context.eventName === 'pull_request') &&
-              context.payload.action === 'assigned' &&
-              context.payload.assignee?.login === 'dragon-ai-agent';
 
-            const qualifiedMention =
-              (isAllowed && mentionMatch !== null) || (isDragonAssignment && isAllowed);
-            const prompt = mentionMatch !== null
-              ? mentionMatch[1].trim()
-              : (isDragonAssignment
-                ? 'You were assigned to this item. Read the full GitHub context, identify the next concrete action, and carry it through.'
-                : '');
+            const qualifiedMention = isAllowed && mentionMatch !== null;
+            const prompt = mentionMatch !== null ? mentionMatch[1].trim() : '';
 
             console.log(
-              `User: ${userLogin}, Allowed: ${isAllowed}, Has mention: ${mentionMatch !== null}, ` +
-              `Dragon assignment: ${isDragonAssignment}`
+              `User: ${userLogin}, Allowed: ${isAllowed}, Has mention: ${mentionMatch !== null}`
             );
 
             return {
@@ -123,16 +106,32 @@ jobs:
       issues: write
     runs-on: ubuntu-latest
     steps:
+      - name: Generate ai4c-agent token
+        id: ai4c-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           ref: ${{ github.ref }}
-          token: ${{ secrets.PAT_FOR_PR }}  # Use PAT for checkout to allow committing later
+          token: ${{ steps.ai4c-token.outputs.token }}
+          persist-credentials: false
 
-      - name: Configure Git
+      - name: Configure git identity and credential helper
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          APP_SLUG: ${{ steps.ai4c-token.outputs.app-slug }}
         run: |
-          git config --global user.name "Dragon-AI Agent"
-          git config --global user.email "dragon-ai-agent[bot]@users.noreply.github.com"
+          # Act as the ai4c-agent App bot (writer identity), off PAT_FOR_PR and off the
+          # retired dragon-ai-agent machine account. Serve the short-lived token to git via
+          # the gh credential helper instead of persisting it in .git/config.
+          APP_USER_ID="$(gh api "/users/${APP_SLUG}[bot]" --jq .id)"
+          git config --global user.name "${APP_SLUG}[bot]"
+          git config --global user.email "${APP_USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+          gh auth setup-git
 
       - name: Create tools directory
         run: mkdir -p ${{ env.TOOLS_DIR }}
@@ -170,7 +169,7 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GH_TOKEN: ${{ secrets.PAT_FOR_PR }}
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
         run: |
           cat > /tmp/claude-input/claude_prompt.txt << EOL
           You are @dragon-ai-agent.
@@ -198,7 +197,7 @@ jobs:
         id: claude-response
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
           # Research provider API keys — make available for `just research-disorder falcon ...`
           # FUTUREHOUSE_API_KEY and EDISON_API_KEY are both accepted by deep-research-client
           # for the `falcon` provider (Edison Scientific, formerly FutureHouse Falcon).
