@@ -139,15 +139,18 @@ jobs:
       # `just new-history`.
       - name: Check curation history coverage
         if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-
-          git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true
-          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
-          ADDED_HISTORY=$(git diff --name-only --diff-filter=A "$BASE_SHA" "$HEAD_SHA" \
+          # Merge-base diff via GitHub's PR file list (see "Check curation PR scope"
+          # above for why a local two-dot `git diff BASE..HEAD` misblames main's kb/
+          # commits on branches behind main). `status == "added"` replaces --diff-filter=A.
+          PR_FILES="repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files"
+          CHANGED=$(gh api --paginate "$PR_FILES" --jq '.[].filename')
+          ADDED_HISTORY=$(gh api --paginate "$PR_FILES" \
+            --jq '.[] | select(.status == "added") | .filename' \
             | grep -E '^history/.*\.yaml$' || true)
 
           # KB entries touched by this PR (exclude legacy *.history.yaml).
