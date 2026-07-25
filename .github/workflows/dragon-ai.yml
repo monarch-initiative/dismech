@@ -21,15 +21,21 @@ on:
 jobs:
   check-mention:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       result: ${{ steps.check.outputs.result }}
     steps:
-      - name: Checkout repository
+      - name: Checkout allowlist from the default branch
         uses: actions/checkout@v6
-        # this seems to be necessary to ensure actions uses the latest; see
-        # https://github.com/actions/checkout/issues/439
         with:
-          ref: ${{ github.ref }}
+          # SECURITY: read the controller allowlist from the trusted default branch,
+          # NOT the PR ref. On a pull_request event `github.ref` is the PR merge ref,
+          # so a proposer with push access could edit .github/ai-controllers.json on
+          # their branch to self-authorize. The mention text itself comes from the
+          # event payload (below), not from checked-out files, so main is sufficient.
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
       - name: Check for qualifying mention
         id: check
@@ -78,8 +84,15 @@ jobs:
 
             // Check if user is allowed and mention exists
             const isAllowed = allowedUsers.includes(userLogin);
+            // Strip fenced and inline code spans before matching so that merely
+            // *documenting* the mention keyword (e.g. in a PR description, as this
+            // very PR did) does not dispatch the agent. Only a real, prose-level
+            // "@dragon-ai-agent please ..." qualifies.
+            const forMatching = content
+              .replace(/```[\s\S]*?```/g, ' ')
+              .replace(/`[^`]*`/g, ' ');
             const mentionRegex = /@dragon-ai-agent\s+please\s+(.*)/i;
-            const mentionMatch = content.match(mentionRegex);
+            const mentionMatch = forMatching.match(mentionRegex);
 
             const qualifiedMention = isAllowed && mentionMatch !== null;
             const prompt = mentionMatch !== null ? mentionMatch[1].trim() : '';
@@ -101,9 +114,10 @@ jobs:
     needs: check-mention
     if: fromJSON(needs.check-mention.outputs.result).qualifiedMention == true
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
+      # Minimal: the default GITHUB_TOKEN is not used to mutate anything here — checkout,
+      # git push, and the agent all authenticate with the ai4c-agent App token. The App's
+      # installation permissions govern what the agent can actually do.
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Generate ai4c-agent token
@@ -171,14 +185,17 @@ jobs:
 
       - name: Create structured Claude prompt
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          # Pass event-derived values via the environment so they are inserted as
+          # plain data, not re-parsed for command substitution inside the heredoc.
+          USER_LOGIN: ${{ fromJSON(needs.check-mention.outputs.result).user }}
+          ITEM_TYPE: ${{ fromJSON(needs.check-mention.outputs.result).itemType }}
+          ITEM_NUMBER: ${{ fromJSON(needs.check-mention.outputs.result).itemNumber }}
+          CONTROLLERS: ${{ fromJSON(needs.check-mention.outputs.result).controllers }}
         run: |
           cat > /tmp/claude-input/claude_prompt.txt << EOL
           You are @dragon-ai-agent.
-          You're responding to a request from or relayed by @${{ fromJSON(needs.check-mention.outputs.result).user }} on GitHub ${{ fromJSON(needs.check-mention.outputs.result).itemType }} #${{ fromJSON(needs.check-mention.outputs.result).itemNumber }}.
-          You only respond to requests from the following authorized controllers: ${{ fromJSON(needs.check-mention.outputs.result).controllers }}.
+          You're responding to a request from or relayed by @${USER_LOGIN} on GitHub ${ITEM_TYPE} #${ITEM_NUMBER}.
+          You only respond to requests from the following authorized controllers: ${CONTROLLERS}.
 
           You should use \`gh\` to communicate with the user via the GitHub issue/ticket.
           If instructed to modify files, you should make changes on a branch and submit a PR, communicating clearly and in
@@ -192,7 +209,7 @@ jobs:
           $(cat /tmp/claude-input/prompt.txt)
           \`\`\`
 
-          However, you should use `gh` to read the complete context of the request, and look at any linked issues or PRs
+          However, you should use \`gh\` to read the complete context of the request, and look at any linked issues or PRs
           that provide additional context.
 
           EOL
