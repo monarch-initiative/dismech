@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2020003053"
+reference_id: DOI:10.1182/bloodadvances.2020003053
 title: "Mogamulizumab for adult T-cell leukemia-lymphoma: a multicenter prospective observational study"
 authors:
 - Kentaro Yonekura
@@ -27,6 +27,7 @@ journal: Blood Advances
 year: '2020'
 doi: 10.1182/bloodadvances.2020003053
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mogamulizumab for adult T-cell leukemia-lymphoma: a multicenter prospective observational study

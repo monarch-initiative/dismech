@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-23-3780"
-title: "Clinical Value of Liquid Biopsy in Patients with
-                    <i>FGFR2</i>
-                    Fusion–Positive Cholangiocarcinoma During Targeted Therapy"
+reference_id: DOI:10.1158/1078-0432.ccr-23-3780
+title: "Clinical Value of Liquid Biopsy in Patients with <i>FGFR2</i> Fusion–Positive Cholangiocarcinoma During Targeted Therapy"
 authors:
 - Alberto González-Medina
 - Maria Vila-Casadesús
@@ -23,11 +21,10 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-23-3780
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Clinical Value of Liquid Biopsy in Patients with
-                    <i>FGFR2</i>
-                    Fusion–Positive Cholangiocarcinoma During Targeted Therapy
+# Clinical Value of Liquid Biopsy in Patients with <i>FGFR2</i> Fusion–Positive Cholangiocarcinoma During Targeted Therapy
 **Authors:** Alberto González-Medina, Maria Vila-Casadesús, Marina Gomez-Rey, Carles Fabregat-Franco, Alexandre Sierra, Tian V. Tian, Florian Castet, Gloria Castillo, Judit Matito, Paola Martinez, Josep M. Miquel, Paolo Nuciforo, Raquel Pérez-López, Teresa Macarulla, Ana Vivancos
 **Journal:** Clinical Cancer Research (2024)
 **DOI:** [10.1158/1078-0432.ccr-23-3780](https://doi.org/10.1158/1078-0432.ccr-23-3780)

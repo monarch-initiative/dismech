@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/1358863X241235669"
+reference_id: DOI:10.1177/1358863X241235669
 title: Pilot study to evaluate the safety and effectiveness of etidronate treatment for arterial calcification due to deficiency of CD73 (ACDC)
 authors:
 - Elisa A Ferrante
@@ -21,6 +21,7 @@ journal: Vascular Medicine
 year: '2024'
 doi: 10.1177/1358863X241235669
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pilot study to evaluate the safety and effectiveness of etidronate treatment for arterial calcification due to deficiency of CD73 (ACDC)

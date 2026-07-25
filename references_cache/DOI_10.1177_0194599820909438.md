@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/0194599820909438"
+reference_id: DOI:10.1177/0194599820909438
 title: "Clinical Practice Guideline: Ménière’s Disease"
 authors:
 - Gregory J. Basura
@@ -29,6 +29,7 @@ journal: Otolaryngology–Head and Neck Surgery
 year: '2020'
 doi: 10.1177/0194599820909438
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical Practice Guideline: Ménière’s Disease

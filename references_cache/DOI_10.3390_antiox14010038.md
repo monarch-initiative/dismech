@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/antiox14010038"
+reference_id: DOI:10.3390/antiox14010038
 title: "Deciphering Oxidative Stress in Cardiovascular Disease Progression: A Blueprint for Mechanistic Understanding and Therapeutic Innovation"
 authors:
 - Zhaoshan Zhang
@@ -8,6 +8,7 @@ journal: Antioxidants
 year: '2024'
 doi: 10.3390/antiox14010038
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Deciphering Oxidative Stress in Cardiovascular Disease Progression: A Blueprint for Mechanistic Understanding and Therapeutic Innovation

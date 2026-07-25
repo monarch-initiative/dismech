@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000540475"
+reference_id: DOI:10.1159/000540475
 title: "Autoimmune Hemolytic Anemias: Challenges in Diagnosis and Therapy"
 authors:
 - Wilma Barcellini
@@ -8,6 +8,7 @@ journal: Transfusion Medicine and Hemotherapy
 year: '2024'
 doi: 10.1159/000540475
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Autoimmune Hemolytic Anemias: Challenges in Diagnosis and Therapy

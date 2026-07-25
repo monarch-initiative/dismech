@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1186/s13064-017-0093-2"
+reference_id: DOI:10.1186/s13064-017-0093-2
 title: Prdm13 forms a feedback loop with Ptf1a and is required for glycinergic amacrine cell genesis in the Xenopus Retina
 authors:
 - Nathalie Bessodes
@@ -11,6 +11,7 @@ journal: Neural Development
 year: '2017'
 doi: 10.1186/s13064-017-0093-2
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Prdm13 forms a feedback loop with Ptf1a and is required for glycinergic amacrine cell genesis in the Xenopus Retina

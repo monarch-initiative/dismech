@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1300/j096v10n02_05"
+reference_id: DOI:10.1300/j096v10n02_05
 title: Cotinine Levels and Green Tobacco Sickness Among Shade Tobacco Workersx
 authors:
 - Marcia Trapé-Cardoso
@@ -13,6 +13,7 @@ journal: Journal of Agromedicine
 year: '2005'
 doi: 10.1300/j096v10n02_05
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Cotinine Levels and Green Tobacco Sickness Among Shade Tobacco Workersx

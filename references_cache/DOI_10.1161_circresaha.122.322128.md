@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/circresaha.122.322128"
+reference_id: DOI:10.1161/circresaha.122.322128
 title: Immunology of Giant Cell Arteritis
 authors:
 - Cornelia M. Weyand
@@ -8,6 +8,7 @@ journal: Circulation Research
 year: '2023'
 doi: 10.1161/circresaha.122.322128
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Immunology of Giant Cell Arteritis

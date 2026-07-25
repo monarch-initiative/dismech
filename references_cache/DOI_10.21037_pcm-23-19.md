@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.21037/pcm-23-19"
+reference_id: DOI:10.21037/pcm-23-19
 title: "NTRK1/2/3: biology, detection and therapy"
 authors:
 - Maristella Bungaro
@@ -8,6 +8,7 @@ journal: Precision Cancer Medicine
 year: '2024'
 doi: 10.21037/pcm-23-19
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # NTRK1/2/3: biology, detection and therapy

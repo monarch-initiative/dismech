@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1590/s0102-311x2010001200005"
+reference_id: DOI:10.1590/s0102-311x2010001200005
 title: First reported outbreak of green tobacco sickness in Brazil
 authors:
 - Patricia Pereira Vasconcelos de Oliveira
@@ -17,6 +17,7 @@ journal: Cadernos de Saúde Pública
 year: '2010'
 doi: 10.1590/s0102-311x2010001200005
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # First reported outbreak of green tobacco sickness in Brazil

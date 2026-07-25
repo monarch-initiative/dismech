@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/circresaha.110.224592"
+reference_id: DOI:10.1161/circresaha.110.224592
 title: Defining a New Paradigm for Human Arrhythmia Syndromes
 authors:
 - Michael J. Ackerman
@@ -8,6 +8,7 @@ journal: Circulation Research
 year: '2010'
 doi: 10.1161/circresaha.110.224592
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Defining a New Paradigm for Human Arrhythmia Syndromes

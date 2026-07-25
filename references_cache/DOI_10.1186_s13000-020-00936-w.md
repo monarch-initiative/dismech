@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1186/s13000-020-00936-w"
+reference_id: DOI:10.1186/s13000-020-00936-w
 title: "Primary non-Hodgkin lymphoma of the tongue base: the clinicopathology of seven cases and evaluation of HPV and EBV status"
 authors:
 - Xinyu Ren
@@ -15,6 +15,7 @@ journal: Diagnostic Pathology
 year: '2020'
 doi: 10.1186/s13000-020-00936-w
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Primary non-Hodgkin lymphoma of the tongue base: the clinicopathology of seven cases and evaluation of HPV and EBV status

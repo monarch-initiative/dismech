@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1152/ajpgi.2001.281.2.g303"
+reference_id: DOI:10.1152/ajpgi.2001.281.2.g303
 title: VIII. Pathological consequences of rotavirus infection and its enterotoxin
 authors:
 - Andrew P. Morris
@@ -8,6 +8,7 @@ journal: American Journal of Physiology-Gastrointestinal and Liver Physiology
 year: '2001'
 doi: 10.1152/ajpgi.2001.281.2.g303
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # VIII. Pathological consequences of rotavirus infection and its enterotoxin

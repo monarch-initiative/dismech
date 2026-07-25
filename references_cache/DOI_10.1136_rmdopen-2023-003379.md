@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/rmdopen-2023-003379"
+reference_id: DOI:10.1136/rmdopen-2023-003379
 title: "Imaging in diagnosis, monitoring and outcome prediction of large vessel vasculitis: a systematic literature review and meta-analysis informing the 2023 update of the EULAR recommendations"
 authors:
 - Philipp Bosch
@@ -14,6 +14,7 @@ journal: RMD Open
 year: '2023'
 doi: 10.1136/rmdopen-2023-003379
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Imaging in diagnosis, monitoring and outcome prediction of large vessel vasculitis: a systematic literature review and meta-analysis informing the 2023 update of the EULAR recommendations

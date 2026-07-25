@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.21037/tcr-2025-415"
+reference_id: DOI:10.21037/tcr-2025-415
 title: "Efficacy, safety and cost-effectiveness of chemo-immunotherapy combinations for recurrent or metastatic nasopharyngeal carcinoma: an updated systematic review and cost-effectiveness analysis"
 authors:
 - Lei Qiu
@@ -20,6 +20,7 @@ journal: Translational Cancer Research
 year: '2025'
 doi: 10.21037/tcr-2025-415
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Efficacy, safety and cost-effectiveness of chemo-immunotherapy combinations for recurrent or metastatic nasopharyngeal carcinoma: an updated systematic review and cost-effectiveness analysis
