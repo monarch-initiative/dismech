@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fimmu.2018.01330"
+reference_id: DOI:10.3389/fimmu.2018.01330
 title: Trauma-Induced Damage-Associated Molecular Patterns-Mediated Remote Organ Injury and Immunosuppression in the Acutely Ill Patient
 authors:
 - Mickael Vourc’h
@@ -9,6 +9,7 @@ journal: Frontiers in Immunology
 year: '2018'
 doi: 10.3389/fimmu.2018.01330
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Trauma-Induced Damage-Associated Molecular Patterns-Mediated Remote Organ Injury and Immunosuppression in the Acutely Ill Patient

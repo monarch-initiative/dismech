@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jnis-2022-018732"
+reference_id: DOI:10.1136/jnis-2022-018732
 title: "Asymptomatic carotid artery stenosis: a summary of current state of evidence for revascularization and emerging high-risk features"
 authors:
 - Hyun Woo Kim
@@ -14,6 +14,7 @@ journal: Journal of NeuroInterventional Surgery
 year: '2023'
 doi: 10.1136/jnis-2022-018732
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Asymptomatic carotid artery stenosis: a summary of current state of evidence for revascularization and emerging high-risk features

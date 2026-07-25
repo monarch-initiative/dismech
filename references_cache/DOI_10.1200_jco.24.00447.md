@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1200/jco.24.00447"
-title: "15-Gene Expression Profile and
-            <i>PRAME</i>
-            as Integrated Prognostic Test for Uveal Melanoma: First Report of Collaborative Ocular Oncology Group Study No. 2 (COOG2.1)"
+reference_id: DOI:10.1200/jco.24.00447
+title: "15-Gene Expression Profile and <i>PRAME</i> as Integrated Prognostic Test for Uveal Melanoma: First Report of Collaborative Ocular Oncology Group Study No. 2 (COOG2.1)"
 authors:
 - J. William Harbour
 - Zelia M. Correa
@@ -41,11 +39,10 @@ journal: Journal of Clinical Oncology
 year: '2024'
 doi: 10.1200/jco.24.00447
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# 15-Gene Expression Profile and
-            <i>PRAME</i>
-            as Integrated Prognostic Test for Uveal Melanoma: First Report of Collaborative Ocular Oncology Group Study No. 2 (COOG2.1)
+# 15-Gene Expression Profile and <i>PRAME</i> as Integrated Prognostic Test for Uveal Melanoma: First Report of Collaborative Ocular Oncology Group Study No. 2 (COOG2.1)
 **Authors:** J. William Harbour, Zelia M. Correa, Amy C. Schefler, Prithvi Mruthyunjaya, Miguel A. Materin, Thomas A. Aaberg, Alison H. Skalet, David A. Reichstein, Ezekiel Weis, Ivana K. Kim, Timothy S. Fuller, Hakan Demirci, Kisha D. Piggott, Basil K. Williams, Eugene Shildkrot, Antonio Capone, Scott C. Oliver, Scott D. Walter, John Mason, Devron H. Char, Michael Altaweel, Jill R. Wells, Jay S. Duker, Peter G. Hovland, Dan S. Gombos, Tony Tsai, Cameron Javid, Brian P. Marr, Ang Gao, Christina L. Decatur, James J. Dollar, Stefan Kurtenbach, Song Zhang
 **Journal:** Journal of Clinical Oncology (2024)
 **DOI:** [10.1200/jco.24.00447](https://doi.org/10.1200/jco.24.00447)

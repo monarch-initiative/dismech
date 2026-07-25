@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/blood-2013-04-495887"
+reference_id: DOI:10.1182/blood-2013-04-495887
 title: Heme triggers TLR4 signaling leading to endothelial cell activation and vaso-occlusion in murine sickle cell disease
 authors:
 - John D. Belcher
@@ -16,6 +16,7 @@ journal: Blood
 year: '2014'
 doi: 10.1182/blood-2013-04-495887
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Heme triggers TLR4 signaling leading to endothelial cell activation and vaso-occlusion in murine sickle cell disease

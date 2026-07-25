@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jnis-2023-021243"
+reference_id: DOI:10.1136/jnis-2023-021243
 title: "Carotid webs: a review of pathophysiology, diagnostic findings, and treatment options"
 authors:
 - Huanwen Chen
@@ -11,6 +11,7 @@ journal: Journal of NeuroInterventional Surgery
 year: '2024'
 doi: 10.1136/jnis-2023-021243
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Carotid webs: a review of pathophysiology, diagnostic findings, and treatment options

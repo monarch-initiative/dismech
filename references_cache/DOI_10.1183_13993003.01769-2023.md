@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/13993003.01769-2023"
+reference_id: DOI:10.1183/13993003.01769-2023
 title: Analyses of 1236 genotyped primary ciliary dyskinesia individuals identify regional clusters of distinct DNA variants and significant genotype–phenotype correlations
 authors:
 - Johanna Raidt
@@ -72,6 +72,7 @@ journal: European Respiratory Journal
 year: '2024'
 doi: 10.1183/13993003.01769-2023
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Analyses of 1236 genotyped primary ciliary dyskinesia individuals identify regional clusters of distinct DNA variants and significant genotype–phenotype correlations

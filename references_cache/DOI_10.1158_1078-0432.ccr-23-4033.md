@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-23-4033"
+reference_id: DOI:10.1158/1078-0432.ccr-23-4033
 title: Update on Cancer Predisposition Syndromes and Surveillance Guidelines for Childhood Brain Tumors
 authors:
 - Jordan R. Hansford
@@ -25,6 +25,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-23-4033
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Update on Cancer Predisposition Syndromes and Surveillance Guidelines for Childhood Brain Tumors
