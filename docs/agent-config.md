@@ -32,12 +32,12 @@ workflow that has no explicit `model:`, change `default_model`.
 
 ```yaml
 # .github/agent-config.yaml
-default_model: claude-opus-4-8
+default_model: claude-opus-5
 workflows:
   literature-scan:
     model: claude-haiku-4-5-20251001
   pr-shepherd:
-    model: claude-opus-4-8
+    model: claude-opus-5
   # ...
 ```
 
@@ -53,8 +53,8 @@ workflows:
   curation-scanner:
     matrix:
       - { effort: low_effort,    model: claude-haiku-4-5-20251001, selector: "..." }
-      - { effort: medium_effort, model: claude-sonnet-4-6,         selector: "..." }
-      - { effort: high_effort,   model: claude-opus-4-8,           selector: "..." }
+      - { effort: medium_effort, model: claude-sonnet-5,         selector: "..." }
+      - { effort: high_effort,   model: claude-opus-5,           selector: "..." }
 ```
 
 ## Adding a workflow
