@@ -102,11 +102,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-
-          git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA"
-          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          # Use GitHub's own PR file list (equivalent to a merge-base diff) rather than
+          # a local two-dot `git diff BASE..HEAD`. The two-dot form blamed main's newer
+          # kb/ commits on any PR branch that had fallen behind fast-moving main, which
+          # spuriously failed infra PRs (they had to be rebased to pass). This reflects
+          # only what the PR itself changes and needs no local history.
+          CHANGED=$(gh api --paginate \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --jq '.[].filename')
 
           if echo "$CHANGED" | grep -q '^kb/'; then
             INFRA=$(echo "$CHANGED" \
