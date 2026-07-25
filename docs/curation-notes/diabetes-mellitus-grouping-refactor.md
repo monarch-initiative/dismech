@@ -1,9 +1,14 @@
 # Diabetes mellitus: grouping refactor + pathophysiology migration map
 
-**Status:** in progress — **A2 chosen**. Grouping landed; the shared cascade is
-now the `diabetic_vascular_complications` module and T1D/T2D/T5 conform to it.
-The umbrella `Diabetes_Mellitus.yaml` mechanism-graph retirement is the remaining
-step (see "Remaining: umbrella slimming" below).
+**Status:** A2 largely done. Grouping landed; shared cascade is the
+`diabetic_vascular_complications` module; T1D/T2D/T5 conform to it; **the
+umbrella's blended mechanism graph has been retired** (3367→2024 lines) and
+replaced with a single node conforming to `#Chronic Hyperglycemia`. Remaining
+(deferred): reallocating the umbrella's still-blended
+`phenotypes`/`biochemical`/`genetic`/`treatments`/`clinical_trials`/`datasets`/
+`computational_models` sections (type-specific → per-type entry; cross-cutting →
+keep), and optionally promoting high-value subtypes (MODY genes, neonatal
+diabetes) to standalone entries so the umbrella could eventually be fully retired.
 
 ## Problem
 
@@ -133,20 +138,22 @@ RCAD, MIDD, lipoatrophic, DKA) that have **no standalone `Disease` entries** and
 are **not** members of the 3-member Grouping. So the umbrella cannot simply be
 deleted without losing that subtype enumeration.
 
-Proposed umbrella end-state (to confirm before editing):
-1. **Remove** the type-specific pathophysiology nodes already covered by the
+Umbrella end-state — **steps 1–3 DONE** (blended `pathophysiology:` retired and
+replaced with the single conforming node); **steps 4–5 DEFERRED**:
+1. ✅ **Remove** the type-specific pathophysiology nodes already covered by the
    standalone entries (autoimmune arm → T1D; insulin-resistance arm → T2D;
    pancreatogenic arm → T5) and the shared-cascade nodes (now the module).
-2. **Replace** the mechanism graph with a single pathophysiology node that
-   `conforms_to: "diabetic_vascular_complications#Endothelial Dysfunction and
-   Vascular Inflammation"`, so the umbrella still points at the shared mechanism
-   without re-deriving it.
-3. **Keep** `has_subtypes` (the subtype catalog), the case-definition and USPSTF
+2. ✅ **Replace** the mechanism graph with a single pathophysiology node that
+   `conforms_to: "diabetic_vascular_complications#Chronic Hyperglycemia"` (chosen
+   over the central-effector node to match the node's glucose-homeostasis process
+   and chronic-hyperglycemia evidence), so the umbrella still points at the shared
+   mechanism without re-deriving it.
+3. ✅ **Keep** `has_subtypes` (the subtype catalog), the case-definition and USPSTF
    screening `definitions`, and disease-level framing.
-4. **Reallocate** the blended `phenotypes` / `biochemical` / `genetic` /
+4. ⬜ **Reallocate** the blended `phenotypes` / `biochemical` / `genetic` /
    `treatments` / `clinical_trials` / `datasets` / `computational_models`:
    cross-cutting items stay; type-specific items are dropped if already covered by
    the standalone entry, migrated if not.
-5. Longer term, consider promoting the high-value subtypes (esp. MODY genes,
+5. ⬜ Longer term, consider promoting the high-value subtypes (esp. MODY genes,
    neonatal diabetes) to standalone entries + Grouping members, at which point the
    umbrella Disease could be fully retired.
