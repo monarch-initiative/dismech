@@ -1,4 +1,4 @@
-# Contributing to dismech (guide for human)
+# Contributing to dismech (guide for humans)
 
 Thank you for your interest in contributing to the Disorder Mechanisms Knowledge Base!
 
@@ -9,7 +9,7 @@ Thank you for your interest in contributing to the Disorder Mechanisms Knowledge
 
 Most of this guide assumes some familiarity with running agent harnesses such as claude code
 or codex. Even if you are not familiar with these, you are welcome to file issues
-(__UPDATE__ see [#5833](https://github.com/monarch-initiative/dismech/issues/6833) for filing issues as a non-collaborator)
+(__UPDATE__ see [#5833](https://github.com/monarch-initiative/dismech/issues/6833) for filing issues as a non-collaborator).
 
 This guide also assumes you are a member of the Monarch Initiative and specifically the dismech team.
 While we welcome contributions from anyone, if you intend to make a PR, please read the note below
@@ -57,7 +57,7 @@ when you know how to match the level of difficulty with a task (but you should c
 ## Be bold
 
 Every member of the dismech team is encouraged to do work that ends in a PR. You are not expected to check the results
-for yourself. We assume good faith and you are not intentionally pushing the agent to add bad content (though we
+for yourself. We assume that you are acting in good faith and you are not intentionally pushing the agent to add bad content (though we
 welcome this as an experiment, if you coordinate! you can see a few examples of this already, e.g [Bixonimania request](https://github.com/monarch-initiative/dismech/issues/1565)).
 
 The general philosophy is to **trust the process**. All PRs are reviewed by agents using rubrics that have been
