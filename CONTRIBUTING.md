@@ -131,7 +131,7 @@ For comprehensive biomedical literature research, we recommend **Edison Scientif
 
 Note: if you are affiliated with an academic institution you should be able to request bonus credits with Edison
 
-**Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details)
+**Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details). For example, `openscientist` uses its own `OPENSCIENTIST_API_KEY` — see [3b](#3b-set-up-open-scientist-for-hypothesis-exploration) below.
 
 We no longer recommend Asta for the deep research role
 
@@ -168,6 +168,53 @@ Then start curating using the `curate` skill:
 ```
 
 For more guidance on AI-assisted curation workflows, see [ai4curation/aidocs](https://github.com/ai4curation/aidocs).
+
+### Running dismech in Claude Code on the web
+
+You can curate from [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
+instead of the local CLI. The repo is cloned for you, and when you're done you
+just press **Create PR** — commits and the PR are handled for you.
+
+The one non-obvious part is a **one-time cloud environment setup**. An
+*environment* is a reusable config (network access, environment variables, and
+an optional setup script) that your cloud sessions run in. To create one:
+
+1. **Add the environment.** At [claude.ai/code](https://claude.ai/code), select
+   the current environment (the cloud icon, shown wherever you start a cloud
+   session) to open the environment selector, then select **Add environment**.
+   The dialog has fields for the name, network access level, environment
+   variables, and setup script. Name it whatever you like — e.g. `research`.
+   (If you've followed [the get-started guide](https://code.claude.com/docs/en/web-quickstart)
+   its screenshots show this dialog.)
+2. **Set Network access to Full.** In the same dialog, use the **Network
+   access** selector and choose **Full** (any domain). The default, **Trusted**,
+   only allows an allowlist of package registries and GitHub, which blocks the
+   literature/deep-research and structured-source hosts dismech curation reaches
+   (PubMed, ClinicalTrials.gov, Edison, OpenScientist, Orphanet, ClinGen).
+3. **Add your deep-research API keys** in the environment-variables field. It
+   uses `.env` format — one `KEY=value` per line, and **do not wrap values in
+   quotes** (quotes are stored as part of the value):
+   ```text
+   EDISON_API_KEY=<YOUR_EDISON_KEY>
+   OPENSCIENTIST_API_KEY=<YOUR_OPENSCIENTIST_KEY>
+   ```
+   These are the same keys as the local setup — see
+   [Set Up a Deep Research Provider](#3-set-up-a-deep-research-provider-required)
+   above for how to obtain them. (Note: environments have no dedicated secrets
+   store, so anyone who can edit the environment can see these values.)
+
+That's the only hard part. Once the environment exists, curation works the same
+as local — `/curate` a disorder, then create the PR when ready.
+
+**Tip: keep each session focused.** Every cloud session runs in a fresh VM with
+approximate ceilings (a memory limit and ~30 GB of disk). A single session that
+curates one disorder or a small group of related disorders stays well within
+those limits; one that keeps going across many unrelated diseases accumulates
+context and on-disk state (downloaded ontology DBs, caches) and can slow down or
+hit the ceiling. Prefer a **new session per disorder or small themed batch**,
+then let it finish; you can archive finished sessions from the sidebar to keep
+the list tidy. The environment config is reused automatically, so a new session
+costs you nothing to set up.
 
 ## Curation Model: AI-Assisted with Human Oversight
 
