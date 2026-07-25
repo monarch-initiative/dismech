@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from dismech.render import render_disorder
+from dismech.render import _build_hierarchy_path, render_disorder
 
 
 def _extract_graph_data(html: str) -> dict:
     """Extract the embedded graphData payload from a rendered disorder page."""
-    match = re.search(r"var graphData = JSON\.parse\((\".*?\")\);", html, re.S)
+    match = re.search(r"var graphData = JSON\.parse\((\".*?\")\);", html, re.DOTALL)
     assert match is not None, "Rendered HTML did not include graphData payload"
     return json.loads(json.loads(match.group(1)))
 
@@ -43,6 +43,17 @@ def _connected_component_count(graph_data: dict) -> int:
                     remaining.remove(neighbor)
                     queue.append(neighbor)
     return components
+
+
+def test_hierarchy_path_returns_empty_when_adapter_lookup_fails() -> None:
+    """Optional mapping breadcrumbs should not make rendering depend on a
+    healthy local OAK SQLite cache."""
+
+    class BrokenAdapter:
+        def hierarchical_parents(self, _term_id: str):
+            raise RuntimeError("database disk image is malformed")
+
+    assert _build_hierarchy_path(BrokenAdapter(), "NCIT:C9120", "NCIT:C7057") == []
 
 
 def test_rendered_crohn_pathograph_payload_is_connected(tmp_path: Path) -> None:
@@ -436,14 +447,14 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             "Acromesomelic_Dysplasia_Maroteaux_Type.yaml",
             {
                 (
-                    "NPR2 Loss-of-Function Mutations",
-                    "Impaired CNP-NPR-B-cGMP Signaling in Growth Plate",
+                    "Biallelic NPR2 Loss-of-Function Variants",
+                    "Biallelic NPR2 Loss of Function",
                 )
             },
-            {"NPR2 Loss-of-Function Mutations": "genetic"},
+            {"Biallelic NPR2 Loss-of-Function Variants": "genetic"},
             {
-                "Impaired CNP-NPR-B-cGMP Signaling in Growth Plate": [
-                    "receptor guanylyl cyclase activity",
+                "Reduced CNP-Stimulated Guanylyl Cyclase Activity and cGMP": [
+                    "guanylate cyclase activity",
                     "natriuretic peptide receptor activity",
                 ]
             },
@@ -485,12 +496,12 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             {
                 (
                     "SLC26A2 Pathogenic Variants",
-                    "Sulfate Transport Deficiency in Chondrocytes",
+                    "Loss of SLC26A2 Sulfate Transport in Chondrocytes",
                 )
             },
             {"SLC26A2 Pathogenic Variants": "genetic"},
             {
-                "Sulfate Transport Deficiency in Chondrocytes": [
+                "Loss of SLC26A2 Sulfate Transport in Chondrocytes": [
                     "sulfate transmembrane transporter activity"
                 ]
             },
@@ -529,7 +540,10 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         (
             "Campomelic_Dysplasia.yaml",
             {
-                ("SOX9 Pathogenic Variation", "SOX9-Mediated Chondrogenesis Disruption"),
+                (
+                    "SOX9 Pathogenic Variation",
+                    "SOX9-Mediated Chondrogenesis Disruption",
+                ),
                 ("SOX9 Pathogenic Variation", "Disrupted 46,XY Sex Determination"),
             },
             {"SOX9 Pathogenic Variation": "genetic"},
@@ -559,10 +573,15 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "Achondrogenesis_Type_II.yaml",
-            {("COL2A1 Mutations", "Type II Collagen Structural Defect")},
-            {"COL2A1 Mutations": "genetic"},
             {
-                "Type II Collagen Structural Defect": [
+                (
+                    "Heterozygous Pathogenic COL2A1 Variant",
+                    "Type II Collagen Triple-Helix Destabilization",
+                )
+            },
+            {"Heterozygous Pathogenic COL2A1 Variant": "pathophysiology"},
+            {
+                "Heterozygous Pathogenic COL2A1 Variant": [
                     "extracellular matrix structural constituent"
                 ]
             },
@@ -591,10 +610,10 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "Ataxia_Telangiectasia.yaml",
-            {("ATM", "ATM kinase deficiency and defective DNA damage signaling")},
+            {("ATM", "ATM kinase deficiency and defective DNA-damage signaling")},
             {"ATM": "genetic"},
             {
-                "ATM kinase deficiency and defective DNA damage signaling": [
+                "ATM kinase deficiency and defective DNA-damage signaling": [
                     "protein serine/threonine kinase activity"
                 ]
             },
@@ -618,22 +637,31 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             "Atelosteogenesis_Type_I.yaml",
             {
                 (
-                    "FLNB Pathogenic Variants",
-                    "FLNB Gain-of-Function Cytoskeletal Dysregulation",
+                    "Heterozygous gain-of-function FLNB pathogenic variants",
+                    "Monoallelic FLNB gain-of-function and abnormal actin binding",
                 )
             },
-            {"FLNB Pathogenic Variants": "genetic"},
+            {"Heterozygous gain-of-function FLNB pathogenic variants": "genetic"},
             {
-                "FLNB Gain-of-Function Cytoskeletal Dysregulation": [
+                "Monoallelic FLNB gain-of-function and abnormal actin binding": [
                     "actin filament binding"
                 ]
             },
         ),
         (
             "Atelosteogenesis_Type_III.yaml",
-            {("FLNB Pathogenic Variants", "FLNB Cytoskeletal Signaling Dysfunction")},
-            {"FLNB Pathogenic Variants": "genetic"},
-            {"FLNB Cytoskeletal Signaling Dysfunction": ["actin filament binding"]},
+            {
+                (
+                    "Heterozygous gain-of-function FLNB pathogenic variants",
+                    "Monoallelic FLNB gain-of-function cytoskeletal disorder",
+                )
+            },
+            {"Heterozygous gain-of-function FLNB pathogenic variants": "genetic"},
+            {
+                "Monoallelic FLNB gain-of-function cytoskeletal disorder": [
+                    "actin filament binding"
+                ]
+            },
         ),
         (
             "FLNA_Intestinal_Pseudoobstruction.yaml",

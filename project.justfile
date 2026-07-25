@@ -3,6 +3,7 @@
 # Default schema path
 schema_path := "src/dismech/schema/dismech.yaml"
 history_schema_path := "src/dismech/schema/history.yaml"
+synthesis_schema_path := "src/dismech/schema/research_synthesis.yaml"
 kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
@@ -162,6 +163,33 @@ validate-history-all:
     printf 'Validating %s history record(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{history_schema_path}} --target-class HistoryRecord "${files[@]}"
 
+# Validate a single cross-provider research synthesis (research/*-research-synthesis.yaml)
+[group('QC')]
+validate-synthesis file:
+    uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis {{file}}
+    uv run python -m dismech.research_synthesis {{file}}
+
+# Validate all cross-provider research syntheses
+[group('QC')]
+validate-synthesis-all:
+    #!/usr/bin/env bash
+    set -e
+    if [[ ! -d "{{research_dir}}" ]]; then
+        echo "No research directory found."
+        exit 0
+    fi
+    files=()
+    while IFS= read -r f; do
+        files+=("$f")
+    done < <(find "{{research_dir}}" -type f -name '*-research-synthesis.yaml' | sort)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No research synthesis YAML files found in {{research_dir}}."
+        exit 0
+    fi
+    printf 'Validating %s research synthesis file(s).\n' "${#files[@]}"
+    uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
+    uv run python -m dismech.research_synthesis "${files[@]}"
+
 # Schema validation for all files (batched: one process startup for all files)
 [group('QC')]
 validate-schema-all:
@@ -209,6 +237,51 @@ validate-comorbidity file:
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
+
+# Full validation of one or more comorbidity files, batched by validator phase.
+# This is intended for CI changed-file validation. Reference validation stays
+# cache-bound (`--no-full-text`) so CI does not expand the reference cache or
+# download PDFs.
+[group('QC')]
+validate-comorbidity-batch *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    # Use real positional args rather than interpolating {{files}} as shell text.
+    for f in "$@"; do
+        if [[ "$f" == {{comorbidity_dir}}/*.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
+        else
+            echo "Skipping non-comorbidity file: $f"
+        fi
+    done
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing comorbidity YAML files to validate."
+        exit 0
+    fi
+
+    exit_code=0
+    echo "Validating ${#existing[@]} comorbidity file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache || exit_code=1
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more comorbidity files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} comorbidity file(s) passed validation."
 
 # Full validation of all comorbidity YAML files (schema + terms + references)
 [group('QC')]
@@ -495,7 +568,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-folded-hyphens validate-all validate-modules validate-groupings qc-deep-research
+qc: check-reference-cache-frontmatter check-folded-hyphens validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -890,6 +963,11 @@ gen-project-pages:
     uv run python -m dismech.render --project projects
     @echo "Generated $(ls -1 pages/projects/*.html 2>/dev/null | wc -l | tr -d ' ') project pages"
 
+# Generate the NIH funding-topic coverage summary page (pages/nih-topics/index.html)
+[group('Pages')]
+gen-nih-topics-page:
+    uv run python scripts/gen_nih_topics_summary.py
+
 # Generate static schema docs site via MkDocs (served at /elements/)
 [group('Pages')]
 gen-schema-docs:
@@ -902,7 +980,7 @@ gen-schema-docs:
 
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-schema-docs
+gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-nih-topics-page gen-schema-docs
     @echo "Generated browser data, pathographs, disorder/comorbidity/grouping/project pages, and schema docs"
 
 # ============== KGX Export ==============

@@ -510,7 +510,7 @@ class TabularExporter:
         dynamic_keys: set[str] = set()
         base = set(DESCRIPTOR_COLUMNS)
         for row in descriptors:
-            dynamic_keys.update(key for key in row.keys() if key not in base)
+            dynamic_keys.update(key for key in row if key not in base)
         return DESCRIPTOR_COLUMNS + sorted(dynamic_keys)
 
     def _apply_postcomposition_to_descriptors(

@@ -10,9 +10,11 @@ from typing import Any
 from linkml_runtime.utils.schemaview import SchemaView
 
 from dismech.claims.models import ClaimRow
-from dismech.compare.support import get_disease_term_id
-from dismech.compare.support import iter_disease_files
-from dismech.compare.support import load_yaml_object
+from dismech.compare.support import (
+    get_disease_term_id,
+    iter_disease_files,
+    load_yaml_object,
+)
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schema" / "dismech.yaml"
 

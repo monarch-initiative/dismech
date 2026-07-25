@@ -9,10 +9,9 @@ import hashlib
 import subprocess
 import sys
 import time
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
-
 
 DEFAULT_LIST = "/tmp/dismech-missing-research-clean.txt"
 PROVIDERS = ("falcon", "openai", "cyberian")

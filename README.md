@@ -4,7 +4,7 @@ A curated knowledge base of disease pathophysiology, with structured evidence fr
 
 ## Browse the Knowledge Base
 
-**[View all disorders online](https://dismech.monarchinitiative.org/app/)** | **[QC Dashboard](https://dismech.monarchinitiative.org/dashboard/)** | **[Priority Dashboard](https://dismech.monarchinitiative.org/dashboard/priority.html)**
+**[View all disorders online](https://dismech.monarchinitiative.org/app/)**
 
 Each disorder page includes:
 - Disease mechanisms and pathophysiology
@@ -17,7 +17,9 @@ Each disorder page includes:
 
 ### Project Overview Slides
 
-- [DisMech presentation slides from February 2026](https://docs.google.com/presentation/d/1XrbLle8gVQQcoT8IzpIfll4VnUl_68mQVTa6cIzN2vs/edit?usp=sharing)
+- [Unlocking Disease Mechanisms: Agentic AI for Clinical Knowledge](https://zenodo.org/records/18720444) - TMC AI Keynote
+- [Assembling mechanistic evidence for rare disease surrogate endpoints: the role of AI and NAMs](https://zenodo.org/records/18720444)
+- [ICBO 2026](https://docs.google.com/presentation/d/1QxoM2ngynnsAMs35O-nOC8yZ1ezSEkNttkwuv8pRXxU/edit)
 
 ### Source of Truth: YAML Files
 

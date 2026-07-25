@@ -18,9 +18,9 @@ See ``projects/GENESETS.md`` ("Scoring: align the curated BPs, not the genes").
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Optional
 
 # Role buckets (AssociationCategoryEnum upstream).
 CORE = frozenset({"core_process", "core_component"})
@@ -80,7 +80,7 @@ class AlignmentResult:
         return sum(1 for r in self.core_rows if r.represented)
 
     @property
-    def corroboration(self) -> Optional[float]:
+    def corroboration(self) -> float | None:
         return self.core_covered / self.core_total if self.core_total else None
 
     @property
@@ -121,7 +121,7 @@ def read_set_bps(cache_path: Path) -> list[SetBP]:
 _CTX_DISEASE_RE = re.compile(r"^\|\s*disease\s*\|\s*(MONDO:\d+)\s*\|")
 
 
-def disease_context_mondo(cache_path: Path) -> Optional[str]:
+def disease_context_mondo(cache_path: Path) -> str | None:
     """Return the disease-context MONDO id from a MYGENESET cache file, if any."""
     in_ctx = False
     for line in cache_path.read_text(encoding="utf-8").splitlines():
@@ -158,7 +158,7 @@ def build_mondo_index(kb_dir: Path) -> dict[str, str]:
     return index
 
 
-def _primary_mondo(data: dict) -> Optional[str]:
+def _primary_mondo(data: dict) -> str | None:
     for key in ("disease_term", "mappings", "mondo", "meaning"):
         val = data.get(key)
         candidates = val if isinstance(val, list) else [val]
@@ -227,11 +227,11 @@ def _hierarchical_match(
         descendants = set(adapter.descendants(go_id, predicates=preds))
         hit = pathograph_ids & descendants
         if hit:
-            return DESCENDANT, sorted(hit)[0]
+            return DESCENDANT, min(hit)
         ancestors = set(adapter.ancestors(go_id, predicates=preds))
         hit = pathograph_ids & ancestors
         if hit:
-            return ANCESTOR, sorted(hit)[0]
+            return ANCESTOR, min(hit)
     except Exception:  # pragma: no cover - adapter/network hiccup → exact-only
         return NONE, ""
     return NONE, ""
@@ -265,9 +265,9 @@ def align(
 @dataclass
 class SweepEntry:
     set_id: str  # local id, e.g. KEGG_ASTHMA
-    mondo: Optional[str]
-    disorder: Optional[str]  # slug, or None if no dismech entry
-    result: Optional[AlignmentResult] = None
+    mondo: str | None
+    disorder: str | None  # slug, or None if no dismech entry
+    result: AlignmentResult | None = None
     source: str = ""  # "declared" (precise gene_sets link) or "mondo" (guess)
 
 
@@ -308,7 +308,7 @@ def sweep(cache_dir: Path, kb_dir: Path, adapter: object = None) -> list[SweepEn
     mondo_index = build_mondo_index(kb_dir)
     entries: list[SweepEntry] = []
 
-    def _align(local_id: str, slug: str, mondo: Optional[str], source: str) -> SweepEntry:
+    def _align(local_id: str, slug: str, mondo: str | None, source: str) -> SweepEntry:
         result = None
         if slug and (kb_dir / f"{slug}.yaml").exists():
             set_bps = read_set_bps(cache_dir / f"MYGENESET_{local_id}.md")
@@ -332,9 +332,9 @@ def sweep(cache_dir: Path, kb_dir: Path, adapter: object = None) -> list[SweepEn
 def format_sweep(entries: list[SweepEntry]) -> str:
     n_declared = sum(1 for e in entries if e.source == "declared")
     out = [
-        f"{len(entries)} alignments "
-        f"({sum(1 for e in entries if e.result)} mapped to a dismech disorder; "
-        f"{n_declared} via explicit gene_sets link, rest MONDO-guess)",
+        (f"{len(entries)} alignments "
+         f"({sum(1 for e in entries if e.result)} mapped to a dismech disorder; "
+         f"{n_declared} via explicit gene_sets link, rest MONDO-guess)"),
         "",
         "| Gene set | dismech disorder | Map | Corroboration | Core-BP gaps |",
         "|---|---|---|---|---|",

@@ -5,10 +5,10 @@ from __future__ import annotations
 import csv
 import re
 from collections import Counter, defaultdict
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
-from typing import Iterable, Iterator
 
 from ruamel.yaml import YAML
 
@@ -368,7 +368,7 @@ def _gene_in_text(gene: str, text: str) -> bool:
         re.search(
             r"(?<![A-Za-z0-9])" + re.escape(gene) + r"(?![A-Za-z0-9])",
             text,
-            flags=re.I,
+            flags=re.IGNORECASE,
         )
         is not None
     )

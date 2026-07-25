@@ -49,6 +49,20 @@ _FRONTMATTER_RE = re.compile(
 # reproduces the same file byte-for-byte, the ground-truth signal that it is
 # not a hand-crafted fabrication.
 _NCBI_BOOKSHELF_RE = re.compile(r"\[Internet\]\.")
+# Agency / society clinical-practice-guideline monographs are PubMed-indexed
+# references that, like NCBI Bookshelf books, legitimately carry neither
+# ``authors:`` nor ``journal:``: efetch renders them as an agency
+# monograph/report citation, not a journal article. This pattern matches the
+# NICE-style NCBI collection line ``<Issuing body>: Guidelines.`` (e.g.
+# "National Institute for Health and Care Excellence: Guidelines."); that marker
+# does not appear in journal abstracts and reproduces byte-for-byte on re-fetch,
+# the same ground-truth signal used for the Bookshelf exemption. It intentionally
+# does NOT match other agency collection formats yet (e.g. WHO's "... Guidelines
+# Review Committee.") — a false negative only *tightens* the check (the record
+# still needs authors/journal), so those can be added if/when such a record
+# trips the contract. See issue #6607 (PMID:31909928, a NICE guideline, was a
+# false-positive fabrication flag).
+_AGENCY_GUIDELINE_RE = re.compile(r"(?m)^.{2,120}:[ \t]*Guidelines\.[ \t]*$")
 
 
 class SupplementaryFileFrontmatter(BaseModel):
@@ -141,8 +155,13 @@ def _looks_like_ncbi_bookshelf(text: str) -> bool:
     return _NCBI_BOOKSHELF_RE.search(text) is not None
 
 
+def _looks_like_agency_guideline(text: str) -> bool:
+    """True if the cache body is an agency/society clinical-guideline monograph."""
+    return _AGENCY_GUIDELINE_RE.search(text) is not None
+
+
 def _validate_contract(
-    path: Path, data: dict[str, Any], *, is_book: bool = False
+    path: Path, data: dict[str, Any], *, is_monograph: bool = False
 ) -> list[str]:
     try:
         frontmatter = ReferenceCacheFrontmatter.model_validate(data)
@@ -176,11 +195,12 @@ def _validate_contract(
     # in linkml-reference-validator. All legitimate PMID caches in the
     # current corpus carry at least one of authors / journal — including
     # pre-abstract-era papers, foreign-language abstracts, and minimal
-    # PubMed records. Genuine NCBI Bookshelf records (``is_book``) are the
-    # one legitimate exception and are exempted.
+    # PubMed records. Genuine NCBI Bookshelf records and agency/society
+    # clinical-guideline monographs (``is_monograph``) are legitimate
+    # exceptions and are exempted (see #1737, #6607).
     if (
         frontmatter.reference_id.startswith("PMID:")
-        and not is_book
+        and not is_monograph
         and not (frontmatter.authors or frontmatter.journal)
     ):
         reasons.append(
@@ -203,10 +223,13 @@ def check_cache_file(path: Path) -> Finding | None:
         )
 
     try:
-        is_book = _looks_like_ncbi_bookshelf(path.read_text(encoding="utf-8"))
+        body = path.read_text(encoding="utf-8")
+        is_monograph = _looks_like_ncbi_bookshelf(body) or _looks_like_agency_guideline(
+            body
+        )
     except OSError:
-        is_book = False
-    reasons = _validate_contract(path, data, is_book=is_book)
+        is_monograph = False
+    reasons = _validate_contract(path, data, is_monograph=is_monograph)
     if not reasons:
         return None
 
