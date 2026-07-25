@@ -53671,7 +53671,6 @@ window.searchData = [
       "Mitral Valve Prolapse",
       "Gastroesophageal Reflux",
       "Molluscoid Pseudotumors",
-      "Myopia",
       "Recurrent Joint Dislocations",
       "Chronic Joint Pain",
       "Delayed Wound Healing"
@@ -53680,15 +53679,13 @@ window.searchData = [
       "Musculoskeletal",
       "Dermatologic",
       "Cardiovascular",
-      "Gastrointestinal",
-      "Ocular"
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
       "Constitutional",
       "Digestive",
-      "Eye",
       "Integument",
       "Musculoskeletal"
     ],
@@ -53702,7 +53699,6 @@ window.searchData = [
       "HP:0001634",
       "HP:0002020",
       "HP:0000993",
-      "HP:0000545",
       "HP:0001373",
       "HP:0002829",
       "HP:0001058"
@@ -53730,11 +53726,11 @@ window.searchData = [
     ],
     "source_file": "Ehlers-Danlos_Syndrome_COL5A1-related.yaml",
     "page_url": "../pages/disorders/Ehlers-Danlos_Syndrome,_COL5A1-related.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 12,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "3"
   },
   {
@@ -84558,6 +84554,91 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "KCNA2-Related Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0014607",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Epileptic Encephalopathy"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A developmental and epileptic encephalopathy (DEE 32) caused by de novo heterozygous variants in KCNA2, which encodes the pore-forming alpha subunit of the voltage-gated potassium channel Kv1.2, a delayed-rectifier channel that drives neuronal repolarization after an action potential. KCNA2-related disease is a distinctive bidirectional channelopathy: some variants cause dominant-negative loss of Kv1.2 current, producing hyperexcitable neuronal membranes and repetitive firing, whereas others cause a gain of function with permanently open channels that hyperpolarize and electrically silence neurons. The two functional classes map onto partly distinct clinical pictures \u2014 loss-of-function variants tend to produce predominantly focal seizures with sleep-activated multifocal discharges and milder outcome, while gain-of-function variants tend to produce a more severe, ataxia-prominent encephalopathy with generalized seizures and cerebellar or whole-brain atrophy, and a third gain-and-loss-of-function group has the most severe, earliest-onset phenotype. Affected individuals present in infancy or early childhood with epilepsy, intellectual disability, delayed speech, and ataxia. The gain-of-function arm has become an early example of precision epilepsy therapy, as the potassium-channel blocker 4-aminopyridine can antagonize the gain-of-function defect and has benefitted patients carrying such variants.",
+    "pathophysiology": [
+      "KCNA2 Variant and Altered Kv1.2 Channel Function",
+      "Dominant-Negative Loss of Kv1.2 Delayed-Rectifier Current",
+      "Neuronal Membrane Hyperexcitability",
+      "Gain-of-Function Kv1.2 Conductance and Neuronal Silencing",
+      "Network Excitation-Inhibition Imbalance and Seizures",
+      "Cerebellar and Cortical Dysfunction"
+    ],
+    "cell_types": [
+      "neuron",
+      "interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000099"
+    ],
+    "biological_processes": [
+      "potassium ion transmembrane transport",
+      "protein homooligomerization",
+      "membrane repolarization",
+      "neuronal action potential",
+      "regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Epilepsy",
+      "Focal-Onset Seizures",
+      "Febrile Seizures",
+      "Intellectual Disability",
+      "Ataxia",
+      "Delayed Speech and Language Development",
+      "Cerebellar Atrophy",
+      "Progressive Microcephaly"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Imaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0007359",
+      "HP:0002373",
+      "HP:0001249",
+      "HP:0001251",
+      "HP:0000750",
+      "HP:0001272",
+      "HP:0000253"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KCNA2"
+    ],
+    "treatments": [
+      "4-Aminopyridine (Gain-of-Function Precision Therapy)",
+      "Antiseizure Medication",
+      "Genetic Counseling",
+      "Supportive and Developmental Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "KCNA2-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/KCNA2-Related_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "KCNQ2 Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0013387",
     "category": "Mendelian",
@@ -99453,10 +99534,31 @@ window.searchData = [
       "Early Dissemination and EMT",
       "Perineural Invasion",
       "Desmoplastic Stromal Remodeling",
-      "Immune Evasion and Metastatic Selection"
+      "Immune Evasion and Metastatic Selection",
+      "Cyclophilin A Loss and Reduced Tri-Complex Engagement",
+      "RAS-Independent Cell-Cycle Uncoupling",
+      "Acquired RAS(ON) Inhibitor Resistance",
+      "On-Target RAS Reactivation and KRAS Amplification",
+      "RTK and Feedback Pathway Reactivation",
+      "Adaptive mTOR and JUN-AP1 Transcriptional Program",
+      "Mitochondrial Remodeling and Ferroptosis Vulnerability",
+      "MYC Amplification-Driven RAS-Independent Proliferation",
+      "Immunosuppressive TME Reversibility under RAS(ON) Inhibition",
+      "Myeloid Suppression Relief and CD8 Effector Infiltration",
+      "Tumor-Cell FAS Induction and CD8-Mediated Killing",
+      "Antigen Presentation Restoration",
+      "Regulatory T-Cell Relief",
+      "USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint",
+      "CDK8-CXCL2 Adaptive Immune Reversal"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "CD8-positive effector T cell",
+      "regulatory T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000625",
+      "CL:0000815"
+    ],
     "biological_processes": [
       "MAPK cascade",
       "cell population proliferation",
@@ -99465,7 +99567,9 @@ window.searchData = [
       "positive regulation of cell migration",
       "extracellular matrix organization",
       "angiogenesis",
-      "negative regulation of immune response"
+      "negative regulation of immune response",
+      "ferroptosis",
+      "antigen processing and presentation"
     ],
     "phenotypes": [
       "Abdominal pain",
@@ -99505,7 +99609,8 @@ window.searchData = [
       "CDKN2A"
     ],
     "treatments": [
-      "Maintenance Olaparib for Germline BRCA-Mutated Disease"
+      "Maintenance Olaparib for Germline BRCA-Mutated Disease",
+      "Daraxonrasib (RAS(ON) Multiselective Inhibitor)"
     ],
     "environmental": [
       "Smoking",
@@ -99516,11 +99621,11 @@ window.searchData = [
     "source_file": "Metastatic_Pancreatic_Adenocarcinoma.yaml",
     "page_url": "../pages/disorders/Metastatic_Pancreatic_Adenocarcinoma.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 20,
     "num_genes": 4,
-    "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Metastatic Prostate Cancer",
@@ -135276,6 +135381,107 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "SLC6A1-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0014633",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Epilepsy"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A gene-anchored, autosomal dominant neurodevelopmental disorder caused by heterozygous loss-of-function variants in SLC6A1, which encodes GAT-1, the sodium- and chloride-dependent GABA transporter 1 responsible for reuptake of the inhibitory neurotransmitter GABA from the synapse into presynaptic neurons and surrounding astrocytes. Most pathogenic missense variants misfold and are retained in the endoplasmic reticulum, reducing GAT-1 cell-surface expression and GABA reuptake; truncating variants act through haploinsufficiency. The resulting disturbance of GABA homeostasis and inhibitory neurotransmission produces a characteristic generalized epilepsy - classically epilepsy with myoclonic-atonic seizures (Doose-like) and childhood absence epilepsy - together with developmental delay/intellectual disability, autism spectrum disorder, hypotonia, and movement abnormalities (tremor, ataxia, stereotypies). This entry models the SLC6A1/GAT-1 gene-specific mechanism and is distinct from the phenotype-level, genetically heterogeneous Epilepsy with Myoclonic-Atonic Seizures (Doose syndrome) entry, of which SLC6A1 is the best-established single-gene cause.",
+    "pathophysiology": [
+      "SLC6A1 Variant and GAT-1 Loss of Function",
+      "Impaired GABA Reuptake and Disrupted GABA Homeostasis",
+      "Thalamocortical Excitation-Inhibition Imbalance and Generalized Seizures",
+      "Impaired GABAergic Signaling in Neurodevelopment"
+    ],
+    "cell_types": [
+      "GABAergic neuron",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000617",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "GAT-1-mediated GABA neurotransmitter transport",
+      "neurotransmitter reuptake",
+      "gamma-aminobutyric acid transport",
+      "Tonic extrasynaptic GABA-A receptor inhibition",
+      "GABAergic synaptic transmission",
+      "chemical synaptic transmission",
+      "gamma-aminobutyric acid signaling pathway",
+      "nervous system development"
+    ],
+    "phenotypes": [
+      "Generalized Myoclonic-Atonic Seizures",
+      "Absence Seizures",
+      "Epilepsy",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Autism Spectrum Disorder",
+      "Attention-Deficit/Hyperactivity Disorder",
+      "Hypotonia",
+      "Tremor",
+      "Ataxia",
+      "Motor Stereotypies",
+      "Delayed Speech and Language Development",
+      "Developmental Regression",
+      "Constipation",
+      "Diarrhea"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011170",
+      "HP:0002121",
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0007018",
+      "HP:0001252",
+      "HP:0001337",
+      "HP:0001251",
+      "HP:0000733",
+      "HP:0000750",
+      "HP:0002376",
+      "HP:0002019",
+      "HP:0002014"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC6A1"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Valproate (Valproic Acid)",
+      "4-Phenylbutyrate Pharmacochaperone",
+      "AAV9 SLC6A1 Gene Therapy",
+      "Developmental and Educational Support",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SLC6A1-Related_Disorder.yaml",
+    "page_url": "../pages/disorders/SLC6A1-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "SMAD6-related craniosynostosis",
     "disease_id": "MONDO:0044315",
     "category": "Mendelian",
@@ -153721,6 +153927,89 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Unverricht-Lundborg Disease",
+    "disease_id": "MONDO:0009698",
+    "category": "Mendelian",
+    "parents": [
+      "Progressive Myoclonus Epilepsy"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Unverricht-Lundborg disease (ULD), also called progressive myoclonic epilepsy type 1 (EPM1) or Baltic myoclonus, is an autosomal recessive neurodegenerative progressive myoclonus epilepsy caused by biallelic loss-of-function of CSTB, the gene encoding cystatin B. Cystatin B is a ubiquitously expressed intracellular inhibitor of the cysteine cathepsins (thiol proteases). In the great majority of patients the causal lesion is an unstable expansion of a dodecamer (12-mer) repeat in the CSTB promoter that reduces CSTB transcription; a minority carry point/indel loss-of-function variants, often in compound heterozygosity with the repeat expansion. Onset is typically between 6 and 16 years with stimulus-sensitive (action) myoclonus and generalized tonic-clonic seizures; over the following years progressive cerebellar signs (ataxia, incoordination, intention tremor, dysarthria) develop, together with emotional lability, depression, and a mild decline in cognition, while patients remain largely mentally alert. It is one of the most common progressive myoclonus epilepsies and is markedly enriched in Finland, the Baltic region, and the western Mediterranean through founder effects. EPM1 is distinguished from the other classic progressive myoclonus epilepsies (notably Lafora disease) by its slower course and relative preservation of cognition. Treatment is symptomatic; importantly, phenytoin and several sodium-channel-blocking and GABAergic antiseizure drugs aggravate the myoclonus and may accelerate cerebellar degeneration and are avoided.",
+    "pathophysiology": [
+      "CSTB Dodecamer Repeat Expansion and Cystatin B Deficiency",
+      "Loss of Cathepsin Inhibition and Redox Imbalance",
+      "Neuronal Apoptosis and Cerebellar/GABAergic Neurodegeneration",
+      "Cortical Hyperexcitability and Stimulus-Sensitive Myoclonus",
+      "Progressive Cerebellar Degeneration"
+    ],
+    "cell_types": [
+      "neuron",
+      "cerebellar granule cell",
+      "GABAergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0001031",
+      "CL:0000617"
+    ],
+    "biological_processes": [
+      "response to oxidative stress",
+      "neuron apoptotic process",
+      "gamma-aminobutyric acid signaling pathway"
+    ],
+    "phenotypes": [
+      "Stimulus-Sensitive Action Myoclonus",
+      "Generalized Tonic-Clonic Seizures",
+      "Photosensitive Seizures",
+      "Progressive Cerebellar Ataxia",
+      "Dysarthria",
+      "Intention Tremor",
+      "Mild Cognitive Decline",
+      "Depression",
+      "Emotional Lability"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001336",
+      "HP:0002069",
+      "HP:0001327",
+      "HP:0002073",
+      "HP:0001260",
+      "HP:0002080",
+      "HP:0001268",
+      "HP:0000716",
+      "HP:0000712"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CSTB"
+    ],
+    "treatments": [
+      "Valproic Acid",
+      "Myoclonus-Directed Add-On Therapy",
+      "Avoidance of Aggravating Antiseizure Drugs",
+      "Rehabilitation and Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Unverricht-Lundborg_Disease.yaml",
+    "page_url": "../pages/disorders/Unverricht-Lundborg_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Urea Cycle Disorder",
     "disease_id": "MONDO:0004739",
     "category": "Mendelian",
@@ -160459,17 +160748,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1620,
+  "total_disorder_pages": 1623,
   "total_subtypes": 2506,
-  "total_disorders_and_subtypes": 4126,
-  "total_unique_evidence_sources": 24381,
-  "total_unique_publications": 22760,
+  "total_disorders_and_subtypes": 4129,
+  "total_unique_evidence_sources": 24410,
+  "total_unique_publications": 22787,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 223,
-  "total_pathographs": 1615,
-  "total_unique_pathological_events": 7909,
+  "total_pathographs": 1618,
+  "total_unique_pathological_events": 7939,
   "total_modules": 116,
-  "total_research_reports": 1849,
+  "total_research_reports": 1851,
   "total_classifications": 9,
   "total_comorbidities": 16,
   "total_groupings": 47
