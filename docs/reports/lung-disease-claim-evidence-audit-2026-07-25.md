@@ -30,6 +30,12 @@ whether each evidence `snippet` actually supports the claim it is attached to.
    numbers appear nowhere in the cited snippet.
 3. **Semantic support (manual).** Read-through of claim ↔ snippet ↔ explanation for every
    `pathophysiology`, `genetic`, `treatment`, `phenotype`, and `prevalence` record.
+4. **Full-text re-adjudication.** Every flagged item whose reference has (or could be
+   fetched to have) a full-text cache was re-checked against the *whole paper*, not just
+   the abstract — because a claim unsupported by the quoted sentence may still be
+   supported elsewhere in the source. That distinction separates a **bad citation** from
+   an **under-selected snippet**, which need opposite fixes. Searches de-hyphenate
+   OCR line-breaks (`paren-\nchyma` → `parenchyma`) before matching.
 
 ## Headline result
 
@@ -40,7 +46,12 @@ abstract holds `≥ grade 2` (PMID:30537755), and several snippets carry a trail
 absent from the source (PMID:10907591, PMID:3595047). No fabricated quotes were found.
 
 **The real defects are in claim–evidence *matching*, not quoting** — and they are
-concentrated in three of the ten files. The entries split into two clear cohorts:
+concentrated in three of the ten files. A full-text pass (see below) then split those
+matching defects in two: some citations are genuinely wrong, while others are correct
+citations with a badly chosen quote. One further defect sits below the entries entirely —
+a cache file holding the wrong paper's full text (Finding 4b).
+
+The entries split into two clear cohorts:
 
 | Cohort | Entries | Character |
 |---|---|---|
@@ -61,6 +72,52 @@ Asthma                                      missing  148/189
 Chronic_Obstructive_Pulmonary_Disease       missing  103/111
 Non-Small_Cell_Lung_Cancer                  missing  116/118
 ```
+
+**Full-text coverage.** 46 of the 456 unique references cited by these entries have
+full-text caches (40 already committed; 6 more fetched during this audit). Those back
+**97 of the 814 evidence items**. Re-fetching every abstract-only reference relevant to a
+finding yielded full text for 6 — the rest are genuinely abstract-only, so those findings
+could not be re-adjudicated and stand as written.
+
+---
+
+## Meta-finding: abstract-only quoting systematically understates support
+
+Twelve weak-labelled (`PARTIAL`/`NO_EVIDENCE`/`REFUTE`) items are backed by full text.
+Checking them against the whole paper **rescues four outright** — the citation is correct
+and the paper does support the claim; the curator simply quoted a weak sentence from the
+abstract when an on-point sentence exists in the body.
+
+This reframes part of the audit. Several `PARTIAL` labels in the legacy cohort are not
+evidence weaknesses at all — they are artifacts of abstract-only curation, and the fix is
+to **re-quote**, not to weaken the label or drop the citation.
+
+| Item | Quoted (abstract) | Available in full text |
+|---|---|---|
+| COPD `pathophysiology[3]` Alveolar Destruction / PMID:11993785 | "*In the lung parenchyma, emphysema defined as alveolar destruction and airspace enlargement is present*" (`PARTIAL`) | "*The mechanism responsible for the development of emphysematous lesions is thought to be an imbalance in **protease and antiprotease** enzymes in the lung*" and "*the **loss of elastic recoil** induced by the emphysematous lungs…*" |
+| COPD `pathophysiology[1]` Chronic Inflammation / PMID:11993785 | `PARTIAL`, explanation: "*…not specifically detailing the involvement of neutrophils, macrophages and…*" | "*predominant inflammatory cellular infiltrations … identified as activated **CD8+ T-lymphocytes and macrophages** … A number of **neutrophils** have been found in the bronchial lumen*" |
+| COPD `environmental[1]` Air Pollution / PMID:25673984 | "*The major pathogenic factors … infection and inflammation, protease and antiprotease imbalance, and oxidative stress*" — says nothing about pollution | "*Such exposures can include environmental tobacco smoke, burning of biomass, and **air pollution particles**. All these particle exposures … can result in oxidative stress*" |
+| COPD `pathophysiology[3]` Alveolar Destruction / PMID:32493486 | a surfactant-homeostasis sentence (`PARTIAL`) | "*The pathophysiology of chronic obstructive pulmonary disease (COPD), which involves **emphysematous destruction of alveolar sacs** and airway remodeling…*" |
+
+Notably, the protease–antiprotease mechanism I first recorded as *missing* from the COPD
+Alveolar Destruction node is present in a paper the node **already cites** — and it is the
+mechanism modelled by `emphysema_protease_antiprotease_imbalance`, so re-quoting also
+opens a natural `conforms_to` edge.
+
+---
+
+## Full text confirms (and strengthens) the bad-citation findings
+
+Where full text was available for a citation I judged off-topic, it removed all doubt:
+
+| Citation | Full-text verdict |
+|---|---|
+| PMID:37461046 in COPD `prevalence[0]` (Finding 1) | The **only** occurrence of "COPD" in the entire paper is inside a *bibliography entry title* in the reference list. Zero COPD content in the body. |
+| PMID:33533174 in NSCLC `pathophysiology[5]` Metastasis (Finding 8) | Exclusively SCLC. Its three NSCLC mentions are explicitly **contrastive** — "*Unlike non-SCLC (NSCLC), which has an intrinsic tendency for CHT resistance, SCLC is tantalizingly chemosensitive*". The paper draws the very distinction the citation elides. |
+| PMID:32361678 in COPD `treatments[3]` PDE4 Inhibitors (Finding 9) | **Zero** occurrences of "PDE4" or "phosphodiesterase" anywhere in the full text. The explanation's conflation of PDE4 inhibitors with kinase inhibitors is a genuine error. |
+| PMID:22550239 in NSCLC `pathophysiology[2]` Angiogenesis | **Zero** occurrences of angiogenesis / angiogenic / VEGF / neovascular. Confirms the existing `NO_EVIDENCE`; the citation should be deleted, not retained. |
+| PMID:20536932 in NSCLC `phenotypes[6]` Chest Pain | **Zero** occurrences of "chest pain". Confirms `NO_EVIDENCE`; delete. |
+| PMID:29433833 in COPD `pathophysiology[3]` Alveolar Destruction | About macrophage phagocytosis/efferocytosis; no emphysema or alveolar-destruction content. The existing `PARTIAL` and its candid explanation are **correct as written**. |
 
 ---
 
@@ -140,6 +197,49 @@ identical `category: Musculoskeletal`, `name: Bone Pain`, `frequency: OCCASIONAL
 `notes: May indicate bone metastases`, sharing two of the same citations
 (PMID:20536932, PMID:26690845). One is redundant.
 
+### 4b. Full-text cache contamination: PMID:31922885 holds a *different paper entirely*
+
+`references_cache/PMID_31922885.md` — cited by `Idiopathic_Pulmonary_Fibrosis`
+`mechanistic_hypotheses[1]` as the `REFUTE` evidence — has a body containing
+**French-language human–computer-interaction ergonomics text**:
+
+```
+full_text_provider: openalex
+full_text_url: "https://inria.hal.science/inria-00075378"
+```
+
+```
+Les ergonomes réalisent en général des évaluations d'interfaces homme-machine (IHM)
+dans 4 contextes principaux… Ce texte propose une revue critique des pratiques
+actuelles de l'évaluation d'interface.
+```
+
+The real paper is *"Diverse Injury Pathways Induce Alveolar Epithelial Cell CCL2/12,
+Which Promotes Lung Fibrosis"* (Am J Respir Cell Mol Biol, 2020). OpenAlex resolved its
+full text to an unrelated INRIA HAL technical report and the fetcher ingested it, while
+`content_type` still advertises full text.
+
+**This is pre-existing in the committed cache** (introduced by commit `94e6b830`), not by
+this audit. Severity:
+
+- The currently quoted snippet is drawn from the *PubMed abstract* portion of the file,
+  which is intact — so **the IPF evidence item itself is presently valid**, and the
+  `REFUTE` judgement is correct.
+- But anything quoted from that body would be from an unrelated document **and would still
+  pass `validate-references`**, because the validator only checks substring membership in
+  the cache. The anti-hallucination guarantee silently does not hold for this file.
+
+Scope: 1 of the 46 full-text caches used by these ten entries (~2%). The other three
+institutional-repository resolutions (`inserm.hal.science` → PMID:38847551,
+`research.rug.nl` → PMID:34524912, `researchportal.bath.ac.uk` → PMID:33197388) were
+spot-checked and are correct, so this is not a blanket problem with the OpenAlex path —
+but it is undetectable by current QC.
+
+*Suggested fix:* re-fetch the file, and add a cheap cross-check to
+`check-reference-cache-frontmatter` — e.g. flag any full-text body sharing implausibly few
+content words with its own `title`/abstract. A whole-corpus sweep for the same failure
+mode is warranted beyond these ten entries.
+
 ### 5. NSCLC `ROS1` frequency band contradicts its own snippet
 
 `genetic[2:ROS1]` is `frequency: OCCASIONAL` (HP:0040283, 5–29%), while the cited snippet
@@ -173,7 +273,8 @@ not.
 - `NSCLC` `pathophysiology[5:Metastasis]` — the lead citation PMID:33533174 reports
   metastasis site patterns in **SCLC**, used to support NSCLC organotropism. The
   explanation concedes this ("*While this article primarily deals with small cell lung
-  cancer…*") yet the label is `SUPPORT`.
+  cancer…*") yet the label is `SUPPORT`. **Full text confirms** the paper is entirely
+  SCLC and mentions NSCLC only to contrast the two — see the full-text table above.
 - `Asthma` `pathophysiology[0:Airway Inflammation]` — PMID:23234454 is about **cardiac
   asthma** (a heart-failure entity, not asthma). Correctly `PARTIAL`, but it does not
   belong on an asthma airway-inflammation node.
@@ -189,22 +290,27 @@ not.
   mitochondrial dysfunction, and extracellular matrix remodeling"* — a statement about
   what **SIRT1 activation mitigates**, which does not establish the claimed trigger
   mechanism. Marked `SUPPORT`.
-- `COPD` `pathophysiology[3:Alveolar Destruction]` — all four items `PARTIAL`, three
-  explanations conceding non-support; PMID:24707174 is a list of eight endothelial
-  microparticle surface markers, unrelated to alveolar destruction. The node also omits
-  the core protease–antiprotease/elastolysis mechanism that
-  `emphysema_protease_antiprotease_imbalance` already models.
+- `COPD` `pathophysiology[3:Alveolar Destruction]` — all four items `PARTIAL`.
+  **Partly resolved by full text:** PMID:11993785 and PMID:32493486 both support the claim
+  in their bodies (see the rescue table), and PMID:11993785 supplies the
+  protease–antiprotease/elastic-recoil mechanism I first recorded as missing. What
+  *remains* a defect: PMID:24707174 (a list of eight endothelial microparticle surface
+  markers, abstract-only, unrelated to alveolar destruction) and PMID:29433833
+  (efferocytosis, full text confirms no alveolar-destruction content).
 - `COPD` `treatments[3:Phosphodiesterase-4 Inhibitors]` — PMID:32361678 is about **protein
   kinases**; the explanation conflates them with PDE4 inhibitors ("*specifically kinase
-  inhibitors*"). Marked `SUPPORT`.
-- `COPD` `environmental[1:Air Pollution]` — PMID:25673984's snippet lists
-  infection/protease imbalance/oxidative stress and says nothing about pollution. Marked
-  `SUPPORT`.
+  inhibitors*"). Marked `SUPPORT`. **Full text confirms zero mentions of PDE4 or
+  phosphodiesterase** — the citation is simply wrong for this node.
+- ~~`COPD` `environmental[1:Air Pollution]` — PMID:25673984~~ — **withdrawn on full-text
+  review.** The paper does support the claim ("*…burning of biomass, and air pollution
+  particles. All these particle exposures … can result in oxidative stress*"); only the
+  quoted sentence was wrong. Re-quote rather than re-label.
 - `Asthma` `pathophysiology[2:Bronchoconstriction]` — PMID:27603525 (statins in **animal
   models**) supports the claim only via the non-sequitur "*the use of statins to reduce
   airway hyper-responsiveness implies the involvement of smooth muscle cells*"; also
   animal data with no `evidence_source`.
-- `Silicosis` `pathophysiology[7]`, `[8]` and `phenotypes[5]` — specific claims
+- `Silicosis` `pathophysiology[7]`, `[8]` and `phenotypes[5]` *(abstract-only sources; not
+  re-adjudicable — refetch yielded no full text)* — specific claims
   (TGF-β/PDGF/TNF-α-driven myofibroblast differentiation; the concentric whorled
   hyalinised silicotic nodule; *silica impairs macrophage killing of M. tuberculosis*)
   rest on generic "…with subsequent fibrosis" / "…associated with silica dust exposure"
@@ -277,11 +383,26 @@ Worth preserving as curation patterns:
 
 ## Suggested remediation order
 
-1. COPD `prevalence[0]` — replace the unsupported 11.7% and delete the silicosis citation
-2. COPD `phenotypes[5]` — fix the respiratory-failure frequency band
-3. NSCLC `progression[0]` — write the claim; delete the MS and Lynch citations
-4. NSCLC — de-duplicate `Bone Pain`; fix the `ROS1` frequency band
-5. NSCLC / Asthma / COPD — backfill `evidence_source` (367 items)
-6. Re-label the `SUPPORT` items in findings 8–9 as `PARTIAL`, or replace the citation
-7. Cystic Fibrosis — source or demote the six quantitative descriptions
-8. Consider removing `DOI` from `skip_prefixes` so DOI evidence is CI-validated
+1. Re-fetch `references_cache/PMID_31922885.md` (contaminated body) and sweep the corpus
+   for the same OpenAlex mis-resolution — this is the only finding that breaks a
+   *guarantee* rather than a single entry
+2. COPD `prevalence[0]` — replace the unsupported 11.7% and delete the silicosis citation
+3. COPD `phenotypes[5]` — fix the respiratory-failure frequency band
+4. NSCLC `progression[0]` — write the claim; delete the MS and Lynch citations
+5. NSCLC — de-duplicate `Bone Pain`; fix the `ROS1` frequency band; delete the
+   full-text-refuted PMID:22550239 (angiogenesis) and PMID:20536932 (chest pain) citations
+6. **Re-quote, don't re-label** — the four rescued items above (COPD alveolar destruction
+   ×2, chronic inflammation, air pollution): swap the abstract sentence for the on-point
+   full-text sentence and raise `PARTIAL` → `SUPPORT`. While re-quoting alveolar
+   destruction, consider a `conforms_to: emphysema_protease_antiprotease_imbalance#…` edge
+7. Replace the genuinely wrong citations in findings 8–9 (PMID:33533174, PMID:32361678,
+   PMID:24707174)
+8. NSCLC / Asthma / COPD — backfill `evidence_source` (367 items)
+9. Cystic Fibrosis — source or demote the six quantitative descriptions
+10. Consider removing `DOI` from `skip_prefixes` so DOI evidence is CI-validated
+
+**Process implication.** Four of twelve full-text-backed weak labels were curation
+artifacts rather than evidence problems. Where a full-text cache exists, curators should
+quote from the body, not the abstract — and a `PARTIAL` whose explanation reads "*the
+abstract does not mention X*" is a prompt to check the full text before accepting the
+label.
