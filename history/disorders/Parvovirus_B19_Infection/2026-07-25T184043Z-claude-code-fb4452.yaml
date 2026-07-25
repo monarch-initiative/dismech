@@ -1,0 +1,88 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Parvovirus_B19_Infection
+  path: kb/disorders/Parvovirus_B19_Infection.yaml
+session:
+  id: 2026-07-25T184043Z-claude-code-fb4452
+  timestamp: '2026-07-25T18:40:43Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-sonnet-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/6432
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - pathophysiology
+  - phenotypes
+  - evidence
+  - prevalence
+  summary: Fix wrong-disease reference, tag in vitro evidence, add missing citations
+  details: |
+    Addressed the curation-quality findings from issue #6432 (part 1, the
+    enum-cache blocker, was already resolved by unrelated routine cache
+    regeneration prior to this session -- MONDO:0006544 and MONDO:0005737 are
+    both already present in cache/enums/diseaseterm_f618932bb23f.csv).
+
+    - Removed the wrong-disease reference (PMID:31266615, a Hepatitis B paper
+      tagged NO_EVIDENCE) from the prevalence evidence list.
+    - Tagged the five cell-culture erythroid progenitor cell (EPC) studies in
+      the "Viral Replication" node (PMID:26845771, 21680529, 28377277,
+      35062288, 37175911) as evidence_source: IN_VITRO; they were previously
+      defaulting to HUMAN_CLINICAL.
+    - Added cited evidence: blocks to the three previously-uncited mechanistic
+      pathophysiology nodes: "Receptor-Mediated Entry" (VP1u receptor-binding
+      domain / PLA2 endosomal escape, DOI:10.3390/v12121463), "Cell Cycle
+      Arrest and Apoptosis" (ATR/DNA-PKcs DNA damage response and cell cycle
+      arrest, reusing the already-cited PMID:21680529, now tagged IN_VITRO),
+      and "EPO-STAT5 Signaling Pathway" (new citation PMID:28459842,
+      confirming EPO/EPO-R-STAT5 signaling as a replication requirement,
+      tagged IN_VITRO).
+    - Added cited evidence to the two previously-uncited phenotypes: "Slapped
+      Cheek Rash" (reused PMID:37132144, already cited elsewhere in the file
+      for the same claim) and "Myocarditis" (new citation PMID:12605372,
+      endothelial-cell localization of viral genomes in a fatal case), plus a
+      notes hedge on the Myocarditis node citing the "bystander" controversy
+      (PMID:22425629, mentioned in prose only, not fetched as an evidence
+      citation).
+    - Migrated the deprecated free-text prevalence.percentage field to a
+      structured notes summary of the discordant regional seroprevalence
+      figures (no single global rate is reported in the literature, so
+      measure_type/rate_per_100000 were intentionally left unset rather than
+      fabricated); dropped the deprecated updated_date field.
+    - New PMIDs (21698228, 28459842, 12605372) fetched via `just
+      fetch-reference` and cached under references_cache/. New MONDO/NCBITaxon
+      cache entries limited to cache/enums/organismterm_3bf4f4dc0b8b.csv
+      picking up NCBITaxon:10798 (already used in infectious_agent_term) from
+      normal `just validate` enum-cache normalization.
+    - Deferred to follow-up curation (not attempted here, per the issue's own
+      suggested (a)/(b) split): structured adult seroprevalence figures,
+      papular-purpuric gloves-and-socks syndrome as its own phenotype, and
+      chronic pure red cell aplasia in immunocompromised hosts.
+    - Validated with `just validate-schema`, `just validate-terms`, `just
+      validate-references` (via scripts/run_reference_validator.sh
+      --no-full-text to avoid a full-text-fetch network hang in the sandboxed
+      CI runner; the DOI:10.3390/v12121463 evidence item is exempt from
+      automated snippet checking because `DOI` is in the repo's
+      skip_prefixes list in conf/reference_validator_config.yaml -- it was
+      manually verified as an exact substring of the cached abstract instead),
+      and `uv run pytest tests/test_data.py -k Parvovirus`.
+
+    Note for maintainers: while investigating why `just validate-references`
+    reported "Total checks: 0" even against a deliberately fabricated snippet,
+    I found this is because `conf/reference_validator_config.yaml`'s
+    `skip_prefixes` list includes the bare `DOI` prefix. That was intended for
+    dataset accessions but also silently skips literature DOI: citations
+    (several exist across kb/disorders/), so any evidence item whose
+    `reference:` is a DOI is never snippet-checked by CI. PMID-based
+    references are unaffected and validated correctly (confirmed via targeted
+    sabotage testing). Filing this as a follow-up observation rather than
+    fixing it in this PR, since it is a pre-existing, repo-wide config issue
+    unrelated to this disorder's content.
