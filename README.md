@@ -4,7 +4,7 @@ A curated knowledge base of disease pathophysiology, with structured evidence fr
 
 ## Browse the Knowledge Base
 
-**[View all disorders online](https://dismech.monarchinitiative.org/app/)** | **[QC Dashboard](https://dismech.monarchinitiative.org/dashboard/)** | **[Priority Dashboard](https://dismech.monarchinitiative.org/dashboard/priority.html)**
+**[View all disorders online](https://dismech.monarchinitiative.org/app/)**
 
 Each disorder page includes:
 - Disease mechanisms and pathophysiology
