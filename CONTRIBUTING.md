@@ -248,7 +248,10 @@ still give a flavor of what we do.
 
 ### dragon-ai-agent
 
-- Summon with `@dragon-ai-agent please`
+- Summon by writing **@dragon-ai-agent please &lt;your request&gt;** in an issue or PR
+  comment/body. Write it as ordinary prose — the mention is ignored if it appears
+  inside an inline code span or fenced code block (so that documenting the keyword
+  doesn't accidentally trigger the agent).
 - You must be a registered ai-controller in the json file
 
 ### claude issue responder
