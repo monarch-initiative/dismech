@@ -366,9 +366,10 @@ prose-only.
 
 ## Disposition
 
-Fourteen findings were fixed in place on `claude/ecm-disorders-review-ky690u`; the
-remainder are tracked as issues because they need new literature, clinical input, or
-a curation-policy decision.
+Sixteen of the 26 findings were fixed in place on
+`claude/ecm-disorders-review-ky690u` (PR #6961); the remaining ten are tracked as
+issues because they need new literature, clinical input, or a curation-policy
+decision.
 
 ### Fixed
 
