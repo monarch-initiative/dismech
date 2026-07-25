@@ -47,7 +47,7 @@ half-configured).
 behaviour-preserving (cosmetic normalisation only). `slow`/`fast` dial the
 high-frequency agents (curation scanner, PR shepherd, discussion scanner)
 down/up. The low-frequency weekly/daily jobs (literature-scan,
-knowledge-gap-scan, preprint-scan, weekly-compliance, stale-pr-reassign,
+knowledge-gap-scan, preprint-scan, weekly-compliance,
 post-review-agent) are
 intentionally the same across all profiles — they are not the cost driver. Edit
 them in the config if you want a profile to move them too.
@@ -78,7 +78,7 @@ just cron-profile-preview <name>
 ## Managed workflows
 
 `curation-scanner`, `pr-shepherd`, `discussion-scanner`, `literature-scan`,
-`knowledge-gap-scan`, `preprint-scan`, `weekly-compliance`, `stale-pr-reassign`,
+`knowledge-gap-scan`, `preprint-scan`, `weekly-compliance`,
 `post-review-agent`.
 
 The page/build crons (`generate-grouping-pages`, `generate-project-pages`,
