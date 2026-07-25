@@ -4,6 +4,9 @@
 **Scope:** 10 neuroimmune disorder entries in `kb/disorders/`
 **Focus:** correctness of claim↔evidence matches (does the cited snippet actually
 support the claim it is attached to?)
+**Status:** all findings below have been **fixed** — see
+[Remediation](#remediation) for what changed. Findings are kept in their
+as-discovered form as the record of why.
 
 ## Entries reviewed
 
@@ -271,20 +274,48 @@ meaning and are written up separately in finding 5.
 - **`Myasthenia_Gravis`, `Neuromyelitis_Optica_…AQP4`, `Neurosarcoidosis`** —
   100% `SUPPORT` with no `NO_EVIDENCE` padding.
 
-## Recommended priority
+## Remediation
 
-1. Remove the MS `Progressive-Relapsing` phase (finding 1) — retired nosology,
-   zero support.
-2. Fix the GBS `PMID:10355667` explanation (finding 2) — currently inverts the
-   cited study's conclusion.
-3. Delete MS's 14 `NO_EVIDENCE` items (finding 3).
-4. Repair the CIDP `PMID:38330421` snippet (finding 5) — restore the second
-   inclusion criterion.
-5. Replace the two Neurosarcoidosis content-free snippets (finding 4).
-6. Set the four `evidence_source` values (finding 8).
-7. Resolve the SPS HLA-DRB1 / DQB1\*0201 inconsistency (finding 7).
-8. Optional: add `conforms_to` for Neurosarcoidosis → `granuloma_formation` and
-   CIDP → `peripheral_axonal_degeneration`.
+All findings were fixed in the same branch. Six entries changed; the four clean
+entries (`Anti-NMDA_Receptor_Encephalitis`,
+`Acute_Disseminated_Encephalomyelitis`,
+`Neuromyelitis_Optica_Spectrum_Disorder_with_Anti-AQP4_Antibodies`,
+`Rasmussen_Encephalitis`) were left untouched. A history record accompanies each
+changed entry under `history/disorders/<SLUG>/`.
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | MS `Progressive-Relapsing` phase | Phase removed with its five `NO_EVIDENCE` items. Historical context folded into the `Primary Progressive` notes and backed by two verified quotes from `PMID:24871874` (the 2013 Lublin revision), newly fetched into the cache. |
+| 2 | GBS `PMID:10355667` inverted explanation | Explanation rewritten to state what the study shows (binding + complement fixation) and what it explicitly does not (nerve injury; no electrophysiological deterioration over 4–6 h). `supports: PARTIAL` kept; `evidence_source: MODEL_ORGANISM` added. |
+| 3 | MS's 14 `NO_EVIDENCE` items | All removed (5 with the PRMS phase, 9 individually). No claim lost its last support — every affected block retains verified `SUPPORT`/`PARTIAL` evidence, checked programmatically for orphaned `evidence:` lists. |
+| 4 | Neurosarcoidosis content-free snippets | Both replaced with substantive quotes from `PMID:32404428` (definite-NS neural pathology requirement; the enumerated manifestation list). `PMID:30167654` retained on both nodes, downgraded to `PARTIAL` with explanations stating what it does and does not establish. |
+| 5 | CIDP `PMID:38330421` truncation | Second inclusion criterion restored. Also restored the truncated `PMID:36645654` clause ("…or co-stimulatory and adhesion molecules") and rewrote its explanation to stop presenting macrophage downregulation as the terminal IVIg mechanism. |
+| 6 | NMOSD MOA-as-mechanism | **Not changed.** On re-reading, `supports: SUPPORT` on a drug's stated design rationale is defensible for an "upstream therapeutic target" claim, and the `MODEL_ORGANISM` tagging was already correct. Left as a style note rather than a defect. |
+| 7 | SPS HLA-DRB1 / DQB1\*0201 | Record re-keyed to **HLA-DQB1** with `gene_term` `hgnc:4944` (OAK-verified). The `NO_EVIDENCE` item was replaced by `PMID:8263140` (Pugliese 1993 — the actual source of the ~70% figure) and `PMID:32152690` (four-digit typing confirming a primary DQ effect), both newly fetched. SPS's other `NO_EVIDENCE` item (Stiff Limb Syndrome subtype) was likewise replaced, with the phenotype-defining quote from `DOI:10.1007/s00415-023-12123-0`, already cited elsewhere in the entry. |
+| 8 | Four `evidence_source` misclassifications | All set: `MODEL_ORGANISM` (GBS `PMID:10355667`, MG `PMID:29266249`, MS `PMID:35963325`) and `IN_VITRO` (CIDP `PMID:36346134`). |
+| 9 | 12 terminal-punctuation truncations | All repaired; the two meaning-altering ones are covered by finding 5. `PMID:24314688`'s straight-single-quote damage restored to the source's double quotes. |
+| 10 | Module conformance gaps | `conforms_to` added: Neurosarcoidosis → `granuloma_formation#Th1 and TNF-Driven Macrophage Recruitment and Activation` and `#Organized Granuloma Assembly`; CIDP → `peripheral_axonal_degeneration#Distal Axonal Degeneration and Demyelination`. All references verified to resolve. |
+
+Left as noted-but-unchanged: the MS Europe-prevalence attribution and Baló-series
+OCB citation (finding 10 of the original list) are weak but not incorrect, and
+Rasmussen's uncited pathophysiology nodes are a coverage gap rather than an
+error — filling them is new curation, not a correctness fix.
+
+### Verification after remediation
+
+Across all 10 entries, 668 evidence items:
+
+- **Snippet substring check: 0 failures** (was 12).
+- **Semantic audit: 0** `supports`/explanation contradictions (was 5), **0**
+  species/`evidence_source` mismatches (was 4), **0** title drift.
+- **`NO_EVIDENCE` items: 0** (was 16).
+- `linkml-validate -C Disease`: passes on all six changed entries.
+- `linkml-term-validator --labels`: passes on the entries with new/changed terms.
+- `linkml-validate -C HistoryRecord`: passes on all six new history records.
+- `pytest tests/test_data.py`: the one failure
+  (`test_evidence_items_have_references[Babesiosis.yaml]`, a bare CDC URL
+  reference) is pre-existing and unrelated — `Babesiosis.yaml` is untouched here
+  and was last modified by PR #6857.
 
 ## Cross-cutting observation
 
