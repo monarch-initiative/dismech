@@ -579,7 +579,7 @@ filename/timestamp — scaffold a schema-valid skeleton and edit its `details`:
 
 ```bash
 just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
-  --summary "Create: Asthma" --agent-tool claude-code --model claude-opus-4-8 \
+  --summary "Create: Asthma" --agent-tool claude-code --model claude-opus-5 \
   --sections phenotypes,pathophysiology,evidence --pr 5123 \
   --details "What was curated and how it was validated."
 # run `just new-history --help` for all options; it prints the created path
