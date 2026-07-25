@@ -27,6 +27,10 @@ each asserted claim is actually carried by the evidence attached to it.
   0 mismatches**. One reference has no cache file:
   `url:https://www.fda.gov/...` in `Alpha_Thalassemia.treatments[6]`.
 
+Full text is cached for 20 of the cited references; the remainder are `abstract_only`.
+Findings were first reached from abstracts, then re-checked against full text (see
+[Full-text re-examination](#full-text-re-examination)).
+
 No fabricated quotes, no hallucinated PMIDs. **Every finding below is semantic** —
 the quote is real, but it does not carry the claim attached to it, or the claim
 contradicts something else in the same file.
@@ -99,6 +103,10 @@ scoping is used **zero times**.
 
 ### 4. `Polycythemia_Vera` — three of four mechanism nodes and all five treatments are unevidenced
 
+> **Revised after full-text review — see Full-text re-examination below.** Downgraded: the
+> evidence exists in PMID:40246933, already cited 11× in this file.
+
+
 Unevidenced pathophysiology: `JAK2 V617F Constitutive Activation`, `STAT5
 Hyperactivation`, `Erythropoietin-Independent Erythropoiesis`. The `description`
 asserts *"JAK2 V617F… present in approximately 95% of PV cases"* with no citation at
@@ -117,6 +125,10 @@ both figures appear verbatim in the Tefferi 2024 review already listed in
 `references:`.
 
 ### 5. Uncritical bulk import of Orphanet HPO frequencies
+
+> **Revised after full-text review — see Full-text re-examination below.** Strengthened: PV
+> `Splenomegaly` is numerically contradicted (~30%) by the entry's own primary source.
+
 
 `Hereditary_Spherocytosis` imports 28 phenotypes from `ORPHA:822`. The snippets are
 faithful (verified against the cache), but several annotations are not credible for
@@ -155,6 +167,10 @@ The resulting profile ranks nosebleeds above the cardinal features of the diseas
 
 ### 6. `Beta_Thalassemia` — 17 of 18 phenotypes carry frequency bands with no evidence
 
+> **Revised after full-text review — see Full-text re-examination below.** Downgraded: the
+> evidence is in PMID:20492708, already cited 9× — one sentence is already quoted in this file.
+
+
 Only `Microcytic Hypochromic Anemia` is evidenced. Everything else — target cells,
 extramedullary haematopoiesis, splenomegaly, hepatomegaly, cholelithiasis, jaundice,
 elevated ferritin, cardiomyopathy, pulmonary hypertension, frontal bossing,
@@ -183,6 +199,10 @@ erythroid-restricted failure but says nothing about p53, MDM2, or apoptosis. The
 canonical mechanism is unevidenced despite abundant literature.
 
 ### 8. `Diamond-Blackfan_Anemia` — `RPL35A` cited to a paper that found no RPL35A mutations
+
+> **Revised after full-text review — see Full-text re-examination below.** Moderated: RPL35A is
+> a genuine DBA gene; the citation is secondary and a better snippet exists.
+
 
 `genetic[3] RPL35A` cites PMID:19773262 quoting its BACKGROUND sentence. That paper's
 own RESULTS state *"No mutations were found in RPS14, RPS16, or RPL35A."* The quote is
@@ -312,16 +332,132 @@ These are non-informative and should be dropped or converted to real evidence it
 
 ---
 
+---
+
+## Full-text re-examination
+
+The reference cache holds full text for 20 of the cited references (the rest are
+`abstract_only`). The findings above were reached from abstracts; re-reading the full
+texts changes four of them and leaves the rest intact. Sources behind findings #1, #2,
+#7, #9, #10, and #11 are all still `abstract_only`, so those are unaffected.
+
+### #4 downgraded — Polycythemia_Vera's evidence exists, in a paper already cited 11×
+
+PMID:40246933 (*Polycythaemia vera*, Nat Rev Dis Primers) is cached in full (18,782
+words) and supplies clean support for every unevidenced treatment and for the JAK2
+node. This is a distribution problem, not a sourcing problem. Ready-to-use snippets:
+
+| Target | Snippet from PMID:40246933 |
+|---|---|
+| `Hydroxyurea`, `Ruxolitinib`, `Interferon-alpha` | "Hydroxyurea or interferons remain the preferred first-line cytoreductive agents, with the JAK1 and JAK2 inhibitor, ruxolitinib, currently approved for the treatment of patients who are resistant to, or intolerant of, hydroxyurea." |
+| `Therapeutic Phlebotomy`, `Low-Dose Aspirin` | "High-risk patients are those aged ≥60 years and/or with a history of thrombosis, and typically are eligible for cytoreductive therapy, in addition to therapeutic phlebotomy and low-dose aspirin." |
+| phlebotomy target (<45%) | "Need for phlebotomy to keep haematocrit <45%." |
+| `JAK2 V617F Constitutive Activation` | "A unique clonal JAK2 mutation leading to constitutive signalling causes polycythaemia vera." |
+| the node's pseudokinase description | "the other is a pseudokinase domain located upstream of the kinase domain that binds ATP, but has no or a very weak ability to directly phosphorylate substrates" |
+
+One sentence closes three treatments at once, and it matches the entry's ruxolitinib
+description almost word for word.
+
+### #5 strengthened — the Orphanet splenomegaly band is numerically contradicted
+
+The original argument was clinical implausibility. The full text makes it concrete:
+
+> "palpable splenomegaly (present in about 30% of patients at diagnosis)"
+
+The entry bands `Splenomegaly` as `VERY_FREQUENT` (80–99%) on Orphanet's authority. The
+review the entry already cites 11 times says ~30% — `FREQUENT` at best, right at the
+band boundary. So this is no longer a judgement call about Orphanet's reliability; it is
+a direct numerical conflict with the entry's own primary source.
+
+### #6 downgraded — Beta_Thalassemia's evidence is already in the file
+
+PMID:20492708 (GeneReviews *Beta-thalassemia*) is cached in full (13,213 words) and
+already cited 9 times. Two sentences cover roughly ten of the seventeen unevidenced
+phenotypes:
+
+> "extramedullary hematopoiesis and its complications (osteoporosis, masses of
+> erythropoietic tissue that primarily affect the spleen, liver, lymph nodes, chest and
+> spine, and bone deformities and typical facial changes), gallstones, painful leg
+> ulcers and increased predisposition to thrombosis."
+
+covers `Extramedullary Hematopoiesis`, `Osteoporosis`, `Splenomegaly`, `Hepatomegaly`,
+`Cholelithiasis`, and `Frontal Bossing`. And:
+
+> "Findings in untreated or poorly transfused individuals with thalassemia major … are
+> growth retardation, pallor, jaundice, poor musculature, hepatosplenomegaly, leg
+> ulcers, development of masses from extramedullary hematopoiesis, and skeletal changes
+> that result from expansion of the bone marrow."
+
+covers `Short Stature`, `Jaundice`, and reinforces the rest — and is **already quoted in
+this very file**, under `biochemical[4] Indirect Bilirubin`. Plus:
+
+> "However, cardiac disease remains the main cause of death in patients with iron overload."
+
+which directly evidences the previously uncited *"leading cause of death in
+transfusion-dependent beta-thalassemia"* claim on `Cardiomyopathy`, and:
+
+> "Cardiac involvement in thalassemia intermedia results mainly from a high-output state
+> and pulmonary hypertension"
+
+for `Pulmonary Hypertension`.
+
+**Caveat that survives:** these sentences establish *occurrence*, not the frequency
+*bands*. Attaching them fixes the "no evidence at all" problem but not the
+`VERY_FREQUENT`/`FREQUENT` justification, which still needs quantitative sources or
+omission per `docs/frequency-evidence-guidelines.md`.
+
+### #8 moderated — RPL35A is a real DBA gene, the citation is just secondary
+
+The full text of PMID:19773262 shows the paper treats RPL35A as established throughout,
+not only in its abstract's background. Its Introduction:
+
+> "The genetic basis of DBA is heterogeneous. Approximately 40% of patients have
+> mutations in one of the genes for ribosomal proteins (RP): RPS7, RPS17, RPS19, RPS24,
+> RPL5, RPL11, or RPL35A."
+
+and its Discussion notes that genotype–phenotype data are unavailable for RPS24, RPS17,
+and RPL35A "because the number of subjects studied are too small" — i.e. the negative
+result is a cohort limitation, not a refutation. So the entry's substance is right; the
+citation is attributive rather than primary.
+
+Better still, that Introduction sentence is a **strictly better snippet** than the one
+in use, and it would simultaneously evidence `RPS7`, `RPS17`, and `RPS24`, which
+currently have no evidence at all. Downgrade #8 from "wrong paper" to "secondary
+citation, better snippet available."
+
+### #9 — partially improved, sub-point stands
+
+A better snippet exists for the malformation claim:
+
+> "Most of the patients with RPL5 (83%) and RPL11 (73%) mutations had physical malformations."
+
+But the paper's own results prose still contains no thumb-specific claim, so binding
+`Triphalangeal Thumb` to a hand-malformation quote remains an over-read. Thumb data
+appear only in per-patient table rows, which are not clean snippet material.
+
+### One live example of the full-text quoting risk
+
+The string *"Ribosomal protein L5 and L11 mutations are associated with cleft palate and
+abnormal thumbs in Diamond-Blackfan anemia patients"* appears in the PMID:19773262 cache
+and would validate as a snippet — but it is a **title in the bibliography**, not a claim
+by that paper. Worth a lint rule: flag snippets that match only inside a reference list.
+
+---
+
 ## Suggested priority
 
 1. Fix the `NO_EVIDENCE`/explanation contradiction on the ITP antibody node (#1).
+   Source still abstract-only; needs a different paper.
 2. Re-band or `subtype:`-scope the Alpha_Thalassemia phenotypes (#3).
-3. Audit Orphanet-derived frequency bands in `Hereditary_Spherocytosis` and
-   `Polycythemia_Vera`, and drop the invented mechanistic descriptions (#5).
-4. Evidence the Beta_Thalassemia phenotype block (#6) and the Polycythemia_Vera
-   treatment block (#4) — the sources are largely already in each file's
-   `references:` list.
-5. Mechanical sweep: `gene_term` bindings, `inheritance_term` bindings, subtype
+3. **Cheap and mechanical, now that full text is cached:** attach the
+   Polycythemia_Vera treatment/JAK2 snippets and the Beta_Thalassemia phenotype
+   snippets tabulated above (#4, #6). No new literature search required.
+4. Re-band PV `Splenomegaly` down from `VERY_FREQUENT` — contradicted at ~30% by the
+   entry's own primary source (#5) — then audit the remaining Orphanet bands in PV and
+   `Hereditary_Spherocytosis` and drop the invented mechanistic descriptions.
+5. Swap the DBA `RPL35A` snippet for the Introduction sentence and reuse it for
+   `RPS7`/`RPS17`/`RPS24` (#8).
+6. Mechanical sweep: `gene_term` bindings, `inheritance_term` bindings, subtype
    naming, `creation_date`.
 
 ## Reproducing
