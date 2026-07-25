@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03536143"
+reference_id: clinicaltrials:NCT03536143
 title: "A Phase I/II Study of KB103, a Non-Integrating, Replication-Incompetent HSV Vector Expressing the Human Collagen VII Protein, for the Treatment of Dystrophic Epidermolysis Bullosa (DEB)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase I/II Study of KB103, a Non-Integrating, Replication-Incompetent HSV Vector Expressing the Human Collagen VII Protein, for the Treatment of Dystrophic Epidermolysis Bullosa (DEB)
