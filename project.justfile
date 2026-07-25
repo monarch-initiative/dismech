@@ -1374,6 +1374,20 @@ research-disorder-cyberian-codex disorder *args="":
 research-providers:
     uv run deep-research-client providers
 
+# Named Entity Confusion (NEC) preflight: verify a deep-research report is about
+# the disease entity you intend to curate, by cross-checking the report's
+# gene-mention frequencies and OMIM IDs against the MONDO term's canonical gene
+# (issue #3889). Run this BEFORE using any DR content.
+# Verdicts: PASS / WARN (contamination or OMIM mismatch) / FAIL (wrong entity —
+# discard the report, do not cherry-pick) / SKIP (MONDO records no causal gene).
+# Exits non-zero on FAIL, or on WARN too with --strict.
+# Examples:
+#   just preflight-dr research/Marfan_Syndrome-deep-research-falcon.md MONDO:0007947
+#   just preflight-dr research/Foo-deep-research-falcon.md MONDO:0014572 --strict
+[group('Research')]
+preflight-dr report mondo *args="":
+    uv run python -m dismech.preflight_dr "$1" "$2" {{args}}
+
 # One TSV row per disorder summarizing deep-research provider coverage.
 # Summary lines are prefixed with "#" so the table stays easy to grep/awk.
 # Examples:
