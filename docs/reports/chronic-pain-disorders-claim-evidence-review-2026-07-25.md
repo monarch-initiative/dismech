@@ -158,12 +158,16 @@ Ankylosing Spondylitis; …").
 entries for the same manifestation carrying incompatible numbers. Both also appear as
 separate `downstream` targets of the TNF node. Collapse to one.
 
-### A12. `Rheumatoid_Arthritis`: four duplicated phenotypes from one snippet
+### A12. `Rheumatoid_Arthritis`: a duplicated interstitial-lung phenotype
 
-`Myocardial infarction`, `Interstitial pneumonitis`, and `Pleuritis` duplicate the existing
-`Accelerated Atherosclerosis`, `Interstitial Lung Disease`, and `Pleural Effusion` phenotypes.
-The three new ones are all sourced from `PMID:33609792`, and two share the identical snippet
-"RA may affect the lung interstitium, airways, and pleurae."
+`Interstitial pneumonitis` duplicates the existing `Interstitial Lung Disease` phenotype —
+same manifestation, two entries, both sourced from `PMID:33609792`.
+
+*(Correction to the first draft of this review: `Myocardial infarction` vs `Accelerated
+Atherosclerosis` and `Pleuritis` vs `Pleural Effusion` were also called duplicates here. On
+closer reading they are distinct entities — an event versus the process producing it, and
+serosal inflammation versus its fluid consequence — and have been kept. Only the interstitial
+pair was a true duplicate.)*
 
 ### A13. `Osteoarthritis`: guideline snippet truncated past the clause that carries its polarity
 
@@ -306,4 +310,17 @@ unconnected.
 - Term validation used `scripts/run_term_validator.sh validate-data … --labels`.
 - Alternative HPO terms were located with `runoak -i sqlite:obo:hp search`; MONDO placement
   with `runoak -i sqlite:obo:mondo ancestors`.
-- Claim–evidence matching was done by reading each entry in full; no fixes were applied.
+- Claim–evidence matching was done by reading each entry in full.
+
+## Status: fixes applied
+
+All findings in sections A–C and E were applied in the follow-up commit on this branch, plus
+the two contradicted frequency bands and the three prevalence blocks whose numbers were already
+present in cached snippets (D3, D4 partial). Section D1/D2 (uncited gene blocks and
+evidence-free pathophysiology nodes) remains open — those need per-disease literature curation
+rather than an edit.
+
+Post-fix validation: schema 10/10 `No issues found`; term validation 10/10 passed;
+snippet fidelity 482 → 471 items, all verifying; reference-cache frontmatter contract OK.
+Two references were newly fetched via `linkml-reference-validator cache reference`
+(`PMID:15753610`, `PMID:32430436`); no cache file was hand-edited.
