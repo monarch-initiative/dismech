@@ -125,8 +125,14 @@ entries now declare `conforms_to`:
 - **Malnutrition-Related Diabetes Mellitus** — added a `Chronic hyperglycemia and
   vascular complication risk` node → `#Chronic Hyperglycemia`.
 
-End-state target: "diabetes mellitus" = Grouping (owns MONDO:0005015) + module +
-per-type entries.
+End-state target: "diabetes mellitus" = Grouping + module + per-type entries.
+Note on MONDO:0005015: because the umbrella Disease entry is deliberately
+retained (for its `has_subtypes` catalog and disease-level framing) and keeps
+`MONDO:0005015` as its `disease_term`, the Grouping does not exclusively "own"
+that class — it maps to it via `skos:closeMatch` rather than `exactMatch`, so a
+single MONDO class is not claimed by two entities at once. Fully transferring
+ownership to the Grouping would require dropping the umbrella Disease's
+`disease_term`, which is deferred with the rest of the umbrella slimming below.
 
 ## Remaining: umbrella slimming (`Diabetes_Mellitus.yaml`)
 
