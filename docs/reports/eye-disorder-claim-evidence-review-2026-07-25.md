@@ -37,7 +37,11 @@ validation stack structurally cannot catch.
 
 ---
 
-## Tier 1 — Factual errors (fixed in this branch)
+## Tier 1 — Fixed in this branch
+
+Items 1–2 are outright factual errors. Items 3–4 were promoted here from Tier 2
+during PR review once it was clear they needed no new source — only a re-quote and
+a grade correction.
 
 ### 1. `RHO-Related_Retinopathy` — CSNBAD1 ERG waveform was backwards
 
@@ -69,9 +73,16 @@ the b-wave."* See also
 phototransduction-dysfunction CSNB as Riggs type.
 
 **Fixed**: node renamed to `Riggs-type electroretinogram`, description and
-`reports_on.interpretation` corrected, PMID:30051303 fetched and cited as primary
-evidence, and the existing G90D mouse citation re-explained to support the
-phototransduction-level localization rather than the (wrong) inner-retinal one.
+`reports_on.interpretation` corrected, and PMID:30051303 fetched and cited for the
+class-level ERG dichotomy. The companion G90D citation (PMID:38743626) originally
+quoted a generic CSNB definitional sentence; during PR review it was swapped for
+the RHO-specific bridging sentence already present in the same cached abstract
+("One well-studied rhodopsin point mutant, G90D-Rho, is thought to cause CSNB
+because of its constitutive activity in darkness causing rod desensitization"),
+so the disease-level step is now sourced rather than inferred. That division of
+labour matters: PMID:30051303 is a *GNAT1* report and establishes only the class
+dichotomy; without the swap, CSNBAD1's membership in the phototransduction class
+would have been curator inference carrying a `SUPPORT` grade.
 
 Note the original snippet — "profound loss of rod sensitivity without severe
 retinal degeneration" — is a true quote that says nothing about a-wave or b-wave.
@@ -85,18 +96,51 @@ children**" — and the snippet had been truncated at exactly `"...malignancy in
 which passes substring validation while cutting the qualifier that makes the claim
 true. In adults, uveal melanoma is the most common primary intraocular malignancy.
 
-**Fixed**: description scoped to children with the adult contrast stated, snippet
-extended to include `in children.`, and `evidence_source: HUMAN_CLINICAL` added.
+**Fixed**: description scoped to children, snippet extended to the full sentence
+(`Retinoblastoma is the most common intraocular malignancy in children.`), and
+`evidence_source: HUMAN_CLINICAL` added. The adult contrast — that uveal melanoma
+leads in adults — is **not** in the description: PR review correctly pointed out
+that the first attempt at this fix stated it there, which made it an uncited claim
+sitting above an `evidence:` block that does not cover it. It now lives in the
+`notes:` slot on the `HistopathologyFinding`, explicitly labelled as an uncited
+orienting note, per the CLAUDE.md "When Evidence Cannot Be Verified" rule.
 
 This is worth naming as a pattern: **truncating a snippet mid-clause to make it
 match is a red flag**, because the dropped words are often the ones carrying the
 scope limit.
 
+### 3. `RHO-Related_Retinopathy` — orphan snippet fragment for the 72-year figure
+
+`pathophysiology[2].downstream[1]` claimed "median age to mild visual acuity
+impairment is 72 years" while quoting only the dangling tail of the sentence:
+*"whereas this could not be computed for lower acuities."* The full sentence
+carrying the figure was **already correctly quoted elsewhere in the same file**
+(`phenotypes[3]`, same PMID:32301896), so no new source was needed.
+
+**Fixed**: snippet replaced with the complete sentence; explanation updated to
+state what it now quantifies. This is itself an instance of the dangling-clause
+pattern that recommendation #2 below proposes linting for.
+
+### 4. `Retinopathy_of_Prematurity` — evidence graded against its own direction
+
+`treatments[1].evidence[0]` was graded `SUPPORT` for preferring anti-VEGF over
+laser, but the quoted result points the other way (RR 2.14, 95% CI 1.06–4.33 —
+roughly *twice* the recurrence risk of laser). The explanation claimed the
+meta-analysis "quantifies anti-VEGF efficacy"; it quantifies a disadvantage.
+
+**Fixed**: regraded `PARTIAL`, explanation rewritten as the trade-off it actually
+is. The residual unsourced claim in that treatment's `description` is a separate,
+still-open item — see Tier 2 below.
+
 ---
 
 ## Tier 2 — Claim–evidence mismatches (recommended for curator follow-up)
 
-Not fixed here, because each needs a replacement source rather than a rewording.
+Most of the following need a replacement source rather than a rewording, which is
+why they were not fixed alongside the Tier 1 items. Two entries originally listed
+here needed neither — only a re-quote and a grade change — and were promoted to
+Tier 1 (items 3 and 4) during PR review. Where a remaining item is similarly cheap,
+that is noted inline, so no one skips it assuming new literature is required.
 
 ### `Diabetic_Retinopathy` — one guideline reference propping up three unrelated claims
 
@@ -131,24 +175,29 @@ classification, and **bone-spicule pigmentation**, none of which it mentions. Th
 defined by…"), which is reasoning, not evidence.
 
 Two further specifics:
-- `pathophysiology[2].downstream[1]` claims "median age to mild visual acuity
-  impairment is 72 years" but its snippet is the orphan fragment "whereas this
-  could not be computed for lower acuities." The full sentence containing the
-  72-year figure *is* quoted correctly at `phenotypes[3]` — this is a bad split of
-  a good source.
 - `phenotypes[5]` "Reduced rod electroretinogram" cites a snippet about BCVA and
   visual-field decline rates, with no ERG content.
+- The `Riggs-type electroretinogram` node carries `frequency: VERY_FREQUENT`, but
+  neither of its evidence items reports a rate. Pre-existing (it predates the
+  rename), and cheap to resolve — either drop the band or source it.
+
+(The orphan-fragment issue at `pathophysiology[2].downstream[1]` was **fixed** —
+see Tier 1 item 3. A further gap noted in review: the RHO-specific ERG step now
+rests on a human paper about a *different* gene (GNAT1) plus a mouse paper about
+RHO, with no human RHO ERG observation cited. A G90D/T94I clinical ERG citation
+would close that properly.)
 
 ### `Retinopathy_of_Prematurity`
 
 - `phenotypes[0]` frequency `FREQUENT` rests on "141 550 infants received ROP
   screening in Germany" — a denominator, not a rate. The frequency band is
   unsupported (cf. `docs/frequency-evidence-guidelines.md`).
-- `treatments[1]` describes anti-VEGF as "preferred over laser… due to better
-  structural outcomes", but its `SUPPORT` snippet reports the *opposite-direction*
-  finding (RR 2.14 higher recurrence vs laser). The `explanation` claims the
-  meta-analysis "quantifies anti-VEGF efficacy"; it quantifies recurrence risk.
-  Should be `PARTIAL` with the trade-off stated.
+- `treatments[1]`'s `description` still asserts anti-VEGF is "preferred over laser
+  for Zone I and posterior Zone II ROP due to better structural outcomes." Neither
+  remaining evidence item carries that: one is the recurrence-risk trade-off, the
+  other a registry trend in treatment preference. The superlative needs a source or
+  should be softened. (The evidence *grade* half of this item — `SUPPORT` on an
+  opposite-direction result — was **fixed**; see Tier 1 item 4.)
 - `phenotypes[4]` Myopia `FREQUENT` cites only "laser photocoagulation can lead to
   refractive errors" — supports neither the frequency nor the
   "regardless of treatment" scope.
@@ -217,9 +266,15 @@ entries fall down, it is almost always because everything is graded `SUPPORT`.
 
 ## Cross-cutting recommendations
 
-1. **`explanation` is unvalidated prose and is where wrong claims hide.** Both
-   Tier 1 errors lived there, behind correctly-transcribed snippets. Any review
-   protocol that checks snippets without reading explanations will miss them.
+1. **`description` and `explanation` are unvalidated prose, and that is where wrong
+   claims hide.** The two original Tier 1 errors lived there, behind
+   correctly-transcribed snippets; any protocol that checks snippets without
+   reading the surrounding prose will miss them. This cuts both ways, and did:
+   PR review caught an *uncited* sentence introduced into the `Retinoblastoma`
+   description by the fix itself (the true-but-unsourced uveal-melanoma contrast),
+   which has since moved to `notes:`. Unevidenced context belongs in `notes:`,
+   never in a `description` sitting above an `evidence:` block that does not
+   cover it.
 2. **Treat mid-clause snippet truncation as a lint target.** A snippet ending in a
    dangling preposition or conjunction (`"…malignancy in"`, `"…highly active
    antiretroviral"`, `"whereas this could not be computed for lower acuities."`) is
