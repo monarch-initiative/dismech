@@ -8,7 +8,14 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
-const { buildIssue, prefilledUrl } = require(join(here, "..", "issue.js"));
+const {
+  buildIssue,
+  prefilledUrl,
+  titleOnlyUrl,
+  normalizeDiseaseLabel,
+  dupSearchUrl,
+  MAX_PREFILL_URL,
+} = require(join(here, "..", "issue.js"));
 
 let passed = 0;
 const test = (name, fn) => {
@@ -134,6 +141,32 @@ test("unrecognized page → kind=unknown", () => {
   assert.deepEqual(meta.ids, {});
 });
 
+test("modern Orphanet URL → ORPHA id + kind=disease", () => {
+  const meta = runExtract({
+    url: "https://www.orpha.net/en/disease/detail/558",
+    doc: makeDoc({ title: "Orphanet: Marfan syndrome" }),
+  });
+  assert.equal(meta.kind, "disease");
+  assert.equal(meta.ids.orpha, "ORPHA:558");
+});
+
+test("legacy Orphanet Expert= URL still works", () => {
+  const meta = runExtract({
+    url: "https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&Expert=558",
+    doc: makeDoc({ title: "Orphanet: Marfan syndrome" }),
+  });
+  assert.equal(meta.ids.orpha, "ORPHA:558");
+});
+
+test("URL with a bare percent sign does not abort extraction", () => {
+  const meta = runExtract({
+    url: "https://pubmed.ncbi.nlm.nih.gov/21376230/?q=50%off",
+    doc: makeDoc({ metas: [{ name: "citation_pmid", content: "21376230" }] }),
+  });
+  assert.equal(meta.kind, "paper");
+  assert.equal(meta.ids.pmid, "21376230");
+});
+
 console.log("issue.js:");
 
 test("disease issue title & body", () => {
@@ -151,6 +184,34 @@ test("disease issue title & body", () => {
   assert.equal(issue.labels, "curation,enhancement");
 });
 
+test("disease titles are normalized from noisy page titles", () => {
+  const cases = [
+    ["# 154700 MARFAN SYNDROME; MFS", "OMIM:154700", "MARFAN SYNDROME; MFS"],
+    ["MONDO:0007947 - Marfan syndrome | OLS", "MONDO:0007947", "Marfan syndrome"],
+    ["Orphanet: Marfan syndrome", "ORPHA:558", "Marfan syndrome"],
+    ["Marfan syndrome (MONDO:0007947)", "MONDO:0007947", "Marfan syndrome"],
+  ];
+  for (const [raw, , expected] of cases) {
+    assert.equal(normalizeDiseaseLabel(raw), expected, `normalize ${raw}`);
+  }
+  // End-to-end through buildIssue: id is never duplicated in the title.
+  const issue = buildIssue(
+    { kind: "disease", ids: { mondo: "MONDO:0007947" }, title: "Marfan syndrome (MONDO:0007947)", url: "https://x", selection: "" },
+    SETTINGS
+  );
+  assert.equal(issue.title, "Curate Marfan syndrome (MONDO:0007947)");
+});
+
+test("disease body carries a duplicate-check search link", () => {
+  const issue = buildIssue(
+    { kind: "disease", ids: { mondo: "MONDO:0007947" }, title: "Marfan syndrome", url: "https://x", selection: "" },
+    SETTINGS
+  );
+  assert.match(issue.body, /Check for existing issues:/);
+  assert.match(issue.body, /issues\?q=/);
+  assert.match(issue.body, /MONDO/);
+});
+
 test("paper issue includes fetch-reference PMID command", () => {
   const meta = {
     kind: "paper",
@@ -166,6 +227,7 @@ test("paper issue includes fetch-reference PMID command", () => {
   assert.match(issue.title, /^Curate from literature:/);
   assert.match(issue.body, /just fetch-reference PMID:21376230/);
   assert.match(issue.body, /exact-quote/);
+  assert.match(issue.body, /Check for existing issues:.*issues\?q=/);
   assert.equal(issue.labels, "curation");
 });
 
@@ -185,6 +247,23 @@ test("prefilledUrl encodes title, body, labels", () => {
   assert.equal(u.searchParams.get("title"), "Curate X (MONDO:1)");
   assert.equal(u.searchParams.get("body"), "hello world");
   assert.equal(u.searchParams.get("labels"), "a,b");
+});
+
+test("long bodies overflow prefill limit; titleOnlyUrl is the fallback", () => {
+  const huge = "x".repeat(20000);
+  assert.ok(prefilledUrl(SETTINGS, "T", huge, "a").length > MAX_PREFILL_URL);
+  const url = titleOnlyUrl(SETTINGS, "T", "a");
+  const u = new URL(url);
+  assert.equal(u.searchParams.get("title"), "T");
+  assert.equal(u.searchParams.get("body"), "");
+  assert.ok(url.length <= MAX_PREFILL_URL);
+});
+
+test("dupSearchUrl builds an is:issue search for the identifier", () => {
+  const url = dupSearchUrl(SETTINGS, "MONDO:0007947");
+  const u = new URL(url);
+  assert.equal(u.pathname, "/monarch-initiative/dismech/issues");
+  assert.equal(u.searchParams.get("q"), "is:issue MONDO:0007947");
 });
 
 console.log(`\n${passed} passed`);

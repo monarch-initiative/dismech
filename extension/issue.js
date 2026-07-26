@@ -4,6 +4,21 @@
 (function (root) {
   "use strict";
 
+  // Single source of truth for extension defaults (also consumed by popup.js
+  // and options.js so the values are not duplicated across files).
+  const DEFAULTS = {
+    owner: "monarch-initiative",
+    repo: "dismech",
+    trackerIssue: "1079",
+    diseaseLabels: "curation,enhancement",
+    paperLabels: "curation",
+    mode: "url", // "url" (prefilled GitHub form) | "api" (token, one-click)
+  };
+
+  // GitHub caps issues/new prefill URLs (~8 KB in practice); past this we fall
+  // back to clipboard + an empty form in the popup.
+  const MAX_PREFILL_URL = 8000;
+
   const pmidUrl = (id) => `https://pubmed.ncbi.nlm.nih.gov/${id}/`;
   const doiUrl = (id) => `https://doi.org/${id}`;
   const pmcUrl = (id) => `https://www.ncbi.nlm.nih.gov/pmc/articles/${id}/`;
@@ -12,9 +27,32 @@
   const orphaUrl = (id) =>
     `https://www.orpha.net/en/disease/detail/${id.replace("ORPHA:", "")}`;
 
+  // A GitHub issue-search URL for an identifier, used as a duplicate-check link.
+  const dupSearchUrl = (settings, query) =>
+    `https://github.com/${settings.owner}/${settings.repo}/issues?q=` +
+    encodeURIComponent(`is:issue ${query}`);
+
   function truncate(s, n) {
     s = (s || "").trim();
     return s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s;
+  }
+
+  // Real disease pages produce noisy titles (OMIM "# 154700 MARFAN SYNDROME;
+  // MFS", OLS "MONDO:0007947 - Marfan syndrome | OLS", "Orphanet: …", or a
+  // label with the id already parenthesised). Strip those decorations so the
+  // issue title stays "Curate <label> (<id>)" like the claim-disease convention.
+  function normalizeDiseaseLabel(label) {
+    let s = (label || "").replace(/\s+/g, " ").trim();
+    s = s.replace(/\s*\|\s*[^|]*$/, "").trim(); // trailing " | Site" segment
+    s = s.replace(/^#\s*\d{4,7}\s+/, "").trim(); // leading OMIM "# 154700 "
+    s = s.replace(/^Orphanet:\s*/i, "").trim(); // leading "Orphanet: "
+    s = s
+      .replace(/^(?:MONDO|OMIM|ORPHA|ORPHANET|DOID):\S+\s*[-–—]\s*/i, "")
+      .trim(); // leading "MONDO:0007947 - " (e.g. OLS)
+    s = s
+      .replace(/\s*\((?:MONDO|OMIM|ORPHA|DOID):[^)]*\)\s*$/i, "")
+      .trim(); // trailing "(MONDO:…)"
+    return s;
   }
 
   function selectionBlock(sel) {
@@ -34,7 +72,7 @@
 
     if (meta.kind === "disease") {
       const primary = ids.mondo || ids.omim || ids.orpha || ids.doid;
-      const label = meta.title || primary || "disease";
+      const label = normalizeDiseaseLabel(meta.title) || primary || "disease";
       const url = ids.mondo
         ? mondoUrl(ids.mondo)
         : ids.omim
@@ -58,6 +96,7 @@
         `Requested via the [dismech curator](https://github.com/${settings.owner}/${settings.repo}/tree/main/extension) browser extension.\n\n` +
         `**Identifiers:**\n${idLines}\n\n` +
         `**Source page:** ${meta.url}\n` +
+        `**Check for existing issues:** ${dupSearchUrl(settings, primary)}\n` +
         selectionBlock(meta.selection) +
         `\n### Curation checklist\n` +
         `- [ ] Confirm the disease is not already in \`kb/disorders/\` (check MONDO id, label, synonyms)\n` +
@@ -84,6 +123,11 @@
             meta.authors.length > 6 ? ", et al." : ""
           }`,
         `- **Source page:** ${meta.url}`,
+        (ids.pmid || ids.doi) &&
+          `- **Check for existing issues:** ${dupSearchUrl(
+            settings,
+            ids.pmid ? `PMID:${ids.pmid}` : ids.doi
+          )}`,
       ]
         .filter(Boolean)
         .join("\n");
@@ -128,7 +172,23 @@
     return `https://github.com/${settings.owner}/${settings.repo}/issues/new?${p.toString()}`;
   }
 
-  const api = { buildIssue, prefilledUrl, truncate, selectionBlock };
+  // A title-only prefill URL, for the fallback when the full body would blow
+  // past GitHub's URL length limit (the popup copies the body to the clipboard).
+  function titleOnlyUrl(settings, title, labels) {
+    return prefilledUrl(settings, title, "", labels);
+  }
+
+  const api = {
+    DEFAULTS,
+    MAX_PREFILL_URL,
+    buildIssue,
+    prefilledUrl,
+    titleOnlyUrl,
+    truncate,
+    selectionBlock,
+    normalizeDiseaseLabel,
+    dupSearchUrl,
+  };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.DismechIssue = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

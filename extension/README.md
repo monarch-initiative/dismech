@@ -22,7 +22,7 @@ add a fine-grained PAT in **Settings** for true one-click creation via the API.
 | Kind | Detected via |
 |------|--------------|
 | Paper | `citation_pmid` / `citation_doi` / `citation_pmcid` meta tags; `pubmed.ncbi.nlm.nih.gov/<pmid>`; `doi.org/10.…`; `PMC…` in URL; `dc.identifier`/`prism.doi` |
-| Disease | `MONDO:`/`MONDO_` in URL; `omim.org/entry/<id>`; `ORPHA:`/`Orphanet_`/`orpha.net?Expert=`; `DOID:` |
+| Disease | `MONDO:`/`MONDO_` in URL; `omim.org/entry/<id>`; `ORPHA:`/`Orphanet_`/`orpha.net/en/disease/detail/<id>`/legacy `orpha.net?Expert=`; `DOID:` |
 
 Falls back to an *unknown* "curation lead" issue capturing the URL, title, and
 any highlighted text.
@@ -44,9 +44,11 @@ any highlighted text.
 No build step. After edits, reload the extension from `chrome://extensions`.
 
 ```bash
-node extension/test/run.mjs        # run tests
+just test-extension                    # run tests (or: node extension/test/run.mjs)
 python3 extension/icons/gen_icons.py   # regenerate icons
 ```
+
+CI runs `just test-extension` whenever `extension/` changes.
 
 ## Privacy
 

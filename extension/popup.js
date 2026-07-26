@@ -1,22 +1,27 @@
 "use strict";
 
-const DEFAULTS = {
-  owner: "monarch-initiative",
-  repo: "dismech",
-  trackerIssue: "1079",
-  diseaseLabels: "curation,enhancement",
-  paperLabels: "curation",
-  mode: "url", // "url" (prefilled GitHub form) | "api" (token, one-click)
-};
+const { DEFAULTS, buildIssue, prefilledUrl, titleOnlyUrl, MAX_PREFILL_URL } =
+  globalThis.DismechIssue;
+const API_ORIGIN = "https://api.github.com/*";
 
 const $ = (id) => document.getElementById(id);
-const { buildIssue, prefilledUrl } = globalThis.DismechIssue;
 
-function showStatus(html, cls) {
+// Render a status line without innerHTML (extension surface — build DOM nodes).
+// `link`, when given, is appended as an {href, text} anchor.
+function showStatus(text, cls, link) {
   const s = $("status");
   s.hidden = false;
   s.className = "status" + (cls ? " " + cls : "");
-  s.innerHTML = html;
+  s.textContent = text;
+  if (link) {
+    s.append(" ");
+    const a = document.createElement("a");
+    a.href = link.href;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = link.text;
+    s.append(a);
+  }
 }
 
 async function getSettings() {
@@ -38,12 +43,13 @@ async function extractFromTab(tabId) {
   return results && results[0] ? results[0].result : null;
 }
 
-async function createViaApi(settings, title, body, labels) {
-  const granted = await chrome.permissions.request({
-    origins: ["https://api.github.com/*"],
-  });
-  if (!granted) throw new Error("Permission for api.github.com was denied.");
+async function hasApiPermission() {
+  return chrome.permissions.contains({ origins: [API_ORIGIN] });
+}
 
+async function createViaApi(settings, title, body, labels) {
+  // The host permission is granted from the options page (a stable context),
+  // not requested here — requesting from the popup tears it down mid-request.
   const res = await fetch(
     `https://api.github.com/repos/${settings.owner}/${settings.repo}/issues`,
     {
@@ -67,6 +73,22 @@ async function createViaApi(settings, title, body, labels) {
     throw new Error(`GitHub API ${res.status}: ${txt.slice(0, 200)}`);
   }
   return res.json();
+}
+
+// Open the prefilled GitHub form, falling back to clipboard + title-only form
+// when the full body would exceed GitHub's URL length limit.
+async function openPrefilledForm(settings, title, body, labels) {
+  const url = prefilledUrl(settings, title, body, labels);
+  if (url.length <= MAX_PREFILL_URL) {
+    chrome.tabs.create({ url });
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(body);
+  } catch {
+    /* clipboard may be unavailable; still open the title-only form */
+  }
+  chrome.tabs.create({ url: titleOnlyUrl(settings, title, labels) });
 }
 
 let SETTINGS = null;
@@ -115,18 +137,23 @@ async function init() {
   badge.textContent = META.kind;
   badge.classList.toggle("unknown", META.kind === "unknown");
 
-  $("id-chips").innerHTML = Object.values(META.ids)
-    .map((v) => `<span class="chip">${v}</span>`)
-    .join("");
+  const chips = $("id-chips");
+  chips.textContent = "";
+  for (const v of Object.values(META.ids)) {
+    const span = document.createElement("span");
+    span.className = "chip";
+    span.textContent = v;
+    chips.append(span);
+  }
 
   $("title").value = issue.title;
   $("labels").value = issue.labels;
   $("body").value = issue.body;
 
-  $("mode-note").textContent =
-    SETTINGS.mode === "api" && SETTINGS.githubToken
-      ? `One-click mode → creates directly in ${SETTINGS.owner}/${SETTINGS.repo}.`
-      : `Opens a pre-filled issue form in ${SETTINGS.owner}/${SETTINGS.repo} — review, then submit.`;
+  const apiReady = SETTINGS.mode === "api" && SETTINGS.githubToken;
+  $("mode-note").textContent = apiReady
+    ? `One-click mode → creates directly in ${SETTINGS.owner}/${SETTINGS.repo}.`
+    : `Opens a pre-filled issue form in ${SETTINGS.owner}/${SETTINGS.repo} — review, then submit.`;
 
   $("copy").addEventListener("click", async () => {
     await navigator.clipboard.writeText($("body").value);
@@ -145,17 +172,25 @@ async function onCreate() {
   btn.disabled = true;
 
   try {
-    if (SETTINGS.mode === "api" && SETTINGS.githubToken) {
+    if (SETTINGS.mode === "api" && SETTINGS.githubToken && (await hasApiPermission())) {
       btn.textContent = "Creating…";
       const issue = await createViaApi(SETTINGS, title, body, labels);
-      showStatus(
-        `Created <a href="${issue.html_url}" target="_blank">#${issue.number}</a>.`,
-        "ok"
-      );
+      showStatus("Created", "ok", {
+        href: issue.html_url,
+        text: `#${issue.number}`,
+      });
       chrome.tabs.create({ url: issue.html_url });
     } else {
-      chrome.tabs.create({ url: prefilledUrl(SETTINGS, title, body, labels) });
-      window.close();
+      if (SETTINGS.mode === "api" && SETTINGS.githubToken) {
+        // Token mode selected but the api.github.com permission was not granted
+        // (grant it from Settings). Fall back to the prefilled form.
+        showStatus(
+          "Token mode needs api.github.com access — enable it in Settings. Opened the pre-filled form instead.",
+          "error"
+        );
+      }
+      await openPrefilledForm(SETTINGS, title, body, labels);
+      if (!(SETTINGS.mode === "api" && SETTINGS.githubToken)) window.close();
     }
   } catch (err) {
     showStatus("Failed: " + (err.message || err), "error");

@@ -17,6 +17,17 @@
       .map((el) => (el.getAttribute("content") || "").trim())
       .filter(Boolean);
 
+  // decodeURIComponent throws URIError on a bare '%' (e.g. "/50%off", or a DOI
+  // suffix that legitimately contains %). Fall back to the raw string so one
+  // odd URL never aborts the whole extraction.
+  const safeDecode = (s) => {
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  };
+
   const href = location.href;
   const host = location.hostname.replace(/^www\./, "");
   const path = location.pathname;
@@ -48,8 +59,7 @@
   let doi =
     meta("citation_doi") ||
     meta("prism.doi") ||
-    meta("dc.identifier") ||
-    meta("DC.identifier") ||
+    meta("dc.identifier") || // meta() already matches case-insensitively
     meta("bepress_citation_doi");
   const cleanDoi = (s) => {
     if (!s) return "";
@@ -57,7 +67,7 @@
     return m ? m[0].replace(/[.,;)]+$/, "") : "";
   };
   doi = cleanDoi(doi);
-  if (!doi && /(^|\.)doi\.org$/.test(host)) doi = cleanDoi(decodeURIComponent(path.slice(1)));
+  if (!doi && /(^|\.)doi\.org$/.test(host)) doi = cleanDoi(safeDecode(path.slice(1)));
   if (!doi) {
     const canon = document.querySelector('link[rel="canonical"]');
     if (canon) doi = cleanDoi(canon.href);
@@ -67,7 +77,7 @@
 
   // ---- Disease identifiers -------------------------------------------------
   const grab = (re) => {
-    const m = decodeURIComponent(href).match(re);
+    const m = safeDecode(href).match(re);
     return m ? m[1] : "";
   };
   const mondo = grab(/MONDO[:_](\d{5,7})/i);
@@ -83,7 +93,10 @@
 
   let orpha = grab(/ORPHA[:_](\d{1,7})/i) || grab(/Orphanet_(\d{1,7})/i);
   if (!orpha && /orpha\.net$/.test(host)) {
-    const m = href.match(/[?&]Expert=(\d{1,7})/i);
+    // Modern pages: /en/disease/detail/<id>; legacy: ...?Expert=<id>
+    const m =
+      path.match(/\/disease\/detail\/(\d{1,7})/) ||
+      href.match(/[?&]Expert=(\d{1,7})/i);
     if (m) orpha = m[1];
   }
   if (orpha) ids.orpha = "ORPHA:" + orpha;

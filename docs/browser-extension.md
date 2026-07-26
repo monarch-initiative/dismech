@@ -30,9 +30,13 @@ Set in the extension's **Settings** page:
    already signed in to GitHub, so you just review and click *Submit*. Nothing
    but opening a URL — no credentials, no backend.
 2. **One-click with a token.** Store a fine-grained GitHub PAT (Issues: read &
-   write on the target repo) in the browser; the extension POSTs to
-   `api.github.com` directly and opens the new issue. The token stays in
-   `chrome.storage.local` and is sent only to GitHub.
+   write on the target repo, ideally with a short expiry) in the browser; the
+   extension POSTs to `api.github.com` directly and opens the new issue. The
+   token stays in `chrome.storage.local` — **plaintext on disk** — and is sent
+   only to GitHub. If you would rather not persist a token, prefer the default
+   form mode above, which needs no credentials. Selecting token mode on the
+   Settings page requests the optional `api.github.com` host permission there
+   (a stable context), so the popup only needs to check it at create time.
 
 Owner/repo, labels, and the tracker issue number are all configurable, so the
 extension also works against a fork or a different Monarch repo.
@@ -59,8 +63,11 @@ Pure vanilla JS — no build step. Logic that can be unit-tested lives in
 (page metadata extraction). Run the tests with:
 
 ```bash
-node extension/test/run.mjs
+just test-extension   # or: node extension/test/run.mjs
 ```
+
+These run in CI (`just test-extension`) whenever anything under `extension/`
+changes.
 
 Toolbar icons are generated (teal medical disc + cross) by
 `python3 extension/icons/gen_icons.py`.

@@ -1682,6 +1682,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `src/`, `scripts/`, `tests/`, `conf/` | YES | Source code |
+| `extension/**` (incl. generated `icons/*.png`) | YES | Browser extension ships unbuilt/unpacked, so its generated icons are committed — a deliberate exception to the "don't commit derived files" rule |
 
 ### What NOT to commit
 
