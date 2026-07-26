@@ -3,6 +3,10 @@
 Correctness review of ten cardiac entries in `kb/disorders/`, focused on whether each
 cited reference actually supports the claim it is attached to.
 
+> **Status: remediation applied.** Findings 1–7 have been fixed in the KB; see
+> [Remediation applied](#remediation-applied) at the end of this report for exactly what
+> changed and what deliberately remains open.
+
 ## Scope and method
 
 Entries reviewed:
@@ -200,9 +204,10 @@ HCM demonstrates the inconsistency is local, not conceptual: PMID:25573453 (feli
 - **CAD MONDO mapping is too broad.** `Coronary_Artery_Disease.disease_term` is bound to
   `MONDO:1060134` *atherosclerotic cardiovascular disease* ("Any cardiovascular disease
   resulting from atherosclerosis" — includes stroke and PAD). The entry's own
-  description defines CAD as coronary narrowing. `MONDO:0005010` *coronary artery
-  disorder* carries "coronary artery disease" and "CAD" as **exact** synonyms and is the
-  correct binding.
+  description defines CAD as coronary narrowing, so a coronary-specific class is needed.
+  *(Resolved independently on `main` in #7187, which bound it to `MONDO:0021661`
+  coronary atherosclerosis — a child of `MONDO:0005010` coronary artery disorder and a
+  close match to this entry's atherosclerosis-centred description.)*
 - **Carotid evidence used for coronary claims.** CAD's two main pathophysiology sources
   (PMID:38639096, PMID:40594772) are carotid-plaque studies applied to coronary disease
   without qualification. Defensible for general atherogenesis, but it should be stated.
@@ -252,7 +257,7 @@ ClinGen using the `CGGV:` pattern already working in HCM and DCM.
 3. **Merge the duplicate HCM `Arrhythmias` phenotype** and replace
    `HCM.environmental[0] = "None Applicable"` with the real exertion/heat risk factors
    its own citation describes.
-4. **Re-map CAD** to `MONDO:0005010`.
+4. **Re-map CAD** to a coronary-specific MONDO class.
 5. **Evidence the empty treatment and genetic sections** (Finding 8); ClinGen covers the
    genetic ones mechanically.
 6. **Narrow the over-broad claims** in DCM `pathophysiology[3]`/`[4]` and AF
@@ -261,3 +266,82 @@ ClinGen using the `CGGV:` pattern already working in HCM and DCM.
 
 Tier A entries (Brugada, Long QT, MI, ARVC, Peripartum CM) need no remediation and are
 the right templates for the Tier B rewrites.
+
+## Remediation applied
+
+All five Tier-B entries were edited. Post-fix state:
+
+| Entry | Evidence items | `evidence_source` unset | `NO_EVIDENCE` |
+|---|---|---|---|
+| Hypertrophic_Cardiomyopathy | 108 | 0 | 0 |
+| Dilated_Cardiomyopathy | 83 | 0 | 0 |
+| Atrial_Fibrillation | 26 | 0 | 0 |
+| Heart_Failure | 23 | 0 | 0 |
+| Coronary_Artery_Disease | 19 | 0 | 0 |
+
+**Contradictory metadata removed (Findings 1–2).** The five `NO_EVIDENCE`-with-affirming-
+explanation items and the non-probative `SUPPORT` items were replaced or deleted:
+
+- CAD `APOE` → PMID:17878422 (apoE genotype–coronary risk meta-analysis, 121 studies).
+- CAD `LDLR` → PMID:28444290 (EAS consensus: reduced LDL-receptor function raises ASCVD risk).
+- CAD `PCSK9` (was unevidenced) → PMID:16554528 (ARIC: PCSK9 nonsense variants, −88% CHD).
+- CAD `9p21` (was unevidenced) → PMID:17478681 (original 9p21 GWAS).
+- CAD `LDL Cholesterol` → PMID:28444290; CAD `C-Reactive Protein` → PMID:20031199 (ERFC meta-analysis).
+- CAD `Myocardial Infarction` phenotype → PMID:24902970 (plaque rupture → acute coronary syndrome).
+- Heart_Failure SGLT2 inhibitors → PMID:31535829 (DAPA-HF outcome data added alongside the guideline).
+- Atrial_Fibrillation thrombus node → PMID:8572814 (91% of nonrheumatic AF thrombi in the LAA).
+- DCM `LV systolic dysfunction` and `Dilated cardiomyopathy` phenotypes → PMID:39519012; the
+  null-LVEF result is retained but demoted to `PARTIAL` and reframed as a qualifier.
+- HCM: six non-probative items deleted (the prevalence-trend and generic-arrhythmia
+  citations, the troponin gene/biomarker conflation, the CCB-for-angina and
+  indirect-myectomy citations, and the LVH-in-diverse-conditions subtype citation), plus
+  one item whose "snippet" was just an article title.
+
+**`evidence_source` backfilled (Finding 5).** 139 items across the five entries, classified
+per reference: narrative reviews/guidelines/expert curation → `OTHER`; original human
+studies → `HUMAN_CLINICAL`; in vivo animal work → `MODEL_ORGANISM`. Mixed-source papers
+(PMID:39146015, PMID:40594772) were assigned per snippet.
+
+**Structural fixes (Finding 7).** The duplicate HCM `Arrhythmias` phenotype was merged
+(richer node kept, evidence folded in, 11 → 10 phenotypes); `HCM.environmental[0]` changed
+from the self-refuting `None Applicable`/`REFUTE` to `Strenuous exertion and heat stress`
+with `SUPPORT`; the deprecated `percentage: 0.2` was dropped; CAD re-mapped to
+`MONDO:0021661` *coronary atherosclerosis*; the carotid-to-coronary extrapolation is now
+stated explicitly in the two affected explanations; the NAMeRS/issue-number curation note
+was removed from a DCM evidence explanation.
+
+**Over-broad claims narrowed (Finding 6).** DCM `RNA Splicing Dysregulation` and `Immune
+and Inflammatory Activation` descriptions now separate what the cited evidence shows from
+what is proposed; the DCM neurohormonal explanation now states it is therapeutic rather
+than direct mechanistic evidence; the "AF begets AF" claim gained its actual source
+(PMID:7671380, Wijffels).
+
+**Partial progress on Finding 8.** Heart_Failure `genetic` (TTN/MYH7/LMNA) now uses ClinGen
+`CGGV:` assertions; HF ACE-I/ARB, beta blockers and MRA anchor on PMID:37254024 (GDMT); AF
+rhythm control and risk-factor modification anchor on PMID:40526576; CAD antiplatelet
+therapy on PMID:11786451.
+
+### Still open
+
+Treatment and phenotype blocks that remain unevidenced — a curation-volume task, not a
+correctness defect: DCM treatments (6/7), CAD treatments (4/6: ACE-I, beta blockers, PCI,
+CABG), HF treatments (4/8: ARNI, diuretics, CRT, ICD), AF treatments (3/7: rate control,
+cardioversion, LAA closure), AF `genetic` (KCNQ1, KCNE2, KCNJ2, SCN5A), and assorted
+phenotype/biochemical blocks. The HCM spaceflight `datasets` scope question (Finding 7) is
+a curation-policy judgement and was left for maintainers.
+
+### Verification
+
+- All 495 evidence items across the ten entries re-checked offline against
+  `references_cache`: 0 snippet mismatches. (The single flagged HCM item is the
+  pre-existing `definitive ( MYBPC3` line-wrap artifact in the cache, not a curation error.)
+- `linkml-validate` against the `Disease` class: no issues on all five edited entries.
+- `linkml-term-validator` with `--labels`: passes on all five. Note that the configured
+  `ols:mondo` adapter cannot perform ancestor traversal, so `cache/enums/diseaseterm_*.csv`
+  is the effective membership source for MONDO terms; a new binding needs its CURIE there,
+  verified against the local `sqlite:obo:mondo` adapter.
+- `pytest tests/test_data.py`: 28 global structural tests and all 55 per-file tests for the
+  edited entries pass. (Remaining warnings about missing `subtype_term` are pre-existing.)
+- Eight new reference cache files were fetched with the validator, never hand-written.
+  Three PMIDs initially recalled from memory turned out to be unrelated papers and were
+  discarded — the correct sources were located via PubMed search and verified before use.
