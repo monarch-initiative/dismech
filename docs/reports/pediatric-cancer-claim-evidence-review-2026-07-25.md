@@ -371,24 +371,60 @@ to prevent.
 
 ---
 
-## 6. Suggested priority
+## 6. Remediation status
 
-1. Fix the WHO 2021 medulloblastoma classification (§1.1) and its cell-type
-   binding (§1.4)
-2. Fix Stage 4S (§1.2) and familial ALK (§1.3) in `Neuroblastoma`
-3. Give `Osteosarcoma` a histopathology block, notably percent-necrosis response
-   grading (§3.1)
-4. Resolve the Wilms TP53 self-contradiction (§1.6) and untangle the subtype axes
-   (§2.1)
-5. Add the two-hit exceptions to `Retinoblastoma` (§3.3) and telomere
-   maintenance / ATRX / TERT to `Neuroblastoma` (§3.2)
-6. Correct the three frequency bands contradicted by their own evidence (§4)
-7. Re-quote the clipped `Ewing_Sarcoma` snippets at sentence boundaries (§4)
+The seven priority items were worked in order. **All seven are now applied** on
+branch `claude/pediatric-cancers-kb-review-we40oa`, across seven entries.
+
+| # | Item | Status |
+|---|------|--------|
+| 1 | WHO 2021 medulloblastoma classification (§1.1) and cell-type binding (§1.4) | **Done** |
+| 2 | Stage 4S age cutoff and familial ALK (§1.2, §1.3) | **Done** |
+| 3 | `Osteosarcoma` histopathology + biochemical blocks (§3.1) | **Done** |
+| 4 | Wilms TP53 self-contradiction (§1.6) | **Done** |
+| 4b | Wilms subtype axis untangling (§2.1) | Not started |
+| 5 | Retinoblastoma two-hit exceptions (§3.3); Neuroblastoma telomere axis (§3.2) | **Done** |
+| 6 | Three frequency bands contradicted by their own evidence (§4) | **Done** |
+| 7 | Clipped `Ewing_Sarcoma` snippets (§4) | Partial — the metastasis snippets re-quoted at sentence boundaries; the fusion-biology snippets not yet |
+
+Also applied beyond the priority list: the cyclophosphamide CHEBI mismatch
+(§1.7); the Ewing fusion-diversity and WHO 2020 reclassification gap (§1.5); the
+`Wilms_Tumor` evidence items whose explanations contradicted their snippets
+(§4); the `Neuroblastoma` orphan ALK node, ALK-directed treatment, and PHOX2B
+(§3.2); `Retinoblastoma` trilateral disease (§3.3); and the `Osteosarcoma`
+germline-predisposition block, which makes the `Retinoblastoma` →
+osteosarcoma second-malignancy cross-reference bidirectional (§3.1).
+
+### Remaining, in rough priority order
+
+1. `Wilms_Tumor` subtype axes (§2.1) — the COG/SIOP histology systems are still
+   flattened into one namespace alongside laterality, etiology, and age. This is
+   a foreign-key-bearing field, so it needs a migration of every `subtype:`
+   reference, not just an edit to `has_subtypes`.
+2. `Medulloblastoma` (§3.5) — no `genetic:` block at all (ELP1, PTCH1, TP53,
+   APC, BRCA2/PALB2), no `histopathology:`, no leptomeningeal dissemination
+   node, no SHH-pathway inhibitor treatment.
+3. `Alveolar_Rhabdomyosarcoma` (§3.4) — the alveolar architecture the disease is
+   named for is still absent from its one-sentence histopathology node.
+4. `Neuroblastoma` residual (§3.2) — adrenergic/mesenchymal plasticity,
+   spontaneous regression mechanism, INPC/Shimada histopathology, MIBG therapy,
+   opsoclonus-myoclonus.
+5. `Atypical_Teratoid_Rhabdoid_Tumor` (§2.2, §3.8) — TYR/SHH/MYC subgroup
+   mechanisms; RTPS1/RTPS2 as structured content.
+6. `Retinoblastoma` residual (§3.3) — intravitreal chemotherapy, high-risk
+   histopathologic features after enucleation, 13q14 deletion syndrome.
+7. `Hepatoblastoma` (§3.6) and `Acute_Lymphoblastic_Leukemia` (§3.7) clinical
+   gaps — both are strong entries with well-defined, additive holes.
+8. Remaining clipped `Ewing_Sarcoma` fusion-biology snippets (§4).
 
 ## Method
 
 Every entry was read in full and assessed against current pediatric-oncology
 knowledge (WHO CNS5 2021, WHO soft tissue 2020, INSS/INRG staging, COG and SIOP
 protocols). Each evidence item was read together with the claim it is attached
-to. Cached abstracts were consulted where a snippet's meaning was unclear. No KB
-files were modified.
+to. Cached abstracts were consulted where a snippet's meaning was unclear.
+
+The review itself modified no KB files; the fixes recorded in §6 were applied
+afterwards on the same branch, each entry re-validated with `linkml-validate`,
+`linkml-term-validator` and `linkml-reference-validator`, and each carrying a
+history record under `history/disorders/`.
