@@ -20,9 +20,9 @@ Entries reviewed (three exposure families):
 1. **Schema validation** — `linkml-validate` against the `Disease` class, all 10 files.
 2. **Snippet fidelity** — every evidence item's `snippet` normalized (whitespace,
    Unicode dashes/quotes, case) and checked as an exact substring of the
-   corresponding `references_cache/` body. 613 items across all reference types
-   (PMID, DOI, GEO, clinicaltrials).
-3. **Semantic claim–evidence pass** — manual read of all 613
+   corresponding `references_cache/` body. 578 evidence items across all
+   reference types (PMID, DOI, GEO, clinicaltrials).
+3. **Semantic claim–evidence pass** — manual read of all 578
    `(claim, description, snippet, supports, evidence_source, explanation)` tuples,
    judging whether the snippet supports the specific proposition asserted.
 4. **Coverage pass** — enumeration of top-level items in evidence-bearing sections
@@ -32,7 +32,7 @@ Entries reviewed (three exposure families):
 ## Mechanical results: clean
 
 - **Schema:** 10/10 `No issues found`.
-- **Snippet fidelity:** **613/613 snippets are exact substrings of their cited
+- **Snippet fidelity:** **578/578 snippets are exact substrings of their cited
   cached source.** Zero fabricated or paraphrased quotes, zero missing cache
   entries, including the 14 DOI-keyed deep-research references. No evidence of the
   classic hallucination modes (invented PMIDs, invented quotes).
@@ -331,3 +331,55 @@ Note: `just validate-references` reported `Total checks: 0` on these files in th
 environment (several publisher PDF fetches returned HTTP 403 behind the proxy), so
 snippet fidelity here was established by direct normalized-substring comparison
 against `references_cache/` bodies rather than by the validator.
+
+---
+
+## Resolution (applied 2026-07-25)
+
+All ten recommended fixes were applied in the same branch. Post-fix state:
+
+- **Schema:** 10/10 `No issues found`.
+- **Snippet fidelity:** **602/602** snippets exact substrings (578 before; net +24
+  evidence items added, none removed except the two retired `PMID:19364190` items).
+- **Frequency bands:** 36 → 13, and **13/13 remaining bands are quantitatively
+  supported** (0 unsupported, down from 24).
+- **Unevidenced top-level items:** 21 → 12, with all *mechanism* nodes and all
+  disease *subtypes* now evidenced.
+
+Four new references were fetched via the cache pipeline (never hand-written):
+`PMID:6734559`, `PMID:25191413`, `PMID:30053129`, `PMID:30558238`.
+
+| # | Finding | Resolution |
+|---|---|---|
+| 1 | BAL contraindication unevidenced | Rewritten and sourced to `PMID:6734559`. The blanket "is contraindicated" is replaced with what the evidence actually shows: BAL given ~30 min after cadmium exposure increased renal cadmium deposition in rats, but the same study found no renal increase when BAL was given at 24 h after metallothionein induction. Both directions cited, `supports: PARTIAL`, `evidence_source: MODEL_ORGANISM`, and the text now states plainly this is an animal-derived caution rather than a demonstrated human contraindication. |
+| 2 | Challenge-testing source | `PMID:19364190` (*Altern Med Rev*) **removed entirely** from both the `biochemical` and `diagnosis` nodes. Reanchored on `PMID:20354761` (LMW proteinuria as the sensitive screening measure) and `PMID:41000307`. Both nodes now state explicitly that provoked/post-chelation urine testing is not accepted practice and has no validated thresholds. |
+| 3 | `evidence_source` misclassification | **49 values re-tagged** — 17 in Cadmium (`PMID:20204475`, `20354761`, `19106433`, `31704329`, `41453694`), 32 in Thallium (`PMID:14579545`). Reviews → `OTHER`, cell-transport/analytical papers → `IN_VITRO`. |
+| 4 | Direct Osteoblast Toxicity | Downgraded to `supports: PARTIAL`; the unsupported `biological_processes: osteoblast differentiation / DECREASED` assertion **removed**; description rewritten to say the direct arm is *not* established by the curated evidence and that the independence-from-renal claim is unsupported. New `KNOWLEDGE_GAP` discussion (`gap_cadmium_direct_osteoblast_toxicity`) with two proposed experiments — osteoblast/osteoclast culture, and an animal comparison with vs without renal phosphate wasting. |
+| 5 | Unevidenced quantitative specifics | All five removed (bioavailability percentages, 200 mcg/g cortex threshold, ~7 kDa, the 5/50 mcg/L blood cut-offs in both `biochemical` and `diagnosis`, and the per-cigarette / smoker-ratio figures). Replaced with qualitative statements plus an explicit note that numeric cut-offs are laboratory- and population-specific and are deliberately not asserted. |
+| 6 | Two misleading snippets | Lead `phenotypes[Peripheral neuropathy]`: snippet re-drawn from `PMID:20142857` to the sentence describing five battery-factory workers with electrophysiologically characterised radial neuropathy; the description now says motor-predominance is a tendency not an exclusive pattern, and the sensory-polyneuropathy case's `explanation` flags the discrepancy rather than hiding it. OP `phenotypes[Miosis]`: the "were less common in our patient population" snippet **replaced** with the positive sign list from `PMID:32626615`. |
+| 7 | Unsupported frequency bands | **23 bands dropped** (9 Lead, 8 Cadmium, 4 CO, 2 Thallium), including both Cadmium `VERY_FREQUENT` bands that rested on single case reports. The 13 bands with genuine quantitative or explicit qualitative support were kept. |
+| 8 | Histopathology nodes | Claims relaxed to what the sources show and the three "multiple organ damage" citations downgraded to `PARTIAL` with corrected explanations. Descriptions now state which features (hyaline membranes, type II pneumocyte hyperplasia, hepatocellular necrosis) are the *expected* pattern rather than an observed finding in the curated sources. |
+| 9 | Mercury scope, ALS claim, missing sections | ALS negative claim **sourced** to `PMID:30558238`, with the explanation noting the design limit (online self-report case-control, 401 vs 452) — absence of an observed association, not proof of no effect. Added `diagnosis` (blood/hair/toenail mercury, `PARTIAL`, carrying the source's own caveat that these matrices may not reflect remote injury; plus umbilical-cord methylmercury for prenatal exposure) and `treatments` (exposure cessation; supportive care, cited to "There is no effective treatment."). Added a `SCOPE NOTE` to the description and a `KNOWLEDGE_GAP` (`gap_mercury_inorganic_arm_not_curated`) recording that the elemental/inorganic arm is named but not modelled. Mercury evidence items 9 → 15. |
+| 10 | Silicosis subtypes / Asbestosis mechanism nodes | All three Silicosis subtypes evidenced with `PMID:25191413` (the three-way acute/chronic/accelerated classification by exposure intensity and symptom onset) and `PMID:30053129` (accelerated silicosis after ~2 years of intense sandblasting). Both Asbestosis mechanism nodes evidenced: `Pro-fibrotic mediator release` with `PMID:12444030` (pulmonary TGF-beta1 alone is sufficient to produce fibroproliferative disease) and `PMID:37569765`; `Excessive extracellular matrix deposition` with `PMID:38192052` and `PMID:32553000`. Both descriptions now flag which sub-claims come from the wider literature rather than the curated sources. |
+
+Minor findings also fixed: the missing Thallium `explanation`; the Cadmium
+hepatic-glutathione node's direction-of-effect overreach (now states the readout
+is antioxidant *enzyme* activity, not glutathione stores, and that one source
+reports an antioxidant *response*); and the mouse-only hepatic transaminase
+readout downgraded to `PARTIAL`.
+
+**Deliberately not fixed** (recorded so the remaining gap is visible, not silent):
+12 clinical `phenotypes`/`treatments` items still carry no evidence — 3 in
+Silicosis (`Respiratory Insufficiency`, `Silica Exposure Cessation and Dust
+Control`, `Whole-Lung Lavage`), 6 in Asbestosis (`Chronic cough`, `Bibasilar
+inspiratory crackles`, `Abnormal pulmonary interstitial morphology`, `Digital
+clubbing`, `Lung transplantation`, `Vaccination`), 2 in Carbon Monoxide, 1 in
+Methanol. These are uncontroversial clinical facts with no quotable sentence in
+the currently cached sources; per CLAUDE.md the options are a new citation or a
+move to `notes`, and neither was in scope for this pass.
+
+Finding 9 in the list above (Lead's use of generic background sentences from a
+laboratory methods paper to carry the `Anemia` and `Developmental delay`
+phenotype claims) was also left in place: the claims are correct and the snippets
+are honest, they are simply thinner support than better primary sources already
+present in the file would give.
