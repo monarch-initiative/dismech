@@ -92,7 +92,7 @@
   if (omim) ids.omim = "OMIM:" + omim;
 
   let orpha = grab(/ORPHA[:_](\d{1,7})/i) || grab(/Orphanet_(\d{1,7})/i);
-  if (!orpha && /orpha\.net$/.test(host)) {
+  if (!orpha && /(^|\.)orpha\.net$/.test(host)) {
     // Modern pages: /en/disease/detail/<id>; legacy: ...?Expert=<id>
     const m =
       path.match(/\/disease\/detail\/(\d{1,7})/) ||

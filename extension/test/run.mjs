@@ -158,6 +158,15 @@ test("legacy Orphanet Expert= URL still works", () => {
   assert.equal(meta.ids.orpha, "ORPHA:558");
 });
 
+test("spoofing host (evilorpha.net) is not treated as Orphanet", () => {
+  const meta = runExtract({
+    url: "https://evilorpha.net/en/disease/detail/558",
+    doc: makeDoc({ title: "Not Orphanet" }),
+  });
+  assert.equal(meta.ids.orpha, undefined);
+  assert.equal(meta.kind, "unknown");
+});
+
 test("URL with a bare percent sign does not abort extraction", () => {
   const meta = runExtract({
     url: "https://pubmed.ncbi.nlm.nih.gov/21376230/?q=50%off",
