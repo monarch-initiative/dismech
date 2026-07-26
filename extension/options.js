@@ -25,9 +25,12 @@ async function load() {
 // Request the optional api.github.com host permission from the options page —
 // the page persists across Chrome's permission prompt, whereas requesting from
 // the popup tears the popup down mid-request (see popup.js).
+//
+// Call request() as the first statement inside the user-gesture handler: the
+// gesture token does not reliably survive an awaited chrome.* call, so a
+// contains() pre-check would risk "must be called during a user gesture".
+// request() resolves true without prompting when already granted.
 async function ensureApiPermission() {
-  const has = await chrome.permissions.contains({ origins: [API_ORIGIN] });
-  if (has) return true;
   return chrome.permissions.request({ origins: [API_ORIGIN] });
 }
 

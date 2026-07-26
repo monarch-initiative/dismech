@@ -187,7 +187,9 @@ test("disease issue title & body", () => {
 test("disease titles are normalized from noisy page titles", () => {
   const cases = [
     ["# 154700 MARFAN SYNDROME; MFS", "OMIM:154700", "MARFAN SYNDROME; MFS"],
+    ["% 300200 ALPORT SYNDROME", "OMIM:300200", "ALPORT SYNDROME"],
     ["MONDO:0007947 - Marfan syndrome | OLS", "MONDO:0007947", "Marfan syndrome"],
+    ["Marfan syndrome | Disease | Monarch Initiative", "MONDO:0007947", "Marfan syndrome"],
     ["Orphanet: Marfan syndrome", "ORPHA:558", "Marfan syndrome"],
     ["Marfan syndrome (MONDO:0007947)", "MONDO:0007947", "Marfan syndrome"],
   ];

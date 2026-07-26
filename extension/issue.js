@@ -43,8 +43,8 @@
   // issue title stays "Curate <label> (<id>)" like the claim-disease convention.
   function normalizeDiseaseLabel(label) {
     let s = (label || "").replace(/\s+/g, " ").trim();
-    s = s.replace(/\s*\|\s*[^|]*$/, "").trim(); // trailing " | Site" segment
-    s = s.replace(/^#\s*\d{4,7}\s+/, "").trim(); // leading OMIM "# 154700 "
+    s = s.replace(/\s*\|.*$/, "").trim(); // trailing " | Site [| …]" segments
+    s = s.replace(/^[#%+*^]\s*\d{4,7}\s+/, "").trim(); // leading OMIM "# 154700 " (also % + * ^)
     s = s.replace(/^Orphanet:\s*/i, "").trim(); // leading "Orphanet: "
     s = s
       .replace(/^(?:MONDO|OMIM|ORPHA|ORPHANET|DOID):\S+\s*[-–—]\s*/i, "")
