@@ -22,7 +22,7 @@ provider_config:
     timeout: 3600
     save_artifacts: true
     artifact_max_bytes: 5242880
-citation_count: 82
+citation_count: 84
 artifact_count: 2
 artifact_sources:
   openscientist_artifacts_zip: 2

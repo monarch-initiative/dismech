@@ -531,3 +531,5 @@ This report will be used to populate a disease knowledge base entry with:
 80. PMID:30967480
 81. PMID:28490552
 82. PMID:28846640
+83. PMID:33780876
+84. PMID:32830818
