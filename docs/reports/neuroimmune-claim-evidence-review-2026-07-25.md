@@ -27,8 +27,20 @@ as-discovered form as the record of why.
 
 Three passes:
 
-1. **Snippet-substring check** against `references_cache/` (ellipsis-aware,
-   Unicode-normalized), replicating what `linkml-reference-validator` does.
+1. **Snippet-substring check** against `references_cache/`, ellipsis-aware and
+   whitespace-collapsing.
+
+   > **Correction (post-review).** The first pass of this check also folded
+   > Unicode punctuation (curly→straight quotes, en/em dash→hyphen) and case.
+   > `linkml-reference-validator` does **not** — it requires an exact substring.
+   > That leniency masked two real failures, one of which this audit itself
+   > introduced (`PMID:32404428`, Neurosarcoidosis: ASCII `"definite"` vs the
+   > source's `“definite”`; caught by `ai4c-reviewer` on PR #6962) and one
+   > pre-existing (`PMID:28757204`, MS Vitamin D: snippet capitalized `We showed`
+   > where the source reads `we showed`). Both are now fixed, and the numbers
+   > below come from a **strict** re-check that collapses whitespace only.
+   > Repo convention is to preserve curly quotes verbatim in snippets rather
+   > than substitute ASCII equivalents.
 2. **Automated semantic checks**: `reference_title` drift vs cached title
    (wrong-PMID detector), `supports:` enum vs explanation wording
    (self-contradiction detector), and snippet species/setting vs
@@ -305,7 +317,9 @@ error — filling them is new curation, not a correctness fix.
 
 Across all 10 entries, 668 evidence items:
 
-- **Snippet substring check: 0 failures** (was 12).
+- **Snippet substring check (strict — whitespace-collapse only): 0 failures**
+  (was 12 under the original check, plus the 2 that its Unicode/case folding
+  masked; see the correction under [Method](#method)).
 - **Semantic audit: 0** `supports`/explanation contradictions (was 5), **0**
   species/`evidence_source` mismatches (was 4), **0** title drift.
 - **`NO_EVIDENCE` items: 0** (was 16).
