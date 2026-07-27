@@ -111,8 +111,8 @@ config instead. Page/build crons are intentionally unmanaged. See
 ### Agent Model Config (`.github/agent-config.yaml`)
 The Claude **model** backing each agentic workflow (curation-scanner,
 discussion-scanner, knowledge-gap-scan, literature-scan, preprint-scan,
-post-review-agent, pr-shepherd, weekly-compliance, claude-code-review) is
-centralized in `.github/agent-config.yaml` — one source of truth instead of a
+post-review-agent, pr-shepherd, weekly-compliance, claude-code-review, claude)
+is centralized in `.github/agent-config.yaml` — one source of truth instead of a
 `--model` hardcoded per workflow. At run time each workflow's `Resolve agent
 config` step (the `.github/actions/resolve-agent-config` composite action) reads
 the config and exports `AGENT_MODEL`; the agent invocation uses `--model ${{
