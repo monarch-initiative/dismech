@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15072074"
+reference_id: DOI:10.3390/cancers15072074
 title: "Molecular Tailored Therapeutic Options for Advanced Gastrointestinal Stromal Tumors (GISTs): Current Practice and Future Perspectives"
 authors:
 - Fabio Catalano
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15072074
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Tailored Therapeutic Options for Advanced Gastrointestinal Stromal Tumors (GISTs): Current Practice and Future Perspectives

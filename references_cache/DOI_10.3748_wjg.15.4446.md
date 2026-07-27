@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3748/wjg.15.4446"
+reference_id: DOI:10.3748/wjg.15.4446
 title: Free perforation of the small intestine in collagenous sprue
 authors:
 - Hugh J Freeman
@@ -8,6 +8,7 @@ journal: World Journal of Gastroenterology
 year: '2009'
 doi: 10.3748/wjg.15.4446
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Free perforation of the small intestine in collagenous sprue

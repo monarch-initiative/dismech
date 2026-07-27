@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics13122068"
+reference_id: DOI:10.3390/diagnostics13122068
 title: "Worldwide Prevalence of Epstein–Barr Virus in Patients with Burkitt Lymphoma: A Systematic Review and Meta-Analysis"
 authors:
 - Mutaz Jamal Al-Khreisat
@@ -13,6 +13,7 @@ journal: Diagnostics
 year: '2023'
 doi: 10.3390/diagnostics13122068
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Worldwide Prevalence of Epstein–Barr Virus in Patients with Burkitt Lymphoma: A Systematic Review and Meta-Analysis

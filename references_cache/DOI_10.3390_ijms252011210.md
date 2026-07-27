@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252011210"
+reference_id: DOI:10.3390/ijms252011210
 title: In Search of Spinal Muscular Atrophy Disease Modifiers
 authors:
 - Daria Chudakova
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252011210
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # In Search of Spinal Muscular Atrophy Disease Modifiers

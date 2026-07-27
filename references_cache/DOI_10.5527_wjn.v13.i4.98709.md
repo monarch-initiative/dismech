@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5527/wjn.v13.i4.98709"
+reference_id: DOI:10.5527/wjn.v13.i4.98709
 title: What is new in the pathogenesis and treatment of IgA glomerulonephritis
 authors:
 - Maurizio Salvadori
@@ -8,6 +8,7 @@ journal: World Journal of Nephrology
 year: '2024'
 doi: 10.5527/wjn.v13.i4.98709
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # What is new in the pathogenesis and treatment of IgA glomerulonephritis

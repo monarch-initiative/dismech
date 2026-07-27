@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252312859"
+reference_id: DOI:10.3390/ijms252312859
 title: "Endothelial Dysfunction and Liver Cirrhosis: Unraveling of a Complex Relationship"
 authors:
 - Antonio Nesci
@@ -14,6 +14,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252312859
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Endothelial Dysfunction and Liver Cirrhosis: Unraveling of a Complex Relationship

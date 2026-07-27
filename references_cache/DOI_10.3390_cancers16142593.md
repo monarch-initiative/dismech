@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16142593"
+reference_id: DOI:10.3390/cancers16142593
 title: "Imaging Recommendations for Diagnosis and Management of Primary Parathyroid Pathologies: A Comprehensive Review"
 authors:
 - Nivedita Chakrabarty
@@ -10,6 +10,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16142593
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Imaging Recommendations for Diagnosis and Management of Primary Parathyroid Pathologies: A Comprehensive Review

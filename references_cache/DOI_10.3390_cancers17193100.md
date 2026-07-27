@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers17193100"
+reference_id: DOI:10.3390/cancers17193100
 title: "Childhood, Adolescent and Young Adult Poor-Prognosis Rhabdomyosarcoma"
 authors:
 - Ajla T. Wasti
@@ -26,6 +26,7 @@ journal: Cancers
 year: '2025'
 doi: 10.3390/cancers17193100
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Childhood, Adolescent and Young Adult Poor-Prognosis Rhabdomyosarcoma

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/curroncol31120568"
+reference_id: DOI:10.3390/curroncol31120568
 title: "Braf-Mutant Melanomas: Biology and Therapy"
 authors:
 - Elvira Pelosi
@@ -9,6 +9,7 @@ journal: Current Oncology
 year: '2024'
 doi: 10.3390/curroncol31120568
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Braf-Mutant Melanomas: Biology and Therapy

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/onco3030014"
+reference_id: DOI:10.3390/onco3030014
 title: "ROS1-Rearranged Lung Adenocarcinoma: From Molecular Genetics to Target Therapy"
 authors:
 - Ugo Testa
@@ -9,6 +9,7 @@ journal: Onco
 year: '2023'
 doi: 10.3390/onco3030014
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # ROS1-Rearranged Lung Adenocarcinoma: From Molecular Genetics to Target Therapy

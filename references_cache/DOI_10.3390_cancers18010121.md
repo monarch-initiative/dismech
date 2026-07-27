@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers18010121"
+reference_id: DOI:10.3390/cancers18010121
 title: "Metastatic Uveal Melanoma Surveillance: A Delphi Panel Consensus"
 authors:
 - Juan Alban
@@ -56,6 +56,7 @@ journal: Cancers
 year: '2025'
 doi: 10.3390/cancers18010121
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Metastatic Uveal Melanoma Surveillance: A Delphi Panel Consensus

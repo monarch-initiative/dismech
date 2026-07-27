@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12051112"
+reference_id: DOI:10.3390/biomedicines12051112
 title: "Comprehensive Molecular Analysis of Disease-Related Genes as First-Tier Test for Early Diagnosis, Classification, and Management of Patients Affected by Nonsyndromic Ichthyosis"
 authors:
 - Tiziana Fioretti
@@ -30,6 +30,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12051112
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Comprehensive Molecular Analysis of Disease-Related Genes as First-Tier Test for Early Diagnosis, Classification, and Management of Patients Affected by Nonsyndromic Ichthyosis

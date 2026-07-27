@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/microorganisms12051004"
+reference_id: DOI:10.3390/microorganisms12051004
 title: Exploring the Toxin-Mediated Mechanisms in Clostridioides difficile Infection
 authors:
 - Evdokia Pourliotopoulou
@@ -9,6 +9,7 @@ journal: Microorganisms
 year: '2024'
 doi: 10.3390/microorganisms12051004
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring the Toxin-Mediated Mechanisms in Clostridioides difficile Infection

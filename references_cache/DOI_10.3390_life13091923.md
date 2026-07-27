@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/life13091923"
+reference_id: DOI:10.3390/life13091923
 title: Mitochondrial DNA Copy Number Drives the Penetrance of Acute Intermittent Porphyria
 authors:
 - Elena Di Pierro
@@ -14,6 +14,7 @@ journal: Life
 year: '2023'
 doi: 10.3390/life13091923
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mitochondrial DNA Copy Number Drives the Penetrance of Acute Intermittent Porphyria

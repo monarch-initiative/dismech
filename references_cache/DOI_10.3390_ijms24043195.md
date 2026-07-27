@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24043195"
+reference_id: DOI:10.3390/ijms24043195
 title: "Antiphospholipid Syndrome in Pregnancy: New and Old Pathogenetic Mechanisms"
 authors:
 - Silvia D’Ippolito
@@ -12,6 +12,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24043195
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Antiphospholipid Syndrome in Pregnancy: New and Old Pathogenetic Mechanisms
