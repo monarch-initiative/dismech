@@ -13619,7 +13619,7 @@ window.searchData = [
     "creation_date": "2025-06-12T20:16:27Z",
     "updated_date": "2026-05-21T01:27:40Z",
     "subtypes": [],
-    "description": "Arginase 1 (ARG1) deficiency is a rare autosomal recessive urea cycle disorder caused by biallelic pathogenic variants in the ARG1 gene. ARG1 catalyzes the final step of the urea cycle, hydrolyzing L-arginine to ornithine and urea. Loss of ARG1 activity leads to persistent hyperargininemia and accumulation of neurotoxic guanidino compounds, with relatively infrequent hyperammonemia compared to other urea cycle disorders. The hallmark clinical presentation includes progressive spastic diplegia or paraparesis, seizures, intellectual disability, and growth retardation, typically manifesting in early childhood. The estimated global birth prevalence is approximately 2.8 per 1,000,000 live births.\n",
+    "description": "Arginase 1 (ARG1) deficiency is a rare autosomal recessive urea cycle disorder caused by biallelic pathogenic variants in the ARG1 gene. ARG1 catalyzes the final step of the urea cycle, hydrolyzing L-arginine to ornithine and urea. Loss of ARG1 activity leads to persistent hyperargininemia and accumulation of neurotoxic guanidino compounds, with relatively infrequent hyperammonemia compared to other urea cycle disorders. The hallmark clinical presentation includes progressive spastic diplegia or paraparesis, seizures, intellectual disability, and growth retardation, typically manifesting in early childhood. It is very rare: reported birth prevalence ranges from fewer than 1 to 9 cases per 1,000,000 live births depending on the population studied, and allele-frequency-based global estimates span a wide range because many ARG1 variants lack adequate evidence of pathogenicity.\n",
     "pathophysiology": [
       "ARG1 molecular function deficiency",
       "Impaired ureagenesis and hyperargininemia",
@@ -13651,6 +13651,12 @@ window.searchData = [
       "Intellectual disability",
       "Severe intellectual disability",
       "Global developmental delay",
+      "Atypical behavior",
+      "Hemiplegia/hemiparesis",
+      "Developmental regression",
+      "Loss of ambulation",
+      "Urinary incontinence",
+      "Bowel incontinence",
       "Abnormal speech pattern",
       "EEG abnormality",
       "Progressive spastic quadriplegia",
@@ -13665,6 +13671,7 @@ window.searchData = [
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Constitutional",
       "Digestive",
       "Genitourinary",
       "Growth",
@@ -13680,6 +13687,12 @@ window.searchData = [
       "HP:0001249",
       "HP:0010864",
       "HP:0001263",
+      "HP:0000708",
+      "HP:0004374",
+      "HP:0002376",
+      "HP:0002505",
+      "HP:0000020",
+      "HP:0002607",
       "HP:0002167",
       "HP:0002353",
       "HP:0002478",
@@ -13704,6 +13717,7 @@ window.searchData = [
       "Protein-restricted diet",
       "Nitrogen scavenger therapy",
       "Pegzilarginase enzyme replacement therapy",
+      "Acute hyperammonemia management",
       "Liver transplantation",
       "Antispasticity management",
       "Antiepileptic therapy",
@@ -13721,11 +13735,11 @@ window.searchData = [
     ],
     "source_file": "Arginase_Deficiency.yaml",
     "page_url": "../pages/disorders/Arginase_Deficiency.html",
-    "num_phenotypes": 17,
+    "num_phenotypes": 23,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 8,
-    "causal_graph_edges": "52",
+    "num_treatments": 9,
+    "causal_graph_edges": "63",
     "causal_graph_longest_path": "6"
   },
   {
@@ -26173,7 +26187,11 @@ window.searchData = [
       "Intracellular macrophage survival",
       "MHC-I surface down-modulation",
       "Pro-inflammatory cytokine induction in epithelial and endothelial cells",
-      "Persistent multisystem infection"
+      "Persistent multisystem infection",
+      "Facultative Intracellular Niche (Cell-Penetrant Drug Requirement)",
+      "Requirement for Cell-Penetrant Antimicrobials",
+      "Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)",
+      "Bacterial RNA Polymerase (Rifamycin Target)"
     ],
     "cell_types": [
       "macrophage",
@@ -26194,7 +26212,11 @@ window.searchData = [
       "antigen processing and presentation",
       "regulation of cytokine production",
       "inflammatory response",
-      "defense response to bacterium"
+      "defense response to bacterium",
+      "Biological Process Involved in Interaction with Host",
+      "Response to Antibiotic",
+      "Translation",
+      "DNA-Templated Transcription"
     ],
     "phenotypes": [
       "Fever",
@@ -26202,8 +26224,21 @@ window.searchData = [
       "Joint pain",
       "Endocarditis",
       "Arthritis",
+      "Sacroiliitis",
+      "Epididymo-orchitis",
       "Maternal-fetal complications",
-      "Hepatosplenomegaly"
+      "Hepatosplenomegaly",
+      "Malaise",
+      "Sweats",
+      "Myalgia",
+      "Back pain",
+      "Headache",
+      "Splenomegaly",
+      "Hepatomegaly",
+      "Weight loss",
+      "Abdominal pain",
+      "Spondylitis",
+      "Neurobrucellosis"
     ],
     "phenotype_categories": [
       "Clinical"
@@ -26212,9 +26247,13 @@ window.searchData = [
       "Cardiovascular",
       "Constitutional",
       "Digestive",
+      "Genitourinary",
+      "Growth",
       "Immune",
+      "Integument",
       "Metabolism",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001945",
@@ -26222,9 +26261,26 @@ window.searchData = [
       "HP:0002829",
       "HP:0100584",
       "HP:0001369",
-      "HP:0001433"
+      "HP:0012317",
+      "HP:0100796",
+      "HP:0001433",
+      "HP:0033834",
+      "HP:0000975",
+      "HP:0003326",
+      "HP:0003418",
+      "HP:0002315",
+      "HP:0001744",
+      "HP:0002240",
+      "HP:0001824",
+      "HP:0002027",
+      "HP:0033631",
+      "HP:0001287"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_RARE",
+      "OCCASIONAL"
+    ],
     "genes": [],
     "treatments": [
       "Doxycycline-rifampicin combination therapy",
@@ -26240,11 +26296,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Brucellosis.yaml",
     "page_url": "../pages/disorders/Brucellosis.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 20,
+    "num_pathophysiology": 8,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "2"
   },
   {
@@ -26774,6 +26830,92 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "CACNA1E-Related Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0032657",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Epileptic Encephalopathy"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "DI-S6",
+      "DII-S6",
+      "DIII-S6"
+    ],
+    "description": "CACNA1E-related developmental and epileptic encephalopathy (DEE69) is a severe early-onset neurodevelopmental disorder caused by recurrent de novo variants in CACNA1E, the gene encoding the pore-forming alpha1 subunit of the voltage-gated Cav2.3 R-type calcium channel. Most pathogenic variants cluster at the cytoplasmic ends of the four S6 segments that form the channel activation gate and are gain-of-function, facilitating voltage-dependent activation and slowing inactivation so that neuronal calcium influx through Cav2.3 is increased. The resulting disturbance of neuronal excitability and neurotransmitter release produces refractory infantile-onset seizures with profound developmental impairment, and frequently hyperkinetic movement disorders, congenital contractures, macrocephaly, and severe hypotonia. A distinct seizure-free CACNA1E neurodevelopmental presentation (de novo CACNA1E variants causing intellectual disability, developmental regression, and an ASD-like profile without epilepsy) has also been reported; that non-DEE presentation widens the CACNA1E phenotypic spectrum but is deliberately out of scope for this DEE entry, which models the epileptic-encephalopathy presentation.",
+    "pathophysiology": [
+      "CACNA1E Variant and Gain-of-Function Cav2.3 Channel",
+      "Increased Neuronal Calcium Influx",
+      "Altered Neuronal Excitability and Neurotransmitter Release",
+      "Neuronal Hyperexcitability and Excitation-Inhibition Imbalance",
+      "Impaired Neurodevelopment"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "calcium ion transmembrane transport",
+      "neurotransmitter secretion",
+      "regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Developmental and Epileptic Encephalopathy",
+      "Refractory Infantile-Onset Seizures",
+      "Profound Developmental Impairment",
+      "Hyperkinetic Movement Disorder",
+      "Congenital Contractures",
+      "Macrocephaly",
+      "Spastic Quadriplegia",
+      "Hypotonia",
+      "Milder or Absent Seizure Course (DIII-S6)"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0001250",
+      "HP:0012736",
+      "HP:0002487",
+      "HP:0002803",
+      "HP:0000256",
+      "HP:0002510",
+      "HP:0001252"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CACNA1E"
+    ],
+    "treatments": [
+      "Topiramate",
+      "Genetic Counseling",
+      "Supportive and Developmental Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CACNA1E-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/CACNA1E-Related_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "CADASIL Type 1",
@@ -38967,7 +39109,7 @@ window.searchData = [
     ],
     "treatments": [
       "MCT supplementation with low-carbohydrate diet",
-      "Avoidance of fructose and glycerol infusions",
+      "Avoidance of contraindicated agents and diets",
       "Liver transplantation",
       "Supportive care during acute hyperammonemia",
       "Pharmacotherapy for hyperammonemia"
@@ -38999,7 +39141,12 @@ window.searchData = [
     ],
     "creation_date": "2025-06-12T20:16:27Z",
     "updated_date": "2026-05-19T15:46:27Z",
-    "subtypes": [],
+    "subtypes": [
+      "Acute neonatal",
+      "Late-onset",
+      "Pregnancy or postpartum onset",
+      "Asymptomatic"
+    ],
     "description": "Citrullinemia type I (CTLN1) is an autosomal recessive urea cycle disorder caused by biallelic pathogenic variants in ASS1, encoding argininosuccinate synthase 1. ASS1 deficiency blocks the condensation of citrulline and aspartate to form argininosuccinate (the third enzymatic step of the urea cycle), impairing hepatic nitrogen disposal. This leads to hyperammonemia, markedly elevated plasma citrulline, low plasma arginine, and orotic aciduria. The clinical spectrum ranges from a severe neonatal-onset (\"classic\") form with life-threatening hyperammonemic crises to milder late-onset forms, pregnancy/postpartum-triggered presentations, and asymptomatic individuals. Acute hyperammonemia produces neurotoxicity through astrocyte glutamine accumulation, osmotic swelling, and cerebral edema. Long-term outcomes depend on residual enzyme activity, rapidity of diagnosis, and prevention of hyperammonemic events.\n",
     "pathophysiology": [
       "ASS1 molecular function deficiency",
@@ -39078,6 +39225,7 @@ window.searchData = [
       "Acute crisis management",
       "Liver transplantation",
       "Newborn screening",
+      "Peripartum metabolic surveillance",
       "Genetic counseling",
       "Emerging RNA therapeutics"
     ],
@@ -39095,8 +39243,8 @@ window.searchData = [
     "num_phenotypes": 13,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 8,
-    "causal_graph_edges": "56",
+    "num_treatments": 9,
+    "causal_graph_edges": "59",
     "causal_graph_longest_path": "6"
   },
   {
@@ -53671,7 +53819,6 @@ window.searchData = [
       "Mitral Valve Prolapse",
       "Gastroesophageal Reflux",
       "Molluscoid Pseudotumors",
-      "Myopia",
       "Recurrent Joint Dislocations",
       "Chronic Joint Pain",
       "Delayed Wound Healing"
@@ -53680,15 +53827,13 @@ window.searchData = [
       "Musculoskeletal",
       "Dermatologic",
       "Cardiovascular",
-      "Gastrointestinal",
-      "Ocular"
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
       "Constitutional",
       "Digestive",
-      "Eye",
       "Integument",
       "Musculoskeletal"
     ],
@@ -53702,7 +53847,6 @@ window.searchData = [
       "HP:0001634",
       "HP:0002020",
       "HP:0000993",
-      "HP:0000545",
       "HP:0001373",
       "HP:0002829",
       "HP:0001058"
@@ -53730,11 +53874,11 @@ window.searchData = [
     ],
     "source_file": "Ehlers-Danlos_Syndrome_COL5A1-related.yaml",
     "page_url": "../pages/disorders/Ehlers-Danlos_Syndrome,_COL5A1-related.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 12,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "3"
   },
   {
@@ -54539,10 +54683,14 @@ window.searchData = [
     "pathophysiology": [
       "Ectopic Endometrial Tissue",
       "Retrograde Menstruation",
+      "Somatic Cancer-Driver Mutations",
+      "Epithelial Clonal Expansion",
       "Chronic Inflammation",
       "Estrogen Dependence",
+      "Progesterone Resistance",
       "Immune Dysfunction",
       "Hypoxia and Angiogenesis",
+      "Warburg-like Metabolic Reprogramming",
       "Adhesion Formation",
       "Dysregulated Peritoneal Metalloproteinase Activity",
       "Lesion-Peritoneal Neuroangiogenesis",
@@ -54551,18 +54699,27 @@ window.searchData = [
     ],
     "cell_types": [
       "Endometrial Stromal Cell",
+      "Endometriotic Epithelial Cell",
+      "Endometrial Epithelial Cell",
+      "Peritoneal Mesothelial Cell",
       "nociceptor"
     ],
     "cell_type_ids": [
       "CL:0002255",
+      "CL:0002149",
+      "CL:0000077",
       "CL:0000198"
     ],
     "biological_processes": [
       "Cell Proliferation",
+      "Ras protein signal transduction",
+      "Epithelial Clonal Proliferation",
       "Inflammatory Response",
       "Estrogen Response",
+      "Response to progesterone",
       "Response to Hypoxia",
       "Angiogenesis",
+      "Aerobic Glycolysis (Warburg Effect)",
       "Extracellular Matrix Disassembly",
       "Neurogenesis",
       "Sensory perception of pain"
@@ -54605,7 +54762,12 @@ window.searchData = [
       "WNT4",
       "VEZT",
       "GREB1",
-      "ID4"
+      "ID4",
+      "KRAS",
+      "PIK3CA",
+      "ARID1A",
+      "PPP2R1A",
+      "PTEN"
     ],
     "treatments": [
       "NSAIDs",
@@ -54614,6 +54776,8 @@ window.searchData = [
       "GnRH Agonists",
       "GnRH Antagonists",
       "Aromatase Inhibitors",
+      "Dichloroacetate (Investigational)",
+      "Cabergoline (Investigational)",
       "Laparoscopic Surgery",
       "Hysterectomy"
     ],
@@ -54630,11 +54794,11 @@ window.searchData = [
     "source_file": "Endometriosis.yaml",
     "page_url": "../pages/disorders/Endometriosis.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 11,
-    "num_genes": 4,
-    "num_treatments": 8,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "num_pathophysiology": 15,
+    "num_genes": 9,
+    "num_treatments": 10,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Enhanced S-Cone Syndrome",
@@ -57760,6 +57924,103 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "FOLR1-Related Cerebral Folate Transport Deficiency",
+    "disease_id": "MONDO:0013110",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "FOLR1-related cerebral folate transport deficiency is an autosomal recessive, treatable metabolic epilepsy caused by biallelic loss-of-function variants in FOLR1, which encodes folate receptor alpha (FRalpha). FRalpha mediates folate transport across the choroid-plexus blood-cerebrospinal-fluid barrier, so its loss produces an isolated brain-specific folate deficiency: cerebrospinal-fluid 5-methyltetrahydrofolate (5-MTHF) is severely reduced despite normal systemic folate status. Low CNS folate impairs one-carbon metabolism, methylation, and myelin synthesis, causing late-infantile onset seizures, psychomotor regression, ataxia, movement disorder, and profound hypomyelination with cerebellar atrophy on MRI. Crucially the disorder is treatable: high-dose folinic acid (5-formyltetrahydrofolate, leucovorin) restores CSF folate and can substantially improve or stabilize neurologic findings, particularly when started early. Plain folic acid is avoided because it binds FRalpha tightly and may interfere with residual receptor function.",
+    "pathophysiology": [
+      "FOLR1 Biallelic Loss of Function and Folate Receptor Alpha Deficiency",
+      "Impaired Folate Transport Across the Blood-CSF Barrier and Low CSF 5-MTHF",
+      "Deficient Exosomal Folate Delivery into Brain Parenchyma",
+      "Deficient CNS One-Carbon Metabolism",
+      "Hypomyelination and Neurodegeneration"
+    ],
+    "cell_types": [
+      "choroid plexus epithelial cell",
+      "neuron",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000706",
+      "CL:0000540",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "folate transmembrane transport",
+      "exosomal secretion",
+      "one-carbon metabolic process",
+      "methylation",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Seizures",
+      "Developmental regression",
+      "Ataxia",
+      "Movement disorder",
+      "CNS hypomyelination",
+      "Cerebellar atrophy",
+      "Acquired microcephaly",
+      "Cognitive impairment",
+      "Autism spectrum disorder",
+      "Febrile seizures",
+      "Choreoathetosis",
+      "Attention deficit hyperactivity disorder",
+      "Cerebral atrophy"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Radiologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0002376",
+      "HP:0001251",
+      "HP:0100022",
+      "HP:0003429",
+      "HP:0001272",
+      "HP:0005484",
+      "HP:0100543",
+      "HP:0000717",
+      "HP:0002373",
+      "HP:0001266",
+      "HP:0007018",
+      "HP:0002059"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FOLR1 loss-of-function variants"
+    ],
+    "treatments": [
+      "High-dose folinic acid (leucovorin)",
+      "CSF folate surveillance monitoring",
+      "Evaluation of relatives at risk"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Cerebrospinal fluid 5-methyltetrahydrofolate (5-MTHF)"
+    ],
+    "source_file": "FOLR1-Related_Cerebral_Folate_Transport_Deficiency.yaml",
+    "page_url": "../pages/disorders/FOLR1-Related_Cerebral_Folate_Transport_Deficiency.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "FOXE3-Related Anterior Segment Dysgenesis",
@@ -63933,6 +64194,96 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "GABRG2-Related Epilepsy",
+    "disease_id": "MONDO:0032725",
+    "category": "Mendelian",
+    "parents": [
+      "Epilepsy",
+      "Channelopathy"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "DEE74"
+    ],
+    "description": "GABRG2-related epilepsy is a gene-anchored, phenotypically heterogeneous epilepsy spectrum caused by heterozygous variants in GABRG2, which encodes the gamma-2 subunit of the GABA-A receptor, the heteropentameric chloride channel that mediates most fast synaptic (phasic) inhibition in the brain. The gamma-2 subunit has a special role in GABA-A receptor assembly, trafficking, clustering, and synaptic maintenance, so many missense and truncating variants reduce surface receptor expression through endoplasmic reticulum retention and degradation and exert dominant-negative effects on co-assembled wild-type subunits, while other variants alter channel gating. All routes converge on reduced GABA-gated chloride current and diminished inhibitory tone. The clinical spectrum ranges from simple febrile seizures, febrile seizures plus, and childhood absence epilepsy at the mild end, through generalized and focal epilepsies, to Dravet-like presentations and severe developmental and epileptic encephalopathy at the severe end. A distinctive feature is temperature-sensitive receptor trafficking, providing a mechanistic link to the prominent fever sensitivity of GABRG2-related seizures. This entry is deliberately gene-anchored on the GABRG2 receptor-trafficking mechanism across the whole allelic spectrum; the milder familial multi-gene GEFS+ syndrome (in which GABRG2 is one of several loci) is curated separately and listed here as a differential.",
+    "pathophysiology": [
+      "GABRG2 Variant and Gamma-2 Subunit Dysfunction",
+      "Impaired GABA-A Receptor Assembly and Trafficking",
+      "Temperature-Sensitive Receptor Trafficking",
+      "Reduced GABA-Gated Chloride Current and Phasic Inhibition",
+      "Excitation-Inhibition Imbalance",
+      "Neuronal Hyperexcitability and Hypersynchrony",
+      "Impaired Neurodevelopment"
+    ],
+    "cell_types": [
+      "GABAergic inhibitory interneuron",
+      "Excitatory pyramidal neuron",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000617",
+      "CL:0000598",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "GABA-A receptor localization to the plasma membrane",
+      "Chloride transmembrane transport",
+      "GABAergic synaptic transmission",
+      "GABA signaling pathway",
+      "Membrane depolarization",
+      "Nervous system development"
+    ],
+    "phenotypes": [
+      "Febrile seizures",
+      "Focal-onset seizures",
+      "Generalized tonic-clonic seizures",
+      "Absence seizures",
+      "Myoclonic seizures",
+      "Developmental delay",
+      "Epileptic encephalopathy"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002373",
+      "HP:0007359",
+      "HP:0002069",
+      "HP:0002121",
+      "HP:0002123",
+      "HP:0001263",
+      "HP:0200134"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GABRG2"
+    ],
+    "treatments": [
+      "Anti-seizure medication (valproate and levetiracetam)",
+      "Benzodiazepines (acute and cluster-seizure control)",
+      "Ketogenic diet",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GABRG2-Related_Epilepsy.yaml",
+    "page_url": "../pages/disorders/GABRG2-Related_Epilepsy.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "GJB2-GJB6 Digenic Nonsyndromic Hearing Loss",
     "disease_id": "MONDO:0009076",
     "category": "Mendelian",
@@ -64801,6 +65152,124 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "GRIN1-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:1060123",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "GRIN1-related neurodevelopmental disorder (GRIN1-NDD) is a complex neurodevelopmental disorder caused by variants in GRIN1, which encodes GluN1, the obligatory subunit of the N-methyl-D-aspartate (NMDA)-type glutamate receptor, a glutamate-gated, calcium-permeable cation channel. Because two GluN1 subunits are present in every NMDA receptor, GRIN1 variants perturb NMDA-receptor signaling throughout the developing brain. Two inheritance modes and two functional directions converge on the same disorder: de novo heterozygous missense variants clustered in the transmembrane, pore, and ligand-binding domains act as a channelopathy, producing either gain-of-function (increased agonist potency, reduced voltage-dependent magnesium block, increased calcium permeability and current) or loss-of-function (reduced current, impaired surface expression, often with a dominant-negative effect), while biallelic (homozygous) missense or truncating variants cause loss of function. In both directions, disrupted excitatory neurotransmission impairs activity-dependent synaptic and cortical development and shifts the cortical excitation-inhibition balance, producing profound developmental delay / intellectual disability with absent speech, muscular hypotonia, hyperkinetic and stereotypic movement disorders, cortical visual impairment, and epilepsy; a subset of individuals show extensive bilateral polymicrogyria. GRIN1-NDD is the GluN1 counterpart of the GRIN2B and GRIN2A NMDA-receptor-subunit disorders.",
+    "pathophysiology": [
+      "GRIN1 Variant and Altered GluN1/NMDA Receptor Function",
+      "NMDA Receptor Gain-of-Function",
+      "Gain-of-Function Cortical Maldevelopment",
+      "NMDA Receptor Loss-of-Function",
+      "Disrupted Excitatory Neurotransmission and E/I Imbalance",
+      "Impaired Neurodevelopment"
+    ],
+    "cell_types": [
+      "glutamatergic neuron",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "glutamate receptor signaling",
+      "calcium ion transmembrane transport",
+      "cerebral cortex development",
+      "regulation of glutamatergic synaptic transmission",
+      "regulation of membrane potential",
+      "nervous system development",
+      "long-term synaptic potentiation",
+      "synapse organization"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Absent Speech",
+      "Seizures",
+      "Epileptic Encephalopathy",
+      "Hypotonia",
+      "Spasticity",
+      "Hyperkinetic Movement Disorder",
+      "Motor Stereotypy",
+      "Cortical Visual Impairment",
+      "Autistic Behavior",
+      "Feeding Difficulties",
+      "Polymicrogyria",
+      "Oculogyric Crisis",
+      "Cerebral Atrophy",
+      "Hyperreflexia",
+      "Sleep Disturbance",
+      "Self-Injurious Behavior",
+      "Postnatal Microcephaly"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurologic",
+      "Ophthalmologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001344",
+      "HP:0001250",
+      "HP:0200134",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0002487",
+      "HP:0000733",
+      "HP:0100704",
+      "HP:0000729",
+      "HP:0011968",
+      "HP:0002126",
+      "HP:0010553",
+      "HP:0002059",
+      "HP:0001347",
+      "HP:0002360",
+      "HP:0100716",
+      "HP:0005484"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GRIN1"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Memantine (NMDA Receptor Channel Blocker) for Gain-of-Function Variants",
+      "L-Serine Supplementation for Loss-of-Function Variants",
+      "Developmental and Supportive Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GRIN1-Related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/GRIN1-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "GRIN2B-Related Developmental and Epileptic Encephalopathy",
@@ -84558,6 +85027,91 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "KCNA2-Related Developmental and Epileptic Encephalopathy",
+    "disease_id": "MONDO:0014607",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Epileptic Encephalopathy"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A developmental and epileptic encephalopathy (DEE 32) caused by de novo heterozygous variants in KCNA2, which encodes the pore-forming alpha subunit of the voltage-gated potassium channel Kv1.2, a delayed-rectifier channel that drives neuronal repolarization after an action potential. KCNA2-related disease is a distinctive bidirectional channelopathy: some variants cause dominant-negative loss of Kv1.2 current, producing hyperexcitable neuronal membranes and repetitive firing, whereas others cause a gain of function with permanently open channels that hyperpolarize and electrically silence neurons. The two functional classes map onto partly distinct clinical pictures \u2014 loss-of-function variants tend to produce predominantly focal seizures with sleep-activated multifocal discharges and milder outcome, while gain-of-function variants tend to produce a more severe, ataxia-prominent encephalopathy with generalized seizures and cerebellar or whole-brain atrophy, and a third gain-and-loss-of-function group has the most severe, earliest-onset phenotype. Affected individuals present in infancy or early childhood with epilepsy, intellectual disability, delayed speech, and ataxia. The gain-of-function arm has become an early example of precision epilepsy therapy, as the potassium-channel blocker 4-aminopyridine can antagonize the gain-of-function defect and has benefitted patients carrying such variants.",
+    "pathophysiology": [
+      "KCNA2 Variant and Altered Kv1.2 Channel Function",
+      "Dominant-Negative Loss of Kv1.2 Delayed-Rectifier Current",
+      "Neuronal Membrane Hyperexcitability",
+      "Gain-of-Function Kv1.2 Conductance and Neuronal Silencing",
+      "Network Excitation-Inhibition Imbalance and Seizures",
+      "Cerebellar and Cortical Dysfunction"
+    ],
+    "cell_types": [
+      "neuron",
+      "interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000099"
+    ],
+    "biological_processes": [
+      "potassium ion transmembrane transport",
+      "protein homooligomerization",
+      "membrane repolarization",
+      "neuronal action potential",
+      "regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Epilepsy",
+      "Focal-Onset Seizures",
+      "Febrile Seizures",
+      "Intellectual Disability",
+      "Ataxia",
+      "Delayed Speech and Language Development",
+      "Cerebellar Atrophy",
+      "Progressive Microcephaly"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Imaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0007359",
+      "HP:0002373",
+      "HP:0001249",
+      "HP:0001251",
+      "HP:0000750",
+      "HP:0001272",
+      "HP:0000253"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KCNA2"
+    ],
+    "treatments": [
+      "4-Aminopyridine (Gain-of-Function Precision Therapy)",
+      "Antiseizure Medication",
+      "Genetic Counseling",
+      "Supportive and Developmental Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "KCNA2-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/KCNA2-Related_Developmental_and_Epileptic_Encephalopathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "KCNQ2 Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0013387",
     "category": "Mendelian",
@@ -99453,10 +100007,31 @@ window.searchData = [
       "Early Dissemination and EMT",
       "Perineural Invasion",
       "Desmoplastic Stromal Remodeling",
-      "Immune Evasion and Metastatic Selection"
+      "Immune Evasion and Metastatic Selection",
+      "Cyclophilin A Loss and Reduced Tri-Complex Engagement",
+      "RAS-Independent Cell-Cycle Uncoupling",
+      "Acquired RAS(ON) Inhibitor Resistance",
+      "On-Target RAS Reactivation and KRAS Amplification",
+      "RTK and Feedback Pathway Reactivation",
+      "Adaptive mTOR and JUN-AP1 Transcriptional Program",
+      "Mitochondrial Remodeling and Ferroptosis Vulnerability",
+      "MYC Amplification-Driven RAS-Independent Proliferation",
+      "Immunosuppressive TME Reversibility under RAS(ON) Inhibition",
+      "Myeloid Suppression Relief and CD8 Effector Infiltration",
+      "Tumor-Cell FAS Induction and CD8-Mediated Killing",
+      "Antigen Presentation Restoration",
+      "Regulatory T-Cell Relief",
+      "USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint",
+      "CDK8-CXCL2 Adaptive Immune Reversal"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "CD8-positive effector T cell",
+      "regulatory T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000625",
+      "CL:0000815"
+    ],
     "biological_processes": [
       "MAPK cascade",
       "cell population proliferation",
@@ -99465,7 +100040,9 @@ window.searchData = [
       "positive regulation of cell migration",
       "extracellular matrix organization",
       "angiogenesis",
-      "negative regulation of immune response"
+      "negative regulation of immune response",
+      "ferroptosis",
+      "antigen processing and presentation"
     ],
     "phenotypes": [
       "Abdominal pain",
@@ -99505,7 +100082,8 @@ window.searchData = [
       "CDKN2A"
     ],
     "treatments": [
-      "Maintenance Olaparib for Germline BRCA-Mutated Disease"
+      "Maintenance Olaparib for Germline BRCA-Mutated Disease",
+      "Daraxonrasib (RAS(ON) Multiselective Inhibitor)"
     ],
     "environmental": [
       "Smoking",
@@ -99516,11 +100094,11 @@ window.searchData = [
     "source_file": "Metastatic_Pancreatic_Adenocarcinoma.yaml",
     "page_url": "../pages/disorders/Metastatic_Pancreatic_Adenocarcinoma.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 20,
     "num_genes": 4,
-    "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Metastatic Prostate Cancer",
@@ -135276,6 +135854,107 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "SLC6A1-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0014633",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Epilepsy"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A gene-anchored, autosomal dominant neurodevelopmental disorder caused by heterozygous loss-of-function variants in SLC6A1, which encodes GAT-1, the sodium- and chloride-dependent GABA transporter 1 responsible for reuptake of the inhibitory neurotransmitter GABA from the synapse into presynaptic neurons and surrounding astrocytes. Most pathogenic missense variants misfold and are retained in the endoplasmic reticulum, reducing GAT-1 cell-surface expression and GABA reuptake; truncating variants act through haploinsufficiency. The resulting disturbance of GABA homeostasis and inhibitory neurotransmission produces a characteristic generalized epilepsy - classically epilepsy with myoclonic-atonic seizures (Doose-like) and childhood absence epilepsy - together with developmental delay/intellectual disability, autism spectrum disorder, hypotonia, and movement abnormalities (tremor, ataxia, stereotypies). This entry models the SLC6A1/GAT-1 gene-specific mechanism and is distinct from the phenotype-level, genetically heterogeneous Epilepsy with Myoclonic-Atonic Seizures (Doose syndrome) entry, of which SLC6A1 is the best-established single-gene cause.",
+    "pathophysiology": [
+      "SLC6A1 Variant and GAT-1 Loss of Function",
+      "Impaired GABA Reuptake and Disrupted GABA Homeostasis",
+      "Thalamocortical Excitation-Inhibition Imbalance and Generalized Seizures",
+      "Impaired GABAergic Signaling in Neurodevelopment"
+    ],
+    "cell_types": [
+      "GABAergic neuron",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000617",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "GAT-1-mediated GABA neurotransmitter transport",
+      "neurotransmitter reuptake",
+      "gamma-aminobutyric acid transport",
+      "Tonic extrasynaptic GABA-A receptor inhibition",
+      "GABAergic synaptic transmission",
+      "chemical synaptic transmission",
+      "gamma-aminobutyric acid signaling pathway",
+      "nervous system development"
+    ],
+    "phenotypes": [
+      "Generalized Myoclonic-Atonic Seizures",
+      "Absence Seizures",
+      "Epilepsy",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Autism Spectrum Disorder",
+      "Attention-Deficit/Hyperactivity Disorder",
+      "Hypotonia",
+      "Tremor",
+      "Ataxia",
+      "Motor Stereotypies",
+      "Delayed Speech and Language Development",
+      "Developmental Regression",
+      "Constipation",
+      "Diarrhea"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011170",
+      "HP:0002121",
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0007018",
+      "HP:0001252",
+      "HP:0001337",
+      "HP:0001251",
+      "HP:0000733",
+      "HP:0000750",
+      "HP:0002376",
+      "HP:0002019",
+      "HP:0002014"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC6A1"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Valproate (Valproic Acid)",
+      "4-Phenylbutyrate Pharmacochaperone",
+      "AAV9 SLC6A1 Gene Therapy",
+      "Developmental and Educational Support",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SLC6A1-Related_Disorder.yaml",
+    "page_url": "../pages/disorders/SLC6A1-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "SMAD6-related craniosynostosis",
     "disease_id": "MONDO:0044315",
     "category": "Mendelian",
@@ -153721,6 +154400,89 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Unverricht-Lundborg Disease",
+    "disease_id": "MONDO:0009698",
+    "category": "Mendelian",
+    "parents": [
+      "Progressive Myoclonus Epilepsy"
+    ],
+    "creation_date": "2026-07-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Unverricht-Lundborg disease (ULD), also called progressive myoclonic epilepsy type 1 (EPM1) or Baltic myoclonus, is an autosomal recessive neurodegenerative progressive myoclonus epilepsy caused by biallelic loss-of-function of CSTB, the gene encoding cystatin B. Cystatin B is a ubiquitously expressed intracellular inhibitor of the cysteine cathepsins (thiol proteases). In the great majority of patients the causal lesion is an unstable expansion of a dodecamer (12-mer) repeat in the CSTB promoter that reduces CSTB transcription; a minority carry point/indel loss-of-function variants, often in compound heterozygosity with the repeat expansion. Onset is typically between 6 and 16 years with stimulus-sensitive (action) myoclonus and generalized tonic-clonic seizures; over the following years progressive cerebellar signs (ataxia, incoordination, intention tremor, dysarthria) develop, together with emotional lability, depression, and a mild decline in cognition, while patients remain largely mentally alert. It is one of the most common progressive myoclonus epilepsies and is markedly enriched in Finland, the Baltic region, and the western Mediterranean through founder effects. EPM1 is distinguished from the other classic progressive myoclonus epilepsies (notably Lafora disease) by its slower course and relative preservation of cognition. Treatment is symptomatic; importantly, phenytoin and several sodium-channel-blocking and GABAergic antiseizure drugs aggravate the myoclonus and may accelerate cerebellar degeneration and are avoided.",
+    "pathophysiology": [
+      "CSTB Dodecamer Repeat Expansion and Cystatin B Deficiency",
+      "Loss of Cathepsin Inhibition and Redox Imbalance",
+      "Neuronal Apoptosis and Cerebellar/GABAergic Neurodegeneration",
+      "Cortical Hyperexcitability and Stimulus-Sensitive Myoclonus",
+      "Progressive Cerebellar Degeneration"
+    ],
+    "cell_types": [
+      "neuron",
+      "cerebellar granule cell",
+      "GABAergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0001031",
+      "CL:0000617"
+    ],
+    "biological_processes": [
+      "response to oxidative stress",
+      "neuron apoptotic process",
+      "gamma-aminobutyric acid signaling pathway"
+    ],
+    "phenotypes": [
+      "Stimulus-Sensitive Action Myoclonus",
+      "Generalized Tonic-Clonic Seizures",
+      "Photosensitive Seizures",
+      "Progressive Cerebellar Ataxia",
+      "Dysarthria",
+      "Intention Tremor",
+      "Mild Cognitive Decline",
+      "Depression",
+      "Emotional Lability"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001336",
+      "HP:0002069",
+      "HP:0001327",
+      "HP:0002073",
+      "HP:0001260",
+      "HP:0002080",
+      "HP:0001268",
+      "HP:0000716",
+      "HP:0000712"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CSTB"
+    ],
+    "treatments": [
+      "Valproic Acid",
+      "Myoclonus-Directed Add-On Therapy",
+      "Avoidance of Aggravating Antiseizure Drugs",
+      "Rehabilitation and Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Unverricht-Lundborg_Disease.yaml",
+    "page_url": "../pages/disorders/Unverricht-Lundborg_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Urea Cycle Disorder",
     "disease_id": "MONDO:0004739",
     "category": "Mendelian",
@@ -160459,17 +161221,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1620,
-  "total_subtypes": 2506,
-  "total_disorders_and_subtypes": 4126,
-  "total_unique_evidence_sources": 24381,
-  "total_unique_publications": 22760,
+  "total_disorder_pages": 1627,
+  "total_subtypes": 2514,
+  "total_disorders_and_subtypes": 4141,
+  "total_unique_evidence_sources": 24453,
+  "total_unique_publications": 22827,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 223,
-  "total_pathographs": 1615,
-  "total_unique_pathological_events": 7909,
+  "total_pathographs": 1622,
+  "total_unique_pathological_events": 7961,
   "total_modules": 116,
-  "total_research_reports": 1849,
+  "total_research_reports": 1852,
   "total_classifications": 9,
   "total_comorbidities": 16,
   "total_groupings": 47
