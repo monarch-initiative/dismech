@@ -3,7 +3,7 @@
 
 claude-code-action writes ``execution_file`` as a JSON array of stream events.
 The agent's closing message is the ``result`` field of the last event whose
-``type`` is ``result``; an errored run carries ``errors`` instead. This exists
+``type`` is ``result``; an errored run may carry ``error`` or ``errors``. This exists
 because the action has no ``result`` output — workflows that wrote
 ``${{ steps.<id>.outputs.result }}`` were emitting an empty string.
 
@@ -29,9 +29,18 @@ def extract_result(events: list) -> str:
 
     last = results[-1]
     report = str(last.get("result") or "").strip()
-    errors = [str(e) for e in (last.get("errors") or [])]
+    errors_value = last.get("errors") or []
+    if isinstance(errors_value, (list, tuple)):
+        errors = [str(error) for error in errors_value]
+    else:
+        errors = [str(errors_value)]
+    error = str(last.get("error") or "").strip()
+    if error:
+        errors.insert(0, error)
 
     parts = []
+    if last.get("is_error"):
+        parts.append("⚠️ The agent run ERRORED (is_error=true).")
     if report:
         parts.append(report)
     if errors:
@@ -52,7 +61,11 @@ def extract_result(events: list) -> str:
 
 def main(argv: list[str]) -> int:
     path = Path(argv[1])
-    events = json.loads(path.read_text(encoding="utf-8"))
+    raw = path.read_text(encoding="utf-8")
+    try:
+        events = json.loads(raw)
+    except json.JSONDecodeError:
+        events = [json.loads(line) for line in raw.splitlines() if line.strip()]
     if not isinstance(events, list):
         events = [events]
     print(extract_result(events))

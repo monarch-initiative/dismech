@@ -55,6 +55,23 @@ def test_reports_errors_from_a_failed_run():
     out = extract_result(events)
     assert "usage limit reached" in out
     assert "aborted" in out
+    assert "ERRORED" in out
+
+
+def test_reports_singular_error_with_a_failed_result():
+    events = [
+        {
+            "type": "result",
+            "subtype": "error_during_execution",
+            "is_error": True,
+            "error": "rate_limit",
+            "result": "Usage limit reached before completing the task.",
+        }
+    ]
+    out = extract_result(events)
+    assert "ERRORED" in out
+    assert "rate_limit" in out
+    assert "Usage limit reached before completing the task." in out
 
 
 def test_names_the_quota_case_when_there_is_no_result_event():
@@ -72,5 +89,14 @@ def test_reads_a_real_execution_file(tmp_path):
     path = tmp_path / "execution.json"
     path.write_text(
         json.dumps([{"type": "result", "subtype": "success", "result": "done"}])
+    )
+    assert mod.main(["extract_result.py", str(path)]) == 0
+
+
+def test_reads_jsonl_execution_file(tmp_path):
+    path = tmp_path / "execution.jsonl"
+    path.write_text(
+        '{"type": "system", "subtype": "init"}\n'
+        '{"type": "result", "subtype": "success", "result": "done"}\n'
     )
     assert mod.main(["extract_result.py", str(path)]) == 0
