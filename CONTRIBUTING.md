@@ -9,7 +9,7 @@ Thank you for your interest in contributing to the Disorder Mechanisms Knowledge
 
 Most of this guide assumes some familiarity with running agent harnesses such as claude code
 or codex. Even if you are not familiar with these, you are welcome to file issues
-(__UPDATE__ see [#5833](https://github.com/monarch-initiative/dismech/issues/6833) for filing issues as a non-collaborator).
+(__UPDATE__: see [#6833](https://github.com/monarch-initiative/dismech/issues/6833) for instructions on filing issues as a non-collaborator).
 
 This guide also assumes you are a member of the Monarch Initiative and specifically the dismech team.
 While we welcome contributions from anyone, if you intend to make a PR, please read the note below
@@ -51,19 +51,19 @@ models is more likely to generate lower quality content. While this will typical
 (which always uses high quality models), use of lower quality models can lead to wasteful back and forth. Also,
 this is more of a drain on your time.
 
-Advanced users are welcome to try using alternative models and harnesses as experiments, or used intentionally
-when you know how to match the level of difficulty with a task (but you should coordinate on slack before doing this).
+Advanced users are welcome to try using alternative models and harnesses as experiments, or use them intentionally
+when you know how to match the level of difficulty with a task (but you should coordinate on Slack before doing this).
 
 ## Be bold
 
 Every member of the dismech team is encouraged to do work that ends in a PR. You are not expected to check the results
 for yourself. We assume that you are acting in good faith and you are not intentionally pushing the agent to add bad content (though we
-welcome this as an experiment, if you coordinate! you can see a few examples of this already, e.g [Bixonimania request](https://github.com/monarch-initiative/dismech/issues/1565)).
+welcome this as an experiment, if you coordinate first! you can see a few examples of this already, e.g. [Bixonimania request](https://github.com/monarch-initiative/dismech/issues/1565)).
 
 The general philosophy is to **trust the process**. All PRs are reviewed by agents using rubrics that have been
 extensively evaluated by agents and humans in collaboration. Additionally, a battery of hard validation checks
 and anti-hallucination measures are applied. This is not guaranteed to be perfect, but we also believe
-in incremental improvement. No entry is finished, and in fact all entries are continuously being refined.
+in incremental improvement. No entry is ever considered "finished", and in fact all entries are continuously being refined.
 
 ## Important: Open PRs from Origin Branches, Not Forks
 
@@ -131,13 +131,16 @@ For comprehensive biomedical literature research, we recommend **Edison Scientif
 
 Note: if you are affiliated with an academic institution you should be able to request bonus credits with Edison
 
-**Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details). For example, `openscientist` uses its own `OPENSCIENTIST_API_KEY` — see [3b](#3b-set-up-open-scientist-for-hypothesis-exploration) below.
+**Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details).
+For example, `openscientist` uses its own `OPENSCIENTIST_API_KEY` — see [3b](#3b-set-up-open-scientist-for-hypothesis-exploration) below.
 
-We no longer recommend Asta for the deep research role
+We no longer recommend Asta for the deep research role.
 
-#### 3b. Set up Open Scientist for hypothesis exploration
+#### 3b. Set up OpenScientist for hypothesis exploration
 
-Any agent can use openscientist in two ways
+[OpenScientist](https://github.com/openscientist-io/openscientist) is our autonomous AI scientist that generates and tests hypotheses from scientific data.
+
+Any agent can use OpenScientist in two ways:
 
 1. as a literature deep research tool
 2. as a tool combining literature search, hypothesis generation, data analysis, and data exploration
@@ -150,7 +153,7 @@ In both cases, you will need to obtain an API key from [openscientist.io](https:
    export OPENSCIENTIST_API_KEY=your_key_here
    ```
 
-### 4. Clone and Start
+### 4. Clone repo and start curating
 ```bash
 git clone https://github.com/monarch-initiative/dismech.git
 cd dismech
@@ -171,8 +174,8 @@ For more guidance on AI-assisted curation workflows, see [ai4curation/aidocs](ht
 
 ### Running dismech in Claude Code on the web
 
-You can curate from [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
-instead of the local CLI. The repo is cloned for you, and when you're done you
+Assuming you have Claude Pro or Max, you can curate from [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
+instead of the local CLI. This makes the curation process simpler. The repo is cloned for you, and when you're done you
 just press **Create PR** — commits and the PR are handled for you.
 
 The one non-obvious part is a **one-time cloud environment setup**. An
@@ -254,10 +257,11 @@ still give a flavor of what we do.
   doesn't accidentally trigger the agent).
 - You must be a registered ai-controller in the json file
 
-### claude issue responder
+### Claude issue responder
 
 - watches github issues and responds
-- you must be part of the project for this to work. Contact dismech team to be added
+- you must be part of the project for this to work. Contact dismech team to be added.
+- Note: this uses tokens
 
 ### Standard CI/CD
 
