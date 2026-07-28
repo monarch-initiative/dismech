@@ -132,7 +132,7 @@ For comprehensive biomedical literature research, we recommend **Edison Scientif
 Note: if you are affiliated with an academic institution you should be able to request bonus credits with Edison
 
 **Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details).
-For example, `openscientist` uses its own `OPENSCIENTIST_API_KEY` — see [3b](#3b-set-up-open-scientist-for-hypothesis-exploration) below.
+For example, `openscientist` uses its own `OPENSCIENTIST_API_KEY` — see [3b](#3b-set-up-openscientist-for-hypothesis-exploration) below.
 
 We no longer recommend Asta for the deep research role.
 
@@ -174,7 +174,7 @@ For more guidance on AI-assisted curation workflows, see [ai4curation/aidocs](ht
 
 ### Running dismech in Claude Code on the web
 
-Assuming you have Claude Pro or Max, you can curate from [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
+Assuming you have Claude Pro or Max (or a Team plan), you can curate from [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
 instead of the local CLI. This makes the curation process simpler. The repo is cloned for you, and when you're done you
 just press **Create PR** — commits and the PR are handled for you.
 
@@ -187,8 +187,7 @@ an optional setup script) that your cloud sessions run in. To create one:
    session) to open the environment selector, then select **Add environment**.
    The dialog has fields for the name, network access level, environment
    variables, and setup script. Name it whatever you like — e.g. `research`.
-   (If you've followed [the get-started guide](https://code.claude.com/docs/en/web-quickstart)
-   its screenshots show this dialog.)
+   (The "Create your environment" step of [the get-started guide](https://code.claude.com/docs/en/web-quickstart) describes these fields.)
 2. **Set Network access to Full.** In the same dialog, use the **Network
    access** selector and choose **Full** (any domain). The default, **Trusted**,
    only allows an allowlist of package registries and GitHub, which blocks the
@@ -261,7 +260,7 @@ still give a flavor of what we do.
 
 - watches github issues and responds
 - you must be part of the project for this to work. Contact dismech team to be added.
-- Note: this uses tokens
+- Note: letting it watch issues consumes org API tokens, so use that judiciously
 
 ### Standard CI/CD
 
