@@ -893,6 +893,51 @@ queryable by modality across diseases.
 action) and `therapeutic_agent` (the specific drug). A pharmacotherapy ASO still
 uses `NCIT:C15986` for `treatment_term` and an NCIT/CHEBI `therapeutic_agent`.
 
+#### `therapeutic_modality` *is* the `treatment_category` discriminator (issue #972)
+
+Issue #972 proposed a `treatment_category: DRUG | PROCEDURE | DIETARY | OTHER`
+discriminator for cleaner filtering. That's already `therapeutic_modality` — just
+at finer granularity than 4 coarse buckets. Do not add a second, redundant
+category slot; populate `therapeutic_modality` instead. Coarse-bucket mapping,
+if you need to collapse to the issue's original 4 categories:
+
+| Coarse bucket | `therapeutic_modality` values |
+|---|---|
+| DRUG | `SMALL_MOLECULE`, `MONOCLONAL_ANTIBODY`, `NANOBODY`, `ANTISENSE_OLIGONUCLEOTIDE`, `SIRNA`, `MRNA_THERAPY`, `GENE_THERAPY`, `GENE_EDITING`, `CELL_THERAPY`, `PROTEIN_REPLACEMENT`, `PEPTIDE`, `VACCINE` |
+| PROCEDURE | `SURGERY`, `RADIOTHERAPY`, `DEVICE` |
+| DIETARY / lifestyle | `BEHAVIORAL` (explicitly covers "behavioral, physical, dietary, or lifestyle intervention") |
+| OTHER | `OTHER` |
+
+**Mechanical backfill guidance** — a treatment's `therapeutic_modality` can often
+be inferred with high confidence directly from its `treatment_term.term.id`,
+with no per-disease research needed, when that action term's own definition
+*is* a modality (not just an action that's usually done one way):
+
+| `treatment_term.term.id` | `therapeutic_modality` |
+|---|---|
+| `MAXO:0000004`, `NCIT:C154430`, `NCIT:C15329`, `NCIT:C16186`, `MAXO:0010039` (surgical procedure / resection / transplantation) | `SURGERY` |
+| `MAXO:0000014`, `NCIT:C15313` (radiation therapy) | `RADIOTHERAPY` |
+| `MAXO:0000088` (dietary intervention), `MAXO:0000011`, `NCIT:C15302` (physical therapy), `MAXO:0000930` (speech therapy), `MAXO:0001351` (occupational therapy), `MAXO:0000077` (behavioral counseling) | `BEHAVIORAL` |
+| `MAXO:0001001` (gene therapy) | `GENE_THERAPY` |
+| `MAXO:0000747` (hematopoietic stem cell transplantation — explicitly listed as a `CELL_THERAPY` example) | `CELL_THERAPY` |
+| `MAXO:0001017` (vaccination) | `VACCINE` |
+| `MAXO:0009030` (hearing aid usage) | `DEVICE` |
+
+**Do not** extend this table with `MAXO:0000106` (nutritional supplementation).
+It looks dietary but in practice names a specific chemical/vitamin compound
+(biotin, carnitine, vitamin E, triheptanoin) far more often than a diet-pattern
+change — the correct modality is usually `SMALL_MOLECULE`, sometimes something
+else entirely, and always needs a look at the actual treatment before deciding.
+This was tried and reverted during the initial backfill (2026-07-08) after it
+mis-tagged real drug therapies as `BEHAVIORAL`.
+
+Generic action terms (`NCIT:C15986` Pharmacotherapy, `MAXO:0000950` supportive
+care, `NCIT:C15240` Genetic Counseling, `NCIT:C93352` Targeted Therapy, etc.)
+are **not** in the mechanical table on purpose — the actual modality there
+depends on the specific drug/agent (see `therapeutic_agent`) or isn't a
+platform-classifiable action at all, and needs a real per-entry look rather
+than a blind ID-based rule.
+
 When `therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE`, add a structured
 `aso_details` block (`AntisenseOligonucleotideDetail`) capturing the molecular
 mechanism, RNA target, splice exon, chemistry, and conjugation:
