@@ -482,3 +482,15 @@ This report will be used to populate a disease knowledge base entry with:
 31. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9599806/
 32. https://www.icd10data.com/ICD10CM/Codes/A00-B99/A80-A89/A81-/A81.82
 33. https://www.findacode.com/icd-11/code-542527938.html
+---
+
+## Curation note: caught wrong-PMID (2026-07-28)
+
+`PMID:30187376` was fetched during curation as if it were Minikel et al. 2018
+("Evaluating the causality of novel sequence variants in the prion protein gene").
+The actual PubMed record for that PMID is **"A Comparison of Electronic Patient-Portal
+Use Among Patients with Resident and Attending Primary Care Providers"** — unrelated to
+prion disease. It was never cited in the YAML (the anti-hallucination substring check
+would have flagged it), and the stray `references_cache/PMID_30187376.md` was removed.
+The intended variant-classification framework reference remains uncurated pending a
+correct PMID.
