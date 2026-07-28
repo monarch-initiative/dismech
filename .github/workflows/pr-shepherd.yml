@@ -220,17 +220,17 @@ jobs:
             End by posting or logging a concise summary of candidates scanned, selected PRs, actions
             taken, validation run, and any blockers that remain.
 
+      # The agent may check out a PR branch; restore the workflow ref so this
+      # local composite action is available from the workspace.
+      - name: Restore workflow checkout for step summary
+        if: ${{ !cancelled() && steps.pr-shepherd.outputs.execution_file != '' }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
       - name: Write step summary
-        if: always()
-        env:
-          # Pass model output through the environment, never interpolate it into the
-          # shell script (it is attacker-influenceable and would allow command injection).
-          RESULT: ${{ steps.pr-shepherd.outputs.result }}
-        run: |
-          {
-            echo "## 🐑 PR Shepherd Run"
-            echo ""
-            echo '```'
-            printf '%s\n' "$RESULT"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+        if: ${{ !cancelled() && steps.pr-shepherd.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.pr-shepherd.outputs.execution_file }}
+          title: "🐑 PR Shepherd Run"
