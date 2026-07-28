@@ -107,7 +107,7 @@ test: test-code test-kb
 
 # Fast code/logic tests: everything except the whole-KB `kb_data` conformance sweep
 [group('model development')]
-test-code: _test-schema _test-python-code _test-examples test-search
+test-code: _test-schema _test-python-code _test-examples test-search test-extension
 
 # Schema generator smoke test.
 [group('model development')]
