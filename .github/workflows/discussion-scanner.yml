@@ -1,6 +1,8 @@
 name: Discussion Scanner
 
 on:
+  schedule:
+    - cron: "30 */6 * * *"  # every 6h
   workflow_dispatch:
     inputs:
       lookback_hours:
@@ -164,16 +166,8 @@ jobs:
             - Do not mention automation unless it helps explain the handoff.
 
       - name: Write step summary
-        if: ${{ always() && steps.discussion-scanner.outputs.result != '' }}
-        env:
-          # Pass model output via env + printf; never interpolate it into the shell
-          # (attacker-influenceable — would allow command injection).
-          RESULT: ${{ steps.discussion-scanner.outputs.result }}
-        run: |
-          {
-            echo "## 💬 Discussion Scanner Run"
-            echo ""
-            echo '```'
-            printf '%s\n' "$RESULT"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+        if: ${{ !cancelled() && steps.discussion-scanner.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.discussion-scanner.outputs.execution_file }}
+          title: "💬 Discussion Scanner Run"
