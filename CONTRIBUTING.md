@@ -214,7 +214,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
 1. **Configure the environment.** At [claude.ai/code](https://claude.ai/code), select
    the current environment by clicking the button with a cloud icon (which probably says "Default") to open the environment selector.
    <img width="378" height="338" alt="Screenshot 2026-07-28 at 4 36 54 PM" src="https://github.com/user-attachments/assets/8b0eb12b-954a-4e50-a9c9-282d0db22a4d" />
-    
+
    Now (this is a bit non-obvious) _hover_ your mouse over the checkmark next to "Default" to make the gear icon appear, and click the gear to open the environment settings dialog.
    <img width="355" height="104" alt="Screenshot 2026-07-28 at 4 37 20 PM" src="https://github.com/user-attachments/assets/2d91832c-2742-4f4d-ac9a-ce548a2414d6" />
 
@@ -237,22 +237,18 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    EDISON_API_KEY=<YOUR_EDISON_KEY>
    OPENSCIENTIST_API_KEY=<YOUR_OPENSCIENTIST_KEY>
    ```
-   NOTE FROM NOMI - remove when resolved: My environment variables include OPENAI_API_KEY, which has single *and* double quotes around the value! Maybe that variable isn't needed for dismech curation?
-   <img width="485" height="173" alt="Screenshot 2026-07-28 at 4 49 24 PM" src="https://github.com/user-attachments/assets/659d15ea-98db-4d56-a65f-4d61aeaddb2f" />
-
-   NOTE FROM NOMI: We should tell them where to find those keys if they don't have Claude CLI installed.
-
+ 
    These are the same keys as the local setup — see
    [Set Up a Deep Research Provider](#3-set-up-a-deep-research-provider-required)
-   above for how to obtain them. (Note: environments have no dedicated secrets
-   store, so anyone who can edit the environment can see these values.)
+   above for how to obtain them. "if you set these up locally, they're in whatever shell profile you exported them from (e.g. ~/.zshrc)
+   Note: the Environment variables field is plain text, not a secrets store — the values are
+   visible to anyone who can open the environment's settings. But don't worry - on a personal account, that is only you.
 
-   NOTE FROM NOMI: I don't understand the parenthetical remark above. Will other people besides you (the creator) be able to see and edit the environment? If not, why even mention that? This needs clarification.
-
-That's the only hard part. Once the environment exists, curation works the same
-as local — `/curate` a disorder, then create the PR when ready.
+Setting up the cloud configuration is the only hard part. Once the environment exists, curation on the web works the same
+as on the command line — `/curate` a disorder, then create the PR when ready.
 
 #### Cloud sessions
+
 One of the nice things about running Claude on the web is that you can set up multiple sessions, and archive them when they're finished. Archived sessions don't use any tokens, but you can restart them if you want.
 
 **Tip: keep each session focused.** Every cloud session runs in a fresh VM with
@@ -317,7 +313,7 @@ In dismech, dragon-ai-agent acts as an autonomous curator/reviewer bot integrate
 
 ### AI reviewers
 
-The "AI reviewers" here are the claude-code-review and post-review-agent workflows (models configured in .github/agent-config.yaml, cadence in .github/cron-profiles.yaml); the dismech-pr-review skill defines the review rubric they apply.
+The "AI reviewers" here are the claude-code-review and post-review-agent workflows (models configured in `.github/agent-config.yaml`, cadence in `.github/cron-profiles.yaml`); the dismech-pr-review skill defines the review rubric they apply.
 
 - reviews all PRs
 - will mark PRs as being "changes requested" or "ready to merge"
