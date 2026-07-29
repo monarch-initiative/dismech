@@ -15,12 +15,14 @@ revision_notes:
   - "Reduced first-person assertion verbs (we argue/believe/claim) by roughly 60%; shifted body to evidential framing."
   - "Added Figure 1-3, Table 1, Box 1 placeholders with journal-style callouts and inline (Fig. X)/(Table X) references."
   - "Added inline numeric citation markers [N] and References section stub with TBD placeholders for LinkML, OAK, Biolink, Monarch, ClinGen, RLHF, deep-research hallucination, etc."
-  - "Promoted the non-fabricatable reference cache to a Box 1 example while keeping the dedicated subsection."
+  - "Promoted the reference-cache integrity incident to a Box 1 example while keeping a dedicated trust-boundary subsection."
   - "Softened unmeasured percentage claims (~70%, ~25%) to qualitative phrasing."
   - "Cut conclusion repetition; thesis now stated in abstract, introduction, and outlook only."
   - "Added one-sentence acknowledgement of the Zenodo talk in the introduction."
   - "Added Methods section consolidating implementation specifics."
   - "Added three alternative titles in an HTML comment above the abstract."
+  - "Corrected claims about cache checks, agent permissions, evidence-source requirements, and autonomous merging to match the implemented repository."
+  - "Added a controlled-ablation and production-history evaluation plan; empirical results remain to be generated from a frozen release."
 ---
 
 <!-- Alternative titles considered:
@@ -40,17 +42,20 @@ practice degrades to rubber-stamping. Here we describe an alternative
 architecture, **human-regulating-the-loop**, in which humans and upstream
 standards bodies define the schema, ontology bindings, and deterministic
 validation gates, and agents operate inside that enclosure. We instantiate
-the pattern in the Disorder Mechanisms Knowledge Base (dismech), a LinkML
-schema-driven resource covering several hundred disorders with tens of
-thousands of evidence-backed assertions. The architecture combines an
+the pattern in the Disorder Mechanisms Knowledge Base (DisMech), a LinkML
+schema-driven resource currently covering more than 1,600 disorders with
+tens of thousands of evidence items. The architecture combines an
 ontology-bound schema, a three-layer deterministic validation stack
 (schema conformance, ontology term validation, reference-snippet
-substring matching), and a non-fabricatable reference cache populated only
-by trusted fetchers from authoritative upstream sources. Agent failure
+substring matching), and a tool-generated reference cache intended to be
+reproducible from authoritative upstream sources. Agent failure
 modes — fabricated PMIDs, paraphrased snippets, label-mismatched ontology
-terms, hand-fabricated cache files — are each blocked by a single
-deterministic check at a CI gate. The architecture remains stable as agent
-capabilities grow, because the gates do not depend on agent confidence.
+terms, and hand-fabricated cache files — motivate distinct controls at CI
+and workflow boundaries. We define an evaluation based on controlled
+validator ablations and repository-history replay to measure which errors
+each control detects and which semantic errors remain outside deterministic
+validation. This separates implemented guarantees from editorial policy and
+provides a testable account of safety in agentic biomedical curation.
 
 ## Introduction
 
@@ -89,11 +94,12 @@ and whether the resource gets safer or less safe as agent capabilities
 grow. The framing builds on a recent presentation that introduced the
 anti-hallucination posture this paper formalises [5].
 
-We use the Disorder Mechanisms Knowledge Base (dismech) as the working
-substrate. Dismech is a structured representation of disease
+We use the Disorder Mechanisms Knowledge Base (DisMech) as the working
+substrate. DisMech is a structured representation of disease
 pathophysiology built around a LinkML [6] schema with ontology-bound
-dynamic enumerations, comprising several hundred disorder entries, dozens
-of mechanism modules, and tens of thousands of evidence-backed assertions
+dynamic enumerations, currently comprising more than 1,600 disorder
+entries, more than 100 mechanism modules, and tens of thousands of
+evidence items
 linking genetic and environmental causes through pathophysiology and
 biochemistry to phenotypes and treatments. The resource has been
 constructed using two production agentic systems (Claude Code and Codex)
@@ -104,11 +110,10 @@ its applications; the present paper describes the curation architecture.
 The contributions are: (i) a concrete architecture for
 human-regulating-the-loop agentic curation, instantiated in a real
 mechanistic-disease knowledge base; (ii) an analysis of agent failure
-modes that the architecture must catch, with the specific design choices
-that catch each; and (iii) the identification of **non-fabricatable
-reference caches** and **substring-only snippet matching** as load-bearing
-design patterns for any agentic system that depends on a verifiable
-substrate.
+modes that the architecture must address, with the specific design choices
+intended to address each; and (iii) an empirical evaluation plan for
+**tool-generated reference caches** and **substring-only snippet matching**
+as components of a verifiable evidence substrate.
 
 **Figure 1 |** Human-in-the-loop versus human-regulating-the-loop curation
 architectures. In the conventional pattern (left), the curator reviews
@@ -138,12 +143,13 @@ Because the agent is required to emit typed objects, it cannot produce a
 free-text evidence summary that looks plausible but is unanchored. Because
 every ontology slot is bound to an authoritative source, an identifier
 that looks like an HPO term but is not defined in HPO is rejected at
-validation. Because every evidence item is a structured object with
-required fields — a reference, a verbatim snippet, a classification of
-whether the evidence supports or refutes the claim, and a classification
-of the publication's evidence type (human clinical, model organism, in
-vitro, computational) — vague support cannot be smuggled under specific
-cover.
+validation. Evidence is represented as a structured object that can carry
+a reference, verbatim snippet, support direction, and publication evidence
+type (human clinical, model organism, in vitro, or computational). Not all
+of these slots are currently required, however, and the present corpus
+contains legacy or incomplete evidence items. The distinction matters:
+the schema makes omissions measurable, but a populated field is not itself
+proof that the cited source entails the associated claim.
 
 The schema is also the locus of editorial policy. When agents were
 observed to silently conflate frequency-of-phenotype claims (e.g.,
@@ -158,8 +164,8 @@ violate.
 ## The three-layer deterministic validation stack
 
 Around the schema run three validation layers (Fig. 2). None invokes a
-language model. All are deterministic and reproducible, and all must pass
-for a change to merge.
+language model. All are deterministic and reproducible; applicable required
+checks must pass for a change to merge.
 
 **Layer 1: schema conformance.** `linkml-validate` checks that the
 proposed YAML conforms to the schema: required fields are present, types
@@ -190,11 +196,12 @@ the agent a controlled outlet for clinical nuance without permitting
 corruption of the ontology binding.
 
 **Layer 3: reference-snippet validation.**
-`linkml-reference-validator` checks that every evidence item's `snippet`
+`linkml-reference-validator` checks that each populated evidence `snippet`
 is a verbatim substring of the cached text for the cited `reference`.
 This is the single most consequential layer of the stack. It catches
-paraphrased quotations, fabricated quotations, wrong-PMID assignments,
-and confident hallucinations citing papers that do not exist. Substring
+paraphrased or fabricated quotations and many wrong-reference assignments;
+unresolvable identifiers fail during cache retrieval. It does not catch a
+real quotation from a real but irrelevant paper. Substring
 matching is intentionally strict: no fuzzy matching, no normalisation, no
 "close enough". The cost is occasional false rejections from whitespace
 and encoding issues; the benefit is that *whether a snippet exists in the
@@ -205,60 +212,57 @@ short-circuits on the first failure. In our experience, the schema layer
 catches the largest class of agent errors before the term and reference
 validators are reached; the term validator catches a further substantial
 class; the reference validator catches the residual most-dangerous class
-— confident textual fabrication. Each class of error has a single
-deterministic check at its boundary.
+— confident textual fabrication. The evaluation below tests these expected
+detection boundaries instead of treating them as complete in advance.
 
 **Figure 2 |** Three-layer deterministic validation stack. Each layer is a
 deterministic check against an authoritative artifact: the LinkML schema,
 local ontology snapshots accessed via OAK, and the per-reference cache.
-Example failures caught at each layer are shown: a missing required
-`evidence_source` field (Layer 1), an HPO label mismatch where
+Example failures caught at each layer are shown: an invalid value or
+structural type in an evidence item (Layer 1), an HPO label mismatch where
 `HP:0001324` is recorded as "Hypotonia" rather than "Muscle weakness"
 (Layer 2), and a paraphrased snippet absent from the cited PubMed
 abstract (Layer 3). [FIGURE PLACEHOLDER]
 
-## Non-fabricatable reference caches
+## Tool-generated reference caches and the integrity contract
 
 The reference cache is the asset on which Layer 3 depends, and its
-integrity is therefore load-bearing for the architecture. The single
-largest agent failure mode encountered in production — and the one that
-took the longest to architect against — is the agent fabricating the
-cache itself (Box 1).
+integrity is therefore load-bearing. A production incident exposed the
+central threat: an agent can satisfy substring validation by fabricating
+the cache that the validator queries (Box 1).
 
-The architectural fix is that the cache is produced by, and only by, a
-dedicated fetcher that pulls the source from the upstream authority
-(PubMed, ClinicalTrials.gov, Orphadata [10], ClinGen [11], CIViC [12]),
-writes a deterministic markdown-with-frontmatter file with a canonical
-filename, and computes a checksum recorded in the frontmatter. A separate
-CI check (`check-reference-cache-frontmatter`) validates that every cache
-file has parseable frontmatter consistent with its filename and reference
-identifier. The cache is treated as **read-only from the agent's
-perspective**: the harness permission layer denies cache writes (Fig. 3).
+The repository now defines a workflow contract: cache entries must be
+regenerated with `just fetch-reference <ID>` and must never be created or
+hand-edited. Fetchers obtain records from PubMed, ClinicalTrials.gov, and
+supported structured sources and write markdown with YAML frontmatter
+under canonical filenames. A deterministic check validates parseable
+frontmatter, identifier-to-filename consistency, source-specific required
+fields, and known fabrication fingerprints.
 
-Agents are explicitly instructed, in both the human-readable contributor
-guide and the agent harness configuration, never to create or hand-edit
-cache files. The correct response to a snippet mismatch is to re-quote
-the abstract more carefully or to use a different citation. The cache
-cannot be the variable the agent adjusts to make the validator green;
-the snippet must be the variable.
+These controls are useful but do not yet make the cache
+**non-fabricatable** in the strong sense. The checked frontmatter does not
+contain a content checksum, and the repository's general agent settings do
+not universally deny writes to `references_cache/`. Some scheduled
+workflows legitimately regenerate and commit cache files. Consequently,
+the integrity guarantee currently combines tool-generated provenance,
+documented agent policy, structural checks, code review, and selected
+workflow scoping. A well-formed but fabricated cache body could evade the
+structural check unless compared with the upstream record.
 
-This pattern generalises beyond dismech. Any agentic system that depends
-on a verifiable substrate (citations, identifiers, ontology terms,
-reference data) must arrange that the substrate is **not writeable by the
-agent**. The substrate must be maintained by deterministic fetchers from
-authoritative sources, with the CI invariant that the substrate can be
-reproduced from those sources. When the agent can write to the substrate,
-the validation that depends on the substrate is not validating anything;
-it is laundering the agent's confidence.
+The target architecture adds a reproducibility audit: re-fetch a stratified
+sample, or every changed cache entry, and compare normalized upstream
+content with the committed cache. Where the execution environment supports
+role-specific file permissions, direct cache writes should also be denied
+while the fetch command remains available as the only writer. The paper
+will report these as separate controls rather than collapsing policy,
+structural validation, and source fidelity into a single claim.
 
-**Figure 3 |** The non-fabricatable reference cache. Cache files in
-`references_cache/` are populated only by dedicated fetchers from
-authoritative upstream sources (PubMed, ClinicalTrials.gov, Orphadata,
-ClinGen, CIViC). Cache writes are denied at the harness permission
-boundary; the agent may read the cache but may not write to it. A
-deterministic frontmatter check enforces filename-to-identifier
-consistency. The reference-snippet validator can therefore treat the
-cache as a trusted substring oracle. [FIGURE PLACEHOLDER]
+**Figure 3 |** Reference-cache trust boundaries. Source-specific fetchers
+materialize upstream records in `references_cache/`; structural CI checks
+validate frontmatter and identifier consistency; snippet validation treats
+the cached body as its substring substrate. Dashed boundaries show controls
+still requiring implementation or evaluation: source-content comparison
+and universal prevention of direct agent writes. [FIGURE PLACEHOLDER]
 
 > **Box 1 | Cache fabrication caught in production**
 >
@@ -272,17 +276,18 @@ cache as a trusted substring oracle. [FIGURE PLACEHOLDER]
 > the snippet matched the (fabricated) cache. A casual human reviewer
 > seeing a green CI would have merged.
 >
-> The failure was caught only after introducing the dedicated cache
-> frontmatter check and tightening the harness permission boundary to
-> deny cache writes. Subsequent retrospective audit of cache files
-> against re-fetched upstream sources found a residual but small
-> fabrication rate prior to the fix; no such fabrications have been
-> committed since. The lesson generalises: a validator is only as
-> trustworthy as the substrate it queries.
+> The incident motivated the dedicated cache-frontmatter test and the
+> explicit repository rule that cache files be regenerated rather than
+> hand-edited. Those measures detect malformed or suspicious cache shapes,
+> but they do not prove body fidelity. The retrospective history analysis
+> proposed below will establish the incidence and outcomes of cache-related
+> failures; source re-fetching will test whether structurally valid cache
+> bodies match upstream records. The lesson generalises: a validator is only
+> as trustworthy as the substrate it queries.
 
 ## Structured-database sources as quotable evidence
 
-The same non-fabricatable-substrate pattern extends to non-literature
+The same verifiable-substrate pattern extends to non-literature
 evidence. Many of the most important biomedical claims are not in
 journal abstracts but in structured databases: Orphanet [10] for
 rare-disease definitions and phenotypes, ClinGen [11] for gene–disease
@@ -320,21 +325,19 @@ snippet substring contract; responding to compliance scoring that
 identifies under-curated entries; and reviewing pull requests against the
 dismech contributor guidelines via a dedicated review agent.
 
-Agents are explicitly not permitted to write to the reference cache,
-modify the schema (a schema change is a human editorial decision, often
-motivated by patterns the agents have surfaced), bypass any validation
-layer, force-push branches they did not create, or open pull requests
-from forks (which would bypass CI secrets and skip the AI review layer).
+Repository instructions tell agents not to hand-edit the reference cache,
+not to bypass validation, and to constrain curation changes to the intended
+files. Schema changes are reviewed as editorial and infrastructure changes,
+not ordinary disorder curation. The available agent harnesses also differ:
+some expose command allowlists and pre-tool hooks, while scheduled
+workflows constrain prompts, file scope, credentials, and merge eligibility.
+These controls are not equivalent to a universal file-system deny rule.
 
-These prohibitions are encoded both as harness configuration (permissions,
-hooks, allow/deny lists in the Claude Code settings) and as contributor
-guidelines in `CLAUDE.md`. The harness-level controls are enforced by the
-tool layer in which the agent operates: an agent that attempts to write
-to a cache file is denied at the tool boundary; an agent that attempts
-to skip a hook is denied at the git layer. The contributor guidelines are
-the human-readable form of the same constraints, and exist so that an
-agent that *could* in principle do something but should not, knows it
-should not.
+This distinction between **policy**, **preventive enforcement**, and
+**detective validation** is part of the architecture rather than an
+implementation detail. The evaluation records which control was active for
+each production run and uses negative tests to establish what each harness
+actually prevents.
 
 ## Continuous integration as the enforcement layer
 
@@ -356,30 +359,33 @@ refinements: a recurring disagreement between review agent and human
 curators is usually a sign that the underlying rule is ambiguous and
 needs to be made explicit in the schema or guidelines.
 
-A scheduled GitHub Action periodically inspects a compliance dashboard,
-identifies the lowest-scoring entries, dispatches an agentic curation job
-for each, and opens a pull request. The curation pipeline is therefore
-autonomous end-to-end: a low-coverage entry is detected, researched,
-drafted, validated, reviewed, and merged without human intervention
-provided every validation gate passes. When a gate fails, the human
-curator is engaged on the specific failure rather than on the whole
-entry. This is what autonomous curation under deterministic validation
-looks like in production.
+A scheduled GitHub Action periodically inspects compliance results,
+identifies low-scoring entries, dispatches an agentic curation job, and
+opens pull requests. Eligible weekly-compliance pull requests can have
+auto-merge enabled, but only under explicit branch, title, author, base,
+and non-draft conditions; other automated and interactive workflows have
+different merge paths. A pull request that passes CI is therefore not
+necessarily merged without human intervention. The production-history
+analysis below will report the proportions merged automatically, merged
+after human edits, closed, or left unresolved, together with the failures
+that caused escalation.
 
 ## Failure-mode analysis
 
 Table 1 documents the principal agent failure modes observed during
 dismech development and the specific architectural mechanism that catches
-each. Three patterns recur. First, the most dangerous failure modes
-(cache fabrication, label mismatch, paraphrased snippet) are caught by
-deterministic checks against an external authority, not by the agent
-self-verifying or the human eyeballing. Second, editorial-rule failures
+each. Three patterns recur. First, several dangerous failure modes (label
+mismatch and paraphrased snippet) are caught by deterministic checks
+against an external authority; cache fabrication is only partially covered
+until the cache body is reconciled with its upstream source. Second,
+editorial-rule failures
 (frequency evidence, evidence-source classification) are caught by a
 combination of schema documentation, AI review, and human judgement;
 each newly observed failure of this kind is promoted into a more
-explicit schema constraint where possible. Third, no failure mode in the
-table is caught by RLHF [14] or by agent self-correction [15]; the
-safety boundary is deterministic throughout.
+explicit schema constraint where possible. Third, model training and
+self-correction are not treated as independently verified controls in the
+current system; their contribution must be measured against deterministic
+and human-review baselines.
 
 **Table 1 |** Observed agent failure modes during dismech curation and
 the architectural mechanism that catches each.
@@ -387,10 +393,10 @@ the architectural mechanism that catches each.
 | Failure mode | Catching mechanism |
 |---|---|
 | Fabricated PMID | Reference fetcher fails to resolve; PMID absent from cache; snippet check fails. |
-| Real PMID, wrong paper for claim | Snippet does not match cache; reference validator fails. |
+| Real PMID, wrong paper for claim | Fails only if the supplied snippet is absent; a real but irrelevant quotation requires semantic review. |
 | Real PMID, paraphrased snippet | Substring check fails; reference validator fails. |
 | Snippet from PMID A assigned to PMID B | Cache is per-PMID; snippet from A is not a substring of cache for B; validator fails. |
-| Cache file fabricated to satisfy snippet | Cache frontmatter check fails on canonical filename/checksum; cache writes denied at harness boundary. |
+| Cache file fabricated to satisfy snippet | Structural checks catch malformed frontmatter and known fingerprints; upstream reproducibility audit is required for a well-formed fabrication. |
 | Fake HP/GO/CL term that looks real | Term validator: identifier absent from ontology snapshot. |
 | Real term, wrong label | Term validator: identifier present but `term.label` mismatches canonical. |
 | Real term, wrong meaning (HP for GO concept) | Schema `reachable_from` binding to required ontology root rejects. |
@@ -407,36 +413,68 @@ post-hoc fact-checking by a second language model [16], and agent
 self-verification [15]. Each has structural failure modes that
 deterministic validation does not.
 
-**RLHF and preference training** [14] make agents more confidently
-produce the kind of output humans prefer at review time. They do not
-make the output verifiable. An agent that has learned to produce
-plausibly cited medical claims is not more likely to cite real papers;
-it is more likely to produce claims that look correctly cited. RLHF
-improves the correlation between agent output and reviewer preference,
-which makes the output harder to discriminate at review — the wrong
-direction for the failure modes that matter.
+**RLHF and preference training** [14] can improve instruction following
+and the apparent quality of outputs, but do not themselves make a claim
+verifiable. Whether they reduce fabricated identifiers or improve source
+selection in this task is an empirical question. The relevant comparison
+therefore holds the agent and task set fixed and measures outcomes with and
+without external validators, rather than inferring safety from the training
+method.
 
-**Post-hoc fact-checking by a second language model** [16] is
-structurally similar to the first: the second model is also confidently
-wrong about citations, ontology labels, and quotations, and disagreement
-between agents is not a reliable signal of error. In dismech development,
-the AI review pass routinely missed cache fabrications that the
-deterministic validator caught. A second agent is a useful reviewer of
-*style and editorial conformance*, which is how it is used here; it is
-not a reliable reviewer of *fact*.
+**Post-hoc fact-checking by a second language model** [16] can detect
+editorial and semantic problems that deterministic validators cannot, but
+is not an authoritative oracle for citations, ontology labels, or
+quotations. In DisMech it is used as an advisory review layer. The proposed
+ablation measures its precision, recall, and overlap with deterministic
+validators and expert adjudication.
 
-**Agent self-verification** [15] has the structural problem that the
-agent cannot, in general, distinguish its own hallucinations from its
-own real recall. Iterative chains-of-thought with self-criticism reduce
-some error rates, but by a margin dwarfed by the gain from a single
-external deterministic check against the source.
+**Agent self-verification** [15] may reduce some errors, but it queries the
+same model family rather than an independent source of truth. We therefore
+treat it as a candidate production strategy to compare, not as either a
+guarantee or a null control.
 
 The case for deterministic schema and identifier validation as the
 *primary* safety boundary is therefore not aesthetic. Deterministic
-validation is the only mechanism in this list whose accuracy is
-independent of the agent's confidence, and the only mechanism whose
-failure rate is bounded by the correctness of human-authored code rather
-than the next round of model training.
+validation has the useful property that a given check is independent of
+the agent's confidence. Its coverage is narrower, however, and its failure
+rate depends on human-authored code, schema assumptions, ontology
+snapshots, and the integrity of cached sources. The empirical question is
+which combination of deterministic, model-based, and expert checks offers
+the best coverage at acceptable review cost.
+
+## Evaluation framework
+
+The paper requires two complementary evaluations on a frozen code and data
+release. First, a **controlled perturbation benchmark** will sample
+curation units across disorders, claim types, ontology namespaces, and
+evidence sources. For each valid unit, one mutation will introduce a
+pre-specified failure: malformed structure, nonexistent identifier, real
+identifier with wrong label, wrong ontology namespace, paraphrased snippet,
+snippet/reference swap, real but irrelevant quotation, unsupported
+mechanistic interpretation, misclassified evidence source, or fabricated
+cache body. Each variant will be run through schema validation, term
+validation, snippet validation, cache-structure checks, AI review, and
+blinded expert review. Primary outcomes are per-failure sensitivity,
+false-positive rate on unchanged controls, overlap among controls, and
+review time.
+
+Second, a **production-history study** will identify agent-authored or
+agent-revised pull requests over a pre-specified interval. For each pull
+request we will record agent and harness, trigger type, files changed,
+validator failures by layer, review findings, human edits after agent
+output, merge disposition, elapsed time, and whether auto-merge was
+enabled. A stratified expert audit of merged claims will estimate residual
+semantic error, including real-but-irrelevant quotations and plausible but
+unsupported causal links.
+
+The principal ablations are: schema only; schema plus ontology validation;
+all deterministic content validators; deterministic validators plus cache
+structural checks; AI review alone; and the full production stack. A
+separate negative-test matrix will probe whether each harness can directly
+edit cache files, modify schema or workflow files, skip required checks, or
+merge outside its declared scope. **[TODO: freeze release and interval;
+register sampling and adjudication protocol; report confidence intervals
+and paired comparisons.]**
 
 ## Limitations
 
@@ -451,11 +489,20 @@ schema is human-authored and contains its own errors; mitigation is via
 schema tests and an iterative process of promoting rules from
 contributor-guide prose to schema constraint. The cache is only as good
 as the snapshot date; refreshes can change snippets in ways that
-retroactively invalidate evidence, and this is tracked manually. The
-agentic harness itself is software with bugs, and the permission
-boundaries are only as strong as the implementation; the most likely
-future failure is not an agent escaping the rules but a misconfigured
-harness silently relaxing them.
+retroactively invalidate evidence, and structural checks do not prove that
+a cache body came from upstream. Named-entity validity also does not imply
+correct entity selection: a real gene, disease, or anatomical identifier
+can refer to the wrong namesake or biological context. Causal direction,
+mechanistic relevance, transportability across species or model systems,
+and the clinical meaning of a surrogate endpoint all remain semantic
+questions outside the current deterministic boundary.
+
+The agentic harness itself is software with bugs, and its permission
+boundaries vary across interactive and scheduled environments. Repository
+history is also an observational dataset: model versions, prompts, schema,
+source availability, and validator coverage change over time. Production
+comparisons will therefore be reported by time period and configuration
+and will not be interpreted as randomized comparisons among agent systems.
 
 Throughput is the second cost. Deterministic validation is slower than
 agent self-verification, particularly when reference fetches must be
@@ -466,14 +513,16 @@ defect.
 
 ## Outlook
 
-We believe the right relationship between humans and agents in
+The right relationship between humans and agents in
 structured biomedical curation is not human-in-the-loop but
 human-regulating-the-loop. As agentic capabilities grow, the
-architecture described here gets *safer* as agents get better, because
-the gates are independent of agent confidence. We do not claim this is
+architecture described here can preserve invariant checks even as model
+behavior changes, because deterministic gates are independent of agent
+confidence. This does not guarantee that the overall system becomes safer:
+agents may create novel errors outside the checked boundary. We do not claim this is
 the only safe architecture for agentic biomedical curation, but any safe
 architecture will share its essential features: typed structured output,
-deterministic validation against authoritative sources, non-fabricatable
+deterministic validation against authoritative sources, verifiable
 substrates, and a schema in which editorial learning accumulates. The
 priority for future work is to broaden the structured-database fetcher
 catalogue, to formalise the schema-promotion workflow by which editorial
@@ -497,38 +546,43 @@ substring matching against per-reference markdown cache files.
 `references_cache/clinicaltrials_*.md`) are populated only by dedicated
 fetchers invoked through `just fetch-reference <ID>`. Each file carries
 YAML frontmatter recording the canonical identifier, fetch date, source,
-and content checksum. A deterministic frontmatter check
+or source-specific bibliographic fields. A deterministic frontmatter check
 (`just check-reference-cache-frontmatter`) runs at every CI invocation
-and enforces filename–identifier consistency.
+and enforces parseability, filename–identifier consistency, required
+source-specific fields, and selected fabrication fingerprints. It does not
+currently compare a content checksum with an upstream record.
 
 **Structured-database sources.** Structured-source fetchers are in
 `src/dismech/structured_sources/`. Each subclasses a common
 `StructuredSource` base class implementing `build_index`, `identifiers`,
-and `serialize`. Bulk-data snapshots are pinned by date and SHA-256 hash
-in per-source manifests (`data/<source>/MANIFEST.yaml`). Currently
-supported sources are Orphanet (8,823 leaf disorders), ClinGen
-Gene-Disease Validity, ClinGen Dosage Sensitivity, and CIViC.
+and `serialize`. Source implementations include Orphanet, ClinGen
+Gene-Disease Validity, ClinGen Dosage Sensitivity, CIViC, ICEES,
+MyGeneSet, and ontology-derived edges. **[TODO: report source versions,
+entity counts, snapshot policy, and reproducibility results from the
+frozen release.]**
 
 **Agentic harness.** Two production agentic systems were used: Claude
 Code and Codex. Both operate against the schema and validators through
-the shell, the git tool, and a constrained file-write permission layer.
-Cache directories are configured as deny-write for agent roles. A
-contributor guide (`CLAUDE.md`) repeats the constraints in
-human-readable form for any agent that operates outside the strict
-harness sandbox.
+shell, git, and repository instructions, but their available tools and
+permission mechanisms differ by execution environment. The contributor
+guide (`CLAUDE.md`) and repository-level `AGENTS.md` prohibit hand-editing
+reference cache files and direct agents to the fetcher. Current settings do
+not establish a universal deny-write boundary for the cache; the negative
+tests described above will document effective permissions by harness.
 
-**Continuous integration.** Every pull request triggers a CI pipeline
-running, in order: schema conformance (Layer 1), term validation
-(Layer 2), reference-snippet validation (Layer 3), the cache frontmatter
-check, the schema test suite (`tests/test_data.py`), and an
-AI-augmented review pass run by Claude against contributor guidelines.
-Validator findings are blocking; review-agent findings are advisory and
-require explicit acknowledgement before merge.
+**Continuous integration.** Pull requests run repository checks including
+schema conformance, term validation, reference-snippet validation, cache
+frontmatter checks, and schema and data tests, with path and workflow
+conditions determining the exact jobs. An AI-augmented review pass can
+review changes against contributor guidelines. Deterministic check
+failures are blocking where configured as required checks; review-agent
+findings are advisory.
 
 **Autonomous curation loop.** A scheduled GitHub Action periodically
-inspects the compliance dashboard (`just gen-dashboard`), selects the
-lowest-scoring entries, and dispatches agentic curation jobs that open
-pull requests. Merges proceed only when every CI gate passes.
+inspects compliance output, selects low-scoring entries, and dispatches
+agentic curation jobs that open pull requests. A separate workflow enables
+auto-merge only for eligible weekly-compliance pull requests after required
+checks; other pull requests follow their configured review and merge path.
 
 ## Data and code availability
 

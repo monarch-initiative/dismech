@@ -1,168 +1,560 @@
 ---
-title: "Pathographs: an integrative causal representation of disease mechanism for translational medicine"
-target_journal: Nature Medicine (Perspective / Resource)
+title: "DisMech: computable pathographs for disease mechanisms, knowledge gaps, and translational reasoning"
+target_journal: "TBD; Nature Medicine Resource or Analysis under consideration"
 authors:
-  - Christopher J. Mungall (LBNL, Monarch Initiative)
-  - J. Harry Caufield (LBNL)
-  - [co-authors TBD]
-draft_status: working draft
-revision_notes:
-  - Tightened abstract to ~180 words, restructured as context-gap-approach-impact.
-  - Removed numbered section headings; adopted short declarative headings in Nature style.
-  - Reduced first-person opinion language ("we argue", "we believe", "we claim"); converted to evidence statements where possible.
-  - Replaced vague claims with concrete numbers from the slide deck (Th17 cluster odds ratios, Fanconi 19 nodes, 6.1% validated GWAS rate, ~500 disorders).
-  - Added four figure callouts with placeholders and in-text "(Fig. N)" references.
-  - Boxed the mechanism-modules and validation-stack content as Box 1 and Box 2.
-  - Inserted numeric reference markers [N] and a placeholder References section.
-  - Cut meta-commentary and redundant sentences; tightened paragraph energy throughout.
-  - Suggested alternative titles in a top-of-file HTML comment.
+  - "J. Harry Caufield"
+  - "Kevin Schaper"
+  - "Evan Connelly"
+  - "Nico Matentzoglu"
+  - "Justin Reese"
+  - "Corey Cox"
+  - "Katie Mullen"
+  - "Nomi Harris"
+  - "Sierra Moxon"
+  - "Sujay Patil"
+  - "Vibhor Gupta"
+  - "Jim Balhoff"
+  - "Mark A. Miller"
+  - "Sarah Gehrke"
+  - "Aleix Puig"
+  - "Kendall Flaharty"
+  - "Shawn T. O'Neil"
+  - "Aaron Odell"
+  - "Shilpa Sundar"
+  - "Marcin P. Joachimiak"
+  - "Anne Thessen"
+  - "Melissa Haendel"
+  - "Christopher J. Mungall"
+draft_status: "integrated working draft"
+source_material:
+  - "Google Doc: DisMech manuscript - Data Resource"
+  - "Recovered pathograph manuscript from commit f858a0c43d"
+  - "TMC AI keynote, Zenodo 18720444"
+  - "CERSI/FDA surrogate-endpoint presentation, Zenodo 20682988"
 ---
 
 <!--
-Alternative titles considered:
-  - "Pathographs: a causal substrate for mechanism-aware medicine"
-  - "An evidence-grounded causal model of disease for the new-approach-methodology era"
-  - "Dismech: open pathographs for translational disease mechanism"
+This revision combines the consortium Data Resource manuscript with the
+pathograph/translational draft. It deliberately leaves empirical results and
+citations marked where a frozen-release analysis or evaluation is still
+required. Do not convert provisional working-snapshot counts into publication
+claims until the analysis script and release identifier are committed.
 -->
 
-## Abstract
+# Abstract
 
-Clinical decisions about a genetic variant, an exposure, or a candidate therapy still rest on an implicit, expert-held model of *why* a disease presents the way it does. That mechanistic model is rarely written down in a form a clinician, a regulator, or an artificial intelligence system can interrogate, and the new approach methodologies (NAMs) that now substitute for animal data — organoids, iPSC-derived multicellular systems, genome-scale perturbation screens — have no shared interpretive layer mapping their readouts to human disease. We present dismech, an open knowledge base that represents disease mechanism as a **pathograph**: a typed, directed, evidence-backed causal graph linking aetiology, pathophysiology, phenotype, treatment, and the assays that support each claim. The pathograph encodes competing mechanistic hypotheses and explicit knowledge gaps as first-class objects, and is built collaboratively by curators and autonomous research agents under deterministic validation. Dismech currently covers approximately 500 disorders with ten conserved mechanism modules and integrates NAM datasets, ClinGen gene–disease validity, Orphanet, and ClinicalTrials.gov. The resource provides a substrate for mechanism-aware differential diagnosis, drug repurposing, GWAS interpretation, NAM-based regulatory science, and auditable clinical AI.
+Most knowledge of how a molecular lesion or exposure produces a human disease
+phenotype remains distributed across narrative reviews, primary studies,
+clinical resources, and model-system reports. These sources are individually
+valuable but do not provide a shared, computable account of the causal steps
+connecting aetiology, pathophysiology, clinical outcomes, and treatment.
+DisMech is an open, mechanism-centred knowledge resource that represents these
+accounts as **pathographs**: typed, directed graphs whose nodes and edges are
+grounded in community ontologies and linked to provenance-bearing evidence.
+Pathographs preserve competing mechanistic hypotheses, identify explicit
+knowledge gaps and human/model mismatches, and record experiments proposed to
+resolve them. DisMech is maintained through a hybrid curation workflow in
+which human curators direct language-model agents while schema, ontology, and
+reference validators provide reproducible quality-control gates. Here we
+describe the resource, quantify its content and evidentiary structure, and
+evaluate whether access to pathographs improves pathophysiological reasoning.
+We further show how a disease mechanism graph can connect new approach
+methodology readouts to candidate surrogate endpoints and unresolved
+organ-specific outcomes. DisMech provides an inspectable substrate for
+mechanistic diagnosis, evidence-gap discovery, translational model selection,
+and auditable biomedical AI.
 
-## A missing causal substrate for translational medicine
+# Introduction
 
-Three trends are converging on the same gap. Large language models trained on clinical text now meet or exceed clinicians on benchmark tasks but cannot account for *why* an answer is correct in mechanistic terms, and their failure modes are difficult to predict because the substrate is statistical rather than causal [1]. The FDA Modernization Act 2.0 and analogous policies have opened the door to NAMs as primary evidence for human disease, but the interpretive layer that maps a NAM readout to a human phenotype, a target tissue, and a therapeutic decision remains ad hoc [2]. And the molecular and clinical data layers themselves are maturing: GWAS, rare-variant burden tests, Perturb-seq atlases, and clinical trial registries each describe a slice of disease, but the joins between them are weak [3,4].
+Most of what is known about human disease mechanism is written as prose.
+Textbooks, review articles, and primary studies describe how molecular events
+propagate through cells and tissues to produce signs, symptoms, and clinical
+course. This literature is authoritative, but it is not directly computable.
+A researcher who wants to compare a mechanism across diseases, determine
+which phenotype is downstream of a treatment target, or identify where a
+model system fails to explain a human outcome must repeatedly reconstruct
+causal models that domain experts already hold implicitly.
 
-The common shortfall is the absence of an explicit, machine-readable causal model of the disease itself. Existing resources solve adjacent problems well — OMIM and the Human Phenotype Ontology (HPO) capture phenotype associations [5]; KEGG and Reactome describe canonical pathways [6,7]; ClinVar and ClinGen describe variant pathogenicity [8]; DrugBank and OpenTargets describe drug–target relationships [9,10] — but none encode the directed chain *variant → molecular dysfunction → cellular phenotype → tissue effect → clinical phenotype → treatment* together with the evidence supporting each edge and the alternative chains that competing schools endorse. That chain is what a clinician implicitly reasons over, and what a regulatory reviewer expects when a NAM dossier substitutes for an animal study.
+Existing biomedical resources solve important adjacent problems. OMIM and the
+Human Phenotype Ontology capture disease–phenotype associations; ClinVar and
+ClinGen represent variant and gene–disease evidence; Reactome and KEGG
+represent biological pathways; and drug resources connect compounds to
+targets and indications [CITE]. What remains uncommon is a disease-centred
+representation of the complete explanatory chain:
 
-Dismech provides this substrate. It is an open knowledge base covering approximately 500 disorders, structured around a pathograph data model (Fig. 1), built collaboratively by domain experts and AI agents under deterministic validation, and designed to interoperate with both upstream evidence generators (NAMs, structured databases, autonomous research agents) and downstream applications (phenotype-driven differential diagnosis, mechanism-guided drug repurposing, GWAS interpretation, regulatory science).
+> aetiology → molecular dysfunction → cellular process → tissue pathology →
+> clinical phenotype → treatment response
 
-**Figure 1 |** The pathograph data model: six node types (genetic, environmental, pathophysiology, biochemical, phenotype, treatment) bound to community ontologies, connected by typed causal edges carrying evidence items with primary identifiers and verbatim snippets. *[FIGURE PLACEHOLDER]*
+The missing intermediates matter. Diseases that resemble one another
+phenotypically may arise through different causal processes and require
+different interventions. Conversely, diseases assigned to different clinical
+categories may share a pathological process that creates a common therapeutic
+vulnerability. A mechanistic representation must also preserve uncertainty:
+several causal accounts may coexist, evidence may support different branches,
+and the most useful statement may be that a particular edge remains unknown.
 
-## The pathograph
+This need is becoming more acute as new approach methodologies (NAMs),
+including patient-derived cells, organoids, organs-on-chips, and
+high-throughput perturbation systems, are used to study disease and support
+drug development. A NAM readout is not self-interpreting. Its translational
+meaning depends on which part of a human disease mechanism it recapitulates,
+which clinical outcome lies downstream, and which organ-specific branches it
+does not test. The same problem arises for surrogate endpoints: association
+between a biomarker and an outcome is not equivalent to a mechanistic account
+of why treatment-induced change in the biomarker should predict clinical
+benefit.
 
-A pathograph is a typed, directed graph whose nodes are biological entities on the disease causation chain and whose edges are causal relations supported by evidence. Six node types are first-class (Table 1). Edges are directional and typed (causes, upregulates, ameliorates, is diagnostic of). Each edge carries an evidence list in which every item cites a primary identifier — a PMID, DOI, NCT trial number, Orphanet entry, ClinGen assertion ID, or NAM dataset accession — together with the verbatim snippet supporting the claim and a classification of whether the evidence supports, refutes, partially supports, or contradicts it.
+Large language models and agentic systems make it possible to assemble
+structured biomedical content at a scale that was previously impractical, but
+they also introduce fabricated citations, invented identifiers, semantic
+misgrounding, and confidently stated unsupported claims. The relevant
+question is therefore not whether an agent can generate a disease summary,
+but whether agent-assisted curation can produce a resource whose claims,
+uncertainties, and provenance remain inspectable.
 
-**Table 1.** Pathograph node types and their ontology bindings.
+We address these linked problems with DisMech, the Disorder Mechanisms
+Knowledge Base. Each DisMech entry is a structured disease model containing a
+pathograph, phenotypes, genetic and environmental factors, biochemical
+findings, treatments, experimental models, datasets, and evidence. Reusable
+mechanism modules capture conserved pathological motifs across diseases.
+Mechanistic hypotheses label alternative or superimposed causal subgraphs,
+while discussion objects record knowledge gaps, controversies, and
+human/model mismatches attached to particular nodes or edges. The resource is
+openly versioned and rendered for both human browsing and computational use.
 
-| Node type | Examples | Community standards |
+Here we present DisMech primarily as a biomedical data resource. We describe
+its data model and curation governance, characterize its current content and
+evidence structure, examine its representation of mechanistic uncertainty,
+and define an evaluation of pathophysiological reasoning with and without
+pathograph context. We use the relationship between Fabry disease mechanisms,
+surrogate endpoints, and patient-derived cellular models as a translational
+case study. A companion manuscript describes the agentic curation and
+validation architecture in depth.
+
+# Results
+
+## Pathographs make disease explanations computable
+
+A pathograph is a typed, directed graph whose nodes represent states or
+processes on a disease-causation chain and whose edges represent established
+or hypothesized causal relationships. DisMech stores the graph alongside the
+other parts of a disease record rather than treating it as an isolated pathway
+diagram. This allows a mechanism node to connect directly to a phenotype,
+treatment, biomarker, experimental model, or explicit knowledge gap.
+
+**Figure 1 | DisMech and the pathograph data model.** The central Disease
+object connects genetic and environmental aetiology to pathophysiology,
+biochemical states, phenotypes, treatments, surrogate endpoints, datasets,
+and experimental models. Typed causal edges form the pathograph. Evidence
+items, mechanistic hypotheses, and discussions attach to the claims they
+qualify. *[FIGURE TO GENERATE FROM THE CURRENT SCHEMA]*
+
+**Table 1 | Core pathograph objects and ontology grounding.**
+
+| Object | Example | Principal standards |
 |---|---|---|
-| Genetic factor | *FBN1* loss of function; gain-of-function *FGFR3* | HGNC; ClinGen validity assertions |
-| Environmental factor | UV exposure, gluten ingestion, SARS-CoV-2 infection | ECTO, MeSH |
-| Pathophysiology mechanism | Type 2 immune response; replication fork collapse | GO biological process, Cell Ontology, UBERON |
-| Biochemical state | Elevated phenylalanine; cytotoxic glutamine | ChEBI |
-| Phenotype | Aortic root aneurysm; pancytopenia; dyspnea | HPO |
-| Treatment | Anti-TNF biologic therapy; PARP inhibition | MAXO, NCIT, ChEBI |
+| Disease | Fabry disease | MONDO, Orphanet |
+| Genetic factor | *GLA* loss of function | HGNC, ClinGen, GENO |
+| Environmental factor | ultraviolet exposure | ECTO or other mapped vocabularies |
+| Pathophysiology | lysosomal glycosphingolipid accumulation | GO, CL, UBERON |
+| Biochemical state | elevated phenylalanine | ChEBI, LOINC |
+| Phenotype | renal insufficiency | HPO |
+| Treatment | enzyme replacement therapy | MAXO, NCIT, ChEBI |
+| Experimental model | patient-derived iPSC cardiomyocyte | NAMO and source dataset |
+| Surrogate endpoint | renal peritubular-capillary GL-3 clearance | FDA source table and assay metadata |
+| Knowledge gap | uncertain cardiac surrogacy | Discussion attached to a graph branch |
 
-The downstream effects of this design are concrete. Because the same node type is reused across diseases, an "inflammatory bone marrow microenvironment" node in Fanconi anaemia and a similar node in myelodysplastic syndrome become directly comparable. Because treatments are nodes with explicit `target_mechanisms` edges to the pathophysiology they modify, the pathograph encodes the *rationale* for a therapy, not only an indication. Because environmental and genetic factors are sibling node types, complex diseases such as asthma, inflammatory bowel disease, and long COVID are modelled in the same idiom as Mendelian disease.
+Causal edges can carry evidence specific to the source–target relationship,
+while nodes carry evidence for the state or process itself. This distinction
+is important: evidence that a process occurs in a disease does not
+automatically establish that it causes a particular downstream phenotype.
+The current resource has substantially higher node-level than edge-specific
+evidence coverage, making edge-level provenance a measurable curation target
+rather than an assumed property of every pathograph.
 
-Even partial pathographs reshape the questions a knowledge base can answer. The dismech Fanconi anaemia entry encodes 19 mechanism nodes linking *FANCA/B/C/...* loss of function through replication fork instability to bone marrow failure, hyperpigmentation, and predisposition to specific cancers (Fig. 2). With this graph one can ask which phenotypes are explained by the bone-marrow-failure subgraph and which require the genome-instability subgraph, and flag patient phenotypes unexplained by either. The decomposition is currently performed implicitly by specialists; the pathograph makes it inspectable.
+## DisMech spans diseases, reusable mechanisms, and evidence types
 
-**Figure 2 |** Worked example pathograph for Fanconi anaemia, with 19 mechanism nodes and overlaid hypothesis groups for the bone-marrow-failure and genome-instability subgraphs. *[FIGURE PLACEHOLDER]*
+The publication analysis will be run against a frozen DisMech release. A
+preliminary inventory of the working tree on 29 July 2026 found the following
+content; these numbers are included here to define the analysis, not as final
+publication values.
 
-> **Box 1 | Mechanism modules: encoding conserved pathological motifs**
->
-> Many diseases share conserved mechanistic motifs. The fibrotic response — tissue injury, mesenchymal cell activation, myofibroblast differentiation, excessive ECM deposition, organ dysfunction — recurs across liver cirrhosis, idiopathic pulmonary fibrosis, systemic sclerosis, and chronic kidney disease. Adaptive immune resistance via checkpoint upregulation recurs across solid tumours. Synthetic lethality between homologous recombination repair deficiency and PARP inhibition recurs across *BRCA1/2*-driven cancers.
->
-> Dismech captures these motifs as **mechanism modules**, structurally identical to disease entries. A disease pathograph node declares conformance to a module node via a `conforms_to` reference; this is checked for consistency (organ-specific specialisation of cell types, expected downstream edges) but not inherited — duplication is deliberate, because disease-specific specialisation matters clinically. Current modules cover the fibrotic response, immune checkpoint blockade, HRR/FA–BRCA synthetic lethality, RTK/GRB2 signalling adaptation, PARP/PARG/viral macrodomain antiviral countermeasures, intestinal barrier dysfunction, ER protein storage disease, meiotic prophase failure, neural-crest melanocyte deficiency, and pentanucleotide repeat RNA toxicity. Each module is itself an object of curation and revision and carries its own knowledge gaps and competing hypotheses.
+**Table 2 | Preliminary working-snapshot inventory.**
 
-## Integrating NAMs, genetics, drugs, and trials
+| Object | Count |
+|---|---:|
+| Disorder files | 1,635 |
+| Mechanism modules | 118 |
+| Groupings | 48 |
+| Pathophysiology nodes, disorders and modules | 9,114 |
+| Causal edges, disorders and modules | 17,912 |
+| Phenotypes, disorders and modules | 17,314 |
+| Treatments, disorders and modules | 6,372 |
+| Evidence items, disorders and modules | 79,862 |
+| Mechanistic hypotheses, disorders and modules | 360 |
+| Discussions, disorders and modules | 656 |
+| Reference-cache records | 31,623 |
 
-NAM datasets enter the pathograph as evidence on existing edges, as new mechanism nodes when they reveal previously unrepresented biology, or as datasets attached to a hypothesis (Fig. 3). The MorPhiC Consortium produces null alleles of human genes in iPSC-derived multicellular systems and measures molecular and cellular phenotypes [11]; dismech ingests these as evidence with `evidence_source: IN_VITRO` attached to phenotype descriptors flagged as `category: Cellular`, with a dataset accession (`morphic:GENE`) pointing back to the primary data. Perturb-seq atlases fit the same way: a T-cell Perturb-seq study reporting that a regulator cluster (e.g., the IRF4/BATF/STAT3-centred Th17 cluster) is enriched in genes from an autoimmune GWAS becomes evidence on the relevant pathophysiology node [4]. Organoid drug-response studies plug into treatment nodes.
+Nearly all disorder files contain pathophysiology and phenotype content, but
+the resource is intentionally heterogeneous in depth. The frozen-release
+analysis will report distributions rather than totals alone: nodes and edges
+per disease, connected components, cross-scale transitions, ontology
+coverage, evidence-source composition, treatment-to-mechanism links, and
+coverage by disease class. It will also report explicit denominators such as
+the relevant MONDO or Orphanet disease space.
 
-The dividend is that NAM data stop being orphan readouts. A cardiomyocyte differentiation phenotype in an *ISL1*-null iPSC system becomes an edge in the congenital heart disease pathograph, immediately adjacent to a human clinical phenotype and a gene–disease validity assertion. Regulatory uses of NAM data require this kind of mapping [2]; dismech provides the substrate.
+**Figure 2 | Scope and depth of DisMech.** Proposed panels: disorders by
+clinical/mechanistic class; distributions of pathograph nodes and edges per
+disease; evidence items by source type; edge-specific evidence coverage; and
+mechanism-module conformance. *[ANALYSIS AND FIGURE REQUIRED]*
 
-**Figure 3 |** Mapping new approach methodologies onto pathographs. Iso-genic iPSC cellular phenotypes, organoid drug responses, and Perturb-seq regulator clusters attach as evidence to specific edges in the existing causal graph, anchored by gene, cell type, and biological process. *[FIGURE PLACEHOLDER]*
+## Mechanism modules expose shared pathological motifs
 
-Genetic basis is encoded with HGNC-bound gene identifiers, allele-level detail where relevant, inheritance, and links to ClinGen gene–disease validity and dosage-sensitivity assertions [8]. Treatments distinguish the medical action (e.g., pharmacotherapy, bound to MAXO or NCIT) from the therapeutic agent (e.g., duloxetine, bound to ChEBI or NCIT), enabling drug-level queries across diseases. Clinical trials are first-class objects bound to ClinicalTrials.gov NCT identifiers with target phenotypes that connect a trial back to the phenotype nodes it addresses. Comorbidity edges between diseases are supported by EHR disease-trajectory data, literature, GO enrichment, and genetic correlation, with directionality preserved where the underlying study supports it. The power emerges from integration: a query for "diseases whose treatments target the same pathophysiology module" returns mechanism-justified repurposing candidates rather than surface-level similarity.
+Mechanism modules represent conserved motifs such as fibrosis, amyloid
+formation, thrombogenesis, lysosomal substrate accumulation, immune
+checkpoint blockade, and cardiac-ion-channel dysfunction. A module has the
+same structural form as a disease entry. Disease-specific nodes declare
+`conforms_to` relationships to module nodes while retaining organ-, cell-,
+gene-, and disease-specific detail.
 
-## Mechanistic uncertainty as a first-class object
+Conformance is not inheritance. A hepatic stellate-cell activation node and a
+pulmonary fibroblast activation node may both conform to a generic
+mesenchymal-cell-activation step in the fibrotic-response module, but the
+disease records duplicate and specialize the relevant content. This design
+allows module consistency to be checked without erasing clinically meaningful
+context.
 
-The mechanistic literature is messy. Multiple schools of thought may co-exist for years — the amyloid cascade, tau-first, neuroinflammation, and vascular hypotheses in Alzheimer disease [12]; the viral persistence, autoimmune, microclot, mast-cell, and microbiome models in long COVID [13]. Some claims are well established but lack a quotable primary source. Some questions have no current answer. Collapsing the literature into a single confident narrative is a category error for a translational substrate; dismech instead encodes uncertainty explicitly through four mechanisms.
+The frozen-release analysis will quantify how often modules are reused,
+whether conforming disease subgraphs preserve expected processes and edges,
+and which high-frequency motifs remain unrepresented. This converts mechanism
+modules from illustrative examples into an evaluated cross-disease layer.
 
-First, **mechanistic hypotheses** are objects on a disease or module, each with a stable `hypothesis_group_id`, a `hypothesis_label`, a status (CANONICAL, ALTERNATIVE, EMERGING, REFUTED), a description, and an evidence list. Causal edges opt into one or more hypothesis groups via `hypothesis_groups`; a disease can therefore carry multiple parallel causal subgraphs that share some nodes and diverge on others. The Alzheimer disease entry currently carries amyloid cascade, tau neurodegeneration, neuroimmune/glial amplification, synaptic failure, autophagy–lysosomal clearance, vascular/BBB clearance, and HSV-1 reactivation hypothesis groups. The long COVID entry carries persistence, autoimmune, microclot, mast-cell neuroimmune, and microbiome dysbiosis groups. The pathograph is therefore not a single tree but a set of overlapping causal narratives, each independently citable.
+## DisMech represents uncertainty rather than collapsing it
 
-Second, **knowledge gaps** are first-class records (`kind: KNOWLEDGE_GAP`) with a status (OPEN, ADDRESSED), a rationale, an `attaches_to` reference anchoring the gap to specific pathograph nodes, and an optional list of `proposed_experiments` — including NAM-based experiments — that would resolve it. This treats "we do not yet know" as a positive assertion, making the resource a roadmap for *what to investigate next*.
+Pathophysiological literature rarely supports a single uncontested graph.
+DisMech represents four complementary forms of epistemic qualification.
 
-Third, every evidence item carries a **support classification** (SUPPORT, REFUTE, PARTIAL, NO_EVIDENCE, WRONG_STATEMENT). Refuting citations are retained on the record rather than silently deleted.
+First, mechanistic hypotheses organize edges into canonical, alternative,
+emerging, or deprecated explanatory models. Several hypotheses may share
+upstream nodes and diverge only at a contested causal step. Second, evidence
+items classify whether a source supports, partially supports, refutes, or
+fails to provide evidence for a claim. Third, evidence-source typing
+distinguishes human clinical, model-organism, in vitro, computational, and
+other evidence. Fourth, discussion objects record open questions,
+controversies, interpretations, knowledge gaps, and human/model mismatches.
 
-Fourth, every evidence item carries an **evidence source** (HUMAN_CLINICAL, MODEL_ORGANISM, IN_VITRO, COMPUTATIONAL, OTHER) recording the kind of study that supports the claim. This matters when interpreting NAM data: an iPSC-derived cardiomyocyte phenotype is IN_VITRO evidence and is the appropriate support for a cellular phenotype, but should not stand alone as support for a clinical phenotype.
+This representation makes uncertainty queryable. A user can ask which edges
+rest only on model-system evidence, where two hypotheses diverge, or which
+clinical outcome lacks a mechanistic bridge from an experimentally measured
+biomarker.
 
-A user can therefore ask which claims in a disease rest only on model-organism data, which hypothesis groups are competing for which phenotypes, and which open knowledge gaps could be addressed by which NAMs — and obtain answers.
+## Knowledge gaps become research objects
 
-## Closing the loop with autonomous research agents
+A knowledge gap in DisMech is not free-floating prose. It has a stable
+identifier, a prompt, a lifecycle status, a rationale, and an `attaches_to`
+pointer identifying the disease object, node, or edge to which the gap
+applies. It may also include proposed experiments and supporting evidence.
+Human/model mismatch is represented separately from general absence of
+evidence: some evidence exists, but its fidelity to human biology is the
+unresolved question.
 
-A mechanistic knowledge base is most useful when it is continuously interrogated against the primary literature. Static curated reviews go stale within a year or two, and the volume of relevant mechanistic publications exceeds what any individual curator can track.
+The preliminary working snapshot contains 447 `KNOWLEDGE_GAP` discussions,
+112 `HUMAN_MODEL_MISMATCH` discussions, and 375 proposed experiments. The
+publication analysis will classify these gaps by biological scale, evidence
+source, disease class, graph position, and proposed experimental modality.
+It will also distinguish unresolved gaps from resolved or archived
+discussions and test whether automated literature and knowledge-gap scans
+preferentially identify particular gap classes.
 
-Dismech is designed to interoperate with autonomous research agents, foremost OpenScientist, which performs multi-hour deep investigations of a focused biomedical question with iterative search, hypothesis refinement, and explicit citation tracking [14]. The integration is direct: every mechanistic hypothesis on a disease can seed an OpenScientist run, configured with the existing hypothesis YAML as the seed claim and asked to support, refute, qualify, or compete with it against the current literature (Fig. 4). The output is captured as a structured report alongside a per-citation index, with provider, model, duration, and citation count recorded in the frontmatter for reproducibility.
+**Figure 3 | The anatomy of a mechanistic knowledge gap.** Proposed panels:
+gap typology; graph positions at which gaps occur; evidence-source deficits;
+human/model mismatches by tissue or cell type; and proposed experiments by
+modality. *[ANALYSIS AND FIGURE REQUIRED]*
 
-To date, this loop has run across more than one hundred hypothesis groups spanning neurodegenerative disease (Alzheimer, Huntington, ALS, Parkinson), metabolic disease (porphyrias, ketogenesis disorders, transaldolase deficiency, Tangier, abetalipoproteinemia), oncology (high-grade serous ovarian cancer POLQ resistance), infectious and post-infectious disease (COVID-19 macrodomain biology, long COVID variants), and Mendelian disease (cystic fibrosis, sickle cell, haemophilia, Friedreich ataxia, Rett, Fragile X, adrenoleukodystrophy, Gaucher, Wilson, achondroplasia). Each run produces a citation-grounded narrative that human curators triage into the pathograph: confirmed claims become evidence on existing edges, new mechanism nodes capture previously unrepresented biology, and unresolved disputes become competing hypothesis groups or new knowledge gaps.
+## Fabry disease connects mechanism, surrogate endpoints, and NAMs
 
-**Figure 4 |** Closed-loop interaction between dismech and OpenScientist. A knowledge gap or hypothesis on a pathograph node generates a focused agent prompt; the agent returns a citation-grounded report; deterministic validators check identifiers and verbatim snippets; a human curator triages findings back onto the pathograph. *[FIGURE PLACEHOLDER]*
+Fabry disease illustrates why surrogate-endpoint reasoning requires an
+explicit disease mechanism. Pathogenic *GLA* variants reduce
+alpha-galactosidase A activity, producing lysosomal accumulation of
+globotriaosylceramide (GL-3) and related glycosphingolipids. That upstream
+storage process branches into renal, cardiac, vascular, and neurological
+pathology.
 
-This is a different relationship between an autonomous agent and a knowledge base than is usually proposed. The agent does not write to the knowledge base; it writes evidence for a curator to act on. The pathograph determines which questions are worth asking — a knowledge gap on a specific node generates a focused prompt — and the place where the agent's findings are made permanent and inspectable. Hallucinated citations and misquoted snippets, a documented failure mode of current deep-research systems [15], are caught by deterministic validators before reaching the knowledge base.
+The FDA surrogate-endpoint table records clearance of GL-3 from renal
+peritubular capillaries as an endpoint used in support of drug approval
+[CITE FDA SOURCE]. The pathograph places this measurement on one renal branch
+of a multi-organ mechanism. It therefore makes two propositions inspectable:
+the endpoint is mechanistically proximal to enzyme replacement and substrate
+clearance, but it is not a direct measurement of podocyte, cardiomyocyte, or
+dorsal-root-ganglion outcomes. A response in renal capillary endothelium
+cannot simply be assumed to establish benefit in each parallel tissue branch.
 
-> **Box 2 | Construction under deterministic validation**
->
-> Dismech is built collaboratively by domain experts and AI agents (Claude and Codex via the Claude Code and Claude Agent SDK harnesses). Agents propose new entries, enrich existing ones, and respond to compliance scoring that identifies the lowest-coverage files. Resource integrity does not depend on agent integrity. It depends on three deterministic validation layers: a schema validator, an ontology term validator that checks every identifier against the authoritative ontology, and a reference validator that requires every evidence snippet to be a verbatim substring of a cached primary source. The validators are mechanical and reproducible; reference caches and ontology snapshots are version-controlled. Every change passes through GitHub-based review and continuous integration, and an automated AI reviewer performs a second pass focused on curation guidelines.
->
-> The encoding details — disease entries as YAML, validated against a LinkML schema, with ontology bindings to HPO, GO, CL, UBERON, MONDO, MAXO, ChEBI, NCIT, HGNC, and GENO — are deliberately invisible at the user level. What matters at the resource level is conformance to community standards: dismech reuses identifiers that the rest of biomedicine already uses, and exports to the Biolink Model KGX format so that the pathograph can be consumed by existing knowledge-graph infrastructure including the Monarch KG and the NCATS Biomedical Data Translator [16,17].
+This localization identifies a concrete knowledge gap: which treatment-
+responsive cellular readout best bridges substrate clearance to cardiac
+outcomes? Patient-derived iPSCs differentiated into cardiomyocytes and other
+relevant lineages could test enzyme uptake, GL-3 clearance,
+electrophysiological effects, hypertrophic response, and drug response in
+cells carrying the same patient genotype. The experiment would not by itself
+validate a clinical surrogate, but it would supply evidence on the presently
+weak mechanistic bridge.
 
-## Applications
+**Figure 4 | Fabry disease mechanism-to-endpoint map.** *GLA* deficiency and
+GL-3 accumulation branch to renal, cardiac, and neurological outcomes. The
+FDA renal peritubular-capillary endpoint and candidate iPSC cardiomyocyte
+readouts are localized to the branches they test. Unsupported extrapolations
+are shown as explicit gaps. *[FIGURE AND PRIMARY EVIDENCE REQUIRED]*
 
-### Mechanism-aware differential diagnosis
+## Pathographs provide a substrate for pathophysiological reasoning
 
-Phenotype-driven differential diagnosis against HPO-annotated disease databases is well established [5]. Pathograph-aware matching adds two capabilities. First, phenotype frequency on a per-genotype basis means that excluded phenotypes are honoured: pancytopenia is very frequent in Fanconi anaemia overall but explicitly excluded in *FANCD1/BRCA2* and FA-S/*BRCA1* subtypes, and a phenomatcher that respects this returns a different ranked list than one that does not. Second, when a patient phenotype is absent from the candidate disease's phenotype list, the pathograph allows a *mechanistic* answer to "is this consistent?" Fever is not a primary Fanconi anaemia phenotype, but the bone-marrow-failure → neutropenia → infection-susceptibility subgraph supports it. The dismech phenomatcher takes a GA4GH Phenopacket [18], performs ontology-aware matching, weights by curated frequency, and uses the pathograph to generate explanations for non-exact matches, returning a probability estimate with a per-phenotype explanation chain rather than a black-box score.
+The central evaluation asks whether explicit pathograph context improves
+reasoning rather than merely supplying more text. The evaluation set will
+sample diseases and mechanism modules across genetic, complex, infectious,
+neoplastic, and environmental categories. Each item will be derived from
+curated graph structure but withheld from the model context used for the
+test.
 
-### Mechanism-guided drug repurposing
+Tasks will include:
 
-Pathograph treatments are bound to the mechanisms they target. Two diseases whose pathographs share a mechanism module are immediate repurposing candidates for therapies that target that module — and the shared module identifies *which* therapies. The fibrotic response module is the most developed example: it predicts that anti-fibrotic agents validated in idiopathic pulmonary fibrosis should be considered in hepatic, renal, and cutaneous fibrosis with the same mechanistic rationale, made explicit and citable rather than analogical. The immune checkpoint blockade module similarly explains why a checkpoint inhibitor active in one solid tumour is a candidate in another with the same adaptive-immune-resistance node, and why diseases lacking that node are not.
+1. Explain why a phenotype follows from a molecular lesion.
+2. Distinguish two diseases with similar phenotype profiles but different
+   causal mechanisms.
+3. Identify a patient feature not explained by a candidate pathograph.
+4. Predict which outcomes should respond to perturbation of a treatment
+   target.
+5. Distinguish canonical, alternative, and emerging causal accounts.
+6. Identify where human evidence ends and model-system extrapolation begins.
+7. Select an experiment that addresses an attached knowledge gap.
+8. Judge whether a biomarker is upstream of, parallel to, or disconnected
+   from a clinical outcome.
 
-### GWAS and Perturb-seq interpretation
+The same reasoner will be tested with no resource context, with conventional
+disease-summary context, and with a structured DisMech pathograph and its
+evidence. Blinded domain experts will score biological correctness,
+faithfulness to the supplied path, unsupported-claim rate, recognition of
+uncertainty, and usefulness of the explanation. Deterministic graph-traversal
+questions will provide a separate machine-scored subset.
 
-Pathographs serve as a validation layer for pipelines that propose gene → program → trait relationships from GWAS combined with Perturb-seq [4]. Each gene → program → trait triple is classified as CONFIRMED (all elements documented and connected in dismech), PARTIAL (some elements present, chain incomplete), NOVEL (absent from dismech, a candidate for curation), or CONTRADICTED (dismech documents an opposite effect). Applied to the recent T-cell Perturb-seq atlas of 22 million primary CD4+ T cells, validation against dismech rose from 2.7% (baseline) to 6.1% across twelve autoimmune diseases as targeted curation incorporated pipeline-flagged candidate genes (BACH2, TNFAIP3, STAT3, IL10, CD28, EGR2, ETS1, IRF4, IKZF1, SMAD3, SATB1). The standout signal was a six-gene regulator cluster (IRF4, BATF, STAT3, JUNB, IPMK, NUP188) centred on Th17 differentiation, with odds ratios of 58.2 in Crohn disease, 38.1 in atopic dermatitis, 26.9 in psoriasis, 24.0 in inflammatory bowel disease (merged), and 16.9 in multiple sclerosis. This finding drove dismech curation of an atopic dermatitis entry and strengthened Th17 pathophysiology (GO:0072538) across five autoimmune disorders. The loop is bidirectional: pipeline-flagged novel candidates prioritise curation; the resulting curation supports the next round of pipeline validation.
+**Table 3 | Pathophysiological-reasoning evaluation.** *[REPORT TASK COUNTS,
+DISEASE STRATA, HUMAN RATERS, AGREEMENT, MODEL CONDITIONS, EFFECT SIZES, AND
+CONFIDENCE INTERVALS]*
 
-### NAMs and regulatory science
+**Figure 5 | Effect of pathograph context on mechanistic reasoning.**
+*[RESULTS REQUIRED; DO NOT SUBSTITUTE COMPLIANCE SCORES FOR THIS EVALUATION]*
 
-The pathograph is the bridge between a NAM readout and a regulatory or clinical decision. When an iPSC-derived disease model recapitulates a cellular phenotype, the pathograph identifies which clinical phenotype it is upstream of and via what mechanism — and which clinical phenotypes it does *not* address. When an organoid drug screen identifies a candidate, the pathograph identifies which mechanism node it targets and which other diseases share that node. When a NAM dataset diverges from a human clinical observation, the pathograph localises the divergence to a specific edge, generating a hypothesis-shaped follow-up rather than a diffuse failure. In our view, this is the most consequential medium-term application: the bottleneck in NAM adoption is not the assays themselves but the interpretive infrastructure, and an open, citable, integrative causal model is that infrastructure.
+## Additional resource applications
 
-### Clinical AI grounding
+Mechanism-aware phenotype matching can use a pathograph to distinguish
+phenotypically similar diseases and to explain secondary manifestations. Any
+diagnostic probability emitted by such a system must be independently
+calibrated and is not treated here as a validated clinical score.
 
-LLM-based clinical assistants are being deployed in diagnostic and therapeutic decision support, but they fail in modes that are difficult to predict and audit [1]. A pathograph offers an explainable, ontology-grounded substrate: every assertion is bound to a primary identifier and an exact snippet, and the causal chain is traversable rather than implicit. When a clinical AI proposes that a patient symptom is explained by a particular mechanism, the pathograph either supports that chain end-to-end with citations or does not — and the failure mode is visible. Dismech is not ready for direct clinical deployment, but it is the kind of substrate that would make such deployment auditable.
+Treatments linked to the mechanisms they target enable transparent queries
+for diseases sharing a therapeutic vulnerability. Such matches are
+hypothesis-generating repurposing candidates, not treatment recommendations.
+Evaluation should measure whether known cross-indication relationships are
+recovered before novel candidates are emphasized.
 
-## Limitations
+Pathographs can also evaluate gene→program→trait relationships proposed by
+GWAS and perturbation studies. A proposed triple may be confirmed, partially
+represented, absent and therefore a curation candidate, or in conflict with
+the curated direction of effect. The existing autoimmune/T-cell analysis
+will be regenerated against the frozen release before its numerical results
+are included [CITE].
 
-Dismech is incomplete. Its current approximately 500 disorder entries are a small fraction of the Mondo disease space; depth of curation varies; mechanism modules are early. Some entries depend heavily on review-article evidence rather than primary studies because suitable quotable abstracts could not be located, and these are marked rather than silently filled. Knowledge gaps are themselves under-curated. The balance between hypothesis groupings and a single canonical narrative is an editorial choice that varies by disease. Snippets are limited to publication abstracts and structured-database fields, restricting mechanistic detail; full-text-aware evidence is on the roadmap. Coverage of NAM datasets is limited to a handful of consortium outputs (MorPhiC anchor genes, selected Perturb-seq atlases); systematic ingestion of NAM dataset catalogues is a priority. Coverage of paediatric and rare disease is stronger than coverage of common chronic disease, where the literature is broader and editorial choices harder. The reference cache layer has a measured ~1% hallucination rate that the validation stack catches but does not prevent at source.
+# Methods
 
-## Outlook
+## Resource scope and governance
 
-The translational pipeline needs an explicit, evidence-backed, integrative causal representation of disease mechanism — one that brings together genetics, environmental exposures, pathophysiology, NAM readouts, drugs, trials, and the assays and datasets that support each claim, and that encodes mechanistic uncertainty honestly as competing hypotheses and open knowledge gaps. Dismech is our attempt at that representation. It is designed as the substrate that autonomous research agents investigate, that NAM dossiers map onto, that mechanism-aware repurposing draws from, and that clinical AI can be grounded against. The pathograph data model and the validation stack are mature; the content is growing. We will scale curation through agent-assisted pipelines, expand NAM dataset ingestion in collaboration with consortium producers, and integrate with the Monarch KG and NCATS Translator so that pathograph-derived edges flow into the broader translational graph. The pathograph is open and citable; we invite the community to interrogate, extend, and challenge it.
+DisMech models disorders and pathological processes rather than attempting to
+reproduce the MONDO disease hierarchy. Entry scope, disease-versus-subtype
+decisions, disease groupings, module conformance, ontology reuse, evidence
+policy, and BioLink/KGX export policy follow the project decision register.
+The publication will identify the frozen release and the decision-register
+version used for analysis.
 
-## Data and code availability
+The source of truth is a collection of YAML records validated against a
+LinkML schema. Changes are proposed through version-controlled branches and
+pull requests. Human maintainers define schema and editorial policy, review
+scientifically consequential changes, and adjudicate disagreements.
+Language-model agents may draft or revise records, but agent provenance is
+recorded separately from the type of scientific evidence cited.
 
-Knowledge base: <https://github.com/monarch-initiative/dismech>. Browsable resource: <https://monarch-initiative.github.io/dismech/>. All disorder entries, mechanism modules, schema, validation tooling, and reference caches are version-controlled and openly licensed.
+## Data model
 
-## Acknowledgements
+The central `Disease` class contains identifiers, definitions, classifications,
+inheritance, pathophysiology, phenotypes, biochemical findings, genetic and
+environmental factors, treatments, trials, datasets, models, hypotheses, and
+discussions. `Pathophysiology` nodes connect through `CausalEdge` objects.
+Treatments connect to pathophysiology or symptomatic phenotype targets through
+mechanism-target objects. Experimental models connect to the graph nodes they
+recapitulate, perturb, or read out.
 
-Monarch Initiative; LBNL Environmental Genomics & Systems Biology; the OBO Foundry, HPO, MONDO, MAXO, Cell Ontology, GO, and UBERON development teams; ClinGen; Orphanet/Orphadata; ClinicalTrials.gov; the MorPhiC Consortium; and the OpenScientist development team. Funded by [TBD].
+Ontology-grounded descriptors preserve both a canonical ontology label and a
+curator-facing preferred term. Major sources include HPO, MONDO, GO, CL,
+UBERON, MAXO, NCIT, ChEBI, HGNC, GENO, and LOINC. BioLink reuse is primarily
+an export-layer concern rather than the internal modelling principle.
 
-## References
+## Curation workflow
 
-[1] [TBD: representative review of LLM clinical benchmark performance and failure-mode analysis]
-[2] [TBD: FDA Modernization Act 2.0 and follow-on regulatory guidance on NAMs]
-[3] [TBD: GWAS catalogue / large-scale common-variant survey]
-[4] [TBD: Ota et al. 2025 — GWAS + Perturb-seq causal-graph paper used in the autoimmune validation]
-[5] [TBD: HPO and OMIM resource citations]
-[6] [TBD: KEGG]
-[7] [TBD: Reactome]
-[8] [TBD: ClinVar / ClinGen gene–disease validity framework]
-[9] [TBD: DrugBank]
-[10] [TBD: OpenTargets]
-[11] [TBD: MorPhiC Consortium / Ota null-allele iPSC paper, PMID:39939790]
-[12] [TBD: Alzheimer disease — representative review covering amyloid, tau, neuroinflammation, vascular hypotheses]
-[13] [TBD: Long COVID — representative review covering persistence, autoimmune, microclot, mast-cell, microbiome models]
-[14] [TBD: OpenScientist / autonomous deep-research agent reference]
-[15] [TBD: Deep-research / LLM citation hallucination measurement study]
-[16] [TBD: Monarch Initiative / Monarch KG]
-[17] [TBD: NCATS Biomedical Data Translator]
-[18] [TBD: GA4GH Phenopackets standard]
+Candidate content may originate from primary literature, structured
+databases, clinical resources, or retained deep-research reports. Deep
+research is treated as a source of leads rather than ground truth. Before
+research content is curated, the disease identity is checked against
+authoritative identifiers and causal genes to reduce named-entity confusion.
+References, quotations, and ontology identifiers are independently verified.
+
+Each curation event may record actors, tools, models, affected sections,
+links, outcome, and review detail in an append-only history record. The
+companion agentic-framework paper describes the interactive and scheduled
+agent workflows.
+
+## Evidence and validation
+
+Evidence items may include an authoritative reference, title, support
+direction, evidence-source classification, exact source snippet, explanation,
+and images. Reference fidelity means that the quoted text exists in the
+cited source; it does not establish by itself that the quotation entails the
+curated claim. Scientific relevance and causal interpretation therefore
+remain separate review dimensions.
+
+Validation includes schema conformance, ontology identifier and canonical-
+label validation, reference-snippet validation against tool-generated cache
+records, foreign-key and data-integrity tests, and compliance reporting.
+Compliance is a coverage measure and is not used as a proxy for biological
+correctness.
+
+## Mechanistic hypotheses and discussions
+
+Mechanistic hypotheses carry stable group identifiers and maturity states.
+Causal edges opt into one or more hypothesis groups. Discussions record open
+questions, knowledge gaps, controversies, emerging hypotheses,
+interpretations, and human/model mismatches. Proposed experiments are stored
+on the discussion they are intended to resolve.
+
+## Mechanism modules and groupings
+
+Mechanism modules use the same schema as disease entries and define recurring
+pathological motifs. Disease nodes may conform to module nodes while retaining
+disease-specific content. Groupings are curated unions of distinct entries
+with explicit membership rationales and criteria; they are not inferred
+ontology classes.
+
+## Frozen-release resource analysis
+
+*[TO IMPLEMENT]* A committed analysis script will compute all resource counts,
+coverage estimates, evidence distributions, graph-topology measures, gap
+typologies, and module-conformance summaries from a tagged release. The
+script will emit machine-readable tables used directly to generate Tables 2
+and the corresponding figures. Every reported percentage will include its
+numerator, denominator, and treatment of missing values.
+
+## Pathophysiological-reasoning evaluation
+
+*[TO IMPLEMENT]* The evaluation protocol will be preregistered within the
+repository before results are inspected. Disease sampling, question
+generation, withheld information, comparison conditions, model versions,
+human-rater instructions, adjudication, statistical tests, and exclusion
+criteria will be fixed in that protocol. Human evaluation will use at least
+two independent raters per item and report agreement.
+
+## Interface and exports
+
+The public site provides a faceted disorder browser, individual disease and
+module pages, interactive pathographs, evidence displays, embedding
+exploration, project views, and quality-control reporting. DisMech exports
+tabular data and an export-layer mapping to BioLink/KGX-compatible nodes and
+edges. The publication artifact will archive the release, schema, analysis
+outputs, and evaluation set under a persistent identifier.
+
+# Discussion
+
+DisMech treats a disease mechanism as an inspectable scientific object rather
+than a narrative summary. The contribution is not simply that causal chains
+can be drawn. It is that a chain can be queried together with the evidence,
+alternative hypotheses, model-system limitations, and explicit points at
+which the explanation fails.
+
+Knowledge gaps are therefore outputs of the resource rather than defects to
+hide. A missing human bridge, a contested causal direction, or a model that
+reproduces only one tissue branch can be attached to the exact place where
+additional evidence is needed. This creates a route from knowledge
+representation to experiment design, illustrated by the Fabry
+mechanism–surrogate–cardiac-model example.
+
+The reasoning evaluation is essential to establish whether this additional
+structure changes performance. If pathograph context does not improve
+biological correctness, uncertainty recognition, or evidence faithfulness
+over a well-chosen narrative baseline, the representation may still be
+useful for curation and integration but its stronger clinical-AI claims would
+not be supported.
+
+DisMech also provides a production setting for studying agent-assisted
+biocuration. That aspect is important but conceptually separable: this paper
+evaluates the biomedical representation and its uses, while the companion
+paper evaluates the curation and validation architecture.
+
+# Limitations
+
+DisMech is incomplete and uneven in depth. Coverage of pathophysiology does
+not imply complete edge-level evidence, and ontology grounding does not imply
+that a term is sufficiently specific. Exact-snippet validation establishes
+source fidelity but not claim–evidence entailment. Evidence available only in
+full text may be absent when the reference cache contains an abstract alone.
+
+Mechanistic graphs simplify continuous, cyclic, temporal, and context-
+dependent biology into a tractable representation. Edge direction and
+granularity reflect editorial judgement. Mechanism modules can expose
+inconsistency but may also impose a shared abstraction on diseases whose
+details differ materially.
+
+Knowledge gaps are curated and are consequently subject to ascertainment
+bias. Diseases investigated by automated scans or domain projects will appear
+to have more explicit gaps than less-curated diseases. Proposed experiments
+are hypotheses, not validated study protocols.
+
+The resource is not a clinical decision-support system. Mechanistic matching,
+surrogate-endpoint interpretation, and treatment-repurposing queries require
+independent validation in their intended contexts of use.
+
+# Data and code availability
+
+DisMech is publicly available at <https://dismech.monarchinitiative.org/>.
+Source code and data are available at
+<https://github.com/monarch-initiative/dismech>. The final manuscript will
+cite a frozen release and persistent archive containing the data, schema,
+analysis code, evaluation set, and generated figures.
+
+# Author contributions
+
+*[TO COMPLETE USING CRediT ROLES]*
+
+# Acknowledgements
+
+We thank the LinkML, OAK, Monarch Initiative, OBO Foundry, HPO, MONDO, MAXO,
+Cell Ontology, Gene Ontology, UBERON, ClinGen, Orphanet, ClinicalTrials.gov,
+MorPhiC, NAMO, and deep-research-provider communities. Funding and contributor
+acknowledgements will be reconciled with the consortium author list.
+
+# Competing interests
+
+*[TO COMPLETE]*
+
+# References
+
+1. Moxon, S.A.T. *et al.* LinkML: an open data modeling framework.
+   *GigaScience* **15**, giaf152 (2026).
+2. [CITE Human Phenotype Ontology]
+3. [CITE Mondo Disease Ontology]
+4. [CITE Gene Ontology]
+5. [CITE Cell Ontology and UBERON]
+6. [CITE ClinGen gene–disease validity]
+7. [CITE Monarch Initiative]
+8. [CITE GA4GH Phenopackets]
+9. [CITE FDA surrogate-endpoint table and regulatory framework]
+10. [CITE Fabry disease mechanism and organ-specific pathology]
+11. [CITE Fabry renal GL-3 surrogate evidence]
+12. [CITE Fabry patient-derived iPSC cardiomyocyte studies]
+13. [CITE MorPhiC]
+14. [CITE NAMO and relevant reporting standards]
+15. [CITE SPIRES and related schema-guided extraction work]
+16. [CITE pathophysiological-reasoning and clinical-AI evaluation literature]

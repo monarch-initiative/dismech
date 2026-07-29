@@ -15,7 +15,8 @@ This review covers the two manuscript drafts recovered from commit
   paper.
 
 The review emphasizes what is missing rather than prose quality. It compares
-the drafts with the current repository, the TMC AI keynote, and the CERSI/FDA
+the drafts with the current repository, the consortium Google Doc titled
+*DisMech manuscript — Data Resource*, the TMC AI keynote, and the CERSI/FDA
 surrogate-endpoint presentation.
 
 ## Overall assessment
@@ -37,6 +38,46 @@ several descriptions of enforcement are stronger than the implementation.
 It needs measured failure rates, ablations, throughput and review-burden
 results, and a precise distinction between policy guardrails and technically
 enforced boundaries.
+
+## Comparison with the consortium Google Doc
+
+The Google Doc is the stronger structural base for the content paper. It
+already supplies the consortium author list and a conventional data-resource
+sequence—abstract, introduction, resource description, methods, discussion,
+and submission context. Its current submission context identifies arXiv as
+the immediate target and leaves the journal undecided.
+
+The recovered pathograph draft is the stronger scientific donor. It has the
+clearer thesis about computable causal explanations, mechanistic knowledge
+gaps, pathophysiological reasoning, NAMs, and surrogate endpoints. Neither
+version yet contains the empirical package required for a high-impact
+resource paper. The integrated revision therefore uses the Google Doc's
+resource-paper spine while importing the pathograph thesis and the FDA
+Fabry-disease case.
+
+Relative to the recovered draft, the Google Doc adds or improves:
+
+- Consortium authorship and a recognizable resource-manuscript structure.
+- More concrete descriptions of schema components, interface features, and
+  repository context.
+- A clearer basis for an arXiv data-resource preprint.
+
+Relative to the Google Doc, the recovered draft adds or improves:
+
+- A distinctive scientific object—the pathograph—rather than a general
+  knowledge-base description.
+- Explicit mechanistic hypotheses, gaps, human/model mismatches, and proposed
+  experiments.
+- A falsifiable application claim: pathograph context should improve
+  pathophysiological reasoning.
+- A translational narrative linking disease mechanism, NAM readouts, and
+  surrogate endpoints.
+
+The principal omissions are shared: frozen-release statistics, graph and
+evidence characterization, domain-expert content audit, reasoning evaluation,
+comparative resource analysis, complete citations, generated figures, and a
+fully developed case study. The two texts are therefore complementary, not
+competing drafts.
 
 ## Preliminary current-resource snapshot
 
