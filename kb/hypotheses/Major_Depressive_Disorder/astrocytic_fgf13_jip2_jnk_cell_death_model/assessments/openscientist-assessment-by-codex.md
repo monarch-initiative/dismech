@@ -144,19 +144,22 @@ rodent perturbations. Even that evidence supports a parallel FGF9 model; it does
 not test astrocytic FGF13, JIP2 or JNK. The report should not let the
 MS-oriented experiment carry a composite MDD claim.
 
-### The human literature search missed explicit negative FGF13 context
+### Older human FGF-system context does not establish a negative FGF13 result
 
 The report describes the GSE144136 reanalysis as the only human component.
 That remains the only positive, cell-type-specific human component of the seed
-study. But an earlier primary study of FGF-system transcripts
-([PMID:15483108](https://pubmed.ncbi.nlm.nih.gov/15483108/)) included FGF13 and
-reported no significant MDD difference in either dlPFC or anterior cingulate
-across its microarray cohorts.
+study. An earlier primary study of FGF-system transcripts
+([PMID:15483108](https://pubmed.ncbi.nlm.nih.gov/15483108/)) reported
+dysregulation of several transcripts in frontal cortical tissue but did not
+identify FGF13 among the significant findings in its abstract. The abstract
+says profiles of other detected growth factors and receptors were made
+available; it does not establish that FGF13 was measured or nonsignificant in
+either region.
 
-This does not refute the newer astrocyte-specific association: bulk tissue and
-older arrays can miss a cell-restricted signal. It is nevertheless directly
-relevant qualifying human evidence, and its omission makes the report's
-literature adjudication incomplete.
+The older study is therefore broad human FGF-system context, not direct
+negative FGF13 evidence. It neither supports nor refutes the newer
+astrocyte-specific association, because bulk tissue and older arrays cannot
+adjudicate a cell-restricted signal from the abstract alone.
 
 ### “Search-verified genetic absence” is not earned
 
