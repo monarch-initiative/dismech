@@ -23135,6 +23135,8 @@ window.searchData = [
       "Vomiting",
       "Muscular hypotonia",
       "Tachypnea",
+      "Dyspnea",
+      "Fever",
       "Seizures",
       "Coma",
       "Abnormal basal ganglia morphology",
@@ -23159,6 +23161,8 @@ window.searchData = [
       "HP:0002013",
       "HP:0001252",
       "HP:0002789",
+      "HP:0002094",
+      "HP:0001945",
       "HP:0001250",
       "HP:0001259",
       "HP:0002134",
@@ -23187,15 +23191,16 @@ window.searchData = [
       "Tiglylglycine (TIG)",
       "2-Methylacetoacetate (2MAA)",
       "Tiglylcarnitine (C5:1)",
-      "2-Methyl-3-hydroxybutyrylcarnitine (C5-OH)"
+      "2-Methyl-3-hydroxybutyrylcarnitine (C5-OH)",
+      "3-Hydroxybutyrylcarnitine (C4OH)"
     ],
     "source_file": "Beta-Ketothiolase_Deficiency.yaml",
     "page_url": "../pages/disorders/Beta-Ketothiolase_Deficiency.html",
-    "num_phenotypes": 14,
+    "num_phenotypes": 16,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "42",
+    "causal_graph_edges": "45",
     "causal_graph_longest_path": "7"
   },
   {
@@ -38179,18 +38184,22 @@ window.searchData = [
     "cell_types": [
       "CD4+ T Cell",
       "CD8+ T Cell",
-      "Macrophage"
+      "Macrophage",
+      "Schwann cell"
     ],
     "cell_type_ids": [
       "CL:0000624",
       "CL:0000625",
-      "CL:0000235"
+      "CL:0000235",
+      "CL:0002573"
     ],
     "biological_processes": [
       "Adaptive Immune Response",
       "Complement Activation",
       "Immunoglobulin Production",
-      "Inflammatory Response"
+      "Inflammatory Response",
+      "myelination",
+      "axon ensheathment"
     ],
     "phenotypes": [
       "Progressive Weakness",
@@ -49218,81 +49227,12 @@ window.searchData = [
     ],
     "description": "Diabetes mellitus is a heterogeneous group of disorders characterized by chronic hyperglycemia due to defects in insulin secretion, insulin action, or both.",
     "pathophysiology": [
-      "Autoimmune diabetes genetic susceptibility",
-      "Interferon-driven beta-cell inflammatory priming",
-      "Autoimmune pancreatic beta-cell destruction",
-      "Prediabetic metabolic stress",
-      "Mitochondrial dysfunction and oxidative stress in metabolic tissues",
-      "Early pancreatic beta-cell injury",
-      "Peripheral insulin resistance in insulin-sensitive tissues",
-      "Incretin axis dysfunction",
-      "Pancreatic beta-cell secretory dysfunction",
-      "Increased hepatic glucose output",
-      "Reduced peripheral glucose disposal",
-      "Pancreatogenic endocrine hormone loss (T5DM/fibro-inflammatory overlap)",
-      "Pancreatogenic exocrine pancreatic insufficiency (T5DM/fibro-inflammatory overlap)",
-      "Absolute insulin deficiency",
-      "Increased lipolysis and ketogenesis",
-      "Relative insulin deficiency",
-      "Chronic hyperglycemia",
-      "Hyperglycemia-induced oxidative stress",
-      "Hyperglycemia-driven AGE-RAGE pathway activation",
-      "Endothelial dysfunction",
-      "Vascular inflammation",
-      "Renal microvascular injury",
-      "Retinal microvascular injury",
-      "Neural microvascular injury",
-      "Diabetic renal hemodynamic dysregulation",
-      "Diabetic glomerular injury",
-      "Diabetic tubular injury",
-      "Diabetic renal inflammation",
-      "Diabetic renal fibrosis",
-      "Diabetic kidney disease",
-      "Macrovascular atherosclerotic disease",
-      "Arterial thrombosis and ischemia"
+      "Chronic Hyperglycemia (shared diabetic complication cascade)"
     ],
-    "cell_types": [
-      "type B pancreatic cell",
-      "T cell",
-      "skeletal muscle cell",
-      "adipocyte",
-      "hepatocyte",
-      "enteroendocrine cell",
-      "endothelial cell",
-      "platelet"
-    ],
-    "cell_type_ids": [
-      "CL:0000169",
-      "CL:0000084",
-      "CL:0000188",
-      "CL:0000136",
-      "CL:0000182",
-      "CL:0000164",
-      "CL:0000115",
-      "CL:0000233"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
-      "immune response",
-      "type I interferon signaling pathway",
-      "antigen processing and presentation of peptide antigen via MHC class I",
-      "chemokine production",
-      "T cell mediated cytotoxicity",
-      "response to oxidative stress",
-      "autophagy of mitochondrion",
-      "apoptotic process",
-      "insulin receptor signaling pathway",
-      "cAMP-mediated signaling",
-      "regulation of insulin secretion",
-      "insulin secretion",
-      "gluconeogenesis",
-      "secretion",
-      "digestion",
-      "glucose homeostasis",
-      "inflammatory response",
-      "blood vessel remodeling",
-      "extracellular matrix organization",
-      "blood coagulation",
-      "platelet activation"
+      "glucose homeostasis"
     ],
     "phenotypes": [
       "Hyperglycemia",
@@ -49410,11 +49350,11 @@ window.searchData = [
     "source_file": "Diabetes_Mellitus.yaml",
     "page_url": "../pages/disorders/Diabetes_mellitus.html",
     "num_phenotypes": 18,
-    "num_pathophysiology": 32,
+    "num_pathophysiology": 1,
     "num_genes": 20,
     "num_treatments": 10,
-    "causal_graph_edges": "64",
-    "causal_graph_longest_path": "15"
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Diabetic Retinopathy",
@@ -70693,8 +70633,8 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "OCCASIONAL",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "GAMT pathogenic variants"
@@ -76340,6 +76280,8 @@ window.searchData = [
       "Skin rash",
       "Alopecia",
       "Hyperammonemia",
+      "Diarrhea",
+      "Coma",
       "Lethargy",
       "Muscular hypotonia",
       "Vomiting",
@@ -76370,6 +76312,8 @@ window.searchData = [
       "HP:0000964",
       "HP:0001596",
       "HP:0001987",
+      "HP:0002014",
+      "HP:0001259",
       "HP:0001254",
       "HP:0001252",
       "HP:0002013",
@@ -76382,7 +76326,10 @@ window.searchData = [
       "HP:0001993",
       "HP:0008064"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
     "genes": [
       "HLCS pathogenic variants",
       "HLCS"
@@ -76408,7 +76355,7 @@ window.searchData = [
     ],
     "source_file": "Holocarboxylase_Synthetase_Deficiency.yaml",
     "page_url": "../pages/disorders/Holocarboxylase_Synthetase_Deficiency.html",
-    "num_phenotypes": 17,
+    "num_phenotypes": 19,
     "num_pathophysiology": 12,
     "num_genes": 2,
     "num_treatments": 8,
@@ -97064,7 +97011,8 @@ window.searchData = [
     "subtypes": [],
     "description": "Malnutrition-related diabetes mellitus is a form of diabetes occurring in chronically undernourished individuals, increasingly recognized as a distinct type (type 5 diabetes) seen predominantly in low-resource settings. Its core mechanism is insulin deficiency from impaired pancreatic beta-cell development and function in the setting of early-life and ongoing undernutrition, rather than the autoimmune or insulin-resistant mechanisms of classic type 1 and type 2 diabetes. Affected individuals are typically lean and present with marked hyperglycemia yet relative resistance to ketosis, distinguishing the condition from type 1 diabetes.",
     "pathophysiology": [
-      "Insulin deficiency from beta-cell impairment in undernutrition"
+      "Insulin deficiency from beta-cell impairment in undernutrition",
+      "Chronic hyperglycemia and vascular complication risk"
     ],
     "cell_types": [
       "pancreatic beta cell"
@@ -97073,7 +97021,8 @@ window.searchData = [
       "CL:0000169"
     ],
     "biological_processes": [
-      "insulin secretion"
+      "insulin secretion",
+      "glucose homeostasis"
     ],
     "phenotypes": [
       "Hyperglycemia with ketosis resistance"
@@ -97093,11 +97042,11 @@ window.searchData = [
     "source_file": "Malnutrition-related_Diabetes_Mellitus.yaml",
     "page_url": "../pages/disorders/Malnutrition-Related_Diabetes_Mellitus.html",
     "num_phenotypes": 1,
-    "num_pathophysiology": 1,
+    "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 0,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Mandibulofacial dysostosis with microcephaly",
@@ -110264,13 +110213,13 @@ window.searchData = [
       "CL:0000492"
     ],
     "biological_processes": [
+      "macrophage activation",
       "antigen processing and presentation",
       "T cell activation",
       "cytokine production",
       "cell surface receptor signaling pathway via JAK-STAT",
       "inflammatory response",
       "adaptive immune response",
-      "macrophage activation",
       "granuloma formation"
     ],
     "phenotypes": [
@@ -146294,7 +146243,7 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "HLA-DRB1"
+      "HLA-DQB1"
     ],
     "treatments": [
       "Benzodiazepines",
@@ -153567,6 +153516,7 @@ window.searchData = [
     "disease_id": "MONDO:0005148",
     "category": "Complex",
     "parents": [
+      "Diabetes Mellitus",
       "Metabolic Disease",
       "Endocrine Disease"
     ],
@@ -153579,7 +153529,8 @@ window.searchData = [
       "Beta Cell Dysfunction",
       "Hepatic Glucose Overproduction",
       "Mitochondrial Dysfunction and Oxidative Stress",
-      "Incretin Axis Dysfunction"
+      "Incretin Axis Dysfunction",
+      "Chronic Hyperglycemia"
     ],
     "cell_types": [
       "Hepatocyte",
@@ -153602,7 +153553,8 @@ window.searchData = [
       "Oxidative Stress Response",
       "Mitophagy",
       "cAMP Signaling",
-      "Insulin Secretion Regulation"
+      "Insulin Secretion Regulation",
+      "glucose homeostasis"
     ],
     "phenotypes": [
       "Hyperglycemia",
@@ -153672,10 +153624,10 @@ window.searchData = [
     "source_file": "Type_2_Diabetes_Mellitus.yaml",
     "page_url": "../pages/disorders/Type_2_Diabetes_Mellitus.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "3"
   },
   {
@@ -153840,7 +153792,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 13,
     "num_treatments": 5,
-    "causal_graph_edges": "30",
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "6"
   },
   {
@@ -161931,16 +161883,16 @@ window.searchMetrics = {
   "total_disorder_pages": 1632,
   "total_subtypes": 2534,
   "total_disorders_and_subtypes": 4166,
-  "total_unique_evidence_sources": 24567,
-  "total_unique_publications": 22932,
+  "total_unique_evidence_sources": 24558,
+  "total_unique_publications": 22922,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 223,
   "total_pathographs": 1627,
-  "total_unique_pathological_events": 8026,
-  "total_modules": 116,
+  "total_unique_pathological_events": 7997,
+  "total_modules": 117,
   "total_research_reports": 1862,
   "total_classifications": 9,
   "total_comorbidities": 17,
-  "total_groupings": 47
+  "total_groupings": 48
 };
 window.dispatchEvent(new Event('searchDataReady'));
