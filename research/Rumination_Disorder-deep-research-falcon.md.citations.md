@@ -3,13 +3,13 @@
 **Query:** # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Bulimia Nervosa
+- **Disease Name:** Rumination Disorder
 - **MONDO ID:**  (if available)
 - **Category:** Psychiatric
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Bulimia Nervosa** covering all of the
+Please provide a comprehensive research report on **Rumination Disorder** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -447,30 +447,12 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-07-29T23:19:56.590799
+**Generated:** 2026-07-29T23:19:02.752961
 
-1. barakat2023riskfactorsfor pages 7-8
-2. donnelly2018neuroimaginginbulimia pages 1-2
-3. butler2021theroleof pages 10-12
-4. alharbi2024effectivetreatmentapproaches pages 5-6
-5. wilson2024bulimianervosaand pages 1-2
-6. yu2023efficacyofpharmacotherapies pages 1-2
-7. gkintoni2024clinicalinterventionstrategies pages 30-31
-8. wilson2024bulimianervosaand pages 2-3
-9. suggested/unverified HPO ID
-10. structure/system mapping suggested
-11. suggested/unverified GO term mapping
-12. https://doi.org/10.1186/s40360-023-00713-7
-13. https://doi.org/10.3389/fpsyg.2024.1386347
-14. https://doi.org/10.3390/jcm13144084
-15. https://doi.org/10.7759/cureus.74003
-16. https://doi.org/10.1186/s40337-022-00717-4
-17. https://doi.org/10.1186/s40337-018-0187-1
-18. https://doi.org/10.3390/nu13020500
-19. https://doi.org/10.1186/s40360-023-00713-7,
-20. https://doi.org/10.3389/fpsyg.2024.1386347,
-21. https://doi.org/10.1186/s40337-018-0187-1,
-22. https://doi.org/10.1186/s40337-022-00717-4,
-23. https://doi.org/10.3390/jcm13144084,
-24. https://doi.org/10.7759/cureus.74003,
-25. https://doi.org/10.3390/nu13020500,
+1. gyawali2024updatestothe pages 3-3
+2. arguero2024pathophysiologyofgastrooesophageal pages 9-10
+3. https://doi.org/10.1016/j.cgh.2014.04.018
+4. https://doi.org/10.1038/ajg.2016.197
+5. https://doi.org/10.1038/ajg.2017.441.
+6. https://doi.org/10.1136/gutjnl-2023-330616,
+7. https://doi.org/10.1038/s41575-023-00883-z,

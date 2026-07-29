@@ -2,12 +2,12 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-07-29T23:12:15.149479'
-end_time: '2026-07-29T23:19:56.590799'
-duration_seconds: 461.44
+start_time: '2026-07-29T23:12:12.502974'
+end_time: '2026-07-29T23:19:02.752961'
+duration_seconds: 410.25
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
-  disease_name: Bulimia Nervosa
+  disease_name: Rumination Disorder
   mondo_id: ''
   category: Psychiatric
 provider_config:
@@ -17,13 +17,13 @@ provider_config:
     allowed_domains: []
     temperature: 0.1
     max_embedded_images: 8
-citation_count: 25
+citation_count: 7
 artifact_count: 1
 artifact_sources:
   edison_answer_artifacts: 1
 artifacts:
 - filename: artifact-00.md
-  path: Bulimia_Nervosa-deep-research-falcon_artifacts/artifact-00.md
+  path: Rumination_Disorder-deep-research-falcon_artifacts/artifact-00.md
   media_type: text/markdown
   source: edison_answer_artifacts
   data_storage_id: null
@@ -35,13 +35,13 @@ artifacts:
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Bulimia Nervosa
+- **Disease Name:** Rumination Disorder
 - **MONDO ID:**  (if available)
 - **Category:** Psychiatric
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Bulimia Nervosa** covering all of the
+Please provide a comprehensive research report on **Rumination Disorder** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -496,13 +496,13 @@ Always prioritize recent, authoritative sources and provide specific citations f
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Bulimia Nervosa
+- **Disease Name:** Rumination Disorder
 - **MONDO ID:**  (if available)
 - **Category:** Psychiatric
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Bulimia Nervosa** covering all of the
+Please provide a comprehensive research report on **Rumination Disorder** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -940,253 +940,253 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Bulimia Nervosa: Disease Characteristics Research Report
+# Rumination Disorder (Rumination Syndrome): Disease-Characteristics Report
 
-## Executive summary
+## Scope and evidence note
 
-Bulimia nervosa (BN) is a psychiatric eating disorder defined by recurrent, objectively large binge-eating episodes with loss of control, recurrent inappropriate compensatory behavior, and excessive influence of weight or shape on self-evaluation. Under DSM-5-style criteria, binge eating and compensation occur at least weekly for 3 months and do not occur exclusively during anorexia nervosa. BN is usually episodic or relapsing, often begins in adolescence, and can occur at any body mass index; consequently, visual recognition is unreliable. Current understanding is that BN is multifactorial and polygenic rather than a single-gene disorder. Psychological vulnerability, sociocultural pressures, trauma, dieting, and altered reward/inhibitory-control circuitry interact to produce and perpetuate binge–purge cycles. (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2, barakat2023riskfactorsfor pages 7-8)
+This report concerns **rumination disorder/rumination syndrome**, not depressive or anxiety-related cognitive rumination. The condition crosses classification systems: psychiatry describes *rumination disorder* as a feeding/eating disorder, whereas gastroenterology commonly describes *rumination syndrome* as a disorder of gut–brain interaction. The strongest retrieved evidence comprised 2024 expert reviews/consensus statements, primary interventional studies and ClinicalTrials.gov records. Several important 2023–2024 epidemiologic and pediatric articles were indexed but their full text was unavailable to the retrieval system; consequently, unsupported prevalence or outcome estimates are not supplied.
 
-The strongest evidence-based treatment for adults is eating-disorder-focused cognitive behavioral therapy, commonly CBT-E. Family-based treatment is particularly important for adolescents. Fluoxetine is the best-established medication and is generally adjunctive rather than a replacement for psychotherapy. Medical monitoring is essential because vomiting, laxative or diuretic misuse, fasting, and excessive exercise may produce electrolyte, cardiac, gastrointestinal, dental, and endocrine complications. (yu2023efficacyofpharmacotherapies pages 1-2, gkintoni2024clinicalinterventionstrategies pages 30-31, alharbi2024effectivetreatmentapproaches pages 5-6)
+| Domain | Curated finding | Ontology/identifier suggestions | Evidence strength/gap |
+|---|---|---|---|
+| Definition and nomenclature | Rumination disorder/syndrome is a disorder of gut-brain interaction / feeding-related disorder characterized by recurrent, effortless regurgitation of recently ingested food, typically soon after meals, due to a learned behavioral pattern rather than primary acid reflux or structural disease; literature uses both **rumination disorder** and **rumination syndrome**. It can be mistaken for PPI-refractory GERD and should be distinguished from vomiting, GERD, and supragastric belching (gyawali2024updatestothe pages 3-3, arguero2024pathophysiologyofgastrooesophageal pages 9-10). | Suggested mappings requiring validation: MONDO term for rumination disorder/syndrome; MeSH/ICD-11/DSM-5 terminology alignment; related ontology concepts: disorder of gut-brain interaction, feeding and eating disorder | Moderate-strong clinical/guideline evidence; identifier harmonization remains a curation task |
+| Key phenotype | Core phenotype is **postprandial repetitive regurgitation** of recently ingested food, usually effortless and not preceded by retching; episodes are often triggered by habitual abdominal wall contraction and may lessen when contents become acidic (NCT03113682 chunk 1, NCT03062696 chunk 1, gyawali2024updatestothe pages 3-3). | Suggested mappings requiring validation: HPO terms for regurgitation, postprandial symptom exacerbation, nausea/fullness/epigastric discomfort where present | Strong for core symptom; phenotype frequency/severity distributions remain incompletely standardized across cohorts |
+| Mechanism / pathophysiology | Current understanding supports a **behavioral-somatic mechanism**: food ingestion is followed by unintentional abdomino-thoracic/abdominal wall contraction with relaxation of esophageal sphincter mechanisms, producing retrograde flow of gastric contents. Breathing-based therapies likely work by interrupting this motor pattern; vagal modulation is under investigation (NCT03912636 chunk 2, NCT02214472 chunk 1, NCT02402946 chunk 1, NCT03113682 chunk 1, NCT03062696 chunk 1). | Suggested mappings requiring validation: GO terms related to motor behavior, muscle contraction, autonomic regulation; CL terms for skeletal muscle cell, enteric neuron, vagal-related autonomic neuron | Moderate mechanistic evidence from physiology and interventional studies; molecular pathway detail is limited |
+| Anatomy | Primary affected structures are the **stomach**, **esophagus**, **lower esophageal sphincter region**, **diaphragm**, and **abdominal wall musculature**; the syndrome reflects abnormal coordination across upper GI and respiratory/abdominal motor systems rather than a focal tissue lesion (NCT02214472 chunk 1, NCT02402946 chunk 1, NCT03113396 chunk 1). | Suggested mappings requiring validation: UBERON terms for stomach, esophagus, diaphragm, abdominal wall musculature, lower esophageal sphincter | Moderate evidence from manometric/physiologic studies; no specific histopathologic lesion established |
+| Epidemiology | Population burden is recognized globally, but precise prevalence varies by diagnostic framework and ascertainment; recent reviews/meta-analytic work exist but exact pooled estimates were not available in the retrieved evidence set here. Rumination is likely under-recognized and misdiagnosed as reflux-related disease (gyawali2024updatestothe pages 3-3, arguero2024pathophysiologyofgastrooesophageal pages 9-10). | Suggested mappings requiring validation: epidemiology annotation for global distribution, pediatric and adult onset | Evidence gap in this artifact: recent prevalence estimates should be added from primary epidemiology/meta-analysis sources before KB finalization |
+| Diagnosis | Diagnosis is primarily **clinical**, supported when needed by **high-resolution impedance manometry** and/or **ambulatory pH-impedance monitoring** to distinguish rumination from GERD and belching disorders. Diagnostic workup should exclude relevant organic disease but avoid excessive low-yield testing (NCT03912636 chunk 2, NCT02214472 chunk 1, gyawali2024updatestothe pages 3-3, arguero2024pathophysiologyofgastrooesophageal pages 9-10). | Suggested mappings requiring validation: diagnostic procedure terms for clinical assessment, high-resolution impedance manometry, ambulatory pH-impedance monitoring | Strong expert-consensus and trial-supportive evidence |
+| First-line treatment | **Behavioral therapy** is first-line, especially **diaphragmatic breathing** and structured **cognitive-behavioral therapy for rumination disorder/syndrome (CBT-RD/CBT-RS)** targeting habit reversal and competing responses to abdominal wall contraction (NCT03912636 chunk 2, NCT03113682 chunk 1, NCT03062696 chunk 1, gyawali2024updatestothe pages 3-3, arguero2024pathophysiologyofgastrooesophageal pages 9-10). | Suggested mappings requiring validation: MAXO terms for behavioral therapy, diaphragmatic breathing training, cognitive behavioral therapy, habit reversal | Strongest current treatment evidence; supported by physiologic rationale and interventional studies |
+| Adjunct treatment | **Biofeedback** (including EMG-guided biofeedback) has randomized trial support as a nonpharmacologic adjunct. **Baclofen** has been studied in placebo-controlled crossover trials and pediatric investigation as an adjunct when behavioral therapy is insufficient or unavailable (NCT02214472 chunk 1, NCT02402946 chunk 1, NCT03113396 chunk 1). | Suggested mappings requiring validation: MAXO terms for biofeedback, electromyographic biofeedback, baclofen therapy | Moderate evidence; smaller studies/trials, and long-term comparative effectiveness remains limited |
+| Genetics / omics | **No monogenic causal gene, pathogenic variant, chromosomal abnormality, validated susceptibility locus, molecular biomarker, transcriptomic signature, proteomic signature, metabolomic signature, or epigenetic marker is established for rumination disorder/syndrome.** No validated germline or somatic genetic testing approach is currently indicated (NCT03113682 chunk 1, NCT03062696 chunk 1, gyawali2024updatestothe pages 3-3, arguero2024pathophysiologyofgastrooesophageal pages 9-10). | Suggested mappings requiring validation: “no established gene-disease association”; “no validated biomarker” annotations | Major evidence gap / likely non-applicable at present |
+| Prognosis | Prognosis is generally tied to **recognition and response to behavioral treatment**; chronic symptoms, diagnostic delay, nutritional compromise, psychosocial burden, and reduced quality of life can occur, but disease-specific mortality is not established in available evidence here. Misdiagnosis may prolong morbidity (NCT03113682 chunk 1, NCT03062696 chunk 1, gyawali2024updatestothe pages 3-3, arguero2024pathophysiologyofgastrooesophageal pages 9-10). | Suggested mappings requiring validation: annotations for chronic/relapsing course, quality-of-life impact, nutritional complications | Moderate evidence for morbidity; quantitative long-term natural history remains limited in this evidence set |
+| Prevention | There is **no established primary prevention** based on genetics, infection, toxin, or environmental exposure. Practical prevention focuses on **early recognition**, avoidance of unnecessary reflux escalation/surgery, patient education, and prompt access to behavioral therapy to reduce chronicity and complications (gyawali2024updatestothe pages 3-3, arguero2024pathophysiologyofgastrooesophageal pages 9-10). | Suggested mappings requiring validation: secondary prevention via early diagnosis; tertiary prevention via behavioral management and nutritional support | Moderate expert-opinion evidence; no formal public-health prevention program established |
+| Environmental / infectious / toxic causes | **No infectious agent, toxin, radiation exposure, pollutant, or occupational exposure has been established as a primary cause.** The disorder is best understood as a learned behavioral/physiologic pattern within gut-brain interaction frameworks (gyawali2024updatestothe pages 3-3, arguero2024pathophysiologyofgastrooesophageal pages 9-10). | Suggested mappings requiring validation: “no established infectious etiology”; “no established toxic etiology” | Evidence gap / negative finding based on current understanding |
+| Animal models / other species | **No validated animal model or naturally occurring nonhuman disease model is established for rumination disorder/syndrome**, consistent with the disorder’s human behavioral-physiologic phenotype and reliance on symptom report/manometry-based characterization (NCT03113682 chunk 1, NCT03062696 chunk 1, gyawali2024updatestothe pages 3-3, arguero2024pathophysiologyofgastrooesophageal pages 9-10). | Suggested mappings requiring validation: “no validated model organism” annotation | Major evidence gap / likely non-applicable at present |
+
+
+*Table: This table summarizes core knowledge-base findings for rumination disorder/syndrome across definition, mechanism, diagnosis, treatment, and evidence gaps. It is designed for rapid curation and explicitly flags domains where no validated genetic, biomarker, infectious, toxic, or animal-model evidence is established.*
 
 ## 1. Disease information
 
-### Definition and identifiers
+### Definition and terminology
 
-* **Preferred name:** Bulimia nervosa.
-* **Abbreviation/synonym:** BN; historically “bulimia.” “Binge–purge eating disorder” is descriptive but is not the preferred controlled label.
-* **Category:** Feeding or eating disorder; psychiatric disease.
-* **MONDO:** **MONDO:0005452**, confirmed by the Open Targets disease record. No associated molecular targets were returned, consistent with the absence of a validated single causal target. (OpenTargets Search: bulimia nervosa)
-* **ICD-10-CM:** **F50.2**, bulimia nervosa.
-* **ICD-11:** **6B81**, bulimia nervosa.
-* **MeSH:** *Bulimia Nervosa*.
-* **OMIM/Orphanet:** No appropriate Mendelian OMIM phenotype or rare-disease Orphanet entry is established for ordinary BN; assigning one would incorrectly imply monogenic or rare-disease causation.
+Rumination disorder is characterized by recurrent, usually effortless regurgitation of recently ingested food during or soon after eating, followed by rechewing, reswallowing, or expulsion. Episodes commonly occur several times per week and often daily. The regurgitation is generated by a learned or subconscious abdominothoracic motor behavior, not by intentional self-induced vomiting, primary structural disease, or ordinary gastroesophageal reflux. A trial protocol states directly: **“Rumination disorder (RD; also known as ‘rumination syndrome’) is a disordered eating behavior characterized by the repeated regurgitation of food during or soon after eating.”** (NCT03113682 chunk 1)
 
-These are aggregated disease-level definitions. They are not individual-patient EHR observations, although ICD/SNOMED labels can be instantiated in EHRs.
+Synonyms include **rumination syndrome**, **rumination disorder**, **merycism**, and, historically, **psychogenic rumination**. “Infant rumination syndrome” is a pediatric Rome category, but childhood, adolescent, and adult presentations also occur. The term must not be conflated with repetitive negative thinking in mood disorders.
 
-### Diagnostic concept
+### Identifiers
 
-A binge includes unusually large food consumption in a discrete interval and subjective loss of control. Compensation can include self-induced vomiting, laxative or diuretic misuse, fasting, or excessive exercise. Weight/shape overvaluation is required, and BN is differentiated from binge-eating disorder by recurrent compensation and from anorexia nervosa binge–purge type by the absence of persistently significantly low weight meeting AN criteria. (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3)
+* **MeSH:** Rumination Syndrome, **D000079562**. MeSH places it under gastrointestinal/digestive disease and feeding-and-eating/mental-disorder hierarchies. (NCT03912636 chunk 2)
+* **DSM-5/DSM-5-TR:** Rumination disorder, feeding and eating disorders chapter; commonly coded **307.53 / ICD-10-CM F98.21**.
+* **ICD-10-CM:** **F98.21**, Rumination disorder of infancy; this label is narrower than contemporary all-age usage. In some clinical coding contexts, symptom or functional-GI codes may be used.
+* **ICD-11:** Classified among feeding or eating disorders; the exact browser code should be verified against the jurisdiction-specific current ICD-11 release before ingestion.
+* **Rome IV:** Rumination syndrome is included among functional nausea and vomiting disorders/disorders of gut–brain interaction.
+* **MONDO:** A dedicated current MONDO identifier could not be verified from the retrieved source set; do not assign one without direct MONDO validation.
+* **OMIM/Orphanet:** No established Mendelian disease entry or orphan-disease entity was identified.
 
-## 2. Etiology
+The evidence summarized here is **aggregated disease-level evidence** from consensus papers, reviews, trials, and registries—not individual EHR-derived patient data.
 
-### Causal and risk factors
+## 2. Etiology, risk factors, and protective factors
 
-BN has no single sufficient cause. Evidence supports interacting genetic susceptibility, developmental and psychiatric vulnerability, environmental exposure, and learned behavioral reinforcement. A 2023 rapid review grouped eating-disorder risks into genetics; microbiota/autoimmune factors; childhood exposures; personality and psychiatric comorbidity; sex/gender; socioeconomic and minority-related factors; body image/social influence; and elite sport. It emphasized that association does not necessarily establish causality. (barakat2023riskfactorsfor pages 7-8)
+### Causal model
 
-**Genetic susceptibility.** Family/twin literature supports moderate heritability, but the retrieved evidence does not justify a precise BN-specific estimate. Candidate associations have been reported in dopamine- and serotonin-related neuroendocrine receptors, glucocorticoid-pathway genes, and the serotonin-transporter-linked polymorphic region, 5-HTTLPR. These are susceptibility findings—not ACMG-pathogenic variants—and are not suitable for clinical prediction. Binge-type eating disorders show genetic overlap with ADHD, while BN also shares genomic liability with overweight/obesity. (barakat2023riskfactorsfor pages 7-8)
+No single cause is established. Current understanding favors an **acquired, conditioned behavioral–physiologic pattern**. Meal-related discomfort, stress, prior gastrointestinal illness or vomiting, and heightened attention to digestive sensations may initiate the behavior in some patients, after which negative reinforcement—temporary relief of pressure or discomfort—may maintain it. These are proposed triggers or perpetuating factors, not necessary causes.
 
-**Environmental/developmental risks.** Childhood maltreatment or trauma, body dissatisfaction, internalization of thin/appearance ideals, appearance-focused social media, dieting or restraint, weight stigma, mood/anxiety symptoms, impulsivity, and family/social stress are associated risks. Autoimmune or autoinflammatory disease in childhood was associated with a reported **73% increase in BN risk**, although confounding and mechanisms remain uncertain. (butler2021theroleof pages 10-12, barakat2023riskfactorsfor pages 7-8)
+Psychiatric and feeding/eating comorbidities may coexist, but the disorder is not simply intentional behavior or proof of a primary psychiatric cause. GERD and other gastrointestinal disorders can also coexist and may provide an initial regurgitation sensation that becomes conditioned.
 
-**Gene–environment interaction.** Reported examples include maltreatment interacting with glucocorticoid-receptor pathway polymorphisms or 5-HTTLPR. Lower cortisol following maltreatment has been reported in BN relative to controls, suggesting stress-axis calibration may mediate vulnerability. These findings remain observational and are not actionable biomarkers. (barakat2023riskfactorsfor pages 7-8)
+### Genetic and environmental factors
 
-### Protective factors
+No causal gene, pathogenic variant, susceptibility locus, inheritance pattern, penetrance estimate, founder effect, carrier frequency, or validated gene–environment interaction has been established. Therefore, ClinVar variant classification, gnomAD allele frequency, germline/somatic origin, and genetic counseling for a rumination-specific mutation are **not applicable at present**.
 
-No reproducible protective allele is established. Plausible environmental protection includes positive body image, reduced appearance-based social comparison, media literacy, supportive family/peer relationships, flexible eating, avoidance of restrictive dieting, early recognition, and rapid access to evidence-based care. These should be treated as prevention targets rather than proven disease-specific protective mechanisms.
+No toxin, radiation exposure, pollution source, occupational exposure, infectious organism, smoking pattern, alcohol exposure, or dietary constituent is established as a specific cause. Likewise, no genetic protective allele is known. The best-supported practical protective factors are behavioral: early recognition, correct diagnosis, education, and acquisition of a competing postprandial breathing response.
 
 ## 3. Phenotypes
 
-### Core behavioral and psychiatric phenotypes
+### Core and associated manifestations
 
-* Recurrent binge eating with loss of control—episodic and variable in frequency.
-* Self-induced vomiting or other compensation: laxatives/diuretics, fasting, or driven exercise.
-* Overvaluation of body weight/shape, body dissatisfaction, dietary restraint, shame, secrecy, and impaired emotion regulation.
-* Depression, anxiety, self-harm, suicidality, and substance-use symptoms are important comorbid phenotypes. Review estimates include mood disorders in **43%**, anxiety disorders in **53%**, and lifetime mood disorder in **80–90%**, but estimates vary substantially by sample and definition. (yu2023efficacyofpharmacotherapies pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2)
+* **Effortless postprandial regurgitation:** the defining symptom; recently ingested, initially recognizable/non-acidic food returns to the mouth. It often starts during or soon after a meal and may recur until gastric contents become acidic. Lyon Consensus 2.0 characterizes rumination as a subconscious learned postprandial behavior and notes that it may cease as the regurgitate becomes acidic. (gyawali2024updatestothe pages 3-3)
+* **Rechewing, reswallowing, or spitting out:** follows regurgitation and is part of the defining behavioral phenotype. (NCT03912636 chunk 1, NCT02214472 chunk 1)
+* **Absent nausea or retching in typical episodes:** helps distinguish rumination from vomiting, although nausea, fullness, or epigastric discomfort can coexist. The vagal-tone study measured nausea, fullness, and epigastric discomfort on 0–5 scales, total 0–15, demonstrating their relevance as associated rather than defining symptoms. (NCT03912636 chunk 2)
+* **Observable abdominal-wall contraction or “premonitory urge”:** may precede regurgitation; patients may initially be unaware of the contraction.
+* **Nutritional/physical consequences:** reduced intake, avoidance of meals, weight loss or poor growth, malnutrition, dehydration, dental erosion, halitosis, and esophageal irritation can occur in severe or prolonged disease. No reliable per-phenotype frequencies were available in the retrieved evidence.
+* **Behavioral and psychosocial effects:** embarrassment, school/work disruption, avoidance of eating socially, anxiety around meals, and caregiver burden can substantially impair quality of life.
 
-### Physical signs, manifestations, and laboratory abnormalities
+### Onset, severity, and course
 
-Vomiting may cause dental enamel erosion, caries, pharyngeal trauma, salivary-gland enlargement, reflux or other gastrointestinal symptoms, dehydration, and electrolyte/acid–base abnormalities. Severe electrolyte disturbance can precipitate weakness, syncope, QT abnormalities, or arrhythmia. Menstrual irregularity can occur, although it is less diagnostically central than in restrictive disorders. Normal or high weight does not exclude serious medical instability. (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3, alharbi2024effectivetreatmentapproaches pages 5-6)
+Onset can occur in infancy, childhood, adolescence, or adulthood. Severity ranges from occasional episodes without nutritional compromise to daily, meal-associated regurgitation causing weight loss and hospitalization. The course may be chronic, fluctuating, or relapse after stress or inconsistent practice of competing responses. It is not intrinsically neurodegenerative or progressive.
 
-Suggested HPO mappings include **Binge eating**, **Self-induced vomiting**, **Abnormality of electrolyte homeostasis**, **Hypokalemia**, **Dehydration**, **Cardiac arrhythmia**, **Dental erosion**, **Salivary-gland enlargement**, **Menstrual irregularity**, **Anxiety**, and **Depressive symptom**. Exact term IDs should be validated against the current HPO release before ingestion.
+### Suggested HPO mappings
 
-### Severity, progression, and quality of life
-
-DSM severity is based on weekly compensatory-event frequency: mild 1–3, moderate 4–7, severe 8–13, and extreme ≥14, with clinical judgment allowing adjustment for disability. Course is commonly fluctuating or relapsing. Individual phenotypes impair school/work attendance, relationships, finances, concentration, self-esteem, and social eating. The evidence base uses inconsistent remission and recovery definitions, limiting precise cross-study estimates.
+Suggested mappings, requiring validation against the current HPO release, include **Regurgitation**, **Postprandial symptom exacerbation**, **Feeding difficulties**, **Weight loss**, **Failure to thrive**, **Malnutrition**, **Nausea**, **Abdominal discomfort**, **Dental erosion**, and **Dehydration**. HPO does not fully represent learned behavioral timing and should be supplemented with DSM/Rome annotations and phenotype qualifiers.
 
 ## 4. Genetic and molecular information
 
-BN should be annotated as **multifactorial/polygenic**, not Mendelian. There are no established causal genes, pathogenic germline variants, recurrent chromosomal abnormalities, founder mutations, carrier frequencies, penetrance estimates, anticipation, or germline mosaicism relevant to routine BN. Correspondingly, Open Targets returned **zero disease–target associations** for MONDO:0005452. (OpenTargets Search: bulimia nervosa)
+No rumination-specific causal gene, HGNC association, pathogenic variant, modifier gene, chromosomal abnormality, epigenetic signature, protein dysfunction, or molecular diagnostic biomarker is established. WES, WGS, gene panels, single-gene testing, CMA, karyotyping, FISH, mitochondrial testing, and repeat-expansion testing have **no routine diagnostic role** unless another syndromic diagnosis is suspected.
 
-Reported candidate loci in serotonergic, dopaminergic, and glucocorticoid signaling are association-level observations. They should not be labeled pathogenic or likely pathogenic under ACMG/AMP criteria. No validated modifier gene or clinically useful pharmacogenomic marker exists for selecting CBT or fluoxetine specifically in BN. (barakat2023riskfactorsfor pages 7-8)
-
-Epigenetic evidence specific to BN is sparse and confounded by trauma, diet, medication, smoking, adiposity, and illness state. No methylation signature is validated diagnostically. WGS, WES, gene panels, CMA, karyotyping, FISH, mitochondrial sequencing, and repeat-expansion testing are therefore **not indicated for uncomplicated BN**; they are reserved for syndromic presentations suggesting another disorder.
+No validated disease-specific transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, multi-omic, CRISPR-screen, or RNAi-screen result was identified. Assertions that particular molecular pathways cause the disorder would currently be speculative.
 
 ## 5. Environmental information
 
-There is no infectious cause and no evidence supporting vaccination, antimicrobial treatment, or zoonotic control. No toxin, radiation, or occupational exposure is established as a specific cause. Relevant exposures are predominantly psychosocial and behavioral: restrictive dieting, weight cycling, appearance pressure, social-media comparison, bullying/weight stigma, trauma, elite sports emphasizing leanness, and family or peer reinforcement. Alcohol, nicotine, stimulant, or other substance use may coexist and can increase medical and behavioral risk. (barakat2023riskfactorsfor pages 7-8)
+The relevant “environment” is primarily the meal and behavioral context rather than a toxic exposure. Potential precipitating contexts reported clinically include gastrointestinal illness, vomiting, reflux sensations, surgery, psychosocial stress, and meal-associated discomfort. These associations do not establish causality. No infectious agent is implicated, and the condition is neither communicable nor zoonotic.
 
 ## 6. Mechanism and pathophysiology
 
-### Integrated causal model
+### Causal chain
 
-A defensible causal chain is: polygenic/developmental vulnerability plus appearance, trauma, or dieting exposures → negative affect, restraint, altered interoception and reward valuation → food restriction and heightened cue salience → loss-of-control binge → acute distress and fear of weight gain → purging/fasting/exercise, which provides short-term negative reinforcement → renewed restriction and repeated cycles. Recurrent purging then produces downstream electrolyte, dental, salivary, gastrointestinal, and cardiovascular injury.
+The best-supported chain is:
 
-### Neural circuitry and signaling
+1. **Meal ingestion or postprandial discomfort** provides an internal cue.
+2. An initially voluntary or inadvertent behavior becomes a **learned, largely subconscious abdominal-wall/abdominothoracic contraction**.
+3. This raises intragastric pressure while gastroesophageal junction resistance falls or the lower esophageal sphincter relaxes.
+4. Gastric contents move retrogradely through the esophagus into the mouth.
+5. Rechewing, reswallowing, expulsion, or relief of discomfort reinforces the motor habit.
+6. Repeated exposure produces nutritional, mucosal, dental, and psychosocial downstream morbidity.
 
-Human neuroimaging studies report reduced activity in frontostriatal control circuits and abnormal responses in the insula, amygdala, middle frontal gyrus, orbitofrontal cortex, and anterior cingulate cortex. These findings support impaired inhibitory control, altered reward sensitivity, food-cue attentional bias, and emotion/interoceptive dysregulation. Greater binge/bulimic frequency correlates with more pronounced neural alteration. However, a systematic review found substantial methodological heterogeneity and small samples, so no imaging pattern is diagnostic or demonstrably causal. (donnelly2018neuroimaginginbulimia pages 1-2)
+The primary biofeedback trial describes rumination as **“an unperceived, somatic response to food ingestion”** and targets abnormal abdominothoracic muscular activity. (NCT02214472 chunk 1) CBT-RD similarly treats the habitual abdominal-wall contraction by habit reversal, using diaphragmatic breathing as a competing response. (NCT03113682 chunk 1, NCT03062696 chunk 1)
 
-Suggested processes include GO concepts related to **regulation of feeding behavior**, **dopamine receptor signaling**, **serotonin receptor signaling**, **response to stress**, **reward learning**, and **behavioral response inhibition**. Relevant cells include excitatory and inhibitory neurons, dopaminergic neurons, serotonergic neurons, and peripheral T lymphocytes; current evidence does not support a BN-specific cellular lesion.
+### Upstream versus downstream mechanisms
 
-### Gut–brain, metabolic, and immune findings
+Upstream components include meal-related sensation, learned cueing, visceral vigilance, and abdominal-wall activation. The motor event—increased abdominal/intragastric pressure coordinated with reduced sphincter resistance—is proximal to retrograde flow. Regurgitation, mucosal exposure, nutritional compromise, dental injury, and psychosocial avoidance are downstream.
 
-Microbiome/metabolite differences have been reported across eating disorders and binge–purge versus restricting patterns, but small, mixed-diagnosis samples and diet/adiposity confounding prevent a BN-specific signature. These findings are hypothesis-generating, not grounds for probiotics or fecal transplantation as standard treatment.
+Autonomic regulation is under study rather than established. NCT03912636 compared cardiac vagal tone derived from ECG R–R intervals in patients and healthy volunteers and tested diaphragmatic versus slow deep breathing. Its stated hypothesis was that breathing might improve rumination by altering nervous control of the stomach; this is mechanistic investigation, not proof that vagal dysfunction is causal. (NCT03912636 chunk 1, NCT03912636 chunk 2)
 
-BN does **not** show a consistent systemic inflammatory-cytokine phenotype: meta-analysis found no reliable IL-6 or TNF-α difference; PBMC production of IFN-γ, IL-1β, IL-6, and TNF-α was also not consistently altered. A cohort of 76 obese BN patients showed higher IL-1β, IL-6, and TNF-α, plausibly attributable to adiposity. Lower CD4/CD8 ratios and reduced CD2, CD3, CD4, CD8, and CD57 have been reported, but confounding and replication limitations preclude an immune biomarker. (butler2021theroleof pages 10-12)
+There is no established immune, inflammatory, apoptotic, autophagic, fibrotic, oxidative-stress, enzyme-deficiency, receptor-mutation, ion-channel, or metabolic-pathway mechanism.
 
-No validated transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, CRISPR-screen, or multi-omic diagnostic signature exists for BN.
+### Ontology suggestions
+
+Suggested biological-process mappings include **skeletal muscle contraction**, **regulation of digestive-system process**, **autonomic nervous system process**, **esophageal motility**, and **behavioral response to food**; current GO identifiers should be checked before ingestion. Suggested Cell Ontology concepts are **skeletal muscle cell**, **smooth muscle cell**, **enteric neuron**, **sensory neuron**, and **autonomic neuron**. These are participating cell types, not proven primary cellular lesions.
 
 ## 7. Anatomical structures affected
 
-The primary functional system is the central nervous system, especially frontostriatal, salience, reward, and emotion-regulation networks. Secondary injury involves teeth/enamel, oral mucosa and pharynx, salivary glands, esophagus and gastrointestinal tract, kidneys through volume/electrolyte disturbance, heart through electrolyte-mediated conduction abnormalities, and reproductive/endocrine systems. (wilson2024bulimianervosaand pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2, alharbi2024effectivetreatmentapproaches pages 5-6)
+The functional circuit involves the **stomach, gastroesophageal junction/lower esophageal sphincter region, esophagus, diaphragm, intercostal musculature, and abdominal-wall muscles**. Secondary injury may affect esophageal and oral/dental tissues. There is no consistent focal histopathologic lesion, lateralization, or disease-specific subcellular compartment.
 
-Suggested UBERON annotations are brain, cerebral cortex, insula, amygdala, orbitofrontal cortex, anterior cingulate cortex, striatum, tooth enamel, salivary gland, pharynx, esophagus, stomach, kidney, and heart. Lateralization is not a defining feature. Subcellular pathology is not established; synaptic and receptor signaling are implicated functionally rather than through a known organelle defect.
+Suggested UBERON mappings include **stomach**, **esophagus**, **gastroesophageal junction**, **diaphragm**, **abdominal wall**, and **oral cavity**. Relevant tissue classes are skeletal muscle, gastrointestinal smooth muscle, enteric nervous tissue, and esophageal epithelium. Exact UBERON identifiers should be release-validated.
 
 ## 8. Temporal development
 
-Onset is typically adolescent to young-adult and often insidious, beginning with dieting, shape concern, or episodic bingeing. One review reported average onset at **16–17 years**, whereas a 2024 disparities review cited median onset at **12.4 years**; the discrepancy reflects different samples and ascertainment and should not be collapsed into one value. (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2)
+Episodes typically begin during or shortly after meals and may repeat for up to one or more postprandial hours. The disorder may begin at any age and can be insidious after an initiating illness or stressor. No universally accepted early/intermediate/advanced staging system exists.
 
-The disease is episodic or relapsing-remitting and can become chronic. Diagnostic crossover with anorexia nervosa or other specified eating disorders occurs. Early treatment is a key opportunity because repeated cycles become behaviorally reinforced and medical complications accumulate. Remission may be spontaneous or treatment-induced, but relapse prevention and follow-up remain necessary.
+Without recognition, the learned behavior may persist for months or years. Remission can occur with effective behavioral retraining; relapse may occur when practice stops or triggers recur. Early diagnosis is therefore a clinically important intervention window, but a precise “critical period” has not been defined.
 
 ## 9. Inheritance and population
 
-Lifetime prevalence estimates vary by diagnostic threshold and survey. Recent reviews cite approximately **0.9–3% overall**, **1.5–3% in females**, and **0.5% to >1% in males**; 12-month prevalence around **0.4%** has been reported. These values should be represented as ranges rather than a universal estimate. (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2)
+Rumination disorder is not currently considered a Mendelian disease; inheritance, penetrance, anticipation, mosaicism, consanguinity, and carrier status are not applicable. It occurs internationally and in children and adults of all sexes. No robust ethnic or geographic genetic enrichment is established.
 
-Females are diagnosed more often, but BN occurs in males, gender-diverse people, all racial/ethnic groups, and across body sizes and socioeconomic strata. Research samples have often been **80–100% female and 80–100% White**, meaning apparent demographic gradients partly reflect ascertainment and access bias. Older adults, males, and racial minorities remain underrepresented. (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3)
+Recent global epidemiology and a 2024 systematic review/meta-analysis were identified during searching, but exact pooled prevalence values could not be verified from accessible full text. The defensible conclusion is that prevalence varies materially with case definition, age, clinical versus community ascertainment, and Rome versus DSM criteria. Under-recognition is likely because patients are frequently labeled as having refractory GERD or vomiting. Lyon Consensus 2.0 specifically warns that rumination can masquerade as PPI-refractory GERD. (gyawali2024updatestothe pages 3-3)
 
-Inheritance is polygenic/multifactorial with incomplete, probabilistic expression. Mendelian penetrance, carrier frequency, consanguinity, anticipation, founder effects, and geographic variant distributions are not applicable.
+Disease-specific incidence per 100,000 person-years, a stable sex ratio, and age-stratified population rates remain insufficiently established in the retrieved evidence.
 
 ## 10. Diagnostics
 
-### Clinical assessment
+### Clinical criteria
 
-Diagnosis is made by confidential clinical interview using DSM-5-TR or ICD-11 criteria. Assessment should characterize objective and subjective binges, loss of control, each compensatory method, weekly frequency/duration, shape/weight overvaluation, dietary restraint, exercise, medications/substances, menstrual history, self-harm/suicide risk, and comorbidity. Collateral family information is useful in adolescents.
+Diagnosis is primarily clinical. The key history is recurrent return of recently ingested food during or soon after meals, usually effortless, without preceding retching, with rechewing/reswallowing/spitting. The clinician should determine meal timing, taste/acidity, abdominal contraction or urge, duration, nutritional effect, intent, and relationship to body-image or compensatory behavior.
 
-Screening instruments such as SCOFF can identify possible eating disorders but cannot establish BN. There is no newborn, carrier, prenatal, genomic, or population laboratory screen.
+Rome IV criteria are commonly used in gastroenterology; DSM criteria additionally require that repeated regurgitation not be attributable to a gastrointestinal/medical condition, occur outside anorexia nervosa, bulimia nervosa, binge-eating disorder, or ARFID—or warrant separate attention if comorbid—and cause clinically significant impairment. The Rome IV vagal-tone study required clinical criteria plus confirmation by high-resolution impedance manometry. (NCT03912636 chunk 2)
 
-### Medical evaluation
+### Testing
 
-Physical assessment should include weight trajectory rather than BMI alone, pulse, blood pressure including orthostasis, temperature, hydration, oral/dental and salivary examination, and signs of self-induced vomiting. Depending on severity and purging method, tests commonly include CBC, electrolytes, bicarbonate, renal function, glucose, magnesium, phosphate, liver tests, urinalysis, pregnancy testing when relevant, and ECG. Electrolyte abnormality, dehydration, and arrhythmia are indications for urgent escalation or hospitalization. (alharbi2024effectivetreatmentapproaches pages 5-6)
-
-No blood, imaging, electrophysiological, biopsy, genetic, or omics biomarker confirms BN. MRI/PET/fMRI are research tools, not diagnostic tests. (donnelly2018neuroimaginginbulimia pages 1-2)
+* **High-resolution impedance manometry with a postprandial test meal:** best objective confirmatory test in uncertain cases. It can show abdominal-pressure increases and retrograde bolus movement and distinguish rumination from supragastric belching or reflux.
+* **Ambulatory pH-impedance monitoring:** useful when GERD remains a concern. Lyon Consensus 2.0 recommends reflux monitoring when behavioral mimics are suspected and emphasizes that treatment differs fundamentally. (gyawali2024updatestothe pages 3-3)
+* **Endoscopy, imaging, gastric-emptying studies, or routine laboratories:** not diagnostic; use selectively for alarm features, nutritional consequences, or plausible alternatives.
+* **Questionnaires/interviews:** PARDI assesses diagnosis, frequency, and severity and served as the principal outcome in CBT-RD pilots. (NCT03113682 chunk 1, NCT03062696 chunk 1)
+* **Biomarkers/omics/genetics:** none validated.
 
 ### Differential diagnosis
 
-Important alternatives include binge-eating disorder, anorexia nervosa binge–purge type, purging disorder/OSFED, avoidant-restrictive food intake disorder, mood or bipolar illness with appetite change, substance-induced behavior, gastrointestinal disease, endocrine disease, and neurologic conditions. The decisive distinctions are low-weight AN status, presence/absence of recurrent compensation, objective binge criteria, and weight/shape psychopathology.
+Major alternatives are GERD, gastroparesis, achalasia and other esophageal motility disorders, gastric outlet obstruction, cyclic vomiting syndrome, functional vomiting, supragastric belching, aerophagia, eating disorders involving intentional purging, and structural or neurologic disease. Rumination is tightly meal-linked, usually effortless, and behaviorally generated; vomiting usually involves nausea, autonomic symptoms, and retching. Supragastric belching involves rapid air influx/expulsion rather than gastric food return. Contemporary GERD experts note that rumination and supragastric belching are often misdiagnosed as reflux hypersensitivity and recommend CBT for rumination. (arguero2024pathophysiologyofgastrooesophageal pages 9-10)
+
+There is no population screening, newborn screening, carrier screening, or asymptomatic genetic testing program.
 
 ## 11. Outcome and prognosis
 
-Recovery is possible, including after prolonged illness. One narrative review cited remission approaching **80% with proper treatment**, but this should be interpreted cautiously because outcome definitions and follow-up periods vary. CBT effects are generally moderate, and long-term maintenance is less certain. (wilson2024bulimianervosaand pages 2-3, donnelly2018neuroimaginginbulimia pages 1-2)
+Rumination disorder is generally treatable, especially when recognized and addressed behaviorally. It is not known to reduce life expectancy directly, and disease-specific 5- or 10-year survival statistics are not applicable. Severe untreated disease can nevertheless cause weight loss, poor growth, malnutrition, dehydration, electrolyte disturbance, dental erosion, esophageal irritation, repeated investigations, tube feeding, hospitalization, and substantial educational, occupational, and social disability.
 
-BN carries elevated mortality through suicide and medical complications. A 2024 review cited standardized mortality ratios of approximately **1.5–2.5** and an **eightfold greater suicide-death risk** than the general population. These are population-level estimates, not individual predictions. (wilson2024bulimianervosaand pages 1-2)
-
-Adverse prognostic features include severe/frequent binge–purge behavior, suicidality, substance use, trauma/PTSD, mood/anxiety comorbidity, medical instability, longer untreated duration, and poor treatment access. A striking **85–94%** reportedly delay or never seek treatment, making under-detection a major real-world determinant of outcome. (wilson2024bulimianervosaand pages 1-2)
+Prognosis is influenced by diagnostic delay, nutritional severity, comorbidity, patient recognition of the premonitory motor response, access to trained behavioral clinicians, and adherence to postprandial practice. No validated molecular prognostic biomarker or mortality model exists. Quantitative long-term remission and relapse rates remain limited and heterogeneous.
 
 ## 12. Treatment
 
-### Treatment strategy and current implementation
+### First-line behavioral treatment
 
-Care should be multidisciplinary and least restrictive while medically safe: medical assessment and stabilization → collaborative nutritional rehabilitation and regular eating → evidence-based psychotherapy → adjunct medication where appropriate → relapse prevention and comorbidity treatment. About **5%** of patients were estimated to require inpatient care; dehydration, electrolyte disturbance, arrhythmia, severe self-harm, or psychiatric decompensation are key indications. Partial-hospital programs commonly provide 7–10 hours/day of structured treatment. (alharbi2024effectivetreatmentapproaches pages 5-6)
+Education and **diaphragmatic breathing** are first-line. The patient is taught slow abdominal breathing before or immediately after meals and at the first urge, creating a motor pattern incompatible with forceful abdominal-wall contraction. Repeated coached practice is preferable to merely providing a handout. Lyon Consensus 2.0 states that rumination requires behavioral therapy rather than acid suppression or antireflux surgery. (gyawali2024updatestothe pages 3-3)
 
-**Psychotherapy.** CBT/CBT-E is first-line for adults and targets irregular eating, restraint, binge–purge reinforcement, cognitive distortions, and weight/shape overvaluation. Guided self-help can improve access for less complex cases. Interpersonal therapy is an alternative when CBT is unavailable or unsuitable. DBT-informed approaches may help prominent emotion dysregulation, though they are not generally superior to BN-focused CBT. Suggested MAXO annotations: cognitive behavioral therapy, psychotherapy, nutritional counseling, family therapy, and behavioral intervention. (gkintoni2024clinicalinterventionstrategies pages 30-31, wilson2024bulimianervosaand pages 2-3)
+Suggested MAXO mappings, subject to current-release validation, are **behavioral therapy**, **breathing exercise**, **diaphragmatic breathing**, **cognitive behavioral therapy**, **habit-reversal training**, **biofeedback**, **nutritional assessment**, and **enteral nutritional support** where medically necessary.
 
-**Adolescents.** Family-based treatment for BN is strongly supported. One synthesis reported remission of **39% with FBT versus 20% with CBT and 18% with supportive psychotherapy**. In an RCT of 109 adolescents aged 12–18, abstinence was **39.4% with FBT-BN versus 19.7% with CBT-A** at completion and **44.0% versus 25.4%** at 6 months. (alharbi2024effectivetreatmentapproaches pages 5-6)
+### CBT-RD/CBT-RS
 
-**Pharmacotherapy.** Fluoxetine, an SSRI, has the strongest regulatory and trial evidence for adult BN and is usually used at 60 mg/day when appropriate. It may reduce bingeing, vomiting, and depressive symptoms but should generally complement psychotherapy. A 2023 meta-analysis of 33 studies covering 11 drugs found modest effects versus placebo: binge episodes SMD **−0.40** (95% CI −0.61 to −0.19), vomiting SMD **−0.16** (−0.30 to −0.03), depressive symptoms SMD **−0.32** (−0.51 to −0.13), and weight WMD **−3.05 kg** (−5.97 to −0.13). The evidence included SSRIs, TCAs, MAOIs, topiramate, lithium, and fenfluramine; this does not make all options clinically advisable. (yu2023efficacyofpharmacotherapies pages 1-2)
+Manualized CBT expands breathing training with functional analysis, awareness training, competing responses, exposure to trigger foods/situations, cognitive work, and relapse prevention. The completed MGH pilot enrolled 10 participants aged ≥10 years for 5–8 weekly sessions; PARDI change through three months was the principal outcome. A parallel Drexel record enrolled seven participants. Neither registry record supplied numerical response or adverse-event results, so efficacy percentages should not be inferred. (NCT03113682 chunk 1, NCT03062696 chunk 1)
 
-Bupropion is generally avoided because purging/electrolyte disturbance increases seizure risk. TCAs and MAOIs have greater safety/tolerability burdens. Topiramate has some efficacy but cognitive, metabolic, and teratogenic concerns. No medication is FDA-approved specifically for pediatric BN. No validated genotype-guided therapy, gene/cell/RNA therapy, immunotherapy, or surgery exists. (gkintoni2024clinicalinterventionstrategies pages 30-31)
+### Biofeedback
 
-**Experimental/current trials.** Retrieved ClinicalTrials.gov records illustrate current directions: MDMA-assisted therapy, NCT07542145, phase 1, recruiting, n=40; group therapy, NCT06063278, completed, n=100; eating-related inhibition/valuation, NCT05995496, recruiting, n=150; smartphone aftercare, NCT05728021, n=172; eating-related neurofeedback, NCT05614024, recruiting, n=30; web intervention, NCT04876196, completed, n=152; neurobiology study, NCT04225221, phase 2, completed, n=10; lisdexamfetamine, NCT03397446, phase 2, terminated, n=23; PET-guided serotonergic treatment, NCT02359513, phase 4, completed, n=51; and rTMS, NCT01530906, status uncertain, n=60. These are investigational and do not establish efficacy.
+EMG-guided biofeedback provides real-time feedback on abdominothoracic activity and teaches control after a challenge meal. The randomized participant-masked trial enrolled 24 adults and delivered three sessions in ten days, measuring regurgitations over 28 days. Registry-linked publications report that muscular control reduced regurgitation; the associated primary reports are PMID **24768808** (published January 2015; DOI: https://doi.org/10.1016/j.cgh.2014.04.018) and PMID **27185077** (published July 2016; DOI: https://doi.org/10.1038/ajg.2016.197). (NCT02214472 chunk 1)
 
-### Access and disparities
+A related 24-person trial evaluated a simplified approach not requiring patient-visible EMG guidance. (NCT02402946 chunk 1)
 
-The evidence base underrepresents males, older adults, racial/ethnic minorities, and diverse body sizes. Digital CBT, guided self-help, primary-care screening, and stepped care are real-world attempts to close access gaps, but digital delivery still requires suicide and medical-risk pathways. (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3)
+### Pharmacotherapy
+
+No medication corrects an established molecular defect, and drugs are adjunctive rather than first-line.
+
+**Baclofen**, a GABA-B receptor agonist, can reduce transient lower-esophageal-sphincter relaxations and increase gastroesophageal-junction resistance. A randomized triple-masked crossover Phase 4 study enrolled 20 adults receiving baclofen 10 mg three times daily versus placebo for two weeks; symptoms and postprandial HRIM events were compared. The linked primary publication is PMID **29206813**, published January 2018, DOI: https://doi.org/10.1038/ajg.2017.441. (NCT03113396 chunk 1) Sedation, dizziness, weakness, and nausea limit use; withdrawal after prolonged use should be avoided.
+
+A pediatric triple-masked parallel trial, **NCT05975684**, enrolled 50 children aged 4–18 years. Baclofen 0.5 mg/kg/day up to 15 mg/day in three divided doses was added to usual behavioral care for four weeks; the primary endpoint was the proportion with vomiting no more than weekly. The study is completed, but numerical results were not present in the retrieved registry record. (NCT05975684 chunk 1)
+
+Acid suppression treats coexisting GERD or acid-mediated injury, not the core motor habit. Antiemetics and prokinetics generally do not target the mechanism. Tricyclics or other psychotropics may be used for comorbid disorders but lack a validated rumination-specific pharmacogenomic strategy.
+
+### Supportive care and implementation
+
+Assess growth, hydration, electrolytes, dental health, and dietary adequacy. Severe malnutrition may require temporary oral supplements or enteral support while behavioral treatment proceeds. Multidisciplinary pediatric programs may involve gastroenterology, psychology, dietetics, nursing, and occupational/physical therapy. Antireflux surgery is inappropriate for isolated rumination and can worsen diagnostic and therapeutic burden.
+
+### Current research
+
+* **NCT03912636:** completed, 30 participants; compared diaphragmatic, slow deep, and normal breathing and studied cardiac vagal tone. (NCT03912636 chunk 1, NCT03912636 chunk 2)
+* **NCT05975684:** completed pediatric baclofen trial, n=50; results not available in the retrieved record. (NCT05975684 chunk 1)
+* **NCT06971354:** recruiting in 2025, planned n=40, comparing audiovisual/home-practice biofeedback training with placebo and follow-up to six months. This lies beyond the requested 2023–2024 priority window but represents the latest implementation study identified. (NCT06971354 chunk 1)
+
+Gene therapy, cell therapy, RNA therapy, targeted molecular therapy, immunotherapy, and rumination-specific surgery are not applicable.
 
 ## 13. Prevention
 
-**Primary prevention:** school/community programs promoting media literacy, body functionality and diversity, reduced weight stigma, flexible eating, and avoidance of restrictive dieting; safeguards in leanness-focused sports; and trauma-informed environments. No vaccine or prophylactic drug applies.
+No proven primary prevention exists because there is no established infectious, toxic, or genetic cause. Secondary prevention consists of recognizing the characteristic meal-linked pattern early, avoiding repeated low-yield investigations and inappropriate escalation of GERD therapy, and initiating breathing/behavioral treatment promptly. Tertiary prevention includes nutritional surveillance, dental care, management of coexisting GERD or psychiatric illness, and relapse-prevention practice.
 
-**Secondary prevention:** targeted screening in adolescents, athletes, people presenting with dental erosion, recurrent electrolyte disturbance, depression/anxiety, self-harm, or weight-control behaviors; confidential questioning and rapid referral. Because most affected people do not promptly seek care, case finding is a high priority. (wilson2024bulimianervosaand pages 1-2)
-
-**Tertiary prevention:** relapse plans, continued meal regularity, monitoring for renewed purging, electrolyte/renal/cardiac surveillance when indicated, dental care, suicide prevention, and integrated treatment of mood, anxiety, PTSD, and substance-use disorders. Genetic counseling is not routinely indicated because risk is polygenic and non-deterministic.
+There is no vaccine, chemoprophylaxis, genetic carrier screening, prenatal testing, or public-health screening program. Patient and clinician education is the most relevant public-health intervention.
 
 ## 14. Other species and natural disease
 
-No well-established naturally occurring animal disease is homologous to human BN, and BN is not infectious, transmissible, or zoonotic. Animals can exhibit binge-like consumption or compensatory restriction, but the human syndrome requires subjective loss of control and weight/shape overvaluation, which cannot be directly established in animals. Therefore, veterinary breed, VBO, natural-disease gene, and cross-species transmission fields should be recorded as **not applicable/not established**.
+Rumination in cattle and other ruminant animals is normal cud-chewing physiology and is **not homologous to human rumination disorder**. No naturally occurring veterinary disease with validated equivalence, breed association, orthologous causal gene, or zoonotic transmission was identified. Relevant taxonomy examples such as *Bos taurus* should therefore not be annotated as disease models merely because normal rumination occurs.
 
 ## 15. Model organisms
 
-Rodent binge-eating models use intermittent access to palatable high-fat/high-sugar food, food restriction/refeeding, stress, or limited-access paradigms. They are useful for studying reward, dopamine, serotonin, opioid/endocannabinoid signaling, stress, and candidate drugs. Their central limitation for BN is that rats and mice lack an emetic response; purging must be modeled indirectly through restriction or exercise. They also cannot recapitulate human body-image cognition, shame, or sociocultural influences. Consequently, these are models of components—especially binge behavior—not complete models of BN.
+No validated mouse, rat, zebrafish, invertebrate, cellular, organoid, iPSC, knockout, knock-in, transgenic, or humanized model recapitulates the human learned postprandial syndrome. Human experimental systems—postprandial HRIM/impedance, surface EMG, test meals, respiratory maneuvers, symptom diaries, and biofeedback—are the principal mechanistic models. They reproduce the motor event directly but are limited by small samples, referral bias, learned task performance, and imperfect generalization to everyday meals.
 
-Human fMRI/PET paradigms, ecological momentary assessment, smartphone monitoring, and experimentally controlled meal tasks have higher face validity for cognitive control and cue reactivity. No validated BN organoid, iPSC, humanized genetic model, or single causal-gene knockout exists.
+## Evidence synthesis and expert assessment
 
-## Ontology-ready summary
+The central expert consensus is that rumination disorder is a **recognizable and treatable behavioral motor disorder**, not refractory acid reflux. The 2024 Lyon Consensus emphasizes behavioral therapy and avoidance of inappropriate antireflux escalation, while a 2024 Nature Reviews analysis notes frequent confusion with reflux hypersensitivity and supports CBT. (gyawali2024updatestothe pages 3-3, arguero2024pathophysiologyofgastrooesophageal pages 9-10) Primary trials converge on the same mechanism: treatment interrupts abnormal abdominal-wall/abdominothoracic activation through diaphragmatic breathing, habit reversal, or biofeedback; baclofen is a secondary option with much smaller evidence volume. (NCT03113396 chunk 1, NCT02214472 chunk 1)
 
-The following table provides compact knowledge-base annotations. Terms explicitly marked “suggested” require verification against the current ontology release before production ingestion.
-
-| Domain | Recommended terms/IDs | Evidence-backed annotation | Caveat |
-|---|---|---|---|
-| Disease identifier | MONDO: **MONDO_0005452**; ICD-10: **F50.2**; ICD-11: **6B81**; MeSH: **Bulimia Nervosa** | BN is a psychiatric eating disorder characterized by recurrent binge eating with compensatory behaviors; DSM-style features summarized in recent BN reviews and pharmacotherapy meta-analysis (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3) | MONDO exact match supported by Open Targets context; ICD/MeSH listed as standard identifiers but not directly validated in supplied abstracts; treat as standard ontology mappings (OpenTargets Search: bulimia nervosa) |
-| Synonyms / labels | **Bulimia nervosa**; **BN**; suggested synonym: **binge-purge eating disorder** | Literature consistently uses “bulimia nervosa (BN)” as the preferred label (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2) | Alternative names beyond BN abbreviation are suggested/unverified in supplied evidence |
-| Core phenotype | Suggested HPO: **binge eating** [suggested/unverified HPO ID]; **self-induced vomiting** [suggested/unverified HPO ID] | Core syndrome includes recurrent binge eating plus inappropriate compensatory behaviors such as self-induced vomiting, laxative/diuretic misuse, fasting, or excessive exercise (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3) | Exact HPO IDs were not supplied by the evidence set |
-| Electrolyte phenotype | Suggested HPO: **Electrolyte abnormality** [suggested/unverified HPO ID]; **Hypokalemia** [suggested/unverified HPO ID] | Purging-related medical complications include electrolyte imbalance; hospitalization indications include dehydration, electrolyte abnormalities, and arrhythmias (wilson2024bulimianervosaand pages 1-2, alharbi2024effectivetreatmentapproaches pages 5-6) | Hypokalemia is well known clinically but not quantified in supplied extracts; exact HPO IDs not supplied |
-| Oral/dental phenotype | Suggested HPO: **Dental erosion** [suggested/unverified HPO ID] | Dental erosion is repeatedly cited as a complication of recurrent vomiting/purging (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3) | Exact HPO ID not supplied |
-| Salivary phenotype | Suggested HPO: **Salivary gland enlargement** [suggested/unverified HPO ID] | Salivary gland hypertrophy/enlargement is described among purging-related complications (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3) | Exact HPO ID not supplied |
-| Reproductive phenotype | Suggested HPO: **Menstrual irregularity** [suggested/unverified HPO ID] | Menstrual irregularities are reported among medical complications in BN reviews (wilson2024bulimianervosaand pages 2-3) | Less emphasized than in restrictive EDs; exact HPO ID not supplied |
-| Cardiac phenotype | Suggested HPO: **Arrhythmia** [suggested/unverified HPO ID] | Cardiac arrhythmias are a recognized medical risk, especially in the context of dehydration/electrolyte disturbance from purging (alharbi2024effectivetreatmentapproaches pages 5-6) | Exact HPO ID not supplied |
-| Psychiatric comorbidity phenotype | Suggested HPO: **Anxiety** [suggested/unverified HPO ID]; **Depression** [suggested/unverified HPO ID] | Anxiety and mood disorders are common; meta-analysis/reviews cite anxiety disorders ~53%, mood disorders ~43%, and lifetime mood disorder burden up to 80–90% in BN cohorts (yu2023efficacyofpharmacotherapies pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2) | Percentages reflect review-level synthesis and may vary across diagnostic criteria/sample ascertainment |
-| Anatomy | UBERON suggested: **brain**; **frontostriatal circuitry** [structure/system mapping suggested]; **gastrointestinal tract**; **tooth/teeth**; **salivary gland**; **heart** | Neuroimaging review implicates frontostriatal circuits, insula, amygdala, orbitofrontal/anterior cingulate regions; purging complications involve GI tract, teeth, salivary glands, and heart (donnelly2018neuroimaginginbulimia pages 1-2, wilson2024bulimianervosaand pages 1-2, alharbi2024effectivetreatmentapproaches pages 5-6) | Exact UBERON IDs were not provided in evidence; “frontostriatal circuitry” may need post-coordination rather than a single UBERON term |
-| Cellular component / cell type | CL suggested: **neuron**; **peripheral blood mononuclear cell**; **T cell** | BN neurobiology centers on neuronal circuits; immune studies reported altered CD2/CD3/CD4/CD8/CD57 and lower CD4/CD8 ratios, including PBMC-based cytokine studies (butler2021theroleof pages 10-12) | Exact CL IDs not supplied; immune findings are less consistent than neural findings |
-| Biological process | GO suggested: **reward processing** [suggested/unverified GO term mapping]; **inhibitory control** [suggested/unverified GO term mapping]; **serotonin signaling**; **dopamine signaling**; **immune response** | Reviews implicate altered reward sensitivity, food-related attentional bias, impaired inhibitory control, and serotonergic/dopaminergic pathways; immune-response changes are mixed but T-cell alterations reported (donnelly2018neuroimaginginbulimia pages 1-2, barakat2023riskfactorsfor pages 7-8, butler2021theroleof pages 10-12) | “Reward processing” and “inhibitory control” may require nearest GO-process approximations rather than exact labels |
-| Genetics / inheritance | Suggested annotation: **multifactorial, polygenic psychiatric disorder** | BN is described as multifactorial with genetic predisposition, environmental factors, and psychological traits; risk review cites serotonin/dopamine receptor-related polymorphisms, glucocorticoid pathway variants, and 5-HTTLPR involvement (yu2023efficacyofpharmacotherapies pages 1-2, barakat2023riskfactorsfor pages 7-8) | No single causal gene/variant is established for routine clinical use in supplied evidence |
-| Gene–environment interaction | Suggested annotation: **childhood trauma × glucocorticoid/5-HTTLPR risk background** | Childhood trauma/abuse interacting with glucocorticoid receptor polymorphisms and 5-HTTLPR is reported as increasing BN risk; lower cortisol after maltreatment was noted in BN cases vs controls (barakat2023riskfactorsfor pages 7-8) | Evidence is review-level and not sufficient for deterministic biomarker use |
-| Immune / inflammatory annotation | Suggested annotation: **immune dysregulation with inconsistent cytokine signal; T-cell alterations reported** | BN does not show a consistent pro-inflammatory cytokine signature across studies, but reduced CD4/CD8 ratios and lower T-cell markers have been reported (butler2021theroleof pages 10-12) | Confounding by adiposity, comorbidity, treatment, and illness severity limits interpretation |
-| Neurobiology | Suggested annotation: **frontostriatal hypoactivity; aberrant insula/amygdala/OFC/ACC responses** | Neuroimaging synthesis found frontostriatal hypoactivity, altered inhibitory control, and abnormal responses to food/disorder-related cues; illness severity correlates with greater neural changes (donnelly2018neuroimaginginbulimia pages 1-2) | Evidence base is heterogeneous and often underpowered |
-| Epidemiology / onset | Suggested annotation: **adolescent onset; female predominance** | Reviews cite average onset around 16–17 years and median onset around 12.4 years; lifetime prevalence estimates include ~1.5% in females and 0.5% in males, with treatment non-engagement/delay in 85–94% (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2) | Onset/prevalence values vary by source, age window, and ascertainment method |
-| Prognosis / outcomes | Suggested annotation: **remission possible; relapse and mortality remain concerns** | Review-level evidence suggests remission is achievable, with one review citing up to 80% remission with proper treatment; suicide risk and SMR elevations are noted (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3) | Outcome definitions are inconsistent across studies |
-| MAXO treatment concepts | MAXO suggested: **cognitive behavioral therapy (CBT/CBT-E)**; **family-based therapy (FBT)**; **nutritional therapy**; **electrolyte monitoring**; **electrocardiographic monitoring (ECG)** | CBT is consistently first-line; FBT has supportive evidence in adolescents; nutritional therapy and medical monitoring are part of standard care; hospitalization may be required for dehydration/electrolyte disturbance/arrhythmia (gkintoni2024clinicalinterventionstrategies pages 30-31, wilson2024bulimianervosaand pages 2-3, alharbi2024effectivetreatmentapproaches pages 5-6) | Exact MAXO IDs were not supplied in evidence |
-| Pharmacotherapy | Suggested term: **fluoxetine**; broader classes: **SSRIs**, **TCAs**, **MAOIs**, **topiramate** | Meta-analysis of 33 studies found modest benefit of pharmacotherapy for binge frequency, vomiting frequency, weight, and depressive symptoms; SSRIs/fluoxetine are commonly referenced in guideline-style reviews (yu2023efficacyofpharmacotherapies pages 1-2) | Medication effects are modest overall; exact preferred agent hierarchy depends on guideline context |
-| Diagnostic workup | Suggested terms: **clinical interview/DSM criteria**, **electrolytes**, **ECG**, **medical assessment for purging complications** | Diagnosis is clinical, based on binge eating plus compensatory behaviors occurring at least weekly for 3 months; medical workup should assess dehydration, electrolyte abnormalities, and arrhythmias (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 2-3, alharbi2024effectivetreatmentapproaches pages 5-6) | No validated BN-specific molecular biomarker is established in supplied evidence |
-
-
-*Table: This compact table organizes bulimia nervosa into ontology-ready disease, phenotype, anatomy, mechanism, and treatment annotations using only evidence available in the retrieved context. It is useful as a starting point for knowledge-base population, while clearly marking suggested or unverified ontology IDs where the supplied evidence did not provide exact identifiers.*
-
-## Evidence appraisal and authoritative interpretation
-
-The most reliable current conclusion is that BN is a clinically diagnosed, polygenic and environmentally responsive psychiatric syndrome—not a monogenic, inflammatory, infectious, or biomarker-defined disease. Evidence is strongest for CBT/CBT-E, adolescent FBT, adjunctive fluoxetine, and active medical monitoring. Genetic candidates, microbiome changes, cytokines, neuroimaging, and other omics remain mechanistic research signals rather than clinical tests or treatment-selection biomarkers. (OpenTargets Search: bulimia nervosa, yu2023efficacyofpharmacotherapies pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2, butler2021theroleof pages 10-12, barakat2023riskfactorsfor pages 7-8)
-
-Representative exact abstract language includes: **“BN is characterized by recurrent binge eating episodes with inappropriate compensatory behaviors”** in the 2023 pharmacotherapy synthesis, and the neuroimaging review concluded that **“heterogenous”** studies prevented robust conclusions regarding precise neurobiology. The 2024 disparities review’s central real-world warning is that older adults, males, and racial minorities remain systematically underrepresented. (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2)
-
-### Key recent sources and URLs
-
-* Yu S, et al. *Efficacy of pharmacotherapies for bulimia nervosa: a systematic review and meta-analysis.* **December 2023.** https://doi.org/10.1186/s40360-023-00713-7 (yu2023efficacyofpharmacotherapies pages 1-2)
-* Wilson K, Kagabo R. *Bulimia nervosa and treatment-related disparities: a review.* **August 2024.** https://doi.org/10.3389/fpsyg.2024.1386347 (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3)
-* Gkintoni E, et al. *Clinical intervention strategies and family dynamics in adolescent eating disorders.* **July 2024.** https://doi.org/10.3390/jcm13144084 (gkintoni2024clinicalinterventionstrategies pages 30-31)
-* Alharbi Y, et al. *Effective treatment approaches for eating disorders in children and adolescents.* **November 2024.** https://doi.org/10.7759/cureus.74003 (alharbi2024effectivetreatmentapproaches pages 5-6)
-* Barakat S, et al. *Risk factors for eating disorders: findings from a rapid review.* **January 2023.** https://doi.org/10.1186/s40337-022-00717-4 (barakat2023riskfactorsfor pages 7-8)
-* Donnelly B, et al. *Neuroimaging in bulimia nervosa and binge eating disorder: a systematic review.* **February 2018.** https://doi.org/10.1186/s40337-018-0187-1 (donnelly2018neuroimaginginbulimia pages 1-2)
-* Butler MJ, et al. *The role of the gut microbiome, immunity, and neuroinflammation in the pathophysiology of eating disorders.* **February 2021.** https://doi.org/10.3390/nu13020500 (butler2021theroleof pages 10-12)
-
-PMIDs were not exposed in the retrieved full-text metadata and therefore are not fabricated here; DOI URLs are supplied as stable primary identifiers.
+The principal knowledge gaps are reliable incidence, harmonized DSM-versus-Rome prevalence, age- and sex-stratified natural history, long-term comparative treatment effectiveness, validated patient-reported outcomes, and objective predictors of relapse. Molecular genetics, omics, immunology, and animal models currently do not provide clinically actionable information.
 
 References
 
-1. (yu2023efficacyofpharmacotherapies pages 1-2): Sijie Yu, Yuhan Zhang, Chongkai Shen, and Fei Shao. Efficacy of pharmacotherapies for bulimia nervosa: a systematic review and meta-analysis. BMC Pharmacology and Toxicology, Dec 2023. URL: https://doi.org/10.1186/s40360-023-00713-7, doi:10.1186/s40360-023-00713-7. This article has 23 citations.
+1. (gyawali2024updatestothe pages 3-3): C Prakash Gyawali, Rena Yadlapati, Ronnie Fass, David Katzka, John Pandolfino, Edoardo Savarino, Daniel Sifrim, Stuart Spechler, Frank Zerbib, Mark R Fox, Shobna Bhatia, Nicola de Bortoli, Yu Kyung Cho, Daniel Cisternas, Chien-Lin Chen, Charles Cock, Albis Hani, Jose Maria Remes Troche, Yinglian Xiao, Michael F Vaezi, and Sabine Roman. Updates to the modern diagnosis of gerd: lyon consensus 2.0. Gut, 73:361-371, Sep 2024. URL: https://doi.org/10.1136/gutjnl-2023-330616, doi:10.1136/gutjnl-2023-330616. This article has 745 citations and is from a highest quality peer-reviewed journal.
 
-2. (wilson2024bulimianervosaand pages 1-2): Kim Wilson and Robert Kagabo. Bulimia nervosa and treatment-related disparities: a review. Frontiers in Psychology, Aug 2024. URL: https://doi.org/10.3389/fpsyg.2024.1386347, doi:10.3389/fpsyg.2024.1386347. This article has 13 citations and is from a peer-reviewed journal.
+2. (arguero2024pathophysiologyofgastrooesophageal pages 9-10): Julieta Argüero and Daniel Sifrim. Pathophysiology of gastro-oesophageal reflux disease: implications for diagnosis and management. Nature reviews. Gastroenterology & hepatology, 21:282-293, Jan 2024. URL: https://doi.org/10.1038/s41575-023-00883-z, doi:10.1038/s41575-023-00883-z. This article has 78 citations.
 
-3. (donnelly2018neuroimaginginbulimia pages 1-2): Brooke Donnelly, Stephen Touyz, Phillipa Hay, Amy Burton, Janice Russell, and Ian Caterson. Neuroimaging in bulimia nervosa and binge eating disorder: a systematic review. Journal of Eating Disorders, Feb 2018. URL: https://doi.org/10.1186/s40337-018-0187-1, doi:10.1186/s40337-018-0187-1. This article has 177 citations and is from a peer-reviewed journal.
+3. (NCT03113682 chunk 1):  A Study of Cognitive-Behavioral Therapy for Rumination Disorder. Drexel University. 2017. ClinicalTrials.gov Identifier: NCT03113682
 
-4. (barakat2023riskfactorsfor pages 7-8): Sarah Barakat, S. McLean, E. Bryant, Ân H. Lê, P. Marks, Phillip Sarah Robert Leah Emma Susan Belinda Shannon Bronn Aouad Barakat Boakes Brennan Bryant Byrne Caldwell, P. Aouad, Sarah Barakat, R. Boakes, L. Brennan, S. Byrne, Belinda Caldwell, S. Calvert, B. Carroll, D. Castle, I. Caterson, Belinda Chelius, Lyn Chiem, S. Clarke, J. Conti, Lexi Crouch, Genevieve Dammery, Natasha Dzajkovski, J. Fardouly, Carmen Felicia, John Feneley, Amber-Marie Firriolo, N. Foroughi, M. Fuller-Tyszkiewicz, A. Fursland, V. Gonzalez-Arce, Bethanie Gouldthorp, Kelly Griffin, S. Griffiths, A. Hambleton, A. Hannigan, Melissa Hart, S. Hart, P. Hay, I. Hickie, Francis Kay-Lambkin, R. King, M. Kohn, E. Koreshe, I. Krug, Ân H. Lê, Jake Linardon, Randall Long, Amanda Long, S. Madden, S. Maguire, D. Maloney, S. McLean, Thy Meddick, J. Miskovic-Wheatley, Deborah Mitchison, R. O’Kearney, S. Ong, R. Paterson, S. Paxton, Melissa J Pehlivan, G. Pépin, A. Phillipou, J. Piccone, R. Pinkus, Bronwyn C Raykos, P. Rhodes, E. Rieger, Sarah Rodan, Karen Rockett, J. Russell, H. Russell, Fiona Salter, Susan S. Sawyer, Beth. Shelton, Urvashnee Singh, Sophie Smith, Evelyn Smith, K. Spielman, S. Squire, J. Thomson, M. Tiggemann, S. Touyz, Ranjani Utpala, L. Vartanian, Andrew Wallis, W. Ward, Sarah Wells, E. Wertheim, S. Wilksch, and Michelle Williams. Risk factors for eating disorders: findings from a rapid review. Journal of Eating Disorders, Jan 2023. URL: https://doi.org/10.1186/s40337-022-00717-4, doi:10.1186/s40337-022-00717-4. This article has 580 citations and is from a peer-reviewed journal.
+4. (NCT03062696 chunk 1): Jennifer Thomas. A Pilot Study of Cognitive-Behavioral Therapy for Rumination Disorder (CBT-RD). Massachusetts General Hospital. 2017. ClinicalTrials.gov Identifier: NCT03062696
 
-5. (gkintoni2024clinicalinterventionstrategies pages 30-31): Evgenia Gkintoni, Elias Kourkoutas, Stephanos P. Vassilopoulos, and Maria Mousi. Clinical intervention strategies and family dynamics in adolescent eating disorders: a scoping review for enhancing early detection and outcomes. Jul 2024. URL: https://doi.org/10.3390/jcm13144084, doi:10.3390/jcm13144084. This article has 45 citations.
+5. (NCT03912636 chunk 2):  Role of Vagal Tone in Rumination Syndrome. Queen Mary University of London. 2019. ClinicalTrials.gov Identifier: NCT03912636
 
-6. (alharbi2024effectivetreatmentapproaches pages 5-6): Yara Alharbi, Fatema Saleh, and Khaled A Shahat. Effective treatment approaches for eating disorders in children and adolescents: a review article. Cureus, Nov 2024. URL: https://doi.org/10.7759/cureus.74003, doi:10.7759/cureus.74003. This article has 7 citations.
+6. (NCT02214472 chunk 1):  Treatment of Rumination by Biofeedback - a Randomized Controlled Trial. Hospital Universitari Vall d'Hebron Research Institute. 2013. ClinicalTrials.gov Identifier: NCT02214472
 
-7. (OpenTargets Search: bulimia nervosa): Open Targets Query (bulimia nervosa, 0 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
+7. (NCT02402946 chunk 1):  Placebo-controlled, Randomized Trial of a Simplified Biofeedback Technique for the Treatment of Rumination. Hospital Universitari Vall d'Hebron Research Institute. 2015. ClinicalTrials.gov Identifier: NCT02402946
 
-8. (wilson2024bulimianervosaand pages 2-3): Kim Wilson and Robert Kagabo. Bulimia nervosa and treatment-related disparities: a review. Frontiers in Psychology, Aug 2024. URL: https://doi.org/10.3389/fpsyg.2024.1386347, doi:10.3389/fpsyg.2024.1386347. This article has 13 citations and is from a peer-reviewed journal.
+8. (NCT03113396 chunk 1): Prof Dr Jan Tack. Baclofen for Rumination. Universitaire Ziekenhuizen KU Leuven. 2012. ClinicalTrials.gov Identifier: NCT03113396
 
-9. (butler2021theroleof pages 10-12): Michael J. Butler, Alexis A. Perrini, and Lisa A. Eckel. The role of the gut microbiome, immunity, and neuroinflammation in the pathophysiology of eating disorders. Nutrients, 13:500, Feb 2021. URL: https://doi.org/10.3390/nu13020500, doi:10.3390/nu13020500. This article has 109 citations.
+9. (NCT03912636 chunk 1):  Role of Vagal Tone in Rumination Syndrome. Queen Mary University of London. 2019. ClinicalTrials.gov Identifier: NCT03912636
+
+10. (NCT05975684 chunk 1): Peter Lu. Baclofen for Children With Rumination Syndrome. Nationwide Children's Hospital. 2023. ClinicalTrials.gov Identifier: NCT05975684
+
+11. (NCT06971354 chunk 1):  Treatment of Rumination. Hospital Universitari Vall d'Hebron Research Institute. 2025. ClinicalTrials.gov Identifier: NCT06971354
 
 ## Artifacts
 
-- [Edison artifact artifact-00](Bulimia_Nervosa-deep-research-falcon_artifacts/artifact-00.md)
+- [Edison artifact artifact-00](Rumination_Disorder-deep-research-falcon_artifacts/artifact-00.md)
