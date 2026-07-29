@@ -21,9 +21,9 @@ Several ancillary conclusions are too strong, however. The older p38delta
 biochemistry is a serious unresolved conflict rather than a direct refutation;
 the sex-transcriptomic paper does not predict a female-null FGF13 mechanism;
 FGF2 and FGF9 are not as directly competing as the report implies; and selected
-paper searches do not establish a resource-level genetic absence. The report
-also missed older human cortical data in which FGF13 was explicitly measured
-but was not significantly different in MDD.
+paper searches do not establish a resource-level genetic absence. Separately,
+older human cortical FGF-system data supply background but do not, at the
+abstract level, establish a negative FGF13 result either way.
 
 | Dimension | Assessment |
 | --- | --- |
@@ -52,6 +52,23 @@ originally reported in
 [PMID:32341540](https://pubmed.ncbi.nlm.nih.gov/32341540/). It is cross-sectional,
 cortical rather than hippocampal, and does not measure JIP2/JNK activity or
 apoptosis. The report is right to call it limited association evidence.
+
+### It correctly limits the positive human FGF13 evidence
+
+The report describes the GSE144136 reanalysis as the only human component.
+That remains the only positive, cell-type-specific human component of the seed
+study. An earlier primary study of FGF-system transcripts
+([PMID:15483108](https://pubmed.ncbi.nlm.nih.gov/15483108/)) reported
+dysregulation of several transcripts in frontal cortical tissue but did not
+identify FGF13 among the significant findings in its abstract. The abstract
+says profiles of other detected growth factors and receptors were made
+available; it does not establish that FGF13 was measured or nonsignificant in
+either region.
+
+The older study is therefore broad human FGF-system context, not direct
+negative FGF13 evidence. It neither supports nor refutes the newer
+astrocyte-specific association, because bulk tissue and older arrays cannot
+adjudicate a cell-restricted signal from the abstract alone.
 
 ### It correctly keeps shared endpoints nonspecific
 
@@ -143,23 +160,6 @@ increased hippocampal FGF9 across postmortem MDD datasets and affect-related
 rodent perturbations. Even that evidence supports a parallel FGF9 model; it does
 not test astrocytic FGF13, JIP2 or JNK. The report should not let the
 MS-oriented experiment carry a composite MDD claim.
-
-### Older human FGF-system context does not establish a negative FGF13 result
-
-The report describes the GSE144136 reanalysis as the only human component.
-That remains the only positive, cell-type-specific human component of the seed
-study. An earlier primary study of FGF-system transcripts
-([PMID:15483108](https://pubmed.ncbi.nlm.nih.gov/15483108/)) reported
-dysregulation of several transcripts in frontal cortical tissue but did not
-identify FGF13 among the significant findings in its abstract. The abstract
-says profiles of other detected growth factors and receptors were made
-available; it does not establish that FGF13 was measured or nonsignificant in
-either region.
-
-The older study is therefore broad human FGF-system context, not direct
-negative FGF13 evidence. It neither supports nor refutes the newer
-astrocyte-specific association, because bulk tissue and older arrays cannot
-adjudicate a cell-restricted signal from the abstract alone.
 
 ### “Search-verified genetic absence” is not earned
 
