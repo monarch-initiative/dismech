@@ -62,8 +62,7 @@ study. An earlier primary study of FGF-system transcripts
 dysregulation of several transcripts in frontal cortical tissue but did not
 identify FGF13 among the significant findings in its abstract. The abstract
 says profiles of other detected growth factors and receptors were made
-available; it does not establish that FGF13 was measured or nonsignificant in
-either region.
+available; it does not establish that FGF13 was measured or nonsignificant.
 
 The older study is therefore broad human FGF-system context, not direct
 negative FGF13 evidence. It neither supports nor refutes the newer
