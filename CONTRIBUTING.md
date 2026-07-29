@@ -96,8 +96,8 @@ As described above, contributions to DisMech are made by humans invoking AI agen
 
 Most contributors use **Claude Code** or **Codex** for AI-assisted curation.
 The instructions below explain how to install the Claude Code command-line interface (CLI).
-An easier option for many people who want to curate diseases in DisMech is to set up the Claude Code web interface([claude.ai/code](https://claude.ai/code)).
-For instructions on that, please see the section on [Running dismech in Claude Code on the web](Running-dismech-in-Claude-Code-on-the-web).
+An easier option for many people who want to curate diseases in DisMech is to set up the Claude Code web interface ([claude.ai/code](https://claude.ai/code)).
+For instructions on that, please see the section on [Running dismech in Claude Code on the web](#running-dismech-in-claude-code-on-the-web).
 
 ### 1. Install Claude Code
 - Get a Claude Pro subscription at [claude.ai](https://claude.ai) - you won't be able to do curation with the free version of Claude.
@@ -105,6 +105,8 @@ For instructions on that, please see the section on [Running dismech in Claude C
   ```bash
   brew install claude-code  # macOS
   ```
+
+For installing on other (non-macOS) platforms, see [claude.ai/code](https://claude.ai/code).
 
 ### 2. Install `just` Command Runner
 Test if you have it:
@@ -190,10 +192,10 @@ an optional setup script) that your cloud sessions run in. Instructions are belo
 
 NOTE: these instructions and screenshots were added on 2026-07-28 and may change in the future.
 
-1. Go to [claude.ai/code](https://claude.ai/code). Click the grayed-out tab near the top left that says "</> Code".
+1. Go to [claude.ai/code](https://claude.ai/code). Click the grayed-out tab near the top left that says "`</>` Code".
    <img width="372" height="289" alt="Screenshot 2026-07-28 at 3 34 35 PM" src="https://github.com/user-attachments/assets/e3733117-cd95-40b1-a256-ad1753ff455f" />
 
-2. Ignore the "Download for MacOS" button and click the "Continue on web →" button lower down.
+2. Ignore the "Download for macOS" button and click the "Continue on web →" button lower down.
    <img width="679" height="578" alt="Screenshot 2026-07-28 at 3 59 39 PM" src="https://github.com/user-attachments/assets/f2be279f-f5f7-4860-83a4-11c7afe8b9ca" />
 
 3. Click "Get Started" and then, on the next screen, click "Connect a different way".
@@ -209,11 +211,11 @@ Now you're ready to set up your cloud environment (this is a one-time step).
 
 #### Setting up your cloud environment
 
-1. **Add the environment.** At [claude.ai/code](https://claude.ai/code), select
+1. **Configure the environment.** At [claude.ai/code](https://claude.ai/code), select
    the current environment by clicking the button with a cloud icon (which probably says "Default") to open the environment selector.
    <img width="378" height="338" alt="Screenshot 2026-07-28 at 4 36 54 PM" src="https://github.com/user-attachments/assets/8b0eb12b-954a-4e50-a9c9-282d0db22a4d" />
     
-   Now (this is a bit non-obvious) _hover_ your mouse over the checkmark next to "Default" to make the gear icon appear, and click the gear to open the environment chooser dialog.
+   Now (this is a bit non-obvious) _hover_ your mouse over the checkmark next to "Default" to make the gear icon appear, and click the gear to open the environment settings dialog.
    <img width="355" height="104" alt="Screenshot 2026-07-28 at 4 37 20 PM" src="https://github.com/user-attachments/assets/2d91832c-2742-4f4d-ac9a-ce548a2414d6" />
 
    The dialog has fields for the name, network access level, environment
@@ -245,7 +247,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    above for how to obtain them. (Note: environments have no dedicated secrets
    store, so anyone who can edit the environment can see these values.)
 
-   NOTE FROM NOMI: I don't understand the parenthetical remark above. Will other people besides you (the creator) be able to see and edit the environment? If not, why even mention that? This needs clarification)
+   NOTE FROM NOMI: I don't understand the parenthetical remark above. Will other people besides you (the creator) be able to see and edit the environment? If not, why even mention that? This needs clarification.
 
 That's the only hard part. Once the environment exists, curation works the same
 as local — `/curate` a disorder, then create the PR when ready.
@@ -314,7 +316,8 @@ In dismech, dragon-ai-agent acts as an autonomous curator/reviewer bot integrate
 - rigorous battery of linkml schema checks, linkml-term-validator, linkml-reference-validator
 
 ### AI reviewers
-NOTE from Nomi: What is this? Need more info here.
+
+The "AI reviewers" here are the claude-code-review and post-review-agent workflows (models configured in .github/agent-config.yaml, cadence in .github/cron-profiles.yaml); the dismech-pr-review skill defines the review rubric they apply.
 
 - reviews all PRs
 - will mark PRs as being "changes requested" or "ready to merge"
