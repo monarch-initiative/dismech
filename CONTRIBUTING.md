@@ -238,7 +238,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    OPENSCIENTIST_API_KEY=<YOUR_OPENSCIENTIST_KEY>
    ```
 
-  These are the same keys as the local setup — see
+   These are the same keys as the local setup — see
    [Set Up a Deep Research Provider](#3-set-up-a-deep-research-provider-required)
    above for how to obtain them. If you set these up locally, they're in whatever
    shell profile you exported them from (e.g. `~/.zshrc`).
