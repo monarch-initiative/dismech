@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13237021"
+reference_id: DOI:10.3390/jcm13237021
 title: "Redifferentiation Therapies in Thyroid Oncology: Molecular and Clinical Aspects"
 authors:
 - Petra Petranović Ovčariček
@@ -11,6 +11,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13237021
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Redifferentiation Therapies in Thyroid Oncology: Molecular and Clinical Aspects

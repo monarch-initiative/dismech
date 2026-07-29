@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics14111186"
+reference_id: DOI:10.3390/diagnostics14111186
 title: "The Challenge of Neuropsychiatric Systemic Lupus Erythematosus: From Symptoms to Therapeutic Strategies"
 authors:
 - Veena Patel
@@ -7,6 +7,7 @@ journal: Diagnostics
 year: '2024'
 doi: 10.3390/diagnostics14111186
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Challenge of Neuropsychiatric Systemic Lupus Erythematosus: From Symptoms to Therapeutic Strategies

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pathogens13080671"
+reference_id: DOI:10.3390/pathogens13080671
 title: "The Interruption of Transmission of Onchocerciasis in Abia, Anambra, Enugu, and Imo States, Nigeria: The Largest Global Onchocerciasis Stop-Treatment Decision to Date"
 authors:
 - Cephas Ityonzughul
@@ -25,6 +25,7 @@ journal: Pathogens
 year: '2024'
 doi: 10.3390/pathogens13080671
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Interruption of Transmission of Onchocerciasis in Abia, Anambra, Enugu, and Imo States, Nigeria: The Largest Global Onchocerciasis Stop-Treatment Decision to Date

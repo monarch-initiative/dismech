@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15030656"
+reference_id: DOI:10.3390/cancers15030656
 title: Accuracy of p16 IHC in Classifying HPV-Driven OPSCC in Different Populations
 authors:
 - Roberto Gallus
@@ -15,6 +15,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15030656
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Accuracy of p16 IHC in Classifying HPV-Driven OPSCC in Different Populations

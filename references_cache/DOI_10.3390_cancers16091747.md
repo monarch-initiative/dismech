@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16091747"
+reference_id: DOI:10.3390/cancers16091747
 title: Recent Progress in Treatment for HER2-Positive Advanced Gastric Cancer
 authors:
 - Takeshi Kawakami
@@ -8,6 +8,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16091747
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent Progress in Treatment for HER2-Positive Advanced Gastric Cancer

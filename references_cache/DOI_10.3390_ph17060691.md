@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ph17060691"
+reference_id: DOI:10.3390/ph17060691
 title: "Formulation and Stability of a 1% Clarithromycin-Based Topical Skin Cream: A New Option to Treat Buruli Ulcers?"
 authors:
 - Maria Sebti
@@ -16,6 +16,7 @@ journal: Pharmaceuticals
 year: '2024'
 doi: 10.3390/ph17060691
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Formulation and Stability of a 1% Clarithromycin-Based Topical Skin Cream: A New Option to Treat Buruli Ulcers?

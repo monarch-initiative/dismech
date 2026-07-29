@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15092453"
+reference_id: DOI:10.3390/cancers15092453
 title: Review of the Tumor Microenvironment in Basal and Squamous Cell Carcinoma
 authors:
 - Elizabeth Chiang
@@ -14,6 +14,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15092453
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Review of the Tumor Microenvironment in Basal and Squamous Cell Carcinoma

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/v12121463"
+reference_id: DOI:10.3390/v12121463
 title: "The VP1u of Human Parvovirus B19: A Multifunctional Capsid Protein with Biotechnological Applications"
 authors:
 - Carlos Ros
@@ -9,6 +9,7 @@ journal: Viruses
 year: '2020'
 doi: 10.3390/v12121463
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The VP1u of Human Parvovirus B19: A Multifunctional Capsid Protein with Biotechnological Applications

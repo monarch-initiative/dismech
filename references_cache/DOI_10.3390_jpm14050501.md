@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jpm14050501"
+reference_id: DOI:10.3390/jpm14050501
 title: Non-Invasive Retinal Vessel Analysis as a Predictor for Cardiovascular Disease
 authors:
 - Raluca Eugenia Iorga
@@ -11,6 +11,7 @@ journal: Journal of Personalized Medicine
 year: '2024'
 doi: 10.3390/jpm14050501
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Non-Invasive Retinal Vessel Analysis as a Predictor for Cardiovascular Disease

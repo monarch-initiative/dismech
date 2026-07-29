@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijns9030048"
+reference_id: DOI:10.3390/ijns9030048
 title: New Acylcarnitine Ratio as a Reliable Indicator of Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase Deficiency
 authors:
 - Galina V. Baydakova
@@ -12,6 +12,7 @@ journal: International Journal of Neonatal Screening
 year: '2023'
 doi: 10.3390/ijns9030048
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # New Acylcarnitine Ratio as a Reliable Indicator of Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase Deficiency

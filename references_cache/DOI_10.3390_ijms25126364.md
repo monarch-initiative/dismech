@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25126364"
+reference_id: DOI:10.3390/ijms25126364
 title: "Hypertriglyceridemia: Molecular and Genetic Landscapes"
 authors:
 - Pietro Scicchitano
@@ -17,6 +17,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25126364
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hypertriglyceridemia: Molecular and Genetic Landscapes

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25168627"
+reference_id: DOI:10.3390/ijms25168627
 title: The Influence of the Protozoan Giardia lamblia on the Modulation of the Immune System and Alterations in Host Glucose and Lipid Metabolism
 authors:
 - Sylwia Klimczak
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25168627
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Influence of the Protozoan Giardia lamblia on the Modulation of the Immune System and Alterations in Host Glucose and Lipid Metabolism

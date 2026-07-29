@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12112503"
+reference_id: DOI:10.3390/biomedicines12112503
 title: "Mitigating Increased Cardiovascular Risk in Patients with Obstructive Sleep Apnea Using GLP-1 Receptor Agonists and SGLT2 Inhibitors: Hype or Hope?"
 authors:
 - Paschalis Karakasis
@@ -15,6 +15,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12112503
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mitigating Increased Cardiovascular Risk in Patients with Obstructive Sleep Apnea Using GLP-1 Receptor Agonists and SGLT2 Inhibitors: Hype or Hope?

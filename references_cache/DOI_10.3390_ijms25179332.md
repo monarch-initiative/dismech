@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25179332"
+reference_id: DOI:10.3390/ijms25179332
 title: Untangling the Uncertain Role of Overactivation of the Renin–Angiotensin–Aldosterone System with the Aging Process Based on Sodium Wasting Human Models
 authors:
 - Chantelle Thimm
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25179332
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Untangling the Uncertain Role of Overactivation of the Renin–Angiotensin–Aldosterone System with the Aging Process Based on Sodium Wasting Human Models

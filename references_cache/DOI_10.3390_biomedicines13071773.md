@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines13071773"
+reference_id: DOI:10.3390/biomedicines13071773
 title: "State of the Art in Pulmonary Arterial Hypertension: Molecular Basis, Imaging Modalities, and Right Heart Failure Treatment"
 authors:
 - Melika Shafeghat
@@ -16,6 +16,7 @@ journal: Biomedicines
 year: '2025'
 doi: 10.3390/biomedicines13071773
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # State of the Art in Pulmonary Arterial Hypertension: Molecular Basis, Imaging Modalities, and Right Heart Failure Treatment
