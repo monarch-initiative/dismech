@@ -237,12 +237,14 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    EDISON_API_KEY=<YOUR_EDISON_KEY>
    OPENSCIENTIST_API_KEY=<YOUR_OPENSCIENTIST_KEY>
    ```
- 
-   These are the same keys as the local setup — see
+
+  These are the same keys as the local setup — see
    [Set Up a Deep Research Provider](#3-set-up-a-deep-research-provider-required)
-   above for how to obtain them. "if you set these up locally, they're in whatever shell profile you exported them from (e.g. ~/.zshrc)
+   above for how to obtain them. If you set these up locally, they're in whatever
+   shell profile you exported them from (e.g. `~/.zshrc`).
+
    Note: the Environment variables field is plain text, not a secrets store — the values are
-   visible to anyone who can open the environment's settings. But don't worry - on a personal account, that is only you.
+   visible to anyone who can open the environment's settings. On a personal account, that's only you.
 
 Setting up the cloud configuration is the only hard part. Once the environment exists, curation on the web works the same
 as on the command line — `/curate` a disorder, then create the PR when ready.
