@@ -54,12 +54,16 @@ def iter_assessment_problems(assessment_path: str | Path) -> Iterable[str]:
 
     for i, claim in enumerate(data.get("claims") or []):
         quote = claim.get("report_quote")
-        if quote and report_path and report_path.is_file():
-            if _norm(quote) not in _normalized_text(str(report_path)):
-                yield (
-                    f"claims[{i}] report_quote is not a verbatim substring of "
-                    f"{source!r}: {_norm(quote)[:120]!r}"
-                )
+        if (
+            quote
+            and report_path
+            and report_path.is_file()
+            and _norm(quote) not in _normalized_text(str(report_path))
+        ):
+            yield (
+                f"claims[{i}] report_quote is not a verbatim substring of "
+                f"{source!r}: {_norm(quote)[:120]!r}"
+            )
 
     for artifact in data.get("artifacts") or []:
         if not (assessment_path.parent / artifact).is_file():
