@@ -17,6 +17,7 @@ journal: Frontiers in Genetics
 year: '2024'
 doi: 10.3389/fgene.2024.1387423
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/journals/genetics/articles/10.3389/fgene.2024.1387423/pdf"
