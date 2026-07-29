@@ -117,6 +117,12 @@ test-schema: _test-schema
 [group('model development')]
 test-python-code: _test-python-code
 
+# Validate a provider-by-assessor hypothesis report review sidecar.
+[group('data validation')]
+validate-hypothesis-assessment file:
+  uv run linkml-validate --schema src/dismech/schema/hypothesis_assessment.yaml --target-class HypothesisAssessment {{file}}
+  uv run python -m dismech.hypothesis_assessment {{file}}
+
 # LinkML valid/invalid example round-trip tests.
 [group('model development')]
 test-examples: _test-examples
