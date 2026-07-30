@@ -2,14 +2,18 @@
 title: "DisMech manuscript gap review"
 date: 2026-07-29
 status: working review
+audience: internal planning
 ---
 
 # DisMech manuscript gap review
 
+> **Internal planning document.** This review is not part of either
+> manuscript or their submission package.
+
 This review covers the two manuscript drafts recovered from commit
 `f858a0c43d`:
 
-- `dismech-pathograph-natmed.md` — the content, pathograph, and translational
+- `dismech-pathograph-resource.md` — the content, pathograph, and translational
   use paper.
 - `agentic-curation-jbms.md` — the agentic curation and validation-framework
   paper.
@@ -26,7 +30,7 @@ are not yet submission-ready because they are argument-led rather than
 result-led.
 
 The content paper currently reads as a Perspective that announces several
-potential applications. A Nature Medicine-level Resource or Analysis paper
+potential applications. A high-impact biomedical Resource or Analysis paper
 needs a quantitative characterization of the resource, an expert quality
 assessment, and at least one convincing evaluation showing that explicit
 pathophysiological knowledge changes a clinically or translationally relevant
@@ -264,9 +268,9 @@ The content paper has no Methods section. It needs:
 - All four figures are placeholders.
 - Author list, contribution statement, funding, competing interests, and
   resource governance are unresolved.
-- The manuscript needs a target article type. In its current form it is a
-  Perspective; to support a Nature Medicine Resource/Analysis submission it
-  needs the empirical results above.
+- The manuscript needs a target journal and article type. In its current form
+  it is a Perspective; a high-impact Resource or Analysis submission needs
+  the empirical results above.
 
 ## Paper 2: agentic curation framework
 

@@ -1,6 +1,6 @@
 ---
 title: "DisMech: computable pathographs for disease mechanisms, knowledge gaps, and translational reasoning"
-target_journal: "TBD; Nature Medicine Resource or Analysis under consideration"
+target_journal: "TBD"
 authors:
   - "J. Harry Caufield"
   - "Kevin Schaper"
