@@ -245,6 +245,12 @@ sentence reuse are different things.
 
 ## Tier 2 — Claim–evidence mismatches (recommended for curator follow-up)
 
+Each item below carries an explicit status marker — **[Open]**, **[Fixed]**, or a
+split marker where a grade was corrected but the underlying source gap remains
+(e.g. **[Fixed grade / Open source]**). Read the marker, not the tense: this section
+drifted out of sync with the KB in four consecutive review rounds while the fixes
+landed, which is what recommendation 8 is about.
+
 What remains here needs a replacement source or new literature; the items that
 needed only a re-quote or a grade change have all been promoted to Tier 1 across
 two review rounds (items 3–4, then the six regrades in item 6 and the human-evidence
@@ -294,13 +300,16 @@ The vitrectomy item was also moved `PARTIAL` → `NO_EVIDENCE` on the same reaso
 its explanation already said the snippet "never mentions vitrectomy", which is the
 definition of `NO_EVIDENCE`, not `PARTIAL`.
 
-Also in this entry:
-- `phenotypes[2]` "Retinal Hemorrhage" describes intraretinal dot-blot/flame
-  hemorrhages in NPDR but cites a snippet about **vitreous** haemorrhage in PDR.
-- `treatments[0]` claims "18–45% of patients gaining ≥15 ETDRS letters" — not in
+Also in this entry, both **still open**:
+- **[Open]** `treatments[0]` claims "18–45% of patients gaining ≥15 ETDRS letters" — not in
   any of its three snippets.
-- `classifications.harrisons_chapter[0].evidence[1]` uses the article *title* as
+- **[Open]** `classifications.harrisons_chapter[0].evidence[1]` uses the article *title* as
   its snippet, which is a degenerate citation.
+
+A third bullet here — `phenotypes[2]` "Retinal Hemorrhage" citing a vitreous
+haemorrhage snippet — was **fixed** in Tier 1 item 7 and is described above; it is
+removed from this list rather than left to contradict it. That duplication is the
+hazard recommendation 8 below addresses.
 
 ### `RHO-Related_Retinopathy` — generic snippet reuse
 
@@ -340,28 +349,28 @@ own citation rather than by inference from a definition.
 
 ### `Retinopathy_of_Prematurity`
 
-- `phenotypes[0]` frequency `FREQUENT` rested on "141 550 infants received ROP
+- **[Fixed]** `phenotypes[0]` frequency `FREQUENT` rested on "141 550 infants received ROP
   screening in Germany" — a denominator, not a rate. **Fixed**: band dropped, with a
   `notes:` line recording why so it is not re-derived from the same snippet
   (cf. `docs/frequency-evidence-guidelines.md`, which says omit rather than justify).
-- `treatments[1]`'s `description` still asserts anti-VEGF is "preferred over laser
+- **[Open]** `treatments[1]`'s `description` still asserts anti-VEGF is "preferred over laser
   for Zone I and posterior Zone II ROP due to better structural outcomes." Neither
   remaining evidence item carries that: one is the recurrence-risk trade-off, the
   other a registry trend in treatment preference. The superlative needs a source or
   should be softened. (The evidence *grade* half of this item — `SUPPORT` on an
   opposite-direction result — was **fixed**; see Tier 1 item 4.)
-- `phenotypes[4]` Myopia `FREQUENT` cited only "laser photocoagulation can lead to
+- **[Fixed]** `phenotypes[4]` Myopia `FREQUENT` cited only "laser photocoagulation can lead to
   refractive errors" — supporting neither the frequency nor the "regardless of
   treatment" scope. **Fixed** (Tier 1 item 7): band dropped with a `notes:`
   rationale, description narrowed to what the evidence covers, item regraded
   `PARTIAL`. Leaving this while dropping the band on `phenotypes[0]` eighty lines
   earlier was the internal inconsistency worth catching.
-- `treatments[2]` "fewer than 30% achieving ambulatory vision" in Stage 5 —
+- **[Open]** `treatments[2]` "fewer than 30% achieving ambulatory vision" in Stage 5 —
   unsupported by its snippet.
 
 ### `Central_Retinal_Artery_Occlusion`
 
-- `pathophysiology[1]` "Inner Retinal Ischemic Injury" (retinal edema, neuronal
+- **[Fixed grade / Open source]** `pathophysiology[1]` "Inner Retinal Ischemic Injury" (retinal edema, neuronal
   injury) was `SUPPORT`ed by "CRAO has consistently been identified as a serious
   medical condition that leads to substantial visual impairment" — no mechanism
   content at all. **Grade fixed** to `PARTIAL` (Tier 1 item 6); the `explanation` now
@@ -369,26 +378,26 @@ own citation rather than by inference from a definition.
   confirms there is no mechanistic content anywhere in it, so this one does still
   need a replacement citation — the regrade stops the overstatement, it does not
   close the gap.
-- `phenotypes[1]` "Reduced Visual Acuity" `VERY_FREQUENT` cites a meta-analysis
+- **[Fixed grade / Open band]** `phenotypes[1]` "Reduced Visual Acuity" `VERY_FREQUENT` cites a meta-analysis
   *aim* statement. **Grade fixed** to `PARTIAL` (Tier 1 item 7) — a statement of
   intent establishes that visual outcomes are the measured endpoint, but evidences
   neither the phenotype nor the band. The `VERY_FREQUENT` band remains unsourced.
-- The THEIA phase 3 trial (PMID:41109232) is cited only for a background
+- **[Open]** The THEIA phase 3 trial (PMID:41109232) is cited only for a background
   definition; its actual result is not recorded anywhere in the entry.
 
 ### `Glaucoma`
 
-- `pathophysiology[3]` "Trabecular Meshwork Dysfunction" describes age-related
+- **[Fixed grade / Open source]** `pathophysiology[3]` "Trabecular Meshwork Dysfunction" describes age-related
   change, oxidative stress, and ECM alteration, but both evidence items are about
   myocilin — a different (Mendelian *MYOC*) mechanism. **Fixed**: both are now
   `PARTIAL`, and both carry an `evidence_source`. The node still lacks evidence for
   the age/oxidative-stress mechanism it actually describes.
-- `treatments[2]` Alpha Agonists: the snippet "IOP reduction was similar for both
+- **[Fixed]** `treatments[2]` Alpha Agonists: the snippet "IOP reduction was similar for both
   groups" is a *non-difference* result vs timolol (n=16); the explanation read it as
   evidence of "clinically meaningful intraocular pressure lowering." **Fixed**:
   regraded `PARTIAL`, explanation rewritten as non-inferiority to an established
   agent rather than a demonstrated absolute effect.
-- `genetic[1]` OPTN was typed `Risk Factor` with notes scoping it to normal-tension
+- **[Fixed]** `genetic[1]` OPTN was typed `Risk Factor` with notes scoping it to normal-tension
   glaucoma, but the cited snippet says only "associated with primary open angle
   glaucoma" and OPTN E50K is generally treated as causative-dominant. **Fixed**
   (Tier 1 item 7): retyped `Causative`, the association item regraded `PARTIAL`
@@ -401,12 +410,12 @@ own citation rather than by inference from a definition.
 
 ### `Cytomegalovirus_Retinitis` and `Fuchs_Endothelial_Corneal_Dystrophy` — minor only
 
-- CMV `pathophysiology[2]`: the characteristic morphology claim (yellow-white
+- **[Open]** CMV `pathophysiology[2]`: the characteristic morphology claim (yellow-white
   opacification, centrifugal advance) is not in its snippet, which covers only
   rapid progression to blindness.
-- Fuchs `pathophysiology[5].evidence[2]`: a textbook statement of what mitochondria
+- **[Open]** Fuchs `pathophysiology[5].evidence[2]`: a textbook statement of what mitochondria
   do in general, cited as a "mechanistic bridge" to FECD apoptosis.
-- Fuchs `phenotypes[7]`: Nyctalopia `FREQUENT` comes from an Orphanet HPO
+- **[Open]** Fuchs `phenotypes[7]`: Nyctalopia `FREQUENT` comes from an Orphanet HPO
   annotation that primary FECD literature does not support. The curator flagged
   this transparently in the description — correct handling, but it likely reflects
   an **upstream Orphanet annotation defect** worth reporting to ORPHA:98974.
@@ -483,6 +492,15 @@ entries fall down, it is almost always because everything is graded `SUPPORT`.
    definitional sentence* carrying specific downstream claims. Audit at the snippet
    level, not the reference level, or correct citations get regraded along with the
    bad ones.
+8. **A findings document needs an explicit status marker per item, not prose tense.**
+   This report drifted out of sync with the KB in four consecutive review rounds,
+   and once contradicted itself inside a single section — a bullet describing a
+   defect in the present tense sat nine lines below a paragraph announcing the same
+   defect fixed. Marking every item **Fixed** or **Open** makes a stale entry
+   visually obvious on the next pass, where "defect stated in past tense, then a
+   *Fixed* note" does not. Any review artifact that ships alongside the data it
+   describes will drift as the data is repaired; the format has to make the drift
+   cheap to spot.
 
 ## Reproducing
 
