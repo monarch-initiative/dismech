@@ -38,9 +38,11 @@ show that mineral oil caused EVAPORATE plaque progression or enough clinical
 harm to explain REDUCE-IT. The report’s compact label “comparator-confounded” is
 therefore too categorical. Its detailed reasoning already makes the correct
 distinctions: biomarker extrapolation does not establish event attribution,
-RESPECT-EPA reports an EPA-class event signal against a no-oil control, and
-STRENGTH is neutral against inert corn oil with a different EPA+DHA formulation.
-“Potentially comparator-sensitive” better matches that evidence.
+and the no-oil RESPECT-EPA result weighs against a pure comparator-artifact
+explanation only weakly. RESPECT-EPA was open-label, used EPA 1800 mg/day, and
+its primary endpoint was borderline and non-significant (HR 0.79, 95% CI
+0.62–1.00; P=.055). “Potentially comparator-sensitive” better matches that
+evidence.
 
 ### CHERRY is triangulation rather than direct replication
 
