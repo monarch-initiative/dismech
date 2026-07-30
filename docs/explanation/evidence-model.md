@@ -45,7 +45,7 @@ It helps to read the model as two layers.
 plus the `linkml-reference-validator` pipeline, which enforces that the reference resolves
 and the quoted `snippet` is an *exact substring* of the cited text. This is DisMech's
 primary defence against fabrication — see the
-[Evidence & provenance policy](design-decisions.md) in the decision register. The
+[Evidence & provenance policy](design-decisions.md#6-evidence-provenance-policy) in the decision register. The
 supporting discipline lives across the project:
 
 - **Exact-snippet rule** — paraphrase fails validation; only verbatim quotes pass.
@@ -106,7 +106,7 @@ the export layer.
 
 ## Related pages
 
-- [Design Decisions §6 — Evidence & provenance policy](design-decisions.md)
+- [Design Decisions §6 — Evidence & provenance policy](design-decisions.md#6-evidence-provenance-policy)
 - [Frequency Evidence Guidelines](../frequency-evidence-guidelines.md) — why a phenotype
   `frequency:` band needs its own evidence, separate from the association
 - [Pathographs](../pathographs.md) — the causal-graph structure that evidence attaches to

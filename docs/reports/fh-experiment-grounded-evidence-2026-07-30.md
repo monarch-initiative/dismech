@@ -43,22 +43,30 @@ using FH — arguably the best-evidenced disease mechanism in all of human biolo
 
 ### 2a. The mis-targeting problem (evidence pointer ≠ evidence for *this* edge)
 
-The monogenic head-nodes `APOB-LDLR Binding Defect`, `PCSK9 Gain-of-Function`, and
-`LDLRAP1-Related LDL Uptake Defect` are **each supported by the same GeneReviews
-sentence** (`PMID:24404629`), pasted verbatim onto three mechanistically different edges:
+Two monogenic head-nodes — `APOB-LDLR Binding Defect` and `PCSK9 Gain-of-Function` — are
+**each supported by the same GeneReviews sentence** (`PMID:24404629`, which appears four
+times in the file: node-level and edge-level on both nodes):
 
-> "The molecular diagnosis of FH can be established by identification of ... pathogenic
-> variants in APOB ..., LDLR, or PCSK9 (gain of function); or rarely ... LDLRAP1."
+> "The molecular diagnosis of FH can be established by identification of heterozygous or
+> biallelic pathogenic variants in APOB (variants that impair binding of LDL-C to the LDL
+> receptor), LDLR, or PCSK9 (gain of function); or rarely, identification of biallelic
+> pathogenic variants in LDLRAP1."
 
-That snippet **validates** every time — it is a real quote — but it is a *diagnostic
-classification* sentence. It tells you which genes to sequence. It does not establish the
-`PCSK9 GoF → PCSK9-mediated LDLR degradation` edge it is attached to; it never mentions
-degradation, LDLR, or a mechanism. This is the thesis in one file: the snippet is a
-hallucination guardrail, not evidence for the arrow.
+That snippet **validates** every time — it is a real quote. For the **APOB** node it is
+arguably on-target: the parenthetical "(variants that impair binding of LDL-C to the LDL
+receptor)" states exactly the binding-defect mechanism that node claims. But for the
+`PCSK9 Gain-of-Function → PCSK9-mediated LDLR degradation` edge the same sentence is a
+*diagnostic-classification* statement — it says PCSK9 gain-of-function is a gene you
+sequence to diagnose FH, and says **nothing about degradation**, the actual mechanism on
+that edge. That is the mis-targeting: a valid quote standing in for mechanism evidence it
+does not contain. (The `LDLRAP1-Related LDL Uptake Defect` node, by contrast, does *not*
+use this sentence — it cites LDLRAP1-specific evidence, `DOI:10.3390/ijms24043224`, and is
+correctly targeted.) The PCSK9 edge is the clean, unambiguous example, and the one this
+document builds on.
 
 ### 2b. The experiment is *already in the prose* — just not structured
 
-On the `PCSK9` genetic entry (line ~1512) sits a genuinely mechanistic, already-validated
+On the `PCSK9` genetic entry (its `genetic:` block) sits a genuinely mechanistic, already-validated
 snippet:
 
 ```yaml
@@ -211,7 +219,8 @@ necessity), so the pair is mutually checkable rather than freely asserted.
 
 ## 6. How this composes with what already exists
 
-- **`causal_link_type`** (DIRECT / INDIRECT_KNOWN / INDIRECT_UNKNOWN) stays — it is
+- **`causal_link_type`** (`DIRECT` / `INDIRECT_KNOWN_INTERMEDIATES` /
+  `INDIRECT_UNKNOWN_INTERMEDIATES` / `UNKNOWN`) stays — it is
   *topology* (how many steps). `inference.role` is *epistemics* (how well established).
   Orthogonal, complementary.
 - **`target_mechanisms` (`TreatmentMechanismTarget`)** already links treatment → node.
@@ -251,10 +260,13 @@ necessity), so the pair is mutually checkable rather than freely asserted.
 
 1. Float `experiment.design` + `inference.role` on the design register (issue) before any
    schema change.
-2. Prototype the block on the FH PCSK9 sub-graph only, fetching and validating the real
-   Brown-Goldstein, Abifadel, Cohen-Hobbs, and FOURIER references first.
-3. Re-point the mis-targeted GeneReviews snippets (§2a) to real mechanism papers as a
-   *current-schema* fix, independent of the extension.
+2. Prototype the block on the FH PCSK9 sub-graph only, fetching and validating the
+   experiment B–D references first — the *Pcsk9*-null mouse (Rashid et al.), Abifadel,
+   Cohen-Hobbs, and FOURIER (experiment A, the HepG2 overexpression, is already in the
+   repo). Brown & Goldstein anchors the separate `LDLR Functional Defect` edge and would
+   come in when the prototype extends beyond the PCSK9 sub-graph.
+3. Re-point the mis-targeted PCSK9 GeneReviews snippet (§2a) to a real degradation-mechanism
+   paper as a *current-schema* fix, independent of the extension.
 
 *Companion slide deck:
 [`From evidence pointers to experiment-grounded evidence`](../slides/evidence-model-experiment-grounded.html).
