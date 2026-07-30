@@ -129,20 +129,46 @@ def main():
             print(f"  ...{i}/{len(targets)}", flush=True)
     json.dump(cache, open(args.cache, "w"))
 
+    # Tiered analysis: separate broad/grouping-anchor noise from interpretable gaps.
+    BROAD = 30
+    def cnt(s):
+        return 0 if not s else len(s.split(";"))
+    R = [dict(disorder=r[0], mondo=r[1], nd=r[2], nk=r[3], nov=r[4],
+             kg_only=r[5], dismech_only=r[6], nko=cnt(r[5]), ndo=cnt(r[6])) for r in rows]
+    no_kg = [r for r in R if r["nk"] == 0]
+    broad = [r for r in R if r["nk"] > BROAD]
+    clean = [r for r in R if 0 < r["nk"] <= BROAD]
+    clean_kg_only = sum(r["nko"] for r in clean)
+
     print(f"\n# Monarch KG <-> dismech gene-disease comparison")
     print(f"diseases compared (MONDO + curated genes): {len(targets)}")
     print(f"  with >=1 KG gene edge: {n_kg_has_data}")
     print(f"  dismech gene assertions total: {tot['dismech_genes']}")
     print(f"  KG gene assertions total:      {tot['kg_genes']}")
     print(f"  overlap:                       {tot['overlap']}")
-    print(f"  KG-only (dismech coverage gap):{tot['kg_only']}")
-    print(f"  dismech-only (KG candidate):   {tot['dismech_only']}")
+    print(f"  KG-only (dismech coverage gap, RAW): {tot['kg_only']}")
+    print(f"  dismech-only (KG candidate/verify):  {tot['dismech_only']}")
 
-    top_gap = sorted(rows, key=lambda r: -len(r[5].split(';')) if r[5] else 0)[:20]
-    print(f"\n## Top dismech coverage gaps (most KG-only genes)")
-    for name, mid, nd, nk, no, kgonly, donly in top_gap:
-        if kgonly:
-            print(f"  {name} ({mid}): {kgonly}")
+    print(f"\n## Tiers by KG gene count")
+    print(f"  no KG gene edge:            {len(no_kg)}")
+    print(f"  broad-anchor (n_kg>{BROAD}):      {len(broad)}  "
+          f"(contribute {sum(r['nko'] for r in broad)} of raw kg_only -> anchoring problem, not gaps)")
+    print(f"  clean (1..{BROAD}):              {len(clean)}  "
+          f"(clean kg_only = {clean_kg_only} real coverage-gap candidates)")
+
+    print(f"\n## Broad-anchor diseases (n_kg>{BROAD}) -- likely broad/mis-anchor (top 15 by n_kg)")
+    for r in sorted(broad, key=lambda x: -x["nk"])[:15]:
+        print(f"  {r['disorder']} ({r['mondo']}) n_kg={r['nk']} n_dismech={r['nd']}")
+
+    print(f"\n## Top clean coverage gaps (dismech missing genes KG has; top 20 by kg_only)")
+    for r in sorted(clean, key=lambda x: -x["nko"])[:20]:
+        if r["nko"]:
+            print(f"  {r['disorder']} ({r['mondo']}) nd={r['nd']} nk={r['nk']} ov={r['nov']}: {r['kg_only']}")
+
+    zero = [r for r in clean if r["nov"] == 0 and r["nd"] > 0 and r["nk"] > 0]
+    print(f"\n## Zero-overlap disagreements (dismech & KG both have genes, none shared): {len(zero)}")
+    for r in sorted(zero, key=lambda x: -(x["nd"] + x["nk"]))[:20]:
+        print(f"  {r['disorder']} ({r['mondo']}): dismech[{r['dismech_only']}] vs KG[{r['kg_only']}]")
 
     if args.tsv:
         with open(args.tsv, "w") as fh:
