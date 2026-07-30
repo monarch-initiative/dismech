@@ -52,12 +52,21 @@ clinical correlation, antigen binding, assay platform, and threshold vary.
 “Repeatedly observed” is defensible; a robust assay-defined prevalence is not
 yet established.
 
-### The canine result is counterevidence, not a clean replication test
+### The canine result is genuine diagnostic non-replication, with scope limits
 
-Later Boxer cohorts with poor discriminatory performance weaken the original
-specificity claim. Because assay, threshold, cohort selection, and phenotype
-definitions differ, “did not reproduce diagnostic discrimination” is more
-precise than an unqualified “fails to replicate.”
+Later Boxer cohorts do not reproduce the original diagnostic discrimination.
+[PMID:42160918](https://pubmed.ncbi.nlm.nih.gov/42160918/) found poor
+discrimination by both ELISA (AUC 0.534) and Western blot (AUC 0.600). Because
+the Western-blot arm uses the original
+[PMID:30239670](https://pubmed.ncbi.nlm.nih.gov/30239670/) modality, assay
+differences do not explain that cohort's non-replication.
+[PMID:41351822](https://pubmed.ncbi.nlm.nih.gov/41351822/) likewise detected
+anti-DSG2 in nearly all dogs, including healthy controls.
+
+Cohort selection, diagnostic thresholds, and phenotype definitions still
+differ across studies. The supported conclusion is therefore that later
+cohorts did not reproduce diagnostic discrimination in their settings, not
+that every assay-defined observation in the original study failed to reproduce.
 
 ### Epiphenomenon versus amplifier remains unresolved
 
