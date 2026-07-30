@@ -242,7 +242,7 @@ The content paper has no Methods section. It needs:
 - Analysis code, release identifier, license, and archival DOI.
 - Procedures for generating every figure and table.
 
-### Claims that need correction or qualification
+### Claims that needed correction or qualification at review time
 
 - Replace approximately 500 disorders and ten modules with frozen-release
   results.
@@ -262,10 +262,12 @@ The content paper has no Methods section. It needs:
 - Replace the older GitHub Pages URL with the canonical current site where
   appropriate.
 
-### Missing publication package
+### Missing publication package at review time
 
-- All 18 references are placeholders.
-- All four figures are placeholders.
+- The reviewed resource draft had 18 reference placeholders and four figure
+  placeholders. The current integrated resource draft has 16 numbered
+  references, with the LinkML citation populated, and five figures; the
+  remaining placeholders should be tracked against the current manuscript.
 - Author list, contribution statement, funding, competing interests, and
   resource governance are unresolved.
 - The manuscript needs a target journal and article type. In its current form

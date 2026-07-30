@@ -134,10 +134,11 @@ the present purpose is **dynamic enumerations bound by ontology
 constraint** (`reachable_from`): an enum value is valid only if it is
 reachable from a specified parent in a specified ontology via specified
 predicates. The dismech schema uses this construct to require that every
-phenotype descriptor term is reachable from the root of the Human
-Phenotype Ontology (HPO) [7], every cell type from the Cell Ontology (CL)
-[8], every treatment action from MAXO or the NCI Thesaurus
-therapeutic-procedure subgraph, and every gene identifier from HGNC.
+phenotype descriptor term is reachable from the HPO phenotypic-abnormality
+branch or the MONDO disease root, every cell type from the Cell Ontology
+(CL) [8], and every treatment action from MAXO or the NCI Thesaurus
+Clinical Intervention or Procedure branch. Gene identifiers are instead
+validated by ontology term existence and exact label matching against HGNC.
 
 Because the agent is required to emit typed objects, it cannot produce a
 free-text evidence summary that looks plausible but is unanchored. Because
@@ -589,7 +590,7 @@ checks; other pull requests follow their configured review and merge path.
 Schema, validators, agent harness configuration, and full curation
 history are at <https://github.com/monarch-initiative/dismech>. A
 browsable resource is available at
-<https://monarch-initiative.github.io/dismech/>. LinkML is documented at
+<https://dismech.monarchinitiative.org/>. LinkML is documented at
 <https://linkml.io>. The cache fetcher and structured-source framework
 are part of the dismech codebase under
 `src/dismech/structured_sources/`.
@@ -609,7 +610,8 @@ Knowledge*, recorded on Zenodo [5]. Funded by [TBD].
 - [3] [TBD: deep-research / agent citation hallucination characterisation, recent agent eval benchmarks]
 - [4] [TBD: ontology hallucination in LLMs, e.g., recent work on biomedical concept grounding]
 - [5] Mungall CJ. *Unlocking Disease Mechanisms: Agentic AI for Clinical Knowledge.* Zenodo, 2026. <https://zenodo.org/records/18720444>
-- [6] [TBD: LinkML citation, Moxon et al. 2021, *Bioinformatics Advances* / Database]
+- [6] Moxon, S.A.T. *et al.* LinkML: an open data modeling framework.
+  *GigaScience* **15**, giaf152 (2026).
 - [7] [TBD: Human Phenotype Ontology citation, Köhler et al., *Nucleic Acids Research*]
 - [8] [TBD: Cell Ontology citation, Diehl et al., *Journal of Biomedical Semantics*]
 - [9] [TBD: Ontology Access Kit (OAK) citation, Mungall et al.]
