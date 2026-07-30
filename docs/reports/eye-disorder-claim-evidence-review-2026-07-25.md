@@ -245,11 +245,15 @@ sentence reuse are different things.
 
 ## Tier 2 — Claim–evidence mismatches (recommended for curator follow-up)
 
-Each item below carries an explicit status marker — **[Open]**, **[Fixed]**, or a
+Bulleted items below carry an explicit status marker — **[Open]**, **[Fixed]**, or a
 split marker where a grade was corrected but the underlying source gap remains
-(e.g. **[Fixed grade / Open source]**). Read the marker, not the tense: this section
-drifted out of sync with the KB in four consecutive review rounds while the fixes
-landed, which is what recommendation 8 is about.
+(e.g. **[Fixed grade / Open source]**). Where an item is written as narrative prose
+rather than a bullet (the `Diabetic_Retinopathy` and `RHO-Related_Retinopathy`
+sections), the status is stated inline in bold instead. Read the status, not the
+tense: this section drifted out of sync with the KB in four consecutive review
+rounds while the fixes landed, which is what recommendation 8 is about — and the
+mixed markup here is itself the residue of that drift, since the narrative sections
+predate the marker convention.
 
 What remains here needs a replacement source or new literature; the items that
 needed only a re-quote or a grade change have all been promoted to Tier 1 across
