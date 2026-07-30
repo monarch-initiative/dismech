@@ -5,17 +5,22 @@
 **Verdict on the mechanism: partially supported at the imaging-surrogate level,
 unresolved as an explanation for clinical events.**
 
-The report’s causal structure is sound. It does not infer plaque mediation from
-the coexistence of a positive imaging trial and a positive outcomes trial, and
-it keeps the hypothesis `EMERGING`. That is the right curation result.
+The `PARTIALLY_SUPPORTED` verdict is intentionally scoped to the randomized
+plaque-imaging phenotype. The plaque-to-event edge remains unresolved. The
+report’s causal structure is sound: it does not infer plaque mediation from the
+coexistence of a positive imaging trial and a positive outcomes trial, and it
+keeps the hypothesis `EMERGING`. That is the right curation result.
 
 ## What the report gets right
 
 EVAPORATE provides direct randomized evidence that IPE 4 g/day is associated
 with a favorable change in low-attenuation coronary plaque versus its assigned
-comparator. CHERRY provides supportive EPA-class evidence using IVUS, while the
-overall-null OCT cap-thickness result prevents broadening “remodeling” into a
-general claim of cap stabilization.
+comparator: −17% with IPE versus +109% with mineral-oil placebo. The contrast is
+therefore dominated by comparator-arm progression, making its magnitude
+comparator-sensitive without erasing the randomized imaging signal. CHERRY
+provides supportive EPA-class evidence using IVUS, while the overall-null OCT
+cap-thickness result prevents broadening “remodeling” into a general claim of
+cap stabilization.
 
 The report also correctly identifies the central missing experiment: no study
 combines randomized IPE exposure, serial coronary imaging, and adjudicated
@@ -30,31 +35,42 @@ mechanism.
 The REDUCE-IT biomarker substudy shows adverse biomarker movement in the
 mineral-oil arm and makes comparator effects a legitimate concern. It does not
 show that mineral oil caused EVAPORATE plaque progression or enough clinical
-harm to explain REDUCE-IT. The report’s recurring label “comparator-confounded”
-is therefore too categorical. “Potentially comparator-sensitive” better matches
-the evidence, including published analyses arguing that mineral oil does not
-account for the outcome effect.
+harm to explain REDUCE-IT. The report’s compact label “comparator-confounded” is
+therefore too categorical. Its detailed reasoning already makes the correct
+distinctions: biomarker extrapolation does not establish event attribution,
+RESPECT-EPA reports an EPA-class event signal against a no-oil control, and
+STRENGTH is neutral against inert corn oil with a different EPA+DHA formulation.
+“Potentially comparator-sensitive” better matches that evidence.
 
 ### CHERRY is triangulation rather than direct replication
 
-CHERRY studied 1.8-g EPA added to pitavastatin in a Japanese post-PCI population,
-not IPE 4 g in an EVAPORATE-matched design. Its IVUS result supports an
-EPA-associated plaque phenotype across modalities, but cannot independently
-replicate the exact intervention.
+CHERRY studied EPA 1800 mg/day added to pitavastatin in a Japanese post-PCI
+population, not IPE 4 g in an EVAPORATE-matched design. Its open-label IVUS
+result supports an EPA-associated plaque phenotype across modalities, but
+cannot independently replicate the exact intervention. The absence of a
+mineral-oil comparator cuts the other way: a favorable plaque signal without
+mineral oil weakens a pure comparator-artifact explanation. The report itself
+correctly classifies EPA-only non-IPE trials as triangulation rather than direct
+IPE 4 g replication; the needed correction is to its compact corroboration
+label, not its detailed reasoning.
 
 ### ApoB/remnant lowering is plausible but not a complete explanation
 
 Short-term IPE studies support reductions in apoB, remnant cholesterol, and
 atherogenic particle number. That mechanism could be upstream of plaque change.
-No joint dataset establishes that it fully mediates plaque remodeling or the
-clinical benefit, so “could fully explain” should remain a hypothesis rather
-than the preferred conclusion.
+The report scopes “could fully explain” to plaque change and uses the weaker
+“could drive” wording for both plaque and events; it also explicitly identifies
+the supporting evidence as short-term biomarker rather than outcome or
+mediation studies. No joint dataset establishes that particle lowering fully
+mediates plaque remodeling or that it mediates clinical benefit. It is a
+plausible upstream route to plaque change and a potential contributor to
+events, not a demonstrated full explanation of either.
 
 ### Retrieval failure is not source absence
 
-The inability to retrieve PMID:40397711 in the provider environment should be
-recorded as a verification task. It does not establish that IPE-specific human
-platelet or thrombosis evidence is absent.
+Calling the inability to retrieve PMID:40397711 “a curation-relevant absence”
+is too strong. It should be recorded as a verification task and does not
+establish that IPE-specific human platelet or thrombosis evidence is absent.
 
 ## Curation implication
 
