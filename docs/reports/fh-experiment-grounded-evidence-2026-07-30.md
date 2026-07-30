@@ -256,4 +256,6 @@ necessity), so the pair is mutually checkable rather than freely asserted.
 3. Re-point the mis-targeted GeneReviews snippets (§2a) to real mechanism papers as a
    *current-schema* fix, independent of the extension.
 
-*Companion slide deck: `From evidence pointers to experiment-grounded evidence` (see PR).*
+*Companion slide deck:
+[`From evidence pointers to experiment-grounded evidence`](../slides/evidence-model-experiment-grounded.html).
+Conceptual overview: [The Evidence Model](../explanation/evidence-model.md).*
