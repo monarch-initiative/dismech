@@ -27,6 +27,7 @@ concept should be modeled — that per-entry policy is [#7178](https://github.co
 | Unanchored primary slot, **no** MONDO anywhere (Mondo candidates) | **17** |
 | Unanchored primary slot, MONDO present elsewhere (promote-anchor fix) | **12** |
 | `mondo_mappings` narrowMatch / broadMatch (granularity mismatch) | **5 / 7** |
+| MONDO ids used as primary anchor by >1 entry | **22 ids / 54 entries** |
 
 The anchoring layer is in good shape: no dangling or obsolete Mondo ids. The
 actionable work splits cleanly into **dismech → Mondo requests** (17 concepts) and
@@ -107,6 +108,62 @@ here only as discrepancies — not adjudicated.
 `mondo_mappings` skos-predicate totals: exactMatch 288 · closeMatch 30 · narrowMatch 15
 · relatedMatch 14 · broadMatch 8. (Predicate *occurrences*; the narrow/broad file
 counts above are distinct entries.)
+
+## D. Shared primary anchors (same MONDO id on >1 entry)
+
+**22 MONDO ids are used as the primary `disease_term` by 54 entries.** Detected by
+`scripts/mondo_anchor_audit.py`; per-entry counts are in the `shared_anchor_n` column
+of the worklist TSV. Three tiers:
+
+### Tier 1 — intentional finer-than-Mondo splits (~45 entries; correct as-is)
+
+Precision-oncology driver subtypes and metastatic-stage variants sharing a parent term
+because Mondo has no molecular-subtype term. Simultaneously a strong **dismech → Mondo
+subtype-request** signal.
+
+| MONDO id | Label | ×  | Entries |
+|---|---|---|---|
+| MONDO:0005061 | lung adenocarcinoma | 5 | EGFR / KRAS-G12C / MET-ex14 / RET / ROS1 NSCLC |
+| MONDO:0005233 | non-small cell lung carcinoma | 4 | ALK / BRAF-V600E / Metastatic / generic |
+| MONDO:0005575 | colorectal cancer | 4 | BRAF-V600E / HER2+ / MSI-high / Metastatic |
+| MONDO:0005012 | cutaneous melanoma | 3 | BRAF-V600 / Metastatic / NRAS |
+| MONDO:0005075 | thyroid gland papillary carcinoma | 3 | BRAF / generic / RET-fusion |
+| MONDO:0007256 | hepatocellular carcinoma | 3 | Aflatoxin / generic / Metastatic |
+| MONDO:0001056 | gastric cancer | 2 | EBV / HER2+ |
+| MONDO:0003210 | intrahepatic cholangiocarcinoma | 2 | FGFR-altered / IDH-mutant |
+| MONDO:0004950 | gastric carcinoma | 2 | H. pylori / Metastatic |
+| MONDO:0004989 | breast carcinoma | 2 | Metastatic / PIK3CA |
+| MONDO:0005086 | renal cell carcinoma | 2 | Metastatic / generic |
+| MONDO:0005211 | ovarian serous adenocarcinoma | 2 | Metastatic / HGSC |
+| MONDO:0008315 | prostate cancer | 2 | BRCA / Metastatic |
+| MONDO:0007915 | systemic lupus erythematosus | 2 | Neuropsychiatric SLE / generic |
+| MONDO:0100038 | complex neurodevelopmental disorder | 2 | ANK2 / BLOC1S1 (two-gene-at-generic-term) |
+
+### Tier 2 — likely mis-anchor (a more specific Mondo term probably exists)
+
+- **Confirmed:** the Waardenburg pair both sit on generic MONDO:0018094, but type-level
+  terms exist — MONDO:0008670 (WS type 1) for `PAX3_Waardenburg_Spectrum`, MONDO:0019517
+  (WS type 2) for `MITF_Waardenburg_Tietz_Spectrum`. *Caveat:* these are "spectrum"
+  records and may be intentionally broader than one numbered type — curator's call.
+- **Worth a targeted check** (OAK search inconclusive, not asserting absence):
+  `Obesity_Due_to_MC4R_Pathway_Disruption` (on MONDO:0011122 obesity disorder);
+  `SLC6A1-Related_Disorder` (on MONDO:0014633 *epilepsy with myoclonic-atonic seizures*,
+  likely too narrow for the gene's full phenotype);
+  `Malnutrition-related_Diabetes_Mellitus` (on the diabetes umbrella MONDO:0005015, which
+  the umbrella entry itself already holds via `closeMatch`);
+  `Pacak-Zhuang_syndrome` (on MONDO:0035540 pheochromocytoma-paraganglioma).
+
+### Tier 3 — possible genuine redundancy / lump
+
+- **`Neuromyelitis_Optica` + `Neuromyelitis_Optica_Spectrum_Disorder` → MONDO:0019100.**
+  Mondo folds NMOSD into the same term (no separate NMOSD class found), so these may be
+  the same entity modeled twice — the clearest duplication candidate.
+- **`Chemotherapy_Induced_Diarrhea` + `Travelers_Diarrhea` → MONDO:0001673 (diarrheal
+  disease).** Two etiologically unrelated conditions pinned to a generic symptom-level
+  term; both are under-anchored.
+
+Tiers 2/3 are flagged for curator review, not auto-fixed — they intersect the
+record-altitude policy call ([#7178](https://github.com/monarch-initiative/dismech/issues/7178)).
 
 ## Corrections to earlier ad-hoc figures
 

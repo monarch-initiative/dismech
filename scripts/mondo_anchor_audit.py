@@ -159,11 +159,29 @@ def main():
     for k, v in sorted(pred_totals.items(), key=lambda x: -x[1]):
         p(f"  {v:5d}  {k}")
 
+    # Shared primary anchors: the same MONDO id used as disease_term by >1 entry.
+    from collections import defaultdict
+    by_id = defaultdict(list)
+    for name, state, mid, stored, *_ in tsv_rows:
+        if state == "MONDO" and mid:
+            by_id[mid].append((name, stored))
+    shared = {k: v for k, v in by_id.items() if len(v) > 1}
+    shared_count = {k: len(v) for k, v in shared.items()}
+    p(f"\n## Shared primary anchors (same MONDO id on >1 entry): "
+      f"{len(shared)} ids, {sum(len(v) for v in shared.values())} entries")
+    for mid, entries in sorted(shared.items(), key=lambda x: (-len(x[1]), x[0])):
+        p(f"  {mid}  x{len(entries)}  [{entries[0][1]}]")
+        for name, _ in sorted(entries):
+            p(f"     - {name}")
+
     if args.tsv:
         with open(args.tsv, "w") as fh:
-            fh.write("name\tanchor_state\tmondo_id\tstored_label\toak_flag\tmondo_mapping_preds\n")
-            for row in tsv_rows:
-                fh.write("\t".join(row) + "\n")
+            fh.write("name\tanchor_state\tmondo_id\tstored_label\toak_flag\t"
+                     "mondo_mapping_preds\tshared_anchor_n\n")
+            for name, state, mid, stored, oak_flag, preds in tsv_rows:
+                n_shared = shared_count.get(mid, 1) if state == "MONDO" and mid else ""
+                fh.write("\t".join([name, state, mid, stored, oak_flag, preds,
+                                    str(n_shared)]) + "\n")
         p(f"\n[wrote worklist TSV: {args.tsv} ({len(tsv_rows)} rows)]")
 
 
