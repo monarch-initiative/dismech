@@ -124,35 +124,6 @@ LABEL MISMATCH: Cholera.yaml
 
 Update the `label` field to match the ontology's canonical label exactly.
 
-### A valid ontology term is not always a bindable term (reachability)
-
-The term slots are backed by **dynamic enums** with a `reachable_from` constraint,
-so a real, correctly-labeled ontology term can still be rejected if it lies
-outside the allowed subtree. For example `PhenotypeTerm` is reachable only from
-`HP:0000118` (phenotypic abnormality) and `MONDO:0000001` (disease, for
-complications/comorbidities). Pregnancy/fetal-outcome HP terms such as
-`HP:0005268` (Miscarriage), `HP:0003826` (Stillbirth), and `HP:0100602`
-(Preeclampsia) live outside `HP:0000118` and therefore **fail** term validation
-even though they exist and the label matches — they should be cited in
-`evidence` rather than bound in `phenotype_term`.
-
-**Workflow before binding any term:** (1) verify the label with OAK
-(`runoak ... info <ID>`), then (2) confirm the ID is reachable under the slot's
-enum root before adding it. A fast reachability proxy for `PhenotypeTerm`:
-
-```bash
-# YES = bindable, NO = outside the enum (cite in evidence instead)
-uv run runoak -i sqlite:obo:hp ancestors HP:0007932 -p i | grep -q HP:0000118 && echo YES || echo NO
-```
-
-Then confirm with the authoritative validator, which is the ground truth:
-
-```bash
-uv run linkml-term-validator validate-data kb/disorders/MyDisease.yaml \
-  -s src/dismech/schema/dismech.yaml -t Disease
-# ❌ ERROR: Value 'HP:0005268' not in dynamic enum 'PhenotypeTerm' (expanded from ontology)
-```
-
 ## Batch Processing
 
 To find entries missing term annotations:
