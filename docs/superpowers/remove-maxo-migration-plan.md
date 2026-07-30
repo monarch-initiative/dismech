@@ -76,20 +76,48 @@ a schema relaxation.
 
 ## Phase 1 — The crosswalk (the real work)
 
-Build and freeze a MAXO→NCIT map for all **352 distinct terms**. See the companion
-crosswalk TSV (`docs/superpowers/maxo_ncit_crosswalk.tsv`). Structure:
+**Done — frozen in the companion TSV `docs/superpowers/maxo_ncit_crosswalk.tsv`** (all
+352 distinct terms, every NCIT id OAK-verified, labels canonical). Coverage weighted by
+the 4,354 occurrences:
 
-| Tier | What | Handling |
-|---|---|---|
-| Head (~40 terms) | Generic actions covering ~80% of occurrences (supportive care 654×, surgical procedure 360×, molecular genetic testing 284×, diagnostic procedure 198×, dietary intervention 158×, physical therapy 134×, chemotherapy 108×, gene therapy 87× …) | Map to NCIT equivalents (several already in CLAUDE.md's tables and the 167-term known-good NCIT vocab). High confidence. |
-| Tail (~310 terms) | Single-/low-use diagnostic, imaging, lab, examination, avoidance, and drug-class "agent therapy" terms | Per-term NCIT lookup; many map cleanly, some only to a broader parent. |
-| **Flagged (count TBD)** | MAXO concepts with **no reasonable NCIT equivalent** or that are **not procedures** (avoidances, drug-class "X agent therapy", counseling that may not sit under `NCIT:C25218`) | **Resolve case-by-case with the maintainer** before executing (per decision). |
+| Confidence | Terms | Occurrences | Handling |
+|---|---|---|---|
+| HIGH (exact NCIT equivalent) | 173 | 3,379 (77.6%) | Direct flat swap. |
+| MED (broader NCIT parent / equivalent) | 137 | 826 (19.0%) | Flat swap to the parent; minor specificity loss. |
+| LOW (fallback, mostly drug-class → Pharmacotherapy) | 37 | 137 (3.1%) | See restructure note below. |
+| NONE (no NCIT term at all) | 5 | 12 (0.3%) | Maintainer decision. |
 
-**Note on `diagnosis_term`:** the schema comment says "MAXO includes diagnostic
-procedures under medical actions." NCIT's diagnostic/imaging/lab-procedure branches
-exist, but reachability from `NCIT:C25218` for these must be confirmed in Phase 0 —
-if diagnostic procedures are not reachable from that root, the `diagnosis_term`
-binding either needs a second `source_node` (e.g. a diagnostic-procedure root) or a
+**59 terms (204 occ, 4.7%) are "flagged"** — NONE, or a mapping whose target may not be
+reachable from `NCIT:C25218` (Intervention or Procedure) because it isn't a procedure.
+They split into actionable categories, most of which are **not** truly unmappable:
+
+1. **Drug-class "X agent therapy" (~30 terms)** — NSAID, ACE inhibitor, statin, SGLT2i,
+   beta-agonist/-blocker, PPI, CCB, SSRI/SNRI, diuretic, antihistamine, C5-inhibitor,
+   copper chelator, etc. These map to NCIT *drug-class* nodes (Diuretic, Antiplatelet
+   Agent, …) that are chemicals, **not** procedures. **Correct handling is a structural
+   remap, not a flat swap:** set `treatment_term` → `NCIT:C15986 Pharmacotherapy` (a
+   generic action reachable from `C25218`) and move the drug class into `therapeutic_agent`
+   (whose binding is exactly for NCIT/CHEBI drug classes — the documented "Therapeutic
+   Agent Pattern"). This *improves* the data model.
+2. **Supplement-substance terms (~4)** — carnitine/calcium/magnesium supplementation map
+   to NCIT *substance* nodes. Same fix: nutritional/supplementation action term +
+   substance in `therapeutic_agent`.
+3. **Avoidance / lifestyle (~8)** — sunlight/exercise/chemical-exposure avoidance →
+   `NCIT:C54264 Avoidance` / `Lifestyle Therapy` / `Behavioral Intervention`. Reachability
+   from `C25218` uncertain (Phase 0 confirms).
+4. **Device terms (~4)** — hearing aid, cochlear implant, glasses, denture → NCIT *device*
+   nodes (not procedures/usage actions).
+5. **Diagnostic/lab (~2)** — enzyme-activity / RBC-enzyme assay → `Laboratory Procedure`.
+6. **True NONE (5)** — `orthotic device usage`, `application of emollient to skin`,
+   `airway management`, `apoptosis assay`, `transepithelial nasal potential difference
+   measurement`. No NCIT equivalent; maintainer decision (drop `term:` + keep free-text
+   `preferred_term`, or broaden — the former needs the binding relaxed from REQUIRED).
+
+**Note on `diagnosis_term`:** the schema comment says "MAXO includes diagnostic procedures
+under medical actions." NCIT's diagnostic/imaging/lab branches exist and most head-tier
+diagnostic terms mapped cleanly, but reachability from `NCIT:C25218` for the procedure
+branch is confirmed empirically by Phase 0's enum-cache regen — terms that don't land in
+the regenerated cache need a second `source_node` (a diagnostic-procedure root) or a
 schema relaxation.
 
 ## Phase 2 — Data migration (`kb/disorders/*.yaml`)
@@ -159,10 +187,23 @@ regenerated downstream and are out of scope.
 
 ## Open decisions for the maintainer
 
-1. **Flagged unmappable terms** (count/list filled from the crosswalk): map to a broader
-   NCIT parent, or relax the schema binding to allow term-less treatments? (Decision so
-   far: **flag and resolve case-by-case**.)
-2. **`diagnosis_term` root**: if NCIT diagnostic procedures aren't reachable from
-   `NCIT:C25218`, add a diagnostic-procedure `source_node` or relax the binding?
-3. Should the design-decision register keep MAXO listed as *deprecated/removed* with a
-   dated rationale, or be fully scrubbed?
+1. **Drug-class "agent therapy" terms (~30, cat. 1 above):** adopt the structural remap
+   (`Pharmacotherapy` action + drug class in `therapeutic_agent`)? Recommended — it's the
+   documented pattern and keeps the treatment term reachable from `C25218`. The alternative
+   (leave the NCIT drug-class node in `treatment_term`) will likely **fail** the enum-cache
+   reachability check.
+2. **The 5 true-NONE terms + device/avoidance/substance terms whose NCIT node isn't a
+   procedure:** broaden to a reachable parent (e.g. `Therapeutic Procedure`,
+   `Nutritional Support`), or relax the `treatment_term` binding from REQUIRED to allow a
+   free-text `preferred_term` with no `term:`? (Prior direction: **resolve case-by-case**.)
+3. **`diagnosis_term` root**: if Phase 0 shows NCIT diagnostic procedures aren't reachable
+   from `NCIT:C25218`, add a diagnostic-procedure `source_node` or relax the binding?
+4. **Design-decision register:** keep MAXO listed as *deprecated/removed* with a dated
+   rationale, or scrub it entirely?
+
+## Crosswalk provenance
+
+Built by 6 parallel agents against `ols:ncit` (label-verified, no fabricated ids),
+grounded in the 167-term known-good NCIT treatment vocabulary already in the enum cache.
+Every mapping is reviewable in `maxo_ncit_crosswalk.tsv` (columns: count, maxo_id,
+maxo_label, ncit_id, ncit_label, confidence, note). Freeze this file before Phase 2.
