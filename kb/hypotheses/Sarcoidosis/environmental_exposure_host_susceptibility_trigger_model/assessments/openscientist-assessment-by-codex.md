@@ -76,16 +76,18 @@ were missed:
   smoking interactions with multiple loci, with leading signals in `FCRL1` for
   Löfgren syndrome and `IL23R` for non-Löfgren disease
   ([PMID:31819081](https://pubmed.ncbi.nlm.nih.gov/31819081/)).
-- A gene-environment-wide analysis of 1,877 African Americans identified
-  suggestive insecticide interactions using methods that account for ancestry
-  and relatedness
+- A gene-environment-wide analysis in African Americans identified suggestive
+  insecticide interactions using methods that account for ancestry and
+  relatedness
   ([PMID:30793815](https://pubmed.ncbi.nlm.nih.gov/30793815/)).
 
-These studies do **not** replicate the exact ACCESS
-HLA-DRB1*11–insecticide/mold result, prove that the statistical interactions are
-biological, or identify an exposure-specific sensor. The report's central
-mechanistic uncertainty remains. But “one direct analysis” and a broadly
-“unreplicated G×E literature” are inaccurate descriptions of the evidence base.
+These studies do **not** independently replicate the ACCESS
+DRB1*1101–occupational-insecticide, DRB1*1101–mold-or-musty-odors, or
+DRB1*1501–occupational-insecticide leads, prove that the statistical
+interactions are biological, or identify an exposure-specific sensor. The
+report's central mechanistic uncertainty remains. But “one direct analysis” and
+a broadly “unreplicated G×E literature” are inaccurate descriptions of the
+evidence base.
 
 A corrected synthesis would distinguish:
 
