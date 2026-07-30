@@ -15,7 +15,7 @@ counts as of the current branch head, after the fixes described below):
 | `Achromatopsia` | Inherited cone dysfunction | 105 |
 | `Fuchs_Endothelial_Corneal_Dystrophy` | Corneal dystrophy | 58 |
 | `Diabetic_Retinopathy` | Systemic microvascular | 34 |
-| `RHO-Related_Retinopathy` | Inherited retinal dystrophy | 39 |
+| `RHO-Related_Retinopathy` | Inherited retinal dystrophy | 42 |
 | `Glaucoma` | Optic neuropathy | 27 |
 | `Cytomegalovirus_Retinitis` | Infectious | 17 |
 | `Central_Retinal_Artery_Occlusion` | Vascular/ischemic | 16 |
@@ -219,6 +219,28 @@ items were filled (`PMID:10617907` → `IN_VITRO`, in situ hybridization on ex v
 specimens; `PMID:37217093` → `OTHER`, a narrative review stating consensus rather
 than primary data).
 
+### 7. The remaining regrade-only items, applied
+
+A later review round observed that this report was still shipping alongside seven
+defects it documents as fixable without new literature — the same contradiction
+item 6 addressed. They are now closed:
+
+| Entry | Location | Was | Now |
+|---|---|---|---|
+| `RHO-Related_Retinopathy` | RP-definition snippet ×4 (night blindness edge, `phenotypes[0]`, `[2]`, `[4]`) | `SUPPORT` | `PARTIAL` |
+| `RHO-Related_Retinopathy` | `phenotypes[4]` bone-spicule pigmentation | — | **+`SUPPORT`** from `PMID:33669941` |
+| `RHO-Related_Retinopathy` | `phenotypes[5]` rod ERG | `SUPPORT` on a BCVA snippet | **+`SUPPORT`** from `PMID:33669941`; BCVA item → `PARTIAL` |
+| `Diabetic_Retinopathy` | `phenotypes[2]` retinal hemorrhage (wrong compartment) | `SUPPORT` | `NO_EVIDENCE` |
+| `Diabetic_Retinopathy` | `treatments[2]` vitrectomy | `PARTIAL` | `NO_EVIDENCE` |
+| `Central_Retinal_Artery_Occlusion` | `phenotypes[1]` acuity (meta-analysis *aim*) | `SUPPORT` | `PARTIAL` |
+| `Retinopathy_of_Prematurity` | `phenotypes[4]` myopia | `SUPPORT` + `FREQUENT` | `PARTIAL`, band dropped |
+| `Glaucoma` | `genetic[1]` OPTN typing + 4 missing `evidence_source` | `Risk Factor`, untagged | `Causative`, tagged, item `PARTIAL` |
+
+One flagged item was **not** changed after checking it: the fourth
+`PMID:29776671` citation in `Diabetic_Retinopathy` quotes a different, apt sentence
+on a `Visual Impairment` node. See that section for why reference reuse and
+sentence reuse are different things.
+
 ---
 
 ## Tier 2 — Claim–evidence mismatches (recommended for curator follow-up)
@@ -250,9 +272,27 @@ is the honest reading of a generic scope sentence attached to a specific claim.
 
 **Still open here**: the 4-2-1 rule and the ~50%/1-year figure are genuine
 ETDRS-derived facts but remain **unsourced** in the entry — the regrade stopped the
-entry from overstating its evidence, it did not supply the missing citation. A
-fourth use of the same reference at `phenotypes[0]` is also still `SUPPORT`; it was
-not in the table above and so was not part of the regrade round.
+entry from overstating its evidence, it did not supply the missing citation.
+
+A fourth use of the same reference at `phenotypes[0]` was reviewed and **left as
+`SUPPORT` deliberately**. It quotes a different sentence — "Diabetic retinopathy
+(DR) is a major complication of DM and a leading cause of vision loss in working
+middle-aged adults" — attached to a `Visual Impairment` phenotype, which it
+supports directly. Reuse of one *reference* across many nodes is not the
+anti-pattern; reuse of one generic *sentence* to carry specific claims is. Worth
+stating, because a reviewer reading "fourth use of PMID:29776671" flagged it as
+part of the same defect.
+
+Also **fixed** (Tier 1 item 7): `phenotypes[2]` "Retinal Hemorrhage" described
+intraretinal dot-blot and flame-shaped hemorrhages in NPDR while citing a snippet
+about **vitreous** haemorrhage in PDR — a different compartment at a different
+stage, and one already modeled by the `Vitreous Hemorrhage` node immediately below.
+Regraded `NO_EVIDENCE`, since the sentence is silent on the claim rather than weakly
+supportive of it. The NPDR intraretinal pattern still needs a source.
+
+The vitrectomy item was also moved `PARTIAL` → `NO_EVIDENCE` on the same reasoning:
+its explanation already said the snippet "never mentions vitrectomy", which is the
+definition of `NO_EVIDENCE`, not `PARTIAL`.
 
 Also in this entry:
 - `phenotypes[2]` "Retinal Hemorrhage" describes intraretinal dot-blot/flame
@@ -271,15 +311,24 @@ classification, and **bone-spicule pigmentation**, none of which it mentions. Th
 `explanation` fields do the actual work via curator inference ("RP is classically
 defined by…"), which is reasoning, not evidence.
 
-This one is **still open**, and is the largest remaining defect in the file: the
-snippet is reused unchanged at `pathophysiology[1].downstream[0]`, `phenotypes[0]`,
-`phenotypes[2]`, and `phenotypes[4]`, all still graded `SUPPORT`. It is the same
-shape as the `Diabetic_Retinopathy`/ICO case regraded in Tier 1 item 6 and should
-go the same way — recommendation 3 below says such reuse defaults to `PARTIAL`.
+**Fixed** (Tier 1 item 7): all four instances — `pathophysiology[1].downstream[0]`,
+`phenotypes[0]`, `phenotypes[2]`, `phenotypes[4]` — are now `PARTIAL`, each with an
+`explanation` naming what the sentence does and does not say. The bone-spicule node
+went further: `PMID:33669941` reports the finding directly in RHO patients ("Bone
+spicule pigmentation was seen in all individuals with RP… and none of the patients
+diagnosed with CSNB"), so it now carries a `SUPPORT` item alongside the downgraded
+one — and the same sentence corroborates the phenotype's RP4 scoping.
 
-One further specific, still open:
-- `phenotypes[5]` "Reduced rod electroretinogram" cites a snippet about BCVA and
-  visual-field decline rates, with no ERG content.
+Also **fixed**: `phenotypes[5]` "Reduced rod electroretinogram" cited a snippet about
+BCVA and visual-field decline rates with no ERG content. The same Kobal cohort
+supplies the observation directly ("The function of the rod system, as revealed by
+dark-adapted (DA) full-field ERG (ffERG), was highly dysfunctional in all
+patients."), so that is now the `SUPPORT` item and the natural-history snippet is
+`PARTIAL` as corroboration of progressive functional loss.
+
+Both are the third and fourth times in this review that a defect deferred as
+"needs a replacement source" was closed by a source **already in the repository** —
+in these two cases, a cached abstract fetched for an entirely different node.
 
 Two items previously listed here are now **fixed**: the orphan 72-year fragment at
 `pathophysiology[2].downstream[1]` (Tier 1 item 3), and the unsourced
@@ -301,9 +350,12 @@ own citation rather than by inference from a definition.
   other a registry trend in treatment preference. The superlative needs a source or
   should be softened. (The evidence *grade* half of this item — `SUPPORT` on an
   opposite-direction result — was **fixed**; see Tier 1 item 4.)
-- `phenotypes[4]` Myopia `FREQUENT` cites only "laser photocoagulation can lead to
-  refractive errors" — supports neither the frequency nor the
-  "regardless of treatment" scope.
+- `phenotypes[4]` Myopia `FREQUENT` cited only "laser photocoagulation can lead to
+  refractive errors" — supporting neither the frequency nor the "regardless of
+  treatment" scope. **Fixed** (Tier 1 item 7): band dropped with a `notes:`
+  rationale, description narrowed to what the evidence covers, item regraded
+  `PARTIAL`. Leaving this while dropping the band on `phenotypes[0]` eighty lines
+  earlier was the internal inconsistency worth catching.
 - `treatments[2]` "fewer than 30% achieving ambulatory vision" in Stage 5 —
   unsupported by its snippet.
 
@@ -318,7 +370,9 @@ own citation rather than by inference from a definition.
   need a replacement citation — the regrade stops the overstatement, it does not
   close the gap.
 - `phenotypes[1]` "Reduced Visual Acuity" `VERY_FREQUENT` cites a meta-analysis
-  *aim* statement.
+  *aim* statement. **Grade fixed** to `PARTIAL` (Tier 1 item 7) — a statement of
+  intent establishes that visual outcomes are the measured endpoint, but evidences
+  neither the phenotype nor the band. The `VERY_FREQUENT` band remains unsourced.
 - The THEIA phase 3 trial (PMID:41109232) is cited only for a background
   definition; its actual result is not recorded anywhere in the entry.
 
@@ -334,9 +388,16 @@ own citation rather than by inference from a definition.
   evidence of "clinically meaningful intraocular pressure lowering." **Fixed**:
   regraded `PARTIAL`, explanation rewritten as non-inferiority to an established
   agent rather than a demonstrated absolute effect.
-- `genetic[1]` OPTN is typed `Risk Factor` with notes scoping it to normal-tension
+- `genetic[1]` OPTN was typed `Risk Factor` with notes scoping it to normal-tension
   glaucoma, but the cited snippet says only "associated with primary open angle
-  glaucoma" and OPTN E50K is generally treated as causative-dominant.
+  glaucoma" and OPTN E50K is generally treated as causative-dominant. **Fixed**
+  (Tier 1 item 7): retyped `Causative`, the association item regraded `PARTIAL`
+  since "associated with" settles neither the NTG scope nor the typing, and the
+  `notes:` now records that the NTG scoping comes from the wider OPTN literature
+  rather than the cited paper. Both OPTN items are tagged `IN_VITRO` (cultured
+  cells expressing mutant optineurin) and both MYOC items `OTHER` (review
+  synthesis) — the `evidence_source` backfill this PR began one file section
+  earlier, now finished.
 
 ### `Cytomegalovirus_Retinitis` and `Fuchs_Endothelial_Corneal_Dystrophy` — minor only
 
@@ -405,6 +466,23 @@ entries fall down, it is almost always because everything is graded `SUPPORT`.
    `Diabetic_Retinopathy`'s 4-2-1 rule and the CRAO ischemic-injury mechanism are
    both still gaps after their regrades. Regrade to stop the misrepresentation, then
    track the missing source separately; do not let the honest grade close the item.
+6. **`PARTIAL` is not the default downgrade — distinguish it from `NO_EVIDENCE`.**
+   The schema defines `PARTIAL` as "partially or indirectly supports" and
+   `NO_EVIDENCE` as "does not contain evidence relevant to the claim". Downgrading
+   everything to `PARTIAL` re-creates the original problem one notch lower, because
+   it still reads as partial support. Working rule used here: if the snippet frames
+   the claim but stops short of establishing it, `PARTIAL` (a meta-analysis *aim*
+   statement about visual outcomes; a guideline scope sentence about the treatment
+   area); if the snippet is simply silent on the claim, `NO_EVIDENCE` (a vitreous
+   haemorrhage sentence under an intraretinal-hemorrhage node; a scope sentence that
+   never mentions the procedure it is attached to). A snippet about a *different*
+   entity is not weak evidence for this one.
+7. **Reference reuse is fine; sentence reuse is the anti-pattern.** One paper can
+   legitimately support many nodes when each cites the sentence that speaks to that
+   node — this entry set has several such cases. The defect is one *generic
+   definitional sentence* carrying specific downstream claims. Audit at the snippet
+   level, not the reference level, or correct citations get regraded along with the
+   bad ones.
 
 ## Reproducing
 
