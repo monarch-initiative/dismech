@@ -6,7 +6,8 @@ strength the `supports:` grade asserts?
 
 ## Scope
 
-Ten entries spanning the main mechanistic classes of ocular disease:
+Ten entries spanning the main mechanistic classes of ocular disease (evidence-item
+counts as of the current branch head, after the fixes described below):
 
 | Entry | Class | Evidence items |
 |---|---|---|
@@ -14,7 +15,7 @@ Ten entries spanning the main mechanistic classes of ocular disease:
 | `Achromatopsia` | Inherited cone dysfunction | 105 |
 | `Fuchs_Endothelial_Corneal_Dystrophy` | Corneal dystrophy | 58 |
 | `Diabetic_Retinopathy` | Systemic microvascular | 34 |
-| `RHO-Related_Retinopathy` | Inherited retinal dystrophy | 34 |
+| `RHO-Related_Retinopathy` | Inherited retinal dystrophy | 39 |
 | `Glaucoma` | Optic neuropathy | 27 |
 | `Cytomegalovirus_Retinitis` | Infectious | 17 |
 | `Central_Retinal_Artery_Occlusion` | Vascular/ischemic | 16 |
@@ -30,6 +31,26 @@ snippet in a scratch copy of `Retinoblastoma.yaml`; it correctly flagged the
 mismatch, confirming the "all validations passed" result is meaningful and not a
 silent no-op.
 
+**That control test earned its keep, and the reason is worth recording precisely.**
+On a clean run against these entries the reference validator reports `Total checks:
+0 / All validations passed` — which reads like a no-op and was flagged as one during
+PR review. It is not: re-running the control test on the current branch (corrupt one
+snippet in `RHO-Related_Retinopathy.yaml`, run, revert) produces `Total checks: 1`
+and `Text part not found as substring` against the right PMID. So detection works;
+what is broken is the **reported count**, which appears to tally only failures. The
+practical consequence is the same either way — `Total checks: 0` carries no
+information about how many snippets were actually compared, so a green line from
+this validator cannot by itself substantiate a "snippets verified" claim. That
+asymmetry is a tooling bug worth its own issue, separate from any content here.
+
+Two DOI-based references in this entry set fail to download (403), so they are not
+checked at all — a second, quieter reason the count is not a coverage measure.
+
+Accordingly, snippet verification behind the later rounds of fixes was done by
+direct whitespace-normalized substring comparison against `references_cache/`
+(130 snippets across the five edited entries, zero mismatches) **in addition to**
+the validator, with the control test re-run each round rather than assumed.
+
 **Every finding below is therefore invisible to CI.** These are semantic
 claim–evidence defects: the quote is genuine and correctly transcribed, but it
 does not establish what the claim asserts. This is the failure mode the
@@ -41,7 +62,10 @@ validation stack structurally cannot catch.
 
 Items 1–2 are outright factual errors. Items 3–4 were promoted here from Tier 2
 during PR review once it was clear they needed no new source — only a re-quote and
-a grade correction.
+a grade correction. Items 5–6 were promoted in a second review round, on the
+principle that a nav-linked document asserting a grade is wrong should not ship
+alongside that grade: the regrades need no new literature, so parking them was
+not defensible.
 
 ### 1. `RHO-Related_Retinopathy` — CSNBAD1 ERG waveform was backwards
 
@@ -132,15 +156,82 @@ meta-analysis "quantifies anti-VEGF efficacy"; it quantifies a disadvantage.
 is. The residual unsourced claim in that treatment's `description` is a separate,
 still-open item — see Tier 2 below.
 
+### 5. `RHO-Related_Retinopathy` — the CSNBAD1 branch had no human RHO evidence
+
+Both CSNBAD1 phenotype nodes (`Riggs-type electroretinogram`, `Congenital night
+blindness`) rested solely on `PMID:38743626`, a G90D knock-in **mouse**. The
+companion `PMID:30051303` is human but reports a *GNAT1* family, and its quoted
+sentence is a class-level statement about phototransduction-defect CSNB — it
+establishes the dichotomy, not the RHO patient ERG. CLAUDE.md is explicit that
+model-organism evidence should not be the only support for a human phenotype, and
+for the RHO-specific step it was.
+
+**Fixed**: two human references fetched and added.
+
+- `PMID:33669941` (Kobal 2021; 15 p.G90D patients from three families) states
+  directly that RHO-related CSNB is of the Riggs type with loss of rod-specific ERG
+  activity, a reduced dark-adapted a-wave and low b-wave, and largely preserved
+  cone responses — the human counterpart of the mouse item, on exactly the
+  a-wave/b-wave point.
+- `PMID:9888392` (al-Jandal 1999) sources the **T94I** half of the subtype
+  description from an Irish family segregating that variant, which previously had
+  no human genetic support.
+
+The same cohort also supplied *derived counts* for the two `VERY_FREQUENT` bands
+that were previously unsourced assertions (3/3 CSNB patients with the typical
+electrophysiology; 15/15 with lifelong non-worsening night blindness) — the
+"derived counts" pattern in `docs/frequency-evidence-guidelines.md` rather than a
+qualitative-term mapping.
+
+**And it partly contradicted the entry, which is the more interesting outcome.**
+In that cohort only 20% of p.G90D carriers were classified CSNB while **53.3%
+developed classic RP**, and the authors caution against diagnosing CSNB in p.G90D
+carriers without long follow-up into adulthood. The `Congenital night blindness`
+description no longer asserts a flatly non-degenerative course; the caveat is
+recorded in `notes:`, scoped to p.G90D (T94I, A292E, A295V are not associated with
+progression). The CSNBAD1 subtype description is left as the nosological
+definition. Going looking for human evidence to satisfy a discipline rule turned
+up a phenotype-spectrum correction nobody had asked for.
+
+### 6. Six grade-only corrections applied rather than parked
+
+Every item below was documented in Tier 2 as a wrong `supports:` grade needing no
+new source. Each is now regraded with an `explanation` stating what the snippet
+does and does not license:
+
+| Entry | Location | Was | Now |
+|---|---|---|---|
+| `Glaucoma` | `pathophysiology[3]` TM dysfunction (myocilin evidence) | `SUPPORT` | `PARTIAL` |
+| `Glaucoma` | `treatments[2]` alpha agonist non-difference result | `SUPPORT` | `PARTIAL` |
+| `Diabetic_Retinopathy` | `has_subtypes[1]` severe-NPDR staging | `SUPPORT` | `PARTIAL` |
+| `Diabetic_Retinopathy` | `treatments[1]` PRP cost-effectiveness | `SUPPORT` | `PARTIAL` |
+| `Diabetic_Retinopathy` | `treatments[2]` vitrectomy | `SUPPORT` | `PARTIAL` |
+| `Central_Retinal_Artery_Occlusion` | `pathophysiology[1]` ischemic-injury mechanism | `SUPPORT` | `PARTIAL` |
+
+CRAO is the one where a replacement source is genuinely still needed — the cached
+abstract contains no mechanistic content at all — so its `explanation` now says so
+outright instead of leaving `SUPPORT` standing while the gap is unfilled.
+
+Also in this round: the `Retinopathy_of_Prematurity` `FREQUENT` band resting on a
+denominator was dropped, with a `notes:` line recording why so it is not re-added
+from the same snippet; and the two absent `evidence_source` values on the Glaucoma
+items were filled (`PMID:10617907` → `IN_VITRO`, in situ hybridization on ex vivo
+specimens; `PMID:37217093` → `OTHER`, a narrative review stating consensus rather
+than primary data).
+
 ---
 
 ## Tier 2 — Claim–evidence mismatches (recommended for curator follow-up)
 
-Most of the following need a replacement source rather than a rewording, which is
-why they were not fixed alongside the Tier 1 items. Two entries originally listed
-here needed neither — only a re-quote and a grade change — and were promoted to
-Tier 1 (items 3 and 4) during PR review. Where a remaining item is similarly cheap,
-that is noted inline, so no one skips it assuming new literature is required.
+What remains here needs a replacement source or new literature; the items that
+needed only a re-quote or a grade change have all been promoted to Tier 1 across
+two review rounds (items 3–4, then the six regrades in item 6 and the human-evidence
+gap in item 5). The pattern worth carrying forward: **"needs new literature" is a
+claim to check before it becomes a deferral.** In four separate cases here the
+source was already in the repository — the 72-year sentence quoted elsewhere in the
+same file, the G90D bridging sentence sitting in the same cached abstract — and in
+six more the fix needed no source at all. Where a remaining item is similarly cheap,
+that is noted inline.
 
 ### `Diabetic_Retinopathy` — one guideline reference propping up three unrelated claims
 
@@ -153,9 +244,15 @@ scope text that supports none of the attached claims:
 | `treatments[1]` | PRP is a cost-effective treatment | same snippet — never mentions laser |
 | `treatments[2]` | Vitrectomy is among the options | "appropriate management of vision-threatening DR…" — never mentions vitrectomy |
 
-All three are graded `SUPPORT`, and each `explanation` asserts guideline content
-that is not in the quoted text. The 4-2-1 rule and the ~50%/1-year figure are
-genuine ETDRS-derived facts but are currently **unsourced** in the entry.
+All three were graded `SUPPORT` with each `explanation` asserting guideline content
+absent from the quoted text. **The grades are now `PARTIAL`** (Tier 1 item 6), which
+is the honest reading of a generic scope sentence attached to a specific claim.
+
+**Still open here**: the 4-2-1 rule and the ~50%/1-year figure are genuine
+ETDRS-derived facts but remain **unsourced** in the entry — the regrade stopped the
+entry from overstating its evidence, it did not supply the missing citation. A
+fourth use of the same reference at `phenotypes[0]` is also still `SUPPORT`; it was
+not in the table above and so was not part of the regrade round.
 
 Also in this entry:
 - `phenotypes[2]` "Retinal Hemorrhage" describes intraretinal dot-blot/flame
@@ -174,24 +271,30 @@ classification, and **bone-spicule pigmentation**, none of which it mentions. Th
 `explanation` fields do the actual work via curator inference ("RP is classically
 defined by…"), which is reasoning, not evidence.
 
-Two further specifics:
+This one is **still open**, and is the largest remaining defect in the file: the
+snippet is reused unchanged at `pathophysiology[1].downstream[0]`, `phenotypes[0]`,
+`phenotypes[2]`, and `phenotypes[4]`, all still graded `SUPPORT`. It is the same
+shape as the `Diabetic_Retinopathy`/ICO case regraded in Tier 1 item 6 and should
+go the same way — recommendation 3 below says such reuse defaults to `PARTIAL`.
+
+One further specific, still open:
 - `phenotypes[5]` "Reduced rod electroretinogram" cites a snippet about BCVA and
   visual-field decline rates, with no ERG content.
-- The `Riggs-type electroretinogram` node carries `frequency: VERY_FREQUENT`, but
-  neither of its evidence items reports a rate. Pre-existing (it predates the
-  rename), and cheap to resolve — either drop the band or source it.
 
-(The orphan-fragment issue at `pathophysiology[2].downstream[1]` was **fixed** —
-see Tier 1 item 3. A further gap noted in review: the RHO-specific ERG step now
-rests on a human paper about a *different* gene (GNAT1) plus a mouse paper about
-RHO, with no human RHO ERG observation cited. A G90D/T94I clinical ERG citation
-would close that properly.)
+Two items previously listed here are now **fixed**: the orphan 72-year fragment at
+`pathophysiology[2].downstream[1]` (Tier 1 item 3), and the unsourced
+`VERY_FREQUENT` band on the `Riggs-type electroretinogram` node together with the
+absence of any human RHO ERG observation — both closed by `PMID:33669941` (Tier 1
+item 5). The class-level CSNB definitional snippet on `Congenital night blindness`
+was also regraded `PARTIAL`, since the RHO-specific human step is now carried by its
+own citation rather than by inference from a definition.
 
 ### `Retinopathy_of_Prematurity`
 
-- `phenotypes[0]` frequency `FREQUENT` rests on "141 550 infants received ROP
-  screening in Germany" — a denominator, not a rate. The frequency band is
-  unsupported (cf. `docs/frequency-evidence-guidelines.md`).
+- `phenotypes[0]` frequency `FREQUENT` rested on "141 550 infants received ROP
+  screening in Germany" — a denominator, not a rate. **Fixed**: band dropped, with a
+  `notes:` line recording why so it is not re-derived from the same snippet
+  (cf. `docs/frequency-evidence-guidelines.md`, which says omit rather than justify).
 - `treatments[1]`'s `description` still asserts anti-VEGF is "preferred over laser
   for Zone I and posterior Zone II ROP due to better structural outcomes." Neither
   remaining evidence item carries that: one is the recurrence-risk trade-off, the
@@ -207,9 +310,13 @@ would close that properly.)
 ### `Central_Retinal_Artery_Occlusion`
 
 - `pathophysiology[1]` "Inner Retinal Ischemic Injury" (retinal edema, neuronal
-  injury) is `SUPPORT`ed by "CRAO has consistently been identified as a serious
+  injury) was `SUPPORT`ed by "CRAO has consistently been identified as a serious
   medical condition that leads to substantial visual impairment" — no mechanism
-  content at all.
+  content at all. **Grade fixed** to `PARTIAL` (Tier 1 item 6); the `explanation` now
+  states that a mechanism source is still required. Reading the full cached abstract
+  confirms there is no mechanistic content anywhere in it, so this one does still
+  need a replacement citation — the regrade stops the overstatement, it does not
+  close the gap.
 - `phenotypes[1]` "Reduced Visual Acuity" `VERY_FREQUENT` cites a meta-analysis
   *aim* statement.
 - The THEIA phase 3 trial (PMID:41109232) is cited only for a background
@@ -219,11 +326,14 @@ would close that properly.)
 
 - `pathophysiology[3]` "Trabecular Meshwork Dysfunction" describes age-related
   change, oxidative stress, and ECM alteration, but both evidence items are about
-  myocilin — a different mechanism. The `PARTIAL` grade on one is honest; the
-  `SUPPORT` on the other is not.
+  myocilin — a different (Mendelian *MYOC*) mechanism. **Fixed**: both are now
+  `PARTIAL`, and both carry an `evidence_source`. The node still lacks evidence for
+  the age/oxidative-stress mechanism it actually describes.
 - `treatments[2]` Alpha Agonists: the snippet "IOP reduction was similar for both
-  groups" is a *non-difference* result vs timolol; the explanation reads it as
-  evidence of "clinically meaningful intraocular pressure lowering."
+  groups" is a *non-difference* result vs timolol (n=16); the explanation read it as
+  evidence of "clinically meaningful intraocular pressure lowering." **Fixed**:
+  regraded `PARTIAL`, explanation rewritten as non-inferiority to an established
+  agent rather than a demonstrated absolute effect.
 - `genetic[1]` OPTN is typed `Risk Factor` with notes scoping it to normal-tension
   glaucoma, but the cited snippet says only "associated with primary open angle
   glaucoma" and OPTN E50K is generally treated as causative-dominant.
@@ -282,7 +392,15 @@ entries fall down, it is almost always because everything is graded `SUPPORT`.
    useful advisory check in `just qc`.
 3. **One generic snippet reused across many specific nodes is an anti-pattern.**
    The DR/ICO and RHO cases are both this shape. Reusing a definitional sentence
-   as `SUPPORT` for a downstream specific claim should default to `PARTIAL`.
+   as `SUPPORT` for a downstream specific claim should default to `PARTIAL`. The
+   DR/ICO instances have been regraded (Tier 1 item 6) and one RHO instance with
+   them; the four-way reuse of the RP-definition sentence in
+   `RHO-Related_Retinopathy` is the remaining known case.
+5. **A grade correction is not a citation.** Regrading `SUPPORT` → `PARTIAL` stops
+   an entry overstating what it has, but the underlying claim stays unsourced —
+   `Diabetic_Retinopathy`'s 4-2-1 rule and the CRAO ischemic-injury mechanism are
+   both still gaps after their regrades. Regrade to stop the misrepresentation, then
+   track the missing source separately; do not let the honest grade close the item.
 4. **Frequency bands still need their own evidence.** Several `FREQUENT` /
    `VERY_FREQUENT` values here rest on snippets that establish only the
    association, exactly the failure `docs/frequency-evidence-guidelines.md` warns
