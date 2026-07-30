@@ -23,8 +23,10 @@ continued growth, incomplete resection, and rare malignant transformation can
 remain clinically serious.
 
 The report also correctly identifies the decisive data absence. Cross-sectional
-subtypes, tumor–blood pairs, two histology-changing cases, and one serial CGH
-case cannot establish a reproducible diagnosis-to-failure molecular route.
+subtypes (PMID:38430549), two histology-changing cases (PMID:38409885), and one
+serial CGH case (PMID:11005262) cannot establish a reproducible
+diagnosis-to-failure molecular route. The pre-treatment tumor–blood sequencing
+in PMID:41675560 is a germline comparison, not temporal tumor sequencing.
 Paired, component-resolved longitudinal sampling with exposure and responder
 controls is still needed.
 
