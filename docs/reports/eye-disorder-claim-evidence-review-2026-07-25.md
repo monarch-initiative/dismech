@@ -396,15 +396,15 @@ entries fall down, it is almost always because everything is graded `SUPPORT`.
    DR/ICO instances have been regraded (Tier 1 item 6) and one RHO instance with
    them; the four-way reuse of the RP-definition sentence in
    `RHO-Related_Retinopathy` is the remaining known case.
+4. **Frequency bands still need their own evidence.** Several `FREQUENT` /
+   `VERY_FREQUENT` values here rest on snippets that establish only the
+   association, exactly the failure `docs/frequency-evidence-guidelines.md` warns
+   about.
 5. **A grade correction is not a citation.** Regrading `SUPPORT` → `PARTIAL` stops
    an entry overstating what it has, but the underlying claim stays unsourced —
    `Diabetic_Retinopathy`'s 4-2-1 rule and the CRAO ischemic-injury mechanism are
    both still gaps after their regrades. Regrade to stop the misrepresentation, then
    track the missing source separately; do not let the honest grade close the item.
-4. **Frequency bands still need their own evidence.** Several `FREQUENT` /
-   `VERY_FREQUENT` values here rest on snippets that establish only the
-   association, exactly the failure `docs/frequency-evidence-guidelines.md` warns
-   about.
 
 ## Reproducing
 
