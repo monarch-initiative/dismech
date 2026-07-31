@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/molecules30143026"
+reference_id: DOI:10.3390/molecules30143026
 title: Recent Research Advances in HER2-Positive Breast Cancer Concerning Targeted Therapy Drugs
 authors:
 - Junmin Li
@@ -15,6 +15,7 @@ journal: Molecules
 year: '2025'
 doi: 10.3390/molecules30143026
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent Research Advances in HER2-Positive Breast Cancer Concerning Targeted Therapy Drugs

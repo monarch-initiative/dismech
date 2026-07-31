@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/tomography9010018"
+reference_id: DOI:10.3390/tomography9010018
 title: "Diagnostic Management of Gastroenteropancreatic Neuroendocrine Neoplasms: Technique Optimization and Tips and Tricks for Radiologists"
 authors:
 - Fabio Pellegrino
@@ -14,6 +14,7 @@ journal: Tomography
 year: '2023'
 doi: 10.3390/tomography9010018
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Diagnostic Management of Gastroenteropancreatic Neuroendocrine Neoplasms: Technique Optimization and Tips and Tricks for Radiologists

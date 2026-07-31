@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cimb46070385"
+reference_id: DOI:10.3390/cimb46070385
 title: "Hereditary Gastrointestinal Tumor Syndromes: When Risk Comes with Your Genes"
 authors:
 - María Jesús Fernández Aceñero
@@ -8,6 +8,7 @@ journal: Current Issues in Molecular Biology
 year: '2024'
 doi: 10.3390/cimb46070385
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hereditary Gastrointestinal Tumor Syndromes: When Risk Comes with Your Genes

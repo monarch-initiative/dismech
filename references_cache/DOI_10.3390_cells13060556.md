@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13060556"
+reference_id: DOI:10.3390/cells13060556
 title: MuSK Myasthenia Gravis—Potential Pathomechanisms and Treatment Directed against Specific Targets
 authors:
 - Edyta Dziadkowiak
@@ -9,6 +9,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13060556
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # MuSK Myasthenia Gravis—Potential Pathomechanisms and Treatment Directed against Specific Targets

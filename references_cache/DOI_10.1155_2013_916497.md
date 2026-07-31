@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1155/2013/916497"
+reference_id: DOI:10.1155/2013/916497
 title: Cytokines and Chemokines in Irritant Contact Dermatitis
 authors:
 - Haur Yueh Lee
@@ -10,6 +10,7 @@ journal: Mediators of Inflammation
 year: '2013'
 doi: 10.1155/2013/916497
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cytokines and Chemokines in Irritant Contact Dermatitis

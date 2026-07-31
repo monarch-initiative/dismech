@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-23-3403"
+reference_id: DOI:10.1158/1078-0432.ccr-23-3403
 title: "Microsatellite Instability, Tumor Mutational Burden, and Response to Immune Checkpoint Blockade in Patients with Prostate Cancer"
 authors:
 - Andrew T. Lenis
@@ -36,6 +36,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-23-3403
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Microsatellite Instability, Tumor Mutational Burden, and Response to Immune Checkpoint Blockade in Patients with Prostate Cancer

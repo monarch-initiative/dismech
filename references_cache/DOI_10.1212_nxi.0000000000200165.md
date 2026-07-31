@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/nxi.0000000000200165"
+reference_id: DOI:10.1212/nxi.0000000000200165
 title: "Prevalence, Clinical Profiles, and Prognosis of Stiff-Person Syndrome in a Japanese Nationwide Survey"
 authors:
 - Naoko Matsui
@@ -21,6 +21,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2023'
 doi: 10.1212/nxi.0000000000200165
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Prevalence, Clinical Profiles, and Prognosis of Stiff-Person Syndrome in a Japanese Nationwide Survey

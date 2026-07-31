@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252313213"
+reference_id: DOI:10.3390/ijms252313213
 title: A Diagnostic Approach in Large B-Cell Lymphomas According to the Fifth World Health Organization and International Consensus Classifications and a Practical Algorithm in Routine Practice
 authors:
 - Magda Zanelli
@@ -27,6 +27,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252313213
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Diagnostic Approach in Large B-Cell Lymphomas According to the Fifth World Health Organization and International Consensus Classifications and a Practical Algorithm in Routine Practice

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2147/hmer.s384220"
+reference_id: DOI:10.2147/hmer.s384220
 title: "Secondary Sclerosing Cholangitis After SARS-CoV2: ICU Ketamine Use or Virus-Specific Biliary Tropism and Injury in the Context of Biliary Ischemia in Critically Ill Patients?"
 authors:
 - Alessandra Bartoli
@@ -10,6 +10,7 @@ journal: "Hepatic Medicine: Evidence and Research"
 year: '2023'
 doi: 10.2147/hmer.s384220
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Secondary Sclerosing Cholangitis After SARS-CoV2: ICU Ketamine Use or Virus-Specific Biliary Tropism and Injury in the Context of Biliary Ischemia in Critically Ill Patients?

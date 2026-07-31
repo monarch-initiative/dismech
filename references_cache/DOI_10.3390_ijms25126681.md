@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25126681"
+reference_id: DOI:10.3390/ijms25126681
 title: "Adipocyte Mitochondria: Deciphering Energetic Functions across Fat Depots in Obesity and Type 2 Diabetes"
 authors:
 - Snehasis Das
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25126681
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Adipocyte Mitochondria: Deciphering Energetic Functions across Fat Depots in Obesity and Type 2 Diabetes

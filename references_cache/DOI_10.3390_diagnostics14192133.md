@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics14192133"
+reference_id: DOI:10.3390/diagnostics14192133
 title: A Comprehensive Approach to the Diagnosis of Leigh Syndrome Spectrum
 authors:
 - Manuela Schubert Baldo
@@ -11,6 +11,7 @@ journal: Diagnostics
 year: '2024'
 doi: 10.3390/diagnostics14192133
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Comprehensive Approach to the Diagnosis of Leigh Syndrome Spectrum

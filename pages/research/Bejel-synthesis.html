@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cross-provider synthesis: Bejel</title>
+    <style>
+        :root {
+            --gray-100: #f5f6f8;
+            --gray-200: #e7e9ee;
+            --gray-300: #d5d8e0;
+            --gray-600: #5b6270;
+            --gray-800: #23262e;
+            --ink: #1a1c22;
+            --concordant: #1f8a4c;
+            --concordant-bg: #e6f5ec;
+            --partial: #b8860b;
+            --partial-bg: #fbf1d6;
+            --contradictory: #c0392b;
+            --contradictory-bg: #fbe5e2;
+            --silent: #6b7280;
+            --silent-bg: #eef0f3;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--ink);
+            background: #fff;
+            line-height: 1.5;
+        }
+        main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 80px; }
+        a { color: #1a5fb4; }
+        .crumbs { font-size: 0.85rem; margin-bottom: 18px; color: var(--gray-600); }
+        h1 { font-size: 1.7rem; margin: 0 0 6px; }
+        .subtitle { color: var(--gray-600); margin: 0 0 18px; font-size: 0.95rem; }
+        .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.85rem; color: var(--gray-600); margin-bottom: 24px; }
+        .providers { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+        .provider-chip {
+            border: 1px solid var(--gray-300); border-radius: 999px;
+            padding: 4px 12px; font-size: 0.82rem; background: var(--gray-100);
+        }
+        .provider-chip b { font-weight: 600; }
+        h2 { font-size: 1.15rem; margin: 34px 0 12px; border-bottom: 1px solid var(--gray-200); padding-bottom: 6px; }
+        .finding {
+            border: 1px solid var(--gray-200); border-radius: 10px;
+            padding: 16px 18px; margin-bottom: 16px; background: #fff;
+        }
+        .finding-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 6px; }
+        .finding-statement { font-weight: 600; font-size: 1.02rem; margin: 0; flex: 1 1 320px; }
+        .pill { border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+        .section-tag {
+            display: inline-block; background: var(--gray-100); border: 1px solid var(--gray-200);
+            border-radius: 6px; padding: 1px 7px; font-size: 0.72rem; color: var(--gray-600); margin: 2px 4px 2px 0;
+        }
+        .tags { margin: 4px 0 12px; }
+        .consensus-unanimous { background: var(--concordant-bg); color: var(--concordant); }
+        .consensus-majority { background: var(--partial-bg); color: var(--partial); }
+        .consensus-single { background: var(--silent-bg); color: var(--silent); }
+        .consensus-conflict { background: var(--contradictory-bg); color: var(--contradictory); }
+        .status { background: var(--gray-100); border: 1px solid var(--gray-200); color: var(--gray-600); }
+        table.support { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        table.support th, table.support td {
+            text-align: left; vertical-align: top; padding: 8px 10px; font-size: 0.86rem;
+            border-top: 1px solid var(--gray-200);
+        }
+        table.support th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--gray-600); }
+        .stance { font-weight: 600; }
+        .stance-concordant { color: var(--concordant); }
+        .stance-partial { color: var(--partial); }
+        .stance-contradictory { color: var(--contradictory); }
+        .stance-silent { color: var(--silent); }
+        tr.row-concordant td:first-child { border-left: 3px solid var(--concordant); }
+        tr.row-partial td:first-child { border-left: 3px solid var(--partial); }
+        tr.row-contradictory td:first-child { border-left: 3px solid var(--contradictory); }
+        tr.row-silent td:first-child { border-left: 3px solid var(--silent); }
+        .quote { color: var(--gray-800); font-style: italic; }
+        .quote::before { content: "\201C"; }
+        .quote::after { content: "\201D"; }
+        .expl { color: var(--gray-600); margin-top: 4px; font-size: 0.82rem; }
+        .cites { margin-top: 4px; font-size: 0.76rem; color: var(--gray-600); }
+        .narrative p { margin: 0 0 10px; }
+        .narrative h3 { font-size: 0.95rem; margin: 16px 0 4px; }
+        .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.78rem; color: var(--gray-600); margin-bottom: 20px; }
+        .legend .stance { margin-right: 4px; }
+        .notes { font-size: 0.85rem; color: var(--gray-600); border-top: 1px solid var(--gray-200); margin-top: 28px; padding-top: 14px; }
+    </style>
+</head>
+<body>
+<main>
+    <div class="crumbs">
+        <a href="index.html">← Research index</a>
+        &nbsp;·&nbsp; <a href="../disorders/Bejel.html">Disorder page</a>
+        &nbsp;·&nbsp; <a href="https://github.com/monarch-initiative/dismech/blob/main/research/Bejel-research-synthesis.yaml">Source YAML</a>
+    </div>
+
+    <h1>Cross-provider research synthesis</h1>
+    <p class="subtitle">Bejel</p>
+
+    <div class="meta">
+        <span><a href="http://purl.obolibrary.org/obo/MONDO_0001714">MONDO:0001714</a></span>
+        <span>Curated 2026-07-04T00:00:00Z</span>
+        <span>9 harmonized findings</span>
+    </div>
+
+    <div class="providers">
+        
+        <span class="provider-chip"><b>falcon</b> · 53 citations</span>
+        
+        <span class="provider-chip"><b>openscientist</b> · 27 citations</span>
+        
+    </div>
+
+    <div class="legend">
+        <span><span class="stance stance-concordant">Concordant</span> asserts the finding</span>
+        <span><span class="stance stance-partial">Partial</span> supports a weaker/qualified form</span>
+        <span><span class="stance stance-contradictory">Contradictory</span> conflicts with it</span>
+        <span><span class="stance stance-silent">Silent</span> does not address it</span>
+    </div>
+
+    <h2>Harmonized findings</h2>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Bejel (endemic syphilis) is a chronic non-venereal treponematosis caused by Treponema pallidum subsp. endemicum (TEN), classically acquired in childhood in hot, arid regions through direct skin/mucosal contact and shared contaminated utensils rather than by sexual transmission.</p>
+            <span class="pill consensus-unanimous">UNANIMOUS</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">pathophysiology</span><span class="section-tag">epidemiology</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>falcon</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>85%</td>
+                    <td>
+                        <span class="quote">Classical onset typically in childhood (2–15 years) in endemic settings</span>
+                        <div class="expl">Falcon frames bejel as a classically childhood, arid-region, nonvenereal treponematosis caused by TEN and spread through mucosal/skin contact.</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr class="row-concordant">
+                    <td><b>openscientist</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>95%</td>
+                    <td>
+                        <span class="quote">Unlike venereal syphilis, bejel is not primarily sexually transmitted but spreads through direct contact with infectious lesions or contaminated fomites (e.g., shared drinking vessels) in communities with poor hygiene and overcrowding. The disease predominantly affects children in arid tropical and subtropical environments.</span>
+                        <div class="expl">OpenScientist states the non-venereal fomite/contact route, the childhood predominance, and the arid endemic geography directly.</div>
+                        <div class="cites">PMID:24396138</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">The TEN genome is near-identical (&gt;99% genome identity) to the other pathogenic Treponema pallidum subspecies (TPA/venereal syphilis and TPE/yaws), with a genome of roughly 1.14 Mbp.</p>
+            <span class="pill consensus-unanimous">UNANIMOUS</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">genetic_factor</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>falcon</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>80%</td>
+                    <td>
+                        <span class="quote">WGS of TEN strain Iraq B shows a genome size ~1,137,653 bp and limited SNP/indel differences vs Bosnia A, highlighting overall high conservation</span>
+                        <div class="expl">Falcon reports ~99.7% identity of TEN to TPA and a ~1,137.7 kbp genome, framing TPA as the closest reference for the near-identity comparison.</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr class="row-concordant">
+                    <td><b>openscientist</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>85%</td>
+                    <td>
+                        <span class="quote">&gt;99.8% identical to TPA and TPE</span>
+                        <div class="expl">OpenScientist reports &gt;99.8% identity but places TEN phylogenetically closest to yaws-causing TPE (rather than TPA), a divergence in the nearest-relative framing that does not conflict on the near-identity claim.</div>
+                        <div class="cites">PMID:25375929</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Bejel progresses through a staged course analogous to syphilis: a primary (often subclinical) oral mucosal lesion, a secondary mucocutaneous stage with osteoperiostitis, and, if untreated, a tertiary stage of destructive gummatous lesions of skin, bone, and the nasopharynx (gangosa).</p>
+            <span class="pill consensus-unanimous">UNANIMOUS</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">phenotype</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>falcon</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>80%</td>
+                    <td>
+                        <span class="quote">Bejel classically targets oral/nasal mucosa and bone, with destructive osteitis in late disease</span>
+                        <div class="expl">Falcon describes the same staged progression with oral/nasal mucosal and bone involvement and late destructive (gummatous/gangosa) disease.</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr class="row-concordant">
+                    <td><b>openscientist</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>95%</td>
+                    <td>
+                        <span class="quote">The disease progresses through primary (often subclinical oral mucous patches), secondary (mucocutaneous and osteoperiosteal lesions), and tertiary stages (destructive gummatous lesions of skin, bone, and nasopharynx)</span>
+                        <div class="expl">OpenScientist gives the explicit primary/secondary/tertiary staging with the same organ involvement.</div>
+                        
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">TEN is increasingly identified as a sexually transmitted infection among men who have sex with men (Japan, Cuba, Europe), where it is clinically indistinguishable from venereal syphilis; roughly 12% of molecularly typed MSM syphilis samples in Japan were TEN.</p>
+            <span class="pill consensus-unanimous">UNANIMOUS</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">epidemiology</span><span class="section-tag">phenotype</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>falcon</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>90%</td>
+                    <td>
+                        <span class="quote">Tokyo MSM cohort (2019–2022): among 71 whole-blood samples, 26/71 (36.6%) TP0136-positive; TEN detected in 3 samples and reported as ~12% in their typed set; none of the 3 had traveled to bejel-endemic tropical regions</span>
+                        <div class="expl">Falcon reports the Tokyo MSM molecular epidemiology with TEN at ~12% of typed positives and no travel to endemic regions, supporting local sexual transmission.</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr class="row-concordant">
+                    <td><b>openscientist</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>90%</td>
+                    <td>
+                        <span class="quote">In Japan, TEN was found in 12% (3/25) of molecularly typed syphilis samples from MSM, and most strains carried the macrolide resistance mutation A2058G in 23S rDNA</span>
+                        <div class="expl">OpenScientist independently reports the same ~12% TEN finding in MSM and links it to macrolide resistance and misdiagnosis as syphilis.</div>
+                        <div class="cites">PMID:39415268</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Standard treponemal and non-treponemal serology cannot distinguish TEN from the other T. pallidum subspecies, so definitive subspecies identification requires molecular methods such as MLST of TP0136, TP0548, and TP0705.</p>
+            <span class="pill consensus-unanimous">UNANIMOUS</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">diagnosis</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>falcon</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>90%</td>
+                    <td>
+                        <span class="quote">routine serology cannot distinguish subspecies, implying that clinical context and (where available) molecular methods are required in settings where endemic and venereal treponematoses overlap</span>
+                        <div class="expl">Falcon states the serologic limitation and the reliance on molecular typing (MLST TP0136/TP0548/TP0705) for subspecies identification.</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr class="row-concordant">
+                    <td><b>openscientist</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>90%</td>
+                    <td>
+                        <span class="quote">Molecular identification of Treponema pallidum subsp. endemicum, the agent of bejel, in Cuban patients diagnosed with venereal syphilis indicates the clear limitations of a diagnosis based exclusively on serology, geographical occurrence, clinical symptoms and anamnestic data</span>
+                        <div class="expl">OpenScientist quotes the Cuban molecular-identification study establishing that serology alone cannot separate TEN from venereal syphilis.</div>
+                        <div class="cites">PMID:29454847</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">TEN persistence and immunopathology are driven by outer-membrane antigenic variation (notably TprK) enabling immune evasion, with host defense mediated by macrophage/T-cell responses.</p>
+            <span class="pill consensus-majority">MAJORITY</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">pathophysiology</span><span class="section-tag">gene_function</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-partial">
+                    <td><b>falcon</b></td>
+                    <td><span class="stance stance-partial">PARTIAL</span></td>
+                    <td>55%</td>
+                    <td>
+                        <span class="quote">seven variable regions diversify via gene conversion and support immune evasion/persistence</span>
+                        <div class="expl">Falcon covers TprK antigenic variation as an immune-evasion/persistence mechanism but does not detail the downstream macrophage signaling pathways.</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr class="row-concordant">
+                    <td><b>openscientist</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>85%</td>
+                    <td>
+                        <span class="quote">Recombinant TprK activates M1 macrophage polarization and induces indoleamine 2,3-dioxygenase (IDO) production through the TLR2/JAK1/STAT1 pathway.</span>
+                        <div class="expl">OpenScientist adds the specific TprK-driven macrophage activation pathway (TLR2/JAK1/STAT1/IDO) and the CD4/CD8 T-cell response detail.</div>
+                        <div class="cites">PMID:40513619</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Benzathine penicillin G remains the highly effective first-line treatment for all stages of bejel, and no penicillin resistance has ever been documented in any T. pallidum subspecies.</p>
+            <span class="pill consensus-unanimous">UNANIMOUS</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">treatment</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>falcon</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>90%</td>
+                    <td>
+                        <span class="quote">Penicillin resistance has not been demonstrated in treponemal infections in the reviewed sources</span>
+                        <div class="expl">Falcon names single-dose intramuscular benzathine penicillin G as first-line and reports no demonstrated penicillin resistance.</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr class="row-concordant">
+                    <td><b>openscientist</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>90%</td>
+                    <td>
+                        <span class="quote">&gt;95% clinical cure with appropriate penicillin therapy</span>
+                        <div class="expl">OpenScientist reports benzathine penicillin G as the treatment of choice with &gt;95% cure and no documented penicillin resistance in any subspecies.</div>
+                        
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Macrolide resistance (the A2058G mutation in 23S rDNA) is widespread in circulating TEN strains, undermining azithromycin as therapy and complicating azithromycin-based mass drug administration.</p>
+            <span class="pill consensus-unanimous">UNANIMOUS</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">treatment</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>falcon</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>80%</td>
+                    <td>
+                        <span class="quote">arguing against macrolides as empiric therapy when TEN is possible and supporting molecular resistance surveillance</span>
+                        <div class="expl">Falcon notes that all patients in the adult TEN series carried the A2058G macrolide-resistance mutation, arguing against empiric macrolide use, while still framing azithromycin as central to yaws MDA strategies.</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr class="row-concordant">
+                    <td><b>openscientist</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>85%</td>
+                    <td>
+                        <span class="quote">be used for bejel treatment due to widespread macrolide resistance (A2058G mutation in 23S rDNA) found in circulating TEN strains</span>
+                        <div class="expl">OpenScientist is more categorical, stating azithromycin should NOT be used for bejel and that European guidelines exclude it at any stage.</div>
+                        <div class="cites">PMID:34836779, PMID:33094521</div>
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+    <article class="finding">
+        <div class="finding-head">
+            <p class="finding-statement">Bejel is rarely fatal; early treatment yields near-complete cure, but untreated disease can progress to disfiguring, disabling tertiary destruction in roughly 10% of cases.</p>
+            <span class="pill consensus-unanimous">UNANIMOUS</span>
+            <span class="pill status">INTEGRATED</span>
+        </div>
+        <div class="tags">
+            <span class="section-tag">prognosis</span>
+        </div>
+        <table class="support">
+            <thead>
+                <tr><th>Provider</th><th>Stance</th><th>Score</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+                
+                <tr class="row-concordant">
+                    <td><b>falcon</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>80%</td>
+                    <td>
+                        <span class="quote">can cause disfiguring and disabling late complications if untreated</span>
+                        <div class="expl">Falcon frames bejel as typically nonfatal but capable of disfiguring late complications, citing ~10% permanent disability in untreated endemic treponematoses.</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr class="row-concordant">
+                    <td><b>openscientist</b></td>
+                    <td><span class="stance stance-concordant">CONCORDANT</span></td>
+                    <td>85%</td>
+                    <td>
+                        <span class="quote">Excellent with early treatment; primary and secondary lesions resolve completely with penicillin. Tertiary destruction is irreversible.</span>
+                        <div class="expl">OpenScientist agrees bejel is rarely fatal, cures well early, but leaves irreversible tertiary destruction (~10-15% of untreated cases).</div>
+                        
+                    </td>
+                </tr>
+                
+            </tbody>
+        </table>
+        
+    </article>
+    
+
+    
+    <h2>Narrative</h2>
+    <div class="narrative">
+        <h3>Overview</h3><p>Both providers characterize bejel (endemic syphilis) as a chronic non-venereal treponematosis caused by Treponema pallidum subsp. endemicum (TEN), one of the three endemic treponematoses, classically acquired in childhood in hot arid regions and treated with benzathine penicillin G. Both foreground the modern paradigm shift: molecularly confirmed, sexually transmitted TEN in MSM that is clinically indistinguishable from venereal syphilis and invisible to standard serology.</p>
+        <h3>Agreement</h3><p>The reports converge on the causative agent and non-venereal childhood epidemiology; the near-identity (&gt;99%) of the ~1.14 Mbp TEN genome to the other pathogenic subspecies; the primary/secondary/tertiary staged clinical course with oral mucosal, osteoperiosteal, and destructive gummatous (gangosa) manifestations; the emergence of sexually transmitted TEN in MSM (both cite ~12% of typed MSM syphilis samples in Japan); the diagnostic limitation that serology cannot distinguish subspecies (requiring MLST of TP0136/TP0548/TP0705); TprK-mediated antigenic variation/immune evasion; benzathine penicillin G as first-line with no penicillin resistance; the A2058G macrolide-resistance threat; and a favorable prognosis with early treatment despite irreversible untreated tertiary destruction.</p>
+        <h3>Divergence</h3><p>OpenScientist is substantially more comprehensive (69 publications synthesized), supplying formal identifiers (MONDO:0001714, ICD-10 A65, ICD-11 1A62), a detailed molecular-immunology cascade (TprK → TLR2/JAK1/STAT1/IDO macrophage polarization; CD4/CD8 responses), experimental therapeutics (linezolid), an LSH-hamster congenital-transmission model, and non-human-primate (baboon) reservoir data. Falcon adds the Ghana lesion-differential study (serology-PCR discordance; H. ducreyi/HSV) and quantitative historical WHO burden/campaign figures. The one genuine scientific divergence is the nearest-relative framing of TEN: Falcon emphasizes ~99.7% identity to TPA, whereas OpenScientist places TEN phylogenetically closest to yaws-causing TPE — not a contradiction, since both agree the subspecies are near-identical. Quantitative differences (e.g., tertiary-disease fraction ~10% vs ~10-15%) are minor.</p>
+        <h3>Integration</h3><p>Promotable to kb/disorders/Bejel.yaml: the TEN etiology and non-venereal childhood epidemiology; the staged pathophysiology/phenotype nodes (primary mucosal, secondary mucocutaneous/osteoperiosteal, tertiary gummatous gangosa); the emerging sexually transmitted TEN/MSM epidemiology; the serology-cannot-distinguish-subspecies diagnostic limitation with MLST typing; TprK antigenic-variation immune evasion; benzathine penicillin G first-line with no penicillin resistance; the A2058G macrolide-resistance caveat; and the rarely-fatal-but-disfiguring prognosis.</p>
+        <h3>Not integrated (leads)</h3><p>Retained as leads pending source verification: the detailed TLR2/JAK1/STAT1/IDO immune cascade, experimental linezolid, the hamster congenital model and non-human-primate reservoir biology, pre-Columbian paleogenomics, and the Ghana lesion-differential statistics — richer than the core curated mechanism set and best confirmed against primary abstracts before promotion.</p>
+    </div>
+    
+
+    
+    <div class="notes">Cross-provider synthesis comparing the falcon (Edison Scientific Literature) and openscientist reports for Bejel. No CONTRADICTORY stances were assigned: the providers agree on all core claims, with divergence limited to coverage depth, recency, and the TPA-vs-TPE nearest-relative framing of the TEN genome. best_matching_text values are verbatim excerpts from the cited report files; literature evidence snippets were intentionally left unpopulated pending fetch-reference verification of the underlying PMIDs/DOIs.</div>
+    
+</main>
+</body>
+</html>

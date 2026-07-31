@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu16193287"
+reference_id: DOI:10.3390/nu16193287
 title: "Association between Poor Outcomes and Risk of Refeeding Syndrome among Patients Urgently Admitted to the High Dependency Unit: A Single-Center Cohort Study in Japan"
 authors:
 - Minoru Yoshida
@@ -17,6 +17,7 @@ journal: Nutrients
 year: '2024'
 doi: 10.3390/nu16193287
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Association between Poor Outcomes and Risk of Refeeding Syndrome among Patients Urgently Admitted to the High Dependency Unit: A Single-Center Cohort Study in Japan

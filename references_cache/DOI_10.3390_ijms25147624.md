@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25147624"
+reference_id: DOI:10.3390/ijms25147624
 title: Pathogenesis of Endometriosis and Endometriosis-Associated Cancers
 authors:
 - Altynay Adilbayeva
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25147624
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathogenesis of Endometriosis and Endometriosis-Associated Cancers

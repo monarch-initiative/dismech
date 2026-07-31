@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers12092427"
+reference_id: DOI:10.3390/cancers12092427
 title: Isocitrate Dehydrogenase Mutations in Myelodysplastic Syndromes and in Acute Myeloid Leukemias
 authors:
 - Ugo Testa
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2020'
 doi: 10.3390/cancers12092427
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Isocitrate Dehydrogenase Mutations in Myelodysplastic Syndromes and in Acute Myeloid Leukemias

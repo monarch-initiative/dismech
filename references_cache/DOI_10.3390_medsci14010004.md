@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medsci14010004"
+reference_id: DOI:10.3390/medsci14010004
 title: Malformation Pattern and Molecular Findings in the FGFR1-Related Hartsfield Syndrome Phenotype
 authors:
 - Federica Gaudioso
@@ -8,6 +8,7 @@ journal: Medical Sciences
 year: '2025'
 doi: 10.3390/medsci14010004
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Malformation Pattern and Molecular Findings in the FGFR1-Related Hartsfield Syndrome Phenotype

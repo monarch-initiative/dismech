@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000516666"
+reference_id: DOI:10.1159/000516666
 title: Molecular and Cellular Function of Transcription Factor 4 in Pitt-Hopkins Syndrome
 authors:
 - Huei-Ying Chen
@@ -9,6 +9,7 @@ journal: Developmental Neuroscience
 year: '2021'
 doi: 10.1159/000516666
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular and Cellular Function of Transcription Factor 4 in Pitt-Hopkins Syndrome

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3233/trd-220055"
+reference_id: DOI:10.3233/trd-220055
 title: "Current Status of Developmental Encephalopathies: Rett Syndrome, MECP2 Duplication Disorder, CDKL5 Deficiency Disorder and FOXG1 Disorder"
 authors:
 - Alan K. Percy
@@ -12,6 +12,7 @@ journal: Translational Science of Rare Diseases
 year: '2023'
 doi: 10.3233/trd-220055
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Current Status of Developmental Encephalopathies: Rett Syndrome, MECP2 Duplication Disorder, CDKL5 Deficiency Disorder and FOXG1 Disorder

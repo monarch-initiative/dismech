@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijerph20043405"
+reference_id: DOI:10.3390/ijerph20043405
 title: "Co-Occurring Conduct Problems and Anxiety: Implications for the Functioning and Treatment of Youth with Oppositional Defiant Disorder"
 authors:
 - Thorhildur Halldorsdottir
@@ -10,6 +10,7 @@ journal: International Journal of Environmental Research and Public Health
 year: '2023'
 doi: 10.3390/ijerph20043405
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Co-Occurring Conduct Problems and Anxiety: Implications for the Functioning and Treatment of Youth with Oppositional Defiant Disorder

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1210/clinem/dgae025"
+reference_id: DOI:10.1210/clinem/dgae025
 title: "Genetic Analysis, Phenotypic Spectrum and Functional Study of Rare Osteogenesis Imperfecta Caused by <i>CRTAP</i> Variants"
 authors:
 - Bingna Zhou
@@ -17,6 +17,7 @@ journal: "The Journal of Clinical Endocrinology &amp; Metabolism"
 year: '2024'
 doi: 10.1210/clinem/dgae025
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic Analysis, Phenotypic Spectrum and Functional Study of Rare Osteogenesis Imperfecta Caused by <i>CRTAP</i> Variants

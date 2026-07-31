@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/life14030327"
+reference_id: DOI:10.3390/life14030327
 title: RAS/Mitogen-Activated Protein Kinase Signaling Pathway in Testicular Germ Cell Tumors
 authors:
 - Angelo Onorato
@@ -11,6 +11,7 @@ journal: Life
 year: '2024'
 doi: 10.3390/life14030327
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # RAS/Mitogen-Activated Protein Kinase Signaling Pathway in Testicular Germ Cell Tumors

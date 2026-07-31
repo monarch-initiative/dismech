@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4103/idoj.idoj_367_18"
+reference_id: DOI:10.4103/idoj.idoj_367_18
 title: "Hereditary palmoplantar keratoderma: A practical approach to the diagnosis"
 authors:
 - Gomathy Sethuraman
@@ -9,6 +9,7 @@ journal: Indian Dermatology Online Journal
 year: '2019'
 doi: 10.4103/idoj.idoj_367_18
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Hereditary palmoplantar keratoderma: A practical approach to the diagnosis

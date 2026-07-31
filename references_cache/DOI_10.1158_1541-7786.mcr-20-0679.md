@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1541-7786.mcr-20-0679"
+reference_id: DOI:10.1158/1541-7786.mcr-20-0679
 title: EWS-FLI1 and Menin Converge to Regulate ATF4 Activity in Ewing Sarcoma
 authors:
 - Jennifer A. Jiménez
@@ -22,6 +22,7 @@ journal: Molecular Cancer Research
 year: '2021'
 doi: 10.1158/1541-7786.mcr-20-0679
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # EWS-FLI1 and Menin Converge to Regulate ATF4 Activity in Ewing Sarcoma

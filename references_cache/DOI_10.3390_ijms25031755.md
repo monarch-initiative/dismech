@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25031755"
+reference_id: DOI:10.3390/ijms25031755
 title: "From Acute to Chronic: Unraveling the Pathophysiological Mechanisms of the Progression from Acute Kidney Injury to Acute Kidney Disease to Chronic Kidney Disease"
 authors:
 - Tzu-Hsuan Yeh
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25031755
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From Acute to Chronic: Unraveling the Pathophysiological Mechanisms of the Progression from Acute Kidney Injury to Acute Kidney Disease to Chronic Kidney Disease

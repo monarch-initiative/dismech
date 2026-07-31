@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1186/s12943-023-01897-6"
+reference_id: DOI:10.1186/s12943-023-01897-6
 title: The Impact of FGFR3 Alterations on the Tumor Microenvironment and the Efficacy of Immune Checkpoint Inhibitors in Bladder Cancer
 authors:
 - Kazumasa Komura
@@ -33,6 +33,7 @@ journal: Molecular Cancer
 year: '2023'
 doi: 10.1186/s12943-023-01897-6
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Impact of FGFR3 Alterations on the Tumor Microenvironment and the Efficacy of Immune Checkpoint Inhibitors in Bladder Cancer

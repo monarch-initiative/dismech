@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1201/9781003166948"
+reference_id: DOI:10.1201/9781003166948
 title: Fetal and Perinatal Skeletal Dysplasias
 authors:
 - Christine M Hall
@@ -11,6 +11,7 @@ authors:
 year: '2024'
 doi: 10.1201/9781003166948
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Fetal and Perinatal Skeletal Dysplasias

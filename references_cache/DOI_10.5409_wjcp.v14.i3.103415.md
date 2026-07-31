@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5409/wjcp.v14.i3.103415"
+reference_id: DOI:10.5409/wjcp.v14.i3.103415
 title: "Hepatic glycogen storage disease: Deciphering the genotype-phenotype conundrum"
 authors:
 - Arghya Samanta
@@ -8,6 +8,7 @@ journal: World Journal of Clinical Pediatrics
 year: '2025'
 doi: 10.5409/wjcp.v14.i3.103415
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hepatic glycogen storage disease: Deciphering the genotype-phenotype conundrum

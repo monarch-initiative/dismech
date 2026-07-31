@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2021004441"
+reference_id: DOI:10.1182/bloodadvances.2021004441
 title: Epidemiology and treatment patterns of idiopathic multicentric Castleman disease in the era of IL-6–directed therapy
 authors:
 - Sudipto Mukherjee
@@ -11,6 +11,7 @@ journal: Blood Advances
 year: '2022'
 doi: 10.1182/bloodadvances.2021004441
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epidemiology and treatment patterns of idiopathic multicentric Castleman disease in the era of IL-6–directed therapy

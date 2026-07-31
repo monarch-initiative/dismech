@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/children9050633"
+reference_id: DOI:10.3390/children9050633
 title: "Medical Comorbidities in MECP2 Duplication Syndrome: Results from the International MECP2 Duplication Database"
 authors:
 - Daniel Ta
@@ -12,6 +12,7 @@ journal: Children
 year: '2022'
 doi: 10.3390/children9050633
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Medical Comorbidities in MECP2 Duplication Syndrome: Results from the International MECP2 Duplication Database

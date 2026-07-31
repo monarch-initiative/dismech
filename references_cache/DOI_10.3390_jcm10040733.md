@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm10040733"
+reference_id: DOI:10.3390/jcm10040733
 title: "Adult-Onset Still’s Disease: Clinical Aspects and Therapeutic Approach"
 authors:
 - Stylianos Tomaras
@@ -10,6 +10,7 @@ journal: Journal of Clinical Medicine
 year: '2021'
 doi: 10.3390/jcm10040733
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Adult-Onset Still’s Disease: Clinical Aspects and Therapeutic Approach

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5114/ada.2024.139233"
+reference_id: DOI:10.5114/ada.2024.139233
 title: Senear-Usher syndrome in a 5-year-old girl
 authors:
 - Hubert Arasiewicz
@@ -10,6 +10,7 @@ journal: Advances in Dermatology and Allergology
 year: '2024'
 doi: 10.5114/ada.2024.139233
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Senear-Usher syndrome in a 5-year-old girl
