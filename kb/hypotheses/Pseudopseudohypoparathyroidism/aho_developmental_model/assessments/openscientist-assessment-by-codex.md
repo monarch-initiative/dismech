@@ -148,15 +148,6 @@ supported.
 Ontology release. `GO:0141156` **cAMP/PKA signal transduction** is the current
 specific term matching the proposed pathway.
 
-### 8. The iPPSD subtype numbers are shifted
-
-The report labels PRKAR1A as iPPSD4 and PDE4D as iPPSD5. The consensus
-classification instead assigns PRKAR1A-related acrodysostosis to **iPPSD5** and
-PDE4D-related acrodysostosis to **iPPSD6**
-([PMID:29280743](https://pubmed.ncbi.nlm.nih.gov/29280743/)). The genes remain
-useful differential diagnoses, but the report's subtype numbers should not be
-curated.
-
 ## Claim-level disposition
 
 | Claim | Disposition | Reason |
@@ -171,7 +162,6 @@ curated.
 | PPHP patients are uniformly lean | **Qualified** | Marked obesity is typically spared; universality is not established. |
 | POH requires a somatic second hit | **Rejected** | The cited study hypothesized but did not detect human lesion LOH. |
 | Phenocopies validate the GNAS mechanism | **Qualified** | They support pathway convergence and differential diagnosis, not direct causality. |
-| PRKAR1A is iPPSD4 and PDE4D is iPPSD5 | **Rejected** | The correct assignments are PRKAR1A = iPPSD5 and PDE4D = iPPSD6. |
 | `GO:0019933` is ready for curation | **Rejected** | The term is obsolete. |
 | 62 papers were systematically reviewed | **Needs verification** | Only 29 PMIDs and no reproducible screening record are delivered. |
 

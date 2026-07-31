@@ -126,6 +126,16 @@ not.
 - `GO:0007224` currently labels **smoothened signaling pathway**, so the
   report should not present “Hedgehog signaling pathway” as its verbatim label.
 
+### 7. The iPPSD subtype numbers are shifted
+
+The report attributes PRKAR1A to iPPSD5 and PDE4D to iPPSD6. The cited
+classification instead assigns PRKAR1A-related acrodysostosis type 1 to
+**iPPSD4**, PDE4D-related acrodysostosis type 2 to **iPPSD5**, and
+PDE3A-related hypertension with brachydactyly to **iPPSD6**
+([PMID:29280743](https://pubmed.ncbi.nlm.nih.gov/29280743/)). The two
+acrodysostosis genes remain relevant differential diagnoses, but the shifted
+subtype labels should not be curated.
+
 ## Claim-level disposition
 
 | Claim | Disposition | Reason |
@@ -135,6 +145,7 @@ not.
 | PPHP means absolutely no hormone resistance | **Qualified** | Rare proven paternal-variant exceptions exist. |
 | STX16-ICR fills the PPHP causal chain | **Rejected** | The experiment explains STX16-deletion PHP1B, not coding-variant PPHP. |
 | Chondrocyte deletion directly proves heterozygous brachydactyly | **Qualified** | Complete knockout was severe; heterozygotes in that study had no phenotype. |
+| PRKAR1A is iPPSD5 and PDE4D is iPPSD6 | **Rejected** | The cited classification assigns PRKAR1A = iPPSD4 and PDE4D = iPPSD5. |
 | XL-alpha-s produces a human “double hit” | **Qualified** | Plausible mouse-supported modifier, not isolated in humans. |
 | Mixed-function GNAS variants qualify a loss-of-function model | **Qualified** | Important neighboring mechanism but outside the seed’s stated scope. |
 | PPHP has no obesity | **Qualified** | Marked obesity is typically spared; universal leanness is not established. |
