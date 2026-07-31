@@ -126,11 +126,11 @@ tp new curate-prpf31 --profile codex \
 
 ```bash
 # Single-commit chore, no issue
-tp new fix-maxo-typo --profile codex \
+tp new fix-terms-typo --profile codex \
   --repo ~/repos/dismech \
-  --branch fix/maxo-list-typo \
-  -d "Fix MAXO term list typo in CLAUDE.md" \
-  --prompt "fix the typo in the MAXO terms list in CLAUDE.md and open a PR"
+  --branch fix/terms-list-typo \
+  -d "Fix treatment term list typo in CLAUDE.md" \
+  --prompt "fix the typo in the treatment terms list in CLAUDE.md and open a PR"
 ```
 
 What `tp new` does, atomically in one call:
