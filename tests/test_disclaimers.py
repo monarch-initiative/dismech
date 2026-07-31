@@ -174,17 +174,19 @@ def _style_surfaces() -> list[Path]:
     )
 
 
-def test_disclaimer_is_dismissible_and_persists() -> None:
-    """The bar carries a dismiss control, and dismissal is persisted.
+def test_disclaimer_is_dismissible_for_the_session() -> None:
+    """The bar carries a dismiss control, and dismissal lasts one session.
 
     §11 originally made the bar non-dismissible. Issue #7421 reversed that: a
-    reader may close it, and the closed state persists per reader under the
-    ``dismech-disclaimer-dismissed`` localStorage key rather than reappearing on
-    every navigation.
+    reader may close it, and the closed state is kept under the
+    ``dismech-disclaimer-dismissed`` **sessionStorage** key, so it survives
+    navigation within a tab but returns on a later visit.
 
-    What must not regress is *how*. The control is a real focusable button with
-    an accessible label — not the click-anywhere ``.notice-banner`` behaviour,
-    which would fight the link inside the bar.
+    Two things must not regress. The scope: ``localStorage`` would silence the
+    statement permanently, which is explicitly not what was wanted. And the
+    control: a real focusable button with an accessible label, not the
+    click-anywhere ``.notice-banner`` behaviour, which would fight the link
+    inside the bar.
     """
     for path in _markup_surfaces():
         text = path.read_text()
@@ -205,21 +207,32 @@ def test_disclaimer_is_dismissible_and_persists() -> None:
         assert (
             'aria-label="Dismiss this disclaimer"' in block
         ), f"{where}: the dismiss control has no accessible label"
+        assert (
+            'title="Dismiss this disclaimer"' in block
+        ), f"{where}: the bare glyph has no tooltip"
         assert "notice-banner" not in block, f"{where}: do not reuse .notice-banner"
         assert "onclick" not in block.lower(), f"{where}: use a listener, not onclick"
 
         assert (
             STORAGE_KEY in text
-        ), f"{where}: dismissal is not persisted under the shared storage key"
+        ), f"{where}: dismissal is not recorded under the shared storage key"
         assert (
-            "localStorage" in text
-        ), f"{where}: dismissal does not persist across page views"
+            "sessionStorage" in text
+        ), f"{where}: dismissal does not survive navigation within a session"
+        # Matches the API being *used*, not prose mentioning it — the partials
+        # explain in a comment why localStorage was rejected.
+        assert not re.search(
+            r"window\.localStorage|(?<![A-Za-z.])localStorage\s*[.\[]", text
+        ), (
+            f"{where}: dismissal must be session-scoped — localStorage would "
+            "silence the disclaimer permanently"
+        )
 
 
 def test_dismissed_disclaimer_is_actually_hidden() -> None:
     """``[hidden]`` needs an explicit rule to beat the bar's own ``display``.
 
-    The bar sets ``display: block``, which outranks the user-agent rule for the
+    The bar sets ``display: flex``, which outranks the user-agent rule for the
     ``hidden`` attribute — without this the dismiss button would set ``hidden``
     and nothing would visibly happen.
     """
@@ -229,6 +242,39 @@ def test_dismissed_disclaimer_is_actually_hidden() -> None:
             f"{path.relative_to(REPO_ROOT)}: no [hidden] rule, so dismissing the "
             "bar would not hide it"
         )
+
+
+def test_generated_content_pages_keep_a_disclaimer_after_dismissal() -> None:
+    """A dismissed page must not be left carrying no disclaimer at all.
+
+    The top bar is dismissible for the session (#7421), so the page types a
+    reader most often lands on from a search engine — disorder and module pages —
+    also carry the non-dismissible ``_disclaimer_footer.html.j2`` line in their
+    page footer. Those are the only full-page templates with a ``<footer>``; the
+    gap on the rest is recorded in §11.
+    """
+    partial = TEMPLATE_DIR / "_disclaimer_footer.html.j2"
+    assert partial.is_file(), f"missing {partial}"
+    partial_text = partial.read_text()
+    assert "not medical advice" in partial_text
+    assert "https://dismech.monarchinitiative.org/elements/disclaimer/" in partial_text
+
+    for name in ("disorder.html.j2", "module.html.j2"):
+        template = TEMPLATE_DIR / name
+        text = template.read_text()
+        assert _include_pattern("_disclaimer_footer.html.j2").search(text), (
+            f"{name} has a page footer but does not include the non-dismissible "
+            "footer disclaimer"
+        )
+        footer_start = text.index('<footer class="page-footer">')
+        footer_end = text.index("</footer>", footer_start)
+        assert "_disclaimer_footer.html.j2" in text[footer_start:footer_end], (
+            f"{name} includes the footer disclaimer outside its <footer>"
+        )
+
+    assert ".dismech-disclaimer-footer" in CSS_PARTIAL.read_text(), (
+        "the footer disclaimer has no styles in _disclaimer.css.j2"
+    )
 
 
 def test_dismiss_control_is_hidden_without_javascript() -> None:

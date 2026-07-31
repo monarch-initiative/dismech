@@ -546,42 +546,64 @@ documentation at all. Provenance and fitness-for-use therefore have to travel wi
 
 **Design points.**
 
-- **Dismissible, and the dismissal persists.** *(Revised by
+- **Dismissible for the browsing session.** *(Revised by
   [#7421](https://github.com/monarch-initiative/dismech/issues/7421); this decision originally
-  read "Not dismissible".)* The bar carries a close button, and the closed state is stored per
-  reader under the `dismech-disclaimer-dismissed` localStorage key, so it does not return on
-  every navigation. The key is origin-wide: dismissing on one page dismisses on all of them.
+  read "Not dismissible".)* The bar carries a close button, and the closed state is recorded
+  under the `dismech-disclaimer-dismissed` **sessionStorage** key. sessionStorage is scoped to
+  a single tab and cleared when that tab closes, so moving between DisMech pages in the same
+  tab keeps the bar dismissed, while a fresh tab or a later visit shows it again.
 
-    What the original decision was protecting is preserved by *default* rather than by
-    *enforcement* — the bar is shown to every reader who has not explicitly closed it, which is
-    every first-time reader on every entry point. What changed is that a returning reader who
-    has already read and acknowledged it is no longer shown it forever. The trade-off accepted
-    here is real and worth naming: a reader who dismisses on their first visit will not see the
-    statement again on any page. `docs/disclaimer.md` remains linked from the bar and reachable
-    on its own URL, the MkDocs `copyright:` footer is not dismissible, and the `README.md`
-    section is unaffected — so the statement is still discoverable after dismissal.
+    **Deliberately not localStorage.** Permanent dismissal would let a reader silence the
+    statement once and never see it again. Session scope keeps the escape hatch — the bar is a
+    banner, and a reader working through twenty disorder pages should not have to see it twenty
+    times — without turning "I have read this" into "never tell me again". A test asserts the
+    localStorage API is not used anywhere, so this cannot regress by accident.
+
+    One consequence worth knowing: sessionStorage follows the *tab*, not the page load. A
+    reader who dismisses the bar and then types a DisMech URL into that same tab will not see
+    it again; it takes a new tab (or a later visit) to bring it back.
 
     Mechanics worth keeping: the control is a real focusable `<button>` with an accessible
-    label, not the click-anywhere `.notice-banner` behaviour, which would fight the link inside
-    the bar. It is CSS-hidden by default and revealed by the script, so a reader without
-    JavaScript is never shown a control that cannot work. The script is inline and synchronous
-    directly after the bar, so an already-dismissed bar is hidden before first paint instead of
-    flashing. Every `localStorage` access is inside a `try`, because the property getter itself
-    throws when storage is blocked; the bar then simply stays visible.
+    label and tooltip, not the click-anywhere `.notice-banner` behaviour, which would fight the
+    link inside the bar. It is CSS-hidden by default and revealed by the script, so a reader
+    without JavaScript is never shown a control that cannot work. The script is inline and
+    synchronous directly after the bar, so an already-dismissed bar is hidden before first
+    paint instead of flashing. Every `sessionStorage` access is inside a `try`, because the
+    property getter itself throws when storage is blocked; the bar then simply stays visible.
+    Dismissing moves focus to the page's `main`/`h1` rather than letting it fall back to
+    `<body>`, so a keyboard reader keeps their place.
 
+    Layout: the bar is a flex row and the button sits **in flow**, so it cannot overlap the
+    text however the bar wraps. The button carries a 28px right margin to clear the
+    [Hypothes.is](https://web.hypothes.is/) sidebar, which mounts a toolbar over the right edge
+    of every page that embeds the annotation client (`disorder.html.j2`, `module.html.j2`) and
+    swallows clicks there. This is not cosmetic: measured in headless Chromium, a button at
+    `right: 8px` is unclickable on disorder pages at both 1280px and 375px wide. The clearance
+    is therefore **not** dropped on narrow viewports.
+
+- **A dismissed page still carries the statement.** Because the bar can be closed, generated
+  disorder and module pages also carry `_disclaimer_footer.html.j2` — a one-line,
+  non-dismissible disclaimer in the page footer, worded to match the MkDocs `copyright:`
+  footer. Without it, the reader §11 exists for (one disorder page, arrived from a search
+  engine) could dismiss the bar and be left on a page with no disclaimer at all: the MkDocs
+  `copyright:` footer renders only on `docs/` pages, and `render.py` pages have their own
+  footer. **Known gap:** disorder and module are the only full-page templates with a
+  `<footer>`, so grouping, comorbidity, classification, project and research pages have no
+  footer line; on those, a dismissed bar does leave the page bare until the session ends.
 - **Distinct from `.notice-banner`.** The pre-existing `.notice-banner` (pre-alpha content
   warning) is also dismissible, but only for the page view — it just removes itself and
-  returns on the next page. The disclaimer is styled neutral grey rather than amber, and
-  persists its dismissal, precisely so the two read as different things when they appear
-  together.
+  returns on the next page. The disclaimer is styled neutral grey rather than amber, and holds
+  its dismissal for the session, precisely so the two read as different things when they
+  appear together.
 - **Top of page, not footer.** A reader who leaves after the first screen must still have
-  seen it.
+  seen it. (The footer line above is an *addition* for the dismissed case, not a relocation.)
 - **One canonical wording.** `docs/disclaimer.md` is the source of truth; the banner is its
   summary. `tests/test_disclaimers.py` gates that every full-page template and every
   hand-maintained site page still carries the disclaimer, so a new template cannot silently
   ship without one — and, since #7421, that each of them also carries the dismiss control, the
-  shared storage key, and the `[hidden]` rule that makes dismissal actually hide the bar
-  (`display: block` on the bar outranks the user-agent rule for the `hidden` attribute).
+  shared sessionStorage key (and *not* the localStorage API), and the `[hidden]` rule that
+  makes dismissal actually hide the bar (`display: flex` on the bar outranks the user-agent
+  rule for the `hidden` attribute).
 
 **Scope.** Internal/derived QC surfaces are excluded — they present curation-completeness
 metrics, not disease claims: `dashboard/` (generated by `just gen-dashboard`) and
@@ -592,8 +614,8 @@ template string in `scripts/gen_nih_topics_summary.py` rather than from
 `src/dismech/templates/`, so it is covered by its own test rather than by the template glob.
 
 **Origin.** [#7182](https://github.com/monarch-initiative/dismech/issues/7182). Revised by
-[#7421](https://github.com/monarch-initiative/dismech/issues/7421) (dismissible with persisted
-state).
+[#7421](https://github.com/monarch-initiative/dismech/issues/7421) (dismissible for the
+browsing session, plus the non-dismissible footer line).
 
 ## 12. Gaps
 

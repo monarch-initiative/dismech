@@ -82,6 +82,13 @@ footer { color:var(--muted); font-size:.75rem; margin-top:1.5rem; }
 .dismech-disclaimer-dismiss:hover { background:var(--chip); }
 .dismech-disclaimer-dismiss:focus-visible { outline:2px solid var(--accent);
   outline-offset:2px; }
+/* The button's footprint sits only on the right, so the centred text lands about
+   half that left of true centre. Mirroring it fixes that but costs the same width
+   again, so it applies only where there is room to spare. */
+@media (min-width: 900px) {
+  .dismech-disclaimer.is-dismissible::before { content:""; flex:0 0 auto;
+    width:28px; margin-left:28px; }
+}
 </style>
 </head>
 <body>
@@ -93,22 +100,23 @@ footer { color:var(--muted); font-size:.75rem; margin-top:1.5rem; }
     resources. Nothing here is intended to inform medical diagnosis or treatment.
     <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
   </p>
-  <button type="button" class="dismech-disclaimer-dismiss" aria-label="Dismiss this disclaimer">
+  <button type="button" class="dismech-disclaimer-dismiss"
+          aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
     <span aria-hidden="true">&times;</span>
   </button>
 </aside>
 <!-- Runs synchronously, immediately after the bar, so an already-dismissed bar is
      hidden before first paint rather than flashing and disappearing. Dismissal is
-     persisted per reader in localStorage; see design-decisions.md §11. -->
+     kept for the browsing session in sessionStorage; see design-decisions.md §11. -->
 <script>
   (function () {
     var KEY = 'dismech-disclaimer-dismissed';
     var bar = document.querySelector('.dismech-disclaimer');
     if (!bar) { return; }
-    // localStorage access itself throws when storage is blocked (Safari private
-    // browsing, cookies-disabled), so every use is guarded.
+    // sessionStorage access itself throws when storage is blocked (Safari
+    // private browsing, cookies-disabled), so every use is guarded.
     var store = null;
-    try { store = window.localStorage; } catch (err) { store = null; }
+    try { store = window.sessionStorage; } catch (err) { store = null; }
     try {
       if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
     } catch (err) { /* unreadable storage: show the bar */ }
@@ -118,6 +126,13 @@ footer { color:var(--muted); font-size:.75rem; margin-top:1.5rem; }
     button.addEventListener('click', function () {
       bar.hidden = true;
       try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+      // Focus would otherwise fall back to <body>, losing a keyboard reader's
+      // place. preventScroll keeps the viewport where it was.
+      var next = document.querySelector('main, h1');
+      if (next) {
+        if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+        try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+      }
     });
   })();
 </script>
