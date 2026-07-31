@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.11588/heidok.00035474"
+reference_id: DOI:10.11588/heidok.00035474
 title: Tumor Pseudolineages from a Healthy Lineage Template Reveal Organizational Principles and Cell-Fate Modulators in Glioblastoma
 authors:
 - "Förster, Leo Carl"
@@ -11,6 +11,7 @@ keywords:
 - 500 Natural sciences and mathematics
 - 570 Life sciences
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Tumor Pseudolineages from a Healthy Lineage Template Reveal Organizational Principles and Cell-Fate Modulators in Glioblastoma

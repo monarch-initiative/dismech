@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1152/ajpgi.00292.2018"
+reference_id: DOI:10.1152/ajpgi.00292.2018
 title: Effects of esophageal acidification on esophageal reflexes controlling the upper esophageal sphincter
 authors:
 - Ivan M. Lang
@@ -9,6 +9,7 @@ journal: American Journal of Physiology-Gastrointestinal and Liver Physiology
 year: '2019'
 doi: 10.1152/ajpgi.00292.2018
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Effects of esophageal acidification on esophageal reflexes controlling the upper esophageal sphincter

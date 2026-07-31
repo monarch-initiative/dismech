@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1891/cjnpwh-2506"
+reference_id: DOI:10.1891/cjnpwh-2506
 title: "Ovarian Cancer Risk Assessment, Risk Reduction, and Early Detection"
 authors:
 - Flora Days
@@ -8,6 +8,7 @@ journal: "Clinical Journal for Nurse Practitioners in Women's Health"
 year: '2025'
 doi: 10.1891/cjnpwh-2506
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Ovarian Cancer Risk Assessment, Risk Reduction, and Early Detection

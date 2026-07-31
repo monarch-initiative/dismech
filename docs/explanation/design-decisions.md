@@ -130,7 +130,7 @@ the table below mirrors it.
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
-| Treatments / medical actions | MAXO, NCI Thesaurus | `MAXO:`, `NCIT:` |
+| Treatments / medical actions | NCI Thesaurus | `NCIT:` |
 | Exposures | ECTO, ExO, XCO | `ECTO:`, `ExO:`, `XCO:` |
 | Environment | ENVO | `ENVO:` |
 | Food | FOODON | `FOODON:` |
@@ -143,8 +143,9 @@ of fake identifiers.
 
 **Selection priority when several ontologies could apply:**
 
-- **Treatments**: use whichever of MAXO or NCIT has the *most specific* accurate term.
-  NCIT often has more specific procedure/therapy terms; MAXO for generic medical actions.
+- **Treatments**: use the *most specific* accurate NCIT clinical-intervention term
+  (all reachable from `NCIT:C25218`). When NCIT has no suitable clinical-action term,
+  omit `term:` and keep a free-text `preferred_term`.
 - **Therapeutic agents**: prefer **CHEBI** for specific small-molecule drugs; use **NCIT**
   for drug classes and for biologics/newer drugs lacking a CHEBI term.
 - **Disease-like phenotypes** (phenotypes that are also diseases, e.g. osteoporosis,
@@ -162,6 +163,42 @@ of fake identifiers.
 `conf/oak_config.yaml`, ensure the SQLite adapter is available, and re-run term
 validation. **Known gap:** prefixes *not* listed there are silently skipped during
 validation (only a warning), so an unconstrained prefix can pass unchecked — see *Gaps* below.
+
+### 4a. MAXO removed in favour of NCIT (2026-07-31)
+
+**Decision.** The Medical Action Ontology (MAXO) was removed from dismech entirely. All
+4,300+ MAXO `treatment_term` / `diagnosis_term` bindings were remapped to NCI Thesaurus
+clinical-intervention terms, `MAXO:0000001` was dropped from `TreatmentActionTerm`'s
+`source_nodes` (leaving `NCIT:C25218` as the sole root), and the MAXO adapter and term
+cache were deleted. This reverses the earlier decision to treat MAXO and NCIT as co-equal
+treatment vocabularies. See PR #7228 and the frozen crosswalk
+`docs/superpowers/maxo_ncit_final_map.tsv`.
+
+**Rationale.** One treatment vocabulary rather than two removes the recurring "which
+ontology has the better term?" judgement call, and NCIT covers the clinical-action space
+more completely and more specifically.
+
+**What was traded away.** This is a genuine loss of specificity in places, recorded here so
+it is not rediscovered as a bug:
+
+- Some MAXO terms have no exact NCIT counterpart and were mapped to a broader parent
+  (e.g. drug-class "X agent therapy" terms → `NCIT:C15986` Pharmacotherapy). Where a drug
+  class was lost from the action term it is recovered in `therapeutic_agent`; a tail of
+  such bindings still carries no coded agent.
+- Seven MAXO terms have no NCIT equivalent at all (orthotic/hearing-aid/glasses usage,
+  airway management, emollient application, apoptosis assay, transepithelial nasal
+  potential difference). Those entries keep a free-text `preferred_term` with no `term:`.
+- Mapping a route- or method-agnostic source term to a route- or method-specific NCIT term
+  would assert something the source never said, so defaults are deliberately neutral
+  (e.g. corticosteroid therapy → `NCIT:C15370` Steroid Therapy, not the *Systemic* child).
+
+**Cache provenance.** NCIT is served via `ols:ncit` (issue #5160) and the OLS adapter
+cannot compute ancestors, so dynamic-enum membership cannot be re-derived from the
+committed configuration. `cache/enums/treatmentactionterm_*.csv` was therefore generated
+by temporarily pointing the `NCIT:` adapter at a local `sqlite:obo:ncit` build — the same
+build the `ncit-edges` structured source already uses — and `conf/oak_config.yaml` was
+then reverted to `ols:ncit`. Regenerating that cache requires repeating this; the
+committed configuration alone is not sufficient.
 
 
 ## 5. Biolink reuse
@@ -364,7 +401,7 @@ guarantee (every attached term must be a real NCIT/HP/UBERON term with a matchin
 OLS4** (it lives on BioPortal, which needs the `bioportal:` adapter + an API key), so it is
 not wired into `conf/oak_config.yaml` today. The grounding therefore uses **NCIT (already
 OLS-served) + HP**, which covers modality cleanly and findings adequately; a future
-tightening to RadLex-grade finding granularity is a deferred follow-up (see §11). Because
+tightening to RadLex-grade finding granularity is a deferred follow-up (see §12). Because
 the finding binding is RECOMMENDED, the ontology gap does not block curation.
 
 **Worked example.** `Multiple_Sclerosis` carries two `imaging_findings`: multifocal
@@ -443,7 +480,7 @@ the same convention-over-constraint pattern. The only guardrail that would even 
 "sidecar present ⇒ term under `HP:0002353`/`0003457`/`0003115` *or* term-less (the preclinical
 `preferred_term`-only case)", and that is at most an advisory lint, not a schema rule.
 
-**Deferred (see §11).** Independently of EEG, the `PhenotypeCategoryEnum` already exists but
+**Deferred (see §12).** Independently of EEG, the `PhenotypeCategoryEnum` already exists but
 is not yet wired to the `phenotypes.category` slot (still `range: string`); binding it, or
 deprecating the hand-entered field in favour of the HP-derived value, is a separate cleanup.
 
@@ -483,16 +520,64 @@ otherwise-orphan test-result phenotype a first-class, evidenced pathograph edge.
 (`relationship: READOUT_OF`, `direction: NEGATIVE`, `endpoint_context: DIAGNOSTIC`),
 replacing the previous — semantically incorrect — `downstream` causal edge from the
 mechanism to the ERG. The ~200 `Elevated/Decreased circulating … concentration` lab-readout
-phenotypes are candidate backfills (tracked in §11).
+phenotypes are candidate backfills (tracked in §12).
 
-## 11. Gaps
+## 11. Reader-facing disclaimers (AI curation & not medical advice)
+
+**Decision.** Every reader-facing DisMech page carries a **persistent, non-dismissible
+disclaimer bar** stating two things: that the resource is AI-curated and AI-maintained, and
+that it is not medical advice. A single canonical long-form statement lives in
+[`docs/disclaimer.md`](../disclaimer.md); the bar links to it.
+
+**Why page-level rather than documentation-level.** §7 already records that DisMech is
+agent-forward, and §6 records the evidence policy — but both are *contributor-facing process
+documentation*. The common way a reader encounters DisMech is by landing on a single
+disorder page from a search engine or an external link, never seeing the project
+documentation at all. Provenance and fitness-for-use therefore have to travel with the page.
+
+**Where it is implemented.**
+
+| Surface | Mechanism |
+|---|---|
+| Generated KB pages (disorder, module, grouping, comorbidity, classification, project, research, and their index pages) | `src/dismech/templates/_disclaimer.html.j2` + `_disclaimer.css.j2`, `{% include %}`-ed into every full-page template (the same partial pattern already used for `_palette.css.j2`) |
+| Hand-maintained site pages (`index.html`, `app/`, `details/`) | The same markup inlined, kept in step with the partial |
+| MkDocs documentation site (`elements/`) | `copyright:` footer in `mkdocs.yml`, plus admonitions on `docs/index.md` and `docs/about.md` |
+| Repository | Disclaimer section at the top of `README.md` |
+
+**Design points.**
+
+- **Not dismissible.** The pre-existing `.notice-banner` (pre-alpha content warning) is
+  click-to-dismiss because it is a transient status message. The disclaimer is not: it is a
+  statement about what the resource *is*, and it must be present on every page view. It is
+  styled neutral grey rather than amber precisely so the two read as different things when
+  they appear together.
+- **Top of page, not footer.** A reader who leaves after the first screen must still have
+  seen it.
+- **One canonical wording.** `docs/disclaimer.md` is the source of truth; the banner is its
+  summary. `tests/test_disclaimers.py` gates that every full-page template and every
+  hand-maintained site page still carries the disclaimer, so a new template cannot silently
+  ship without one.
+
+**Scope.** Internal/derived QC surfaces are excluded — they present curation-completeness
+metrics, not disease claims: `dashboard/` (generated by `just gen-dashboard`) and
+`frontpage-candidates/` (a design-candidate gallery). `pages/nih-topics/index.html` is
+*included* despite being a coverage report, because it sits under `pages/` alongside the
+disease surfaces and links out to disease and project pages; it is generated from an inline
+template string in `scripts/gen_nih_topics_summary.py` rather than from
+`src/dismech/templates/`, so it is covered by its own test rather than by the template glob.
+
+**Origin.** [#7182](https://github.com/monarch-initiative/dismech/issues/7182).
+
+## 12. Gaps
 
 This section details decisions we have **not yet made or formalized**.
 
 | Area | Status | Tracking |
 |---|---|---|
+| Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
 | Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
+| Hypothesis-exploration report assessments | **ENACTED (PR #7017).** A focused hypothesis report is a research lead, not disease-level curated evidence. One standalone LinkML-validated YAML sidecar is stored for each `<provider>-assessment-by-<assessor>` pair under `kb/hypotheses/<Disease>/<hypothesis_id>/assessments/`; optional Markdown/PDF files with the same stem are human-readable renderings. The sidecar captures an overall qualitative verdict plus claim-level `RETAINED` / `QUALIFIED` / `REJECTED` / `NEEDS_VERIFICATION` dispositions, each optionally anchored by a verbatim raw-report quote. Validation enforces layout, filename metadata, report-quote anchoring, and artifact links. Literature identifiers in a review are context, not disease-YAML evidence; promotion still requires normal reference-cache and evidence validation. A cross-provider synthesis remains optional and does not replace independent provider-by-assessor reviews. | `src/dismech/schema/hypothesis_assessment.yaml`; `docs/hypothesis-report-assessments.md` |
 | Hypothesis-based phenotype algorithms | **ENACTED (2026-07-12, `@cmungall`-approved).** `definition_type: PHENOTYPE_ALGORITHM` previously assumed established/validated grounding. `Definition` now carries an orthogonal `derivation_basis` (`ESTABLISHED_CRITERIA` / `MECHANISTIC_HYPOTHESIS` / `MODEL_SYSTEM_EXTRAPOLATION`); **reuses the existing `attaches_to` slot** to link the pathograph node(s)/edge(s) it is predicated on (so the hypothesis basis is *inferred* from those edges' `hypothesis_groups` → `mechanistic_hypotheses[].status`, not stored as a drift-prone duplicate ID); and a **structured `validation_status` object** (`AlgorithmValidationStatus`: `status` enum `PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD` + free-text `rationale` + optional `evidence`). Net effect: a mechanism-predicated EHR case-finding query (e.g. fever-triggered arrhythmia surfacing latent CACNA1C carriers) is not conflated with a consensus/OHDSI-validated phenotype. Gated by `test_hypothesis_based_definition_attaches_to_foreign_keys` (a `MECHANISTIC_HYPOTHESIS` definition must have resolving `attaches_to` refs). Worked examples spanning the spectrum: `Timothy_Syndrome` (`fever_exacerbated_cav1.2`; `MECHANISTIC_HYPOTHESIS`/`PROPOSED`, zebrafish), `Brugada_Syndrome` (fever-unmasking of the type-1 ECG; `ESTABLISHED_CRITERIA`/`UNVALIDATED`), `Long_QT_Syndrome` (QT-prolonging-*drug* unmasking of latent congenital LQTS; `ESTABLISHED_CRITERIA`/`UNVALIDATED` — a pharmacological rather than physiological trigger), and `Malignant_Hyperthermia_of_Anesthesia` (*anesthetic* trigger, skeletal-muscle RYR1/CACNA1S; `ESTABLISHED_CRITERIA`/`UNVALIDATED` — the first non-cardiac example, whose definition `attaches_to` the entry's existing trigger node). See [hypothesis-based-phenotype-algorithms.md](../hypothesis-based-phenotype-algorithms.md) and the candidate register in [reports/hypothesis-driven-ehr-case-finding](../reports/hypothesis-driven-ehr-case-finding-2026-07-12.md). **Remaining follow-ups:** advisory declared-vs-inferred consistency lint; renderer badge; KGX/BioLink export treatment (suppress or specially mark). | [#6245](https://github.com/monarch-initiative/dismech/issues/6245) |
 | `updated_date` field | Deprecated in favor of git history; legacy entries may retain it pending bulk cleanup | — |
 | Deprecated `prevalence.percentage` cleanup | `percentage` superseded by structured prevalence slots (§8) and deprecated. The bare-number unit-ambiguity backlog is effectively resolved: of 199 records, **166 are converted** via `scripts/resolve_bare_prevalence.py` plus reviewed batches — 91 low-value rare-disease prevalences, 47 high-percent population/cohort prevalences (conditional ones qualified by their `population` field), 9 hand-fixed `DISAGREE`, and 19 final records (12 uncorroborated-but-legit + 7 filter false-positives) using the rule **decimal = percent, scientific-notation = proportion** (e.g. CHIME `1e-06` = 1/million; Cockayne `4e-06` = 1/250,000; carrier/birth measures set where stated). All additive; `percentage` preserved. The **33 not converted are not a unit problem**: 32 are records that are *not population prevalence at all* (`MISPLACED_STAT` in `research/prevalence_bare_number_report.md` — metastatic-cancer 5-year survival, staging fractions, complication rates, and fraction-of-category such as "X% of all lymphomas/leukemias/cancers"), which belong in a different slot and need **relocation, not unit-fixing** — a distinct data-quality task pending a schema home for survival/staging/subtype-share data; plus 1 genuinely-ambiguous record (Nephronophthisis `0.1-1.0`, neither a clean percent nor proportion with no corroborating evidence). Plus ~8 free-prose head-counts. `percentage` field removal is deferred until the misplaced-data relocation lands. **Post-migration correction (PR review):** a systematic scan found **19 records across 16 files** where a *fraction-of-category* or *penetrance* value (with the qualifier living in `notes`, so the percentage-only guard missed it) had been wrongly converted to a population `rate_per_100000` — e.g. Osteogenesis_Imperfecta_Type_II `50%` (half of prenatal-onset OI cases → 50,000/100k), HPAH/FXTAS carrier **penetrance** (~40% → 40,000/100k), Minimal_Change_Disease (70–90% of idiopathic NS), Cholesteatoma (419/1710 otitis-media patients). These had their `measure_type`/`prevalence_class`/`rate_*` slots stripped (bare `percentage` preserved). The migration guard was hardened accordingly: `FRACTION_OF_CATEGORY_RE` now also matches cohort head-counts (`N of M`) and `% of <solved/idiopathic/sporadic/typhoidal/…>` categories stated in the percentage, and a new `PENETRANCE_RE` (safe to run against `notes`) catches penetrance/lifetime-risk qualifiers. Bare-percentage cohort fractions whose qualifier is *only* in prose remain inherently ambiguous from the value alone and are corrected by hand rather than by an aggressive notes scan (which would false-positive on records like Lathyrism, whose notes cite a cohort count but whose `percentage` is a genuine population estimate). **Second correction batch (PR review):** a follow-up KB-wide scan surfaced a further class of measure-type/conditional errors on rate-bearing records — (a) **genotype-conditional cumulative incidence / penetrance** stated as "N% diagnosed by age X" (Hemochromatosis male C282Y homozygotes 56.4% by age 80) or "cumulative risk of new cases up to age N" (Oppositional_Defiant_Disorder), which were stripped like the penetrance records; (b) **wrong measure_type** where the type lived only in `notes`/snippet — lifetime prevalence tagged POINT (Anorexia_Nervosa, Migraine_with_Aura → LIFETIME_PREVALENCE) and 12-month prevalence tagged POINT (Obsessive-Compulsive_Disorder → PERIOD_PREVALENCE); (c) **cohort-conditional risk-factor rates** (Furunculosis S. aureus nasal-carriage 60%/36%, Acute_Hypotension 88% intraoperative-event rate in ASA 3–4 surgical patients), stripped; and (d) a **two-figure percentage** where the parser captured the incidence not the prevalence (Systemic_Lupus_Erythematosus North America "23.2/100k incidence; 241/100k prevalence"), split into separate POINT_PREVALENCE (241) and ANNUAL_INCIDENCE (23.2) records. `PENETRANCE_RE` was extended with `cumulative incidence/risk` and `diagnosed by age` (verified against the KB to add no false positives on legitimate rate-bearing records). **Third correction batch (PR review):** a further scan found cohort-conditional / diagnostic-procedure rates whose qualifier lives only in the **`population` label** (not `percentage`/`notes`), which the guards do not parse: e.g. FICUS_syndrome (PICS-F among ICU family members), Coronary_Vasospasm (spasm among ANOCA patients), Refeeding_Syndrome (event rate in hospitalized/PN patients), Aortitis (histology among aortic-surgery patients), Brucellosis (pooled prevalence among included study populations), Silent_Sinus_Syndrome (radiologic finding among head-CT patients), Laryngotracheoesophageal_Cleft (proportion among endoscopy referrals) — structured slots stripped. Plus three `measure_type` corrections to BIRTH_PREVALENCE (Klinefelter_Syndrome, Wolf-Hirschhorn_Syndrome, MECP2_Duplication_Syndrome) where the birth-prevalence language was in the snippet only. Population-label conditionality is deliberately **not** auto-guarded: the label alone cannot separate a selected referral cohort ("adults undergoing head CT") from a legitimate large-scale screening population that approximates the general rate ("Pregnant women undergoing genome-wide NIPS", 333,187 women → 6.9/100,000), so this class stays manual-review. | migration follow-up + schema follow-up (destination for survival/staging/subtype-share) |

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1194/jlr.m028563"
+reference_id: DOI:10.1194/jlr.m028563
 title: Molecular characterization of proprotein convertase subtilisin/kexin type 9-mediated degradation of the LDLR
 authors:
 - Yan Wang
@@ -10,6 +10,7 @@ journal: Journal of Lipid Research
 year: '2012'
 doi: 10.1194/jlr.m028563
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Molecular characterization of proprotein convertase subtilisin/kexin type 9-mediated degradation of the LDLR
