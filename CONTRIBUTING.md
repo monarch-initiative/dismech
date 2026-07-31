@@ -245,6 +245,13 @@ Now you're ready to set up your cloud environment (this is a one-time step).
 
    Note: the Environment variables field is plain text, not a secrets store — the values are
    visible to anyone who can open the environment's settings. On a personal account, that's only you.
+   
+   5. **Add an install of "just" to the setup script** in the "Setup script" box (just this one line):
+      ```
+      uv tool install rust-just
+      ```
+      This will allow curate to start immediately without needing to re-install just with tokens after failing to find it.
+      
 
 Setting up the cloud configuration is the only hard part. Once the environment exists, curation on the web works the same
 as on the command line — `/curate` a disorder, then create the PR when ready.
