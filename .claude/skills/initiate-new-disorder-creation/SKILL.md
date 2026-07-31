@@ -750,6 +750,6 @@ Before finalizing a new disorder file, verify:
 - [ ] GO terms exist and labels match exactly
 - [ ] MAXO terms (if used) exist and labels match exactly
 - [ ] `just validate` passes
-- [ ] `just validate-terms-file` passes
+- [ ] `just validate-terms` passes
 - [ ] `just validate-references` passes
 - [ ] History record scaffolded (`just new-history`) and `just validate-history` passes
