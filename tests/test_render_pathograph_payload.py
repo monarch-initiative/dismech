@@ -742,10 +742,14 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "RYR2_CPVT.yaml",
-            {("RYR2 gain-of-function variants", "RYR2 Gain-of-Function Calcium Leak")},
+            # PR #7227 renamed this pathophysiology node from "RYR2
+            # Gain-of-Function Calcium Leak" to "RYR2 Gain-of-Function Variant".
+            # A pure rename: the node keeps the same hgnc:10484 gene link, the
+            # same GO:0005219 molecular function, and its downstream edges.
+            {("RYR2 gain-of-function variants", "RYR2 Gain-of-Function Variant")},
             {"RYR2 gain-of-function variants": "genetic"},
             {
-                "RYR2 Gain-of-Function Calcium Leak": [
+                "RYR2 Gain-of-Function Variant": [
                     "ryanodine-sensitive calcium-release channel activity"
                 ]
             },
