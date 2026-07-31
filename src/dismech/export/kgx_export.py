@@ -51,6 +51,7 @@ KNOWLEDGE_SOURCE = "infores:dismech"
 # written to its own sidecar file. The handle lives in the transform state
 # between the on_data_begin / on_data_end hooks.
 _SEPIO_STATE_KEY = "sepio_sidecar_handle"
+_SEPIO_OPENED_PATHS: set[Path] = set()
 SEPIO_SIDECAR_SUFFIX = "_sepio.jsonl"
 
 # Frequency enum to HP term mapping
@@ -1385,7 +1386,11 @@ def open_sepio_sidecar(koza_ctx: KozaTransform) -> None:
         koza_ctx.log("Writer has no output directory; skipping SEPIO sidecar", level="WARNING")
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    koza_ctx.state[_SEPIO_STATE_KEY] = path.open("w", encoding="utf-8")
+    # Koza builds a fresh transform context per input tag, so this hook can fire
+    # more than once in a run; only the first open truncates.
+    mode = "a" if path in _SEPIO_OPENED_PATHS else "w"
+    _SEPIO_OPENED_PATHS.add(path)
+    koza_ctx.state[_SEPIO_STATE_KEY] = path.open(mode, encoding="utf-8")
 
 
 @koza.on_data_end()
