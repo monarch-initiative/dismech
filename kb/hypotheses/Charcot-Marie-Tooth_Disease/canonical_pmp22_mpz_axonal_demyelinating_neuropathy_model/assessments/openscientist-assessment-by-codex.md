@@ -69,7 +69,7 @@ MFN2 in most families linked to the historical CMT2A locus
 variants have functional support, but the human pedigrees remain few
 ([PMID:30126838](https://pubmed.ncbi.nlm.nih.gov/30126838/)). Consistent with the
 report's proposed downgrade, the
-[ClinGen Charcot-Marie-Tooth GCEP](https://search.clinicalgenome.org/kb/gene-validity/CGGV%3Aassertion_ae6ffeae-9609-47bf-89a9-4863cf6ef05c-2020-10-05T16%3A19%3A30.420Z)
+[ClinGen Charcot-Marie-Tooth GCEP](https://search.clinicalgenome.org/kb/gene-validity/CGGV%3Aassertion_ae6ffeae-9609-47bf-89a9-4863cf6ef05c-2026-06-12T160000.000Z)
 classified KIF1B–CMT2A1 as **Limited** in June 2026. That expert-panel result
 postdates the provider report but supports the assessment.
 
@@ -159,7 +159,9 @@ intervention. [PMID:36926597](https://pubmed.ncbi.nlm.nih.gov/36926597/) used C6
 antisense oligonucleotides in two PMP22-overexpressing mouse models. It reduced
 neuroinflammatory pathway signals without improving motor function. The
 executive judgment's placement of this experiment among failed human trials is
-a material species and evidence-level error.
+a material species and evidence-level error. The mechanistic review later
+describes the same experiment correctly as systemic complement inhibition in
+CMT1A mice, so the problem is confined to the executive judgment.
 
 ### Ascorbic-acid failure has not been mechanistically explained
 
@@ -189,11 +191,17 @@ devoid of human validation is too broad:
 These are human-cell proof-of-concept, not human clinical proof.
 
 The “complete absence” of human single-cell evidence likewise needs a narrower
-scope. A current reproducible PubMed search did not identify single-cell or
-spatial profiling of ex vivo CMT sural-nerve tissue. However,
-PMID:36511878 used single-cell analysis in patient-derived CMT1A PNS organoids.
-The useful gap is therefore ex vivo patient-nerve single-cell/spatial profiling,
-not complete absence of CMT-derived human single-cell work.
+scope. On 2026-07-31, a PubMed search for `("Charcot-Marie-Tooth"[Title/Abstract]
+OR CMT1A[Title/Abstract] OR CMT1B[Title/Abstract] OR CMT2A[Title/Abstract] OR
+CMTX1[Title/Abstract]) AND ("single cell"[Title/Abstract] OR
+"single-cell"[Title/Abstract] OR "single nucleus"[Title/Abstract] OR
+"single-nucleus"[Title/Abstract] OR scRNA-seq[Title/Abstract] OR
+snRNA-seq[Title/Abstract] OR "spatial transcriptomics"[Title/Abstract] OR
+"spatial omics"[Title/Abstract])` returned 13 records. Manual screening found
+no single-cell or spatial profiling of ex vivo CMT nerve. However, PMID:36511878
+used single-cell analysis in patient-derived CMT1A PNS organoids. The useful gap
+is therefore ex vivo patient-nerve single-cell/spatial profiling, not complete
+absence of CMT-derived human single-cell work.
 
 ### Metabolic support and oligogenic inheritance remain leads
 
@@ -243,7 +251,12 @@ The curation-lead list is not ontology-ready:
 
 The myelination, cholesterol-transport, and Schwann-cell-differentiation
 identifiers are valid. The presence of valid terms does not make the full list
-safe to copy.
+safe to copy. The labels above were checked on 2026-07-31 with:
+
+```shell
+uv run runoak -i sqlite:obo:cl info CL:0000333 CL:0011012 CL:0000218
+uv run runoak -i sqlite:obo:go info GO:0031175 GO:0006986
+```
 
 ## Corpus and artifact provenance
 
@@ -276,7 +289,8 @@ qualifications verbatim in the disease YAML. In particular:
    developmental dysmyelination evidence.
 2. Scope structural PMP22, UPR, SARM1, inflammation, metabolic support, and
    lipid branches to the tested model and subtype.
-3. Remove the claim that complement inhibition failed in humans.
+3. Correct the executive-summary claim that complement inhibition failed in
+   humans; retain its later, accurate description as a CMT1A mouse experiment.
 4. Do not promote cholesterol supplementation for PMP22-duplication CMT1A.
 5. Separate clinical absence of direct PMP22-lowering efficacy from existing
    patient-derived cell and organoid proof-of-concept.
