@@ -101,10 +101,10 @@ When a fuzzy search returns multiple results:
 
 ## Validation
 
-After adding terms, validate with:
+After adding terms, validate the file you edited with:
 
 ```bash
-just validate-terms
+just validate-terms kb/disorders/YourDisease.yaml
 ```
 
 This checks:
@@ -153,7 +153,7 @@ for f in glob.glob("kb/disorders/*.yaml"):
        id: <HP:ID>
        label: <Exact label from OAK>
    ```
-4. Validate: `just validate-terms`
+4. Validate: `just validate-terms kb/disorders/YourDisease.yaml`
 
 ### Descriptor Qualifiers for Common Clinical Modifiers
 
