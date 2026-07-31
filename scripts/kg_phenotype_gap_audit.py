@@ -12,9 +12,13 @@ Emits, per disease:
 
 IMPORTANT caveat: matching is EXACT HP id only. HPO is a deep hierarchy, so a
 dismech term that is a parent/child of the KG term reads as a mismatch here. Exact
-overlap is therefore a LOWER BOUND on true semantic agreement; treat kg_only /
-dismech_only as candidate lists, not confirmed gaps. Subsumption-aware matching is a
-documented follow-up.
+overlap is therefore a LOWER BOUND on true semantic agreement; kg_phenotype_subsumption.py
+re-scores this against the HP is_a hierarchy.
+
+Robustness: fetches paginate over the full result set, and a fetch that exhausts its
+retries RAISES rather than being cached as an empty result -- so a network failure is never
+silently indistinguishable from "the KG has no phenotype edges" (load-bearing for the
+sole-source headline). Such diseases are counted as fetch_errors and skipped.
 
 Usage:
     uv run python scripts/kg_phenotype_gap_audit.py --limit 5                     # pilot
@@ -37,6 +41,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DISORDERS = os.path.join(ROOT, "kb", "disorders")
 API = "https://api-v3.monarchinitiative.org/v3/api/association"
 CAT = "biolink:DiseaseToPhenotypicFeatureAssociation"
+PAGE = 500
 
 
 def dismech_phenos(doc):
@@ -50,34 +55,37 @@ def dismech_phenos(doc):
     return out
 
 
+def _fetch_page(mondo_id, offset):
+    params = urllib.parse.urlencode({"category": CAT, "subject": mondo_id,
+                                     "limit": PAGE, "offset": offset})
+    url = f"{API}?{params}"
+    last = None
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(url, timeout=45) as resp:
+                return json.load(resp)
+        except Exception as e:
+            last = e
+            time.sleep(2 * (attempt + 1))
+    raise RuntimeError(f"KG fetch failed after retries: {url}: {last}")
+
+
 def kg_phenos(mondo_id, cache):
     if mondo_id in cache:
         return cache[mondo_id]
     phenos = {}
     offset = 0
     while True:
-        params = urllib.parse.urlencode(
-            {"category": CAT, "subject": mondo_id, "limit": 500, "offset": offset})
-        url = f"{API}?{params}"
-        data = {"items": [], "total": 0}
-        for attempt in range(3):
-            try:
-                with urllib.request.urlopen(url, timeout=45) as resp:
-                    data = json.load(resp)
-                break
-            except Exception:
-                if attempt == 2:
-                    data = {"items": [], "total": 0}
-                time.sleep(2 * (attempt + 1))
+        data = _fetch_page(mondo_id, offset)
         for it in data.get("items", []):
             obj = it.get("object", "")
             if obj.startswith("HP:"):
                 phenos[obj] = it.get("object_label") or ""
-        offset += 500
+        offset += PAGE
         if offset >= (data.get("total") or 0):
             break
         time.sleep(0.1)
-    cache[mondo_id] = phenos
+    cache[mondo_id] = phenos  # only cached on full success (a failed fetch raised above)
     time.sleep(0.1)
     return phenos
 
@@ -111,9 +119,13 @@ def main():
         targets = targets[: args.limit]
 
     rows, tot = [], Counter()
-    n_kg_has = 0
+    n_kg_has, fetch_errors = 0, []
     for i, (name, mid, dph) in enumerate(targets, 1):
-        kg = kg_phenos(mid, cache)
+        try:
+            kg = kg_phenos(mid, cache)
+        except RuntimeError as e:
+            fetch_errors.append((name, mid, str(e)))
+            continue
         dset, kset = set(dph), set(kg)
         overlap, kg_only, dismech_only = dset & kset, kset - dset, dset - kset
         if kg:
@@ -133,8 +145,9 @@ def main():
 
     def cnt(s):
         return 0 if not s else len(s.split(";"))
-    R = [dict(disorder=r[0], mondo=r[1], nd=r[2], nk=r[3], nov=r[4],
-             kg_only=r[5], dismech_only=r[6], nko=cnt(r[5]), ndo=cnt(r[6])) for r in rows]
+    R = [{"disorder": r[0], "mondo": r[1], "nd": r[2], "nk": r[3], "nov": r[4],
+          "kg_only": r[5], "dismech_only": r[6], "nko": cnt(r[5]), "ndo": cnt(r[6])}
+         for r in rows]
     BROAD = 60
     no_kg = [r for r in R if r["nk"] == 0]
     broad = [r for r in R if r["nk"] > BROAD]
@@ -142,6 +155,9 @@ def main():
 
     print("\n# Monarch KG <-> dismech disease-phenotype comparison (EXACT HP id match)")
     print(f"diseases compared (MONDO + phenotypes): {len(targets)}")
+    print(f"  fetch errors (skipped, NOT counted as no-edge): {len(fetch_errors)}")
+    for name, mid, err in fetch_errors[:10]:
+        print(f"     ! {name} ({mid}): {err}")
     print(f"  with >=1 KG phenotype edge: {n_kg_has}")
     print(f"  dismech HP assertions: {tot['dismech']}")
     print(f"  KG HP assertions:      {tot['kg']}")
@@ -165,8 +181,7 @@ def main():
     if args.tsv:
         with open(args.tsv, "w") as fh:
             fh.write("disorder\tmondo_id\tn_dismech\tn_kg\tn_overlap\tkg_only\tdismech_only\n")
-            for r in rows:
-                fh.write("\t".join(str(x) for x in r) + "\n")
+            fh.writelines("\t".join(str(x) for x in r) + "\n" for r in rows)
         print(f"\n[wrote {args.tsv} ({len(rows)} rows)]")
 
 

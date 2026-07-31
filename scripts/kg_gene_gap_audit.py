@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 """dismech#7175 content evaluation: Monarch KG <-> dismech gene-disease comparison.
 
-For every disorder with a MONDO primary anchor AND curated genes (genetic[].gene_term),
-compare dismech's gene set against the Monarch KG's gene-disease edges for that MONDO
-term (Causal + Correlated gene-to-disease associations, via the Monarch v3 API).
+For every disorder with a MONDO primary anchor AND curated genes, compare dismech's gene
+set against the Monarch KG's gene-disease edges for that MONDO term (Causal + Correlated
+gene-to-disease associations, via the Monarch v3 API).
+
+dismech genes are read from BOTH the top-level ``genetic[].gene_term`` and the
+``has_subtypes[].genes[]`` blocks (both model disease genes per CLAUDE.md), so a gene
+curated only on a subtype is not falsely reported as a coverage gap.
 
 Emits, per disease:
   - overlap        : genes in both
   - kg_only        : genes the KG links to the disease but dismech does not  (dismech COVERAGE GAP)
   - dismech_only   : genes dismech curates but the KG does not link          (dismech -> KG candidate / to verify)
+
+Robustness: KG fetches paginate over the full result set (offset/total), and a fetch that
+exhausts its retries RAISES rather than being cached as an empty result -- so a network
+failure is never silently indistinguishable from "the KG has no edges" (that distinction is
+load-bearing for the no-edge headline). Such diseases are counted as fetch_errors and skipped.
 
 Usage:
     uv run python scripts/kg_gene_gap_audit.py --limit 5                 # pilot
@@ -34,6 +43,7 @@ DISORDERS = os.path.join(ROOT, "kb", "disorders")
 API = "https://api-v3.monarchinitiative.org/v3/api/association"
 GENE_CATS = ["biolink:CausalGeneToDiseaseAssociation",
              "biolink:CorrelatedGeneToDiseaseAssociation"]
+PAGE = 500
 
 
 def norm(hgnc):
@@ -41,15 +51,43 @@ def norm(hgnc):
     return hgnc.replace("hgnc:", "HGNC:") if hgnc else hgnc
 
 
+def _gene_from_term(gene_term):
+    term = (gene_term or {}).get("term") or {}
+    tid = term.get("id")
+    if tid and tid.lower().startswith("hgnc:"):
+        return norm(tid), (term.get("label") or (gene_term or {}).get("preferred_term") or "")
+    return None, None
+
+
 def dismech_genes(doc):
     out = {}
     for g in (doc or {}).get("genetic") or []:
-        gt = g.get("gene_term") or {}
-        term = gt.get("term") or {}
-        tid = term.get("id")
-        if tid and tid.lower().startswith("hgnc:"):
-            out[norm(tid)] = term.get("label") or gt.get("preferred_term") or ""
+        key, label = _gene_from_term(g.get("gene_term"))
+        if key:
+            out[key] = label
+    # genes may also be modeled on subtypes (has_subtypes[].genes[])
+    for st in (doc or {}).get("has_subtypes") or []:
+        for g in st.get("genes") or []:
+            gt = g.get("gene_term") or g  # subtype gene may carry gene_term or be a descriptor
+            key, label = _gene_from_term(gt if "term" in gt else {"term": gt.get("term")})
+            if key:
+                out.setdefault(key, label)
     return out
+
+
+def _fetch_page(cat, mondo_id, offset):
+    params = urllib.parse.urlencode({"category": cat, "object": mondo_id,
+                                     "limit": PAGE, "offset": offset})
+    url = f"{API}?{params}"
+    last = None
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(url, timeout=45) as resp:
+                return json.load(resp)
+        except Exception as e:
+            last = e
+            time.sleep(2 * (attempt + 1))
+    raise RuntimeError(f"KG fetch failed after retries: {url}: {last}")
 
 
 def kg_genes(mondo_id, cache):
@@ -57,23 +95,19 @@ def kg_genes(mondo_id, cache):
         return cache[mondo_id]
     genes = {}
     for cat in GENE_CATS:
-        params = urllib.parse.urlencode({"category": cat, "object": mondo_id, "limit": 500})
-        url = f"{API}?{params}"
-        for attempt in range(3):
-            try:
-                with urllib.request.urlopen(url, timeout=45) as resp:
-                    data = json.load(resp)
+        offset = 0
+        while True:
+            data = _fetch_page(cat, mondo_id, offset)
+            for it in data.get("items", []):
+                subj = it.get("subject", "")
+                if subj.startswith("HGNC:"):
+                    genes[subj] = it.get("subject_label") or ""
+            offset += PAGE
+            if offset >= (data.get("total") or 0):
                 break
-            except Exception:
-                if attempt == 2:
-                    data = {"items": []}
-                time.sleep(2 * (attempt + 1))
-        for it in data.get("items", []):
-            subj = it.get("subject", "")
-            if subj.startswith("HGNC:"):
-                genes[subj] = it.get("subject_label") or ""
+            time.sleep(0.1)
         time.sleep(0.1)
-    cache[mondo_id] = genes
+    cache[mondo_id] = genes  # only cached on full success (a failed fetch raised above)
     return genes
 
 
@@ -94,8 +128,7 @@ def main():
     targets = []
     for path in sorted(glob.glob(os.path.join(DISORDERS, "*.yaml"))):
         doc = yaml.safe_load(open(path))
-        dt = (doc or {}).get("disease_term") or {}
-        term = dt.get("term") or {}
+        term = ((doc or {}).get("disease_term") or {}).get("term") or {}
         mid = term.get("id")
         if not mid or not mid.startswith("MONDO:"):
             continue
@@ -107,9 +140,13 @@ def main():
         targets = targets[: args.limit]
 
     rows, tot = [], Counter()
-    n_kg_has_data = 0
+    n_kg_has_data, fetch_errors = 0, []
     for i, (name, mid, dgenes) in enumerate(targets, 1):
-        kg = kg_genes(mid, cache)
+        try:
+            kg = kg_genes(mid, cache)
+        except RuntimeError as e:
+            fetch_errors.append((name, mid, str(e)))
+            continue
         dset, kset = set(dgenes), set(kg)
         overlap = dset & kset
         kg_only = kset - dset
@@ -131,10 +168,12 @@ def main():
 
     # Tiered analysis: separate broad/grouping-anchor noise from interpretable gaps.
     BROAD = 30
+
     def cnt(s):
         return 0 if not s else len(s.split(";"))
-    R = [dict(disorder=r[0], mondo=r[1], nd=r[2], nk=r[3], nov=r[4],
-             kg_only=r[5], dismech_only=r[6], nko=cnt(r[5]), ndo=cnt(r[6])) for r in rows]
+    R = [{"disorder": r[0], "mondo": r[1], "nd": r[2], "nk": r[3], "nov": r[4],
+          "kg_only": r[5], "dismech_only": r[6], "nko": cnt(r[5]), "ndo": cnt(r[6])}
+         for r in rows]
     no_kg = [r for r in R if r["nk"] == 0]
     broad = [r for r in R if r["nk"] > BROAD]
     clean = [r for r in R if 0 < r["nk"] <= BROAD]
@@ -142,6 +181,9 @@ def main():
 
     print("\n# Monarch KG <-> dismech gene-disease comparison")
     print(f"diseases compared (MONDO + curated genes): {len(targets)}")
+    print(f"  fetch errors (skipped, NOT counted as no-edge): {len(fetch_errors)}")
+    for name, mid, err in fetch_errors[:10]:
+        print(f"     ! {name} ({mid}): {err}")
     print(f"  with >=1 KG gene edge: {n_kg_has_data}")
     print(f"  dismech gene assertions total: {tot['dismech_genes']}")
     print(f"  KG gene assertions total:      {tot['kg_genes']}")
@@ -173,8 +215,7 @@ def main():
     if args.tsv:
         with open(args.tsv, "w") as fh:
             fh.write("disorder\tmondo_id\tn_dismech\tn_kg\tn_overlap\tkg_only\tdismech_only\n")
-            for r in rows:
-                fh.write("\t".join(str(x) for x in r) + "\n")
+            fh.writelines("\t".join(str(x) for x in r) + "\n" for r in rows)
         print(f"\n[wrote {args.tsv} ({len(rows)} rows)]")
 
 
