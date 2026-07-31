@@ -629,7 +629,7 @@ class DefinitionTypeEnum(str, Enum):
     """
     PHENOTYPE_ALGORITHM = "PHENOTYPE_ALGORITHM"
     """
-    Algorithmic phenotype definition (e.g., PheKB-style)
+    Algorithmic phenotype definition (e.g., PheKB-/OHDSI-style)
     """
     CASE_DEFINITION = "CASE_DEFINITION"
     """
@@ -1228,7 +1228,7 @@ class AnatomicalEntityTerm(str):
 
 class TreatmentActionTerm(str):
     """
-    A term representing a medical action or treatment (from MAXO or NCIT)
+    A term representing a medical action or treatment (from NCIT)
     """
     pass
 
@@ -4009,14 +4009,14 @@ class InheritanceDescriptor(Descriptor):
 
 class TreatmentDescriptor(Descriptor):
     """
-    A descriptor for treatments/medical actions, bindable to MAXO or NCIT clinical interventions
+    A descriptor for treatments/medical actions, bindable to NCIT clinical interventions
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'dietary_modifications': {'comments': ['Best used when '
                                                                'treatment_term is a '
                                                                'dietary or nutritional '
                                                                'intervention (for '
-                                                               'example MAXO:0000088 '
+                                                               'example NCIT:C15447 '
                                                                'dietary intervention)',
                                                                'Use FOODON-backed '
                                                                'foods or beverages '
@@ -4034,7 +4034,7 @@ class TreatmentDescriptor(Descriptor):
                         'term': {'bindings': [{'binds_value_of': 'id',
                                                'obligation_level': 'REQUIRED',
                                                'range': 'TreatmentActionTerm'}],
-                                 'description': 'Optional MAXO or NCIT treatment term '
+                                 'description': 'Optional NCIT treatment term '
                                                 'reference',
                                  'name': 'term'},
                         'therapeutic_agent': {'comments': ['Prefer CHEBI terms for '
@@ -4046,19 +4046,19 @@ class TreatmentDescriptor(Descriptor):
                                               'description': 'The drug(s) or chemical '
                                                              'agent(s) used in this '
                                                              'treatment. Use when the '
-                                                             'MAXO term is generic '
+                                                             'treatment term is generic '
                                                              '(e.g., pharmacotherapy '
                                                              'NCIT:C15986) but '
                                                              'specific drugs are '
                                                              'involved.',
                                               'name': 'therapeutic_agent'}}})
 
-    therapeutic_agent: Optional[list[ChemicalEntityDescriptor]] = Field(default=None, description="""The drug(s) or chemical agent(s) used in this treatment. Use when the MAXO term is generic (e.g., pharmacotherapy NCIT:C15986) but specific drugs are involved.""", json_schema_extra = { "linkml_meta": {'comments': ['Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for '
+    therapeutic_agent: Optional[list[ChemicalEntityDescriptor]] = Field(default=None, description="""The drug(s) or chemical agent(s) used in this treatment. Use when the treatment term is generic (e.g., pharmacotherapy NCIT:C15986) but specific drugs are involved.""", json_schema_extra = { "linkml_meta": {'comments': ['Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for '
                       'aspirin)',
                       'Use NCIT for drug classes when specific CHEBI term unavailable'],
          'domain_of': ['TreatmentDescriptor']} })
     dietary_modifications: Optional[list[DietaryModification]] = Field(default=None, description="""The food or beverage additions, restrictions, avoidances, or substitutions that define a dietary intervention.""", json_schema_extra = { "linkml_meta": {'comments': ['Best used when treatment_term is a dietary or nutritional '
-                      'intervention (for example MAXO:0000088 dietary intervention)',
+                      'intervention (for example NCIT:C15447 dietary intervention)',
                       'Use FOODON-backed foods or beverages rather than abstract '
                       'nutrients where possible'],
          'domain_of': ['TreatmentDescriptor']} })
@@ -4112,7 +4112,7 @@ class TreatmentDescriptor(Descriptor):
                        'UpstreamConditionHypothesis',
                        'MechanisticHypothesis'],
          'recommended': False} })
-    term: Optional[Term] = Field(default=None, description="""Optional MAXO or NCIT treatment term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+    term: Optional[Term] = Field(default=None, description="""Optional NCIT treatment term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'TreatmentActionTerm'}],
          'domain_of': ['Descriptor',
@@ -5817,7 +5817,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     chemical_entities: Optional[list[ChemicalEntityDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Pathophysiology'],
          'examples': [{'value': '[{preferred_term: Plasmalogen}]'}]} })
-    treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The MAXO term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Treatment']} })
+    treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The NCIT term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Treatment']} })
     exposure_term: Optional[ExposureDescriptor] = Field(default=None, description="""The ECTO/XCO term for this exposure event""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Environmental']} })
     triggers: Optional[list[TriggerDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Pathophysiology'],
          'examples': [{'value': '[{preferred_term: Viral Infections}]'}]} })
@@ -11568,7 +11568,7 @@ class Treatment(ConfiguredBaseModel):
                        'UpstreamConditionHypothesis',
                        'MechanisticHypothesis']} })
     action_category: Optional[MedicalActionCategoryEnum] = Field(default=None, description="""Optional high-level category for a clinical action in the treatments section. Use THERAPEUTIC for actions that treat, prevent, mitigate, or manage disease mechanisms or symptoms; use non-therapeutic categories for screening, diagnosis, monitoring, and counseling or informational interventions.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
-    treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The MAXO term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Treatment']} })
+    treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The NCIT term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Treatment']} })
     regimen_term: Optional[RegimenDescriptor] = Field(default=None, description="""The NCIT term for this treatment regimen""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     target_phenotypes: Optional[list[PhenotypeDescriptor]] = Field(default=None, description="""Phenotypes that this treatment or trial addresses or targets""", json_schema_extra = { "linkml_meta": {'comments': ["Should reference phenotype names defined in the same disease's "
                       'phenotypes list',
@@ -12162,7 +12162,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
-    diagnosis_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The MAXO term for this diagnostic procedure""", json_schema_extra = { "linkml_meta": {'comments': ['MAXO includes diagnostic procedures under medical actions',
+    diagnosis_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The NCIT term for this diagnostic procedure""", json_schema_extra = { "linkml_meta": {'comments': ['NCIT includes diagnostic procedures under Clinical Intervention or Procedure (C25218)',
                       'Use qualifiers with UBERON terms to specify anatomical location '
                       '(e.g., right heart catheterization)'],
          'domain_of': ['Diagnosis']} })
