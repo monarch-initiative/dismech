@@ -524,10 +524,14 @@ phenotypes are candidate backfills (tracked in §12).
 
 ## 11. Reader-facing disclaimers (AI curation & not medical advice)
 
-**Decision.** Every reader-facing DisMech page carries a **persistent, non-dismissible
-disclaimer bar** stating two things: that the resource is AI-curated and AI-maintained, and
-that it is not medical advice. A single canonical long-form statement lives in
-[`docs/disclaimer.md`](../disclaimer.md); the bar links to it.
+**Decision.** Every reader-facing DisMech page carries a **disclaimer bar** stating two
+things: that the resource is AI-curated and AI-maintained, and that it is not medical advice.
+A single canonical long-form statement lives in [`docs/disclaimer.md`](../disclaimer.md); the
+bar links to it. The bar is shown by default on every page and may be dismissed **for the
+browsing session only** — see the "Dismissible for the browsing session" design point below
+for the scope and its rationale. *(This paragraph originally read "persistent,
+non-dismissible"; revised by
+[#7421](https://github.com/monarch-initiative/dismech/issues/7421).)*
 
 **Why page-level rather than documentation-level.** §7 already records that DisMech is
 agent-forward, and §6 records the evidence policy — but both are *contributor-facing process

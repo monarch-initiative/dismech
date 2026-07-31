@@ -41,8 +41,9 @@ NON_JINJA_SURFACES = {
     "scripts/gen_nih_topics_summary.py": "pages/nih-topics/index.html",
 }
 
-#: localStorage key holding the reader's dismissal. Shared across the whole
-#: origin, so dismissing on one page dismisses on all of them (issue #7421).
+#: sessionStorage key holding the reader's dismissal. sessionStorage is scoped to
+#: a single tab and cleared when it closes, so the dismissal survives navigation
+#: within a session but not a new tab or a later visit (issue #7421).
 STORAGE_KEY = "dismech-disclaimer-dismissed"
 
 #: Substrings that must appear in any rendering of the disclaimer, whether it
@@ -197,6 +198,10 @@ def test_disclaimer_is_dismissible_for_the_session() -> None:
         start = text.index('<aside class="dismech-disclaimer"')
         end = text.index("</aside>", start)
         block = text[start:end]
+        # The bar plus the script that immediately follows it. Storage assertions
+        # are scoped to this, so an unrelated future localStorage feature
+        # elsewhere on a page cannot fail this test with a misleading message.
+        script = text[start : text.index("</script>", start)]
 
         assert (
             'class="dismech-disclaimer-dismiss"' in block
@@ -214,18 +219,18 @@ def test_disclaimer_is_dismissible_for_the_session() -> None:
         assert "onclick" not in block.lower(), f"{where}: use a listener, not onclick"
 
         assert (
-            STORAGE_KEY in text
+            STORAGE_KEY in script
         ), f"{where}: dismissal is not recorded under the shared storage key"
         assert (
-            "sessionStorage" in text
+            "sessionStorage" in script
         ), f"{where}: dismissal does not survive navigation within a session"
         # Matches the API being *used*, not prose mentioning it — the partials
         # explain in a comment why localStorage was rejected.
         assert not re.search(
-            r"window\.localStorage|(?<![A-Za-z.])localStorage\s*[.\[]", text
+            r"window\.localStorage|(?<![A-Za-z.])localStorage\s*[.\[]", script
         ), (
-            f"{where}: dismissal must be session-scoped — localStorage would "
-            "silence the disclaimer permanently"
+            f"{where}: the disclaimer script must be session-scoped — "
+            "localStorage would silence the disclaimer permanently"
         )
 
 
