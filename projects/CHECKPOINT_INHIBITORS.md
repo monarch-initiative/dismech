@@ -57,7 +57,7 @@ modules:
 
 ### Treatment side
 - **No `target_mechanisms` links**: Not a single checkpoint inhibitor treatment uses `target_mechanisms` to connect back to the immune evasion pathophysiology node it addresses. This is the core structural gap.
-- **All mapped to generic `MAXO:0000058` (pharmacotherapy) or `MAXO:0001002` (immunotherapy procedure)**: No specific MAXO term for "immune checkpoint inhibitor therapy" exists. The best available terms are `MAXO:0000058` (pharmacotherapy) and `MAXO:0001002` (immunotherapy procedure).
+- **All mapped to generic `NCIT:C15986` (Pharmacotherapy) or `NCIT:C15262` (Immunotherapy)**: No specific NCIT term for "immune checkpoint inhibitor therapy" exists. The best available terms are `NCIT:C15986` (Pharmacotherapy) and `NCIT:C15262` (Immunotherapy); pair with a `therapeutic_agent`.
 - **No shared mechanism-of-action concept**: Each disease independently describes what PD-1/PD-L1 blockade does in its description text. There's no reusable structure.
 
 ### Pathophysiology side
@@ -156,7 +156,7 @@ treatments:
 ## 4. Implementation Plan
 
 ### Phase 1 (DONE)
-- [x] Verify MAXO terms -- no specific "immune checkpoint inhibitor therapy" term in MAXO; `MAXO:0000058` (pharmacotherapy) and `MAXO:0001002` (immunotherapy procedure) are the best available
+- [x] Verify NCIT terms -- no specific "immune checkpoint inhibitor therapy" term in NCIT; `NCIT:C15986` (Pharmacotherapy) and `NCIT:C15262` (Immunotherapy) are the best available
 - [x] Create `kb/modules/immune_checkpoint_blockade.yaml` with 4-node conserved pattern:
   - Neoantigen Generation (GO:0019882)
   - Anti-Tumor T Cell Response (CL:0000625, GO:0042110, GO:0001913)

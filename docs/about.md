@@ -24,7 +24,7 @@ claim to a citable reference.
 
 - **Mechanism-first.** Entries model the causal pathophysiology graph, not just a flat list of symptoms.
 - **Evidence required.** Every claim carries a PMID/DOI/structured reference with an exact quoted snippet, validated against the source.
-- **Ontology-grounded.** Phenotypes, cell types, processes, anatomy, and treatments bind to standard ontologies (HPO, CL, GO, UBERON, MAXO, NCIT, …).
+- **Ontology-grounded.** Phenotypes, cell types, processes, anatomy, and treatments bind to standard ontologies (HPO, CL, GO, UBERON, NCIT, …).
 
 The reasoning behind the project's scope, schema choice, and evidence policy is
 recorded in the [Design Decisions](explanation/design-decisions.md) register.

@@ -130,7 +130,7 @@ the table below mirrors it.
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
-| Treatments / medical actions | MAXO, NCI Thesaurus | `MAXO:`, `NCIT:` |
+| Treatments / medical actions | NCI Thesaurus | `NCIT:` |
 | Exposures | ECTO, ExO, XCO | `ECTO:`, `ExO:`, `XCO:` |
 | Environment | ENVO | `ENVO:` |
 | Food | FOODON | `FOODON:` |
@@ -143,8 +143,9 @@ of fake identifiers.
 
 **Selection priority when several ontologies could apply:**
 
-- **Treatments**: use whichever of MAXO or NCIT has the *most specific* accurate term.
-  NCIT often has more specific procedure/therapy terms; MAXO for generic medical actions.
+- **Treatments**: use the *most specific* accurate NCIT clinical-intervention term
+  (all reachable from `NCIT:C25218`). When NCIT has no suitable clinical-action term,
+  omit `term:` and keep a free-text `preferred_term`.
 - **Therapeutic agents**: prefer **CHEBI** for specific small-molecule drugs; use **NCIT**
   for drug classes and for biologics/newer drugs lacking a CHEBI term.
 - **Disease-like phenotypes** (phenotypes that are also diseases, e.g. osteoporosis,
@@ -162,6 +163,42 @@ of fake identifiers.
 `conf/oak_config.yaml`, ensure the SQLite adapter is available, and re-run term
 validation. **Known gap:** prefixes *not* listed there are silently skipped during
 validation (only a warning), so an unconstrained prefix can pass unchecked — see *Gaps* below.
+
+### 4a. MAXO removed in favour of NCIT (2026-07-31)
+
+**Decision.** The Medical Action Ontology (MAXO) was removed from dismech entirely. All
+4,300+ MAXO `treatment_term` / `diagnosis_term` bindings were remapped to NCI Thesaurus
+clinical-intervention terms, `MAXO:0000001` was dropped from `TreatmentActionTerm`'s
+`source_nodes` (leaving `NCIT:C25218` as the sole root), and the MAXO adapter and term
+cache were deleted. This reverses the earlier decision to treat MAXO and NCIT as co-equal
+treatment vocabularies. See PR #7228 and the frozen crosswalk
+`docs/superpowers/maxo_ncit_final_map.tsv`.
+
+**Rationale.** One treatment vocabulary rather than two removes the recurring "which
+ontology has the better term?" judgement call, and NCIT covers the clinical-action space
+more completely and more specifically.
+
+**What was traded away.** This is a genuine loss of specificity in places, recorded here so
+it is not rediscovered as a bug:
+
+- Some MAXO terms have no exact NCIT counterpart and were mapped to a broader parent
+  (e.g. drug-class "X agent therapy" terms → `NCIT:C15986` Pharmacotherapy). Where a drug
+  class was lost from the action term it is recovered in `therapeutic_agent`; a tail of
+  such bindings still carries no coded agent.
+- Seven MAXO terms have no NCIT equivalent at all (orthotic/hearing-aid/glasses usage,
+  airway management, emollient application, apoptosis assay, transepithelial nasal
+  potential difference). Those entries keep a free-text `preferred_term` with no `term:`.
+- Mapping a route- or method-agnostic source term to a route- or method-specific NCIT term
+  would assert something the source never said, so defaults are deliberately neutral
+  (e.g. corticosteroid therapy → `NCIT:C15370` Steroid Therapy, not the *Systemic* child).
+
+**Cache provenance.** NCIT is served via `ols:ncit` (issue #5160) and the OLS adapter
+cannot compute ancestors, so dynamic-enum membership cannot be re-derived from the
+committed configuration. `cache/enums/treatmentactionterm_*.csv` was therefore generated
+by temporarily pointing the `NCIT:` adapter at a local `sqlite:obo:ncit` build — the same
+build the `ncit-edges` structured source already uses — and `conf/oak_config.yaml` was
+then reverted to `ols:ncit`. Regenerating that cache requires repeating this; the
+committed configuration alone is not sufficient.
 
 
 ## 5. Biolink reuse
