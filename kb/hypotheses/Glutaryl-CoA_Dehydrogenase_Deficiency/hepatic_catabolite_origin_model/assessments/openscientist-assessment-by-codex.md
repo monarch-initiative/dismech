@@ -130,7 +130,8 @@ origin.
 - `MONDO:0009280` is monosodium glutamate sensitivity; GA1 is
   `MONDO:0009281`.
 - `GO:0019470` is trans-4-hydroxy-L-proline catabolism, not lysine catabolism.
-- `GO:0033512` does not resolve in the current GO release.
+- `GO:0033512` is obsolete and denotes lysine catabolism via L-saccharopine,
+  not the report's pipecolic-acid label.
 - `GO:0015804` is neutral-amino-acid transport, not the cationic lysine/arginine
   transport discussed here.
 - `CL:0002543` is vein endothelial cell, not brain capillary endothelial cell.

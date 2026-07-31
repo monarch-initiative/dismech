@@ -138,8 +138,14 @@ The report proposes changing the disease hypothesis's `status` to
 - `PARTIALLY_SUPPORTED` is an assessment verdict, recorded here.
 
 The evidence judgment should not be copied into the disease YAML's status
-field. The report also maps BBB maintenance to `GO:0007417`, which actually
-denotes central nervous system development.
+field. The report's ontology block also needs correction:
+
+- `GO:0006554` is an obsolete generic lysine-catabolism term.
+- `GO:0007417` denotes central nervous system development, not BBB
+  maintenance.
+- `GO:0007215` denotes glutamate-receptor signaling generally, not
+  NMDA-selective signaling (`GO:0098989`).
+- `GO:0006835` correctly denotes dicarboxylic-acid transport.
 
 ## Curation implications
 
