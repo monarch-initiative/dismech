@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16234101"
+reference_id: DOI:10.3390/cancers16234101
 title: Desmoplastic Small Round Cell Tumors of the Gastrointestinal Tract
 authors:
 - Jeffrey Gonzalez
@@ -12,6 +12,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16234101
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Desmoplastic Small Round Cell Tumors of the Gastrointestinal Tract

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/wnl.0000000000201465"
+reference_id: DOI:10.1212/wnl.0000000000201465
 title: Differentiating Multiple Sclerosis From AQP4-Neuromyelitis Optica Spectrum Disorder and MOG-Antibody Disease With Imaging
 authors:
 - Rosa Cortese
@@ -25,6 +25,7 @@ journal: Neurology
 year: '2023'
 doi: 10.1212/wnl.0000000000201465
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Differentiating Multiple Sclerosis From AQP4-Neuromyelitis Optica Spectrum Disorder and MOG-Antibody Disease With Imaging

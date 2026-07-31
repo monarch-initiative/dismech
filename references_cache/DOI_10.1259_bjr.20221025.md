@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1259/bjr.20221025"
+reference_id: DOI:10.1259/bjr.20221025
 title: Prenatal diagnosis of bone dysplasias
 authors:
 - Gen Nishimura
@@ -18,6 +18,7 @@ journal: The British Journal of Radiology
 year: '2023'
 doi: 10.1259/bjr.20221025
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Prenatal diagnosis of bone dysplasias

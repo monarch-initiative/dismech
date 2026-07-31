@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/v16071090"
+reference_id: DOI:10.3390/v16071090
 title: "Immuno-Haematologic Aspects of Dengue Infection: Biologic Insights and Clinical Implications"
 authors:
 - Tan Jiao Jie Cherie
@@ -14,6 +14,7 @@ journal: Viruses
 year: '2024'
 doi: 10.3390/v16071090
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Immuno-Haematologic Aspects of Dengue Infection: Biologic Insights and Clinical Implications

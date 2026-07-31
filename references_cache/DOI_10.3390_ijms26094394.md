@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26094394"
+reference_id: DOI:10.3390/ijms26094394
 title: Deficient Mismatch Repair and Microsatellite Instability in Solid Tumors
 authors:
 - Joy A. Awosika
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26094394
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Deficient Mismatch Repair and Microsatellite Instability in Solid Tumors

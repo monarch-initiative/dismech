@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes12070987"
+reference_id: DOI:10.3390/genes12070987
 title: Genotype–Phenotype Correlations in Angelman Syndrome
 authors:
 - Lili Yang
@@ -12,6 +12,7 @@ journal: Genes
 year: '2021'
 doi: 10.3390/genes12070987
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genotype–Phenotype Correlations in Angelman Syndrome

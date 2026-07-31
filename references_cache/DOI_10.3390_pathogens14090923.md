@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pathogens14090923"
+reference_id: DOI:10.3390/pathogens14090923
 title: Phenotypic and Genotypic Characterization of Staphylococcus aureus Isolated from Patients with Chronic Furunculosis and Osteomyelitis from Northwestern Poland
 authors:
 - Aleksandra Wcisłek
@@ -14,6 +14,7 @@ journal: Pathogens
 year: '2025'
 doi: 10.3390/pathogens14090923
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Phenotypic and Genotypic Characterization of Staphylococcus aureus Isolated from Patients with Chronic Furunculosis and Osteomyelitis from Northwestern Poland

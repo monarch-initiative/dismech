@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines13061443"
+reference_id: DOI:10.3390/biomedicines13061443
 title: "Beyond Bone Loss: A Biology Perspective on Osteoporosis Pathogenesis, Multi-Omics Approaches, and Interconnected Mechanisms"
 authors:
 - Yixin Zhao
@@ -13,6 +13,7 @@ journal: Biomedicines
 year: '2025'
 doi: 10.3390/biomedicines13061443
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Beyond Bone Loss: A Biology Perspective on Osteoporosis Pathogenesis, Multi-Omics Approaches, and Interconnected Mechanisms

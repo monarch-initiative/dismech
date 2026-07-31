@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1167/iovs.64.12.37"
+reference_id: DOI:10.1167/iovs.64.12.37
 title: "Comprehensive Genetic Analysis Unraveled the Missing Heritability and a Founder Variant of <i>BEST1</i> in a Chinese Cohort With Autosomal Recessive Bestrophinopathy"
 authors:
 - Jie Shi
@@ -16,6 +16,7 @@ journal: "Investigative Opthalmology &amp; Visual Science"
 year: '2023'
 doi: 10.1167/iovs.64.12.37
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Comprehensive Genetic Analysis Unraveled the Missing Heritability and a Founder Variant of <i>BEST1</i> in a Chinese Cohort With Autosomal Recessive Bestrophinopathy

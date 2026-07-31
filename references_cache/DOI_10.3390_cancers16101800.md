@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16101800"
+reference_id: DOI:10.3390/cancers16101800
 title: "Cutaneous Squamous Cell Carcinoma: An Updated Review"
 authors:
 - Rina Jiang
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16101800
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cutaneous Squamous Cell Carcinoma: An Updated Review

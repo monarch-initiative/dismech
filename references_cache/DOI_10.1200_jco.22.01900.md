@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.22.01900"
+reference_id: DOI:10.1200/jco.22.01900
 title: "Efficacy and Safety of Mirvetuximab Soravtansine in Patients With Platinum-Resistant Ovarian Cancer With High Folate Receptor Alpha Expression: Results From the SORAYA Study"
 authors:
 - Ursula A. Matulonis
@@ -23,6 +23,7 @@ journal: Journal of Clinical Oncology
 year: '2023'
 doi: 10.1200/jco.22.01900
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Efficacy and Safety of Mirvetuximab Soravtansine in Patients With Platinum-Resistant Ovarian Cancer With High Folate Receptor Alpha Expression: Results From the SORAYA Study

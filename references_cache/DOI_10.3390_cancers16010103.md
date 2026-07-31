@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16010103"
+reference_id: DOI:10.3390/cancers16010103
 title: Prophylactic Interventions for Hereditary Breast and Ovarian Cancer Risks and Mortality in BRCA1/2 Carriers
 authors:
 - Taoran Liu
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers16010103
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Prophylactic Interventions for Hereditary Breast and Ovarian Cancer Risks and Mortality in BRCA1/2 Carriers
