@@ -30,8 +30,9 @@ Human cohorts show the expected near-balanced situs-solitus/situs-inversus
 distribution plus a clinically important heterotaxy category
 [PMID:17515466](https://pubmed.ncbi.nlm.nih.gov/17515466/),
 [PMID:24577564](https://pubmed.ncbi.nlm.nih.gov/24577564/). RSPH1 is a strong
-negative control because radial-spoke and central-pair structures are absent
-from 9+0 nodal cilia [PMID:24518672](https://pubmed.ncbi.nlm.nih.gov/24518672/).
+negative control because the central-pair apparatus is absent and radial-spoke
+function is correspondingly dispensable at the node
+[PMID:24518672](https://pubmed.ncbi.nlm.nih.gov/24518672/).
 Small CCNO series are also consistent with laterality sparing because nodal
 monocilia do not require multiciliated-cell centriole amplification.
 
@@ -81,7 +82,8 @@ Three proposed ontology mappings are wrong:
   movement, not specifically left-right asymmetry.
 - GO:0060287 is epithelial cilium movement involved in determination of
   left/right asymmetry, not ciliary body morphogenesis.
-- UBERON:0003080 is anterior neural tube, not ventral node.
+- UBERON:0003080 is anterior neural tube, not ventral node; UBERON:0003062
+  (primitive knot) is the appropriate replacement.
 
 The citation manifest exposes 37 unique PMIDs rather than a reproducible
 100-paper screened corpus. The larger count should remain unverified provider

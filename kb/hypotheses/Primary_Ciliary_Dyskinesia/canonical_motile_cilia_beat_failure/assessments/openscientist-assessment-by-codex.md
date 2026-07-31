@@ -84,7 +84,8 @@ not P=0.0 [PMID:24568568](https://pubmed.ncbi.nlm.nih.gov/24568568/).
 The ontology leads also need correction before reuse. CL:0000710 is
 neurecto-epithelial cell, not multiciliated cell; CL:0000235 is generic
 macrophage, not M2 macrophage. GO:0060271 denotes cilium assembly rather than
-multiciliated-cell differentiation.
+multiciliated-cell differentiation. CL:0005012 (multiciliated epithelial cell)
+is a suitable replacement for the intended generic multiciliated-cell concept.
 
 ## Provenance and curation implication
 

@@ -96,7 +96,9 @@ The RSPH1 lung-function comparison has **P=0.043**, not P=0.0
 [PMID:24568568](https://pubmed.ncbi.nlm.nih.gov/24568568/).
 
 CL:0000064 is the broad class “ciliated cell,” not specifically a multiciliated
-airway epithelial cell. GO:0045197’s exact label is “establishment or
+airway epithelial cell. CL:4030034 (respiratory tract multiciliated cell) or
+CL:1000271 (lung multiciliated epithelial cell) is a more specific replacement,
+depending on the intended scope. GO:0045197’s exact label is “establishment or
 maintenance of epithelial cell apical/basal polarity,” not the shortened label
 in the report. The proposed OMIM “sub-entries” should not be turned into new
 disease ontology entities; this project uses MONDO for disease identity and
