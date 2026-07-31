@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/practneurol-2021-003073"
+reference_id: DOI:10.1136/practneurol-2021-003073
 title: "Paraneoplastic neurological syndromes: a practical approach to diagnosis and management"
 authors:
 - Sophie Binks
@@ -10,6 +10,7 @@ journal: Practical Neurology
 year: '2022'
 doi: 10.1136/practneurol-2021-003073
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Paraneoplastic neurological syndromes: a practical approach to diagnosis and management

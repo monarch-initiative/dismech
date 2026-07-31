@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1530/eje-21-0713"
+reference_id: DOI:10.1530/eje-21-0713
 title: "Hypercalcemia due to CYP24A1 mutations: a systematic descriptive review"
 authors:
 - Daniele Cappellani
@@ -16,6 +16,7 @@ journal: European Journal of Endocrinology
 year: '2022'
 doi: 10.1530/eje-21-0713
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hypercalcemia due to CYP24A1 mutations: a systematic descriptive review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.23.02182"
+reference_id: DOI:10.1200/jco.23.02182
 title: "US Food and Drug Administration Approval Summary: Talazoparib in Combination With Enzalutamide for Treatment of Patients With Homologous Recombination Repair Gene-Mutated Metastatic Castration-Resistant Prostate Cancer"
 authors:
 - Brian L. Heiss
@@ -28,6 +28,7 @@ journal: Journal of Clinical Oncology
 year: '2024'
 doi: 10.1200/jco.23.02182
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # US Food and Drug Administration Approval Summary: Talazoparib in Combination With Enzalutamide for Treatment of Patients With Homologous Recombination Repair Gene-Mutated Metastatic Castration-Resistant Prostate Cancer

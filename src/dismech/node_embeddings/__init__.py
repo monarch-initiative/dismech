@@ -36,14 +36,14 @@ from dismech.node_embeddings.similarity import (
 
 __all__ = [
     "Embedder",
-    "StaticEmbedder",
     "OpenAIEmbedder",
-    "get_embedder",
-    "register_backend",
     "PathoNode",
-    "iter_nodes",
-    "embed_nodes",
+    "StaticEmbedder",
     "cosine_matrix",
-    "precision_at_k",
+    "embed_nodes",
+    "get_embedder",
     "group_cosine_summary",
+    "iter_nodes",
+    "precision_at_k",
+    "register_backend",
 ]

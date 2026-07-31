@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252212311"
+reference_id: DOI:10.3390/ijms252212311
 title: "From Fundamentals to Innovation in Alzheimer’s Disease: Molecular Findings and Revolutionary Therapies"
 authors:
 - Mădălina Georgeta Sighencea
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252212311
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From Fundamentals to Innovation in Alzheimer’s Disease: Molecular Findings and Revolutionary Therapies

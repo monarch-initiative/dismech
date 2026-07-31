@@ -1,11 +1,12 @@
 ---
-reference_id: "DOI:10.20944/preprints202405.1826.v1"
+reference_id: DOI:10.20944/preprints202405.1826.v1
 title: "Implications of SARS‐CoV‐2 Immunity in the Context of the Pathogenesis of COVID‐19, Immune Evasion of the Virus, and the Effectiveness of Vaccination"
 authors:
 - Hikmet Akkiz
 year: '2024'
 doi: 10.20944/preprints202405.1826.v1
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Implications of SARS‐CoV‐2 Immunity in the Context of the Pathogenesis of COVID‐19, Immune Evasion of the Virus, and the Effectiveness of Vaccination

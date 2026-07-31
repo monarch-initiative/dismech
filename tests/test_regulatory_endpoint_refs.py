@@ -8,7 +8,6 @@ import yaml
 
 from dismech.render import render_disorder
 
-
 FDA_ENDPOINTS_PATH = Path("kb/surrogate_endpoints/fda_surrogate_endpoints.yaml")
 DISORDERS_DIR = Path("kb/disorders")
 

@@ -33,11 +33,12 @@ from __future__ import annotations
 
 import argparse
 import glob
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any
 
 import yaml
 
@@ -84,7 +85,7 @@ class Satisfaction(str, Enum):
     NOT_SATISFIED = "NOT_SATISFIED"
     UNKNOWN = "UNKNOWN"
 
-    def negate(self) -> "Satisfaction":
+    def negate(self) -> Satisfaction:
         if self is Satisfaction.SATISFIED:
             return Satisfaction.NOT_SATISFIED
         if self is Satisfaction.NOT_SATISFIED:
@@ -181,7 +182,7 @@ class DiseaseFacts:
     go_ids: set[str] = field(default_factory=set)
     module_stems: set[str] = field(default_factory=set)
     # HP id -> best (strongest) known frequency band, if any.
-    phenotype_freq: dict[str, Optional[str]] = field(default_factory=dict)
+    phenotype_freq: dict[str, str | None] = field(default_factory=dict)
 
 
 def _walk(obj: Any) -> Iterable[Any]:
@@ -229,7 +230,7 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
     return facts
 
 
-def _stronger_freq(a: Optional[str], b: Optional[str]) -> Optional[str]:
+def _stronger_freq(a: str | None, b: str | None) -> str | None:
     """Return the stronger (higher-frequency) of two frequency bands."""
     ranks = [f for f in (a, b) if f in FREQUENCY_RANK]
     if not ranks:
@@ -237,7 +238,7 @@ def _stronger_freq(a: Optional[str], b: Optional[str]) -> Optional[str]:
     return min(ranks, key=lambda f: FREQUENCY_RANK[f])
 
 
-@lru_cache(maxsize=None)
+@cache
 def load_disease_index(
     disorders_dir: Path = DISORDERS_DIR,
 ) -> dict[str, DiseaseFacts]:
@@ -354,7 +355,7 @@ def _combine_or(results: list[Satisfaction]) -> Satisfaction:
     return Satisfaction.NOT_SATISFIED
 
 
-def _term_id(descriptor: Any) -> Optional[str]:
+def _term_id(descriptor: Any) -> str | None:
     if isinstance(descriptor, dict):
         term = descriptor.get("term")
         if isinstance(term, dict):
@@ -376,7 +377,7 @@ class MemberEvaluation:
     member: str
     member_type: str
     criteria_index: int
-    semantics: Optional[str]
+    semantics: str | None
     result: Satisfaction
     leaves: list[tuple[str, Satisfaction]]  # (leaf description, result)
 
@@ -428,7 +429,7 @@ def evaluate_grouping(
 def find_candidate_members(
     grouping: dict,
     index: dict[str, DiseaseFacts],
-    groupings_by_name: Optional[dict[str, dict]] = None,
+    groupings_by_name: dict[str, dict] | None = None,
 ) -> list[str]:
     """For SUFFICIENT / N&S criteria, find disorders satisfying them that are
     not already listed as direct or nested members (candidate additions)."""
@@ -552,7 +553,7 @@ def grouping_disease_members(
 def compute_grouping_overlaps(
     groupings_by_name: dict[str, dict],
     *,
-    selected_names: Optional[Iterable[str]] = None,
+    selected_names: Iterable[str] | None = None,
     include_zero: bool = False,
     expand_nested: bool = True,
 ) -> list[GroupingOverlap]:
@@ -690,7 +691,7 @@ def _report(paths: list[str], strict: bool) -> int:
     return exit_code
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Lint and audit disease grouping membership criteria."
     )

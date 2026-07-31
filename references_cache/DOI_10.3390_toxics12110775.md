@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/toxics12110775"
+reference_id: DOI:10.3390/toxics12110775
 title: Urinary N-acetylglucosaminidase in People Environmentally Exposed to Cadmium Is Minimally Related to Cadmium-Induced Nephron Destruction
 authors:
 - Soisungwan Satarug
@@ -7,6 +7,7 @@ journal: Toxics
 year: '2024'
 doi: 10.3390/toxics12110775
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Urinary N-acetylglucosaminidase in People Environmentally Exposed to Cadmium Is Minimally Related to Cadmium-Induced Nephron Destruction

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms27083513"
+reference_id: DOI:10.3390/ijms27083513
 title: "Heavy Metal Toxicity in Clinical and Environmental Health: Sources, Mechanisms, Diagnostics, and Evidence-Based Management of Mercury, Lead, Cadmium, and Arsenic"
 authors:
 - Dib Chakif
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2026'
 doi: 10.3390/ijms27083513
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Heavy Metal Toxicity in Clinical and Environmental Health: Sources, Mechanisms, Diagnostics, and Evidence-Based Management of Mercury, Lead, Cadmium, and Arsenic

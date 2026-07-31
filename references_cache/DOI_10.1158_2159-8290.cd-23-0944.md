@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/2159-8290.cd-23-0944"
+reference_id: DOI:10.1158/2159-8290.cd-23-0944
 title: "Discovery and Clinical Proof-of-Concept of RLY-2608, a First-in-Class Mutant-Selective Allosteric PI3Kα Inhibitor That Decouples Antitumor Activity from Hyperinsulinemia"
 authors:
 - Andreas Varkaris
@@ -58,6 +58,7 @@ journal: Cancer Discovery
 year: '2024'
 doi: 10.1158/2159-8290.cd-23-0944
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Discovery and Clinical Proof-of-Concept of RLY-2608, a First-in-Class Mutant-Selective Allosteric PI3Kα Inhibitor That Decouples Antitumor Activity from Hyperinsulinemia

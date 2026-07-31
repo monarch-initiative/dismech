@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1152/physiol.00032.2025"
+reference_id: DOI:10.1152/physiol.00032.2025
 title: "Copper in Human Health and Disease: Insights from Inherited Disorders"
 authors:
 - Raffaella Petruzzelli
@@ -9,6 +9,7 @@ journal: Physiology
 year: '2025'
 doi: 10.1152/physiol.00032.2025
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Copper in Human Health and Disease: Insights from Inherited Disorders

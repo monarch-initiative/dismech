@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25179631"
+reference_id: DOI:10.3390/ijms25179631
 title: The Molecular and Immunological Landscape of Meningiomas
 authors:
 - Catharina Lotsch
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25179631
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Molecular and Immunological Landscape of Meningiomas

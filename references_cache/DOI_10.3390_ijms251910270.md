@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms251910270"
+reference_id: DOI:10.3390/ijms251910270
 title: Current Status of Biomedical Products for Gene and Cell Therapy of Recessive Dystrophic Epidermolysis Bullosa
 authors:
 - Alla Zorina
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms251910270
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Current Status of Biomedical Products for Gene and Cell Therapy of Recessive Dystrophic Epidermolysis Bullosa

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pathogens13110988"
+reference_id: DOI:10.3390/pathogens13110988
 title: "Seroprevalence and Risk Factors for Cysticercosis in Mexican Americans in Starr County, Texas"
 authors:
 - Megan M. Duffey
@@ -15,6 +15,7 @@ journal: Pathogens
 year: '2024'
 doi: 10.3390/pathogens13110988
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Seroprevalence and Risk Factors for Cysticercosis in Mexican Americans in Starr County, Texas

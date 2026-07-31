@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics14111076"
+reference_id: DOI:10.3390/diagnostics14111076
 title: "Nationwide Real-World Data of Microsatellite Instability and/or Mismatch Repair Deficiency in Cancer: Prevalence and Testing Patterns"
 authors:
 - Elena Fountzilas
@@ -36,6 +36,7 @@ journal: Diagnostics
 year: '2024'
 doi: 10.3390/diagnostics14111076
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Nationwide Real-World Data of Microsatellite Instability and/or Mismatch Repair Deficiency in Cancer: Prevalence and Testing Patterns

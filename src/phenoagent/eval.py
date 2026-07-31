@@ -399,8 +399,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "## Coverage",
         "",
         f"- Phenopackets evaluated: **{summary['n_packets']}**",
-        f"- With ground-truth diagnosis: **{summary['n_with_ground_truth']}** "
-        f"(no ground truth: {summary['n_no_ground_truth']})",
+        (f"- With ground-truth diagnosis: **{summary['n_with_ground_truth']}** "
+         f"(no ground truth: {summary['n_no_ground_truth']})"),
         f"- Resolved to a dismech disorder (scored): **{summary['n_scored']}**",
         f"- Ground-truth disease not in KB (KB miss): **{summary['n_kb_miss']}**",
         f"- KB coverage rate: **{summary.get('kb_coverage_rate', 0.0):.2%}**",

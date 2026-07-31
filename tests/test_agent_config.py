@@ -30,21 +30,21 @@ def test_single_model_resolves_from_config(config):
     assert resolver.resolve_model(config, "literature-scan") == (
         "claude-haiku-4-5-20251001"
     )
-    assert resolver.resolve_model(config, "pr-shepherd") == "claude-opus-4-8"
+    assert resolver.resolve_model(config, "pr-shepherd") == "claude-opus-5"
 
 
 def test_override_wins(config):
     assert (
-        resolver.resolve_model(config, "literature-scan", "claude-sonnet-4-6")
-        == "claude-sonnet-4-6"
+        resolver.resolve_model(config, "literature-scan", "claude-sonnet-5")
+        == "claude-sonnet-5"
     )
     # whitespace-only override is treated as no override
-    assert resolver.resolve_model(config, "pr-shepherd", "  ") == "claude-opus-4-8"
+    assert resolver.resolve_model(config, "pr-shepherd", "  ") == "claude-opus-5"
 
 
 def test_default_model_fallback():
-    cfg = {"default_model": "claude-opus-4-8", "workflows": {"x": {}}}
-    assert resolver.resolve_model(cfg, "x") == "claude-opus-4-8"
+    cfg = {"default_model": "claude-opus-5", "workflows": {"x": {}}}
+    assert resolver.resolve_model(cfg, "x") == "claude-opus-5"
 
 
 def test_unknown_workflow_errors(config):
@@ -62,8 +62,8 @@ def test_matrix_mode(config):
     matrix = resolver.resolve_matrix(config, "curation-scanner")
     assert [entry["model"] for entry in matrix] == [
         "claude-haiku-4-5-20251001",
-        "claude-sonnet-4-6",
-        "claude-opus-4-8",
+        "claude-sonnet-5",
+        "claude-opus-5",
     ]
     # each entry carries the effort tier and label selector for the fan-out
     assert {entry["effort"] for entry in matrix} == {
@@ -87,10 +87,7 @@ def test_every_config_workflow_file_exists(config):
 
 
 def _workflow_texts() -> dict[str, str]:
-    return {
-        path.stem: path.read_text()
-        for path in WORKFLOW_DIR.glob("*.y*ml")
-    }
+    return {path.stem: path.read_text() for path in WORKFLOW_DIR.glob("*.y*ml")}
 
 
 def test_no_workflow_hardcodes_a_model_inline():
@@ -108,8 +105,8 @@ def test_no_workflow_hardcodes_a_model_inline():
         for line in text.splitlines():
             if "--model" in line and model_family.search(line):
                 offenders.append(f"{stem}: {line.strip()}")
-    assert not offenders, "hardcoded --model found (should use AGENT_MODEL):\n" + "\n".join(
-        offenders
+    assert not offenders, (
+        "hardcoded --model found (should use AGENT_MODEL):\n" + "\n".join(offenders)
     )
 
 

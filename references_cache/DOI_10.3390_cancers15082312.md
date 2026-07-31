@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15082312"
+reference_id: DOI:10.3390/cancers15082312
 title: "Targeting FLT3 Mutation in Acute Myeloid Leukemia: Current Strategies and Future Directions"
 authors:
 - Kateryna Fedorov
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15082312
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Targeting FLT3 Mutation in Acute Myeloid Leukemia: Current Strategies and Future Directions

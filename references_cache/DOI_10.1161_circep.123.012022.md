@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1161/circep.123.012022"
-title: "<i>HRAS</i>
-            -Mutant Cardiomyocyte Model of Multifocal Atrial Tachycardia"
+reference_id: DOI:10.1161/circep.123.012022
+title: "<i>HRAS</i> -Mutant Cardiomyocyte Model of Multifocal Atrial Tachycardia"
 authors:
 - Nelson A. Rodríguez
 - Nihir Patel
@@ -23,10 +22,10 @@ journal: "Circulation: Arrhythmia and Electrophysiology"
 year: '2024'
 doi: 10.1161/circep.123.012022
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>HRAS</i>
-            -Mutant Cardiomyocyte Model of Multifocal Atrial Tachycardia
+# <i>HRAS</i> -Mutant Cardiomyocyte Model of Multifocal Atrial Tachycardia
 **Authors:** Nelson A. Rodríguez, Nihir Patel, Rafael Dariolli, Simon Ng, Angelika G. Aleman, Jingqi Q.X. Gong, Hung-Mo Lin, Matthew Rodríguez, Rebecca Josowitz, Katia Sol-Church, Karen W. Gripp, Xianming Lin, Soomin C. Song, Glenn I. Fishman, Eric A. Sobie, Bruce D. Gelb
 **Journal:** Circulation: Arrhythmia and Electrophysiology (2024)
 **DOI:** [10.1161/circep.123.012022](https://doi.org/10.1161/circep.123.012022)

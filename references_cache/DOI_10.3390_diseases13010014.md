@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diseases13010014"
+reference_id: DOI:10.3390/diseases13010014
 title: "Yaws in Africa: Past, Present and Future"
 authors:
 - Ezekiel K. Vicar
@@ -11,6 +11,7 @@ journal: Diseases
 year: '2025'
 doi: 10.3390/diseases13010014
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Yaws in Africa: Past, Present and Future

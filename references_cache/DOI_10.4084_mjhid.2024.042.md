@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4084/mjhid.2024.042"
+reference_id: DOI:10.4084/mjhid.2024.042
 title: "EBV-RELATED LYMPHOPROLIFERATIVE DISEASES: A REVIEW IN LIGHT OF NEW CLASSIFICATIONS"
 authors:
 - Pietro Tralongo
@@ -9,6 +9,7 @@ journal: Mediterranean Journal of Hematology and Infectious Diseases
 year: '2024'
 doi: 10.4084/mjhid.2024.042
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # EBV-RELATED LYMPHOPROLIFERATIVE DISEASES: A REVIEW IN LIGHT OF NEW CLASSIFICATIONS

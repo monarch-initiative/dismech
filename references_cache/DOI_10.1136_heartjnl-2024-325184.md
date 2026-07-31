@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/heartjnl-2024-325184"
+reference_id: DOI:10.1136/heartjnl-2024-325184
 title: Current and emerging treatment options for transthyretin amyloid cardiomyopathy
 authors:
 - Giuseppe Vergaro
@@ -14,6 +14,7 @@ journal: Heart
 year: '2026'
 doi: 10.1136/heartjnl-2024-325184
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Current and emerging treatment options for transthyretin amyloid cardiomyopathy

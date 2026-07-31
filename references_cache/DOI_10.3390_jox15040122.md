@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jox15040122"
+reference_id: DOI:10.3390/jox15040122
 title: "Hypertension in People Exposed to Environmental Cadmium: Roles for 20-Hydroxyeicosatetraenoic Acid in the Kidney"
 authors:
 - Soisungwan Satarug
@@ -7,6 +7,7 @@ journal: Journal of Xenobiotics
 year: '2025'
 doi: 10.3390/jox15040122
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hypertension in People Exposed to Environmental Cadmium: Roles for 20-Hydroxyeicosatetraenoic Acid in the Kidney

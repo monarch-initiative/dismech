@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16203530"
+reference_id: DOI:10.3390/cancers16203530
 title: Risk-Stratified Radiotherapy in Pediatric Cancer
 authors:
 - Rituraj Upadhyay
@@ -8,6 +8,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16203530
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Risk-Stratified Radiotherapy in Pediatric Cancer

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.23.00339"
+reference_id: DOI:10.1200/jco.23.00339
 title: "Olaparib for the Treatment of Patients With Metastatic Castration-Resistant Prostate Cancer and Alterations in <i>BRCA1</i> and/or <i>BRCA2</i> in the PROfound Trial"
 authors:
 - Joaquin Mateo
@@ -29,6 +29,7 @@ journal: Journal of Clinical Oncology
 year: '2024'
 doi: 10.1200/jco.23.00339
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Olaparib for the Treatment of Patients With Metastatic Castration-Resistant Prostate Cancer and Alterations in <i>BRCA1</i> and/or <i>BRCA2</i> in the PROfound Trial

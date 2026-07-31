@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/hypertensionaha.123.22031"
+reference_id: DOI:10.1161/hypertensionaha.123.22031
 title: Recent Advances in Understanding Peripheral and Gut Immune Cell-Mediated Salt-Sensitive Hypertension and Nephropathy
 authors:
 - Mohammad Saleem
@@ -22,6 +22,7 @@ journal: Hypertension
 year: '2024'
 doi: 10.1161/hypertensionaha.123.22031
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent Advances in Understanding Peripheral and Gut Immune Cell-Mediated Salt-Sensitive Hypertension and Nephropathy

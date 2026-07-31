@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000539897"
+reference_id: DOI:10.1159/000539897
 title: Efficacy and Safety of Atezolizumab plus Bevacizumab versus Sorafenib in Hepatocellular Carcinoma with Main Trunk and/or Contralateral Portal Vein Invasion in IMbrave150
 authors:
 - Richard S. Finn
@@ -18,6 +18,7 @@ journal: Liver Cancer
 year: '2024'
 doi: 10.1159/000539897
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Efficacy and Safety of Atezolizumab plus Bevacizumab versus Sorafenib in Hepatocellular Carcinoma with Main Trunk and/or Contralateral Portal Vein Invasion in IMbrave150

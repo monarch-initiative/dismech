@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5414/CNCS111525"
+reference_id: DOI:10.5414/CNCS111525
 title: Atypical presentation of H1N1-induced thrombotic microangiopathy with CD46 gene mutation
 authors:
 - Aman Pal
@@ -15,6 +15,7 @@ journal: Clinical Nephrology – Case Studies
 year: '2025'
 doi: 10.5414/CNCS111525
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Atypical presentation of H1N1-induced thrombotic microangiopathy with CD46 gene mutation

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/STROKEAHA.116.014161"
+reference_id: DOI:10.1161/STROKEAHA.116.014161
 title: "<i>THSD1</i>(Thrombospondin Type 1 Domain Containing Protein 1) Mutation in the Pathogenesis of Intracranial Aneurysm and Subarachnoid Hemorrhage"
 authors:
 - Teresa Santiago-Sim
@@ -25,6 +25,7 @@ journal: Stroke
 year: '2016'
 doi: 10.1161/STROKEAHA.116.014161
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # <i>THSD1</i>(Thrombospondin Type 1 Domain Containing Protein 1) Mutation in the Pathogenesis of Intracranial Aneurysm and Subarachnoid Hemorrhage

@@ -2,6 +2,8 @@
 name: Weekly Compliance
 
 on:
+  schedule:
+    - cron: "0 8 * * 5"  # weekly Friday 08:00 UTC (midnight PST / 03:00 EST)
   workflow_dispatch:
     inputs:
       num_files:
@@ -17,15 +19,10 @@ on:
         type: string
 
       model:
-        description: "Claude model to use"
-        default: claude-opus-4-8
-        type: choice
-        options:
-          # Current models
-          - claude-sonnet-4-6
-          - claude-haiku-4-5-20251001
-          - claude-opus-4-7
-          - claude-opus-4-8
+        description: "Optional model ID override (blank = use the configured default in agent-config.yaml)"
+        required: false
+        default: ""
+        type: string
 
 jobs:
   compliance-fixes:
@@ -38,16 +35,38 @@ jobs:
       id-token: write
 
     steps:
+      - name: Generate ai4c-agent token
+        id: ai4c-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          token: ${{ steps.ai4c-token.outputs.token }}
+          persist-credentials: false
 
       - name: Resolve agent config
         uses: ./.github/actions/resolve-agent-config
         with:
           workflow: weekly-compliance
           model-override: ${{ inputs.model }}
+
+      - name: Configure git identity and credential helper
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          APP_SLUG: ${{ steps.ai4c-token.outputs.app-slug }}
+        run: |
+          # Act as the ai4c-agent App bot (the writer identity), distinct from ai4c-reviewer;
+          # serve the short-lived token to git via the gh credential helper so `gh pr create`
+          # and `git push` authenticate (the missing GH_TOKEN was why prior runs made no PR).
+          APP_USER_ID="$(gh api "/users/${APP_SLUG}[bot]" --jq .id)"
+          git config --global user.name "${APP_SLUG}[bot]"
+          git config --global user.email "${APP_USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+          gh auth setup-git
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -69,9 +88,15 @@ jobs:
         uses: ./.github/actions/oak-cache
 
       - name: Run Claude Compliance Fixes
-        uses: anthropics/claude-code-action@v1
+        id: compliance-fixes
+        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.ai4c-token.outputs.token }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.ai4c-token.outputs.token }}
+          show_full_output: true
 
           claude_args: |
             --dangerously-skip-permissions
@@ -110,3 +135,10 @@ jobs:
             - The goal is not to fix all compliance issues, which might be hard to do in one go. Incremental fixes are fine. We'll get to everything eventually.
             - Only add ontology terms you can verify via OAK - never hallucinate IDs or labels
             - Use the exact label returned by OAK for the `label` field
+
+      - name: Write step summary
+        if: ${{ !cancelled() && steps.compliance-fixes.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.compliance-fixes.outputs.execution_file }}
+          title: "🤖 Weekly Compliance Run"

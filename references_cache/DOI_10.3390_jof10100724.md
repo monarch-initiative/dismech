@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jof10100724"
+reference_id: DOI:10.3390/jof10100724
 title: Overview of the Current Challenges in Pulmonary Coccidioidomycosis
 authors:
 - Mohamed A. Fayed
@@ -12,6 +12,7 @@ journal: Journal of Fungi
 year: '2024'
 doi: 10.3390/jof10100724
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Overview of the Current Challenges in Pulmonary Coccidioidomycosis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16233933"
+reference_id: DOI:10.3390/cancers16233933
 title: "Hepatocellular Carcinoma Surveillance Strategies: Major Guidelines and Screening Advances"
 authors:
 - Gavin Wu
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16233933
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hepatocellular Carcinoma Surveillance Strategies: Major Guidelines and Screening Advances
