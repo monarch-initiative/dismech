@@ -3934,8 +3934,10 @@ _DOCS_EXCLUDED_FROM_SITE = (
     "ntr/",
 )
 
-#: Matches a markdown link whose target is a repo-relative ``../docs/`` path,
-#: capturing the path and any trailing ``#anchor`` separately.
+#: Matches an *inline* markdown link whose target is a repo-relative
+#: ``../docs/`` path, capturing the path and any trailing ``#anchor``
+#: separately. Titled, reference-style, and angle-bracket link forms are not
+#: matched — no project file uses them for docs links today.
 _PROJECT_DOCS_LINK_RE = re.compile(r"\]\(\.\./docs/([^)#\s]+)(#[^)\s]*)?\)")
 
 
@@ -3958,19 +3960,19 @@ def _project_docs_link_href(doc_rel: str, anchor: str, docs_dir: Path) -> str | 
 
     if doc_rel.startswith(_DOCS_EXCLUDED_FROM_SITE):
         # Real file, but excluded from the MkDocs build, so it has no published
-        # URL. The repository copy is the only thing to point at.
-        return _github_blob_url(Path("docs") / doc_rel)
+        # URL. The repository copy is the only thing to point at. GitHub renders
+        # markdown headings with the same slug style, so the anchor still works.
+        return f"{_github_blob_url(Path('docs') / doc_rel)}{anchor}"
 
     if not doc_rel.endswith(".md"):
         # Non-markdown files are copied into the site verbatim.
         return f"../../elements/{doc_rel}{anchor}"
 
-    stem = doc_rel[: -len(".md")]
     # use_directory_urls (MkDocs default) publishes foo.md as foo/index.html,
-    # and foo/index.md as foo/.
-    if stem.endswith("/index"):
-        stem = stem[: -len("/index")]
-    return f"../../elements/{stem}/{anchor}"
+    # foo/index.md as foo/, and the root index.md as the site root itself.
+    stem = doc_rel.removesuffix(".md")
+    stem = "" if stem == "index" else stem.removesuffix("/index")
+    return f"../../elements/{f'{stem}/' if stem else ''}{anchor}"
 
 
 def _rewrite_project_docs_links(body: str, docs_dir: Path) -> str:
