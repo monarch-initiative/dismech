@@ -46,6 +46,24 @@ phenotypes[].phenotype_term.term   populated=42  total=50  percentage=84.0
 pathophysiology[].cell_types[].term populated=18  total=30  percentage=60.0
 ```
 
+### Choosing recommended slots
+
+Use `recommended` for semantic content that is desirable on each occurrence of
+the slot's owning object and whose absence should create curation work. In the
+current schema this includes parent ontology-bearing slots such as
+`disease_term`, `phenotype_term`, `treatment_term`, `diagnosis_term`, and
+`inheritance_term`; evidence-source classification; causal-edge directness; and
+treatment modality.
+
+Avoid adding already-universal bookkeeping fields merely because they are easy
+to populate. Because compliance is aggregated per object occurrence, a
+near-100%-populated field repeated on tens of thousands of evidence items can
+inflate the headline score and mask less common but more informative gaps.
+
+Declare these recommendations on the canonical slot definition. The currently
+pinned `linkml-data-qc` release discovers global slot annotations but does not
+include recommendations introduced only through class `slot_usage`.
+
 ### The scoring data model
 
 Every score — whether from a recommended slot or a plugin (Layer 2) — has the
