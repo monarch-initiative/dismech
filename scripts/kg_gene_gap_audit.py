@@ -140,7 +140,7 @@ def main():
     clean = [r for r in R if 0 < r["nk"] <= BROAD]
     clean_kg_only = sum(r["nko"] for r in clean)
 
-    print(f"\n# Monarch KG <-> dismech gene-disease comparison")
+    print("\n# Monarch KG <-> dismech gene-disease comparison")
     print(f"diseases compared (MONDO + curated genes): {len(targets)}")
     print(f"  with >=1 KG gene edge: {n_kg_has_data}")
     print(f"  dismech gene assertions total: {tot['dismech_genes']}")
@@ -149,7 +149,7 @@ def main():
     print(f"  KG-only (dismech coverage gap, RAW): {tot['kg_only']}")
     print(f"  dismech-only (KG candidate/verify):  {tot['dismech_only']}")
 
-    print(f"\n## Tiers by KG gene count")
+    print("\n## Tiers by KG gene count")
     print(f"  no KG gene edge:            {len(no_kg)}")
     print(f"  broad-anchor (n_kg>{BROAD}):      {len(broad)}  "
           f"(contribute {sum(r['nko'] for r in broad)} of raw kg_only -> anchoring problem, not gaps)")
@@ -160,7 +160,7 @@ def main():
     for r in sorted(broad, key=lambda x: -x["nk"])[:15]:
         print(f"  {r['disorder']} ({r['mondo']}) n_kg={r['nk']} n_dismech={r['nd']}")
 
-    print(f"\n## Top clean coverage gaps (dismech missing genes KG has; top 20 by kg_only)")
+    print("\n## Top clean coverage gaps (dismech missing genes KG has; top 20 by kg_only)")
     for r in sorted(clean, key=lambda x: -x["nko"])[:20]:
         if r["nko"]:
             print(f"  {r['disorder']} ({r['mondo']}) nd={r['nd']} nk={r['nk']} ov={r['nov']}: {r['kg_only']}")

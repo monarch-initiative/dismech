@@ -118,14 +118,17 @@ def main():
         overlap, kg_only, dismech_only = dset & kset, kset - dset, dset - kset
         if kg:
             n_kg_has += 1
-        tot["dismech"] += len(dset); tot["kg"] += len(kset)
-        tot["overlap"] += len(overlap); tot["kg_only"] += len(kg_only)
+        tot["dismech"] += len(dset)
+        tot["kg"] += len(kset)
+        tot["overlap"] += len(overlap)
+        tot["kg_only"] += len(kg_only)
         tot["dismech_only"] += len(dismech_only)
         rows.append((name, mid, len(dset), len(kset), len(overlap),
                      ";".join(f"{h}({kg[h]})" for h in sorted(kg_only)),
                      ";".join(f"{h}({dph[h]})" for h in sorted(dismech_only))))
         if i % 25 == 0:
-            json.dump(cache, open(args.cache, "w")); print(f"  ...{i}/{len(targets)}", flush=True)
+            json.dump(cache, open(args.cache, "w"))
+            print(f"  ...{i}/{len(targets)}", flush=True)
     json.dump(cache, open(args.cache, "w"))
 
     def cnt(s):
@@ -137,7 +140,7 @@ def main():
     broad = [r for r in R if r["nk"] > BROAD]
     clean = [r for r in R if 0 < r["nk"] <= BROAD]
 
-    print(f"\n# Monarch KG <-> dismech disease-phenotype comparison (EXACT HP id match)")
+    print("\n# Monarch KG <-> dismech disease-phenotype comparison (EXACT HP id match)")
     print(f"diseases compared (MONDO + phenotypes): {len(targets)}")
     print(f"  with >=1 KG phenotype edge: {n_kg_has}")
     print(f"  dismech HP assertions: {tot['dismech']}")
@@ -145,17 +148,17 @@ def main():
     print(f"  overlap (exact):       {tot['overlap']}")
     print(f"  kg_only (coverage gap, RAW):   {tot['kg_only']}")
     print(f"  dismech_only (KG candidate):   {tot['dismech_only']}")
-    print(f"\n## Tiers by KG phenotype count")
+    print("\n## Tiers by KG phenotype count")
     print(f"  no KG phenotype edge:     {len(no_kg)}")
     print(f"  broad (n_kg>{BROAD}):          {len(broad)}  (contribute {sum(r['nko'] for r in broad)} of raw kg_only)")
     print(f"  clean (1..{BROAD}):           {len(clean)}  (clean kg_only = {sum(r['nko'] for r in clean)})")
 
-    print(f"\n## Top clean coverage gaps (dismech missing HP the KG has; top 20)")
+    print("\n## Top clean coverage gaps (dismech missing HP the KG has; top 20)")
     for r in sorted(clean, key=lambda x: -x["nko"])[:20]:
         if r["nko"]:
             print(f"  {r['disorder']} ({r['mondo']}) nd={r['nd']} nk={r['nk']} ov={r['nov']}: {r['kg_only'][:300]}")
 
-    print(f"\n## Highest exact-agreement diseases (sanity check; top 10 by overlap)")
+    print("\n## Highest exact-agreement diseases (sanity check; top 10 by overlap)")
     for r in sorted(R, key=lambda x: -x["nov"])[:10]:
         print(f"  {r['disorder']}: overlap={r['nov']} nd={r['nd']} nk={r['nk']}")
 

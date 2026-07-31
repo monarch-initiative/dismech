@@ -119,7 +119,7 @@ def main():
     print(f"\n  exact-only rate {100*tot['exact']/nd:.1f}%  ->  subsumption-aware {100*sem/nd:.1f}%  "
           f"(+{100*(sem-tot['exact'])/nd:.1f} pts recovered as granularity differences)")
 
-    print(f"\n## Diseases with the most truly-novel (UNMATCHED) dismech phenotypes")
+    print("\n## Diseases with the most truly-novel (UNMATCHED) dismech phenotypes")
     for r in sorted(rows, key=lambda x: -x[7])[:20]:
         if r[7]:
             print(f"  {r[0]} ({r[1]}): unmatched={r[7]} of nd={r[2]} (kg={r[3]})")

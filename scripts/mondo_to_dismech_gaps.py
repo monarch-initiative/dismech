@@ -64,12 +64,12 @@ def main():
 
     n_parents = len(gaps)
     n_children = sum(len(v) for v in gaps.values())
-    print(f"# Mondo -> dismech neighborhood gaps (uncovered direct is_a children)\n")
+    print("# Mondo -> dismech neighborhood gaps (uncovered direct is_a children)\n")
     print(f"covered disorder anchors: {len(covered_ids)}")
     print(f"anchors with >=1 uncovered Mondo child: {n_parents}")
     print(f"total uncovered child subtypes: {n_children}")
 
-    print(f"\n## Anchors with the most uncovered Mondo children (top 25)")
+    print("\n## Anchors with the most uncovered Mondo children (top 25)")
     for parent, kids in sorted(gaps.items(), key=lambda x: -len(x[1]))[:25]:
         dis = ", ".join(covered[parent])
         print(f"  {dis} ({parent} {lab.get(parent) or ''}): {len(kids)} uncovered")

@@ -123,13 +123,16 @@ def main():
                          ",".join(f"{k}:{v}" for k, v in sorted(preds.items()))))
 
     out = sys.stdout
-    p = lambda *a: print(*a, file=out)
+
+    def p(*a):
+        print(*a, file=out)
+
     p(f"# Mondo-anchoring audit  (kb/disorders, n={n})\n")
     p("## Primary disease_term anchor state")
     for k, v in sorted(state_counts.items(), key=lambda x: -x[1]):
         p(f"  {v:5d}  {k}")
 
-    p(f"\n## OAK checks on MONDO-anchored entries")
+    p("\n## OAK checks on MONDO-anchored entries")
     p(f"  MISSING (id absent from Mondo release): {len(missing)}")
     for name, mid, stored in missing:
         p(f"     - {name}: {mid} (stored '{stored}')")
@@ -147,7 +150,7 @@ def main():
     for name, state, mondos in sorted(mondo_elsewhere):
         p(f"     - {name}  [{state}]  {','.join(mondos)}")
 
-    p(f"\n## mondo_mappings granularity mismatch")
+    p("\n## mondo_mappings granularity mismatch")
     p(f"  narrowMatch (dismech finer than mapped Mondo): {len(narrow)}")
     for name, cnt in sorted(narrow):
         p(f"     - {name}  x{cnt}")
@@ -155,7 +158,7 @@ def main():
     for name, cnt in sorted(broad):
         p(f"     - {name}  x{cnt}")
 
-    p(f"\n## mondo_mappings skos-predicate totals")
+    p("\n## mondo_mappings skos-predicate totals")
     for k, v in sorted(pred_totals.items(), key=lambda x: -x[1]):
         p(f"  {v:5d}  {k}")
 
