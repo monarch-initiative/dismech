@@ -150,7 +150,8 @@ DHPs “more specifically target CACNA1C,” demonstrate a genotype-specific
 effect, or resolve the translational problem.
 
 The report's search also missed
-[NCT01784666](https://clinicaltrials.gov/study/NCT01784666), a modern
+[NCT01784666](https://clinicaltrials.gov/study/NCT01784666) (registry accessed
+2026-07-31), a modern
 randomized adjunctive isradipine study in bipolar depression. It was terminated
 for poor enrollment after two participants and supplies no useful efficacy
 estimate. An adequately powered modern DHP trial remains a real gap, but “no
@@ -228,6 +229,9 @@ The four proposed GO mappings resolve with the reported labels:
 - `GO:0007268` — chemical synaptic transmission
 - `GO:0016310` — phosphorylation
 
+These labels were rechecked on 2026-07-31 with
+`runoak -i sqlite:obo:go info`.
+
 Two of the three anatomy identifiers are wrong:
 
 - `UBERON:0001870` is **frontal cortex**, not anterior cingulate cortex. The
@@ -236,7 +240,9 @@ Two of the three anatomy identifiers are wrong:
   striatum. The exact ventral-striatum term is `UBERON:0005403`.
 - `UBERON:0001876` correctly denotes amygdala.
 
-The mismatched anatomy mappings must not be promoted.
+The mappings were rechecked on 2026-07-31 with
+`runoak -i sqlite:obo:uberon info`. The mismatched anatomy mappings must not be
+promoted.
 
 ## Artifact and provenance audit
 
