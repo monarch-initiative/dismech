@@ -2275,7 +2275,6 @@ _OBO_CURIE_PREFIXES: dict[str, str] = {
         "CL",
         "UBERON",
         "CHEBI",
-        "MAXO",
         "DOID",
         "GENO",
         "NCIT",

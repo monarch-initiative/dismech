@@ -37,7 +37,7 @@ This project focuses on disorders commonly managed in neonatal intensive care un
 
 - Curate NICU-relevant diseases with evidence-backed pathophysiology
 - Map neonatal phenotypes to HPO terms
-- Annotate treatments with MAXO terms
+- Annotate treatments with NCIT terms
 - Provide PMID-supported evidence for all claims
 
 ## Target Conditions (NICU Core)
