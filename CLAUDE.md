@@ -43,8 +43,11 @@ just validate-all
 # Validate a single disorder file
 just validate kb/disorders/Asthma.yaml
 
-# Validate ontology term references in schema (anti-hallucination check)
-just validate-terms
+# Validate ontology term references in a single file (anti-hallucination check)
+just validate-terms kb/disorders/Asthma.yaml
+
+# Validate ontology term references in the schema's dynamic enums
+just validate-terms-schema
 
 # Run pytest tests
 just pytest-all
@@ -1309,7 +1312,7 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
 **Mandatory verification workflow for any curation step sourced from DR:**
 1. For **each new PMID** cited: run `just fetch-reference PMID:XXXX` to fetch the real abstract
 2. For **each snippet**: manually verify it is an exact substring of the abstract by comparing against the cached file in `references_cache/PMID_XXXX.md`
-3. For **each ontology term** (HP, GO, CL, MAXO, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms-file kb/disorders/YourDisease.yaml`
+3. For **each ontology term** (HP, GO, CL, MAXO, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms kb/disorders/YourDisease.yaml`
 4. Run the full validation suite before committing (see Validation Workflow below)
 
 If a DR-suggested citation cannot be verified against the real abstract, do not use it. Find an alternative source or remove the claim entirely.
@@ -1380,8 +1383,15 @@ just validate kb/disorders/MyDisease.yaml
 just validate-references kb/disorders/MyDisease.yaml
 
 # 3. Term validation (ontology IDs/labels correct)
-just validate-terms-file kb/disorders/MyDisease.yaml
+just validate-terms kb/disorders/MyDisease.yaml
 ```
+
+**Reading the reference-validation summary:** `Total checks: 0` on a passing file
+does **not** mean nothing was checked — the upstream counter reports *issues
+found*, so it is 0 by definition on a clean run (issue #7252). The affirmative
+signal is the `Snippets checked: N/N verified against cached references` line the
+wrapper appends. Run it standalone with `just count-verified-snippets <file>`.
+Do not "fix" the validator on the basis of a zero here.
 
 ### 4. When Evidence Cannot Be Verified
 

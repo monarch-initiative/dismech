@@ -53,7 +53,7 @@ Each `terms.csv` contains three columns:
 
 ### Maintaining caches
 
-**Adding new terms**: When a disorder YAML references a term not yet in the cache, running `just validate-terms-file <file>` will automatically fetch and cache it.
+**Adding new terms**: When a disorder YAML references a term not yet in the cache, running `just validate-terms <file>` will automatically fetch and cache it.
 
 **Refreshing labels**: To update cached labels to match current ontology versions:
 

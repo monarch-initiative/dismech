@@ -86,6 +86,6 @@ For ultra-rare Mendelian disorders, direct PubMed/OMIM-guided curation was the p
 ## Curation Workflow
 
 1. Create YAML file in `kb/disorders/`
-2. Validate with `just validate` and `just validate-references`
-3. Validate terms with `just validate-terms-file`
+2. Validate with `just validate <file>` and `just validate-references <file>`
+3. Validate terms with `just validate-terms <file>`
 4. Run `just qc` before committing
