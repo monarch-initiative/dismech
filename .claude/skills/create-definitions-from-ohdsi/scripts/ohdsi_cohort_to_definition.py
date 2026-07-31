@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import httpx
 import yaml
 
 
@@ -64,6 +65,34 @@ def _prune(value: Any) -> Any:
         pruned_list = [_prune(v) for v in value]
         return [v for v in pruned_list if v not in (None, [], {})]
     return value
+
+
+def fetch_cohort_from_webapi(base_url: str, cohort_id: int, timeout: float = 30.0) -> dict:
+    """Fetch a cohort definition live from an OHDSI WebAPI endpoint.
+
+    Calls ``GET {base_url}/cohortdefinition/{cohort_id}``. The WebAPI response is
+    an envelope carrying ``name`` / ``description`` plus an ``expression`` field
+    that is itself a JSON-encoded *string*. This normalizes ``expression`` into a
+    nested dict so the downstream parser sees the same shape as a hand-exported
+    ATLAS JSON file. The public ATLAS demo lives at
+    ``https://atlas-demo.ohdsi.org/WebAPI``.
+    """
+    url = f"{base_url.rstrip('/')}/cohortdefinition/{cohort_id}"
+    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+        response = client.get(url, headers={"Accept": "application/json"})
+        response.raise_for_status()
+        envelope = response.json()
+
+    expression = envelope.get("expression")
+    if isinstance(expression, str):
+        try:
+            envelope["expression"] = json.loads(expression)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"WebAPI cohort {cohort_id} returned an 'expression' string "
+                "that is not valid JSON"
+            ) from exc
+    return envelope
 
 
 def build_definition(data: dict, args: argparse.Namespace) -> dict:
@@ -120,7 +149,30 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Convert an OHDSI/ATLAS cohort JSON to a dismech definition fragment."
     )
-    parser.add_argument("json_path", type=Path, help="Path to cohort JSON exported from ATLAS/WebAPI")
+    parser.add_argument(
+        "json_path",
+        nargs="?",
+        type=Path,
+        help="Path to cohort JSON exported from ATLAS/WebAPI (omit when using --webapi-url)",
+    )
+    parser.add_argument(
+        "--webapi-url",
+        help=(
+            "Base URL of an OHDSI WebAPI (e.g. https://atlas-demo.ohdsi.org/WebAPI) "
+            "to fetch the cohort definition live instead of reading a local file"
+        ),
+    )
+    parser.add_argument(
+        "--cohort-id",
+        type=int,
+        help="Cohort definition id to fetch from --webapi-url",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=30.0,
+        help="HTTP timeout in seconds for the --webapi-url fetch (default: 30)",
+    )
     parser.add_argument("--name", help="Override definition name")
     parser.add_argument("--description", help="Override definition description")
     parser.add_argument("--scope", help="Override scope (default: OMOP CDM (OHDSI))")
@@ -131,7 +183,18 @@ def main() -> int:
     )
 
     args = parser.parse_args()
-    data = json.loads(args.json_path.read_text())
+
+    if args.webapi_url or args.cohort_id is not None:
+        if not (args.webapi_url and args.cohort_id is not None):
+            parser.error("--webapi-url and --cohort-id must be given together")
+        if args.json_path is not None:
+            parser.error("provide either a cohort json_path or --webapi-url/--cohort-id, not both")
+        data = fetch_cohort_from_webapi(args.webapi_url, args.cohort_id, timeout=args.timeout)
+    elif args.json_path is not None:
+        data = json.loads(args.json_path.read_text())
+    else:
+        parser.error("provide a cohort json_path, or --webapi-url with --cohort-id")
+
     definition = build_definition(data, args)
 
     if args.wrap:
