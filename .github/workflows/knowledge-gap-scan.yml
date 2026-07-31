@@ -1,6 +1,8 @@
 name: Knowledge Gap Scan
 
 on:
+  schedule:
+    - cron: "0 13 * * 5"  # weekly Friday scan, in parallel with the literature scan
   workflow_dispatch:
     inputs:
       days:
@@ -105,6 +107,7 @@ jobs:
             output/knowledge_gap_scan/knowledge_gap_scan.md
 
       - name: Create knowledge-gap handoff issues
+        id: knowledge-gap-scan
         if: ${{ github.event_name == 'schedule' || inputs.create_issues }}
         uses: anthropics/claude-code-action@v1
         with:
@@ -189,3 +192,10 @@ jobs:
               disease entry, module, or research note
 
             If no candidate is strong enough, create no issues and finish quietly.
+
+      - name: Write step summary
+        if: ${{ !cancelled() && steps.knowledge-gap-scan.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.knowledge-gap-scan.outputs.execution_file }}
+          title: "🧩 Knowledge Gap Scan Run"

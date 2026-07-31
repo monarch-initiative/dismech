@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ph18050727"
+reference_id: DOI:10.3390/ph18050727
 title: "DPYD Genotyping, Fluoropyrimidine Dosage and Toxicity: An Umbrella Review of Systematic Reviews"
 authors:
 - Sara Otero-Torres
@@ -13,6 +13,7 @@ journal: Pharmaceuticals
 year: '2025'
 doi: 10.3390/ph18050727
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # DPYD Genotyping, Fluoropyrimidine Dosage and Toxicity: An Umbrella Review of Systematic Reviews

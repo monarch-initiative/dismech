@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25158452"
+reference_id: DOI:10.3390/ijms25158452
 title: "Dysembryogenetic Pathogenesis of Basal Cell Carcinoma: The Evidence to Date"
 authors:
 - Giovanni Nicoletti
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25158452
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Dysembryogenetic Pathogenesis of Basal Cell Carcinoma: The Evidence to Date

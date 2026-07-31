@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1164/rccm.202306-1060oc"
+reference_id: DOI:10.1164/rccm.202306-1060oc
 title: Accelerated Lung Function Decline and Mucus–Microbe Evolution in Chronic Obstructive Pulmonary Disease
 authors:
 - Oliver W. Meldrum
@@ -16,6 +16,7 @@ journal: American Journal of Respiratory and Critical Care Medicine
 year: '2024'
 doi: 10.1164/rccm.202306-1060oc
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Accelerated Lung Function Decline and Mucus–Microbe Evolution in Chronic Obstructive Pulmonary Disease

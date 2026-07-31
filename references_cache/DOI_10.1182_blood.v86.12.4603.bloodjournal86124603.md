@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/blood.v86.12.4603.bloodjournal86124603"
+reference_id: DOI:10.1182/blood.v86.12.4603.bloodjournal86124603
 title: BCR/ABL P210 and P190 cause distinct leukemia in transgenic mice
 authors:
 - JW Voncken
@@ -12,6 +12,7 @@ journal: Blood
 year: '1995'
 doi: 10.1182/blood.v86.12.4603.bloodjournal86124603
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # BCR/ABL P210 and P190 cause distinct leukemia in transgenic mice

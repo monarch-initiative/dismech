@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.23.02363"
+reference_id: DOI:10.1200/jco.23.02363
 title: "Vebreltinib for Advanced Non–Small Cell Lung Cancer Harboring c-Met Exon 14 Skipping Mutation: A Multicenter, Single-Arm, Phase II KUNPENG Study"
 authors:
 - Jin-Ji Yang
@@ -29,6 +29,7 @@ journal: Journal of Clinical Oncology
 year: '2024'
 doi: 10.1200/jco.23.02363
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Vebreltinib for Advanced Non–Small Cell Lung Cancer Harboring c-Met Exon 14 Skipping Mutation: A Multicenter, Single-Arm, Phase II KUNPENG Study

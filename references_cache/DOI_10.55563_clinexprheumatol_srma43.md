@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.55563/clinexprheumatol/srma43"
+reference_id: DOI:10.55563/clinexprheumatol/srma43
 title: "The prevalence of pulmonary arterial hypertension in patients with mixed connective tissue disease: a systematic review and meta-analysis"
 authors:
 - Adla B. Hassan
@@ -11,6 +11,7 @@ journal: Clinical and Experimental Rheumatology
 year: '2023'
 doi: 10.55563/clinexprheumatol/srma43
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The prevalence of pulmonary arterial hypertension in patients with mixed connective tissue disease: a systematic review and meta-analysis
