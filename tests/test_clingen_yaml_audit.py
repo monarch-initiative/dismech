@@ -19,21 +19,7 @@ def test_audit_clingen_yaml_classifies_done_missing_and_blocked(tmp_path: Path):
     cache_dir.mkdir()
 
     (data_dir / "gene_validity.csv").write_text(
-        "\n".join(
-            [
-                "FILE CREATED: 2026-01-24",
-                "WEBPAGE: https://search.clinicalgenome.org/kb/gene-validity",
-                '"GENE SYMBOL","GENE ID (HGNC)","DISEASE LABEL","DISEASE ID (MONDO)","MOI","SOP","CLASSIFICATION","ONLINE REPORT","CLASSIFICATION DATE","GCEP"',
-                '"GENE1","HGNC:1","Disease A","MONDO:0000001","AD","SOP10","Definitive","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_done","2026-01-01T00:00:00.000Z","Panel"',
-                '"GENE2","HGNC:2","Disease A","MONDO:0000001","AD","SOP10","Strong","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_missing","2026-01-01T00:00:00.000Z","Panel"',
-                '"GENE3","HGNC:3","Broad disease","MONDO:0000002","AD","SOP10","Moderate","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_gene_specific","2026-01-01T00:00:00.000Z","Panel"',
-                '"GENE4","HGNC:4","Disease B","MONDO:0000003","AR","SOP10","Limited","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_label_mismatch","2026-01-01T00:00:00.000Z","Panel"',
-                '"GENE5","HGNC:5","Disease A","MONDO:0000001","AR","SOP10","Refuted","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_refuted","2026-01-01T00:00:00.000Z","Panel"',
-                '"GENE6","HGNC:6","Broad disease C","MONDO:0000004","AD","SOP10","Strong","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_title_gene","2026-01-01T00:00:00.000Z","Panel"',
-                '"GENE7","HGNC:7","Unmodeled disease","MONDO:9999999","AD","SOP10","Strong","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_known_title_gene","2026-01-01T00:00:00.000Z","Panel"',
-                "",
-            ]
-        )
+        'FILE CREATED: 2026-01-24\nWEBPAGE: https://search.clinicalgenome.org/kb/gene-validity\n"GENE SYMBOL","GENE ID (HGNC)","DISEASE LABEL","DISEASE ID (MONDO)","MOI","SOP","CLASSIFICATION","ONLINE REPORT","CLASSIFICATION DATE","GCEP"\n"GENE1","HGNC:1","Disease A","MONDO:0000001","AD","SOP10","Definitive","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_done","2026-01-01T00:00:00.000Z","Panel"\n"GENE2","HGNC:2","Disease A","MONDO:0000001","AD","SOP10","Strong","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_missing","2026-01-01T00:00:00.000Z","Panel"\n"GENE3","HGNC:3","Broad disease","MONDO:0000002","AD","SOP10","Moderate","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_gene_specific","2026-01-01T00:00:00.000Z","Panel"\n"GENE4","HGNC:4","Disease B","MONDO:0000003","AR","SOP10","Limited","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_label_mismatch","2026-01-01T00:00:00.000Z","Panel"\n"GENE5","HGNC:5","Disease A","MONDO:0000001","AR","SOP10","Refuted","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_refuted","2026-01-01T00:00:00.000Z","Panel"\n"GENE6","HGNC:6","Broad disease C","MONDO:0000004","AD","SOP10","Strong","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_title_gene","2026-01-01T00:00:00.000Z","Panel"\n"GENE7","HGNC:7","Unmodeled disease","MONDO:9999999","AD","SOP10","Strong","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_known_title_gene","2026-01-01T00:00:00.000Z","Panel"\n'
     )
 
     done_snippet = "**CGGV:assertion_done** - GENE1 / Disease A (Definitive)"

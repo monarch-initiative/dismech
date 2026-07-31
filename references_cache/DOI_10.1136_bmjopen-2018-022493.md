@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/bmjopen-2018-022493"
+reference_id: DOI:10.1136/bmjopen-2018-022493
 title: "First incidence, age of onset outcomes and risk factors of onset of DSM-5 oppositional defiant disorder: a cohort study of Spanish children from ages 3 to 9"
 authors:
 - Lourdes Ezpeleta
@@ -11,6 +11,7 @@ journal: BMJ Open
 year: '2019'
 doi: 10.1136/bmjopen-2018-022493
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # First incidence, age of onset outcomes and risk factors of onset of DSM-5 oppositional defiant disorder: a cohort study of Spanish children from ages 3 to 9

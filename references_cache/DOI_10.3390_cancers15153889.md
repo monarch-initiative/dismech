@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15153889"
+reference_id: DOI:10.3390/cancers15153889
 title: "The Neurodevelopmental and Molecular Landscape of Medulloblastoma Subgroups: Current Targets and the Potential for Combined Therapies"
 authors:
 - Hasan Slika
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15153889
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Neurodevelopmental and Molecular Landscape of Medulloblastoma Subgroups: Current Targets and the Potential for Combined Therapies

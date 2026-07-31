@@ -103,7 +103,7 @@ def _find_key_field(items: list[dict]) -> str | None:
                 all_present = False
                 break
             values.append(item[candidate])
-        if all_present and len(values) == len(set(str(v) for v in values)):
+        if all_present and len(values) == len({str(v) for v in values}):
             return candidate
     return None
 
@@ -264,6 +264,7 @@ def load_yaml_from_git(ref: str, filepath: str) -> dict | None:
         ["git", "show", f"{ref}:{filepath}"],
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode != 0:
         return None
@@ -278,7 +279,7 @@ def _git_changed_files(
     if directory:
         cmd.append("--")
         cmd.append(directory)
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         return []
     return [f for f in result.stdout.strip().split("\n") if f and f.endswith(".yaml")]
@@ -290,6 +291,7 @@ def _git_list_files(ref: str, directory: str) -> list[str]:
         ["git", "ls-tree", "--name-only", ref, directory + "/"],
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode != 0:
         return []

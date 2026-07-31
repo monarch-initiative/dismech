@@ -100,7 +100,7 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
 pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
-preprint-scan, weekly-compliance, stale-pr-reassign, post-review-agent) is centralized in
+preprint-scan, weekly-compliance, post-review-agent) is centralized in
 `.github/cron-profiles.yaml` as named profiles (`slow`/`medium`/`fast`/`fast-weekend`).
 Switch with `just cron-profile <name>` (preview with `just cron-profile-preview <name>`,
 list with `just cron-profiles`), which rewrites the `on.schedule` cron lines in
@@ -111,8 +111,8 @@ config instead. Page/build crons are intentionally unmanaged. See
 ### Agent Model Config (`.github/agent-config.yaml`)
 The Claude **model** backing each agentic workflow (curation-scanner,
 discussion-scanner, knowledge-gap-scan, literature-scan, preprint-scan,
-post-review-agent, pr-shepherd, weekly-compliance, claude-code-review) is
-centralized in `.github/agent-config.yaml` — one source of truth instead of a
+post-review-agent, pr-shepherd, weekly-compliance, claude-code-review, claude)
+is centralized in `.github/agent-config.yaml` — one source of truth instead of a
 `--model` hardcoded per workflow. At run time each workflow's `Resolve agent
 config` step (the `.github/actions/resolve-agent-config` composite action) reads
 the config and exports `AGENT_MODEL`; the agent invocation uses `--model ${{
@@ -223,6 +223,13 @@ pathophysiology:
 - **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
 - **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
 
+**Creating a module?** Use the `create-module` skill — it covers the module
+schema shape, the trigger→consequence node chain, the treatment
+`target_mechanisms` drug pattern, evidence discipline, and the **Xogenesis**
+(pathological-structure-formation) open-ontology anchor convention (OGMS process
++ MPATH entity + UBERON site; SNOMED as guide-only). See also the primer
+`docs/primers/modules-and-conformance.md`.
+
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
 - `cellular_senescence` — Conserved cellular senescence: senescence-inducing stress → p16INK4a/Rb and p53/p21 cell-cycle arrest → senescence-associated secretory phenotype (SASP) → senescent cell accumulation (when immune clearance is outpaced) → chronic inflammation and tissue dysfunction driving age-related disease. Carries the two canonical senescence biomarkers (p16INK4a/CDKN2A and senescence-associated beta-galactosidase) as `biochemical` readouts, plus the senolytic drug-target pattern (treatments use `target_mechanisms` to link back to "Senescent Cell Accumulation"). Intentionally lean: disease-specific or context-dependent downstream theories (e.g. the age-contextualized accelerated-aging/early-onset-cancer association) are NOT embedded — they belong on the relevant disorder or comorbidity/trajectory entry, which can `conforms_to`/reference this module. Worked conformers: Osteoarthritis (senescent chondrocytes), pulmonary fibrosis (senescent fibroblasts). Key conformance target: `cellular_senescence#Senescent Cell Accumulation`. Complemented by `senescence_tumor_suppression` (the protective arm).
@@ -256,8 +263,15 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `axial_segmentation_serial_homology` — The axial counterpart of the limb/digit and pharyngeal-arch serial-homology modules: vertebrae and ribs are serially repeated (metameric) somite derivatives built one segment at a time by the segmentation clock (coupled Notch/Wnt/FGF oscillator) interacting with the FGF/Wnt determination wavefront, so a single clock/Notch lesion perturbs many segments and yields a multi-segment malformation bundle (multiple hemivertebrae, fused/block vertebrae, rib fusions/malalignment) rather than an isolated defect. Segmentation clock / wavefront dysfunction (DLL3/SCDO1, MESP2/SCDO2, LFNG/SCDO3, HES7/SCDO4, TBX6) → disrupted somite boundary formation → vertebral and costal malsegmentation (congenital scoliosis, thoracic insufficiency). Conforming disorder nodes substitute the disorder-specific segmentation-clock gene. Worked conformers: Spondylocostal_Dysostosis (Notch-pathway DLL3/MESP2/LFNG/HES7/TBX6 → disrupted somite formation → multiple vertebral + rib malsegmentation, conforming across all three module nodes), Klippel-Feil_Syndrome (MEOX1 sclerotome-polarity / somite-boundary defect → cervical vertebral fusion; conforms at the somite-boundary and malsegmentation nodes), and TBX6-Associated_Congenital_Scoliosis (compound TBX6 null-plus-hypomorphic dosage insufficiency at the determination wavefront → hemivertebrae/congenital scoliosis; conforms across all three module nodes). Key conformance target: `axial_segmentation_serial_homology#Vertebral and Costal Malsegmentation`
 - `aortopathy_tgfbeta_dysregulation` — Conserved heritable thoracic aortic aneurysm/dissection (TAAD) pattern: aortic-wall ECM or smooth-muscle contractile-apparatus defect → paradoxically increased TGF-beta signaling dysregulation → medial degeneration (smooth muscle cell depletion + elastic fiber fragmentation) and wall weakening → progressive aortic dilation/aneurysm → aortic dissection and rupture. Conforming disorder nodes substitute the disorder-specific primary lesion (FBN1 microfibril deficiency in Marfan/Shprintzen-Goldberg; TGFBR1/2, SMAD3, TGFB2/3 in Loeys-Dietz; COL3A1 in vascular Ehlers-Danlos; SLC2A10 in arterial tortuosity; ACTA2/MYH11/MYLK/PRKG1 in nonsyndromic familial TAAD). Key conformance target: `aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation`
 - `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
+- `renal_cystogenesis` — Conserved epithelial (tubular) renal cyst-formation pattern, the cystogenic-machinery complement of `ciliopathy_dysfunction` (which covers the broader Hedgehog/PCP developmental arm but not the cAMP-CFTR cyst-fluid pathway): polycystin/primary-cilium signaling loss (PKD1/PKD2, and ciliary lesions in ARPKD/nephronophthisis/syndromic ciliopathies) → fall in cilium-dependent calcium → cAMP and vasopressin-V2R signaling activation → cyst-lining epithelial proliferation and CFTR-mediated transepithelial fluid secretion → progressive cyst expansion and kidney enlargement → nephron loss and progressive kidney failure. Carries the vasopressin-V2R-antagonist (tolvaptan) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` to link back to the cAMP/V2R node). Deliberately scoped to cAMP-driven tubular cystogenesis; mechanistically unrelated cysts (arachnoid, dermoid, parasitic hydatid, neoplastic cystadenoma, developmental cavitation) are out of scope. Flagship conformer: Autosomal_Dominant_Polycystic_Kidney_Disease (full-chain conformance across all five module nodes); Polycystic_Kidney_Disease conforms at the cAMP/V2R and proliferation/secretion nodes. Key conformance target: `renal_cystogenesis#Cyst-Lining Epithelial Proliferation and Transepithelial Fluid Secretion`
+- `granuloma_formation` — Conserved granuloma-formation ("Xogenesis") pattern recurring across mycobacterial infection (TB, leprosy), fungal infection, sarcoidosis, Crohn disease, berylliosis, and foreign-body reactions: persistent indigestible stimulus an individual macrophage cannot eradicate → Th1/TNF-driven macrophage recruitment and activation → epithelioid transformation and multinucleated giant-cell formation (macrophage fusion) → organized (± caseating) granuloma assembly → tissue containment versus destruction and fibrosis. Carries the TNF-inhibitor drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the TNF/macrophage-activation node — therapeutic in sterile granulomatous disease, reactivates latent TB). Xogenesis anchor: forms MPATH:847 granuloma (`OGMS:0000078` via `OGMS:0000081` derivation). Key conformance target: `granuloma_formation#Epithelioid Transformation and Multinucleated Giant Cell Formation`
+- `thrombogenesis` — Conserved thrombus-formation ("Xogenesis") pattern recurring across venous thromboembolism, arterial thrombosis (MI, stroke), cancer-associated thrombosis, and antiphospholipid syndrome: Virchow's triad (endothelial injury, stasis, hypercoagulability) → platelet adhesion, activation, and aggregation → coagulation cascade activation and thrombin-driven fibrin formation → fibrin-platelet thrombus propagation and vascular occlusion → thromboembolism and ischemic tissue injury. Carries the anticoagulant (factor Xa / thrombin inhibition) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the coagulation node). Xogenesis anchor: forms a thrombus (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:125 thrombosis — MPATH lacks a distinct thrombus continuant, a noted OBO gap) at UBERON:0001981 blood vessel. Key conformance target: `thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation`
+- `atherogenesis` — Conserved atheroma/atherosclerotic-plaque formation ("Xogenesis") pattern recurring across coronary artery disease, ischemic stroke, and peripheral artery disease: endothelial dysfunction and subendothelial LDL (apoB-lipoprotein) retention → monocyte recruitment and macrophage foam-cell formation → smooth-muscle-cell phenotypic switching and fibrofatty plaque formation → advanced atheroma with necrotic core and fibrous cap → plaque rupture, thrombosis, and ischemic events (feeds `thrombogenesis`). Carries the LDL-lowering (statin) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the LDL-retention trigger). Xogenesis anchor: forms an atheroma (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:28 atherosclerosis — MPATH lacks a distinct atheroma continuant, a noted OBO gap) at UBERON:0001637 artery. Key conformance target: `atherogenesis#Smooth Muscle Cell Switching and Fibrofatty Plaque Formation`
+- `amyloidogenesis` — Conserved amyloid-deposit formation ("Xogenesis") pattern recurring across AL, ATTR, and AA amyloidosis, Alzheimer disease, and type 2 diabetes: amyloidogenic precursor protein → protein misfolding and beta-sheet oligomerization → amyloid fibril formation and extracellular deposition → progressive tissue amyloid accumulation → organ dysfunction. Conforming nodes substitute the precursor (Ig light chain/AL, transthyretin/ATTR, serum amyloid A/AA, amyloid-beta/Alzheimer). Carries the TTR-stabilizer (tafamidis) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the precursor node). Xogenesis anchor: forms an amyloid deposit (`OGMS:0000079` portion of pathological body substance via `OGMS:0000081` derivation); no MPATH amyloid class (a noted OBO gap). Key conformance target: `amyloidogenesis#Amyloid Fibril Formation and Extracellular Deposition`
+- `diabetic_vascular_complications` — Conserved final-common vascular-injury cascade shared by all forms of diabetes mellitus, independent of the upstream cause of hyperglycemia: chronic hyperglycemia → hyperglycemia-induced oxidative stress and AGE-RAGE activation → endothelial dysfunction and vascular inflammation → diabetic micro- and macrovascular injury → diabetic end-organ complications (kidney disease, retinopathy, neuropathy, atherosclerotic cardiovascular disease). Conforming disorder nodes substitute the disorder-specific route to hyperglycemia (absolute insulin deficiency in type 1, insulin resistance + beta-cell failure in type 2, undernutrition beta-cell impairment in type 5). Carries the SGLT2-inhibitor cardiorenal-protection drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the upstream Chronic Hyperglycemia trigger). Complements the Grouping `Diabetes_Mellitus` (union over the type entries; maps to MONDO:0005015 via `skos:closeMatch`, with the retained umbrella Disease still carrying that term as its `disease_term`) — diabetes is modeled as Grouping + this module + per-type entries, not a blended umbrella graph. Worked conformers: Type I Diabetes (Chronic Hyperglycemia + Chronic Complications nodes), Type 2 Diabetes Mellitus, Malnutrition-Related Diabetes Mellitus. Key conformance target: `diabetic_vascular_complications#Endothelial Dysfunction and Vascular Inflammation`
 - `cardiac_ion_channel_repolarization` — Conserved cardiac channelopathy pattern: cardiac ion-channel or calcium-handling variant → altered action-potential duration / Ca²⁺ handling → arrhythmogenic substrate and triggered activity (EADs/DADs, dispersion of repolarization, reentry) → ventricular tachyarrhythmia → syncope and sudden cardiac death, with a parallel sinoatrial-node automaticity-failure branch producing bradyarrhythmia. For inherited arrhythmia syndromes in structurally normal hearts (Long QT, Short QT, Brugada, RYR2-CPVT, Timothy, torsade/short-coupled VF, familial sick sinus). Key conformance target: `cardiac_ion_channel_repolarization#Arrhythmogenic Substrate and Triggered Activity`
 - `antisense_oligonucleotide_therapy` — Three FDA-approved ASO paradigms: (1) RNase H knockdown: pathogenic mRNA accumulation → RNase H-mediated transcript degradation → reduction of pathogenic protein (SOD1-ALS/tofersen, ATTR/inotersen or eplontersen, FH/mipomersen, FCS/volanesorsen or olezarsen, HAE/donidalorsen, FUS-ALS/jacifusen); (2) Splice-site occlusion: aberrant pre-mRNA splicing → ASO-directed splice redirection → restored protein reading frame (SMA/nusinersen, DMD exon-skipping/eteplirsen, golodirsen, viltolarsen, casimersen); (3) Steric translation blockade: pathogenic viral mRNA translation → steric viral mRNA translation blockade (CMV retinitis/fomivirsen). Key conformance targets: `antisense_oligonucleotide_therapy#Pathogenic mRNA Accumulation`, `antisense_oligonucleotide_therapy#Aberrant Pre-mRNA Splicing`, `antisense_oligonucleotide_therapy#Pathogenic Viral mRNA Translation`
+- `spinal_hsp90_opioid_enhancement` — Conserved opioid-adjuvant drug-mechanism pattern (Streicher lab, preclinical/mouse): spinal Hsp90 chaperone restraint of MOR signaling, relieved by inhibition (intrathecal 17-AAG/KU-32, or spinal-selective Hsp90-beta/Grp94 inhibitors) → two parallel amplifier arms, microglial Src kinase activation and PKCbeta activation in CGRP neurons → ERK-RSK cascade activation (via relief of an AMPK-mediated negative feedback loop; Src upstream of ERK) → enhanced spinal mu-opioid receptor antinociceptive signaling → increased opioid antinociception and improved therapeutic index (potency boost + tolerance rescue, opioid dose-reduction). Drug-target pattern: spinal-selective Hsp90-inhibitor adjuvant treatments use `target_mechanisms` (`INHIBITS`) on the trigger restraint node. CRITICAL scope caveat: effect is spinal-compartment-specific — brain/systemic non-selective Hsp90 inhibition BLOCKS opioid antinociception (opposite direction), so conforming claims must not generalize to systemic Hsp90 inhibition. Flagship: Bowden et al. 2026 (PMID:41031962, the microglial-Src arm). Key conformance / treatment target: `spinal_hsp90_opioid_enhancement#Spinal Hsp90 Chaperone Restraint of MOR Signaling`; convergent hub: `spinal_hsp90_opioid_enhancement#ERK-RSK Cascade Activation`
 
 The following modules capture conserved **treatment-toxicity / "side effect as mechanism"** patterns — adverse-drug-reaction pathophysiology that recurs across many culprit drugs, so a drug-toxicity entry can declare conformance rather than re-deriving the chain (the same insult-agnostic convergence logic the `intestinal_barrier_dysfunction` module already applies to drug-induced and disease-intrinsic diarrhea). Note that several mechanism modules above (`peripheral_axonal_degeneration` for chemo-induced peripheral neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT) already double as toxicity targets without a separate "side effect" class:
 - `myelosuppression` — Conserved cytotoxic bone-marrow-toxicity pattern (chemotherapy, radiation, other antiproliferative exposures): cytotoxic insult to proliferating hematopoietic stem/progenitor cells → bone marrow hematopoietic suppression → multilineage peripheral cytopenias (neutropenia/anemia/thrombocytopenia) → cytopenia-related clinical complications (infection/febrile neutropenia, fatigue, bleeding) and dose-limiting toxicity. Conforming disorder nodes substitute the disorder-specific cytotoxic driver and may specialize the cytopenia node to a predominant lineage. Key conformance target: `myelosuppression#Multilineage Peripheral Cytopenias`
@@ -393,6 +407,42 @@ candidate discovery), `Heritable_Thoracic_Aortic_Disease` (NECESSARY with a
 nested AND/OR phenotype branch), and `Lysosomal_Storage_Disorders` (defining
 module criterion + a nested GROUPING member).
 
+### Pathophysiology Biological Scale Tag
+
+Each `Pathophysiology` node may carry an optional `biological_scale:` value
+tagging the node with the primary biological scale of its substrate. The
+enum is small and closed — one of `MOLECULAR`, `CELLULAR`, `TISSUE`, or
+`ORGANISM`. Each value covers both ongoing processes and persistent states
+at that scale (e.g. `MOLECULAR` includes both a kinase's activity and a
+fusion protein's existence; `ORGANISM` includes both cytokine storm and
+chronic hyperphenylalaninemia).
+
+```yaml
+pathophysiology:
+- name: SHP2 Gain-of-Function Activation
+  biological_scale: MOLECULAR
+  molecular_functions:
+  - preferred_term: protein tyrosine phosphatase activity
+    term: {id: GO:0004725, label: protein tyrosine phosphatase activity}
+- name: ERK Cascade Hyperactivation
+  biological_scale: CELLULAR
+- name: Pulmonary Valve Dysplasia
+  biological_scale: TISSUE
+- name: Coagulopathy
+  biological_scale: ORGANISM
+```
+
+**When to use:** on any pathophysiology node when the primary scale is
+clear. Legacy nodes without the tag validate unchanged — it is optional.
+
+**Single-value discipline.** Pick one value. If a node would naturally take
+two (e.g. a fusion protein event bundled with its cellular consequence),
+that is a signal the node bundles two mechanistic claims and should be
+split into atomic nodes.
+
+**Reference.** `projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md` records the
+survey that fixed the enum at these four values and the bundle patterns
+curators should watch for.
 ### Digenic / Oligogenic Inheritance (Multi-Locus)
 
 Some disorders require variants at **two loci (digenic)** or a **few loci
@@ -432,6 +482,41 @@ entries: `Alport_Syndrome`, `Usher_Syndrome`,
 `Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
 `Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
 (`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+
+### Hypothesis-Based Phenotype Algorithms
+
+A `definitions[]` entry with `definition_type: PHENOTYPE_ALGORITHM` may be a
+**computable EHR/OMOP case-finding query predicated on an unproven mechanism**
+(e.g. scan for a new arrhythmia/seizure shortly after a fever to surface latent
+CACNA1C carriers), not just a consensus/OHDSI-validated phenotype. Mark the
+epistemic grounding so the two are never conflated (issue #6245):
+
+- **`derivation_basis`** (`DefinitionDerivationBasisEnum`): `ESTABLISHED_CRITERIA`
+  (default — consensus/validated), `MECHANISTIC_HYPOTHESIS` (predicated on an
+  unproven mechanism), or `MODEL_SYSTEM_EXTRAPOLATION` (from an animal/in-vitro
+  result not yet shown in humans).
+- **`attaches_to`** (reused slot, `pathophysiology#<node>` grammar): for a
+  `MECHANISTIC_HYPOTHESIS` definition, link the pathograph node(s)/edge(s) it is
+  predicated on. The hypothesis basis is then inferred from those edges'
+  `hypothesis_groups` → `mechanistic_hypotheses[].status` — do **not** add a
+  standalone hypothesis id on the definition. A test
+  (`test_hypothesis_based_definition_attaches_to_foreign_keys`) requires these
+  refs to resolve.
+- **`validation_status`** (`AlgorithmValidationStatus` object): `status`
+  (`PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD`) + free-text
+  `rationale` + optional `evidence` (standard EvidenceItem — PMID + verified
+  snippet — e.g. the validation study reporting the query's PPV).
+
+The trigger pathophysiology node itself is modeled normally (a node whose
+`downstream` edges opt into `hypothesis_groups: [<id>]`) plus a disease-level
+`mechanistic_hypotheses` entry (usually `status: EMERGING`). Two paired worked
+examples span the spectrum: `Timothy_Syndrome` (`fever_exacerbated_cav1.2`;
+`MECHANISTIC_HYPOTHESIS`/`PROPOSED`, zebrafish) and `Brugada_Syndrome`
+(fever-unmasking of the type-1 ECG; `ESTABLISHED_CRITERIA`/`UNVALIDATED`, an
+established-mechanism definition that still `attaches_to` its fever node). See
+[`docs/hypothesis-based-phenotype-algorithms.md`](docs/hypothesis-based-phenotype-algorithms.md)
+and the candidate register in
+[`docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md`](docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md).
 
 ### Evidence Items
 All evidence must have PMID references and support classification:
@@ -496,7 +581,7 @@ filename/timestamp — scaffold a schema-valid skeleton and edit its `details`:
 
 ```bash
 just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
-  --summary "Create: Asthma" --agent-tool claude-code --model claude-opus-4-8 \
+  --summary "Create: Asthma" --agent-tool claude-code --model claude-opus-5 \
   --sections phenotypes,pathophysiology,evidence --pr 5123 \
   --details "What was curated and how it was validated."
 # run `just new-history --help` for all options; it prints the created path
@@ -809,6 +894,51 @@ queryable by modality across diseases.
 `therapeutic_modality` complements (does not replace) `treatment_term` (the treatment
 action) and `therapeutic_agent` (the specific drug). A pharmacotherapy ASO still
 uses `NCIT:C15986` for `treatment_term` and an NCIT/CHEBI `therapeutic_agent`.
+
+#### `therapeutic_modality` *is* the `treatment_category` discriminator (issue #972)
+
+Issue #972 proposed a `treatment_category: DRUG | PROCEDURE | DIETARY | OTHER`
+discriminator for cleaner filtering. That's already `therapeutic_modality` — just
+at finer granularity than 4 coarse buckets. Do not add a second, redundant
+category slot; populate `therapeutic_modality` instead. Coarse-bucket mapping,
+if you need to collapse to the issue's original 4 categories:
+
+| Coarse bucket | `therapeutic_modality` values |
+|---|---|
+| DRUG | `SMALL_MOLECULE`, `MONOCLONAL_ANTIBODY`, `NANOBODY`, `ANTISENSE_OLIGONUCLEOTIDE`, `SIRNA`, `MRNA_THERAPY`, `GENE_THERAPY`, `GENE_EDITING`, `CELL_THERAPY`, `PROTEIN_REPLACEMENT`, `PEPTIDE`, `VACCINE` |
+| PROCEDURE | `SURGERY`, `RADIOTHERAPY`, `DEVICE` |
+| DIETARY / lifestyle | `BEHAVIORAL` (explicitly covers "behavioral, physical, dietary, or lifestyle intervention") |
+| OTHER | `OTHER` |
+
+**Mechanical backfill guidance** — a treatment's `therapeutic_modality` can often
+be inferred with high confidence directly from its `treatment_term.term.id`,
+with no per-disease research needed, when that action term's own definition
+*is* a modality (not just an action that's usually done one way):
+
+| `treatment_term.term.id` | `therapeutic_modality` |
+|---|---|
+| `MAXO:0000004`, `NCIT:C154430`, `NCIT:C15329`, `NCIT:C16186`, `MAXO:0010039` (surgical procedure / resection / transplantation) | `SURGERY` |
+| `MAXO:0000014`, `NCIT:C15313` (radiation therapy) | `RADIOTHERAPY` |
+| `MAXO:0000088` (dietary intervention), `MAXO:0000011`, `NCIT:C15302` (physical therapy), `MAXO:0000930` (speech therapy), `MAXO:0001351` (occupational therapy), `MAXO:0000077` (behavioral counseling) | `BEHAVIORAL` |
+| `MAXO:0001001` (gene therapy) | `GENE_THERAPY` |
+| `MAXO:0000747` (hematopoietic stem cell transplantation — explicitly listed as a `CELL_THERAPY` example) | `CELL_THERAPY` |
+| `MAXO:0001017` (vaccination) | `VACCINE` |
+| `MAXO:0009030` (hearing aid usage) | `DEVICE` |
+
+**Do not** extend this table with `MAXO:0000106` (nutritional supplementation).
+It looks dietary but in practice names a specific chemical/vitamin compound
+(biotin, carnitine, vitamin E, triheptanoin) far more often than a diet-pattern
+change — the correct modality is usually `SMALL_MOLECULE`, sometimes something
+else entirely, and always needs a look at the actual treatment before deciding.
+This was tried and reverted during the initial backfill (2026-07-08) after it
+mis-tagged real drug therapies as `BEHAVIORAL`.
+
+Generic action terms (`NCIT:C15986` Pharmacotherapy, `MAXO:0000950` supportive
+care, `NCIT:C15240` Genetic Counseling, `NCIT:C93352` Targeted Therapy, etc.)
+are **not** in the mechanical table on purpose — the actual modality there
+depends on the specific drug/agent (see `therapeutic_agent`) or isn't a
+platform-classifiable action at all, and needs a real per-entry look rather
+than a blind ID-based rule.
 
 When `therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE`, add a structured
 `aso_details` block (`AntisenseOligonucleotideDetail`) capturing the molecular
@@ -1599,6 +1729,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `src/`, `scripts/`, `tests/`, `conf/` | YES | Source code |
+| `extension/**` (incl. generated `icons/*.png`) | YES | Browser extension ships unbuilt/unpacked, so its generated icons are committed — a deliberate exception to the "don't commit derived files" rule |
 
 ### What NOT to commit
 

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1155/2021/9796576"
+reference_id: DOI:10.1155/2021/9796576
 title: Cortical Circuitry and Synaptic Dysfunctions in Alzheimer’s Disease and Other Dementias
 authors:
 - Federico Ranieri
@@ -11,6 +11,7 @@ journal: Neural Plasticity
 year: '2021'
 doi: 10.1155/2021/9796576
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Cortical Circuitry and Synaptic Dysfunctions in Alzheimer’s Disease and Other Dementias

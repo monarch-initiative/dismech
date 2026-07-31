@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cimb46030169"
+reference_id: DOI:10.3390/cimb46030169
 title: "Cellular Organelle-Related Transcriptomic Profile Abnormalities in Neuronopathic Types of Mucopolysaccharidosis: A Comparison with Other Neurodegenerative Diseases"
 authors:
 - Karolina Wiśniewska
@@ -11,6 +11,7 @@ journal: Current Issues in Molecular Biology
 year: '2024'
 doi: 10.3390/cimb46030169
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cellular Organelle-Related Transcriptomic Profile Abnormalities in Neuronopathic Types of Mucopolysaccharidosis: A Comparison with Other Neurodegenerative Diseases

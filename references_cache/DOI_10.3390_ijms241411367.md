@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms241411367"
+reference_id: DOI:10.3390/ijms241411367
 title: Deciphering the Signaling Mechanisms of Osteosarcoma Tumorigenesis
 authors:
 - Bikesh K. Nirala
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms241411367
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Deciphering the Signaling Mechanisms of Osteosarcoma Tumorigenesis

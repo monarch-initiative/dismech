@@ -9,49 +9,28 @@ import html
 import json
 import re
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import httpx
 import yaml
-
 
 EUROPE_PMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 
 PROFILE_QUERIES = {
     "mechanisms": (
         "(("
-        + " OR ".join(
-            [
-                "TITLE:pathogenesis",
-                "TITLE:pathophysiology",
-                'TITLE:"molecular mechanism"',
-                "TITLE:mechanism",
-            ]
-        )
+        + 'TITLE:pathogenesis OR TITLE:pathophysiology OR TITLE:"molecular mechanism" OR TITLE:mechanism'
         + ") AND (TITLE_ABS:disease OR TITLE_ABS:syndrome OR TITLE_ABS:disorder))"
         + " OR "
         + "(("
-        + " OR ".join(
-            [
-                "TITLE:variant",
-                "TITLE:mutation",
-                "TITLE:genetic",
-                "TITLE:gene",
-            ]
-        )
+        + "TITLE:variant OR TITLE:mutation OR TITLE:genetic OR TITLE:gene"
         + ") AND (TITLE_ABS:disease OR TITLE_ABS:syndrome OR TITLE_ABS:disorder))"
         + " OR "
         + "(("
-        + " OR ".join(
-            [
-                "TITLE:treatment",
-                "TITLE:therapy",
-                "TITLE:therapeutic",
-                "TITLE:trial",
-            ]
-        )
+        + "TITLE:treatment OR TITLE:therapy OR TITLE:therapeutic OR TITLE:trial"
         + ") AND (TITLE_ABS:disease OR TITLE_ABS:syndrome OR TITLE_ABS:disorder))"
     )
 }

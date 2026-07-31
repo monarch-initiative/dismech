@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/bcr-2020-238187"
+reference_id: DOI:10.1136/bcr-2020-238187
 title: Rare case of Marchiafava-Bignami disease due to thiamine deficiency and malnutrition
 authors:
 - Stephanie Kinsley
@@ -10,6 +10,7 @@ journal: BMJ Case Reports
 year: '2020'
 doi: 10.1136/bcr-2020-238187
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Rare case of Marchiafava-Bignami disease due to thiamine deficiency and malnutrition

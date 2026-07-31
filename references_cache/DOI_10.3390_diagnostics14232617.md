@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics14232617"
+reference_id: DOI:10.3390/diagnostics14232617
 title: "Clinico–Pathological Features of Diffuse Midline Glioma, H3 K27-Altered in Adults: A Comprehensive Review of the Literature with an Additional Single-Institution Case Series"
 authors:
 - Giuseppe Broggi
@@ -17,6 +17,7 @@ journal: Diagnostics
 year: '2024'
 doi: 10.3390/diagnostics14232617
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinico–Pathological Features of Diffuse Midline Glioma, H3 K27-Altered in Adults: A Comprehensive Review of the Literature with an Additional Single-Institution Case Series

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/molecules30030748"
+reference_id: DOI:10.3390/molecules30030748
 title: "Vitamin C: A Comprehensive Review of Its Role in Health, Disease Prevention, and Therapeutic Potential"
 authors:
 - Adina Alberts
@@ -10,6 +10,7 @@ journal: Molecules
 year: '2025'
 doi: 10.3390/molecules30030748
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Vitamin C: A Comprehensive Review of Its Role in Health, Disease Prevention, and Therapeutic Potential

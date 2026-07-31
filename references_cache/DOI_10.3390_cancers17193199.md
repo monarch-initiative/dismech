@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers17193199"
+reference_id: DOI:10.3390/cancers17193199
 title: "Perioperative Treatments in Pleural Mesothelioma: State of the Art and Future Directions"
 authors:
 - Luigi Giovanni Cecchi
@@ -18,6 +18,7 @@ journal: Cancers
 year: '2025'
 doi: 10.3390/cancers17193199
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Perioperative Treatments in Pleural Mesothelioma: State of the Art and Future Directions

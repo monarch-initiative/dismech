@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1186/s13048-023-01222-1"
+reference_id: DOI:10.1186/s13048-023-01222-1
 title: Risk-reducing salpingo-oophorectomy among Chinese women at increased risk of breast and ovarian cancer
 authors:
 - Zheng Feng
@@ -14,6 +14,7 @@ journal: Journal of Ovarian Research
 year: '2023'
 doi: 10.1186/s13048-023-01222-1
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Risk-reducing salpingo-oophorectomy among Chinese women at increased risk of breast and ovarian cancer

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1210/jendso/bvae118"
+reference_id: DOI:10.1210/jendso/bvae118
 title: "Defective FGFR1 Signaling Disrupts Glucose Regulation: Evidence From Humans With <i>FGFR1</i> Mutations"
 authors:
 - Maria I Stamou
@@ -16,6 +16,7 @@ journal: Journal of the Endocrine Society
 year: '2024'
 doi: 10.1210/jendso/bvae118
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Defective FGFR1 Signaling Disrupts Glucose Regulation: Evidence From Humans With <i>FGFR1</i> Mutations

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/088307380001500714"
+reference_id: DOI:10.1177/088307380001500714
 title: "D-2-Hydroxyglutaric Aciduria With Cerebral, Vascular, and Muscular Abnormalities in a 14-Year-Old Boy"
 authors:
 - Orvar Eeg-Olofsson
@@ -11,6 +11,7 @@ journal: Journal of Child Neurology
 year: '2000'
 doi: 10.1177/088307380001500714
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # D-2-Hydroxyglutaric Aciduria With Cerebral, Vascular, and Muscular Abnormalities in a 14-Year-Old Boy

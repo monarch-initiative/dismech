@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-14-1630"
+reference_id: DOI:10.1158/1078-0432.ccr-14-1630
 title: Phase II Study of Nilotinib in Melanoma Harboring KIT Alterations Following Progression to Prior KIT Inhibition
 authors:
 - Richard D. Carvajal
@@ -26,6 +26,7 @@ journal: Clinical Cancer Research
 year: '2015'
 doi: 10.1158/1078-0432.ccr-14-1630
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Phase II Study of Nilotinib in Melanoma Harboring KIT Alterations Following Progression to Prior KIT Inhibition

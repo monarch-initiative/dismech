@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cimb46050274"
+reference_id: DOI:10.3390/cimb46050274
 title: "Role of NR5A1 Gene Mutations in Disorders of Sex Development: Molecular and Clinical Features"
 authors:
 - Giovanni Luppino
@@ -14,6 +14,7 @@ journal: Current Issues in Molecular Biology
 year: '2024'
 doi: 10.3390/cimb46050274
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Role of NR5A1 Gene Mutations in Disorders of Sex Development: Molecular and Clinical Features

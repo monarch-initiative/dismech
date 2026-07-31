@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/13993003.01323-2024"
+reference_id: DOI:10.1183/13993003.01323-2024
 title: Risk stratification and treatment goals in pulmonary arterial hypertension
 authors:
 - Fabio Dardi
@@ -15,6 +15,7 @@ journal: European Respiratory Journal
 year: '2024'
 doi: 10.1183/13993003.01323-2024
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Risk stratification and treatment goals in pulmonary arterial hypertension

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25073845"
+reference_id: DOI:10.3390/ijms25073845
 title: "Huntington’s Disease: Complex Pathogenesis and Therapeutic Strategies"
 authors:
 - Huichun Tong
@@ -16,6 +16,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25073845
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Huntington’s Disease: Complex Pathogenesis and Therapeutic Strategies

@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE65914"
+reference_id: GEO:GSE65914
 title: Th1/Th17 Immune Response in Rosacea
 content_type: summary
+full_text_attempted: true
 ---
 
 # Th1/Th17 Immune Response in Rosacea

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25084409"
+reference_id: DOI:10.3390/ijms25084409
 title: "Pathogenesis of Alopecia Areata and Vitiligo: Commonalities and Differences"
 authors:
 - Hiroki L. Yamaguchi
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25084409
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathogenesis of Alopecia Areata and Vitiligo: Commonalities and Differences

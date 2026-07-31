@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25021250"
+reference_id: DOI:10.3390/ijms25021250
 title: "The Cellular Dysfunction of the Brain–Blood Barrier from Endothelial Cells to Astrocytes: The Pathway towards Neurotransmitter Impairment in Schizophrenia"
 authors:
 - Stefano Stanca
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25021250
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Cellular Dysfunction of the Brain–Blood Barrier from Endothelial Cells to Astrocytes: The Pathway towards Neurotransmitter Impairment in Schizophrenia

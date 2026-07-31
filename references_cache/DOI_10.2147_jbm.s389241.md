@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2147/jbm.s389241"
+reference_id: DOI:10.2147/jbm.s389241
 title: "Von Willebrand Disease Epidemiology, Burden of Illness and Management: A Systematic Review"
 authors:
 - Ping Du
@@ -12,6 +12,7 @@ journal: Journal of Blood Medicine
 year: '2023'
 doi: 10.2147/jbm.s389241
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Von Willebrand Disease Epidemiology, Burden of Illness and Management: A Systematic Review

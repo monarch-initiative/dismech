@@ -8,6 +8,7 @@ generates Mermaid flowchart code and pathograph JSON for visualization.
 """
 
 import json
+import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -173,9 +174,7 @@ def _genetic_item_infers_mechanism_edges(item: dict[str, Any]) -> bool:
     """Return whether a genetic item should auto-link to matching mechanisms."""
     relationship_type = item.get("relationship_type")
     if isinstance(relationship_type, str):
-        if relationship_type.upper() in _NON_CONTRIBUTING_RELATIONSHIP_TYPES:
-            return False
-        return True
+        return relationship_type.upper() not in _NON_CONTRIBUTING_RELATIONSHIP_TYPES
 
     association = item.get("association")
     if not isinstance(association, str):
@@ -473,6 +472,32 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                 )
             )
 
+    # Collect observational phenotype readout links (investigation/test-result
+    # phenotypes reporting on an underlying mechanism, e.g. an abnormal ERG).
+    for item in disorder.get("phenotypes", []) or []:
+        if not isinstance(item, dict):
+            continue
+        phenotype_name = item.get("name")
+        if not phenotype_name:
+            continue
+
+        for readout in item.get("reports_on", []) or []:
+            if not isinstance(readout, dict) or "target" not in readout:
+                continue
+            graph.edges.append(
+                Edge(
+                    source=str(readout["target"]),
+                    target=phenotype_name,
+                    predicate="readout",
+                    source_type="phenotype",
+                    description=readout.get("description")
+                    or readout.get("interpretation"),
+                    relationship=readout.get("relationship"),
+                    direction=readout.get("direction"),
+                    endpoint_context=readout.get("endpoint_context"),
+                )
+            )
+
     # Collect edges from genetic factors to linked mechanisms
     for item in disorder.get("genetic", []) or []:
         if not isinstance(item, dict):
@@ -586,9 +611,7 @@ def generate_mermaid(graph: CausalGraph) -> str:
         source_id = node_ids[edge.source]
         target_id = node_ids[edge.target]
         # Use dashed line for edges to orphan targets
-        if edge.target in graph.orphan_targets:
-            lines.append(f"    {source_id} -.-> {target_id}")
-        elif edge.predicate == "readout":
+        if edge.target in graph.orphan_targets or edge.predicate == "readout":
             lines.append(f"    {source_id} -.-> {target_id}")
         else:
             lines.append(f"    {source_id} --> {target_id}")
@@ -793,6 +816,24 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
                 if k in readout and readout[k] is not None
             }
             for readout in readouts
+            if isinstance(readout, dict) and readout.get("target")
+        ]
+    reports_on = item.get("reports_on", []) or []
+    if reports_on:
+        meta["reports_on"] = [
+            {
+                k: readout[k]
+                for k in (
+                    "target",
+                    "relationship",
+                    "direction",
+                    "endpoint_context",
+                    "interpretation",
+                    "description",
+                )
+                if k in readout and readout[k] is not None
+            }
+            for readout in reports_on
             if isinstance(readout, dict) and readout.get("target")
         ]
 
@@ -1222,7 +1263,7 @@ def main():
                 for issue in disorder_issues:
                     print(f"  - {issue}")
                 print()
-            exit(1)
+            sys.exit(1)
         else:
             print("All disorders have valid causal graphs.")
 

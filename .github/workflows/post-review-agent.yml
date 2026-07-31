@@ -7,6 +7,8 @@ name: Post Review Agent
 
 
 on:
+  schedule:
+    - cron: "0 8 * * 6"  # weekly Saturday 08:00 UTC
   # Allow manual trigger with configurable options
   workflow_dispatch:
     inputs:
@@ -25,15 +27,10 @@ on:
         required: false
         type: string
       model:
-        description: "Claude model to use"
-        default: claude-opus-4-8
-        type: choice
-        options:
-          # Current models
-          - claude-sonnet-4-6
-          - claude-haiku-4-5-20251001
-          - claude-opus-4-7
-          - claude-opus-4-8
+        description: "Optional model ID override (blank = use the configured default in agent-config.yaml)"
+        required: false
+        default: ""
+        type: string
 
 jobs:
   editorial-review:
@@ -243,3 +240,18 @@ jobs:
             5. **Dry run mode** - if enabled, report what you WOULD do without actually doing it
 
             Now begin by scanning the PRs and processing review comments.
+
+      # The agent may check out a PR branch; restore the workflow ref so this
+      # local composite action is available from the workspace.
+      - name: Restore workflow checkout for step summary
+        if: ${{ !cancelled() && steps.editorial-bot.outputs.execution_file != '' }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Write step summary
+        if: ${{ !cancelled() && steps.editorial-bot.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.editorial-bot.outputs.execution_file }}
+          title: "✍️ Post-Review Agent Run"

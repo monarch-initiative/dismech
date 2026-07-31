@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms262110485"
+reference_id: DOI:10.3390/ijms262110485
 title: Dissecting the Genetic Contribution of Tooth Agenesis
 authors:
 - Antonio Fallea
@@ -14,6 +14,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms262110485
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Dissecting the Genetic Contribution of Tooth Agenesis

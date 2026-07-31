@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/blood-2014-04-526293"
+reference_id: DOI:10.1182/blood-2014-04-526293
 title: Stress and DNA repair biology of the Fanconi anemia pathway
 authors:
 - Simonne Longerich
@@ -11,6 +11,7 @@ journal: Blood
 year: '2014'
 doi: 10.1182/blood-2014-04-526293
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Stress and DNA repair biology of the Fanconi anemia pathway

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.22.01649"
+reference_id: DOI:10.1200/jco.22.01649
 title: Niraparib and Abiraterone Acetate for Metastatic Castration-Resistant Prostate Cancer
 authors:
 - Kim N. Chi
@@ -246,6 +246,7 @@ journal: Journal of Clinical Oncology
 year: '2023'
 doi: 10.1200/jco.22.01649
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Niraparib and Abiraterone Acetate for Metastatic Castration-Resistant Prostate Cancer

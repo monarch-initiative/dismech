@@ -629,7 +629,7 @@ class DefinitionTypeEnum(str, Enum):
     """
     PHENOTYPE_ALGORITHM = "PHENOTYPE_ALGORITHM"
     """
-    Algorithmic phenotype definition (e.g., PheKB-style)
+    Algorithmic phenotype definition (e.g., PheKB-/OHDSI-style)
     """
     CASE_DEFINITION = "CASE_DEFINITION"
     """

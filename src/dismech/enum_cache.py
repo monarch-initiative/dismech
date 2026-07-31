@@ -84,8 +84,8 @@ def current_enum_caches(
     for enum_name, enum_def in schema_view.all_enums().items():
         if not plugin.is_dynamic_enum(enum_def):
             continue
-        cache_key = plugin._get_enum_cache_key(enum_def)  # noqa: SLF001
-        path = plugin._get_enum_cache_file(enum_name, cache_key)  # noqa: SLF001
+        cache_key = plugin._get_enum_cache_key(enum_def)
+        path = plugin._get_enum_cache_file(enum_name, cache_key)
         expected[path.name] = CurrentEnumCache(enum_name, enum_def, path)
 
     return expected

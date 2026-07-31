@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.2010.32.8401"
+reference_id: DOI:10.1200/jco.2010.32.8401
 title: "Molecular Pathogenesis of Hodgkin's Lymphoma: Increasing Evidence of the Importance of the Microenvironment"
 authors:
 - Christian Steidl
@@ -9,6 +9,7 @@ journal: Journal of Clinical Oncology
 year: '2011'
 doi: 10.1200/jco.2010.32.8401
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Pathogenesis of Hodgkin's Lymphoma: Increasing Evidence of the Importance of the Microenvironment

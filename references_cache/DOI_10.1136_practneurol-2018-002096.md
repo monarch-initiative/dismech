@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/practneurol-2018-002096"
+reference_id: DOI:10.1136/practneurol-2018-002096
 title: Diagnosis and management of progressive ataxia in adults
 authors:
 - Rajith Nilantha de Silva
@@ -12,6 +12,7 @@ journal: Practical Neurology
 year: '2019'
 doi: 10.1136/practneurol-2018-002096
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Diagnosis and management of progressive ataxia in adults

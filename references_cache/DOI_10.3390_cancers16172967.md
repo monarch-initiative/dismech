@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16172967"
+reference_id: DOI:10.3390/cancers16172967
 title: "Hereditary Colorectal Cancer Syndromes and Inflammatory Bowel Diseases: Risk Management and Surveillance Strategies"
 authors:
 - Luca Brandaleone
@@ -17,6 +17,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16172967
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hereditary Colorectal Cancer Syndromes and Inflammatory Bowel Diseases: Risk Management and Surveillance Strategies

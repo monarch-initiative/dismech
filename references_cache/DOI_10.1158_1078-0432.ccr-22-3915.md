@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-22-3915"
+reference_id: DOI:10.1158/1078-0432.ccr-22-3915
 title: "Safety, Efficacy, and Biomarker Analyses of Dostarlimab in Patients with Endometrial Cancer: Interim Results of the Phase I GARNET Study"
 authors:
 - Ana Oaknin
@@ -27,6 +27,7 @@ journal: Clinical Cancer Research
 year: '2023'
 doi: 10.1158/1078-0432.ccr-22-3915
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Safety, Efficacy, and Biomarker Analyses of Dostarlimab in Patients with Endometrial Cancer: Interim Results of the Phase I GARNET Study

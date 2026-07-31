@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jitc-2021-004080"
+reference_id: DOI:10.1136/jitc-2021-004080
 title: Efficacy and predictive biomarkers of immunotherapy in Epstein-Barr virus-associated gastric cancer
 authors:
 - Yuezong Bai
@@ -16,6 +16,7 @@ journal: Journal for ImmunoTherapy of Cancer
 year: '2022'
 doi: 10.1136/jitc-2021-004080
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Efficacy and predictive biomarkers of immunotherapy in Epstein-Barr virus-associated gastric cancer

@@ -1,0 +1,58 @@
+name: Agent run summary
+description: >
+  Write an agentic workflow's final report to $GITHUB_STEP_SUMMARY, read from
+  claude-code-action's execution log.
+
+  claude-code-action v1 has NO `result` output — its outputs are execution_file,
+  branch_name, github_token, session_id and structured_output. Every workflow
+  here previously read a `steps.<id>.outputs.result` expression, which is empty,
+  so the run reports were empty fenced blocks. This action reads the last
+  `result` event out of `execution_file` instead.
+
+  Do not write a literal GitHub expression in this description. `description:`
+  is template-evaluated when the manifest loads, so an illustrative
+  "dollar-brace steps dot ..." is parsed as a real expression, `steps` is not a
+  valid manifest context, and the whole action fails to load with
+  "Unrecognized named-value: 'steps'".
+
+inputs:
+  execution-file:
+    description: The `execution_file` output of the claude-code-action step.
+    required: true
+  title:
+    description: Heading for the summary block, e.g. "🐑 PR Shepherd Run".
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      # Values come in through env, never interpolated into the script: the
+      # agent's report is attacker-influenceable and `echo "${{ ... }}"` would
+      # be a command-injection sink.
+      env:
+        EXECUTION_FILE: ${{ inputs.execution-file }}
+        TITLE: ${{ inputs.title }}
+      run: |
+        set -uo pipefail
+        file="${EXECUTION_FILE:-}"
+        if [ -z "$file" ] || [ ! -f "$file" ]; then
+          file="${RUNNER_TEMP}/claude-execution-output.json"
+        fi
+        {
+          printf '## %s\n\n' "$TITLE"
+          if [ ! -f "$file" ]; then
+            printf 'No execution log was produced, so the agent has no report. '
+            printf 'Check the run log above.\n'
+          else
+            # Tilde fence: agent reports routinely contain ``` blocks, which
+            # would close a backtick fence early and mangle the summary.
+            printf '~~~~\n'
+            # The step runs without `set -e` so a summary can never fail a job;
+            # that means the extractor's own failure has to be caught here, or it
+            # silently re-creates the empty fence this action exists to fix.
+            python3 "$GITHUB_ACTION_PATH/extract_result.py" "$file" \
+              || printf 'Could not read the agent report from %s (see the step log).\n' "$file"
+            printf '\n~~~~\n'
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"

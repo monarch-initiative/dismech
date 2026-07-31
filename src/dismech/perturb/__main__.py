@@ -7,19 +7,18 @@ Usage:
 """
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 import yaml
 
 from dismech.perturb.graph import extract_causal_edges, trace_causal_paths
+from dismech.perturb.phenotypes import evaluate_phenotypes
 from dismech.perturb.simulate import (
     ModelConfig,
     SimulationResult,
     load_model_config,
     run_perturbation,
 )
-from dismech.perturb.phenotypes import evaluate_phenotypes
 
 app = typer.Typer(help="Causal perturbation analysis for dismech disorders.")
 
@@ -63,8 +62,12 @@ def _print_variable_table(
         ref_v = reference.get(var_name, 0)
         pert_v = result[var_name]
         base_v = baseline.get(var_name, 0)
-        delta_ref = ((pert_v - ref_v) / ref_v * 100) if ref_v != 0 else 0
-        delta_base = ((pert_v - base_v) / base_v * 100) if base_v != 0 else 0
+        # Guard against near-zero denominators (e.g. beta-cell mass / insulin
+        # collapsing to ~0 at the pathological fixed point), which otherwise
+        # produce meaningless astronomical percentages.
+        eps = 1e-9
+        delta_ref = ((pert_v - ref_v) / ref_v * 100) if abs(ref_v) > eps else 0.0
+        delta_base = ((pert_v - base_v) / base_v * 100) if abs(base_v) > eps else 0.0
         marker = " <<<" if abs(delta_ref) > 20 else ""
         print(
             f"  {vm.label:<30} {ref_v:>12.2f} {pert_v:>12.2f} {delta_ref:>+9.1f}% {delta_base:>+11.1f}%{marker}"
@@ -79,9 +82,9 @@ def _get_causal_edges(disorder: dict):
 @app.command()
 def perturb(
     disorder_yaml: Path = typer.Argument(..., help="Path to disorder YAML file"),
-    gene: Optional[str] = typer.Option(None, "--gene", "-g", help="Gene to perturb"),
-    effect: Optional[str] = typer.Option(None, "--effect", "-e", help="LoF or GoF"),
-    param: Optional[list[str]] = typer.Option(
+    gene: str | None = typer.Option(None, "--gene", "-g", help="Gene to perturb"),
+    effect: str | None = typer.Option(None, "--effect", "-e", help="LoF or GoF"),
+    param: list[str] | None = typer.Option(
         None, "--param", "-p", help="Parameter override (name=multiplier)"
     ),
     gfr: float = typer.Option(
@@ -90,10 +93,10 @@ def perturb(
     all_scenarios: bool = typer.Option(
         False, "--all", "-a", help="Run all predefined scenarios"
     ),
-    models_dir: Optional[Path] = typer.Option(
+    models_dir: Path | None = typer.Option(
         None, "--models-dir", "-m", help="Directory containing model files"
     ),
-    scenario: Optional[str] = typer.Option(
+    scenario: str | None = typer.Option(
         None, "--scenario", "-s", help="Run a named scenario from config"
     ),
 ) -> None:
@@ -112,8 +115,11 @@ def perturb(
         raise typer.Exit(1)
 
     typer.echo(f"Model: {config.model_id}")
-    typer.echo("Computing healthy baseline (GFR=6.0)...")
-    baseline_result = run_perturbation(config, gfr=6.0)
+    baseline_gfr = config.coupling.baseline_gfr
+    typer.echo(
+        f"Computing healthy baseline ({config.coupling.gfr_parameter}={baseline_gfr})..."
+    )
+    baseline_result = run_perturbation(config, gfr=baseline_gfr)
     baseline = baseline_result.variables
 
     if all_scenarios:
@@ -271,7 +277,7 @@ def _print_gene_phenotype_matrix(
     if not gene_scenarios:
         return
 
-    hp_labels = sorted(set(pt.hp_label for pt in config.phenotype_thresholds))
+    hp_labels = sorted({pt.hp_label for pt in config.phenotype_thresholds})
 
     print(f"\n\n{'=' * 100}")
     print("GENE -> PHENOTYPE MATRIX")

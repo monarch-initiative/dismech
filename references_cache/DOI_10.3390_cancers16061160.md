@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16061160"
+reference_id: DOI:10.3390/cancers16061160
 title: "Acute Promyelocytic Leukemia: Review of Complications Related to All-Trans Retinoic Acid and Arsenic Trioxide Therapy"
 authors:
 - Alexandra Ghiaur
@@ -15,6 +15,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16061160
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Acute Promyelocytic Leukemia: Review of Complications Related to All-Trans Retinoic Acid and Arsenic Trioxide Therapy
