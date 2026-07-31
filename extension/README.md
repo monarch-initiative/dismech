@@ -9,13 +9,24 @@ Full docs: [`docs/browser-extension.md`](../docs/browser-extension.md).
 
 ## Quick start
 
-1. Open `chrome://extensions`, enable **Developer mode**.
-2. **Load unpacked** → pick this `extension/` folder.
+**Get the extension folder** — either download the packaged zip from the
+[latest release](https://github.com/monarch-initiative/dismech/releases/latest)
+(`dismech-curator-<version>.zip`) and unzip it, or use this `extension/` folder
+from a repo checkout (**Code → Download ZIP** on GitHub, no clone required).
+
+Then load it:
+
+1. Open `chrome://extensions` (or `edge://extensions`), enable **Developer mode**.
+2. **Load unpacked** → pick the folder that contains `manifest.json` (the
+   unzipped release folder, or this `extension/` subfolder).
 3. Open a paper (PubMed / DOI / bioRxiv) or disease page (Monarch / OMIM /
    Orphanet), click the *dismech curator* icon, review, and **Create issue**.
 
 By default it opens GitHub's pre-filled issue form (no token needed). Optionally
 add a fine-grained PAT in **Settings** for true one-click creation via the API.
+
+See [`docs/browser-extension.md`](../docs/browser-extension.md) for the full
+install guide (release zip vs. checkout).
 
 ## Recognized pages
 
@@ -45,10 +56,13 @@ No build step. After edits, reload the extension from `chrome://extensions`.
 
 ```bash
 just test-extension                    # run tests (or: node extension/test/run.mjs)
+just package-extension                 # build dist/dismech-curator-<version>.zip
 python3 extension/icons/gen_icons.py   # regenerate icons
 ```
 
-CI runs `just test-extension` whenever `extension/` changes.
+CI runs `just test-extension` whenever `extension/` changes, and the
+**Package browser extension** workflow builds the installable zip (uploaded as a
+run artifact, and attached to GitHub Releases when one is published).
 
 ## Privacy
 

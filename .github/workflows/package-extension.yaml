@@ -1,0 +1,53 @@
+---
+name: Package browser extension
+
+# Builds the installable dismech-curator browser-extension zip and:
+#  - always uploads it as a workflow artifact (downloadable from the run page,
+#    including on-demand via "Run workflow"), and
+#  - attaches it to the GitHub Release when a release is published.
+# See docs/browser-extension.md for how users install the zip.
+
+on:  # yamllint disable-line rule:truthy
+  release:
+    types: [published]
+  workflow_dispatch:
+  # Rebuild (and re-upload the artifact) when the extension changes on main, so
+  # the latest run always has a current zip to grab even between releases.
+  push:
+    branches: [main]
+    paths:
+      - 'extension/**'
+      - 'scripts/package_extension.py'
+      - '.github/workflows/package-extension.yaml'
+
+permissions:
+  contents: write  # needed to upload the asset to the release
+
+jobs:
+  package:
+    name: Build and publish extension zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build extension zip
+        id: build
+        run: |
+          python3 scripts/package_extension.py
+          zip_path="$(ls dist/dismech-curator-*.zip)"
+          echo "zip=${zip_path}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dismech-curator-extension
+          path: dist/dismech-curator-*.zip
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "${{ steps.build.outputs.zip }}" --clobber

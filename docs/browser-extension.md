@@ -43,11 +43,47 @@ extension also works against a fork or a different Monarch repo.
 
 ## Install (unpacked)
 
-The extension is not (yet) on the Chrome Web Store — load it unpacked:
+The extension is not (yet) on the Chrome Web Store, so you install it "unpacked"
+from a local copy of the
+[`extension/`](https://github.com/monarch-initiative/dismech/tree/main/extension)
+directory. "Load unpacked" wants a **folder on your disk that contains
+`manifest.json`** — so first get that folder, then point the browser at it.
 
-1. `chrome://extensions` → enable **Developer mode**.
-2. **Load unpacked** → select the `extension/` directory.
-3. Pin *dismech curator*, open a paper/disease page, and click it.
+### Option A — download the packaged zip (recommended)
+
+No clone, no repo checkout:
+
+1. Download `dismech-curator-<version>.zip` from the
+   [latest release](https://github.com/monarch-initiative/dismech/releases/latest)
+   (**Assets** section). If a release doesn't have the asset yet, see Option B or
+   build it yourself with `just package-extension`.
+2. **Unzip it** anywhere — it expands to a `dismech-curator-<version>/` folder
+   containing `manifest.json`.
+3. Open `chrome://extensions` (or `edge://extensions`) → enable **Developer
+   mode** (top-right toggle) → **Load unpacked** → select the unzipped folder.
+4. Pin *dismech curator*, open a paper/disease page, and click the toolbar icon.
+
+You can also grab the zip from the **Package browser extension** GitHub Actions
+run (it's uploaded as a workflow artifact on every `extension/` change), or build
+it locally:
+
+```bash
+just package-extension      # writes dist/dismech-curator-<version>.zip
+```
+
+### Option B — from a repository checkout
+
+GitHub can't download a single subfolder from the web UI, so you take the whole
+repo and point at the subfolder:
+
+1. On the [repo page](https://github.com/monarch-initiative/dismech), **Code →
+   Download ZIP** and unzip it (or `git clone` if you prefer).
+2. `chrome://extensions` → **Developer mode** → **Load unpacked** → select the
+   `extension/` **subfolder** (the one containing `manifest.json`), *not* the
+   repo root.
+3. Pin it and click the toolbar icon on a paper/disease page.
+
+After a `git pull`, click **Reload** under the extension card to pick up changes.
 
 ## Permissions
 

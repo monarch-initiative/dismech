@@ -831,6 +831,12 @@ test-search:
 test-extension:
     node extension/test/run.mjs
 
+# Package the browser extension into an installable zip under dist/
+# (dist/dismech-curator-<version>.zip). Deterministic; pure stdlib.
+[group('QC')]
+package-extension:
+    python3 scripts/package_extension.py
+
 # Run pytest tests (with verbose output)
 [group('QC')]
 pytest-all:
