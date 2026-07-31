@@ -165,6 +165,34 @@ subtype-request** signal.
 Tiers 2/3 are flagged for curator review, not auto-fixed — they intersect the
 record-altitude policy call ([#7178](https://github.com/monarch-initiative/dismech/issues/7178)).
 
+## E. Groupings & modules anchoring
+
+Different classes anchor differently, so the disorder audit doesn't apply verbatim.
+Regenerate: `uv run python scripts/grouping_anchor_audit.py`.
+
+**Groupings (`kb/groupings/`, n=48).** A `Grouping` carries an optional MONDO cross-ref in
+`mappings.mondo_mappings` — not a `disease_term` (a grouping stands on its own curated
+rationale and need not recapitulate a MONDO class).
+
+- **29 map to MONDO — all valid** (0 missing / obsolete / label-drift).
+- **19 have no MONDO mapping.** Two sub-cases (OAK `basic_search` is imperfect, so treat
+  as provisional):
+  - **Existing MONDO term → just add the mapping:** `Mucolipidoses` (MONDO:0019248).
+  - **Likely novel mechanism/treatment-response unions → Mondo grouping-class candidates:**
+    `Fibrotic Disorders`, `Polyglutamine Disorders`, `TDP-43 Proteinopathies`,
+    `FGFR-Related Skeletal Dysplasias`, `DNA Repair Synthetic-Lethality Cancers`,
+    `Immune Checkpoint-Responsive Cancers`, `Digenic and Oligogenic Disorders`,
+    `Parkinsonism Dopaminergic Degeneration Disorders`, `Epilepsy Excitation-Inhibition
+    Imbalance Disorders`, and others (full list in the script output). Many are
+    mechanism-based unions Mondo is unlikely to carry — consistent with dismech leading
+    Mondo on mechanism-defined groupings.
+
+**Modules (`kb/modules/`, n=118).** Deliberately **not** Mondo-anchored — they model
+conserved processes anchored to process ontologies (GO / OGMS / MPATH / UBERON), so they
+are **out of scope for the Mondo dimension**. 0 carry a `disease_term`; the 11 with a stray
+MONDO reference (in evidence/notes) carry no obsolete ids. (The MPATH continuant gaps for
+Xogenesis modules — amyloid/thrombus/atheroma — are a separate OBO-request track.)
+
 ## Corrections to earlier ad-hoc figures
 
 An earlier chat-level count (before this reproducible pass) was wrong on three points,
