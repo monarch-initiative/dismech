@@ -132,5 +132,5 @@ This project focuses on disorders commonly managed in neonatal intensive care un
 
 1. Create YAML file in `kb/disorders/`
 2. Validate with `just validate` and `just validate-references`
-3. Validate terms with `just validate-terms-file`
+3. Validate terms with `just validate-terms`
 4. Run `just qc` before committing
