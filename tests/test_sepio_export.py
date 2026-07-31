@@ -137,6 +137,39 @@ class TestEvidenceItemToLine:
         )
         assert line.direction_of_evidence_provided == expected
 
+    def test_raw_supports_survives_the_lossy_direction_mapping(self):
+        """WRONG_STATEMENT and REFUTE share a direction, so the raw value round-trips."""
+        wrong = evidence_item_to_line(
+            {"reference": "PMID:1", "snippet": "t", "supports": "WRONG_STATEMENT"}, "s", 0
+        )
+        refute = evidence_item_to_line(
+            {"reference": "PMID:1", "snippet": "t", "supports": "REFUTE"}, "s", 0
+        )
+        assert wrong.direction_of_evidence_provided == refute.direction_of_evidence_provided
+        assert wrong.dismech_supports == "WRONG_STATEMENT"
+        assert refute.dismech_supports == "REFUTE"
+
+    def test_raw_supports_absent_when_unset(self):
+        """An item with no `supports` gets neither a direction nor a raw value."""
+        line = evidence_item_to_line({"reference": "PMID:1", "snippet": "t"}, "s", 0)
+        assert line.direction_of_evidence_provided is None
+        assert line.dismech_supports is None
+
+    def test_reference_only_item_still_yields_a_data_item(self):
+        """A citation with no quoted span is still evidence, just an untyped one."""
+        line = evidence_item_to_line({"reference": "PMID:1"}, "s", 0)
+        item = line.has_evidence_items[0]
+        assert item.value is None
+        assert item.data_type is None
+        assert item.reported_in.id == "PMID:1"
+
+    def test_snippet_only_item_has_no_document(self):
+        """A quoted span with no reference has nowhere to point `reported_in`."""
+        line = evidence_item_to_line({"snippet": "unattributed text"}, "s", 0)
+        item = line.has_evidence_items[0]
+        assert item.value == "unattributed text"
+        assert item.reported_in is None
+
     def test_empty_evidence_item_dropped(self):
         """An item with neither reference nor snippet carries no evidence."""
         assert evidence_item_to_line({}, "s", 0) is None
@@ -300,6 +333,30 @@ class TestPathophysiologyStatements:
         # ...and the ids are still reproducible run to run.
         assert [s.id for s in pathophysiology_statements(record)] == [s.id for s in statements]
 
+    def test_duplicate_node_names_get_distinct_statement_ids(self):
+        """Two node names that slug to the same value must not collide on one id.
+
+        No such collision exists in `kb/` today; this is the backstop that keeps
+        the invariant enforced rather than assumed, mirroring the causal-edge
+        occurrence counter.
+        """
+        record = {
+            "name": "X",
+            "disease_term": {"term": {"id": "MONDO:1"}},
+            "pathophysiology": [
+                {"name": "Node A", "evidence": [{"reference": "PMID:1", "snippet": "one"}]},
+                {"name": "Node-A", "evidence": [{"reference": "PMID:1", "snippet": "two"}]},
+            ],
+        }
+        statements = list(pathophysiology_statements(record))
+        assert len(statements) == 2
+        assert len({s.id for s in statements}) == 2
+        # The first occurrence keeps the plain deterministic id, so the public
+        # `pathophysiology_statement_id` (and any `evidence_inherited_from`
+        # pointing at it) still resolves.
+        assert statements[0].id == pathophysiology_statement_id("X", "Node A")
+        assert [s.id for s in pathophysiology_statements(record)] == [s.id for s in statements]
+
     def test_missing_disease_term_yields_nothing(self):
         assert list(pathophysiology_statements({"name": "X", "pathophysiology": []})) == []
 
@@ -363,6 +420,125 @@ class TestStatementsFromRecord:
         assert edge.evidence == CFTR_EVIDENCE
         statement = statement_from_association(edge.association, edge.evidence)
         assert statement.id == edge.association.id
+
+    def test_statements_for_edges_is_the_shared_builder(self):
+        """The koza transform and statements_from_record must agree line for line."""
+        pytest.importorskip("biolink_model", reason="biolink-model not installed")
+        from dismech.export.kgx_export import iter_edges_with_evidence
+        from dismech.export.sepio_export import statements_for_edges
+
+        record = {
+            "name": "Cystic Fibrosis",
+            "disease_term": {"term": {"id": "MONDO:0009061"}},
+            "pathophysiology": [
+                {
+                    "name": "CFTR Dysfunction",
+                    "evidence": CFTR_EVIDENCE,
+                    "cell_types": [
+                        {"preferred_term": "Epithelial cell", "term": {"id": "CL:0000066"}}
+                    ],
+                }
+            ],
+        }
+        edges = list(iter_edges_with_evidence(record))
+        statements = list(statements_for_edges(edges, record["name"]))
+        assert statements
+        # Indirect evidence resolves back to the node statement that owns it.
+        assert statements[0].evidence_inherited_from == pathophysiology_statement_id(
+            "Cystic Fibrosis", "CFTR Dysfunction"
+        )
+        assert statements[0].id == edges[0].association.id
+
+    def test_statements_for_edges_skips_evidence_free_edges(self):
+        """No biolink needed: the helper only reads the EdgeWithEvidence fields."""
+        from dismech.export.sepio_export import statements_for_edges
+
+        class FakeEdge:
+            def __init__(self, evidence):
+                self.association = FakeAssociation()
+                self.evidence = evidence
+                self.section = "phenotypes"
+                self.indirect = False
+                self.source_node = None
+
+        assert list(statements_for_edges([FakeEdge(None), FakeEdge([])], "X")) == []
+        assert len(list(statements_for_edges([FakeEdge(CFTR_EVIDENCE)], "X"))) == 1
+
+
+class FakeWriter:
+    """Stand-in for a koza JSONL writer: one instance per transform run."""
+
+    def __init__(self, output_dir, source_name="kgx_export"):
+        self.output_dir = str(output_dir)
+        self.source_name = source_name
+
+
+class FakeKozaContext:
+    """Minimal stand-in for KozaTransform: the sidecar hooks only use these three."""
+
+    def __init__(self, writer):
+        self.writer = writer
+        self.state = {}
+        self.logged = []
+
+    def log(self, message, level="INFO"):
+        self.logged.append((level, message))
+
+
+class TestSepioSidecarLifecycle:
+    """Tests for the sidecar file handle managed by the on_data_begin/end hooks."""
+
+    @staticmethod
+    def _run(writer, line):
+        """One transform run: open the sidecar, write a line, close it."""
+        kgx_export = pytest.importorskip(
+            "dismech.export.kgx_export", reason="biolink-model not installed"
+        )
+        koza_ctx = FakeKozaContext(writer)
+        kgx_export.open_sepio_sidecar(koza_ctx)
+        handle = koza_ctx.state[kgx_export._SEPIO_STATE_KEY]
+        handle.write(line + "\n")
+        kgx_export.close_sepio_sidecar(koza_ctx)
+        assert koza_ctx.state == {}
+
+    def test_second_run_truncates_the_sidecar(self, tmp_path):
+        """A new run gets a new writer, so it must rewrite — not append to — the sidecar.
+
+        The node/edge files are rewritten from scratch by koza's writer on every
+        run; a sidecar that appended instead would silently disagree with them.
+        """
+        sidecar = tmp_path / "kgx_export_sepio.jsonl"
+
+        self._run(FakeWriter(tmp_path), "run-1")
+        assert sidecar.read_text(encoding="utf-8").splitlines() == ["run-1"]
+
+        self._run(FakeWriter(tmp_path), "run-2")
+        assert sidecar.read_text(encoding="utf-8").splitlines() == ["run-2"]
+
+    def test_second_tag_of_one_run_appends(self, tmp_path):
+        """Koza builds a context per input tag but shares one writer across them."""
+        sidecar = tmp_path / "kgx_export_sepio.jsonl"
+        writer = FakeWriter(tmp_path)
+
+        self._run(writer, "tag-1")
+        self._run(writer, "tag-2")
+        assert sidecar.read_text(encoding="utf-8").splitlines() == ["tag-1", "tag-2"]
+
+    def test_writer_without_output_dir_skips_the_sidecar(self, tmp_path):
+        """The passthrough writer has no destination, so there is nothing to open."""
+        kgx_export = pytest.importorskip(
+            "dismech.export.kgx_export", reason="biolink-model not installed"
+        )
+
+        class PassthroughWriter:
+            pass
+
+        koza_ctx = FakeKozaContext(PassthroughWriter())
+        kgx_export.open_sepio_sidecar(koza_ctx)
+        assert kgx_export._SEPIO_STATE_KEY not in koza_ctx.state
+        assert koza_ctx.logged and koza_ctx.logged[0][0] == "WARNING"
+        # ...and closing without a handle is a no-op rather than a crash.
+        kgx_export.close_sepio_sidecar(koza_ctx)
 
 
 class TestSerialization:

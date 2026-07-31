@@ -51,7 +51,12 @@ KNOWLEDGE_SOURCE = "infores:dismech"
 # written to its own sidecar file. The handle lives in the transform state
 # between the on_data_begin / on_data_end hooks.
 _SEPIO_STATE_KEY = "sepio_sidecar_handle"
-_SEPIO_OPENED_PATHS: set[Path] = set()
+# Sidecar path -> the koza writer that last opened it. Koza builds a fresh
+# transform context per input tag but reuses one writer for the whole run, so
+# recording the writer instance lets the second tag of a run append while a
+# genuinely new run (new writer) truncates — matching the node/edge files, which
+# the writer itself rewrites from scratch each run.
+_SEPIO_SIDECAR_WRITERS: dict[Path, Any] = {}
 SEPIO_SIDECAR_SUFFIX = "_sepio.jsonl"
 
 # Frequency enum to HP term mapping
@@ -1387,9 +1392,13 @@ def open_sepio_sidecar(koza_ctx: KozaTransform) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     # Koza builds a fresh transform context per input tag, so this hook can fire
-    # more than once in a run; only the first open truncates.
-    mode = "a" if path in _SEPIO_OPENED_PATHS else "w"
-    _SEPIO_OPENED_PATHS.add(path)
+    # more than once in a run; only the first open of a run truncates. The guard
+    # is keyed on the writer instance rather than on the path alone, because a
+    # path-keyed guard never resets and would make a second in-process run append
+    # to the first run's sidecar while the node/edge files are rewritten.
+    writer = koza_ctx.writer
+    mode = "a" if _SEPIO_SIDECAR_WRITERS.get(path) is writer else "w"
+    _SEPIO_SIDECAR_WRITERS[path] = writer
     koza_ctx.state[_SEPIO_STATE_KEY] = path.open(mode, encoding="utf-8")
 
 
@@ -1422,27 +1431,27 @@ def koza_transform(koza_ctx: KozaTransform, record: dict[str, Any]) -> None:
     sepio_handle = koza_ctx.state.get(_SEPIO_STATE_KEY)
     disease_name = record.get("name")
 
-    for edge in iter_edges_with_evidence(record):
+    # Materialized rather than streamed because the walk is consumed twice: once
+    # to write the KGX associations, once by the shared statement builder that
+    # `sepio_export.statements_from_record` also uses. One record's edges, so the
+    # list is small.
+    edges = list(iter_edges_with_evidence(record))
+    for edge in edges:
         koza_ctx.write(edge.association)
-        if sepio_handle is None:
-            continue
-        inherited_from = None
-        if edge.indirect and edge.source_node and disease_name:
-            inherited_from = sepio_export.pathophysiology_statement_id(
-                disease_name, edge.source_node
-            )
-        statement = sepio_export.statement_from_association(
-            edge.association,
-            edge.evidence,
-            disease_name=disease_name,
-            section=edge.section,
-            inherited_from=inherited_from,
-        )
-        if statement:
-            sepio_handle.write(sepio_export.dump_statement(statement) + "\n")
 
-    # Pathophysiology node and causal-edge assertions have no KGX edge, so they
-    # exist only in the SEPIO stream.
-    if sepio_handle is not None:
+    if sepio_handle is None:
+        return
+
+    try:
+        for statement in sepio_export.statements_for_edges(edges, disease_name):
+            sepio_handle.write(sepio_export.dump_statement(statement) + "\n")
+        # Pathophysiology node and causal-edge assertions have no KGX edge, so
+        # they exist only in the SEPIO stream.
         for statement in sepio_export.pathophysiology_statements(record):
             sepio_handle.write(sepio_export.dump_statement(statement) + "\n")
+    finally:
+        # Koza calls on_data_end after the record loop with no exception
+        # protection, so flush per record: a mid-run failure then leaves a
+        # sidecar that is complete through the last processed record, matching
+        # the partial node/edge files rather than silently losing buffered lines.
+        sepio_handle.flush()

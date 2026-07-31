@@ -41,6 +41,14 @@ A statement that corresponds to a KGX edge reuses that edge's ``id``, so
 KGX counterpart — pathophysiology node assertions and the causal (``downstream``)
 edges between them, both of which the KGX export can only propagate as indirect
 evidence — get a deterministic UUIDv5 minted from the disease and node names.
+
+The two id families have **different stability guarantees**. KGX association ids
+are random ``uuid4`` values minted per walk (:func:`dismech.export.kgx_export._make_edge_id`),
+so a KGX-joined statement id is only meaningful *within one export artifact pair*
+— it changes between releases, and statements produced by a separate walk of the
+same record (see :func:`statements_from_record`) do not join to an
+already-written ``*_edges.jsonl``. The pathophysiology UUIDv5 ids are stable
+across runs and are the ones downstream consumers can cite.
 """
 
 from __future__ import annotations
@@ -86,6 +94,9 @@ DOCUMENT_TYPE_BY_PREFIX = {
 # The dismech EvidenceItemSupportEnum is mostly a direction-of-support enum, so
 # its values pass through unchanged. NO_EVIDENCE is the exception: it asserts
 # that the reference is silent on the claim, which is not a direction.
+# WRONG_STATEMENT also has no distinct SEPIO direction and collapses onto REFUTE;
+# the raw enum value is preserved on EvidenceLine.dismech_supports so the mapping
+# round-trips rather than losing the distinction the schema draws.
 SUPPORTS_TO_DIRECTION = {
     "SUPPORT": "SUPPORT",
     "PARTIAL": "PARTIAL",
@@ -131,6 +142,10 @@ class EvidenceLine(SepioEntity):
     direction_of_evidence_provided: str | None = None
     has_evidence_items: list[DataItem] = []
     description: str | None = None
+    # dismech provenance, outside the SEPIO core model: the raw
+    # EvidenceItemSupportEnum value, carried through because the SEPIO direction
+    # is a lossy projection of it (WRONG_STATEMENT and REFUTE both map to REFUTE).
+    dismech_supports: str | None = None
 
 
 class Statement(SepioEntity):
@@ -193,33 +208,30 @@ def evidence_item_to_line(evidence_item: dict[str, Any], statement_id: str, inde
     if not reference and not snippet:
         return None
 
-    data_items: list[DataItem] = []
-    if snippet or reference:
-        document = None
-        if reference:
-            document = Document(
-                id=reference,
-                document_type=_document_type(reference),
-                title=evidence_item.get("reference_title"),
-            )
-        # A text span's identity is the document it came from plus the exact
-        # quoted text, so the same snippet cited twice resolves to one DataItem.
-        data_items.append(
-            DataItem(
-                id=_uuid5("data-item", reference, snippet or ""),
-                data_type="TextSpan" if snippet else None,
-                value=snippet,
-                reported_in=document,
-            )
+    document = None
+    if reference:
+        document = Document(
+            id=reference,
+            document_type=_document_type(reference),
+            title=evidence_item.get("reference_title"),
         )
+    # A text span's identity is the document it came from plus the exact quoted
+    # text, so the same snippet cited twice resolves to one DataItem.
+    data_item = DataItem(
+        id=_uuid5("data-item", reference, snippet or ""),
+        data_type="TextSpan" if snippet else None,
+        value=snippet,
+        reported_in=document,
+    )
 
     supports = evidence_item.get("supports")
     return EvidenceLine(
         id=_uuid5("evidence-line", statement_id, str(index), reference, snippet or ""),
         evidence_type=evidence_item.get("evidence_source"),
         direction_of_evidence_provided=SUPPORTS_TO_DIRECTION.get(supports, supports) if supports else None,
-        has_evidence_items=data_items,
+        has_evidence_items=[data_item],
         description=evidence_item.get("explanation"),
+        dismech_supports=supports or None,
     )
 
 
@@ -280,7 +292,15 @@ def pathophysiology_node_id(disease_name: str, node_name: str) -> str:
 
 
 def pathophysiology_statement_id(disease_name: str, node_name: str) -> str:
-    """Deterministic statement id for a ``disease has_pathophysiology node`` assertion."""
+    """
+    Deterministic statement id for a ``disease has_pathophysiology node`` assertion.
+
+    This is the id of the *first* node in the disease whose name slugs to
+    ``node_name``, which is also the one an inheriting child statement's
+    ``evidence_inherited_from`` resolves to. A second node that slugged to the
+    same value would be disambiguated by an occurrence counter inside
+    :func:`pathophysiology_statements`; no such collision exists in ``kb/`` today.
+    """
     return _uuid5("pathophysiology", _slug(disease_name), _slug(node_name))
 
 
@@ -310,7 +330,10 @@ def pathophysiology_statements(record: dict[str, Any]) -> Iterator[Statement]:
     # A disease may assert two causal edges between the same pair of nodes when
     # they belong to competing mechanistic hypotheses. The hypothesis groups
     # normally tell them apart; this counter is the backstop that keeps two
-    # otherwise-identical edges from minting one id.
+    # otherwise-identical edges — or two node names that slug to the same value —
+    # from minting one id. The first occurrence always keeps the plain
+    # deterministic id, so `pathophysiology_statement_id` stays the public
+    # answer for the common (collision-free) case.
     minted: Counter[str] = Counter()
 
     def _unique_id(*parts: str) -> str:
@@ -325,7 +348,7 @@ def pathophysiology_statements(record: dict[str, Any]) -> Iterator[Statement]:
             continue
 
         node_id = pathophysiology_node_id(disease_name, node_name)
-        statement_id = pathophysiology_statement_id(disease_name, node_name)
+        statement_id = _unique_id("pathophysiology", _slug(disease_name), _slug(node_name))
         lines = evidence_to_lines(node.get("evidence"), statement_id)
         if lines:
             yield Statement(
@@ -377,24 +400,24 @@ def _get_disease_id(record: dict[str, Any]) -> str | None:
     return term if isinstance(term, str) else None
 
 
-def statements_from_record(record: dict[str, Any]) -> Iterator[Statement]:
+def statements_for_edges(edges: Iterable[Any], disease_name: str | None) -> Iterator[Statement]:
     """
-    Emit every SEPIO statement for one disorder record.
+    Build the SEPIO statements for a stream of KGX edges.
 
-    Covers the KGX associations (joined to the KGX edge file by ``id``) plus the
-    pathophysiology node and causal-edge assertions that have no KGX edge.
+    Shared by :func:`statements_from_record` and the Koza transform that writes
+    the sidecar, so the association-to-statement mapping — including the
+    ``evidence_inherited_from`` back-reference for indirect evidence — has one
+    implementation rather than two that must stay in sync.
 
     Args:
-        record: A disorder dict loaded from YAML
+        edges: ``EdgeWithEvidence`` tuples from
+            :func:`dismech.export.kgx_export.iter_edges_with_evidence`
+        disease_name: ``name`` of the source disorder record
 
     Yields:
-        Statement objects
+        Statement objects, skipping edges that carry no evidence
     """
-    # Imported lazily: kgx_export imports this module to write the sidecar.
-    from dismech.export.kgx_export import iter_edges_with_evidence
-
-    disease_name = record.get("name")
-    for edge in iter_edges_with_evidence(record):
+    for edge in edges:
         inherited_from = None
         if edge.indirect and edge.source_node and disease_name:
             inherited_from = pathophysiology_statement_id(disease_name, edge.source_node)
@@ -408,6 +431,34 @@ def statements_from_record(record: dict[str, Any]) -> Iterator[Statement]:
         if statement:
             yield statement
 
+
+def statements_from_record(record: dict[str, Any]) -> Iterator[Statement]:
+    """
+    Emit every SEPIO statement for one disorder record.
+
+    Covers the KGX associations (joined to the KGX edge file by ``id``) plus the
+    pathophysiology node and causal-edge assertions that have no KGX edge.
+
+    .. warning::
+
+       This function walks the record itself, and KGX association ids are random
+       ``uuid4`` values minted per walk. Its KGX-derived statement ids therefore
+       join only to associations yielded by *this same call* — never to an
+       already-written ``*_edges.jsonl``. To get a sidecar that joins to an edge
+       file, both must come from one transform run (which is what
+       ``just export-kgx`` does). Only the pathophysiology statement ids, which
+       are UUIDv5, are stable across calls and releases.
+
+    Args:
+        record: A disorder dict loaded from YAML
+
+    Yields:
+        Statement objects
+    """
+    # Imported lazily: kgx_export imports this module to write the sidecar.
+    from dismech.export.kgx_export import iter_edges_with_evidence
+
+    yield from statements_for_edges(iter_edges_with_evidence(record), record.get("name"))
     yield from pathophysiology_statements(record)
 
 

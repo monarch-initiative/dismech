@@ -18,6 +18,7 @@ __all__ = [
     "kgx_transform",
     "location_to_edge",
     "phenotype_to_edge",
+    "statements_for_edges",
     "statements_from_record",
     "treatment_to_edge",
     "upload_cx2_to_ndex",
@@ -39,6 +40,7 @@ _SYMBOL_TO_MODULE = {
     "treatment_to_edge": "dismech.export.kgx_export",
     "gene_to_edge": "dismech.export.kgx_export",
     "Statement": "dismech.export.sepio_export",
+    "statements_for_edges": "dismech.export.sepio_export",
     "statements_from_record": "dismech.export.sepio_export",
 }
 

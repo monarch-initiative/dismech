@@ -50,6 +50,20 @@ for line in open("dismech_sepio.jsonl"):
 
 Both files are produced by one transform run, so they always agree.
 
+### The join is scoped to one artifact pair
+
+KGX association ids are random `uuid4` values minted as the record is walked, so
+**a KGX-joined statement id is only meaningful within the `*_edges.jsonl` /
+`*_sepio.jsonl` pair it was released with.** It is not a citable identifier: the
+same assertion gets a different id in the next release, and statements produced
+by a *separate* walk of the same record — which is what the library function
+`dismech.export.statements_from_record()` does — join only to the associations
+yielded by that same call, never to an already-written edge file.
+
+The pathophysiology statement ids are the opposite: deterministic UUIDv5 values
+minted from the disease and node names (see below), stable across runs and
+releases. Those are the ids downstream consumers can cite and link into.
+
 ## The model
 
 The SEPIO classes are **not part of the Biolink Model**, so they are not
@@ -74,6 +88,7 @@ classDiagram
         direction_of_evidence_provided
         has_evidence_items
         description
+        dismech_supports
     }
     class DataItem {
         id
@@ -103,12 +118,21 @@ classDiagram
 | `evidence[].reference` | `Document.id` via `DataItem.reported_in` | |
 | `evidence[].reference_title` | `Document.title` | |
 | `evidence[].explanation` | `EvidenceLine.description` | SEPIO has no dedicated rationale slot; a `rationale` field would be a natural addition |
+| `evidence[].supports` | `EvidenceLine.dismech_supports` | the raw enum value, kept verbatim — see below |
 | — | `Document.document_type` | not in dismech; inferred from the reference prefix |
 
 `EvidenceItemSupportEnum` is mostly a direction-of-support enum and passes
 through unchanged; the two exceptions are `WRONG_STATEMENT` → `REFUTE` (a
 factually wrong claim disputes the assertion) and `NO_EVIDENCE` → `NEUTRAL` (the
 reference is silent on the claim, which is not a direction).
+
+Both exceptions are lossy — the schema deliberately separates "contradicts the
+claim" (`REFUTE`) from "the claim is factually wrong" (`WRONG_STATEMENT`), and
+the SEPIO direction cannot express that. Since the whole point of the sidecar is
+to stop flattening evidence, the raw value is carried through unchanged on
+`EvidenceLine.dismech_supports`, so the mapping round-trips: consumers that only
+want a direction read `direction_of_evidence_provided`, and consumers that need
+the dismech distinction read `dismech_supports`.
 
 `document_type` is inferred from the reference CURIE prefix: `PMID:`/`DOI:` →
 `PRIMARY_LITERATURE`, `PPR:` → `PREPRINT`, `clinicaltrials:` →
@@ -119,7 +143,8 @@ leaves the field unset rather than guessing.
 
 ### dismech provenance fields
 
-Three fields outside the SEPIO core model record where a statement came from:
+Four fields on `Statement`, outside the SEPIO core model, record where a
+statement came from (plus `dismech_supports` on `EvidenceLine`, above):
 
 - `source_disease` — the `name` of the KB entry
 - `dismech_section` — the section it was derived from (`phenotypes`,
@@ -154,7 +179,10 @@ Because pathophysiology nodes are free-text mechanism names with no ontology
 term, they get a local identifier of the form
 `dismech:<Disease_Name>#<Node_Name>`, and their statement ids are deterministic
 UUIDv5 values minted from the disease and node names — stable across runs, so
-links into them survive a re-export.
+links into them survive a re-export. If two node names in one disease ever
+slugged to the same value, an occurrence counter disambiguates the second (the
+same backstop the causal edges use); the first keeps the plain deterministic id,
+so `evidence_inherited_from` still resolves.
 
 ## Worked example
 
@@ -203,7 +231,8 @@ becomes one line of `kgx_export_sepio.jsonl` (pretty-printed here):
           }
         }
       ],
-      "description": "Review describes ENaC hyperactivity and dehydration mechanism in CF airways."
+      "description": "Review describes ENaC hyperactivity and dehydration mechanism in CF airways.",
+      "dismech_supports": "SUPPORT"
     }
   ],
   "source_disease": "Cystic Fibrosis",
