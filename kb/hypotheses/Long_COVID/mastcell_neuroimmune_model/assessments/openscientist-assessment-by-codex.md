@@ -1,5 +1,10 @@
 # Assessment of the OpenScientist Long COVID mast-cell report
 
+- **Provider:** OpenScientist
+- **Assessor:** Codex
+- **Source:** `../openscientist.md`
+- **Overall verdict:** `WEAKLY_SUPPORTED_UNRESOLVED`
+
 ## Overall assessment
 
 **Verdict on the mechanism: weakly supported and unresolved.**

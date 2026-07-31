@@ -1,5 +1,10 @@
 # Assessment of the OpenScientist Long COVID microclot report
 
+- **Provider:** OpenScientist
+- **Assessor:** Codex
+- **Source:** `../openscientist.md`
+- **Overall verdict:** `WEAKLY_SUPPORTED_UNRESOLVED`
+
 ## Overall assessment
 
 **Verdict on the mechanism: weakly supported and unresolved.**
@@ -39,13 +44,14 @@ that “microclot” incorrectly implies an established thrombus.
 
 The broad statement that no independent laboratory has quantified the
 phenomenon is outdated. A 2024 study independently used label-free 3D digital
-holotomography to quantify plasma microclot-like composites
-([PMID:39474148](https://pubmed.ncbi.nlm.nih.gov/39474148/)). A 2026
-US-Canadian study, published before the report date, found higher
-fibrin-amyloid microclot burden in 61 young people with Long COVID than in 23
-controls ([PMID:42020802](https://pubmed.ncbi.nlm.nih.gov/42020802/)). These
-studies weaken the single-group criticism but do not show occlusion or
-causality.
+holotomography to quantify microclot-like composites in COVID-19 plasma, but it
+did not define a Long COVID cohort
+([PMID:39474148](https://pubmed.ncbi.nlm.nih.gov/39474148/)). The Long
+COVID-specific counterexample is a 2026 US-Canadian study, published before the
+report date, that found higher fibrin-amyloid microclot burden in 61 young
+people with Long COVID than in 23 controls
+([PMID:42020802](https://pubmed.ncbi.nlm.nih.gov/42020802/)). This independent
+replication does not show occlusion or causality.
 
 The three proposed pillars cannot be multiplied into one chain. Endothelial
 dysfunction and impaired oxygen extraction are also compatible with autonomic,

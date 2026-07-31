@@ -1,5 +1,10 @@
 # Assessment of the OpenScientist Long COVID microbiome report
 
+- **Provider:** OpenScientist
+- **Assessor:** Codex
+- **Source:** `../openscientist.md`
+- **Overall verdict:** `PARTIALLY_SUPPORTED`
+
 ## Overall assessment
 
 **Verdict on the mechanism: partially supported.**
