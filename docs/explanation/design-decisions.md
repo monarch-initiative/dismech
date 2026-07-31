@@ -561,7 +561,9 @@ documentation at all. Provenance and fitness-for-use therefore have to travel wi
     statement once and never see it again. Session scope keeps the escape hatch — the bar is a
     banner, and a reader working through twenty disorder pages should not have to see it twenty
     times — without turning "I have read this" into "never tell me again". A test asserts the
-    localStorage API is not used anywhere, so this cannot regress by accident.
+    localStorage API is not used *by the disclaimer script* on any surface, so this cannot
+    regress by accident. Deliberately scoped to that script rather than to whole files:
+    `disorder.html.j2` legitimately uses localStorage elsewhere, for its Q&A answer cache.
 
     One consequence worth knowing: sessionStorage follows the *tab*, not the page load. A
     reader who dismisses the bar and then types a DisMech URL into that same tab will not see
