@@ -25,7 +25,7 @@ remain authoritative for day-to-day curation mechanics.
 
 Claude Code skills are available in `.claude/skills/`:
 
-- **dismech-terms**: Use when adding ontology term annotations (HPO phenotypes, CL cell types, GO processes, MAXO treatments). Covers term lookup with OAK, specificity guidelines, and validation.
+- **dismech-terms**: Use when adding ontology term annotations (HPO phenotypes, CL cell types, GO processes, NCIT treatments). Covers term lookup with OAK, specificity guidelines, and validation.
 - **dismech-references**: Use when validating/repairing evidence references. Ensures snippets match PubMed abstracts and catches AI hallucinations.
 
 ## Key Commands
@@ -75,7 +75,7 @@ just --list
 
 ### Schema (`src/dismech/schema/dismech.yaml`)
 - LinkML schema defining Disease, Pathophysiology, Phenotype, EvidenceItem, etc.
-- Uses ontology term bindings (HP, GO, GENO, MONDO, MAXO, etc.) with `meaning` fields
+- Uses ontology term bindings (HP, GO, GENO, MONDO, NCIT, etc.) with `meaning` fields
 - Dynamic enums with `reachable_from` constraints for ontology validation
 - Descriptor classes (PhenotypeDescriptor, CellTypeDescriptor, TreatmentDescriptor) bind entities to ontology terms
 
@@ -88,8 +88,7 @@ just --list
 ### Ontology Configuration (`conf/oak_config.yaml`)
 Maps ontology prefixes to OAK adapters for term validation:
 - HP, CL, GO, MONDO, UBERON, CHEBI, GENO, HGNC → `sqlite:obo:<name>`
-- MAXO (Medical Action Ontology) for treatment terms
-- NCIT (NCI Thesaurus) for cancer/treatment concepts
+- NCIT (NCI Thesaurus) for treatment/clinical-intervention and cancer concepts
 
 ### CURIE Prefix Casing
 
@@ -138,7 +137,6 @@ the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #52
   (`pages/projects/index.html`). See [`docs/projects.md`](docs/projects.md).
 
 ### Scripts (`scripts/`)
-- `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
 
 ### Research Artifacts (`research/`)
 
@@ -686,23 +684,26 @@ treatments:
 - Use a more nuanced `preferred_term` only when the ontology term is genuinely too broad to convey the intended meaning.
 - A `modifier` may be used to capture the semantics of some preferred terms.
 
-### Treatment Terms (MAXO or NCIT)
-Treatments can be annotated with Medical Action Ontology (MAXO) terms or NCI Thesaurus (NCIT)
-clinical intervention terms. NCIT often provides more specific procedure and therapy terms
-than MAXO. Use whichever ontology has the most specific and accurate term for the treatment.
+### Treatment Terms (NCIT)
+Treatments are annotated with NCI Thesaurus (NCIT) clinical-intervention terms, all
+reachable from `NCIT:C25218` (Clinical Intervention or Procedure). (The Medical Action
+Ontology / MAXO was removed from dismech; every former MAXO treatment/diagnosis term was
+remapped to its NCIT equivalent.) Use the most specific and accurate NCIT term for the
+treatment; when NCIT has no suitable clinical-action term, omit `term:` and keep a
+free-text `preferred_term`.
 
 ```yaml
-# MAXO example
+# NCIT treatment example
 treatments:
 - name: Physical Therapy
   description: Rehabilitation exercises to improve mobility.
   treatment_term:
     preferred_term: physical therapy
     term:
-      id: MAXO:0000011
-      label: physical therapy
+      id: NCIT:C15302
+      label: Physical Therapy
 
-# NCIT example
+# A more specific NCIT procedure term
 treatments:
 - name: Orthopedic Surgery
   description: Corrective surgery for skeletal deformities.
@@ -713,29 +714,23 @@ treatments:
       label: Orthopedic Surgical Procedure
 ```
 
-Common MAXO terms:
-- `MAXO:0000004` - surgical procedure
-- `MAXO:0000011` - physical therapy
-- `MAXO:0000079` - genetic counseling
-- `MAXO:0000088` - dietary intervention
-- `MAXO:0000647` - chemotherapy
-- `MAXO:0000014` - radiation therapy
-- `MAXO:0001017` - vaccination
-- `MAXO:0010039` - organ transplantation
-- `MAXO:0000950` - supportive care
-
 Common NCIT clinical intervention terms:
 - `NCIT:C15986` - Pharmacotherapy (drug treatments)
+- `NCIT:C15632` - Chemotherapy
 - `NCIT:C49236` - Therapeutic Procedure
 - `NCIT:C15329` - Surgical Procedure
 - `NCIT:C16186` - Orthopedic Surgical Procedure
 - `NCIT:C15302` - Physical Therapy
+- `NCIT:C15238` - Gene Therapy
+- `NCIT:C15240` - Genetic Counseling
+- `NCIT:C15447` - Dietary Intervention
+- `NCIT:C15313` - Radiation Therapy
+- `NCIT:C15289` - Organ Transplantation
 - `NCIT:C15315` - Rehabilitation
 - `NCIT:C15747` - Supportive Care
 
 Use OAK to search for terms:
 ```bash
-uv run runoak -i sqlite:obo:maxo search "physical therapy"
 uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 ```
 
@@ -749,7 +744,7 @@ or NCIT (for drug classes).
 
 **When to use `therapeutic_agent`:**
 - `treatment_term` is a generic action like `NCIT:C15986` (Pharmacotherapy),
-  `MAXO:0000647` (chemotherapy), `MAXO:0001017` (vaccination), or `MAXO:0000014` (radiation therapy)
+  `NCIT:C15632` (chemotherapy), `NCIT:C15346` (vaccination), or `NCIT:C15313` (radiation therapy)
 - A specific drug, chemical, or drug class is referenced in the `name` / `description`
 - You want the treatment to be machine-queryable by drug identity
 
@@ -802,8 +797,8 @@ treatments:
   treatment_term:
     preferred_term: chemotherapy
     term:
-      id: MAXO:0000647
-      label: chemotherapy
+      id: NCIT:C15632
+      label: Chemotherapy
     therapeutic_agent:
     - preferred_term: fluorouracil
       term:
@@ -838,7 +833,7 @@ Antagonist) are **not** reachable from that root and will fail validation if use
 those belong in `therapeutic_agent` instead.
 
 **How the three slots divide the work:**
-- `treatment_term`: the medical action/modality (e.g. `MAXO:0000647` chemotherapy, `NCIT:C15986` Pharmacotherapy)
+- `treatment_term`: the medical action/modality (e.g. `NCIT:C15632` chemotherapy, `NCIT:C15986` Pharmacotherapy)
 - `therapeutic_agent`: the individual drug(s) or drug class(es) involved
 - `regimen_term`: the named combination protocol itself, when one exists
 
@@ -848,8 +843,8 @@ treatments:
   treatment_term:
     preferred_term: chemotherapy
     term:
-      id: MAXO:0000647
-      label: chemotherapy
+      id: NCIT:C15632
+      label: Chemotherapy
     therapeutic_agent:
     - preferred_term: doxorubicin
       term:
@@ -920,15 +915,19 @@ with no per-disease research needed, when that action term's own definition
 
 | `treatment_term.term.id` | `therapeutic_modality` |
 |---|---|
-| `MAXO:0000004`, `NCIT:C154430`, `NCIT:C15329`, `NCIT:C16186`, `MAXO:0010039` (surgical procedure / resection / transplantation) | `SURGERY` |
-| `MAXO:0000014`, `NCIT:C15313` (radiation therapy) | `RADIOTHERAPY` |
-| `MAXO:0000088` (dietary intervention), `MAXO:0000011`, `NCIT:C15302` (physical therapy), `MAXO:0000930` (speech therapy), `MAXO:0001351` (occupational therapy), `MAXO:0000077` (behavioral counseling) | `BEHAVIORAL` |
-| `MAXO:0001001` (gene therapy) | `GENE_THERAPY` |
-| `MAXO:0000747` (hematopoietic stem cell transplantation — explicitly listed as a `CELL_THERAPY` example) | `CELL_THERAPY` |
-| `MAXO:0001017` (vaccination) | `VACCINE` |
-| `MAXO:0009030` (hearing aid usage) | `DEVICE` |
+| `NCIT:C154430`, `NCIT:C15329`, `NCIT:C16186`, `NCIT:C15289` (surgical procedure / resection / transplantation) | `SURGERY` |
+| `NCIT:C15313` (radiation therapy) | `RADIOTHERAPY` |
+| `NCIT:C15447` (dietary intervention), `NCIT:C15302` (physical therapy), `NCIT:C159273` (speech therapy), `NCIT:C121351` (occupational therapy), `NCIT:C181743` (behavioral counseling) | `BEHAVIORAL` |
+| `NCIT:C15238` (gene therapy) | `GENE_THERAPY` |
+| `NCIT:C15431` (hematopoietic cell transplantation — explicitly listed as a `CELL_THERAPY` example) | `CELL_THERAPY` |
+| `NCIT:C15346` (vaccination) | `VACCINE` |
 
-**Do not** extend this table with `MAXO:0000106` (nutritional supplementation).
+(There is no reliable NCIT clinical-action term for device usage — the former
+`hearing aid usage` term had no NCIT equivalent and was dropped in the MAXO
+removal — so `DEVICE` cannot be inferred mechanically from `treatment_term.term.id`.)
+
+**Do not** mechanically tag nutritional-supplementation terms (`NCIT:C15433`
+Nutritional Support) as `BEHAVIORAL`.
 It looks dietary but in practice names a specific chemical/vitamin compound
 (biotin, carnitine, vitamin E, triheptanoin) far more often than a diet-pattern
 change — the correct modality is usually `SMALL_MOLECULE`, sometimes something
@@ -936,8 +935,8 @@ else entirely, and always needs a look at the actual treatment before deciding.
 This was tried and reverted during the initial backfill (2026-07-08) after it
 mis-tagged real drug therapies as `BEHAVIORAL`.
 
-Generic action terms (`NCIT:C15986` Pharmacotherapy, `MAXO:0000950` supportive
-care, `NCIT:C15240` Genetic Counseling, `NCIT:C93352` Targeted Therapy, etc.)
+Generic action terms (`NCIT:C15986` Pharmacotherapy, `NCIT:C15747` Supportive
+Care, `NCIT:C15240` Genetic Counseling, `NCIT:C93352` Targeted Therapy, etc.)
 are **not** in the mechanical table on purpose — the actual modality there
 depends on the specific drug/agent (see `therapeutic_agent`) or isn't a
 platform-classifiable action at all, and needs a real per-entry look rather
@@ -1307,12 +1306,12 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
 **Three categories of hallucination risk:**
 1. **Fabricated PMIDs** — The cited paper does not exist, or the PMID belongs to an unrelated paper
 2. **Misquoted snippets** — The snippet is paraphrased or invented rather than an exact quote from the real abstract
-3. **Invented ontology terms** — HP, GO, CL, MAXO, CHEBI, or NCIT identifiers that don't exist or whose canonical label doesn't match `term.label`
+3. **Invented ontology terms** — HP, GO, CL, CHEBI, or NCIT identifiers that don't exist or whose canonical label doesn't match `term.label`
 
 **Mandatory verification workflow for any curation step sourced from DR:**
 1. For **each new PMID** cited: run `just fetch-reference PMID:XXXX` to fetch the real abstract
 2. For **each snippet**: manually verify it is an exact substring of the abstract by comparing against the cached file in `references_cache/PMID_XXXX.md`
-3. For **each ontology term** (HP, GO, CL, MAXO, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms kb/disorders/YourDisease.yaml`
+3. For **each ontology term** (HP, GO, CL, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms kb/disorders/YourDisease.yaml`
 4. Run the full validation suite before committing (see Validation Workflow below)
 
 If a DR-suggested citation cannot be verified against the real abstract, do not use it. Find an alternative source or remove the claim entirely.
@@ -1385,6 +1384,13 @@ just validate-references kb/disorders/MyDisease.yaml
 # 3. Term validation (ontology IDs/labels correct)
 just validate-terms kb/disorders/MyDisease.yaml
 ```
+
+**Reading the reference-validation summary:** `Total checks: 0` on a passing file
+does **not** mean nothing was checked — the upstream counter reports *issues
+found*, so it is 0 by definition on a clean run (issue #7252). The affirmative
+signal is the `Snippets checked: N/N verified against cached references` line the
+wrapper appends. Run it standalone with `just count-verified-snippets <file>`.
+Do not "fix" the validator on the basis of a zero here.
 
 ### 4. When Evidence Cannot Be Verified
 
