@@ -45,15 +45,20 @@ in cell models; its in-vivo reversal experiment used SHP2 plus ERK inhibition.
 The report overstates [PMID:41165456](https://pubmed.ncbi.nlm.nih.gov/41165456/)
 as evidence from multiselective-RAS(ON)-resistant models. That NSCLC study
 selected resistance to G12C(OFF) or G12C-selective RAS(ON) inhibitors.
-KRAS amplification, NRAS mutation, and RTK/persistent-RAS states were generally
-overcome by multiselective RMC-7977. It therefore narrows, rather than directly
-supports, those routes as explanations of daraxonrasib escape.
+The KRAS-amplified and NRAS-mutant models were vulnerable to dual RMC-4998 plus
+RMC-7977 treatment, while the RTK/persistent-RAS models were sensitive to
+RMC-7977 alone. Multiselective inhibition, alone or in combination, therefore
+overcame these states rather than establishing them as routes of daraxonrasib
+escape.
 
 The metabolic claim also needs tighter scope.
 [PMID:41545339](https://pubmed.ncbi.nlm.nih.gov/41545339/) establishes
 mitochondrial remodeling and GPX4 vulnerability chiefly after dual SHP2/MEK
 inhibition, with confirmation under direct RAS targeting. It does not establish
 that this is a prevalent patient-level daraxonrasib resistance route.
+The RTK/PI3K compensation anchor
+([PMID:25736685](https://pubmed.ncbi.nlm.nih.gov/25736685/)) is likewise analog
+evidence from a KRAS-driven PDAC mouse model, not a clinical daraxonrasib cohort.
 
 ## Curation implication
 

@@ -70,3 +70,9 @@ explicit caveats for mouse models and combination composition. Do not promote a
 patient-level checkpoint-benefit claim, a Treg-relief edge, or a singular
 antigen-presentation “owner” without paired human biopsies and direct mediation
 experiments.
+
+The tumor-cell MHC-I, MDSC-like-subset, FoxP3-positive Treg, and
+daraxonrasib-plus-anti-PD-1 details are available in the
+[open-access full text](https://pmc.ncbi.nlm.nih.gov/articles/PMC12319402/), not
+the PubMed abstract. Any later promotion of those details into the disease YAML
+should cite a full-text source with an exact supporting snippet.
