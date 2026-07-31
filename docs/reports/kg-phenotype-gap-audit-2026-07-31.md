@@ -49,6 +49,28 @@ Fanconi Anemia 101 overlap, Alpha Mannosidosis 64/64, Takayasu Arteritis 52/52,
 Cystinosis 57/57, Granulomatosis with Polyangiitis 63/65. Where dismech is thorough, it
 matches HPOA nearly term-for-term.
 
+## Subsumption-aware refinement (recommended reading)
+
+Exact-ID matching is a lower bound. Re-scoring against the HP `is_a` hierarchy
+(`scripts/kg_phenotype_subsumption.py`, run offline from the same cache — no extra API
+calls) recovers granularity differences a dismech term shares with a parent/child KG term:
+
+| Match class | Count | % of dismech HP |
+|---|---|---|
+| EXACT | 10,944 | 64.6% |
+| + MORE_SPECIFIC (dismech finer than KG) | 864 | |
+| + MORE_GENERAL (dismech coarser than KG) | 931 | |
+| **= SEMANTIC overlap** | **12,739** | **75.2%** |
+| UNMATCHED (truly novel dismech HP) | 4,200 | 24.8% |
+
+**Exact 64.6% → subsumption-aware 75.2% (+10.6 pts).** So a tenth of the apparent
+"disagreement" is just dismech and HPOA describing the same phenotype at different
+granularity — real agreement, not a gap. The **4,200 UNMATCHED** terms are the refined,
+higher-confidence dismech → KG contribution set (down from 5,995 raw `dismech_only`);
+worklist in `research/kg_phenotype_subsumption.tsv` (`unmatched_terms` column). It stays
+concentrated in the same sole-source diseases — Dravet (46 of 49 novel), Long COVID,
+Multiple Sclerosis, Celiac, IBD, Murine Typhus, Monkeypox, AL Amyloidosis — confirming §A.
+
 ## Tiers by KG phenotype count
 
 | Tier | Diseases | Reading |
@@ -109,8 +131,8 @@ than a gap to close wholesale. Examples with modest, reviewable lists: `Blau_Syn
 
 ## Follow-ups (#7175)
 
-- **Subsumption-aware matching** (HP hierarchy) to convert exact-match under-counts into
-  true semantic overlap — the biggest accuracy win for this axis.
-- Feed §A (263 sole-source) and §B (`dismech_only`) into a dismech → Monarch/HPOA
-  contribution set.
+- ✅ **Subsumption-aware matching** (HP hierarchy) — done (`kg_phenotype_subsumption.py`;
+  see the refinement section above). Exact 64.6% → semantic 75.2%.
+- Feed §A (263 sole-source) and the 4,200 subsumption-UNMATCHED terms into a dismech →
+  Monarch/HPOA contribution set.
 - Groupings/modules anchoring; **Mondo → dismech** curation-target direction (scope call pending).
