@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25095025"
+reference_id: DOI:10.3390/ijms25095025
 title: Investigation of Strategies to Block Downstream Effectors of AT1R-Mediated Signalling to Prevent Aneurysm Formation in Marfan Syndrome
 authors:
 - Irene Valdivia Callejon
@@ -17,6 +17,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25095025
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Investigation of Strategies to Block Downstream Effectors of AT1R-Mediated Signalling to Prevent Aneurysm Formation in Marfan Syndrome

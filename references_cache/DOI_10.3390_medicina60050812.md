@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicina60050812"
+reference_id: DOI:10.3390/medicina60050812
 title: "Pharmaceutical Management of Secondary Hyperparathyroidism and the Role of Surgery: A 5-Year Retrospective Study"
 authors:
 - Christina Sevva
@@ -18,6 +18,7 @@ journal: Medicina
 year: '2024'
 doi: 10.3390/medicina60050812
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pharmaceutical Management of Secondary Hyperparathyroidism and the Role of Surgery: A 5-Year Retrospective Study

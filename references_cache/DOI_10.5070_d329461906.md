@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5070/d329461906"
+reference_id: DOI:10.5070/d329461906
 title: Cutaneous larva migrans in the northeastern US
 authors:
 - Michael Johanis
@@ -13,6 +13,7 @@ journal: Dermatology Online Journal
 year: '2023'
 doi: 10.5070/d329461906
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Cutaneous larva migrans in the northeastern US

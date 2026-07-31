@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE36335"
+reference_id: GEO:GSE36335
 title: Distinct tumorigenic pathways within hereditary nonpolyposis colorectal cancer
 content_type: summary
+full_text_attempted: true
 ---
 
 # Distinct tumorigenic pathways within hereditary nonpolyposis colorectal cancer

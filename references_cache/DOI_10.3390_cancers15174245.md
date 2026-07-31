@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15174245"
+reference_id: DOI:10.3390/cancers15174245
 title: "Immunotherapy for Colorectal Cancer with High Microsatellite Instability: The Ongoing Search for Biomarkers"
 authors:
 - Javier Ros
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15174245
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Immunotherapy for Colorectal Cancer with High Microsatellite Instability: The Ongoing Search for Biomarkers

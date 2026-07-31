@@ -15,8 +15,14 @@ KB_DIR = ROOT_DIR / "kb" / "disorders"
 COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
 MODULES_DIR = ROOT_DIR / "kb" / "modules"
 GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
-SYNTHESIS_SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "research_synthesis.yaml"
+SYNTHESIS_SCHEMA_PATH = (
+    ROOT_DIR / "src" / "dismech" / "schema" / "research_synthesis.yaml"
+)
+HYPOTHESIS_ASSESSMENT_SCHEMA_PATH = (
+    ROOT_DIR / "src" / "dismech" / "schema" / "hypothesis_assessment.yaml"
+)
 RESEARCH_DIR = ROOT_DIR / "research"
+HYPOTHESES_DIR = ROOT_DIR / "kb" / "hypotheses"
 
 # Get all disorder YAML files (exclude history snapshots)
 DISORDER_FILES = [
@@ -25,6 +31,9 @@ DISORDER_FILES = [
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
 GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
 SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
+HYPOTHESIS_ASSESSMENT_FILES = glob.glob(
+    str(HYPOTHESES_DIR / "*" / "*" / "assessments" / "*-assessment-by-*.yaml")
+)
 
 
 def _disease_names():
@@ -506,8 +515,8 @@ def test_treatment_dietary_modifications_validate(validator):
                 "treatment_term": {
                     "preferred_term": "dietary intervention",
                     "term": {
-                        "id": "MAXO:0000088",
-                        "label": "dietary intervention",
+                        "id": "NCIT:C15447",
+                        "label": "Dietary Intervention",
                     },
                     "dietary_modifications": [
                         {
@@ -542,8 +551,8 @@ def test_treatment_dietary_modifications_accept_chebi_nutrient(validator):
                 "treatment_term": {
                     "preferred_term": "dietary intervention",
                     "term": {
-                        "id": "MAXO:0000088",
-                        "label": "dietary intervention",
+                        "id": "NCIT:C15447",
+                        "label": "Dietary Intervention",
                     },
                     "dietary_modifications": [
                         {
@@ -578,7 +587,7 @@ def test_treatment_action_category_validates(validator):
                 "action_category": "SCREENING",
                 "treatment_term": {
                     "preferred_term": "disease screening",
-                    "term": {"id": "MAXO:0000124", "label": "disease screening"},
+                    "term": {"id": "NCIT:C15419", "label": "Disease Screening"},
                 },
             }
         ],
@@ -1151,6 +1160,37 @@ def test_synthesis_derive_consensus():
     assert derive_consensus(finding("CONCORDANT", "CONCORDANT")) == "UNANIMOUS"
     assert derive_consensus(finding("CONCORDANT", "PARTIAL")) == "MAJORITY"
     assert derive_consensus(finding("SILENT", "SILENT")) == "SINGLE"
+
+
+@pytest.fixture(scope="module")
+def hypothesis_assessment_validator():
+    """Validator bound to the standalone hypothesis-assessment schema."""
+    return Validator(HYPOTHESIS_ASSESSMENT_SCHEMA_PATH)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", HYPOTHESIS_ASSESSMENT_FILES)
+def test_valid_hypothesis_assessment_files(filepath, hypothesis_assessment_validator):
+    """All assessment sidecars validate against the HypothesisAssessment class."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    report = hypothesis_assessment_validator.validate(
+        data, target_class="HypothesisAssessment"
+    )
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", HYPOTHESIS_ASSESSMENT_FILES)
+def test_hypothesis_assessment_links_and_quotes(filepath):
+    """Assessment sidecars have valid layout, artifacts, and verbatim report quotes."""
+    from dismech.hypothesis_assessment import iter_assessment_problems
+
+    problems = list(iter_assessment_problems(filepath))
+    assert not problems, f"Assessment validation problems in {filepath}: {problems}"
 
 
 @pytest.mark.kb_data

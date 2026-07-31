@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/blood-2024-210274"
+reference_id: DOI:10.1182/blood-2024-210274
 title: Real-Word Effectiveness of Pacritinib in Patients with Myelofibrosis Who Have Thrombocytopenia and Anemia
 authors:
 - Raajit Rampal
@@ -16,6 +16,7 @@ journal: Blood
 year: '2024'
 doi: 10.1182/blood-2024-210274
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Real-Word Effectiveness of Pacritinib in Patients with Myelofibrosis Who Have Thrombocytopenia and Anemia

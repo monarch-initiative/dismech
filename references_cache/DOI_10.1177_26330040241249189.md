@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/26330040241249189"
+reference_id: DOI:10.1177/26330040241249189
 title: "Establishing resources and increasing awareness to advance research on Dentatorubral-pallidoluysian atrophy toward a treatment: a patient organization perspective"
 authors:
 - Silvia Prades
@@ -9,6 +9,7 @@ journal: Therapeutic Advances in Rare Disease
 year: '2024'
 doi: 10.1177/26330040241249189
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Establishing resources and increasing awareness to advance research on Dentatorubral-pallidoluysian atrophy toward a treatment: a patient organization perspective

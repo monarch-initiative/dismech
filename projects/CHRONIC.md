@@ -56,7 +56,7 @@ This is an evergreen project: beyond the initial phases, "Other" expansion categ
 
 - Document disease mechanisms with evidence-backed pathophysiology
 - Map phenotypes to HPO terms
-- Annotate treatments with MAXO terms
+- Annotate treatments with NCIT terms
 - Provide PMID-supported evidence for all claims
 
 ## Target Diseases - Phase 1 (Complete)

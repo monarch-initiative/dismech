@@ -1,4 +1,4 @@
-# Contributing to dismech (guide for human)
+# Contributing to dismech (guide for humans)
 
 Thank you for your interest in contributing to the Disorder Mechanisms Knowledge Base!
 
@@ -9,7 +9,7 @@ Thank you for your interest in contributing to the Disorder Mechanisms Knowledge
 
 Most of this guide assumes some familiarity with running agent harnesses such as claude code
 or codex. Even if you are not familiar with these, you are welcome to file issues
-(__UPDATE__ see [#5833](https://github.com/monarch-initiative/dismech/issues/6833) for filing issues as a non-collaborator)
+(__UPDATE__: see [#6833](https://github.com/monarch-initiative/dismech/issues/6833) for instructions on filing issues as a non-collaborator).
 
 This guide also assumes you are a member of the Monarch Initiative and specifically the dismech team.
 While we welcome contributions from anyone, if you intend to make a PR, please read the note below
@@ -51,19 +51,19 @@ models is more likely to generate lower quality content. While this will typical
 (which always uses high quality models), use of lower quality models can lead to wasteful back and forth. Also,
 this is more of a drain on your time.
 
-Advanced users are welcome to try using alternative models and harnesses as experiments, or used intentionally
-when you know how to match the level of difficulty with a task (but you should coordinate on slack before doing this).
+Advanced users are welcome to try using alternative models and harnesses as experiments, or use them intentionally
+when you know how to match the level of difficulty with a task (but you should coordinate on Slack before doing this).
 
 ## Be bold
 
 Every member of the dismech team is encouraged to do work that ends in a PR. You are not expected to check the results
-for yourself. We assume good faith and you are not intentionally pushing the agent to add bad content (though we
-welcome this as an experiment, if you coordinate! you can see a few examples of this already, e.g [Bixonimania request](https://github.com/monarch-initiative/dismech/issues/1565)).
+for yourself. We assume that you are acting in good faith and you are not intentionally pushing the agent to add bad content (though we
+welcome this as an experiment, if you coordinate first! you can see a few examples of this already, e.g. [Bixonimania request](https://github.com/monarch-initiative/dismech/issues/1565)).
 
 The general philosophy is to **trust the process**. All PRs are reviewed by agents using rubrics that have been
 extensively evaluated by agents and humans in collaboration. Additionally, a battery of hard validation checks
 and anti-hallucination measures are applied. This is not guaranteed to be perfect, but we also believe
-in incremental improvement. No entry is finished, and in fact all entries are continuously being refined.
+in incremental improvement. No entry is ever considered "finished", and in fact all entries are continuously being refined.
 
 ## Important: Open PRs from Origin Branches, Not Forks
 
@@ -90,17 +90,23 @@ In future the workflow may be modified since the current status is a bit confusi
 
 ## Technical Guidelines for Contributing
 
+As described above, contributions to DisMech are made by humans invoking AI agents, with other AI agents vetting the contributions.
+
 ### Coding agent
 
-Most contributors use **Claude Code** or **Codex** for AI-assisted curation. To contribute as an agent manager:
+Most contributors use **Claude Code** or **Codex** for AI-assisted curation.
+The instructions below explain how to install the Claude Code command-line interface (CLI).
+An easier option for many people who want to curate diseases in DisMech is to set up the Claude Code web interface ([claude.ai/code](https://claude.ai/code)).
+For instructions on that, please see the section on [Running dismech in Claude Code on the web](#running-dismech-in-claude-code-on-the-web).
 
 ### 1. Install Claude Code
-- Get a Claude Pro subscription at [claude.ai](https://claude.ai)
+- Get a Claude Pro subscription at [claude.ai](https://claude.ai) - you won't be able to do curation with the free version of Claude.
 - Install Claude Code CLI:
   ```bash
   brew install claude-code  # macOS
   ```
-  For other platforms, see [claude.ai/code](https://claude.ai/code)
+
+For installing on other (non-macOS) platforms, see [claude.ai/code](https://claude.ai/code).
 
 ### 2. Install `just` Command Runner
 Test if you have it:
@@ -108,7 +114,7 @@ Test if you have it:
 just --version
 ```
 
-If not installed:
+If not, install it:
 ```bash
 brew install just  # macOS
 # Or see https://github.com/casey/just#installation for other platforms
@@ -131,13 +137,16 @@ For comprehensive biomedical literature research, we recommend **Edison Scientif
 
 Note: if you are affiliated with an academic institution you should be able to request bonus credits with Edison
 
-**Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details)
+**Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details).
+For example, `openscientist` uses its own `OPENSCIENTIST_API_KEY` — see [3b](#3b-set-up-openscientist-for-hypothesis-exploration) below.
 
-We no longer recommend Asta for the deep research role
+We no longer recommend Asta for the deep research role.
 
-#### 3b. Set up Open Scientist for hypothesis exploration
+#### 3b. Set up OpenScientist for hypothesis exploration
 
-Any agent can use openscientist in two ways
+[OpenScientist](https://github.com/openscientist-io/openscientist) is our autonomous AI scientist that generates and tests hypotheses from scientific data.
+
+Any agent can use OpenScientist in two ways:
 
 1. as a literature deep research tool
 2. as a tool combining literature search, hypothesis generation, data analysis, and data exploration
@@ -150,7 +159,7 @@ In both cases, you will need to obtain an API key from [openscientist.io](https:
    export OPENSCIENTIST_API_KEY=your_key_here
    ```
 
-### 4. Clone and Start
+### 4. Clone repo and start curating
 ```bash
 git clone https://github.com/monarch-initiative/dismech.git
 cd dismech
@@ -169,6 +178,100 @@ Then start curating using the `curate` skill:
 
 For more guidance on AI-assisted curation workflows, see [ai4curation/aidocs](https://github.com/ai4curation/aidocs).
 
+### Running dismech in Claude Code on the web
+
+Assuming you have Claude Pro or Max (or a Team plan), you can curate from [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web)
+instead of the local CLI. This makes the curation process simpler. The repo is cloned for you, and when you're done you
+just press **Create PR** — commits and the PR are handled for you.
+
+The one non-obvious part is a **one-time cloud environment setup**. An
+*environment* is a reusable config (network access, environment variables, and
+an optional setup script) that your cloud sessions run in. Instructions are below.
+
+#### Setting up Claude Code on the web
+
+NOTE: these instructions and screenshots were added on 2026-07-28 and may change in the future.
+
+1. Go to [claude.ai/code](https://claude.ai/code). Click the grayed-out tab near the top left that says "`</>` Code".
+   <img width="372" height="289" alt="Screenshot 2026-07-28 at 3 34 35 PM" src="https://github.com/user-attachments/assets/e3733117-cd95-40b1-a256-ad1753ff455f" />
+
+2. Ignore the "Download for macOS" button and click the "Continue on web →" button lower down.
+   <img width="679" height="578" alt="Screenshot 2026-07-28 at 3 59 39 PM" src="https://github.com/user-attachments/assets/f2be279f-f5f7-4860-83a4-11c7afe8b9ca" />
+
+3. Click "Get Started" and then, on the next screen, click "Connect a different way".
+   <img width="409" height="396" alt="Screenshot 2026-07-28 at 4 23 47 PM" src="https://github.com/user-attachments/assets/d355f9e8-00fc-4433-bdca-90adb60603fc" />
+
+4. Click "Continue with GitHub", then click "Authorize".
+   <img width="755" height="383" alt="Screenshot 2026-07-28 at 4 25 48 PM" src="https://github.com/user-attachments/assets/821ff73e-91a6-4998-b312-720db905a824" />
+
+5. You should now be at claude.ai/code. Click the "+ Select repo" button above the query box, and select "monarch-initiative/dismech" from the list of repos. If it doesn't appear there, find it via the query box.
+   <img width="498" height="564" alt="Screenshot 2026-07-28 at 4 33 47 PM" src="https://github.com/user-attachments/assets/91c46ea4-f990-414d-bd7b-ee6e1989c90a" />
+
+Now you're ready to set up your cloud environment (this is a one-time step).
+
+#### Setting up your cloud environment
+
+1. **Configure the environment.** At [claude.ai/code](https://claude.ai/code), select
+   the current environment by clicking the button with a cloud icon (which probably says "Default") to open the environment selector.
+   <img width="378" height="338" alt="Screenshot 2026-07-28 at 4 36 54 PM" src="https://github.com/user-attachments/assets/8b0eb12b-954a-4e50-a9c9-282d0db22a4d" />
+
+   Now (this is a bit non-obvious) _hover_ your mouse over the checkmark next to "Default" to make the gear icon appear, and click the gear to open the environment settings dialog.
+   <img width="355" height="104" alt="Screenshot 2026-07-28 at 4 37 20 PM" src="https://github.com/user-attachments/assets/2d91832c-2742-4f4d-ac9a-ce548a2414d6" />
+
+   The dialog has fields for the name, network access level, environment
+   variables, and setup script.
+   (The "Create your environment" step of [the get-started guide](https://code.claude.com/docs/en/web-quickstart) describes these fields.)
+
+2. **Name your environment.**
+   Click on the Name box and choose a name for your environment (e.g., "dismech").
+   
+3. **Set Network access to Full.**
+   Use the **Network
+   access** selector and choose **Full**. The default setting, **Trusted**,
+   only allows an allowlist of package registries and GitHub, which blocks the
+   literature/deep-research and structured-source hosts that dismech curation accesses
+   (PubMed, ClinicalTrials.gov, Edison, OpenScientist, Orphanet, ClinGen).
+
+4. **Add your deep-research API keys** in the Environment variables field. This field
+   uses `.env` format — one `KEY=value` per line, and **do not use quotes** (quotes are stored as part of the value):
+   ```text
+   EDISON_API_KEY=<YOUR_EDISON_KEY>
+   OPENSCIENTIST_API_KEY=<YOUR_OPENSCIENTIST_KEY>
+   ```
+
+   These are the same keys as the local setup — see
+   [Set Up a Deep Research Provider](#3-set-up-a-deep-research-provider-required)
+   above for how to obtain them. If you set these up locally, they're in whatever
+   shell profile you exported them from (e.g. `~/.zshrc`).
+
+   Note: the Environment variables field is plain text, not a secrets store — the values are
+   visible to anyone who can open the environment's settings. On a personal account, that's only you.
+   
+5. **Add an install of `just` to the setup script** in the "Setup script" box (just this one line):
+   ```
+   uv tool install rust-just
+   ```
+   If you don't do this, every session has to re-install `just` before curation can start.
+
+   Note that the "Setup script" is the home for any other one-time bootstraps that you may want to add.
+
+Setting up the cloud configuration is the only hard part. Once the environment exists, curation on the web works the same
+as on the command line — `/curate` a disorder, then create the PR when ready.
+
+#### Cloud sessions
+
+One of the nice things about running Claude on the web is that you can set up multiple sessions, and archive them when they're finished. Archived sessions don't use any tokens, but you can restart them if you want.
+
+**Tip: keep each session focused.** Every cloud session runs in a fresh VM with
+approximate ceilings (a memory limit and ~30 GB of disk). A single session that
+curates one disorder or a small group of related disorders stays well within
+those limits; one that keeps going across many unrelated diseases accumulates
+context and on-disk state (downloaded ontology DBs, caches) and can slow down or
+hit the ceiling. Prefer a **new session per disorder or small themed batch**,
+then let it finish; you can archive finished sessions from the sidebar to keep
+the list tidy. The environment config is reused automatically, so a new session
+costs you nothing to set up.
+
 ## Curation Model: AI-Assisted with Human Oversight
 
 This knowledge base uses an **AI-first curation model**:
@@ -180,7 +283,7 @@ This knowledge base uses an **AI-first curation model**:
 
 ## Contributing Curation Expertise
 
-We welcome any corrections. Our general philosophy is to curate the *process* (we also call this "human regulating the loop" rather than "human in the loop")
+We welcome any corrections. Our general philosophy is to curate the *process* (we also call this "human regulating the loop" rather than "human in the loop"):
 
 - look for *patterns* where results are suboptimal; curate examples and counter-examples; work with agent to integrate this into the process
 - review the reviews: are there things the AI reviewer misses, or does it obsess over things that are less relevant? work with an agent to improve this
@@ -201,13 +304,19 @@ still give a flavor of what we do.
 
 ### dragon-ai-agent
 
-- Summon with `@dragon-ai-agent please`
+In dismech, dragon-ai-agent acts as an autonomous curator/reviewer bot integrated into the repo's issue and PR workflow.
+
+- Summon by writing **@dragon-ai-agent please &lt;your request&gt;** in an issue or PR
+  comment/body. Write it as ordinary prose — the mention is ignored if it appears
+  inside an inline code span or fenced code block (so that documenting the keyword
+  doesn't accidentally trigger the agent).
 - You must be a registered ai-controller in the json file
 
-### claude issue responder
+### Claude issue responder
 
 - watches github issues and responds
-- you must be part of the project for this to work. Contact dismech team to be added
+- you must be part of the project for this to work. Contact dismech team to be added.
+- Note: letting it watch issues consumes org API tokens, so use that judiciously
 
 ### Standard CI/CD
 
@@ -215,21 +324,23 @@ still give a flavor of what we do.
 
 ### AI reviewers
 
+The "AI reviewers" here are the claude-code-review and post-review-agent workflows (models configured in `.github/agent-config.yaml`, cadence in `.github/cron-profiles.yaml`); the dismech-pr-review skill defines the review rubric they apply.
+
 - reviews all PRs
 - will mark PRs as being "changes requested" or "ready to merge"
 - does not work on forks; see above
 
 ### Scanners
 
-Various scanners operate at different intervals
+Various scanners operate at different intervals:
 
 - scanning literature for new papers, creating issues
 - scanning unadopted open issues and PRs, and moves them forward
 - scans for incomplete entries using linkml-data-qc and creates PRs to enhance them
 
-Unlike the review agent which is always top-tier model, some scanners for low-risk tasks may
+Unlike the review agent, which always uses a top-tier model, some scanners for low-risk tasks may
 use cheaper models. Additionally, github labels can be used to manually assign tasks to
-lower quality models (use the `low_effort` tag)
+lower quality models (use the `low_effort` tag).
 
 ### For AI Agents (Claude Code, etc.)
 
@@ -250,7 +361,7 @@ If you're an AI agent working on this repository:
 
 ### For Human Curators
 
-Human curators are welcome! However, as an AI agent I would encourage humans to spend their precious time on high level evaluation and
+Human curators are welcome! However, humans are encouraged to spend their precious time on high level evaluation and
 direction of AI agents rather than directly editing files.
 
 To understand the curation guidelines:
@@ -264,7 +375,7 @@ To understand the curation guidelines:
 
 ## Regenerating Site Content
 
-After making changes to `kb/disorders/*.yaml` files, a github job will generate the site. You don't need to
+After making changes to `kb/disorders/*.yaml` files, a github job will regenerate the site. You don't need to
 know the details but we provide them here anyway:
 
 ### Browser App & HTML Pages
@@ -308,7 +419,7 @@ open app/embeddings/index.html
 
 ### Quality Standards
 
-All contributions must pass validation (this is done for you, your PR will not be merged until your agent resolves these)
+All contributions must pass validation (this is done for you; your PR will not be merged until your agent resolves these)
 
 ```bash
 # Schema validation

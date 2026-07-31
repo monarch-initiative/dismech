@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2147/clep.s245642"
+reference_id: DOI:10.2147/clep.s245642
 title: "&lt;p&gt;Epidemiology of Atypical Hemolytic Uremic Syndrome: A Systematic Literature Review&lt;/p&gt;"
 authors:
 - Kevin Yan
@@ -11,6 +11,7 @@ journal: Clinical Epidemiology
 year: '2020'
 doi: 10.2147/clep.s245642
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # &lt;p&gt;Epidemiology of Atypical Hemolytic Uremic Syndrome: A Systematic Literature Review&lt;/p&gt;

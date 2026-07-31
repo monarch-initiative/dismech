@@ -25,7 +25,7 @@ remain authoritative for day-to-day curation mechanics.
 
 Claude Code skills are available in `.claude/skills/`:
 
-- **dismech-terms**: Use when adding ontology term annotations (HPO phenotypes, CL cell types, GO processes, MAXO treatments). Covers term lookup with OAK, specificity guidelines, and validation.
+- **dismech-terms**: Use when adding ontology term annotations (HPO phenotypes, CL cell types, GO processes, NCIT treatments). Covers term lookup with OAK, specificity guidelines, and validation.
 - **dismech-references**: Use when validating/repairing evidence references. Ensures snippets match PubMed abstracts and catches AI hallucinations.
 
 ## Key Commands
@@ -43,8 +43,11 @@ just validate-all
 # Validate a single disorder file
 just validate kb/disorders/Asthma.yaml
 
-# Validate ontology term references in schema (anti-hallucination check)
-just validate-terms
+# Validate ontology term references in a single file (anti-hallucination check)
+just validate-terms kb/disorders/Asthma.yaml
+
+# Validate ontology term references in the schema's dynamic enums
+just validate-terms-schema
 
 # Run pytest tests
 just pytest-all
@@ -72,7 +75,7 @@ just --list
 
 ### Schema (`src/dismech/schema/dismech.yaml`)
 - LinkML schema defining Disease, Pathophysiology, Phenotype, EvidenceItem, etc.
-- Uses ontology term bindings (HP, GO, GENO, MONDO, MAXO, etc.) with `meaning` fields
+- Uses ontology term bindings (HP, GO, GENO, MONDO, NCIT, etc.) with `meaning` fields
 - Dynamic enums with `reachable_from` constraints for ontology validation
 - Descriptor classes (PhenotypeDescriptor, CellTypeDescriptor, TreatmentDescriptor) bind entities to ontology terms
 
@@ -85,8 +88,7 @@ just --list
 ### Ontology Configuration (`conf/oak_config.yaml`)
 Maps ontology prefixes to OAK adapters for term validation:
 - HP, CL, GO, MONDO, UBERON, CHEBI, GENO, HGNC → `sqlite:obo:<name>`
-- MAXO (Medical Action Ontology) for treatment terms
-- NCIT (NCI Thesaurus) for cancer/treatment concepts
+- NCIT (NCI Thesaurus) for treatment/clinical-intervention and cancer concepts
 
 ### CURIE Prefix Casing
 
@@ -100,7 +102,7 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
 pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
-preprint-scan, weekly-compliance, stale-pr-reassign, post-review-agent) is centralized in
+preprint-scan, weekly-compliance, post-review-agent) is centralized in
 `.github/cron-profiles.yaml` as named profiles (`slow`/`medium`/`fast`/`fast-weekend`).
 Switch with `just cron-profile <name>` (preview with `just cron-profile-preview <name>`,
 list with `just cron-profiles`), which rewrites the `on.schedule` cron lines in
@@ -111,8 +113,8 @@ config instead. Page/build crons are intentionally unmanaged. See
 ### Agent Model Config (`.github/agent-config.yaml`)
 The Claude **model** backing each agentic workflow (curation-scanner,
 discussion-scanner, knowledge-gap-scan, literature-scan, preprint-scan,
-post-review-agent, pr-shepherd, weekly-compliance, claude-code-review) is
-centralized in `.github/agent-config.yaml` — one source of truth instead of a
+post-review-agent, pr-shepherd, weekly-compliance, claude-code-review, claude)
+is centralized in `.github/agent-config.yaml` — one source of truth instead of a
 `--model` hardcoded per workflow. At run time each workflow's `Resolve agent
 config` step (the `.github/actions/resolve-agent-config` composite action) reads
 the config and exports `AGENT_MODEL`; the agent invocation uses `--model ${{
@@ -135,7 +137,6 @@ the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #52
   (`pages/projects/index.html`). See [`docs/projects.md`](docs/projects.md).
 
 ### Scripts (`scripts/`)
-- `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
 
 ### Research Artifacts (`research/`)
 
@@ -268,8 +269,10 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `thrombogenesis` — Conserved thrombus-formation ("Xogenesis") pattern recurring across venous thromboembolism, arterial thrombosis (MI, stroke), cancer-associated thrombosis, and antiphospholipid syndrome: Virchow's triad (endothelial injury, stasis, hypercoagulability) → platelet adhesion, activation, and aggregation → coagulation cascade activation and thrombin-driven fibrin formation → fibrin-platelet thrombus propagation and vascular occlusion → thromboembolism and ischemic tissue injury. Carries the anticoagulant (factor Xa / thrombin inhibition) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the coagulation node). Xogenesis anchor: forms a thrombus (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:125 thrombosis — MPATH lacks a distinct thrombus continuant, a noted OBO gap) at UBERON:0001981 blood vessel. Key conformance target: `thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation`
 - `atherogenesis` — Conserved atheroma/atherosclerotic-plaque formation ("Xogenesis") pattern recurring across coronary artery disease, ischemic stroke, and peripheral artery disease: endothelial dysfunction and subendothelial LDL (apoB-lipoprotein) retention → monocyte recruitment and macrophage foam-cell formation → smooth-muscle-cell phenotypic switching and fibrofatty plaque formation → advanced atheroma with necrotic core and fibrous cap → plaque rupture, thrombosis, and ischemic events (feeds `thrombogenesis`). Carries the LDL-lowering (statin) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the LDL-retention trigger). Xogenesis anchor: forms an atheroma (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:28 atherosclerosis — MPATH lacks a distinct atheroma continuant, a noted OBO gap) at UBERON:0001637 artery. Key conformance target: `atherogenesis#Smooth Muscle Cell Switching and Fibrofatty Plaque Formation`
 - `amyloidogenesis` — Conserved amyloid-deposit formation ("Xogenesis") pattern recurring across AL, ATTR, and AA amyloidosis, Alzheimer disease, and type 2 diabetes: amyloidogenic precursor protein → protein misfolding and beta-sheet oligomerization → amyloid fibril formation and extracellular deposition → progressive tissue amyloid accumulation → organ dysfunction. Conforming nodes substitute the precursor (Ig light chain/AL, transthyretin/ATTR, serum amyloid A/AA, amyloid-beta/Alzheimer). Carries the TTR-stabilizer (tafamidis) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the precursor node). Xogenesis anchor: forms an amyloid deposit (`OGMS:0000079` portion of pathological body substance via `OGMS:0000081` derivation); no MPATH amyloid class (a noted OBO gap). Key conformance target: `amyloidogenesis#Amyloid Fibril Formation and Extracellular Deposition`
+- `diabetic_vascular_complications` — Conserved final-common vascular-injury cascade shared by all forms of diabetes mellitus, independent of the upstream cause of hyperglycemia: chronic hyperglycemia → hyperglycemia-induced oxidative stress and AGE-RAGE activation → endothelial dysfunction and vascular inflammation → diabetic micro- and macrovascular injury → diabetic end-organ complications (kidney disease, retinopathy, neuropathy, atherosclerotic cardiovascular disease). Conforming disorder nodes substitute the disorder-specific route to hyperglycemia (absolute insulin deficiency in type 1, insulin resistance + beta-cell failure in type 2, undernutrition beta-cell impairment in type 5). Carries the SGLT2-inhibitor cardiorenal-protection drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the upstream Chronic Hyperglycemia trigger). Complements the Grouping `Diabetes_Mellitus` (union over the type entries; maps to MONDO:0005015 via `skos:closeMatch`, with the retained umbrella Disease still carrying that term as its `disease_term`) — diabetes is modeled as Grouping + this module + per-type entries, not a blended umbrella graph. Worked conformers: Type I Diabetes (Chronic Hyperglycemia + Chronic Complications nodes), Type 2 Diabetes Mellitus, Malnutrition-Related Diabetes Mellitus. Key conformance target: `diabetic_vascular_complications#Endothelial Dysfunction and Vascular Inflammation`
 - `cardiac_ion_channel_repolarization` — Conserved cardiac channelopathy pattern: cardiac ion-channel or calcium-handling variant → altered action-potential duration / Ca²⁺ handling → arrhythmogenic substrate and triggered activity (EADs/DADs, dispersion of repolarization, reentry) → ventricular tachyarrhythmia → syncope and sudden cardiac death, with a parallel sinoatrial-node automaticity-failure branch producing bradyarrhythmia. For inherited arrhythmia syndromes in structurally normal hearts (Long QT, Short QT, Brugada, RYR2-CPVT, Timothy, torsade/short-coupled VF, familial sick sinus). Key conformance target: `cardiac_ion_channel_repolarization#Arrhythmogenic Substrate and Triggered Activity`
 - `antisense_oligonucleotide_therapy` — Three FDA-approved ASO paradigms: (1) RNase H knockdown: pathogenic mRNA accumulation → RNase H-mediated transcript degradation → reduction of pathogenic protein (SOD1-ALS/tofersen, ATTR/inotersen or eplontersen, FH/mipomersen, FCS/volanesorsen or olezarsen, HAE/donidalorsen, FUS-ALS/jacifusen); (2) Splice-site occlusion: aberrant pre-mRNA splicing → ASO-directed splice redirection → restored protein reading frame (SMA/nusinersen, DMD exon-skipping/eteplirsen, golodirsen, viltolarsen, casimersen); (3) Steric translation blockade: pathogenic viral mRNA translation → steric viral mRNA translation blockade (CMV retinitis/fomivirsen). Key conformance targets: `antisense_oligonucleotide_therapy#Pathogenic mRNA Accumulation`, `antisense_oligonucleotide_therapy#Aberrant Pre-mRNA Splicing`, `antisense_oligonucleotide_therapy#Pathogenic Viral mRNA Translation`
+- `spinal_hsp90_opioid_enhancement` — Conserved opioid-adjuvant drug-mechanism pattern (Streicher lab, preclinical/mouse): spinal Hsp90 chaperone restraint of MOR signaling, relieved by inhibition (intrathecal 17-AAG/KU-32, or spinal-selective Hsp90-beta/Grp94 inhibitors) → two parallel amplifier arms, microglial Src kinase activation and PKCbeta activation in CGRP neurons → ERK-RSK cascade activation (via relief of an AMPK-mediated negative feedback loop; Src upstream of ERK) → enhanced spinal mu-opioid receptor antinociceptive signaling → increased opioid antinociception and improved therapeutic index (potency boost + tolerance rescue, opioid dose-reduction). Drug-target pattern: spinal-selective Hsp90-inhibitor adjuvant treatments use `target_mechanisms` (`INHIBITS`) on the trigger restraint node. CRITICAL scope caveat: effect is spinal-compartment-specific — brain/systemic non-selective Hsp90 inhibition BLOCKS opioid antinociception (opposite direction), so conforming claims must not generalize to systemic Hsp90 inhibition. Flagship: Bowden et al. 2026 (PMID:41031962, the microglial-Src arm). Key conformance / treatment target: `spinal_hsp90_opioid_enhancement#Spinal Hsp90 Chaperone Restraint of MOR Signaling`; convergent hub: `spinal_hsp90_opioid_enhancement#ERK-RSK Cascade Activation`
 
 The following modules capture conserved **treatment-toxicity / "side effect as mechanism"** patterns — adverse-drug-reaction pathophysiology that recurs across many culprit drugs, so a drug-toxicity entry can declare conformance rather than re-deriving the chain (the same insult-agnostic convergence logic the `intestinal_barrier_dysfunction` module already applies to drug-induced and disease-intrinsic diarrhea). Note that several mechanism modules above (`peripheral_axonal_degeneration` for chemo-induced peripheral neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT) already double as toxicity targets without a separate "side effect" class:
 - `myelosuppression` — Conserved cytotoxic bone-marrow-toxicity pattern (chemotherapy, radiation, other antiproliferative exposures): cytotoxic insult to proliferating hematopoietic stem/progenitor cells → bone marrow hematopoietic suppression → multilineage peripheral cytopenias (neutropenia/anemia/thrombocytopenia) → cytopenia-related clinical complications (infection/febrile neutropenia, fatigue, bleeding) and dose-limiting toxicity. Conforming disorder nodes substitute the disorder-specific cytotoxic driver and may specialize the cytopenia node to a predominant lineage. Key conformance target: `myelosuppression#Multilineage Peripheral Cytopenias`
@@ -579,7 +582,7 @@ filename/timestamp — scaffold a schema-valid skeleton and edit its `details`:
 
 ```bash
 just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
-  --summary "Create: Asthma" --agent-tool claude-code --model claude-opus-4-8 \
+  --summary "Create: Asthma" --agent-tool claude-code --model claude-opus-5 \
   --sections phenotypes,pathophysiology,evidence --pr 5123 \
   --details "What was curated and how it was validated."
 # run `just new-history --help` for all options; it prints the created path
@@ -681,23 +684,26 @@ treatments:
 - Use a more nuanced `preferred_term` only when the ontology term is genuinely too broad to convey the intended meaning.
 - A `modifier` may be used to capture the semantics of some preferred terms.
 
-### Treatment Terms (MAXO or NCIT)
-Treatments can be annotated with Medical Action Ontology (MAXO) terms or NCI Thesaurus (NCIT)
-clinical intervention terms. NCIT often provides more specific procedure and therapy terms
-than MAXO. Use whichever ontology has the most specific and accurate term for the treatment.
+### Treatment Terms (NCIT)
+Treatments are annotated with NCI Thesaurus (NCIT) clinical-intervention terms, all
+reachable from `NCIT:C25218` (Clinical Intervention or Procedure). (The Medical Action
+Ontology / MAXO was removed from dismech; every former MAXO treatment/diagnosis term was
+remapped to its NCIT equivalent.) Use the most specific and accurate NCIT term for the
+treatment; when NCIT has no suitable clinical-action term, omit `term:` and keep a
+free-text `preferred_term`.
 
 ```yaml
-# MAXO example
+# NCIT treatment example
 treatments:
 - name: Physical Therapy
   description: Rehabilitation exercises to improve mobility.
   treatment_term:
     preferred_term: physical therapy
     term:
-      id: MAXO:0000011
-      label: physical therapy
+      id: NCIT:C15302
+      label: Physical Therapy
 
-# NCIT example
+# A more specific NCIT procedure term
 treatments:
 - name: Orthopedic Surgery
   description: Corrective surgery for skeletal deformities.
@@ -708,29 +714,23 @@ treatments:
       label: Orthopedic Surgical Procedure
 ```
 
-Common MAXO terms:
-- `MAXO:0000004` - surgical procedure
-- `MAXO:0000011` - physical therapy
-- `MAXO:0000079` - genetic counseling
-- `MAXO:0000088` - dietary intervention
-- `MAXO:0000647` - chemotherapy
-- `MAXO:0000014` - radiation therapy
-- `MAXO:0001017` - vaccination
-- `MAXO:0010039` - organ transplantation
-- `MAXO:0000950` - supportive care
-
 Common NCIT clinical intervention terms:
 - `NCIT:C15986` - Pharmacotherapy (drug treatments)
+- `NCIT:C15632` - Chemotherapy
 - `NCIT:C49236` - Therapeutic Procedure
 - `NCIT:C15329` - Surgical Procedure
 - `NCIT:C16186` - Orthopedic Surgical Procedure
 - `NCIT:C15302` - Physical Therapy
+- `NCIT:C15238` - Gene Therapy
+- `NCIT:C15240` - Genetic Counseling
+- `NCIT:C15447` - Dietary Intervention
+- `NCIT:C15313` - Radiation Therapy
+- `NCIT:C15289` - Organ Transplantation
 - `NCIT:C15315` - Rehabilitation
 - `NCIT:C15747` - Supportive Care
 
 Use OAK to search for terms:
 ```bash
-uv run runoak -i sqlite:obo:maxo search "physical therapy"
 uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 ```
 
@@ -744,7 +744,7 @@ or NCIT (for drug classes).
 
 **When to use `therapeutic_agent`:**
 - `treatment_term` is a generic action like `NCIT:C15986` (Pharmacotherapy),
-  `MAXO:0000647` (chemotherapy), `MAXO:0001017` (vaccination), or `MAXO:0000014` (radiation therapy)
+  `NCIT:C15632` (chemotherapy), `NCIT:C15346` (vaccination), or `NCIT:C15313` (radiation therapy)
 - A specific drug, chemical, or drug class is referenced in the `name` / `description`
 - You want the treatment to be machine-queryable by drug identity
 
@@ -797,8 +797,8 @@ treatments:
   treatment_term:
     preferred_term: chemotherapy
     term:
-      id: MAXO:0000647
-      label: chemotherapy
+      id: NCIT:C15632
+      label: Chemotherapy
     therapeutic_agent:
     - preferred_term: fluorouracil
       term:
@@ -833,7 +833,7 @@ Antagonist) are **not** reachable from that root and will fail validation if use
 those belong in `therapeutic_agent` instead.
 
 **How the three slots divide the work:**
-- `treatment_term`: the medical action/modality (e.g. `MAXO:0000647` chemotherapy, `NCIT:C15986` Pharmacotherapy)
+- `treatment_term`: the medical action/modality (e.g. `NCIT:C15632` chemotherapy, `NCIT:C15986` Pharmacotherapy)
 - `therapeutic_agent`: the individual drug(s) or drug class(es) involved
 - `regimen_term`: the named combination protocol itself, when one exists
 
@@ -843,8 +843,8 @@ treatments:
   treatment_term:
     preferred_term: chemotherapy
     term:
-      id: MAXO:0000647
-      label: chemotherapy
+      id: NCIT:C15632
+      label: Chemotherapy
     therapeutic_agent:
     - preferred_term: doxorubicin
       term:
@@ -892,6 +892,55 @@ queryable by modality across diseases.
 `therapeutic_modality` complements (does not replace) `treatment_term` (the treatment
 action) and `therapeutic_agent` (the specific drug). A pharmacotherapy ASO still
 uses `NCIT:C15986` for `treatment_term` and an NCIT/CHEBI `therapeutic_agent`.
+
+#### `therapeutic_modality` *is* the `treatment_category` discriminator (issue #972)
+
+Issue #972 proposed a `treatment_category: DRUG | PROCEDURE | DIETARY | OTHER`
+discriminator for cleaner filtering. That's already `therapeutic_modality` — just
+at finer granularity than 4 coarse buckets. Do not add a second, redundant
+category slot; populate `therapeutic_modality` instead. Coarse-bucket mapping,
+if you need to collapse to the issue's original 4 categories:
+
+| Coarse bucket | `therapeutic_modality` values |
+|---|---|
+| DRUG | `SMALL_MOLECULE`, `MONOCLONAL_ANTIBODY`, `NANOBODY`, `ANTISENSE_OLIGONUCLEOTIDE`, `SIRNA`, `MRNA_THERAPY`, `GENE_THERAPY`, `GENE_EDITING`, `CELL_THERAPY`, `PROTEIN_REPLACEMENT`, `PEPTIDE`, `VACCINE` |
+| PROCEDURE | `SURGERY`, `RADIOTHERAPY`, `DEVICE` |
+| DIETARY / lifestyle | `BEHAVIORAL` (explicitly covers "behavioral, physical, dietary, or lifestyle intervention") |
+| OTHER | `OTHER` |
+
+**Mechanical backfill guidance** — a treatment's `therapeutic_modality` can often
+be inferred with high confidence directly from its `treatment_term.term.id`,
+with no per-disease research needed, when that action term's own definition
+*is* a modality (not just an action that's usually done one way):
+
+| `treatment_term.term.id` | `therapeutic_modality` |
+|---|---|
+| `NCIT:C154430`, `NCIT:C15329`, `NCIT:C16186`, `NCIT:C15289` (surgical procedure / resection / transplantation) | `SURGERY` |
+| `NCIT:C15313` (radiation therapy) | `RADIOTHERAPY` |
+| `NCIT:C15447` (dietary intervention), `NCIT:C15302` (physical therapy), `NCIT:C159273` (speech therapy), `NCIT:C121351` (occupational therapy), `NCIT:C181743` (behavioral counseling) | `BEHAVIORAL` |
+| `NCIT:C15238` (gene therapy) | `GENE_THERAPY` |
+| `NCIT:C15431` (hematopoietic cell transplantation — explicitly listed as a `CELL_THERAPY` example) | `CELL_THERAPY` |
+| `NCIT:C15346` (vaccination) | `VACCINE` |
+
+(There is no reliable NCIT clinical-action term for device usage — the former
+`hearing aid usage` term had no NCIT equivalent and was dropped in the MAXO
+removal — so `DEVICE` cannot be inferred mechanically from `treatment_term.term.id`.)
+
+**Do not** mechanically tag nutritional-supplementation terms (`NCIT:C15433`
+Nutritional Support) as `BEHAVIORAL`.
+It looks dietary but in practice names a specific chemical/vitamin compound
+(biotin, carnitine, vitamin E, triheptanoin) far more often than a diet-pattern
+change — the correct modality is usually `SMALL_MOLECULE`, sometimes something
+else entirely, and always needs a look at the actual treatment before deciding.
+This was tried and reverted during the initial backfill (2026-07-08) after it
+mis-tagged real drug therapies as `BEHAVIORAL`.
+
+Generic action terms (`NCIT:C15986` Pharmacotherapy, `NCIT:C15747` Supportive
+Care, `NCIT:C15240` Genetic Counseling, `NCIT:C93352` Targeted Therapy, etc.)
+are **not** in the mechanical table on purpose — the actual modality there
+depends on the specific drug/agent (see `therapeutic_agent`) or isn't a
+platform-classifiable action at all, and needs a real per-entry look rather
+than a blind ID-based rule.
 
 When `therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE`, add a structured
 `aso_details` block (`AntisenseOligonucleotideDetail`) capturing the molecular
@@ -1257,12 +1306,12 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
 **Three categories of hallucination risk:**
 1. **Fabricated PMIDs** — The cited paper does not exist, or the PMID belongs to an unrelated paper
 2. **Misquoted snippets** — The snippet is paraphrased or invented rather than an exact quote from the real abstract
-3. **Invented ontology terms** — HP, GO, CL, MAXO, CHEBI, or NCIT identifiers that don't exist or whose canonical label doesn't match `term.label`
+3. **Invented ontology terms** — HP, GO, CL, CHEBI, or NCIT identifiers that don't exist or whose canonical label doesn't match `term.label`
 
 **Mandatory verification workflow for any curation step sourced from DR:**
 1. For **each new PMID** cited: run `just fetch-reference PMID:XXXX` to fetch the real abstract
 2. For **each snippet**: manually verify it is an exact substring of the abstract by comparing against the cached file in `references_cache/PMID_XXXX.md`
-3. For **each ontology term** (HP, GO, CL, MAXO, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms-file kb/disorders/YourDisease.yaml`
+3. For **each ontology term** (HP, GO, CL, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms kb/disorders/YourDisease.yaml`
 4. Run the full validation suite before committing (see Validation Workflow below)
 
 If a DR-suggested citation cannot be verified against the real abstract, do not use it. Find an alternative source or remove the claim entirely.
@@ -1333,8 +1382,15 @@ just validate kb/disorders/MyDisease.yaml
 just validate-references kb/disorders/MyDisease.yaml
 
 # 3. Term validation (ontology IDs/labels correct)
-just validate-terms-file kb/disorders/MyDisease.yaml
+just validate-terms kb/disorders/MyDisease.yaml
 ```
+
+**Reading the reference-validation summary:** `Total checks: 0` on a passing file
+does **not** mean nothing was checked — the upstream counter reports *issues
+found*, so it is 0 by definition on a clean run (issue #7252). The affirmative
+signal is the `Snippets checked: N/N verified against cached references` line the
+wrapper appends. Run it standalone with `just count-verified-snippets <file>`.
+Do not "fix" the validator on the basis of a zero here.
 
 ### 4. When Evidence Cannot Be Verified
 
@@ -1682,6 +1738,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `src/`, `scripts/`, `tests/`, `conf/` | YES | Source code |
+| `extension/**` (incl. generated `icons/*.png`) | YES | Browser extension ships unbuilt/unpacked, so its generated icons are committed — a deliberate exception to the "don't commit derived files" rule |
 
 ### What NOT to commit
 

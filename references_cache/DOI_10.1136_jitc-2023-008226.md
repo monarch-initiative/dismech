@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jitc-2023-008226"
+reference_id: DOI:10.1136/jitc-2023-008226
 title: Targeting oxidative phosphorylation to increase the efficacy of immune-combination therapy in renal cell carcinoma
 authors:
 - Jihua Tian
@@ -16,6 +16,7 @@ journal: Journal for ImmunoTherapy of Cancer
 year: '2024'
 doi: 10.1136/jitc-2023-008226
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Targeting oxidative phosphorylation to increase the efficacy of immune-combination therapy in renal cell carcinoma

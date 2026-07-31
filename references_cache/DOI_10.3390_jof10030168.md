@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jof10030168"
+reference_id: DOI:10.3390/jof10030168
 title: "Chromoblastomycosis in French Guiana: Epidemiology and Practices, 1955–2023"
 authors:
 - Julie Valentin
@@ -14,6 +14,7 @@ journal: Journal of Fungi
 year: '2024'
 doi: 10.3390/jof10030168
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Chromoblastomycosis in French Guiana: Epidemiology and Practices, 1955–2023

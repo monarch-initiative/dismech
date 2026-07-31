@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2022008216"
+reference_id: DOI:10.1182/bloodadvances.2022008216
 title: Dasatinib/prednisone induction followed by blinatumomab/dasatinib in Ph+ acute lymphoblastic leukemia
 authors:
 - Anjali S. Advani
@@ -23,6 +23,7 @@ journal: Blood Advances
 year: '2023'
 doi: 10.1182/bloodadvances.2022008216
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Dasatinib/prednisone induction followed by blinatumomab/dasatinib in Ph+ acute lymphoblastic leukemia

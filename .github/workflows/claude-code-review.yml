@@ -68,25 +68,42 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh pr checkout ${{ env.PR_NUMBER }}
 
-      - name: Generate ai4c-agent token
-        id: ai4c-token
+      - name: Generate ai4c-reviewer token
+        id: reviewer-token
         continue-on-error: true
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
         with:
-          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
-          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          app-id: ${{ secrets.AI4C_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.AI4C_REVIEWER_PRIVATE_KEY }}
 
       - name: Install Claude Code
         run: |
           curl -fsSL https://claude.ai/install.sh | bash -s 2.1.129
           "$HOME/.local/bin/claude" --version
 
+      # The review agent's allowedTools grant `Bash(just:*)` and `Bash(uv run:*)`
+      # so it can run the deterministic validators (just qc / validate-references /
+      # validate-terms). Those binaries are not on standard runners, so set
+      # them up here — mirrors the setup in main.yaml.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install just
+        run: uv tool install rust-just
+
+      - name: Install project
+        run: uv sync --dev --group export
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ steps.ai4c-token.outputs.token || github.token }}
+          github_token: ${{ steps.reviewer-token.outputs.token || github.token }}
           path_to_claude_code_executable: /home/runner/.local/bin/claude
           track_progress: ${{ github.event_name == 'pull_request' }}
           allowed_bots: 'claude,github-actions,ai4c-agent'

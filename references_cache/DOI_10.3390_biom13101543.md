@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biom13101543"
+reference_id: DOI:10.3390/biom13101543
 title: "Understanding the Immunopathology of HTLV-1-Associated Adult T-Cell Leukemia/Lymphoma: A Comprehensive Review"
 authors:
 - Shingo Nakahata
@@ -11,6 +11,7 @@ journal: Biomolecules
 year: '2023'
 doi: 10.3390/biom13101543
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Understanding the Immunopathology of HTLV-1-Associated Adult T-Cell Leukemia/Lymphoma: A Comprehensive Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/2473974x19834553"
+reference_id: DOI:10.1177/2473974x19834553
 title: "Inability to Belch and Associated Symptoms Due to Retrograde Cricopharyngeus Dysfunction: Diagnosis and Treatment"
 authors:
 - Robert W. Bastian
@@ -8,6 +8,7 @@ journal: OTO Open
 year: '2019'
 doi: 10.1177/2473974x19834553
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Inability to Belch and Associated Symptoms Due to Retrograde Cricopharyngeus Dysfunction: Diagnosis and Treatment

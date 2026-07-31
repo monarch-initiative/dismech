@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16203452"
+reference_id: DOI:10.3390/cancers16203452
 title: "Unraveling the Heterogeneity of Deficiency of Mismatch Repair Proteins in Endometrial Cancer: Predictive Biomarkers and Assessment Challenges"
 authors:
 - Filomena M. Carvalho
@@ -8,6 +8,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16203452
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Unraveling the Heterogeneity of Deficiency of Mismatch Repair Proteins in Endometrial Cancer: Predictive Biomarkers and Assessment Challenges

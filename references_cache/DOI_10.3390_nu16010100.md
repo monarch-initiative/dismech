@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu16010100"
+reference_id: DOI:10.3390/nu16010100
 title: "The Role of Nicotinamide as Chemo-Preventive Agent in NMSCs: A Systematic Review and Meta-Analysis"
 authors:
 - Giulio Tosti
@@ -13,6 +13,7 @@ journal: Nutrients
 year: '2023'
 doi: 10.3390/nu16010100
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of Nicotinamide as Chemo-Preventive Agent in NMSCs: A Systematic Review and Meta-Analysis

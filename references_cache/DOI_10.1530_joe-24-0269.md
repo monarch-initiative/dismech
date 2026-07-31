@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1530/joe-24-0269"
+reference_id: DOI:10.1530/joe-24-0269
 title: Reappraising the relationship between hyperinsulinemia and insulin resistance in PCOS
 authors:
 - Emma J Houston
@@ -8,6 +8,7 @@ journal: Journal of Endocrinology
 year: '2025'
 doi: 10.1530/joe-24-0269
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Reappraising the relationship between hyperinsulinemia and insulin resistance in PCOS

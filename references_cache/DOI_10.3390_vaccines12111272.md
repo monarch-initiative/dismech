@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/vaccines12111272"
+reference_id: DOI:10.3390/vaccines12111272
 title: Design of a Glycoconjugate Vaccine Against Salmonella Paratyphi A
 authors:
 - Renzo Alfini
@@ -15,6 +15,7 @@ journal: Vaccines
 year: '2024'
 doi: 10.3390/vaccines12111272
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Design of a Glycoconjugate Vaccine Against Salmonella Paratyphi A

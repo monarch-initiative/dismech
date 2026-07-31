@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jpm14090906"
+reference_id: DOI:10.3390/jpm14090906
 title: Comprehensive Approach for the Genetic Diagnosis of Patients with Waardenburg Syndrome
 authors:
 - Paula Inés Buonfiglio
@@ -15,6 +15,7 @@ journal: Journal of Personalized Medicine
 year: '2024'
 doi: 10.3390/jpm14090906
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Comprehensive Approach for the Genetic Diagnosis of Patients with Waardenburg Syndrome

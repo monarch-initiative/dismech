@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells12121648"
+reference_id: DOI:10.3390/cells12121648
 title: "A Review of Progress on Targeting LDL Receptor-Dependent and -Independent Pathways for the Treatment of Hypercholesterolemia, a Major Risk Factor of ASCVD"
 authors:
 - Rai Ajit K. Srivastava
@@ -7,6 +7,7 @@ journal: Cells
 year: '2023'
 doi: 10.3390/cells12121648
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Review of Progress on Targeting LDL Receptor-Dependent and -Independent Pathways for the Treatment of Hypercholesterolemia, a Major Risk Factor of ASCVD

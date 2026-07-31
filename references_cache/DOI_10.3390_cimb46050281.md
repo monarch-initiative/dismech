@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cimb46050281"
+reference_id: DOI:10.3390/cimb46050281
 title: The Molecular Detection of Germline Mutations in the BRCA1 and BRCA2 Genes Associated with Breast and Ovarian Cancer in a Romanian Cohort of 616 Patients
 authors:
 - Liliana-Georgiana Grigore
@@ -11,6 +11,7 @@ journal: Current Issues in Molecular Biology
 year: '2024'
 doi: 10.3390/cimb46050281
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Molecular Detection of Germline Mutations in the BRCA1 and BRCA2 Genes Associated with Breast and Ovarian Cancer in a Romanian Cohort of 616 Patients

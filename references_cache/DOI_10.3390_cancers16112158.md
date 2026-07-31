@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16112158"
+reference_id: DOI:10.3390/cancers16112158
 title: "Incidence and Relative Survival of Patients with Merkel Cell Carcinoma in North Rhine-Westphalia, Germany, 2008–2021"
 authors:
 - Andreas Stang
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16112158
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Incidence and Relative Survival of Patients with Merkel Cell Carcinoma in North Rhine-Westphalia, Germany, 2008–2021

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-24-0949"
+reference_id: DOI:10.1158/1078-0432.ccr-24-0949
 title: "FDA Approval Summary: Repotrectinib for Locally Advanced or Metastatic ROS1-Positive Non–Small Cell Lung Cancer"
 authors:
 - Michael I. Barbato
@@ -30,6 +30,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-24-0949
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # FDA Approval Summary: Repotrectinib for Locally Advanced or Metastatic ROS1-Positive Non–Small Cell Lung Cancer
