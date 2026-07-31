@@ -123,9 +123,12 @@ mechanically inter-convertible and means dismech's more specific members (`PARTI
 
 `src/dismech/schema/dismech.yaml`:
 
-- **Slot** `has_evidence_lines` — attached to `Pathophysiology` and `Phenotype` only, for
-  now, next to the existing `evidence` slot. 56 classes carry `evidence`; extending to the
-  rest is mechanical and deliberately not done yet.
+- **Slot** `has_evidence_lines` — attached to `Pathophysiology`, `Phenotype`, and
+  `MechanisticHypothesis` only, next to the existing `evidence` slot. 56 classes carry
+  `evidence`; extending to the rest is mechanical and deliberately not done yet.
+  `MechanisticHypothesis` is where the argument structure earns its keep most obviously —
+  a `CANONICAL` / `ALTERNATIVE` / `EMERGING` status is a *summary of competing arguments*,
+  which is exactly what evidence lines make explicit.
 - **Classes** `EvidenceLine`, `DataItem`, `Document`.
 - **Enums** `EvidenceStrengthEnum`, `DocumentTypeEnum`, `DataItemTypeEnum`.
 
@@ -171,27 +174,60 @@ visible on the page rather than only in the YAML.
 
 Assertions with no `has_evidence_lines` render exactly as before; the macro emits nothing.
 
-## The rendered example
+## The rendered examples
 
-**[→ Rendered pilot page](../examples/sepio-evidence-pilot-page.html)** — the same three
-Cystic Fibrosis assertions with both evidence forms stacked on each one. Open the
-"Show evidence" and "Show SEPIO evidence" toggles on a pathophysiology node to compare
-them directly.
+Three pages, each carrying **both** evidence forms on the same assertions so they can be
+compared directly. Open the "Show evidence" and "Show SEPIO evidence" toggles side by
+side. Each was picked to show something the others don't.
 
-This is a committed snapshot, which is a deliberate exception to the repo's
-don't-commit-derived-HTML rule: the whole argument of this pilot is a visual one about
-structure, and it does not survive being described in prose. The page is regenerated and
-re-copied by `just sepio-pilot`, so `git diff` after that recipe tells you whether the
-snapshot has drifted from the fixture.
+| Page | Attached to | What it shows |
+|---|---|---|
+| **[→ Cystic Fibrosis](../examples/sepio-pilot-Cystic_Fibrosis.html)** | pathophysiology, phenotype | The baseline mapping. One-to-one conversion; two quotes from one paper making two different points (two lines); two quotes from *different kinds of* document making one joint argument (one line, two items). |
+| **[→ IgG4-Related Disease](../examples/sepio-pilot-IgG4-Related_Disease.html)** | mechanistic hypothesis | **Contested evidence.** Three arguments pointing three ways — SUPPORT from mouse and in vitro work, PARTIAL from human tissue, REFUTE from a phase 3 randomised trial — each carrying its own strength. The strongest argument on the page is the one against. |
+| **[→ Timothy Syndrome](../examples/sepio-pilot-Timothy_Syndrome.html)** | mechanistic hypothesis | **An argument resting entirely on an animal model.** One line, `MODEL_ORGANISM`, `WEAK`, built from a premise plus a result in the same paper. Makes the existing "model-organism evidence must not be the sole support for a human claim" rule readable off the data. |
 
-Two caveats on the snapshot: the site-navigation links in its header point at
-`pages/…` paths that do not exist under `docs/`, so they 404 — the evidence sections
-themselves are fully functional. And it is a static capture, not a live page.
+### Why these three
+
+The Cystic Fibrosis page is the mapping proof: it shows the SEPIO form saying everything
+the native form said, plus grouping and document typing.
+
+The other two are the argument for the model actually being worth something.
+
+**IgG4-RD** is a live dispute. Its `notes` field currently spends a paragraph of prose
+adjudicating five references — *innate-first ordering is well supported but only in mouse,
+the human data are correlational, B-cell depletion shows adaptive immunity is necessary,
+therefore ALTERNATIVE not CANONICAL*. Natively the evidence block cannot carry any of
+that: five siblings with differing `supports` values and no way to say which is heavier.
+In SEPIO form the adjudication is structure — the refuting human trial is `STRONG`, the
+supporting mouse work is `MODERATE`, the correlational human tissue is `WEAK` — and a
+reader (or a query) can see why the status is what it is without parsing prose.
+
+**Timothy Syndrome** is the opposite failure mode: an `EMERGING` hypothesis resting on a
+single zebrafish paper, quoted twice. Natively those two quotes look like two independent
+supports, because they are two sibling items with different `evidence_source` values. They
+are in fact one syllogism — the biophysical premise plus the experiment — from one paper
+in one species. One line, `WEAK`, says so. This matters more than usual here because this
+hypothesis backs a computable EHR case-finding query
+([hypothesis-based phenotype algorithms](../hypothesis-based-phenotype-algorithms.md));
+when a query is going to be run against patient records on the strength of an argument,
+being able to read that strength off the data is not cosmetic.
+
+### About the snapshots
+
+These are committed HTML, a deliberate exception to the repo's don't-commit-derived-HTML
+rule: the pilot's argument is a visual one about structure and it does not survive being
+described in prose. `just sepio-pilot` regenerates and re-copies all three, so `git diff`
+after that recipe tells you whether a snapshot has drifted from its fixture.
+
+Two caveats: the site-navigation links in each page's header point at `pages/…` paths that
+do not exist under `docs/`, so they 404 — the evidence sections themselves are fully
+functional. And these are static captures, not live pages.
 
 ## Trying it
 
 ```bash
-just sepio-pilot          # validate (schema + terms + references), render, refresh snapshot
+just sepio-pilot          # validate (schema + terms + references) and render all fixtures,
+                          # then refresh the committed snapshots
 ```
 
 or piecewise:
@@ -203,10 +239,10 @@ uv run python -m dismech.render kb/experimental/Cystic_Fibrosis_SEPIO.yaml
 # -> pages/disorders/Cystic_Fibrosis_SEPIO_evidence_pilot.html
 ```
 
-`kb/experimental/Cystic_Fibrosis_SEPIO.yaml` carries **both** representations of the same
-three assertions, copied verbatim from the production Cystic Fibrosis entry, so the two
-forms can be read side by side on one page. It is a fixture, not a curation target, and it
-is deliberately outside `kb/disorders/`.
+The fixtures live in `kb/experimental/*_SEPIO.yaml`. Each carries **both** representations
+of the same assertions, copied verbatim from the corresponding production entry — nothing
+is newly curated and no new literature claims are introduced. They are fixtures, not
+curation targets, and are deliberately outside `kb/disorders/`.
 
 ## What is deliberately left out
 
