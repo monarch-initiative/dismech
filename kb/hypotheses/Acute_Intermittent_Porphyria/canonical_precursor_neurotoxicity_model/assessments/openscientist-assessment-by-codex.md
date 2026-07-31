@@ -72,22 +72,24 @@ accumulation causes motor neuropathy”
 ### Peripheral nerves do have a blood-nerve barrier
 
 The report says peripheral nerves lack a BBB equivalent. Human peripheral
-nerves have tight-junction endoneurial microvessels and perineurial barriers;
-the mammalian blood-nerve barrier is described as the second most restrictive
-vascular system after the BBB
-([PMID:32142802](https://pubmed.ncbi.nlm.nih.gov/32142802/)). What remains
-unknown is its ALA/PBG permeability during an AIP attack. The report's own
-knowledge-gap section correctly calls for that experiment.
+nerves have tight-junction endoneurial microvessels and perineurial barriers
+([PMID:32142802](https://pubmed.ncbi.nlm.nih.gov/32142802/);
+[PMID:21082370](https://pubmed.ncbi.nlm.nih.gov/21082370/)). That refutes the
+claim that peripheral nerves simply lack a barrier, without establishing equal
+protection across every peripheral neural compartment. What remains unknown is
+ALA/PBG permeability during an AIP attack. The report's own knowledge-gap
+section correctly calls for that experiment.
 
 ### Choroid-plexus transport is not a demonstrated entry route
 
-The isolated rat choroid-plexus paper characterized ALA uptake mechanisms but
-did not establish net blood-to-CSF delivery
-([PMID:10854277](https://pubmed.ncbi.nlm.nih.gov/10854277/)). The direct
-blood-brain/blood-CSF study concluded that low BBB permeability and a saturable
+The isolated rat choroid-plexus paper found pH-dependent ALA uptake stimulated
+at low pH, but uptake by that preparation did not establish net blood-to-CSF
+delivery ([PMID:10854277](https://pubmed.ncbi.nlm.nih.gov/10854277/)). The
+direct blood-brain/blood-CSF study found carrier-mediated blood-to-plexus and
+blood-to-CSF transport, yet concluded that low BBB permeability and a saturable
 choroid-plexus **efflux** mechanism protect the brain
-([PMID:12493610](https://pubmed.ncbi.nlm.nih.gov/12493610/)). Transporter
-presence therefore cannot be curated as “ALA enters CSF via PEPT2.”
+([PMID:12493610](https://pubmed.ncbi.nlm.nih.gov/12493610/)). Neither PEPT2
+identity nor net PEPT2-mediated CSF entry is therefore established.
 
 ### The phase I gene-therapy trend is not mechanistic evidence
 

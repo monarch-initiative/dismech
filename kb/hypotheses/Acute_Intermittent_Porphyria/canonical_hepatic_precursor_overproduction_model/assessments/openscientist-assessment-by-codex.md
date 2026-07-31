@@ -48,13 +48,16 @@ mediator without their own evidence.
 ### The choroid plexus result is reversed
 
 The report says systemic ALA primarily accesses the CNS through choroid-plexus
-PEPT2. The isolated-plexus study characterized uptake mechanisms but did not
-establish net blood-to-CSF delivery
+PEPT2. The isolated-plexus study did find pH-dependent uptake stimulated at low
+pH, but uptake by that preparation does not establish that systemic acidosis
+increases net CNS delivery
 ([PMID:10854277](https://pubmed.ncbi.nlm.nih.gov/10854277/)). The direct
-transport study concluded that low BBB permeability and a saturable
-choroid-plexus **efflux** mechanism normally protect the brain from plasma ALA
+transport study found saturable blood-to-plexus and blood-to-CSF transport, yet
+its directional results and conclusion emphasize low BBB permeability plus a
+choroid-plexus **efflux** mechanism as protection from plasma ALA
 ([PMID:12493610](https://pubmed.ncbi.nlm.nih.gov/12493610/)). Neither paper
-supports the proposed primary human entry route or the acidosis extrapolation.
+identifies PEPT2, establishes a primary human entry route, or demonstrates
+clinically relevant net delivery during acidosis.
 
 ### Chronic mouse neuropathy preserves a neural-heme alternative
 
@@ -78,9 +81,10 @@ oxidative injury plausible but do not close the human causal chain.
 
 ### Hormone and inheritance claims are overstated
 
-The GnRH study was a retrospective follow-up, not controlled proof of a direct
-progesterone mechanism. Fourteen women participated and five of nine reported
-attacks with progesterone add-back
+The report's claim of “controlled evidence” for a direct progesterone
+precipitant is rejected. The GnRH study was a retrospective follow-up, not a
+controlled mechanistic experiment. Fourteen women participated and five of nine
+reported attacks with progesterone add-back
 ([PMID:20021268](https://pubmed.ncbi.nlm.nih.gov/20021268/)).
 
 The penetrance study found strong family, geography, allele-class, and
