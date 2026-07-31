@@ -55,9 +55,9 @@ increases net CNS delivery
 transport study found saturable blood-to-plexus and blood-to-CSF transport, yet
 its directional results and conclusion emphasize low BBB permeability plus a
 choroid-plexus **efflux** mechanism as protection from plasma ALA
-([PMID:12493610](https://pubmed.ncbi.nlm.nih.gov/12493610/)). Neither paper
-identifies PEPT2, establishes a primary human entry route, or demonstrates
-clinically relevant net delivery during acidosis.
+([PMID:12493610](https://pubmed.ncbi.nlm.nih.gov/12493610/)). The studies do
+not establish PEPT2 as the primary human entry route or demonstrate clinically
+relevant net delivery during acidosis.
 
 ### Chronic mouse neuropathy preserves a neural-heme alternative
 

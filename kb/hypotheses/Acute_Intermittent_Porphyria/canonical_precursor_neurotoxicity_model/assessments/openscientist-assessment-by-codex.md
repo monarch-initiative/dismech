@@ -88,8 +88,9 @@ delivery ([PMID:10854277](https://pubmed.ncbi.nlm.nih.gov/10854277/)). The
 direct blood-brain/blood-CSF study found carrier-mediated blood-to-plexus and
 blood-to-CSF transport, yet concluded that low BBB permeability and a saturable
 choroid-plexus **efflux** mechanism protect the brain
-([PMID:12493610](https://pubmed.ncbi.nlm.nih.gov/12493610/)). Neither PEPT2
-identity nor net PEPT2-mediated CSF entry is therefore established.
+([PMID:12493610](https://pubmed.ncbi.nlm.nih.gov/12493610/)). Identifying
+PEPT2-mediated uptake into isolated plexus epithelium does not establish net
+PEPT2-mediated CSF entry.
 
 ### The phase I gene-therapy trend is not mechanistic evidence
 
