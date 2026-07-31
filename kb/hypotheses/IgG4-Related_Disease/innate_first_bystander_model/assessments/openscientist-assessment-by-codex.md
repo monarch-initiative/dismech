@@ -49,7 +49,8 @@ distinctive edge of the proposed two-phase model.
 ### Mouse ordering is not human ordering
 
 The human arm of PMID:39264798 measured serum chemokines cross-sectionally in 33
-patients. It did not observe lesion initiation, cell recruitment order, or a
+patients and included paired pre/post-prednisolone measurements in a 14-patient
+subset. It did not observe lesion initiation, cell recruitment order, or a
 preclinical-to-clinical transition. The paper itself frames the same human loop
 as possible; the report upgrades this to strong temporal validation.
 
