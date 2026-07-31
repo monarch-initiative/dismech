@@ -748,7 +748,7 @@ Before finalizing a new disorder file, verify:
 - [ ] HPO terms exist and labels match exactly
 - [ ] CL terms exist and labels match exactly
 - [ ] GO terms exist and labels match exactly
-- [ ] MAXO terms (if used) exist and labels match exactly
+- [ ] NCIT treatment terms (if used) exist and labels match exactly
 - [ ] `just validate` passes
 - [ ] `just validate-terms` passes
 - [ ] `just validate-references` passes
