@@ -225,10 +225,13 @@ mistaken for solved:
    than it looks.** Any reference whose prefix appears in
    `conf/reference_validator_config.yaml` is never checked — and that list includes
    **`DOI`**. Across `kb/disorders/` that is **5,126 snippets (~6% of all of them)** going
-   unverified. This has nothing to do with SEPIO; the pilot just walked into it. It also
-   appears to be stale rather than necessary: DOI references *are* cached in
-   `references_cache/`, and on a sample of six DOI-citing entries all 58 skipped snippets
-   verified cleanly once the skip was removed. Tracked separately.
+   unverified. Nothing to do with SEPIO; the pilot just walked into it. Filed as
+   [#7450](https://github.com/monarch-initiative/dismech/issues/7450) with a full triage:
+   un-skipping DOI verifies ~4,900 snippets cleanly and surfaces 86 mismatches, of which
+   29 are cache-mangling artifacts (stripped inline markup joining words, PDF ligatures),
+   22 are abstract-only caches, and 35 need review — 13 of those being degenerate
+   one-word snippets. **The actionable number is 22, not 86**, which is why it warranted
+   triage rather than a raw count.
 
 ## Rendering
 
