@@ -65,9 +65,10 @@ patient study measures hepatic acetyl-CoA, acetylomes, or ER-localized ACSL1.
 One review synthesized 93 reported cases and two new patients
 ([PMID:39798988](https://pubmed.ncbi.nlm.nih.gov/39798988/)). The other found
 59 published cases and added 16 undescribed patients
-([PMID:40515583](https://pubmed.ncbi.nlm.nih.gov/40515583/)). The published
-sets overlap and cannot be added. No patient-level deduplication supports the
-report's “>150” total.
+([PMID:40515583](https://pubmed.ncbi.nlm.nih.gov/40515583/)). The reviews even
+disagree on the published-case denominator—93 versus 59, likely because of
+different inclusion criteria. Their published sets overlap and cannot be added.
+No patient-level deduplication supports the report's “>150” total.
 
 ### The 4HMP fraction is not a validated sensitivity estimate
 
@@ -112,9 +113,8 @@ patients.
 
 The ClinGen Fatty Acid Oxidation Disorders Expert Panel classified the
 HMGCS2–3-hydroxy-3-methylglutaryl-CoA synthase deficiency relationship as
-**definitive** on 2018-05-22, with autosomal-recessive inheritance, replication
-over time, and no contradictory evidence. The report's claimed curation gap is
-false.
+**definitive** on 2018-05-22, with autosomal-recessive inheritance. The report's
+claimed curation gap is false.
 
 ### Patient liver was studied
 
@@ -146,7 +146,7 @@ evidence-backed disease treatment from this report.
 OAK confirms the proposed hepatocyte, proximal-tubule, and four GO identifiers.
 `CL:0000746` has the canonical label **cardiac muscle cell**, not
 “Cardiomyocyte.” `OMIM:600234` is a gene entry and should not appear under
-disease terms; the gene is `HGNC:5008`, and the disease is
+disease terms; the gene is `hgnc:5008`, and the disease is
 `MONDO:0011614` **3-hydroxy-3-methylglutaryl-CoA synthase deficiency**.
 
 The report says it systematically evaluated 41 publications, while the report
@@ -171,7 +171,7 @@ publications is supplied.
 | No ClinGen curation exists | **Rejected** | A definitive ClinGen curation was approved in 2018. |
 | No patient-liver activity study exists | **Rejected** | PMID:9727719 measured liver-homogenate activity and HMGCS2 protein. |
 | Bicytopenia is confirmed spectrum expansion | **Qualified** | The cited case carried a VUS. |
-| L-carnitine/ketone supplementation is evidence-backed | **Needs verification** | The cited study is preclinical and disease-mismatched. |
+| L-carnitine/ketone supplementation pilot | **Qualified** | It is a prospective study idea; the cited study is preclinical and disease-mismatched. |
 | Ontology leads are ready verbatim | **Qualified** | One CL label and the gene/disease identifier roles need correction. |
 | Forty-one publications were systematically evaluated | **Needs verification** | Only 28 PMIDs and 27 study lineages are exposed. |
 
