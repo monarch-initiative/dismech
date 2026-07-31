@@ -48,7 +48,7 @@ Concretely:
 
 ### CRITICAL: Do NOT use `cache/enums/*.csv` as a term validation proxy
 
-**The `cache/enums/*.csv` files are static CI snapshot artifacts.** They materialize schema enum constraints at a point in time but do NOT reflect the full, current HPO/GO/CL/MAXO/etc. ontology. These CSV files are regularly stale relative to the OAK/`sqlite:obo:*` adapters used by `just validate-terms`.
+**The `cache/enums/*.csv` files are static CI snapshot artifacts.** They materialize schema enum constraints at a point in time but do NOT reflect the full, current HPO/GO/CL/NCIT/etc. ontology. These CSV files are regularly stale relative to the OAK/`sqlite:obo:*` adapters used by `just validate-terms`.
 
 **If a term appears absent from a `cache/enums/*.csv` file, that is NOT evidence it will fail `just validate-terms`.** The actual term validator queries the live ontology database — it is authoritative. The CSV is not.
 
@@ -205,14 +205,14 @@ that are not covered by dedicated slots.
 Put content in the correct section:
 - Comorbidities -> `comorbidities`, not `histopathology`
 - Diagnostic procedures -> `diagnosis`, not `treatments`
-- MAXO diagnostic branch != treatment terms
+- NCIT diagnostic procedures belong in `diagnosis`, not `treatments`
 
 8. Treatment Modeling
-- For new entries, NCIT is favored over MAXO
-- When MAXO is used, use specific MAXO terms, not generic "pharmacotherapy"  if a better term exists (but this term is ok if combined with other terms)
+- Treatment terms use NCIT clinical-intervention terms (reachable from `NCIT:C25218`)
+- Use a specific NCIT term, not generic "Pharmacotherapy", when a better term exists (generic is ok if combined with a `therapeutic_agent`)
 - Explicitly model ion therapies when relevant
 - Include therapeutic agents (CHEBI) when known
-- Generic MAXO terms are acceptable but less informative. Always check for a more informative NCIT
+- Generic terms (e.g. Pharmacotherapy) are acceptable but less informative. Always check for a more specific NCIT term
 
 9. Genetic Section Content
 Only genetic information belongs in `genetic`:
