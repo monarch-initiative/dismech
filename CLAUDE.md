@@ -1309,7 +1309,7 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
 **Mandatory verification workflow for any curation step sourced from DR:**
 1. For **each new PMID** cited: run `just fetch-reference PMID:XXXX` to fetch the real abstract
 2. For **each snippet**: manually verify it is an exact substring of the abstract by comparing against the cached file in `references_cache/PMID_XXXX.md`
-3. For **each ontology term** (HP, GO, CL, MAXO, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms-file kb/disorders/YourDisease.yaml`
+3. For **each ontology term** (HP, GO, CL, MAXO, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms kb/disorders/YourDisease.yaml`
 4. Run the full validation suite before committing (see Validation Workflow below)
 
 If a DR-suggested citation cannot be verified against the real abstract, do not use it. Find an alternative source or remove the claim entirely.
@@ -1380,7 +1380,7 @@ just validate kb/disorders/MyDisease.yaml
 just validate-references kb/disorders/MyDisease.yaml
 
 # 3. Term validation (ontology IDs/labels correct)
-just validate-terms-file kb/disorders/MyDisease.yaml
+just validate-terms kb/disorders/MyDisease.yaml
 ```
 
 ### 4. When Evidence Cannot Be Verified
