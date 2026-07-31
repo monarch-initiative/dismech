@@ -707,10 +707,21 @@ sync-epic-checkboxes *args:
 
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
 # Note: First run fetches from PubMed and caches; subsequent runs use cache
+# Note: linkml-reference-validator's "Total checks: 0" counts *issues found*, not
+# checks performed (issue #7252) -- read the "Snippets checked: N/N verified"
+# line the wrapper appends for the affirmative count.
 [group('QC')]
 validate-references file:
     @just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Count reference/snippet pairs and re-verify each against references_cache/,
+# without running the (network-touching) validator. Advisory only: it reports
+# "Snippets checked: N/N verified" and never gates. Pass --strict to exit 1 on a
+# snippet that is not present in its cached reference text. See issue #7252.
+[group('QC')]
+count-verified-snippets *args:
+    uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
 
 # Deterministically validate reference cache frontmatter against the
 # linkml-reference-validator cache contract before the heavier data validators.
