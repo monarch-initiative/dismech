@@ -178,8 +178,8 @@ treatments:
   treatment_term:
     preferred_term: pharmacotherapy
     term:
-      id: MAXO:0000058
-      label: pharmacotherapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
     therapeutic_agent:
     - preferred_term: imatinib
       term:
