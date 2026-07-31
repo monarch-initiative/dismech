@@ -25,9 +25,10 @@ Concretely, this means:
   underlying biology, or be attached to the wrong disease entity.
 
 The curation process and its governance are described in
-[Design Decisions §7](explanation/design-decisions.md) and in
+[Design Decisions §7](explanation/design-decisions.md#7-curation-process-governance) and in
 [CONTRIBUTING.md](https://github.com/monarch-initiative/dismech/blob/main/CONTRIBUTING.md);
-the evidence policy is [§6](explanation/design-decisions.md).
+the evidence policy is
+[§6](explanation/design-decisions.md#6-evidence-provenance-policy).
 
 ## DisMech is not medical advice
 

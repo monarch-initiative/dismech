@@ -9,6 +9,7 @@ These tests exist so that a newly added template or site page cannot silently
 ship without one.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -68,17 +69,48 @@ def test_full_page_templates_exist() -> None:
     assert len(_full_page_templates()) >= 10
 
 
+def _include_pattern(partial: str) -> re.Pattern[str]:
+    """Match a Jinja include of ``partial`` regardless of quoting/spacing.
+
+    Jinja treats ``{% include "x" %}`` and ``{%include 'x'%}`` identically, so
+    the guard should be about the behaviour, not the formatting.
+    """
+    return re.compile(
+        r"\{%-?\s*include\s+['\"]" + re.escape(partial) + r"['\"]\s*-?%\}"
+    )
+
+
 @pytest.mark.parametrize(
     "template", _full_page_templates(), ids=lambda path: path.name
 )
 def test_full_page_template_includes_disclaimer(template: Path) -> None:
     text = template.read_text()
-    assert (
-        "{% include '_disclaimer.html.j2' %}" in text
+    assert _include_pattern("_disclaimer.html.j2").search(
+        text
     ), f"{template.name} does not include the disclaimer markup partial"
-    assert (
-        "{% include '_disclaimer.css.j2' %}" in text
+    assert _include_pattern("_disclaimer.css.j2").search(
+        text
     ), f"{template.name} does not include the disclaimer style partial"
+
+
+def test_non_jinja_generated_pages_carry_disclaimer() -> None:
+    """Reader-facing pages built from inline templates in ``scripts/``.
+
+    ``_full_page_templates`` only globs ``src/dismech/templates/``, so pages
+    generated from a template string embedded in a script are out of its reach
+    and need checking explicitly. Add to this list when a new script starts
+    emitting a reader-facing page.
+    """
+    generators = {
+        "scripts/gen_nih_topics_summary.py": "pages/nih-topics/index.html",
+    }
+    for generator in generators:
+        text = (REPO_ROOT / generator).read_text()
+        assert (
+            'class="dismech-disclaimer"' in text
+        ), f"{generator} emits a reader-facing page with no disclaimer"
+        for phrase in REQUIRED_PHRASES:
+            assert phrase in text, f"{generator} disclaimer is missing {phrase!r}"
 
 
 @pytest.mark.parametrize("page", STATIC_PAGES)
