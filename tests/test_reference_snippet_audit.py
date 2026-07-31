@@ -16,7 +16,10 @@ from pathlib import Path
 from dismech.reference_snippet_audit import (
     DEFAULT_SCHEMA,
     CachedReferenceIndex,
+    PairOutcome,
+    SnippetPair,
     audit_files,
+    check_pair,
     discover_field_names,
     load_cache_dir,
     load_skip_prefixes,
@@ -304,3 +307,147 @@ def test_wrapper_audit_can_be_disabled(tmp_path: Path) -> None:
 
     assert result.returncode == 0
     assert "Snippets checked" not in result.stdout
+
+
+def test_literal_bracket_patterns_are_honoured_like_the_validator(
+    tmp_path: Path,
+) -> None:
+    """Configured literal brackets are source text, not editorial notes.
+
+    Upstream ``_split_query`` preserves bracketed content matching
+    ``literal_bracket_patterns``; the audit must do the same or it would strip
+    brackets the validator keeps and invent mismatches.
+    """
+    _write_cache(
+        tmp_path / "references_cache",
+        "PMID_123.md",
+        "The [2Fe-2S] cluster is required for enzyme activity.",
+    )
+    config = tmp_path / "config.yaml"
+    config.write_text('literal_bracket_patterns:\n  - "\\\\d"\n', encoding="utf-8")
+
+    snippets = [("PMID:123", "The [2Fe-2S] cluster is required")]
+
+    with_patterns = _audit(tmp_path, snippets, config_path=config)
+    assert (with_patterns.total, with_patterns.verified) == (1, 1)
+
+    # Without the patterns the bracket is stripped as an editorial note, the
+    # remaining fragments no longer line up, and the pair reads as a mismatch --
+    # the exact false positive that config parity prevents.
+    without_patterns = _audit(
+        tmp_path, snippets, config_path=tmp_path / "missing-config.yaml"
+    )
+    assert without_patterns.verified == 0
+
+
+def test_mismatch_detail_is_capped_but_the_count_is_not(tmp_path: Path) -> None:
+    _write_cache(tmp_path / "references_cache", "PMID_123.md", ABSTRACT)
+
+    report = _audit(
+        tmp_path, [("PMID:123", f"fabricated quote number {i}") for i in range(25)]
+    )
+
+    assert len(report.mismatched) == 25
+    assert "0/25 verified" in report.summary_line()
+    rendered = report.format(max_mismatches=20)
+    assert rendered.count("Text part not found as substring") == 20
+    assert "... and 5 more" in rendered
+
+
+def test_body_cache_eviction_does_not_change_results(tmp_path: Path) -> None:
+    """A bounded memo caps peak memory without affecting verification."""
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(cache_dir, "PMID_1.md", "first body mentions alpha synuclein")
+    _write_cache(cache_dir, "PMID_2.md", "second body mentions beta amyloid")
+
+    index = CachedReferenceIndex(cache_dir, cache_size=1)
+    pairs = [
+        ("PMID:1", "alpha synuclein"),
+        ("PMID:2", "beta amyloid"),
+        ("PMID:1", "first body mentions"),
+    ]
+    for reference, snippet in pairs:
+        pair = SnippetPair(
+            path=tmp_path / "entry.yaml",
+            location="evidence[0].snippet",
+            reference_id=reference,
+            snippet=snippet,
+        )
+        assert check_pair(index, pair) is PairOutcome.VERIFIED
+
+    assert len(index._normalized) == 1
+
+
+def test_wrapper_stays_quiet_when_the_validator_crashes(tmp_path: Path) -> None:
+    """A traceback means the run never happened; don't print a reassuring count."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        "#!/usr/bin/env bash\n"
+        "printf '%s\\n' 'Traceback (most recent call last):'\n"
+        "printf '%s\\n' 'RuntimeError: boom'\n"
+        "exit 1\n",
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+
+    env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
+    result = subprocess.run(
+        [
+            "bash",
+            str(ROOT / "scripts" / "run_reference_validator.sh"),
+            "validate",
+            "data",
+            "dummy.yaml",
+        ],
+        capture_output=True,
+        check=False,
+        cwd=tmp_path,
+        env=env,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "Snippets checked" not in result.stdout
+    assert "snippet audit skipped" in result.stderr
+
+
+def test_wrapper_reports_an_arg_order_it_cannot_parse(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake_uv = bin_dir / "uv"
+    fake_uv.write_text(
+        "#!/usr/bin/env bash\nprintf '%s\\n' '  All validations passed!'\n",
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+
+    env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
+    result = subprocess.run(
+        [
+            "bash",
+            str(ROOT / "scripts" / "run_reference_validator.sh"),
+            "validate",
+            "data",
+            "--schema",
+            str(ROOT / DEFAULT_SCHEMA),
+            "entry.yaml",
+        ],
+        capture_output=True,
+        check=False,
+        cwd=tmp_path,
+        env=env,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "no data files found before the first option" in result.stderr
+
+
+def test_per_file_validation_loops_surface_the_snippet_count() -> None:
+    """The three ``ref_output``-capturing loops must not swallow the audit line."""
+    justfile = (ROOT / "project.justfile").read_text()
+
+    assert justfile.count("grep -o 'Snippets checked:.*'") == 3
+    assert justfile.count('echo "  ✓ OK${snippet_line:+ ($snippet_line)}"') == 3

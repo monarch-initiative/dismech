@@ -25,8 +25,10 @@ from __future__ import annotations
 
 import argparse
 import re
+from collections import OrderedDict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +50,26 @@ FALLBACK_REFERENCE_FIELDS = frozenset({"reference"})
 
 _EXCERPT_IMPLEMENTS = "linkml:excerpt"
 _REFERENCE_IMPLEMENTS = "linkml:authoritative_reference"
+
+# Normalized reference bodies are large (~18 KB each), and a whole-KB run touches
+# thousands of them, so the memo is an LRU rather than an unbounded dict. Pairs
+# citing one reference cluster within a file, so a modest window keeps the hit
+# rate high while capping peak RSS.
+NORMALIZED_CACHE_SIZE = 512
+
+# Mismatch detail is printed for triage, but a misconfigured run (e.g. a
+# --cache-dir pointing somewhere unrelated) can produce thousands; cap the
+# detail so a CI log stays readable. The summary line always reports the
+# full count.
+MAX_REPORTED_MISMATCHES = 20
+
+
+class PairOutcome(Enum):
+    """Classification of a reference/snippet pair that produced no mismatch."""
+
+    VERIFIED = "verified"
+    SKIPPED_PREFIX = "skipped"
+    NOT_CACHED = "not_cached"
 
 
 @dataclass(frozen=True)
@@ -104,14 +126,17 @@ class AuditReport:
             line += f" ({', '.join(notes)})"
         return line
 
-    def format(self) -> str:
+    def format(self, max_mismatches: int = MAX_REPORTED_MISMATCHES) -> str:
         """Full advisory report: the summary line plus any unverified detail."""
         lines = [self.summary_line()]
         if self.mismatched:
             lines.append(
                 f"  Snippets not found in the cached reference text ({len(self.mismatched)}):"
             )
-            lines.extend(item.format() for item in self.mismatched)
+            lines.extend(item.format() for item in self.mismatched[:max_mismatches])
+            remaining = len(self.mismatched) - max_mismatches
+            if remaining > 0:
+                lines.append(f"    ... and {remaining} more")
         for problem in self.unreadable:
             lines.append(f"  Skipped (unreadable): {problem}")
         return "\n".join(lines)
@@ -191,6 +216,18 @@ def load_skip_prefixes(config_path: Path) -> frozenset[str]:
     return frozenset(str(prefix).upper() for prefix in prefixes)
 
 
+def load_literal_bracket_patterns(config_path: Path) -> tuple[str, ...]:
+    """Read ``literal_bracket_patterns`` from the reference-validator config.
+
+    These mark bracketed text the validator treats as *source* text rather than
+    an editorial note, so the audit must apply the same rule to stay in parity.
+    """
+    patterns = _load_config(config_path).get("literal_bracket_patterns")
+    if not isinstance(patterns, list):
+        return ()
+    return tuple(str(pattern) for pattern in patterns)
+
+
 def load_cache_dir(config_path: Path, default: Path = DEFAULT_CACHE_DIR) -> Path:
     """Read ``cache_dir`` from the reference-validator config, else ``default``."""
     cache_dir = _load_config(config_path).get("cache_dir")
@@ -251,10 +288,20 @@ class CachedReferenceIndex:
     working (it is advisory, so degrading is preferable to crashing).
     """
 
-    def __init__(self, cache_dir: Path, skip_prefixes: Iterable[str] = ()) -> None:
+    def __init__(
+        self,
+        cache_dir: Path,
+        skip_prefixes: Iterable[str] = (),
+        literal_bracket_patterns: Iterable[str] = (),
+        cache_size: int = NORMALIZED_CACHE_SIZE,
+    ) -> None:
         self.cache_dir = cache_dir
         self.skip_prefixes = frozenset(prefix.upper() for prefix in skip_prefixes)
-        self._normalized: dict[str, str | None] = {}
+        self._literal_bracket_regexes = [
+            re.compile(pattern) for pattern in literal_bracket_patterns
+        ]
+        self._cache_size = max(1, cache_size)
+        self._normalized: OrderedDict[str, str | None] = OrderedDict()
         self._fetcher = self._build_fetcher(cache_dir)
         self._by_stem: dict[str, Path] | None = None
         self._by_bare_id: dict[str, Path | None] | None = None
@@ -281,10 +328,29 @@ class CachedReferenceIndex:
             return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", text.lower())).strip()
         return SupportingTextValidator.normalize_text(text)
 
-    @staticmethod
-    def split_snippet(snippet: str) -> list[str]:
-        """Split a snippet into the parts the validator matches independently."""
-        without_brackets = re.sub(r"\[.*?\]", " ", snippet)
+    def split_snippet(self, snippet: str) -> list[str]:
+        """Split a snippet into the parts the validator matches independently.
+
+        Mirrors ``SupportingTextValidator._split_query``, including its
+        ``literal_bracket_patterns`` branch: bracketed content matching a
+        configured pattern (e.g. ``[2Fe-2S]``) is source text the validator
+        keeps, so the audit must keep it too. Without configured patterns both
+        sides strip every ``[...]`` as an editorial note.
+        """
+        if not self._literal_bracket_regexes:
+            without_brackets = re.sub(r"\[.*?\]", " ", snippet)
+        else:
+
+            def replace_bracket(match: re.Match[str]) -> str:
+                content = match.group(1)
+                if any(
+                    regex.search(content) for regex in self._literal_bracket_regexes
+                ):
+                    return match.group(0)
+                return " "
+
+            without_brackets = re.sub(r"\[(.*?)\]", replace_bracket, snippet)
+
         parts = re.split(r"\s*\.{2,}\s*", without_brackets)
         return [re.sub(r"\s+", " ", part).strip() for part in parts if part.strip()]
 
@@ -376,22 +442,28 @@ class CachedReferenceIndex:
 
     def normalized_content(self, reference_id: str) -> str | None:
         """Normalized cached body for a reference, or ``None`` if not cached."""
-        if reference_id not in self._normalized:
-            body = self._read_body(reference_id)
-            self._normalized[reference_id] = (
-                None if body is None else self.normalize(body)
-            )
-        return self._normalized[reference_id]
+        if reference_id in self._normalized:
+            self._normalized.move_to_end(reference_id)
+            return self._normalized[reference_id]
+
+        body = self._read_body(reference_id)
+        content = None if body is None else self.normalize(body)
+        self._normalized[reference_id] = content
+        while len(self._normalized) > self._cache_size:
+            self._normalized.popitem(last=False)
+        return content
 
 
-def check_pair(index: CachedReferenceIndex, pair: SnippetPair) -> str | Unverified:
-    """Classify one pair: ``"verified"``/``"skipped"``/``"not_cached"`` or a mismatch."""
+def check_pair(
+    index: CachedReferenceIndex, pair: SnippetPair
+) -> PairOutcome | Unverified:
+    """Classify one pair: a :class:`PairOutcome`, or an :class:`Unverified` mismatch."""
     if index.is_skipped(pair.reference_id):
-        return "skipped"
+        return PairOutcome.SKIPPED_PREFIX
 
     content = index.normalized_content(pair.reference_id)
     if content is None:
-        return "not_cached"
+        return PairOutcome.NOT_CACHED
 
     parts = index.split_snippet(pair.snippet)
     if not parts:
@@ -405,7 +477,7 @@ def check_pair(index: CachedReferenceIndex, pair: SnippetPair) -> str | Unverifi
             return Unverified(
                 pair=pair, reason=f"Text part not found as substring: {part!r}"
             )
-    return "verified"
+    return PairOutcome.VERIFIED
 
 
 def audit_files(
@@ -419,7 +491,11 @@ def audit_files(
     excerpt_fields, reference_fields = discover_field_names(schema_path)
     if cache_dir is None:
         cache_dir = load_cache_dir(config_path)
-    index = CachedReferenceIndex(cache_dir, load_skip_prefixes(config_path))
+    index = CachedReferenceIndex(
+        cache_dir,
+        load_skip_prefixes(config_path),
+        load_literal_bracket_patterns(config_path),
+    )
 
     report = AuditReport()
     for path in paths:
@@ -433,14 +509,14 @@ def audit_files(
         for pair in iter_snippet_pairs(path, data, excerpt_fields, reference_fields):
             report.total += 1
             outcome = check_pair(index, pair)
-            if outcome == "verified":
+            if isinstance(outcome, Unverified):
+                report.mismatched.append(outcome)
+            elif outcome is PairOutcome.VERIFIED:
                 report.verified += 1
-            elif outcome == "skipped":
+            elif outcome is PairOutcome.SKIPPED_PREFIX:
                 report.skipped_prefix += 1
-            elif outcome == "not_cached":
-                report.not_cached += 1
             else:
-                report.mismatched.append(outcome)  # type: ignore[arg-type]
+                report.not_cached += 1
 
     return report
 

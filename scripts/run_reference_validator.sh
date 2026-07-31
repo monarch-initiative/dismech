@@ -16,6 +16,8 @@ set -euo pipefail
 
 # Set by run_lrv; the wrapper exits with this code.
 lrv_exit=0
+# Set by run_lrv when the validator did not complete (traceback / hard error).
+lrv_crashed=0
 
 run_lrv() {
     set +e
@@ -43,6 +45,14 @@ app()
         return 0
     fi
 
+    # A traceback or hard error means the validator never finished walking the
+    # data. An affirmative snippet count is at best unrelated to what failed and
+    # at worst reassuring about a run that did not happen, so flag it and let
+    # the audit stay quiet.
+    if grep -Eq 'Traceback|^Error:' <<<"$output"; then
+        lrv_crashed=1
+    fi
+
     lrv_exit=$exit_code
     return 0
 }
@@ -51,6 +61,10 @@ app()
 # Silent for any other subcommand shape, and never fatal.
 run_snippet_audit() {
     if [[ "${DISMECH_SKIP_SNIPPET_AUDIT:-0}" == "1" ]]; then
+        return 0
+    fi
+    if [[ $lrv_crashed -eq 1 ]]; then
+        echo "  (snippet audit skipped: the validator did not complete)" >&2
         return 0
     fi
     if [[ "${1:-}" != "validate" || "${2:-}" != "data" ]]; then
@@ -101,6 +115,13 @@ run_snippet_audit() {
     done
 
     if [[ ${#files[@]} -eq 0 ]]; then
+        # Every current call site puts data files first. If options were seen
+        # but no leading positionals, the arg order is one this deliberately
+        # simple parser cannot read -- say so rather than silently printing
+        # nothing.
+        if [[ $collecting -eq 0 ]]; then
+            echo "  (snippet audit skipped: no data files found before the first option)" >&2
+        fi
         return 0
     fi
 

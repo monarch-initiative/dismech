@@ -320,7 +320,11 @@ validate-comorbidities-all:
             failed_files+=("$f")
             echo -e "$errors"
         else
-            echo "  ✓ OK"
+            # Surface the wrapper's affirmative snippet count (issue #7252):
+            # without it this loop prints a wall of "✓ OK" that is
+            # indistinguishable from having checked nothing.
+            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
+            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
         fi
     done
     echo ""
@@ -386,7 +390,11 @@ validate-modules:
             failed_files+=("$f")
             echo -e "$errors"
         else
-            echo "  ✓ OK"
+            # Surface the wrapper's affirmative snippet count (issue #7252):
+            # without it this loop prints a wall of "✓ OK" that is
+            # indistinguishable from having checked nothing.
+            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
+            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
         fi
     done
     echo ""
@@ -466,7 +474,11 @@ validate-groupings:
             failed_files+=("$f")
             echo -e "$errors"
         else
-            echo "  ✓ OK"
+            # Surface the wrapper's affirmative snippet count (issue #7252):
+            # without it this loop prints a wall of "✓ OK" that is
+            # indistinguishable from having checked nothing.
+            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
+            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
         fi
     done
     echo ""
