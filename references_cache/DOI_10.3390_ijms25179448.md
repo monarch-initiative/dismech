@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25179448"
+reference_id: DOI:10.3390/ijms25179448
 title: Enhancing Therapeutic Efficacy of FLT3 Inhibitors with Combination Therapy for Treatment of Acute Myeloid Leukemia
 authors:
 - Malia E. Leifheit
@@ -16,6 +16,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25179448
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Enhancing Therapeutic Efficacy of FLT3 Inhibitors with Combination Therapy for Treatment of Acute Myeloid Leukemia

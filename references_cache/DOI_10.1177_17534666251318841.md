@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/17534666251318841"
+reference_id: DOI:10.1177/17534666251318841
 title: Advancing the understanding and treatment of lung pathologies associated with alpha 1 antitrypsin deficiency
 authors:
 - Alice M. Turner
@@ -14,6 +14,7 @@ journal: Therapeutic Advances in Respiratory Disease
 year: '2025'
 doi: 10.1177/17534666251318841
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advancing the understanding and treatment of lung pathologies associated with alpha 1 antitrypsin deficiency

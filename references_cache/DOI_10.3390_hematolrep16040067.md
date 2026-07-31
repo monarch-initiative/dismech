@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/hematolrep16040067"
+reference_id: DOI:10.3390/hematolrep16040067
 title: "Treatment Strategies Used in Treating Myelofibrosis: State of the Art"
 authors:
 - Massimo Martino
@@ -20,6 +20,7 @@ journal: Hematology Reports
 year: '2024'
 doi: 10.3390/hematolrep16040067
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatment Strategies Used in Treating Myelofibrosis: State of the Art

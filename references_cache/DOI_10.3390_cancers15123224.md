@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15123224"
+reference_id: DOI:10.3390/cancers15123224
 title: New Approaches to Targeted Therapy in Melanoma
 authors:
 - Manuel Felipe Fernandez
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15123224
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # New Approaches to Targeted Therapy in Melanoma

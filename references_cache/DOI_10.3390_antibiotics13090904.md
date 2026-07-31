@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/antibiotics13090904"
+reference_id: DOI:10.3390/antibiotics13090904
 title: A Decade of Antimicrobial Resistance in Human and Animal Campylobacter spp. Isolates
 authors:
 - Rita Barata
@@ -9,6 +9,7 @@ journal: Antibiotics
 year: '2024'
 doi: 10.3390/antibiotics13090904
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Decade of Antimicrobial Resistance in Human and Animal Campylobacter spp. Isolates

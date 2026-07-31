@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.20944/preprints202409.0995.v2"
+reference_id: DOI:10.20944/preprints202409.0995.v2
 title: "Knee Joint Response to Mechanical Loading: Bounding Mechanotransduction with Rehabilitation"
 authors:
 - Bartłomiej Kacprzak
@@ -7,6 +7,7 @@ authors:
 year: '2024'
 doi: 10.20944/preprints202409.0995.v2
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Knee Joint Response to Mechanical Loading: Bounding Mechanotransduction with Rehabilitation

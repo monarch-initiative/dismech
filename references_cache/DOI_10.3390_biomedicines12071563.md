@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12071563"
+reference_id: DOI:10.3390/biomedicines12071563
 title: "3-Hydroxy-3-Methylglutaric Acid Disrupts Brain Bioenergetics, Redox Homeostasis, and Mitochondrial Dynamics and Affects Neurodevelopment in Neonatal Wistar Rats"
 authors:
 - Josyane de Andrade Silveira
@@ -17,6 +17,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12071563
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # 3-Hydroxy-3-Methylglutaric Acid Disrupts Brain Bioenergetics, Redox Homeostasis, and Mitochondrial Dynamics and Affects Neurodevelopment in Neonatal Wistar Rats

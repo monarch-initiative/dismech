@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicina59020359"
+reference_id: DOI:10.3390/medicina59020359
 title: "Efficacy and Safety of Endoscopic Ultrasound-Guided Radiofrequency Ablation for Pancreatic Neuroendocrine Tumors: A Systematic Review and Metanalysis"
 authors:
 - Elia Armellini
@@ -9,6 +9,7 @@ journal: Medicina
 year: '2023'
 doi: 10.3390/medicina59020359
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Efficacy and Safety of Endoscopic Ultrasound-Guided Radiofrequency Ablation for Pancreatic Neuroendocrine Tumors: A Systematic Review and Metanalysis

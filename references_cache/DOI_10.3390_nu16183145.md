@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu16183145"
+reference_id: DOI:10.3390/nu16183145
 title: The Impact of Diet on Body Composition in a Cohort of Pediatric and Adult Patients with Maple Syrup Urine Disease
 authors:
 - Roberta Pretese
@@ -15,6 +15,7 @@ journal: Nutrients
 year: '2024'
 doi: 10.3390/nu16183145
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Impact of Diet on Body Composition in a Cohort of Pediatric and Adult Patients with Maple Syrup Urine Disease

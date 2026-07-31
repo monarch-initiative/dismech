@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/microorganisms12020273"
+reference_id: DOI:10.3390/microorganisms12020273
 title: "Reviewing the Clostridioides difficile Mouse Model: Insights into Infection Mechanisms"
 authors:
 - José L. Fachi
@@ -9,6 +9,7 @@ journal: Microorganisms
 year: '2024'
 doi: 10.3390/microorganisms12020273
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Reviewing the Clostridioides difficile Mouse Model: Insights into Infection Mechanisms
