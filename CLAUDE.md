@@ -1386,6 +1386,13 @@ just validate-references kb/disorders/MyDisease.yaml
 just validate-terms kb/disorders/MyDisease.yaml
 ```
 
+**Reading the reference-validation summary:** `Total checks: 0` on a passing file
+does **not** mean nothing was checked — the upstream counter reports *issues
+found*, so it is 0 by definition on a clean run (issue #7252). The affirmative
+signal is the `Snippets checked: N/N verified against cached references` line the
+wrapper appends. Run it standalone with `just count-verified-snippets <file>`.
+Do not "fix" the validator on the basis of a zero here.
+
 ### 4. When Evidence Cannot Be Verified
 
 If a claim is well-established but you cannot find a quotable snippet:
