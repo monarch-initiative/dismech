@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fimmu.2019.01880"
+reference_id: DOI:10.3389/fimmu.2019.01880
 title: Epigenome-Wide Comparative Study Reveals Key Differences Between Mixed Connective Tissue Disease and Related Systemic Autoimmune Diseases
 authors:
 - Elena Carnero-Montoro
@@ -15,6 +15,7 @@ journal: Frontiers in Immunology
 year: '2019'
 doi: 10.3389/fimmu.2019.01880
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Epigenome-Wide Comparative Study Reveals Key Differences Between Mixed Connective Tissue Disease and Related Systemic Autoimmune Diseases

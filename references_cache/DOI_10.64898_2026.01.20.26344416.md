@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.64898/2026.01.20.26344416"
+reference_id: DOI:10.64898/2026.01.20.26344416
 title: Assessing diagnostic accuracy of Ov16 rapid diagnostic tests for onchocerciasis using Bayesian latent class models
 authors:
 - Jayla Norman
@@ -16,6 +16,7 @@ authors:
 year: '2026'
 doi: 10.64898/2026.01.20.26344416
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Assessing diagnostic accuracy of Ov16 rapid diagnostic tests for onchocerciasis using Bayesian latent class models

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/circulationaha.111.023986"
+reference_id: DOI:10.1161/circulationaha.111.023986
 title: Defects in Ankyrin-Based Membrane Protein Targeting Pathways Underlie Atrial Fibrillation
 authors:
 - Shane R. Cunha
@@ -24,6 +24,7 @@ journal: Circulation
 year: '2011'
 doi: 10.1161/circulationaha.111.023986
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Defects in Ankyrin-Based Membrane Protein Targeting Pathways Underlie Atrial Fibrillation

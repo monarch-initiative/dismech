@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fneur.2022.970168"
+reference_id: DOI:10.3389/fneur.2022.970168
 title: "Epidemiology, clinical presentation, treatment, and outcome of neurosarcoidosis: A mono-centric retrospective study and literature review"
 authors:
 - Pauline Sambon
@@ -13,6 +13,7 @@ journal: Frontiers in Neurology
 year: '2022'
 doi: 10.3389/fneur.2022.970168
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epidemiology, clinical presentation, treatment, and outcome of neurosarcoidosis: A mono-centric retrospective study and literature review

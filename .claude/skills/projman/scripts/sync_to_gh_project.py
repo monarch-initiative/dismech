@@ -17,7 +17,6 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
 
 
 @dataclass
@@ -26,12 +25,12 @@ class CheckboxItem:
 
     name: str
     checked: bool
-    tier: Optional[str] = None
-    extra_info: Optional[str] = None
+    tier: str | None = None
+    extra_info: str | None = None
     line_number: int = 0
 
 
-def parse_markdown_checkboxes(filepath: Path) -> List[CheckboxItem]:
+def parse_markdown_checkboxes(filepath: Path) -> list[CheckboxItem]:
     """Parse checkbox items from a markdown file."""
     items = []
     current_tier = None
@@ -67,7 +66,7 @@ def parse_markdown_checkboxes(filepath: Path) -> List[CheckboxItem]:
     return items
 
 
-def get_gh_project_items(project_number: int, owner: str) -> Dict[str, dict]:
+def get_gh_project_items(project_number: int, owner: str) -> dict[str, dict]:
     """Get existing items from GitHub Project, keyed by title."""
     cmd = [
         "gh",
@@ -81,7 +80,7 @@ def get_gh_project_items(project_number: int, owner: str) -> Dict[str, dict]:
         "--limit",
         "500",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         print(f"Error listing project items: {result.stderr}", file=sys.stderr)
         return {}
@@ -102,7 +101,7 @@ def get_gh_project_fields(project_number: int, owner: str) -> dict:
         "--format",
         "json",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         print(f"Error listing project fields: {result.stderr}", file=sys.stderr)
         return {}
@@ -135,7 +134,7 @@ def create_item(
         print(f"  [DRY-RUN] Would create: {item.name}")
         return True
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         print(f"  Error creating {item.name}: {result.stderr}", file=sys.stderr)
         return False
@@ -172,7 +171,7 @@ def update_item_status(
         print(f"  [DRY-RUN] Would update status for item {item_id}")
         return True
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     return result.returncode == 0
 
 

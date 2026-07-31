@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.23.02503"
+reference_id: DOI:10.1200/jco.23.02503
 title: "Durability of Response With Selpercatinib in Patients With <i>RET</i>-Activated Thyroid Cancer: Long-Term Safety and Efficacy From LIBRETTO-001"
 authors:
 - Lori J. Wirth
@@ -23,6 +23,7 @@ journal: Journal of Clinical Oncology
 year: '2024'
 doi: 10.1200/jco.23.02503
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Durability of Response With Selpercatinib in Patients With <i>RET</i>-Activated Thyroid Cancer: Long-Term Safety and Efficacy From LIBRETTO-001

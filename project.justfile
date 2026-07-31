@@ -803,6 +803,11 @@ warm-reference-cache-preview limit="0":
 test-search:
     node --test tests/js/*.test.mjs
 
+# Run dismech-curator browser-extension tests (pure Node, no dependencies)
+[group('QC')]
+test-extension:
+    node extension/test/run.mjs
+
 # Run pytest tests (with verbose output)
 [group('QC')]
 pytest-all:

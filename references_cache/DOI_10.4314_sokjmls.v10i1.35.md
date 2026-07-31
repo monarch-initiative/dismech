@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4314/sokjmls.v10i1.35"
+reference_id: DOI:10.4314/sokjmls.v10i1.35
 title: Pathophysiology and current laboratory investigations of Glucose-6-Phosphate dehydrogenase deficiency.
 authors:
 - Ibrahim Kalle Kwaifa
@@ -27,6 +27,7 @@ journal: Sokoto Journal of Medical Laboratory Science
 year: '2025'
 doi: 10.4314/sokjmls.v10i1.35
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathophysiology and current laboratory investigations of Glucose-6-Phosphate dehydrogenase deficiency.

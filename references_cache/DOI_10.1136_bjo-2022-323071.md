@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/bjo-2022-323071"
+reference_id: DOI:10.1136/bjo-2022-323071
 title: Stargardt macular dystrophy and therapeutic approaches
 authors:
 - Kaoru Fujinami
@@ -16,6 +16,7 @@ journal: British Journal of Ophthalmology
 year: '2023'
 doi: 10.1136/bjo-2022-323071
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Stargardt macular dystrophy and therapeutic approaches

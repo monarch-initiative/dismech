@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fgene.2022.814786"
+reference_id: DOI:10.3389/fgene.2022.814786
 title: "Case Report: Brachydactyly Type A1 Induced by a Novel Variant of in-Frame Insertion in the IHH Gene"
 authors:
 - Feier Zeng
@@ -14,6 +14,7 @@ journal: Frontiers in Genetics
 year: '2022'
 doi: 10.3389/fgene.2022.814786
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Case Report: Brachydactyly Type A1 Induced by a Novel Variant of in-Frame Insertion in the IHH Gene

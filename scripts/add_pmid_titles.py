@@ -28,7 +28,7 @@ def get_title_from_cache(pmid: str) -> str | None:
     if match:
         title = match.group(1).strip()
         # Handle quoted titles that may have trailing quote
-        if title.endswith('"') or title.endswith("'"):
+        if title.endswith(('"', "'")):
             title = title[:-1]
         return title
 

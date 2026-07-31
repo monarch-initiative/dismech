@@ -144,7 +144,6 @@ def validate():
 
     trait_results = {}
     all_confirmed_genes = Counter()
-    all_novel_programs = []  # noqa: F841
 
     # Process RBC traits first, then others
     trait_order = list(rbc_traits.keys()) + list(other_traits.keys())

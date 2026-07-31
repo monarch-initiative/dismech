@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/01.cir.89.1.206"
+reference_id: DOI:10.1161/01.cir.89.1.206
 title: Short-coupled variant of torsade de pointes. A new electrocardiographic entity in the spectrum of idiopathic ventricular tachyarrhythmias.
 authors:
 - A Leenhardt
@@ -12,6 +12,7 @@ journal: Circulation
 year: '1994'
 doi: 10.1161/01.cir.89.1.206
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Short-coupled variant of torsade de pointes. A new electrocardiographic entity in the spectrum of idiopathic ventricular tachyarrhythmias.

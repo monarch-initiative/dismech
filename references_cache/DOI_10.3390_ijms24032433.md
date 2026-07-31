@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24032433"
+reference_id: DOI:10.3390/ijms24032433
 title: "Treatment of Advanced Non-Small Cell Lung Cancer with RET Fusions: Reality and Hopes"
 authors:
 - Danilo Rocco
@@ -11,6 +11,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24032433
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatment of Advanced Non-Small Cell Lung Cancer with RET Fusions: Reality and Hopes

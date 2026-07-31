@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/life14010069"
+reference_id: DOI:10.3390/life14010069
 title: "Neurosarcoidosis: The Presentation, Diagnosis and Treatment Review of Two Cases"
 authors:
 - Maamoun Basheer
@@ -14,6 +14,7 @@ journal: Life
 year: '2023'
 doi: 10.3390/life14010069
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Neurosarcoidosis: The Presentation, Diagnosis and Treatment Review of Two Cases

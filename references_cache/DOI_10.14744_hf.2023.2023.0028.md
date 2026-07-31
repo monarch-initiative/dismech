@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.14744/hf.2023.2023.0028"
+reference_id: DOI:10.14744/hf.2023.2023.0028
 title: Cross talk between genetics and biochemistry in the pathogenesis of hepatocellular carcinoma
 authors:
 - Mete Ucdal
@@ -7,6 +7,7 @@ journal: Hepatology Forum
 year: '2024'
 doi: 10.14744/hf.2023.2023.0028
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Cross talk between genetics and biochemistry in the pathogenesis of hepatocellular carcinoma

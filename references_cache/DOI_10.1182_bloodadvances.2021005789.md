@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2021005789"
+reference_id: DOI:10.1182/bloodadvances.2021005789
 title: "Impact of<i>IDH1</i>and<i>IDH2</i>mutation detection at diagnosis and in remission in patients with AML receiving allogeneic transplantation"
 authors:
 - Marius Bill
@@ -22,6 +22,7 @@ journal: Blood Advances
 year: '2023'
 doi: 10.1182/bloodadvances.2021005789
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Impact of<i>IDH1</i>and<i>IDH2</i>mutation detection at diagnosis and in remission in patients with AML receiving allogeneic transplantation

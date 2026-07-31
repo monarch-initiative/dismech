@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/13993003.01397-2023"
+reference_id: DOI:10.1183/13993003.01397-2023
 title: "The airway epithelium: an orchestrator of inflammation, a key structural barrier and a therapeutic target in severe asthma"
 authors:
 - Richard J. Russell
@@ -13,6 +13,7 @@ journal: European Respiratory Journal
 year: '2024'
 doi: 10.1183/13993003.01397-2023
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The airway epithelium: an orchestrator of inflammation, a key structural barrier and a therapeutic target in severe asthma

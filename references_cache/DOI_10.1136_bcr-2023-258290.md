@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/bcr-2023-258290"
+reference_id: DOI:10.1136/bcr-2023-258290
 title: "Acute labyrinthitis: a manifestation of COVID-19 in a teenager"
 authors:
 - Jeyasakthy Saniasiaya
@@ -8,6 +8,7 @@ journal: BMJ Case Reports
 year: '2023'
 doi: 10.1136/bcr-2023-258290
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Acute labyrinthitis: a manifestation of COVID-19 in a teenager

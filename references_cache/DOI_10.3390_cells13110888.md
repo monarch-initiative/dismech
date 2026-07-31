@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13110888"
+reference_id: DOI:10.3390/cells13110888
 title: Updates on Disease Mechanisms and Therapeutics for Amyotrophic Lateral Sclerosis
 authors:
 - Lien Nguyen
@@ -7,6 +7,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13110888
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Updates on Disease Mechanisms and Therapeutics for Amyotrophic Lateral Sclerosis

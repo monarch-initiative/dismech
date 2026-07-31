@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14010163"
+reference_id: DOI:10.3390/jcm14010163
 title: Mitigating the Risk of QTc Prolongation When Using Haloperidol for Acute Treatment of Cannabinoid Hyperemesis Syndrome in Adolescents and Young Adults
 authors:
 - Sandra Merino
@@ -10,6 +10,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm14010163
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mitigating the Risk of QTc Prolongation When Using Haloperidol for Acute Treatment of Cannabinoid Hyperemesis Syndrome in Adolescents and Young Adults

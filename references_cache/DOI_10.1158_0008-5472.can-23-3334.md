@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/0008-5472.can-23-3334"
+reference_id: DOI:10.1158/0008-5472.can-23-3334
 title: "Comprehensive Transcriptomic Analysis of EWSR1::WT1 Targets Identifies CDK4/6 Inhibitors as an Effective Therapy for Desmoplastic Small Round Cell Tumors"
 authors:
 - Justin W. Magrath
@@ -14,6 +14,7 @@ journal: Cancer Research
 year: '2024'
 doi: 10.1158/0008-5472.can-23-3334
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Comprehensive Transcriptomic Analysis of EWSR1::WT1 Targets Identifies CDK4/6 Inhibitors as an Effective Therapy for Desmoplastic Small Round Cell Tumors

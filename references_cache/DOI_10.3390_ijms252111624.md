@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252111624"
+reference_id: DOI:10.3390/ijms252111624
 title: Exploring the Contrasts and Similarities of Dengue and SARS-CoV-2 Infections During the COVID-19 Era
 authors:
 - Alexis Hipólito García
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252111624
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring the Contrasts and Similarities of Dengue and SARS-CoV-2 Infections During the COVID-19 Era

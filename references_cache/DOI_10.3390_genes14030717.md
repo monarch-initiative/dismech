@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes14030717"
+reference_id: DOI:10.3390/genes14030717
 title: Mutational Spectrum of the ABCA12 Gene and Genotype–Phenotype Correlation in a Cohort of 64 Patients with Autosomal Recessive Congenital Ichthyosis
 authors:
 - Alrun Hotz
@@ -27,6 +27,7 @@ journal: Genes
 year: '2023'
 doi: 10.3390/genes14030717
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mutational Spectrum of the ABCA12 Gene and Genotype–Phenotype Correlation in a Cohort of 64 Patients with Autosomal Recessive Congenital Ichthyosis

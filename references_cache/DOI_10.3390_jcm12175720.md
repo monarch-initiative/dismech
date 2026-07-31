@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm12175720"
+reference_id: DOI:10.3390/jcm12175720
 title: "Acute-Onset Retinal Conditions Mimicking Acute Optic Neuritis: Overview and Differential Diagnosis"
 authors:
 - Emanuela Interlandi
@@ -13,6 +13,7 @@ journal: Journal of Clinical Medicine
 year: '2023'
 doi: 10.3390/jcm12175720
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Acute-Onset Retinal Conditions Mimicking Acute Optic Neuritis: Overview and Differential Diagnosis

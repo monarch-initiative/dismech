@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/curroncol32060339"
+reference_id: DOI:10.3390/curroncol32060339
 title: "Myelofibrosis: Treatment Options After Ruxolitinib Failure"
 authors:
 - Ruth Stuckey
@@ -9,6 +9,7 @@ journal: Current Oncology
 year: '2025'
 doi: 10.3390/curroncol32060339
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Myelofibrosis: Treatment Options After Ruxolitinib Failure
