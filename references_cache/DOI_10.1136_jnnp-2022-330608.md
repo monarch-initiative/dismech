@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jnnp-2022-330608"
+reference_id: DOI:10.1136/jnnp-2022-330608
 title: Diagnostic value of intereye difference metrics for optic neuritis in aquaporin-4 antibody seropositive neuromyelitis optica spectrum disorders
 authors:
 - Frederike Cosima Oertel
@@ -46,6 +46,7 @@ journal: "Journal of Neurology, Neurosurgery &amp; Psychiatry"
 year: '2023'
 doi: 10.1136/jnnp-2022-330608
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Diagnostic value of intereye difference metrics for optic neuritis in aquaporin-4 antibody seropositive neuromyelitis optica spectrum disorders

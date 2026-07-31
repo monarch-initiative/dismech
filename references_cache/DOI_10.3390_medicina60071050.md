@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicina60071050"
+reference_id: DOI:10.3390/medicina60071050
 title: "The Role of Glial Fibrillary Acidic Protein as a Biomarker in Multiple Sclerosis and Neuromyelitis Optica Spectrum Disorder: A Systematic Review and Meta-Analysis"
 authors:
 - Aysa Shaygannejad
@@ -12,6 +12,7 @@ journal: Medicina
 year: '2024'
 doi: 10.3390/medicina60071050
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of Glial Fibrillary Acidic Protein as a Biomarker in Multiple Sclerosis and Neuromyelitis Optica Spectrum Disorder: A Systematic Review and Meta-Analysis

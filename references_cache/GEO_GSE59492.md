@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE59492"
+reference_id: GEO:GSE59492
 title: Integrative analysis of microRNA and gene expression profiles identifies microRNAs as potential regulators in alcoholic hepatitis
 content_type: summary
+full_text_attempted: true
 ---
 
 # Integrative analysis of microRNA and gene expression profiles identifies microRNAs as potential regulators in alcoholic hepatitis

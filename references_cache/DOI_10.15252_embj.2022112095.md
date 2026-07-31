@@ -1,10 +1,6 @@
 ---
-reference_id: "DOI:10.15252/embj.2022112095"
-title: "Presynaptic targeting of botulinum neurotoxin type A requires a tripartite
-                    <scp>PSG‐Syt1</scp>
-                    ‐
-                    <scp>SV2</scp>
-                    plasma membrane nanocluster for synaptic vesicle entry"
+reference_id: DOI:10.15252/embj.2022112095
+title: "Presynaptic targeting of botulinum neurotoxin type A requires a tripartite <scp>PSG‐Syt1</scp> ‐ <scp>SV2</scp> plasma membrane nanocluster for synaptic vesicle entry"
 authors:
 - Merja Joensuu
 - Parnayan Syed
@@ -31,13 +27,10 @@ journal: The EMBO Journal
 year: '2023'
 doi: 10.15252/embj.2022112095
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Presynaptic targeting of botulinum neurotoxin type A requires a tripartite
-                    <scp>PSG‐Syt1</scp>
-                    ‐
-                    <scp>SV2</scp>
-                    plasma membrane nanocluster for synaptic vesicle entry
+# Presynaptic targeting of botulinum neurotoxin type A requires a tripartite <scp>PSG‐Syt1</scp> ‐ <scp>SV2</scp> plasma membrane nanocluster for synaptic vesicle entry
 **Authors:** Merja Joensuu, Parnayan Syed, Saber H Saber, Vanessa Lanoue, Tristan P Wallis, James Rae, Ailisa Blum, Rachel S Gormal, Christopher Small, Shanley Sanders, Anmin Jiang, Stefan Mahrhold, Nadja Krez, Michael A Cousin, Ruby Cooper‐White, Justin J Cooper‐White, Brett M Collins, Robert G Parton, Giuseppe Balistreri, Andreas Rummel, Frédéric A Meunier
 **Journal:** The EMBO Journal (2023)
 **DOI:** [10.15252/embj.2022112095](https://doi.org/10.15252/embj.2022112095)

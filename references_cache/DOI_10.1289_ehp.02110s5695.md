@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1289/ehp.02110s5695"
+reference_id: DOI:10.1289/ehp.02110s5695
 title: Molecular mechanism of copper transport in Wilson disease.
 authors:
 - Negah Fatemi
@@ -8,6 +8,7 @@ journal: Environmental Health Perspectives
 year: '2002'
 doi: 10.1289/ehp.02110s5695
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Molecular mechanism of copper transport in Wilson disease.

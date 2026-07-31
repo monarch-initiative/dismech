@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cosmetics11030074"
+reference_id: DOI:10.3390/cosmetics11030074
 title: "Adult Female Acne: Recent Advances in Pathophysiology and Therapeutic Approaches"
 authors:
 - Andreea Amuzescu
@@ -10,6 +10,7 @@ journal: Cosmetics
 year: '2024'
 doi: 10.3390/cosmetics11030074
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Adult Female Acne: Recent Advances in Pathophysiology and Therapeutic Approaches

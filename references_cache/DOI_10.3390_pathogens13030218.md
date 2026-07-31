@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pathogens13030218"
+reference_id: DOI:10.3390/pathogens13030218
 title: Current Role of Surgery in the Treatment of Neurocysticercosis
 authors:
 - Pedro Tadao Hamamoto Filho
@@ -10,6 +10,7 @@ journal: Pathogens
 year: '2024'
 doi: 10.3390/pathogens13030218
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Current Role of Surgery in the Treatment of Neurocysticercosis

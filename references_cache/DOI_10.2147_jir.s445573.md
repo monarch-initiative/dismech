@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2147/jir.s445573"
+reference_id: DOI:10.2147/jir.s445573
 title: "Pyroptosis in Osteoarthritis: Molecular Mechanisms and Therapeutic Implications"
 authors:
 - Yeping Chen
@@ -14,6 +14,7 @@ journal: Journal of Inflammation Research
 year: '2024'
 doi: 10.2147/jir.s445573
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pyroptosis in Osteoarthritis: Molecular Mechanisms and Therapeutic Implications

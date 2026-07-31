@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1590/2326-4594-jiems-2022-0005"
+reference_id: DOI:10.1590/2326-4594-jiems-2022-0005
 title: "Dystroglycanopathies: Genetic Bases of Muscular Dystrophies Due to Alteration in the O-Glycosylation of α-Dystroglycan"
 authors:
 - M.A. Cubilla
@@ -9,6 +9,7 @@ journal: Journal of Inborn Errors of Metabolism and Screening
 year: '2023'
 doi: 10.1590/2326-4594-jiems-2022-0005
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Dystroglycanopathies: Genetic Bases of Muscular Dystrophies Due to Alteration in the O-Glycosylation of α-Dystroglycan

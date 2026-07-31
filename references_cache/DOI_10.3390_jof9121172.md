@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jof9121172"
+reference_id: DOI:10.3390/jof9121172
 title: New Immunological Markers in Chromoblastomycosis—The Importance of PD-1 and PD-L1 Molecules in Human Infection
 authors:
 - Italo N. Cavallone
@@ -11,6 +11,7 @@ journal: Journal of Fungi
 year: '2023'
 doi: 10.3390/jof9121172
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # New Immunological Markers in Chromoblastomycosis—The Importance of PD-1 and PD-L1 Molecules in Human Infection

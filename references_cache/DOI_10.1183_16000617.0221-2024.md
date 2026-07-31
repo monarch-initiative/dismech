@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/16000617.0221-2024"
+reference_id: DOI:10.1183/16000617.0221-2024
 title: "The epithelial era of asthma research: knowledge gaps and future direction for patient care"
 authors:
 - Christopher E. Brightling
@@ -15,6 +15,7 @@ journal: European Respiratory Review
 year: '2024'
 doi: 10.1183/16000617.0221-2024
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The epithelial era of asthma research: knowledge gaps and future direction for patient care

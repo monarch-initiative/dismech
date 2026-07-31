@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.7759/cureus.41947"
+reference_id: DOI:10.7759/cureus.41947
 title: "Primary Cardiac Angiosarcoma: A Review"
 authors:
 - Naina Kumari
@@ -22,6 +22,7 @@ journal: Cureus
 year: '2023'
 doi: 10.7759/cureus.41947
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Primary Cardiac Angiosarcoma: A Review

@@ -1,10 +1,6 @@
 ---
-reference_id: "DOI:10.1177/0300985819900354"
-title: "Spontaneous
-                    <i>KRT5</i>
-                    Gene Mutation in Rhesus Macaques (
-                    <i>Macaca mulatta</i>
-                    ): A Novel Nonhuman Primate Model of Epidermolysis Bullosa Simplex"
+reference_id: DOI:10.1177/0300985819900354
+title: "Spontaneous <i>KRT5</i> Gene Mutation in Rhesus Macaques ( <i>Macaca mulatta</i> ): A Novel Nonhuman Primate Model of Epidermolysis Bullosa Simplex"
 authors:
 - Amanda L. Johnson
 - Samuel M. Peterson
@@ -16,13 +12,10 @@ journal: Veterinary Pathology
 year: '2020'
 doi: 10.1177/0300985819900354
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Spontaneous
-                    <i>KRT5</i>
-                    Gene Mutation in Rhesus Macaques (
-                    <i>Macaca mulatta</i>
-                    ): A Novel Nonhuman Primate Model of Epidermolysis Bullosa Simplex
+# Spontaneous <i>KRT5</i> Gene Mutation in Rhesus Macaques ( <i>Macaca mulatta</i> ): A Novel Nonhuman Primate Model of Epidermolysis Bullosa Simplex
 **Authors:** Amanda L. Johnson, Samuel M. Peterson, Margaret M. L. Terry, Betsy Ferguson, Lois M. Colgin, Anne D. Lewis
 **Journal:** Veterinary Pathology (2020)
 **DOI:** [10.1177/0300985819900354](https://doi.org/10.1177/0300985819900354)

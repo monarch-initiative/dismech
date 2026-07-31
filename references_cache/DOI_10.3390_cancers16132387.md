@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16132387"
+reference_id: DOI:10.3390/cancers16132387
 title: "Evolution of Systemic Treatment for Hepatocellular Carcinoma: Changing Treatment Strategies and Concepts"
 authors:
 - Michihisa Moriguchi
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16132387
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Evolution of Systemic Treatment for Hepatocellular Carcinoma: Changing Treatment Strategies and Concepts

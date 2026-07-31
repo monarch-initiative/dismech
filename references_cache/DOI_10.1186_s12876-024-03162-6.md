@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1186/s12876-024-03162-6"
+reference_id: DOI:10.1186/s12876-024-03162-6
 title: "Investigating the shared genetic architecture between primary sclerosing cholangitis and inflammatory bowel diseases: a Mendelian randomization study"
 authors:
 - Xuan Dong
@@ -10,6 +10,7 @@ journal: BMC Gastroenterology
 year: '2024'
 doi: 10.1186/s12876-024-03162-6
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Investigating the shared genetic architecture between primary sclerosing cholangitis and inflammatory bowel diseases: a Mendelian randomization study

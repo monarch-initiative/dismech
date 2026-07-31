@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.21.01604"
+reference_id: DOI:10.1200/jco.21.01604
 title: "Overall Survival Results From the POLO Trial: A Phase III Study of Active Maintenance Olaparib Versus Placebo for Germline BRCA-Mutated Metastatic Pancreatic Cancer"
 authors:
 - Hedy L. Kindler
@@ -25,6 +25,7 @@ journal: Journal of Clinical Oncology
 year: '2022'
 doi: 10.1200/jco.21.01604
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Overall Survival Results From the POLO Trial: A Phase III Study of Active Maintenance Olaparib Versus Placebo for Germline BRCA-Mutated Metastatic Pancreatic Cancer

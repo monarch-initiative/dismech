@@ -1,6 +1,9 @@
 name: Curation Scanner
 
 on:
+  schedule:
+    - cron: "0 */4 * * 1-5"  # weekday: every 4h
+    - cron: "0 */8 * * 0,6"  # weekend: every 8h
   workflow_dispatch:
     inputs:
       note:
@@ -55,13 +58,36 @@ jobs:
       EFFORT_SELECTOR: ${{ matrix.selector }}
 
     steps:
+      - name: Generate ai4c-agent token
+        id: ai4c-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          # Use the reviewable PR token path instead of AI4C_AGENT_* so follow-up review
-          # automation can still act on the resulting work.
-          token: ${{ secrets.PAT_FOR_PR }}
+          # Author scanner PRs as the ai4c-agent App (the writer identity), now distinct
+          # from the ai4c-reviewer App, so follow-up review can still act independently on
+          # the resulting work. Do not persist the token in .git/config; git authenticates
+          # via the gh credential helper configured below.
+          token: ${{ steps.ai4c-token.outputs.token }}
+          persist-credentials: false
+
+      - name: Configure git identity and credential helper
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          APP_SLUG: ${{ steps.ai4c-token.outputs.app-slug }}
+        run: |
+          # Commit as the ai4c-agent App bot (canonical <id>+slug[bot] noreply email);
+          # serve the short-lived token to git on demand via the gh credential helper
+          # instead of persisting it in .git/config.
+          APP_USER_ID="$(gh api "/users/${APP_SLUG}[bot]" --jq .id)"
+          git config --global user.name "${APP_SLUG}[bot]"
+          git config --global user.email "${APP_USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+          gh auth setup-git
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -76,8 +102,10 @@ jobs:
 
       - name: Run Curation Scanner
         id: curation-scanner
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1
         env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.ai4c-token.outputs.token }}
           # Research provider API keys — make available for `just research-disorder falcon ...`
           # FUTUREHOUSE_API_KEY and EDISON_API_KEY are both accepted by deep-research-client
           # for the `falcon` provider (Edison Scientific, formerly FutureHouse Falcon).
@@ -89,7 +117,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.PAT_FOR_PR }}
+          github_token: ${{ steps.ai4c-token.outputs.token }}
           show_full_output: true
           claude_args: |
             --dangerously-skip-permissions
@@ -136,13 +164,26 @@ jobs:
             - prefer the single item where a safe, meaningful next step can be completed in one run
 
             Avoid repeatedly touching the freshest bottom-of-queue items while older unassigned
-            candidates remain. If signals conflict, explain your choice briefly in the comment or PR
-            you post for the selected item.
+            candidates remain.
+
+            Selection is deliberately restricted to items with no human / non-agent assignee, so the
+            scanner never steps on work a person has already claimed. Always begin the comment or PR
+            you post for the selected item with one sentence stating WHY you selected it over the
+            other candidates — name the deciding ranking signal and confirm it had no non-agent
+            assignee — so the selection is transparent and auditable.
 
             For the single selected unassigned curation issue:
             - Analyze the request.
             - Post a concise assessment comment covering the likely disease or disease area, what work is needed, and the estimated scope/risk.
-            - If the first step is straightforward and low-risk, create an initial PR.
+            - If your analysis shows the task is already fully resolved, close the issue as completed
+              (`gh issue close`) with a short comment explaining what resolved it. VERIFY completion
+              against the actual repository state before closing — confirm the relevant `kb/` entry
+              really contains the requested content (e.g. the specific variant, PMID, and a
+              validation-passing snippet) and cite the real integrating commit, which you find with
+              `git log -S '<distinctive string>' -- <path>` — do NOT trust a remembered or inferred
+              PR number. If you cannot verify the content in the repository, do NOT close: leave the
+              assessment comment and flag for human review instead.
+            - Else, if the first step is straightforward and low-risk, create an initial PR.
             - Otherwise, leave the assessment comment and flag the issue for human review.
 
             For the single selected unassigned curation PR:
@@ -161,3 +202,10 @@ jobs:
             - Never create or hand-edit `references_cache/*.md`; regenerate cache entries with `just fetch-reference <ID>` if needed.
             - Validate any file edits you make with the relevant `just` or `uv run` commands before committing.
             - After choosing a target, spend the run on that one item only.
+
+      - name: Write step summary
+        if: ${{ !cancelled() && steps.curation-scanner.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.curation-scanner.outputs.execution_file }}
+          title: "🔍 Curation Scanner Run (${{ matrix.effort }})"

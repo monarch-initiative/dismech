@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2147/idr.s419243"
+reference_id: DOI:10.2147/idr.s419243
 title: Microbiota-Based Live Biotherapeutic Products for Clostridioides Difficile Infection- The Devil is in the Details
 authors:
 - Lea Monday
@@ -9,6 +9,7 @@ journal: Infection and Drug Resistance
 year: '2024'
 doi: 10.2147/idr.s419243
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Microbiota-Based Live Biotherapeutic Products for Clostridioides Difficile Infection- The Devil is in the Details

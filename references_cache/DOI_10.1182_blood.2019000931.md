@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/blood.2019000931"
+reference_id: DOI:10.1182/blood.2019000931
 title: Overview of Castleman disease
 authors:
 - Angela Dispenzieri
@@ -8,6 +8,7 @@ journal: Blood
 year: '2020'
 doi: 10.1182/blood.2019000931
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Overview of Castleman disease

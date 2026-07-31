@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.20944/preprints202512.0304.v1"
+reference_id: DOI:10.20944/preprints202512.0304.v1
 title: "Cell Motility Dynamics in Glaucoma: Mechanisms, Pathogenic Roles, and Therapeutic Targeting"
 authors:
 - Dario Rusciano
@@ -9,6 +9,7 @@ authors:
 year: '2025'
 doi: 10.20944/preprints202512.0304.v1
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cell Motility Dynamics in Glaucoma: Mechanisms, Pathogenic Roles, and Therapeutic Targeting

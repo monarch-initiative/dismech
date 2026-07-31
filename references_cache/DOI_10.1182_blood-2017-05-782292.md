@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/blood-2017-05-782292"
+reference_id: DOI:10.1182/blood-2017-05-782292
 title: Midostaurin approved for FLT3-mutated AML
 authors:
 - Mark Levis
@@ -7,6 +7,7 @@ journal: Blood
 year: '2017'
 doi: 10.1182/blood-2017-05-782292
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Midostaurin approved for FLT3-mutated AML

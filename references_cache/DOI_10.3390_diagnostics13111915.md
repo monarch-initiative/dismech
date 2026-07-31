@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics13111915"
+reference_id: DOI:10.3390/diagnostics13111915
 title: "Clinical, Histological, and Molecular Prognostic Factors in Childhood Medulloblastoma: Where Do We Stand?"
 authors:
 - Charikleia Ntenti
@@ -9,6 +9,7 @@ journal: Diagnostics
 year: '2023'
 doi: 10.3390/diagnostics13111915
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical, Histological, and Molecular Prognostic Factors in Childhood Medulloblastoma: Where Do We Stand?

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000508850"
+reference_id: DOI:10.1159/000508850
 title: "Diarrhea as an Initial Presentation in Patients with Medullary Thyroid Cancer: Delaying the Diagnosis"
 authors:
 - Mohamed K.M. Shakir
@@ -10,6 +10,7 @@ journal: Case Reports in Gastroenterology
 year: '2020'
 doi: 10.1159/000508850
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Diarrhea as an Initial Presentation in Patients with Medullary Thyroid Cancer: Delaying the Diagnosis

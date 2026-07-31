@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/toxins16110496"
+reference_id: DOI:10.3390/toxins16110496
 title: "65 Years on—Aflatoxin Biomarkers Blossoming: Whither Next?"
 authors:
 - Thomas W. Kensler
@@ -8,6 +8,7 @@ journal: Toxins
 year: '2024'
 doi: 10.3390/toxins16110496
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # 65 Years on—Aflatoxin Biomarkers Blossoming: Whither Next?

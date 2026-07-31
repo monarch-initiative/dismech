@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13080673"
+reference_id: DOI:10.3390/cells13080673
 title: Development and Characterisation of a New Patient-Derived Xenograft Model of AR-Negative Metastatic Castration-Resistant Prostate Cancer
 authors:
 - Daniel J. Turnham
@@ -22,6 +22,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13080673
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Development and Characterisation of a New Patient-Derived Xenograft Model of AR-Negative Metastatic Castration-Resistant Prostate Cancer

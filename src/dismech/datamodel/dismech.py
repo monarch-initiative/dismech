@@ -5306,7 +5306,7 @@ class DefinitionTypeEnum(EnumDefinitionImpl):
         description="Published diagnostic criteria (clinical/serologic/imaging)")
     PHENOTYPE_ALGORITHM = PermissibleValue(
         text="PHENOTYPE_ALGORITHM",
-        description="Algorithmic phenotype definition (e.g., PheKB-style)")
+        description="Algorithmic phenotype definition (e.g., PheKB-/OHDSI-style)")
     CASE_DEFINITION = PermissibleValue(
         text="CASE_DEFINITION",
         description="Case definition for surveillance or reporting")

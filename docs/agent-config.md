@@ -32,12 +32,12 @@ workflow that has no explicit `model:`, change `default_model`.
 
 ```yaml
 # .github/agent-config.yaml
-default_model: claude-opus-4-8
+default_model: claude-opus-5
 workflows:
   literature-scan:
     model: claude-haiku-4-5-20251001
   pr-shepherd:
-    model: claude-opus-4-8
+    model: claude-opus-5
   # ...
 ```
 
@@ -53,8 +53,8 @@ workflows:
   curation-scanner:
     matrix:
       - { effort: low_effort,    model: claude-haiku-4-5-20251001, selector: "..." }
-      - { effort: medium_effort, model: claude-sonnet-4-6,         selector: "..." }
-      - { effort: high_effort,   model: claude-opus-4-8,           selector: "..." }
+      - { effort: medium_effort, model: claude-sonnet-5,         selector: "..." }
+      - { effort: high_effort,   model: claude-opus-5,           selector: "..." }
 ```
 
 ## Adding a workflow
@@ -82,5 +82,7 @@ parameterize `schedule:` at run time. Per-workflow enable/disable and a provider
 abstraction (`provider:` is reserved but not yet consumed) are planned follow-ups
 under issue #5218.
 
-`claude.yml` (the `@claude` mention responder) intentionally leaves the model
-unset and uses `claude-code-action`'s own default, so it is not managed here.
+`claude.yml` (the `@claude` mention responder) is also managed here (`claude:`
+key → `claude-opus-5`); it resolves `AGENT_MODEL` via the same
+`resolve-agent-config` step and passes `--model ${{ env.AGENT_MODEL }}` in
+`claude_args`, so its model lives in this file like every other agentic workflow.

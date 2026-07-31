@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/19418744231223283"
+reference_id: DOI:10.1177/19418744231223283
 title: "Vasculitis in the Central Nervous System: Etiology, Characteristics, and Outcomes in a Large Single-Center Cohort"
 authors:
 - Yoji Hoshina
@@ -15,6 +15,7 @@ journal: The Neurohospitalist
 year: '2024'
 doi: 10.1177/19418744231223283
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Vasculitis in the Central Nervous System: Etiology, Characteristics, and Outcomes in a Large Single-Center Cohort

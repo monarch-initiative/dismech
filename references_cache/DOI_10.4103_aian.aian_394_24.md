@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4103/aian.aian_394_24"
+reference_id: DOI:10.4103/aian.aian_394_24
 title: "Decoding Autoimmune Autonomic Disorders: A Less-Recognized Overlap"
 authors:
 - Prachi Mohapatra
@@ -11,6 +11,7 @@ journal: Annals of Indian Academy of Neurology
 year: '2024'
 doi: 10.4103/aian.aian_394_24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Decoding Autoimmune Autonomic Disorders: A Less-Recognized Overlap

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/curroncol30040299"
+reference_id: DOI:10.3390/curroncol30040299
 title: "Intra-Abdominal Desmoplastic Small Round Cell Tumor (DSRCT) and the Role of Hyperthermic Intraperitoneal Chemotherapy (HIPEC): A Review"
 authors:
 - Sophie J. M. Reijers
@@ -11,6 +11,7 @@ journal: Current Oncology
 year: '2023'
 doi: 10.3390/curroncol30040299
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Intra-Abdominal Desmoplastic Small Round Cell Tumor (DSRCT) and the Role of Hyperthermic Intraperitoneal Chemotherapy (HIPEC): A Review

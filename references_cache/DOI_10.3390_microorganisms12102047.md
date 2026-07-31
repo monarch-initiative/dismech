@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/microorganisms12102047"
+reference_id: DOI:10.3390/microorganisms12102047
 title: "Epidemiological Evidence for Upper Respiratory Infections as a Potential Risk Factor for Meniere’s Disease: A Korean National Health Sample Cohort Study"
 authors:
 - Mi Jung Kwon
@@ -18,6 +18,7 @@ journal: Microorganisms
 year: '2024'
 doi: 10.3390/microorganisms12102047
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epidemiological Evidence for Upper Respiratory Infections as a Potential Risk Factor for Meniere’s Disease: A Korean National Health Sample Cohort Study

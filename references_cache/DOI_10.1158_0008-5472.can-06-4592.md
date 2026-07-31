@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/0008-5472.can-06-4592"
+reference_id: DOI:10.1158/0008-5472.can-06-4592
 title: Mutations in BRAF and KRAS Converge on Activation of the Mitogen-Activated Protein Kinase Pathway in Lung Cancer Mouse Models
 authors:
 - Hongbin Ji
@@ -26,6 +26,7 @@ journal: Cancer Research
 year: '2007'
 doi: 10.1158/0008-5472.can-06-4592
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mutations in BRAF and KRAS Converge on Activation of the Mitogen-Activated Protein Kinase Pathway in Lung Cancer Mouse Models

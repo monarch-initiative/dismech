@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12061349"
+reference_id: DOI:10.3390/biomedicines12061349
 title: "The 2021 World Health Organization Central Nervous System Tumor Classification: The Spectrum of Diffuse Gliomas"
 authors:
 - Racine Gue
@@ -8,6 +8,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12061349
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The 2021 World Health Organization Central Nervous System Tumor Classification: The Spectrum of Diffuse Gliomas

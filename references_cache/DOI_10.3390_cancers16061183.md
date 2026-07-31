@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16061183"
+reference_id: DOI:10.3390/cancers16061183
 title: Molecular Pathology of Pancreatic Cystic Lesions with a Focus on Malignant Progression
 authors:
 - Yan Hu
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16061183
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Pathology of Pancreatic Cystic Lesions with a Focus on Malignant Progression

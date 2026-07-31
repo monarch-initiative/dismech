@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252111579"
+reference_id: DOI:10.3390/ijms252111579
 title: An Update on Molecular Mechanisms of Scarring—A Narrative Review
 authors:
 - Michael Kohlhauser
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252111579
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # An Update on Molecular Mechanisms of Scarring—A Narrative Review
