@@ -96,7 +96,9 @@ The report's own source
 not microglia-specific and did not track the tested activation markers. A
 TSPO-null or TSPO-low result therefore cannot refute homeostatic,
 complement-mediated surveillance or synapse remodeling. It only limits broad
-claims of a widespread TSPO-high inflammatory state.
+claims of a widespread TSPO-high inflammatory state. The report's Finding 7
+prose already preserves this caveat; the narrower problem is its evidence
+matrix's stronger `Refutes` label for microglial activation.
 
 ### Autoimmune pleiotropy and glial enrichment are narrower than stated
 

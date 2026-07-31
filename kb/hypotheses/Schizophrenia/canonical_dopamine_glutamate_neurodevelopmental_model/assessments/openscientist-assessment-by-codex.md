@@ -71,7 +71,9 @@ abnormalities across the disorder.
 
 ### “Validated NMDA pathophysiology” is not established
 
-Ketamine/PCP models and anti-NMDA-receptor encephalitis
+Ketamine/PCP models, including a mouse NMDAR-hypofunction circuit study
+([PMID:38685343](https://pubmed.ncbi.nlm.nih.gov/38685343/)), and
+anti-NMDA-receptor encephalitis
 ([PMID:19198118](https://pubmed.ncbi.nlm.nih.gov/19198118/)) show that severe
 NMDA perturbation can phenocopy important features. They do not directly
 measure or establish primary endogenous cortical NMDA hypofunction in typical
