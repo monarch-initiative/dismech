@@ -43,8 +43,11 @@ just validate-all
 # Validate a single disorder file
 just validate kb/disorders/Asthma.yaml
 
-# Validate ontology term references in schema (anti-hallucination check)
-just validate-terms
+# Validate ontology term references in a single file (anti-hallucination check)
+just validate-terms kb/disorders/Asthma.yaml
+
+# Validate ontology term references in the schema's dynamic enums
+just validate-terms-schema
 
 # Run pytest tests
 just pytest-all

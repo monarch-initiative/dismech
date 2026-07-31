@@ -252,7 +252,7 @@ for f in glob.glob("kb/disorders/*.yaml"):
 just validate kb/disorders/MyDisease.yaml
 
 # Term validation (labels match ontology)
-just validate-terms-file kb/disorders/MyDisease.yaml
+just validate-terms kb/disorders/MyDisease.yaml
 
 # Re-check compliance
 just compliance kb/disorders/MyDisease.yaml
