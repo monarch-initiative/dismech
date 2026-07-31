@@ -19,23 +19,30 @@ the descendants of already-curated terms.
 
 | Metric | Value |
 |---|---|
-| Covered disorder anchors | 1,579 |
-| Anchors with ≥1 uncovered Mondo child | 796 |
-| Total uncovered child subtypes | 4,813 |
-| …from broad anchors (>15 children) | 1,388 (29%) — too-high anchor |
-| …from clean anchors (1–15 children) | **3,425 (71%) — high-signal targets** |
+| Covered anchors (disease + subtype level) | 2,354 |
+| Disease-level anchors expanded | 1,585 |
+| Anchors with ≥1 uncovered Mondo child | 702 |
+| Total uncovered child subtypes | 3,929 |
+| …from broad anchors (>15 children) | 1,225 (31%) — too-high anchor |
+| …from clean anchors (1–15 children) | **2,704 (69%) — high-signal targets** |
+
+> **Subtype-aware (updated).** The covered set now includes both disease-level
+> `disease_term` anchors **and** `has_subtypes[].subtype_term` anchors, so a Mondo subtype
+> dismech already curates inside a parent entry is no longer reported as uncovered. This
+> removed ~880 already-curated rows (e.g. `Meckel_Syndrome` dropped from 14 uncovered
+> children to 2). The tier split is emitted by `scripts/mondo_to_dismech_gaps.py`.
 
 ## Read tiered (same broad-anchor caveat as the other audits)
 
-**39 anchors have >15 uncovered children** — these are entries anchored to a broad Mondo
+**34 anchors have >15 uncovered children** — these are entries anchored to a broad Mondo
 term (`Mediator_Complex_Neurodevelopmental_Disorder` → *congenital nervous system
-disorder*, 192; `BBSome-Related_Retinitis_Pigmentosa` → *retinitis pigmentosa*, 101), so
+disorder*; `BBSome-Related_Retinitis_Pigmentosa` → *retinitis pigmentosa*), so
 "uncovered children" is really the whole family and the finding is an **anchoring problem**
 (fix per [#7178](https://github.com/monarch-initiative/dismech/issues/7178)), not a
 curation backlog. This is the same broad-anchor set the gene/phenotype/anchoring audits
 flag — the through-line of #7175.
 
-## High-signal curation targets (clean tier, 757 anchors)
+## High-signal curation targets (clean tier, 668 anchors)
 
 Anchors with a small, reviewable set of uncovered Mondo subtypes. Representative:
 
@@ -43,7 +50,7 @@ Anchors with a small, reviewable set of uncovered Mondo subtypes. Representative
 |---|---|
 | `Noonan_Syndrome` | Noonan syndrome 1, 2, 3, 4, 5 … |
 | `Zellweger_Spectrum_Disorders` | peroxisome biogenesis disorder due to PEX1/2/3/5 defect … |
-| `Meckel_Syndrome` | Meckel syndrome type 1, 2, 3, 4 … |
+| `Progressive_Myoclonus_Epilepsy` | MERRF, action myoclonus-renal failure, EPM3 … |
 | `Common_Variable_Immunodeficiency` | CVID 1, 2, 3, 4 … |
 | `Autosomal_Recessive_Congenital_Ichthyosis` | ARCI 1, 4A, 5, 8, 11 … |
 | `Spinal_Muscular_Atrophy` | scapuloperoneal / segmental / Ryukyuan / FSH type … |
@@ -69,10 +76,10 @@ are the ones that may warrant their own entry.
 
 - **`is_a` direct children only** — grandchildren and other-relation children are not
   enumerated (keeps the list to one level and high-precision).
-- **Coverage = disorder `disease_term` anchors** — a subtype curated only as a
-  `has_subtypes` block (no own MONDO anchor) is not counted as "covered" and may appear as
-  an uncovered child. So the raw list slightly over-states gaps for diseases that model
-  subtypes internally; the TSV is a candidate list, not a defect list.
+- **Coverage = `disease_term` + `has_subtypes[].subtype_term` anchors** — subtypes curated
+  inside a parent entry *with* their own MONDO `subtype_term` are now counted as covered.
+  A subtype modeled with **no** MONDO anchor at all still can't be matched and may appear as
+  an uncovered child, so the TSV remains a candidate list, not a defect list.
 - **Broad anchors dominate the tail** — always read the clean tier; fix broad anchors first.
 
 ## Machine-readable worklist

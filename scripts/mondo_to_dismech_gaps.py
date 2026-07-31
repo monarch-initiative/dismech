@@ -103,9 +103,10 @@ def main():
     print(f"disease-level anchors expanded: {len(parents)}")
     print(f"anchors with >=1 uncovered Mondo child: {n_parents}")
     print(f"total uncovered child subtypes: {n_children}")
+    broad_pct = (100 * broad_children / n_children) if n_children else 0
     print(f"\n## Tiers by uncovered-child count (BROAD={BROAD})")
     print(f"  broad (> {BROAD} children): {len(broad)} anchors -> {broad_children} children "
-          f"({100 * broad_children / n_children:.0f}% -- broad/mis-anchor noise)")
+          f"({broad_pct:.0f}% -- broad/mis-anchor noise)")
     print(f"  clean (1..{BROAD}):        {len(clean)} anchors -> {clean_children} children "
           f"(high-signal targets)")
 

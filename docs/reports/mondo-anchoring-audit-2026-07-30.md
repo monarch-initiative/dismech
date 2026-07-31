@@ -170,11 +170,11 @@ record-altitude policy call ([#7178](https://github.com/monarch-initiative/disme
 Different classes anchor differently, so the disorder audit doesn't apply verbatim.
 Regenerate: `uv run python scripts/grouping_anchor_audit.py`.
 
-**Groupings (`kb/groupings/`, n=48).** A `Grouping` carries an optional MONDO cross-ref in
+**Groupings (`kb/groupings/`, n=49).** A `Grouping` carries an optional MONDO cross-ref in
 `mappings.mondo_mappings` — not a `disease_term` (a grouping stands on its own curated
 rationale and need not recapitulate a MONDO class).
 
-- **29 map to MONDO — all valid** (0 missing / obsolete / label-drift).
+- **30 map to MONDO — all valid** (0 missing / obsolete / label-drift).
 - **19 have no MONDO mapping.** Two sub-cases (OAK `basic_search` is imperfect, so treat
   as provisional):
   - **Existing MONDO term → just add the mapping:** `Mucolipidoses` (MONDO:0019248).
@@ -204,15 +204,16 @@ recorded here so the numbers don't propagate:
 - "6 files with explicit gap flags" → a crude text-regex detector was unreliable and is
   omitted; explicit `MONDO lacks …` prose flags need a better pass before being trusted.
 
-## Not covered here (follow-ups for #7175)
+## Related flows (all delivered in this PR)
 
-- **Groupings & modules** anchoring (`kb/groupings/`, `kb/modules/`) — same audit,
-  different classes.
-- **Mondo → dismech** (curation-target direction) — needs a scope call; suggested
-  bound: Mondo children/siblings of terms dismech already uses.
-- **Monarch KG ⇄ dismech / Mondo** — needs external KG data.
+- **Groupings & modules** anchoring — §E above (`grouping_anchor_audit.py`).
+- **Mondo → dismech** (curation-target direction) — `docs/reports/mondo-to-dismech-gaps-2026-07-31.md`
+  (`mondo_to_dismech_gaps.py`), bounded to the neighborhood of curated terms.
+- **Monarch KG ⇄ dismech** — gene–disease (`kg-gene-gap-audit-2026-07-30.md`) and
+  disease–phenotype (`kg-phenotype-gap-audit-2026-07-31.md`).
 
 ## Machine-readable worklist
 
 Full per-disorder inventory (all 1,640 rows): `research/mondo_anchoring_worklist.tsv`
-(`name`, `anchor_state`, `mondo_id`, `stored_label`, `oak_flag`, `mondo_mapping_preds`).
+(`name`, `anchor_state`, `mondo_id`, `stored_label`, `oak_flag`, `mondo_mapping_preds`,
+`shared_anchor_n` — the number of entries sharing that MONDO id as a primary anchor).

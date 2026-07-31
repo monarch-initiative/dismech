@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-30
 **Issue:** [#7175](https://github.com/monarch-initiative/dismech/issues/7175) — tripartite gap-exchange (dismech ⇄ Monarch KG ⇄ Mondo)
-**Scope:** the 1,063 `kb/disorders` entries with a MONDO primary anchor **and** curated genes (`genetic[].gene_term`).
+**Scope:** the 1,077 `kb/disorders` entries with a MONDO primary anchor **and** curated genes (`genetic[]` or `has_subtypes[].genes[]`).
 **Source:** Monarch v3 API (`api-v3.monarchinitiative.org`), Causal + Correlated gene-to-disease edges.
 **Regenerate:**
 
@@ -22,18 +22,23 @@ same MONDO term:
 
 | Metric | Value |
 |---|---|
-| Diseases compared (MONDO + genes) | **1,063** |
-| …with ≥1 KG gene edge | 944 |
-| …with **no** KG gene edge | 119 |
-| dismech gene assertions | 2,699 |
-| KG gene assertions | 6,342 |
-| Overlap | 1,896 |
-| `kg_only` (raw) | 4,446 |
-| `dismech_only` | **803** |
+| Diseases compared (MONDO + genes) | **1,077** |
+| …with ≥1 KG gene edge | 957 |
+| …with **no** KG gene edge | 120 |
+| fetch errors (skipped, ≠ no-edge) | 0 |
+| dismech gene assertions | 2,823 |
+| KG gene assertions | 6,492 |
+| Overlap | 1,989 |
+| `kg_only` (raw) | 4,503 |
+| `dismech_only` | **834** |
+
+dismech genes are read from both `genetic[]` and `has_subtypes[].genes[]`; KG fetches
+paginate the full result set; and a fetch that exhausts retries is reported as a
+`fetch_error` (0 here), never cached as a false "no edge."
 
 ## The raw `kg_only` is inflated by broad anchors — tier before reading it
 
-**28 diseases return >30 KG genes and contribute 2,970 (67%) of the raw `kg_only`.**
+**28 diseases return >30 KG genes and contribute 3,037 (67%) of the raw `kg_only`.**
 These are entries anchored to a broad grouping/parent MONDO term, so the KG returns the
 whole family's genes — an **anchoring problem, not a per-disease gene gap**. This
 independently cross-validates the [Mondo-anchoring audit](mondo-anchoring-audit-2026-07-30.md):
@@ -42,12 +47,12 @@ and both return the same 250 genes — the exact shared-anchor pair flagged ther
 
 | Tier (by KG gene count) | Diseases | Reading |
 |---|---|---|
-| no KG gene edge | 119 | dismech-original curation, or the MONDO term has no KG genes |
+| no KG gene edge | 120 | dismech-original curation, or the MONDO term has no KG genes |
 | **broad-anchor (n_kg > 30)** | **28** | broad/mis-anchor — fix the anchor, don't chase "gaps" |
-| **clean (1–30)** | **916** | interpretable; **clean `kg_only` = 1,476 real coverage-gap candidates** |
+| **clean (1–30)** | **929** | interpretable; **clean `kg_only` = 1,466 real coverage-gap candidates** |
 
-Worst broad anchors: `PGM2L1_Deficiency` (MONDO:0700092, 637 KG genes vs 1 dismech),
-`Mediator_Complex_Neurodevelopmental_Disorder` (388), `Epilepsy` (MONDO:0005027, 215),
+Worst broad anchors: `PGM2L1_Deficiency` (MONDO:0700092, 702 KG genes vs 1 dismech),
+`Mediator_Complex_Neurodevelopmental_Disorder` (391), `Epilepsy` (MONDO:0005027, 215),
 `Inherited_Retinal_Dystrophy` (193), `MYO6_Hearing_Loss` (145). (Full list in the TSV
 where `n_kg > 30`.)
 
@@ -63,7 +68,7 @@ under-curated relative to the KG:
   **`Jeune_Asphyxiating_Thoracic_Dystrophy`**, **`Inherited_Ichthyosis`** — each missing
   much of the KG's established gene panel.
 
-## B. Zero-overlap disagreements (both have genes, none shared) — 32
+## B. Zero-overlap disagreements (both have genes, none shared) — 31
 
 The most diagnostic tier. Two distinct causes, which must be told apart:
 
@@ -87,9 +92,9 @@ too generic):**
 - **`Type_I_Diabetes`**: dismech autoimmune-susceptibility panel (CTLA4, PTPN22, INS,
   IL2RA…) vs KG HNF1A/IL6 — different, both defensible; a modeling/framing difference.
 
-(Full 32 in the script output and TSV.)
+(Full 31 in the script output and TSV.)
 
-## C. `dismech_only` — genes dismech curates that the KG lacks (803)
+## C. `dismech_only` — genes dismech curates that the KG lacks (834)
 
 The reverse direction — potential **dismech → KG contributions**, or curation to verify.
 This set is less noisy than raw `kg_only` (a dismech entry rarely over-lists genes). It
@@ -114,6 +119,6 @@ values are the `dismech_only` column of the TSV.
 
 ## Follow-ups (#7175)
 
-- Same diff for **disease → phenotype** (HP) edges — the other large KG↔dismech axis.
+- Disease → phenotype (HP) axis — delivered in `kg-phenotype-gap-audit-2026-07-31.md`.
 - Feed §A/§B1 into curation; feed §C into a dismech → KG contribution set.
 - Fix the 28 broad anchors (overlaps the record-altitude policy call, [#7178](https://github.com/monarch-initiative/dismech/issues/7178)).
