@@ -22,7 +22,7 @@ This is a sanitized dispatch plan for parallel DisMech curation work. It is a wo
 - [ ] Evidence references fetched through project commands, with exact snippets validated.
 - [ ] `just validate <touched disorder/grouping files>` or relevant single-file validators pass.
 - [ ] `just validate-references <touched disorder files>` passes for disorder edits.
-- [ ] `just validate-terms-file <touched disorder files>` passes for disorder edits.
+- [ ] `just validate-terms <touched disorder files>` passes for disorder edits.
 - [ ] PR opened against `main` with package number in the title.
 
 ## Dispatch Status
