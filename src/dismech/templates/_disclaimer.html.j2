@@ -1,9 +1,15 @@
 {# Reader-facing disclaimer, rendered at the top of every generated DisMech page.
 
-   Deliberately always present and NOT dismissible: a reader who lands on a
-   single disorder page from a search engine or an external link never sees the
-   project documentation, so the AI-curated provenance of the content and its
+   Always present until the reader dismisses it: someone who lands on a single
+   disorder page from a search engine or an external link never sees the project
+   documentation, so the AI-curated provenance of the content and its
    unsuitability for clinical use have to travel with the page itself.
+
+   Dismissal is per-reader and persistent, via the localStorage key
+   `dismech-disclaimer-dismissed` (issue #7421). The key is shared across the
+   whole origin, so dismissing on one page dismisses on all of them. The dismiss
+   button is CSS-hidden by default and revealed by the script below, so a reader
+   without JavaScript is never shown a control that cannot work.
 
    The disclaimer URL is deliberately ABSOLUTE, not relative. Pages using this
    partial live at varying depths (pages/disorders/X.html, pages/modules/X.html,
@@ -24,4 +30,30 @@
         resources. Nothing here is intended to inform medical diagnosis or treatment.
         <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
     </p>
+    <button type="button" class="dismech-disclaimer-dismiss" aria-label="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
 </aside>
+{# Runs synchronously, immediately after the bar, so an already-dismissed bar is
+   hidden before first paint rather than flashing and disappearing. #}
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // localStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.localStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+        });
+    })();
+</script>
