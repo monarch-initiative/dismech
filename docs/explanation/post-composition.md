@@ -81,8 +81,8 @@ Specifies the anatomical location where an entity/process occurs or a procedure 
 diagnosis_term:
   preferred_term: right heart catheterization
   term:
-    id: MAXO:0035118
-    label: cardiac catheterization
+    id: NCIT:C38044
+    label: Cardiac Catheterization
   located_in:
     preferred_term: right cardiac chamber
     term:
@@ -335,7 +335,7 @@ treatment_term:
         label: zinc acetate
 ```
 
-**Best practice:** Always prefer specific treatment terms when available (e.g., `MAXO:0000109` for vitamin C supplementation). Use `therapeutic_agent` only when the treatment term is too generic.
+**Best practice:** Always prefer specific treatment terms when available (e.g., a specific NCIT procedure term rather than the generic `NCIT:C15986` Pharmacotherapy). Use `therapeutic_agent` only when the treatment term is too generic.
 
 ### 2. Substrate / Target for Pathophysiology
 

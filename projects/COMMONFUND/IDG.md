@@ -50,7 +50,7 @@ classes, target development levels, probes, ligands, and treatment gaps.
   generated artifacts rather than hand-written disease evidence.
 - Optional bulk TCRD download only for large target audits; Pharos GraphQL is
   enough for first-pass disease-target reports.
-- Crosswalk to HGNC, UniProt, ChEMBL/DrugCentral where needed, and MAXO
+- Crosswalk to HGNC, UniProt, ChEMBL/DrugCentral where needed, and NCIT
   treatments already curated in dismech.
 
 **Curation targets:**
