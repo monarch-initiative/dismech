@@ -78,7 +78,7 @@ class SnippetPair:
 
     path: Path
     location: str
-    reference_id: str
+    reference_id: str | None
     snippet: str
 
 
@@ -90,9 +90,10 @@ class Unverified:
     reason: str
 
     def format(self) -> str:
+        reference = self.pair.reference_id or "(none)"
         return (
             f"    {self.pair.path}:{self.pair.location}\n"
-            f"      Reference: {self.pair.reference_id}\n"
+            f"      Reference: {reference}\n"
             f"      {self.reason}"
         )
 
@@ -106,6 +107,7 @@ class AuditReport:
     verified: int = 0
     skipped_prefix: int = 0
     not_cached: int = 0
+    unsourced: int = 0
     mismatched: list[Unverified] = field(default_factory=list)
     unreadable: list[str] = field(default_factory=list)
 
@@ -116,6 +118,8 @@ class AuditReport:
 
         line = f"  Snippets checked: {self.verified}/{self.total} verified against cached references"
         notes: list[str] = []
+        if self.unsourced:
+            notes.append(f"{self.unsourced} with no reference to check against")
         if self.mismatched:
             notes.append(f"{len(self.mismatched)} not found in cached text")
         if self.skipped_prefix:
@@ -282,17 +286,25 @@ def iter_snippet_pairs(
                 ),
                 None,
             )
-            if reference_id is not None:
-                for name in excerpts:
-                    snippet = node.get(name)
-                    if isinstance(snippet, str) and snippet.strip():
-                        child = f"{location}.{name}" if location else name
-                        yield SnippetPair(
-                            path=path,
-                            location=child,
-                            reference_id=reference_id.strip(),
-                            snippet=snippet,
-                        )
+            # An excerpt is yielded whether or not a reference was found. An
+            # unsourced excerpt used to be skipped silently, so a file whose only
+            # evidence was a fabricated quote with no citation audited as
+            # "0 (no reference/snippet pairs in input)" -- which reads as "nothing
+            # to check" when it means "an unverifiable claim is present". That is
+            # the reassuring-zero failure mode this module exists to prevent
+            # (#7252), so it is now counted and reported as unverified.
+            for name in excerpts:
+                snippet = node.get(name)
+                if isinstance(snippet, str) and snippet.strip():
+                    child = f"{location}.{name}" if location else name
+                    yield SnippetPair(
+                        path=path,
+                        location=child,
+                        reference_id=reference_id.strip()
+                        if reference_id is not None
+                        else None,
+                        snippet=snippet,
+                    )
             for key, value in node.items():
                 child = f"{location}.{key}" if location else str(key)
                 yield from walk(value, child)
@@ -482,6 +494,13 @@ def check_pair(
     index: CachedReferenceIndex, pair: SnippetPair
 ) -> PairOutcome | Unverified:
     """Classify one pair: a :class:`PairOutcome`, or an :class:`Unverified` mismatch."""
+    if pair.reference_id is None:
+        # A quoted passage attributed to nothing. Nothing can confirm or refute it,
+        # which makes it strictly worse than a mismatch -- report it, never pass it.
+        return Unverified(
+            pair=pair,
+            reason="Excerpt has no reference, so nothing can verify it",
+        )
     if index.is_skipped(pair.reference_id):
         return PairOutcome.SKIPPED_PREFIX
 
@@ -534,6 +553,8 @@ def audit_files(
             report.total += 1
             outcome = check_pair(index, pair)
             if isinstance(outcome, Unverified):
+                if pair.reference_id is None:
+                    report.unsourced += 1
                 report.mismatched.append(outcome)
             elif outcome is PairOutcome.VERIFIED:
                 report.verified += 1

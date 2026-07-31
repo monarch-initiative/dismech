@@ -164,6 +164,72 @@ now extracts reference ids from objects too, mirroring upstream's `_extract_refe
 
 Term validation is unaffected: the SEPIO classes bind no ontology terms.
 
+## Adversarial probe: can fabricated evidence get through?
+
+Suggested by @cmungall, and the right question to ask — the SEPIO form is a **new
+structural path through the anti-hallucination stack**, and "the validator ran and said
+nothing" is not the same as "the validator looked." A quiet pass is exactly what a
+bypassed check looks like.
+
+So we attacked it. Each case is evidence a curator, or a hallucinating agent, might
+plausibly produce, with a native-form control where the comparison tells us whether a hole
+is SEPIO-specific or pre-existing. The matrix is pinned down in
+`tests/test_sepio_evidence_adversarial.py` so none of it can silently re-open.
+
+| Attack | Before | After |
+|---|---|---|
+| Quote does not appear in the cited paper | **caught** (reference validation) | caught |
+| Genuine quote attributed to the wrong paper | **caught** (reference validation) | caught |
+| Quote with **no source at all** | **passed clean** ✗ | **caught** (schema) |
+| Source object with a title but **no identifier** | caught (schema) | caught (schema) |
+| Quote cited to a prefix in `skip_prefixes` | passed clean, unchecked | still unchecked, now *visible* |
+| Genuine, correctly cited evidence | passes | passes |
+
+**The core guarantee holds.** A fabricated quote against a real paper, and a real quote
+against the wrong paper, are both caught in SEPIO form exactly as they are natively. The
+nested `reported_in` shape does not bypass substring checking — the upstream plugin really
+does resolve it and really does check.
+
+**But the probe found a genuine hole**, and it is a nasty one because it is a hole of
+*omission*: the reference validator only checks excerpts that **have** a reference. An
+evidence item carrying a quote and no source is therefore not "failed", it is *never
+looked at* — it passed by being invisible. Two things now close it:
+
+- **`reported_in` is required on `DataItem`** (and `id` is required on `Document`). This
+  is a deliberate tightening of upstream SEPIO, which permits an unsourced `DataItem`.
+  For dismech it cannot be optional: the whole evidence policy rests on every quoted
+  passage going through the exact-quote check, and an optional source is an opt-out from
+  that check.
+- **The audit now counts and reports unsourced excerpts** instead of skipping them. It
+  previously reported `0 (no reference/snippet pairs in input)` for a file whose only
+  evidence was an uncited fabrication — a sentence that reads as *nothing to check* when
+  it means *an unverifiable claim is present*. That reassuring zero is the exact failure
+  mode this audit exists to prevent (#7252), reappearing in a new place. It now says
+  `N with no reference to check against`.
+
+The audit change covers **both** forms, so native `evidence:` with a missing `reference:`
+is now reported too. Running it across all of `kb/disorders/` found **zero** unsourced
+excerpts, so the hardening costs nothing today and is purely a guard against tomorrow.
+
+### Residual gaps
+
+Two things the probe found that this pilot does **not** fix, recorded so they are not
+mistaken for solved:
+
+1. **Native `evidence:` still permits a snippet with no `reference:`.** Structurally
+   unchecked, exactly as the SEPIO form was before the fix above. Making `reference`
+   required on `EvidenceItem` is the symmetric fix, but it is a change to the model 56
+   classes depend on and to ~83,000 existing evidence items, so it belongs in its own
+   change with its own migration. The audit flags it advisorily in the meantime.
+2. **`skip_prefixes` is a blanket opt-out from substring checking, and it is much wider
+   than it looks.** Any reference whose prefix appears in
+   `conf/reference_validator_config.yaml` is never checked — and that list includes
+   **`DOI`**. Across `kb/disorders/` that is **5,126 snippets (~6% of all of them)** going
+   unverified. This has nothing to do with SEPIO; the pilot just walked into it. It also
+   appears to be stale rather than necessary: DOI references *are* cached in
+   `references_cache/`, and on a sample of six DOI-citing entries all 58 skipped snippets
+   verified cleanly once the skip was removed. Tracked separately.
+
 ## Rendering
 
 `render_evidence_lines` in `src/dismech/templates/disorder.html.j2` is the sibling of the
@@ -248,6 +314,9 @@ curation targets, and are deliberately outside `kb/disorders/`.
 
 - **No SEPIO ids on evidence items.** They are inlined. Stable ids only start earning
   their keep when one evidence item is reused across assertions, which nothing here does.
+- **`reported_in` is required, where upstream SEPIO makes it optional.** A deliberate
+  divergence, forced by the adversarial probe above — see that section for why an optional
+  source is an opt-out from the exact-quote check rather than a mere omission.
 - **No `Proposition` / `Statement` layer.** In SEPIO the thing evidence attaches to is a
   reified proposition. In dismech it is the pathograph node or edge itself. Reifying
   dismech assertions is a much larger change with consequences for the graph exports, and
