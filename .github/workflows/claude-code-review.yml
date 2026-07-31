@@ -85,14 +85,14 @@ jobs:
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
-          # Auth precedence: CLAUDE_CODE_OAUTH_TOKEN (Claude subscription) is the
-          # default; ANTHROPIC_API_KEY (pay-per-use) is used only when the OAuth
-          # secret is not configured. The conditional keeps exactly one of the two
-          # non-empty so there is no precedence ambiguity inside the action.
-          # NOTE: this falls back on the OAuth secret being *absent*, not on it
-          # being rate-limited — see the usage-limit note in the verify step below.
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          # Auth precedence: ANTHROPIC_API_KEY (pay-per-use) wins when it is set —
+          # it has no weekly subscription cap, so it keeps reviews running when the
+          # shared OAuth account is exhausted. CLAUDE_CODE_OAUTH_TOKEN (Claude
+          # subscription) is the fallback used only when no API key is configured.
+          # The conditional keeps exactly one of the two non-empty so there is no
+          # precedence ambiguity inside the action.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.ANTHROPIC_API_KEY == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           github_token: ${{ steps.reviewer-token.outputs.token || github.token }}
           path_to_claude_code_executable: /home/runner/.local/bin/claude
           track_progress: ${{ github.event_name == 'pull_request' }}
@@ -204,12 +204,13 @@ jobs:
 
           if reason == "rate_limit" or "usage limit" in haystack or "weekly limit" in haystack:
               msg = (f"Claude USAGE LIMIT reached — NO review ran ({detail!r}). This is an "
-                     "account-quota issue on CLAUDE_CODE_OAUTH_TOKEN, NOT a problem with this "
-                     "PR. Fix: wait for the limit to reset, rotate the token to an account with "
-                     "headroom, or switch this workflow to the pay-per-use API key. Note the "
-                     "API-key fallback only engages when CLAUDE_CODE_OAUTH_TOKEN is UNSET, so "
-                     "switching means removing/emptying that secret (ANTHROPIC_API_KEY alone is "
-                     "not enough while the OAuth secret is present). Re-run this check afterward.")
+                     "account-quota issue on the credential in use, NOT a problem with this PR. "
+                     "This workflow prefers ANTHROPIC_API_KEY (pay-per-use, no weekly cap) and "
+                     "only falls back to CLAUDE_CODE_OAUTH_TOKEN when no API key is set — so a "
+                     "weekly-limit error here most likely means ANTHROPIC_API_KEY is unset and "
+                     "the run used the subscription token. Fix: set the ANTHROPIC_API_KEY repo "
+                     "secret, wait for the limit to reset, or rotate the OAuth token to an "
+                     "account with headroom. Re-run this check afterward.")
               print(f"::error title=Claude review skipped: usage limit::{msg}")
               summary("### ⛔ Claude review skipped — usage limit reached\n\n" + msg)
               sys.exit(1)
