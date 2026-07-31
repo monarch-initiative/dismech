@@ -13,7 +13,7 @@ skeletal-muscle RYR1/CACNA1S — the first non-cardiac example, whose definition
 `attaches_to` the entry's existing trigger node). Maintainer-approved
 (`@cmungall`, 2026-07-12).
 **Tracking:** [#6245](https://github.com/monarch-initiative/dismech/issues/6245)
-**Registered in:** [Design Decisions §11](explanation/design-decisions.md)
+**Registered in:** [Design Decisions §12](explanation/design-decisions.md#12-gaps)
 
 **What was enacted (vs. the original proposal below):** `Definition` gained
 `derivation_basis` (`DefinitionDerivationBasisEnum`), `validation_status` (the
@@ -321,7 +321,7 @@ definitions:
 
 - Extends, does not contradict, the **evidence & provenance policy** (§6) — the
   model-organism-not-sole-support rule applies unchanged.
-- Complements the deferred **structural `knowledge_gaps:` slot** (§11): a
+- Complements the deferred **structural `knowledge_gaps:` slot** (§12): a
   hypothesis-based algorithm is the *actionable* counterpart to a knowledge gap —
   a proposed way to gather the missing human evidence.
 - The **`discussions` / `HUMAN_MODEL_MISMATCH`** kind remains the home for the
