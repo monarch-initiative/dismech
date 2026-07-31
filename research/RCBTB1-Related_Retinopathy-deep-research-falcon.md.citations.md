@@ -3,13 +3,13 @@
 **Query:** # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Hashimoto's Thyroiditis
+- **Disease Name:** RCBTB1-Related Retinopathy
 - **MONDO ID:**  (if available)
-- **Category:** Complex
+- **Category:** Mendelian
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Hashimoto's Thyroiditis** covering all of the
+Please provide a comprehensive research report on **RCBTB1-Related Retinopathy** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -447,35 +447,24 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-07-16T13:59:37.971253
+**Generated:** 2026-07-16T16:34:15.412664
 
-1. saevarsdottir2024startcodonvariant pages 7-8
-2. kolanu2024fromantibodiesto pages 2-3
-3. huwiler2024seleniumsupplementationin pages 1-2
-4. duratrave2024autoimmunethyroiditisand pages 1-2
-5. huang2024traditionalchinesemedicine pages 4-5
-6. martinezhernandez2024unravelingthemolecular pages 13-14
-7. martinezhernandez2024unravelingthemolecular pages 9-12
-8. kolanu2024fromantibodiesto pages 1-2
-9. kolanu2024fromantibodiesto pages 5-6
-10. larsen2024seleniumsupplementationand pages 1-2
-11. martinezhernandez2024unravelingthemolecular pages 1-2
-12. martinezhernandez2024unravelingthemolecular pages 12-13
-13. huwiler2024seleniumsupplementationin pages 8-9
-14. huwiler2024seleniumsupplementationin pages 11-12
-15. larsen2024seleniumsupplementationand pages 6-8
-16. larsen2024seleniumsupplementationand pages 8-10
-17. and
-18. https://doi.org/10.1038/s41467-024-50192-5
-19. https://doi.org/10.1038/s41467-024-50007-7
-20. https://doi.org/10.1089/thy.2023.0556
-21. https://doi.org/10.1530/etj-23-0175
-22. https://doi.org/10.3390/ijms25063154
-23. https://doi.org/10.7759/cureus.54393
-24. https://doi.org/10.1089/thy.2023.0556,
-25. https://doi.org/10.7759/cureus.54393,
-26. https://doi.org/10.1038/s41467-024-50007-7,
-27. https://doi.org/10.1038/s41467-024-50192-5,
-28. https://doi.org/10.3390/ijms25063154,
-29. https://doi.org/10.3390/antiox13070868,
-30. https://doi.org/10.1530/etj-23-0175,
+1. huang2023mitochondrialdysfunctionand pages 1-2
+2. huang2023mitochondrialdysfunctionand pages 9-10
+3. huang2023mitochondrialdysfunctionand pages 5-6
+4. huang2023mitochondrialdysfunctionand pages 8-9
+5. huang2023mitochondrialdysfunctionand pages 10-12
+6. cauwenbergh2017arreyeacustomized pages 2-4
+7. areblom2023adescriptionof pages 1-2
+8. panneman2022costeffectivesequenceanalysis pages 1-3
+9. FEVR
+10. https://doi.org/10.3390/cells12101358
+11. https://doi.org/10.3390/genes14071413
+12. https://doi.org/10.1093/hmg/ddw041
+13. https://doi.org/10.1038/gim.2016.119
+14. https://doi.org/10.3389/fcell.2023.1112270
+15. https://doi.org/10.3390/cells12101358,
+16. https://doi.org/10.1093/hmg/ddw041,
+17. https://doi.org/10.1038/gim.2016.119,
+18. https://doi.org/10.3390/genes14071413,
+19. https://doi.org/10.3389/fcell.2023.1112270,
