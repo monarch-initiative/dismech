@@ -85,10 +85,14 @@ endogenous production putative. It does not yet generalize the mechanism
 beyond ticks.
 
 The immune-population statement is also misattributed.
-[PMID:41317280](https://pubmed.ncbi.nlm.nih.gov/41317280/) is a review; the
-corresponding primary single-cell and cytometry study is
-[PMID:41098729](https://pubmed.ncbi.nlm.nih.gov/41098729/). Those human data
-identify altered circulating populations but do not establish an iNKT/CD1d
+[PMID:41317280](https://pubmed.ncbi.nlm.nih.gov/41317280/) is a review that
+combines distinct primary methods.
+[PMID:30506749](https://pubmed.ncbi.nlm.nih.gov/30506749/) used mass
+cytometry and fluorescent flow cytometry to identify B-cell subsets.
+[PMID:41098729](https://pubmed.ncbi.nlm.nih.gov/41098729/) instead used
+targeted single-cell mRNA sequencing with AbSeq surface-marker profiling. The
+latter reported NKT—not invariant-NKT—populations, lacked CD1d in its panel,
+and did not characterize TCR chains. Neither study establishes an iNKT/CD1d
 route to alpha-gal-specific class switching.
 
 ## Provenance and curation implication

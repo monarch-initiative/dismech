@@ -72,10 +72,11 @@ distinguish those sources.
 ### Salivary glycolipid detection does not establish biosynthetic origin
 
 [PMID:39053323](https://pubmed.ncbi.nlm.nih.gov/39053323/) used saliva and
-glands from ticks partially fed on sheep. The authors explicitly call the
-host-versus-tick origin inconclusive and discuss likely host-blood sourcing of
-glycolipids. The report reverses that qualification when it calls the detected
-lipids tick-endogenous.
+glands from ticks partially fed on sheep. The paper's methods identify that
+feeding host, and its discussion explicitly calls host derivation versus tick
+synthesis from host precursors inconclusive before discussing likely
+host-blood sourcing. The report reverses that qualification when it calls the
+detected lipids tick-endogenous.
 
 ## Provenance and curation implication
 
