@@ -3922,6 +3922,81 @@ def _autolink_project_body(body: str, link_map: dict[str, tuple[str, str]]) -> s
     return "\n".join(out_lines)
 
 
+#: Path prefixes under ``docs/`` that MkDocs does not publish. Mirrors the
+#: ``exclude_docs`` block in ``mkdocs.yml`` — keep the two in step. Links into
+#: these resolve to a real repository file that has no published URL, so they
+#: are rewritten to GitHub rather than to ``elements/``.
+_DOCS_EXCLUDED_FROM_SITE = (
+    "templates-linkml/",
+    "elements/",
+    "issues/",
+    "todo/",
+    "ntr/",
+)
+
+#: Matches an *inline* markdown link whose target is a repo-relative
+#: ``../docs/`` path, capturing the path and any trailing ``#anchor``
+#: separately. Titled, reference-style, and angle-bracket link forms are not
+#: matched — no project file uses them for docs links today.
+_PROJECT_DOCS_LINK_RE = re.compile(r"\]\(\.\./docs/([^)#\s]+)(#[^)\s]*)?\)")
+
+
+def _project_docs_link_href(doc_rel: str, anchor: str, docs_dir: Path) -> str | None:
+    """Map a ``docs/``-relative path to the URL a rendered project page should use.
+
+    Project markdown links to documentation with repo-relative ``../docs/…``
+    paths, which are correct when the file is read on GitHub but wrong once
+    rendered to ``pages/projects/*.html`` — there, ``../docs/`` resolves to the
+    nonexistent ``pages/docs/``. MkDocs publishes ``docs/`` into ``elements/``,
+    and the project templates already reach the site root with ``../../``.
+
+    Returns ``None`` when the link should be left exactly as written.
+    """
+    source = docs_dir / doc_rel
+    if not source.is_file():
+        # A genuinely broken source link. Leave it visibly broken rather than
+        # silently rewriting it to a differently-broken URL.
+        return None
+
+    if doc_rel.startswith(_DOCS_EXCLUDED_FROM_SITE):
+        # Real file, but excluded from the MkDocs build, so it has no published
+        # URL. The repository copy is the only thing to point at. GitHub renders
+        # markdown headings with the same slug style, so the anchor still works.
+        return f"{_github_blob_url(Path('docs') / doc_rel)}{anchor}"
+
+    if not doc_rel.endswith(".md"):
+        # Non-markdown files are copied into the site verbatim.
+        return f"../../elements/{doc_rel}{anchor}"
+
+    # use_directory_urls (MkDocs default) publishes foo.md as foo/index.html,
+    # foo/index.md as foo/, and the root index.md as the site root itself.
+    stem = doc_rel.removesuffix(".md")
+    stem = "" if stem == "index" else stem.removesuffix("/index")
+    return f"../../elements/{f'{stem}/' if stem else ''}{anchor}"
+
+
+def _rewrite_project_docs_links(body: str, docs_dir: Path) -> str:
+    """Point ``../docs/`` links at their published URLs for the rendered page.
+
+    See :func:`_project_docs_link_href`. Fenced code blocks are left alone so
+    documentation *about* these paths is not rewritten.
+    """
+
+    def _sub(match: re.Match) -> str:
+        href = _project_docs_link_href(match.group(1), match.group(2) or "", docs_dir)
+        return match.group(0) if href is None else f"]({href})"
+
+    out_lines: list[str] = []
+    in_fence = False
+    for line in body.split("\n"):
+        if line.lstrip().startswith(("```", "~~~")):
+            in_fence = not in_fence
+            out_lines.append(line)
+            continue
+        out_lines.append(line if in_fence else _PROJECT_DOCS_LINK_RE.sub(_sub, line))
+    return "\n".join(out_lines)
+
+
 def _project_summary(
     md_path: Path,
     metadata: dict,
@@ -3971,6 +4046,11 @@ def _render_project_html(
         if entry.get("href")
     }
     linked_body = _autolink_project_body(body, link_map)
+    # docs/ is resolved from the project file itself (projects/X.md -> ../docs)
+    # rather than the process CWD, so rendering works from any directory.
+    linked_body = _rewrite_project_docs_links(
+        linked_body, md_path.resolve().parent.parent / "docs"
+    )
 
     md = markdown_lib.Markdown(
         extensions=["tables", "fenced_code", "toc", "sane_lists"]
