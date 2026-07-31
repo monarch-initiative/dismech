@@ -94,7 +94,7 @@ This connects to two adjacent projects: `NAMO_RD_MODELS` (the NAMO bridge) and
 
 ## Status & worklist
 
-- [x] Schema extension enacted + gating test + docs (proposal, design-decisions §11, CLAUDE.md)
+- [x] Schema extension enacted + gating test + docs (proposal, design-decisions §12, CLAUDE.md)
 - [x] Timothy_Syndrome — hypothesis, fever nodes/edges, case-finding definition, HUMAN_MODEL_MISMATCH discussion, NAM experiment
 - [x] Brugada_Syndrome — fever-unmasking node, definition, NAM experiment
 - [x] Long_QT_Syndrome — drug-unmasking node, definition, CiPA NAM experiment
@@ -108,5 +108,5 @@ This connects to two adjacent projects: `NAMO_RD_MODELS` (the NAMO bridge) and
 
 - Design write-up: [`docs/hypothesis-based-phenotype-algorithms.md`](../hypothesis-based-phenotype-algorithms.md)
 - Candidate register & datasets: [`docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md`](../reports/hypothesis-driven-ehr-case-finding-2026-07-12.md)
-- Decision register: [Design Decisions §11](../explanation/design-decisions.md)
+- Decision register: [Design Decisions §12](../explanation/design-decisions.md)
 - Driving issue: [#6245](https://github.com/monarch-initiative/dismech/issues/6245)

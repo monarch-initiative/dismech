@@ -1,0 +1,125 @@
+"""Guard tests for the reader-facing AI-curation / not-medical-advice disclaimer.
+
+Every page a reader can land on must carry the disclaimer, because the common
+way DisMech is encountered is a single page reached from a search engine or an
+external link — the project documentation is never seen. See
+``docs/explanation/design-decisions.md`` §11 and ``docs/disclaimer.md``.
+
+These tests exist so that a newly added template or site page cannot silently
+ship without one.
+"""
+
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+TEMPLATE_DIR = REPO_ROOT / "src" / "dismech" / "templates"
+
+CSS_PARTIAL = TEMPLATE_DIR / "_disclaimer.css.j2"
+HTML_PARTIAL = TEMPLATE_DIR / "_disclaimer.html.j2"
+
+#: Hand-maintained (non-generated) site pages a reader can land on. Derived or
+#: internal QC surfaces (``dashboard/``, the MkDocs output in ``elements/``,
+#: ``frontpage-candidates/``) are deliberately excluded — see §11.
+STATIC_PAGES = [
+    "index.html",
+    "app/index.html",
+    "app/discussions/index.html",
+    "app/embeddings/index.html",
+    "app/embeddings/mechanisms.html",
+    "details/index.html",
+]
+
+#: Substrings that must appear in any rendering of the disclaimer, whether it
+#: comes from the Jinja partial or from the inlined copy on a static page.
+REQUIRED_PHRASES = [
+    "AI-curated research resource",
+    "not medical advice",
+    "https://dismech.monarchinitiative.org/elements/disclaimer/",
+]
+
+
+def _full_page_templates() -> list[Path]:
+    """Every full-page template (partials, which start with ``_``, excluded)."""
+    return sorted(
+        path
+        for path in TEMPLATE_DIR.glob("*.html.j2")
+        if not path.name.startswith("_")
+    )
+
+
+def test_disclaimer_partials_exist_and_state_both_points() -> None:
+    assert CSS_PARTIAL.is_file(), f"missing {CSS_PARTIAL}"
+    assert HTML_PARTIAL.is_file(), f"missing {HTML_PARTIAL}"
+
+    html = HTML_PARTIAL.read_text()
+    for phrase in REQUIRED_PHRASES:
+        assert phrase in html, f"disclaimer partial is missing {phrase!r}"
+    # The two substantive claims from issue #7182.
+    assert "AI curation agents" in html
+    assert "medical diagnosis or treatment" in html
+
+    assert ".dismech-disclaimer" in CSS_PARTIAL.read_text()
+
+
+def test_full_page_templates_exist() -> None:
+    """Sanity check so a bad glob cannot make the tests below vacuous."""
+    assert len(_full_page_templates()) >= 10
+
+
+@pytest.mark.parametrize(
+    "template", _full_page_templates(), ids=lambda path: path.name
+)
+def test_full_page_template_includes_disclaimer(template: Path) -> None:
+    text = template.read_text()
+    assert (
+        "{% include '_disclaimer.html.j2' %}" in text
+    ), f"{template.name} does not include the disclaimer markup partial"
+    assert (
+        "{% include '_disclaimer.css.j2' %}" in text
+    ), f"{template.name} does not include the disclaimer style partial"
+
+
+@pytest.mark.parametrize("page", STATIC_PAGES)
+def test_static_site_page_carries_disclaimer(page: str) -> None:
+    path = REPO_ROOT / page
+    assert path.is_file(), f"missing {page}"
+    text = path.read_text()
+    assert (
+        'class="dismech-disclaimer"' in text
+    ), f"{page} does not carry the disclaimer markup"
+    assert ".dismech-disclaimer {" in text, f"{page} does not carry the disclaimer styles"
+    for phrase in REQUIRED_PHRASES:
+        assert phrase in text, f"{page} disclaimer is missing {phrase!r}"
+
+
+def test_disclaimer_is_not_dismissible() -> None:
+    """The disclaimer must not reuse the click-to-dismiss ``.notice-banner`` behaviour.
+
+    The pre-alpha ``.notice-banner`` is dismissible because it is a transient
+    status message; the disclaimer is a statement about what the resource is and
+    must be present on every page view.
+    """
+    surfaces = [HTML_PARTIAL] + [REPO_ROOT / page for page in STATIC_PAGES]
+    for path in surfaces:
+        text = path.read_text()
+        # Anchor on the markup itself — on static pages the class name also
+        # appears earlier, in the inlined stylesheet.
+        start = text.index('<aside class="dismech-disclaimer"')
+        end = text.index("</aside>", start)
+        block = text[start:end]
+        assert "notice-banner" not in block
+        assert 'role="button"' not in block
+        assert "onclick" not in block.lower()
+
+
+def test_canonical_disclaimer_doc_exists() -> None:
+    doc = REPO_ROOT / "docs" / "disclaimer.md"
+    assert doc.is_file(), "docs/disclaimer.md (the canonical disclaimer) is missing"
+    text = doc.read_text()
+    assert "AI-curated and AI-maintained" in text
+    assert "not medical advice" in text.lower()
+
+    nav = (REPO_ROOT / "mkdocs.yml").read_text()
+    assert "disclaimer.md" in nav, "docs/disclaimer.md is not in the mkdocs nav"

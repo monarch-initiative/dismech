@@ -6,6 +6,13 @@ diseases work — the cell types, biological processes, and causal chains that
 link a genetic or environmental cause to its clinical phenotypes — and ties every
 claim to a citable reference.
 
+!!! warning "AI-curated resource — not medical advice"
+
+    DisMech content is generated and maintained by AI curation agents under human review,
+    from publicly accessible literature and curated biomedical knowledge resources. It is a
+    research resource and is **not intended to inform medical diagnosis or treatment**.
+    See the [full disclaimer](disclaimer.md).
+
 ## What's in it
 
 - **Disorder entries** (`kb/disorders/`) — one structured YAML file per disease, each capturing pathophysiology, phenotypes, genetics, treatments, evidence, and ontology term bindings.
