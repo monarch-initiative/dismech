@@ -1,6 +1,8 @@
 name: Literature Scan
 
 on:
+  schedule:
+    - cron: "0 13 * * 5"  # weekly Friday scan after the UTC publication week settles
   workflow_dispatch:
     inputs:
       days:
@@ -82,6 +84,7 @@ jobs:
             output/literature_scan/literature_scan.md
 
       - name: Create literature scan handoff issues
+        id: literature-scan
         if: ${{ github.event_name == 'schedule' || inputs.create_issues }}
         uses: anthropics/claude-code-action@v1
         with:
@@ -145,3 +148,10 @@ jobs:
               entry creation is high effort by default
 
             If no candidate is strong enough, create no issues and finish quietly.
+
+      - name: Write step summary
+        if: ${{ !cancelled() && steps.literature-scan.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.literature-scan.outputs.execution_file }}
+          title: "📚 Literature Scan Run"

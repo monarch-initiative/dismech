@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16152675"
+reference_id: DOI:10.3390/cancers16152675
 title: The Leukemic Isocitrate Dehydrogenase (IDH) 1/2 Mutations Impair Myeloid and Erythroid Cell Differentiation of Primary Human Hematopoietic Stem and Progenitor Cells (HSPCs)
 authors:
 - Sara Pierangeli
@@ -21,6 +21,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16152675
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Leukemic Isocitrate Dehydrogenase (IDH) 1/2 Mutations Impair Myeloid and Erythroid Cell Differentiation of Primary Human Hematopoietic Stem and Progenitor Cells (HSPCs)

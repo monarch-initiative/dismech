@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25105372"
+reference_id: DOI:10.3390/ijms25105372
 title: The Role of Inflammasomes in Heart Failure
 authors:
 - Panayotis K. Vlachakis
@@ -16,6 +16,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25105372
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of Inflammasomes in Heart Failure

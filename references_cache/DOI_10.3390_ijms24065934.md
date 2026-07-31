@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24065934"
+reference_id: DOI:10.3390/ijms24065934
 title: The Recent Advances in Molecular Diagnosis of Soft Tissue Tumors
 authors:
 - Joon Hyuk Choi
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24065934
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Recent Advances in Molecular Diagnosis of Soft Tissue Tumors

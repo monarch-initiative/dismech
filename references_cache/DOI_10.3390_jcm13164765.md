@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13164765"
+reference_id: DOI:10.3390/jcm13164765
 title: High-Risk Neuroblastoma Challenges and Opportunities for Antibody-Based Cellular Immunotherapy
 authors:
 - Natasha V. Persaud
@@ -9,6 +9,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13164765
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # High-Risk Neuroblastoma Challenges and Opportunities for Antibody-Based Cellular Immunotherapy

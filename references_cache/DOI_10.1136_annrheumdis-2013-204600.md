@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/annrheumdis-2013-204600"
+reference_id: DOI:10.1136/annrheumdis-2013-204600
 title: "Gene profiling reveals specific molecular pathways in the pathogenesis of atherosclerosis and cardiovascular disease in antiphospholipid syndrome, systemic lupus erythematosus and antiphospholipid syndrome with lupus"
 authors:
 - Carlos Perez-Sanchez
@@ -17,6 +17,7 @@ journal: Annals of the Rheumatic Diseases
 year: '2015'
 doi: 10.1136/annrheumdis-2013-204600
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Gene profiling reveals specific molecular pathways in the pathogenesis of atherosclerosis and cardiovascular disease in antiphospholipid syndrome, systemic lupus erythematosus and antiphospholipid syndrome with lupus

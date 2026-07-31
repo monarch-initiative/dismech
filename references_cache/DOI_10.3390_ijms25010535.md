@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25010535"
+reference_id: DOI:10.3390/ijms25010535
 title: "Developing Pharmacological Therapies for Atrial Fibrillation Targeting Mitochondrial Dysfunction and Oxidative Stress: A Scoping Review"
 authors:
 - Antônio da Silva Menezes Júnior
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms25010535
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Developing Pharmacological Therapies for Atrial Fibrillation Targeting Mitochondrial Dysfunction and Oxidative Stress: A Scoping Review

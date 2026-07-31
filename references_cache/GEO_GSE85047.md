@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE85047"
+reference_id: GEO:GSE85047
 title: Gene expression data from primary neuroblastoma tumors
 content_type: summary
+full_text_attempted: true
 ---
 
 # Gene expression data from primary neuroblastoma tumors

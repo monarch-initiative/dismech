@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13161392"
+reference_id: DOI:10.3390/cells13161392
 title: "Common Driver Mutations in AML: Biological Impact, Clinical Considerations, and Treatment Strategies"
 authors:
 - Tiffany Nong
@@ -9,6 +9,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13161392
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Common Driver Mutations in AML: Biological Impact, Clinical Considerations, and Treatment Strategies

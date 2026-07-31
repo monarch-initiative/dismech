@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers18061008"
+reference_id: DOI:10.3390/cancers18061008
 title: "Classic Kaposi Sarcoma: Current Treatment Strategies and Emerging Therapeutic Approaches"
 authors:
 - Daniela Revenko
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2026'
 doi: 10.3390/cancers18061008
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Classic Kaposi Sarcoma: Current Treatment Strategies and Emerging Therapeutic Approaches

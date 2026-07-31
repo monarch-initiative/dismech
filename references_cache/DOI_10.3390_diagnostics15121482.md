@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics15121482"
+reference_id: DOI:10.3390/diagnostics15121482
 title: "Unraveling the Genetic Architecture of Obesity: A Path to Personalized Medicine"
 authors:
 - Faisal Kunnathodi
@@ -15,6 +15,7 @@ journal: Diagnostics
 year: '2025'
 doi: 10.3390/diagnostics15121482
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Unraveling the Genetic Architecture of Obesity: A Path to Personalized Medicine

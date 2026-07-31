@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/bmj-2024-081353"
+reference_id: DOI:10.1136/bmj-2024-081353
 title: "Advances in the pathophysiology, diagnosis, and management of celiac disease"
 authors:
 - John B Doyle
@@ -10,6 +10,7 @@ journal: BMJ
 year: '2025'
 doi: 10.1136/bmj-2024-081353
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advances in the pathophysiology, diagnosis, and management of celiac disease
