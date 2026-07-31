@@ -24,7 +24,7 @@ Deficiency of any enzyme in this pathway causes severe neonatal/infantile mitoch
 
 - Curate all three lipoylation pathway disorders with evidence-backed pathophysiology
 - Map phenotypes to HPO terms with frequency data where available
-- Annotate treatments with MAXO terms
+- Annotate treatments with NCIT terms
 - Capture genotype-phenotype distinctions (e.g., LIPT1 spares glycine cleavage)
 - Provide PMID-supported evidence for all mechanistic and clinical claims
 
