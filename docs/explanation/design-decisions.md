@@ -130,7 +130,7 @@ the table below mirrors it.
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
-| Treatments / medical actions | MAXO, NCI Thesaurus | `MAXO:`, `NCIT:` |
+| Treatments / medical actions | NCI Thesaurus | `NCIT:` |
 | Exposures | ECTO, ExO, XCO | `ECTO:`, `ExO:`, `XCO:` |
 | Environment | ENVO | `ENVO:` |
 | Food | FOODON | `FOODON:` |
@@ -143,8 +143,7 @@ of fake identifiers.
 
 **Selection priority when several ontologies could apply:**
 
-- **Treatments**: use whichever of MAXO or NCIT has the *most specific* accurate term.
-  NCIT often has more specific procedure/therapy terms; MAXO for generic medical actions.
+- **Treatments**: use NCIT to find the *most specific* accurate term or use a string if not found.
 - **Therapeutic agents**: prefer **CHEBI** for specific small-molecule drugs; use **NCIT**
   for drug classes and for biologics/newer drugs lacking a CHEBI term.
 - **Disease-like phenotypes** (phenotypes that are also diseases, e.g. osteoporosis,
