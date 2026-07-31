@@ -515,8 +515,8 @@ def test_treatment_dietary_modifications_validate(validator):
                 "treatment_term": {
                     "preferred_term": "dietary intervention",
                     "term": {
-                        "id": "MAXO:0000088",
-                        "label": "dietary intervention",
+                        "id": "NCIT:C15447",
+                        "label": "Dietary Intervention",
                     },
                     "dietary_modifications": [
                         {
@@ -551,8 +551,8 @@ def test_treatment_dietary_modifications_accept_chebi_nutrient(validator):
                 "treatment_term": {
                     "preferred_term": "dietary intervention",
                     "term": {
-                        "id": "MAXO:0000088",
-                        "label": "dietary intervention",
+                        "id": "NCIT:C15447",
+                        "label": "Dietary Intervention",
                     },
                     "dietary_modifications": [
                         {
@@ -587,7 +587,7 @@ def test_treatment_action_category_validates(validator):
                 "action_category": "SCREENING",
                 "treatment_term": {
                     "preferred_term": "disease screening",
-                    "term": {"id": "MAXO:0000124", "label": "disease screening"},
+                    "term": {"id": "NCIT:C15419", "label": "Disease Screening"},
                 },
             }
         ],
