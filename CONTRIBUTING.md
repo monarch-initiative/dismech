@@ -231,6 +231,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    only allows an allowlist of package registries and GitHub, which blocks the
    literature/deep-research and structured-source hosts that dismech curation accesses
    (PubMed, ClinicalTrials.gov, Edison, OpenScientist, Orphanet, ClinGen).
+
 4. **Add your deep-research API keys** in the Environment variables field. This field
    uses `.env` format — one `KEY=value` per line, and **do not use quotes** (quotes are stored as part of the value):
    ```text
@@ -238,7 +239,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    OPENSCIENTIST_API_KEY=<YOUR_OPENSCIENTIST_KEY>
    ```
 
-  These are the same keys as the local setup — see
+   These are the same keys as the local setup — see
    [Set Up a Deep Research Provider](#3-set-up-a-deep-research-provider-required)
    above for how to obtain them. If you set these up locally, they're in whatever
    shell profile you exported them from (e.g. `~/.zshrc`).
@@ -246,12 +247,13 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    Note: the Environment variables field is plain text, not a secrets store — the values are
    visible to anyone who can open the environment's settings. On a personal account, that's only you.
    
-   5. **Add an install of "just" to the setup script** in the "Setup script" box (just this one line):
-      ```
-      uv tool install rust-just
-      ```
-      This will allow curate to start immediately without needing to re-install just with tokens after failing to find it.
-      
+5. **Add an install of `just` to the setup script** in the "Setup script" box (just this one line):
+   ```
+   uv tool install rust-just
+   ```
+   If you don't do this, every session has to re-install `just` before curation can start.
+
+   Note that the "Setup script" is the home for any other one-time bootstraps that you may want to add.
 
 Setting up the cloud configuration is the only hard part. Once the environment exists, curation on the web works the same
 as on the command line — `/curate` a disorder, then create the PR when ready.
