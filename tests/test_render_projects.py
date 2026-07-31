@@ -141,3 +141,63 @@ def test_render_all_projects_builds_index(tmp_path: Path) -> None:
     # Index summaries must resolve groupings (regression: previously the index
     # used an empty grouping index and always reported 0 groupings).
     assert "1 grouping" in index_html
+
+
+def test_project_docs_links_are_rewritten_to_published_urls(tmp_path: Path) -> None:
+    """``../docs/`` links must point at the MkDocs-published URL once rendered.
+
+    From ``pages/projects/`` the source-markdown form ``../docs/X`` resolves to
+    the nonexistent ``pages/docs/X``, so it has to be rewritten. See issue
+    #7340.
+    """
+    docs = tmp_path / "docs"
+    _write(docs / "explanation" / "design-decisions.md", "# Decisions\n")
+    _write(docs / "research" / "table.tsv", "a\tb\n")
+    _write(docs / "primers" / "index.md", "# Primers\n")
+    _write(docs / "issues" / "internal-note.md", "# Not published\n")
+
+    body = "\n".join(
+        [
+            "---",
+            "title: Link Test",
+            "---",
+            "",
+            "# Link Test",
+            "",
+            "- [decisions](../docs/explanation/design-decisions.md#12-gaps)",
+            "- [table](../docs/research/table.tsv)",
+            "- [primers](../docs/primers/index.md)",
+            "- [excluded](../docs/issues/internal-note.md)",
+            "- [missing](../docs/nope/absent.md)",
+            "",
+            "```markdown",
+            "- [in a fence](../docs/explanation/design-decisions.md)",
+            "```",
+        ]
+    )
+    md_path = tmp_path / "projects" / "LINKS.md"
+    _write(md_path, body)
+
+    out = render_project(
+        md_path,
+        output_path=tmp_path / "pages" / "projects" / "LINKS.html",
+    )
+    html = out.read_text()
+
+    # .md -> directory URL, anchor preserved
+    assert 'href="../../elements/explanation/design-decisions/#12-gaps"' in html
+    # non-markdown -> copied verbatim by MkDocs, extension kept
+    assert 'href="../../elements/research/table.tsv"' in html
+    # dir/index.md -> the directory itself
+    assert 'href="../../elements/primers/"' in html
+    # excluded from the MkDocs build -> GitHub, since there is no published URL
+    assert (
+        'href="https://github.com/monarch-initiative/dismech/blob/main/'
+        'docs/issues/internal-note.md"' in html
+    )
+    # nonexistent target -> left untouched, so it stays visibly broken
+    assert 'href="../docs/nope/absent.md"' in html
+    # fenced code is documentation about the path, not a link to rewrite
+    assert "../docs/explanation/design-decisions.md" in html
+    # and the old broken form is gone for the real links
+    assert 'href="../docs/explanation/design-decisions.md#12-gaps"' not in html
