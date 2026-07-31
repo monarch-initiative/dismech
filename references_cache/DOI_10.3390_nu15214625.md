@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu15214625"
+reference_id: DOI:10.3390/nu15214625
 title: Characterization of Postprandial Bile Acid Profiles and Glucose Metabolism in Cerebrotendinous Xanthomatosis
 authors:
 - Soumia Majait
@@ -18,6 +18,7 @@ journal: Nutrients
 year: '2023'
 doi: 10.3390/nu15214625
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Characterization of Postprandial Bile Acid Profiles and Glucose Metabolism in Cerebrotendinous Xanthomatosis

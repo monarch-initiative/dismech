@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.61368/r.s.d.h.v5i4.345"
+reference_id: DOI:10.61368/r.s.d.h.v5i4.345
 title: "Vasculitis leucocitoclástica asociada a infección: a proposito de un caso y revisión de literatura"
 authors:
 - Diana Verónica Romero Escamilla
@@ -9,6 +9,7 @@ journal: Revista Científica de Salud y Desarrollo Humano
 year: '2024'
 doi: 10.61368/r.s.d.h.v5i4.345
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Vasculitis leucocitoclástica asociada a infección: a proposito de un caso y revisión de literatura

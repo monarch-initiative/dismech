@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4269/ajtmh.24-0313"
+reference_id: DOI:10.4269/ajtmh.24-0313
 title: Adherence to Hygiene Protocols and Doxycycline Therapy in Ameliorating Lymphatic Filariasis Morbidity in an Endemic Area Post-Interruption of Disease Transmission in Ghana
 authors:
 - Linda Batsa Debrah
@@ -41,6 +41,7 @@ journal: The American Journal of Tropical Medicine and Hygiene
 year: '2024'
 doi: 10.4269/ajtmh.24-0313
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Adherence to Hygiene Protocols and Doxycycline Therapy in Ameliorating Lymphatic Filariasis Morbidity in an Endemic Area Post-Interruption of Disease Transmission in Ghana

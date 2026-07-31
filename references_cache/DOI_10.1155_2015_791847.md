@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1155/2015/791847"
+reference_id: DOI:10.1155/2015/791847
 title: Trachoma and Ocular Chlamydial Infection in  the Era of Genomics
 authors:
 - Tamsyn Derrick
@@ -11,6 +11,7 @@ journal: Mediators of Inflammation
 year: '2015'
 doi: 10.1155/2015/791847
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Trachoma and Ocular Chlamydial Infection in  the Era of Genomics

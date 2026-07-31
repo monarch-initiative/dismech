@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/life14020198"
+reference_id: DOI:10.3390/life14020198
 title: "PARP Inhibitors in Metastatic Castration-Resistant Prostate Cancer: Unraveling the Therapeutic Landscape"
 authors:
 - Ashaar Al-Akhras
@@ -10,6 +10,7 @@ journal: Life
 year: '2024'
 doi: 10.3390/life14020198
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # PARP Inhibitors in Metastatic Castration-Resistant Prostate Cancer: Unraveling the Therapeutic Landscape

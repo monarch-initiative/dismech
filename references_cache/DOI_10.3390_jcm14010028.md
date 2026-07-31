@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14010028"
+reference_id: DOI:10.3390/jcm14010028
 title: "Impact of American Thyroid Association’s Revised Cancer Management Guidelines on Thyroid Cancer Incidence Trends: A Retrospective Cohort Study, 2000–2020"
 authors:
 - Pierre Fwelo
@@ -13,6 +13,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm14010028
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Impact of American Thyroid Association’s Revised Cancer Management Guidelines on Thyroid Cancer Incidence Trends: A Retrospective Cohort Study, 2000–2020
