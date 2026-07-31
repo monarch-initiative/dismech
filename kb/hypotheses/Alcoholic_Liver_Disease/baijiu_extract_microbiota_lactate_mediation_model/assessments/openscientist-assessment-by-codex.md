@@ -120,10 +120,10 @@ does not establish the report's preferred mechanism.
 The universal “no safe alcohol dose” wording is also not supported by the two
 cited papers. [PMID:32135583](https://pubmed.ncbi.nlm.nih.gov/32135583/) says
 the safe level is unclear and reports risk above its low-level category.
-[PMID:38971533](https://pubmed.ncbi.nlm.nih.gov/38971533/) limits its no-safe-
-limit implication to people with unhealthy metabolic status and MASLD. These
-papers reinforce the no-human-benefit boundary without supporting the broader
-claim.
+[PMID:38971533](https://pubmed.ncbi.nlm.nih.gov/38971533/) limits its
+no-safe-limit implication to people with unhealthy metabolic status and
+MASLD. These papers reinforce the no-human-benefit boundary without supporting
+the broader claim.
 
 ### The search missed closer alternative mechanisms
 
