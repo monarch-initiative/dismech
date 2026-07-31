@@ -312,6 +312,83 @@ In such cases:
 
 From @cmungall's review: *"extend data model to include precise cell types below the shoreline of GO precoordinated activation terms"*
 
+## Anchoring Pathological Structures (Xogenesis)
+
+Some mechanism modules in `kb/modules/` model a *pathological structure that forms
+de novo* — a cyst, thrombus, granuloma, atherosclerotic plaque, kidney stone, amyloid
+deposit, and so on. These are called **Xogenesis** modules (the "-genesis of some
+pathological X"). No single ontology has a precoordinated term that captures "the process
+that forms structure X at site Y", so the terminal structure is represented by
+**post-composing across several ontologies at once**. This is the multi-ontology
+analogue of the single-descriptor slots above.
+
+Each Xogenesis anchor combines:
+
+| Role | Ontology | Example |
+|------|----------|---------|
+| Process **genus** | `OGMS:0000061` pathological bodily process | the "-genesis" itself |
+| **How** the structure arises | `OGMS:0000080` pathological transformation (existing tissue becomes X) **or** `OGMS:0000081` pathological derivation (a new formation) | cyst ← transformed tubule; thrombus ← new intravascular formation |
+| Output **continuant** | `OGMS:0000078` pathological anatomical structure (discrete) **or** `OGMS:0000079` portion of pathological body substance (deposit/stone/fluid) | granuloma vs. amyloid deposit |
+| **Species** of the "X" | an `MPATH:603` (pathological anatomical entity) subtree term | see table below |
+| **Site** | `UBERON` | `UBERON:0002113` kidney |
+
+### The role of MPATH
+
+**MPATH** (the pathology ontology) supplies the *specific kind* of pathological
+structure — the species under the generic OGMS continuant genus. Common anchors used
+in the knowledge base:
+
+| Structure | MPATH term |
+|-----------|-----------|
+| cyst | `MPATH:62` |
+| concretion / stone | `MPATH:614` |
+| granuloma | `MPATH:847` |
+| thrombosis | `MPATH:125` |
+| abscess | `MPATH:608` |
+| aneurysm | `MPATH:90` |
+| fibrosis | `MPATH:181` |
+| neoplasm | `MPATH:218` |
+
+### How it appears in the data
+
+MPATH is **not schema-bound and not validated** — it is not a configured prefix in
+`conf/oak_config.yaml`, and it carries no `meaning:` binding in the schema. The anchor
+lives as prose in the module's `notes:` field, documenting the ontology rationale for
+curators and downstream ontology contribution. Example (from `granuloma_formation`):
+
+> Xogenesis anchor: the terminal output is a granuloma (MPATH:847), an `OGMS:0000078`
+> pathological anatomical structure produced by an `OGMS:0000081` pathological derivation;
+> process genus `OGMS:0000061`.
+
+Even though it is prose, verify every anchor CURIE resolves before committing:
+
+```bash
+uv run runoak -i sqlite:obo:mpath info MPATH:847 -O obo
+uv run runoak -i sqlite:obo:ogms info OGMS:0000078 -O obo
+```
+
+### SNOMED is a guide, never bound
+
+SNOMED CT "Morphologically abnormal structure" (`49755003`) is used only as an external
+census / gap-detection guide when scoping which structures need a module. It is **never
+bound** in dismech data.
+
+### Known OBO gaps
+
+Not every structure has an MPATH continuant class. When the target X has no MPATH term,
+record the gap in the module `notes:` as a candidate for upstream OBO contribution:
+
+- **thrombus** — MPATH has `MPATH:125` (thrombosis, the process) but no distinct
+  *thrombus* continuant (`thrombogenesis` module).
+- **atheroma / atherosclerotic plaque** — MPATH has `MPATH:28` (atherosclerosis) but no
+  distinct *atheroma* continuant (`atherogenesis` module).
+- **amyloid deposit** — MPATH has no amyloid class at all; the output is anchored only as
+  `OGMS:0000079` portion of pathological body substance (`amyloidogenesis` module).
+
+Worked Xogenesis modules to copy: `renal_cystogenesis`, `granuloma_formation`,
+`thrombogenesis`, `atherogenesis`, `amyloidogenesis`. See the `create-module` skill for
+the full authoring workflow.
+
 ## Future Extensions: Identified Gaps from PR Reviews
 
 Based on @cmungall's PR reviews, additional post-composition patterns have been identified as candidates for future explicit slots:
