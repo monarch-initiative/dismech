@@ -48,7 +48,7 @@ statements at face value.
 
 ### Ontology-Grounded NLP Benchmark
 
-DisMech entries with their precise ontology mappings (HP, MONDO, GO, CL, MAXO) could
+DisMech entries with their precise ontology mappings (HP, MONDO, GO, CL, NCIT) could
 serve as gold-standard annotations for evaluating biomedical NLP systems that extract
 disease mechanisms from text.
 
@@ -61,7 +61,7 @@ disease-gene-phenotype edges with mechanistic context.
 
 ### Cross-Ontology Bridging
 
-DisMech links MONDO diseases to HP phenotypes, GO processes, CL cell types, MAXO
+DisMech links MONDO diseases to HP phenotypes, GO processes, CL cell types, NCIT
 treatments, and UBERON anatomy in a single curated record. This creates implicit
 cross-ontology mappings that are otherwise hard to derive automatically.
 
