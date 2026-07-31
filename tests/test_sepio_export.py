@@ -238,8 +238,8 @@ class TestPathophysiologyStatements:
 
     def test_node_statement_id_is_deterministic(self):
         """Statement ids must be stable across runs so downstream links survive."""
-        first = list(pathophysiology_statements(CFTR_RECORD))[0]
-        second = list(pathophysiology_statements(CFTR_RECORD))[0]
+        first = next(iter(pathophysiology_statements(CFTR_RECORD)))
+        second = next(iter(pathophysiology_statements(CFTR_RECORD)))
         assert first.id == second.id
         assert first.id == pathophysiology_statement_id("Cystic Fibrosis", "CFTR Dysfunction")
 
