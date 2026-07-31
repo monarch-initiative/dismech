@@ -236,6 +236,30 @@ def load_cache_dir(config_path: Path, default: Path = DEFAULT_CACHE_DIR) -> Path
     return default
 
 
+def extract_reference_id(reference_value: Any) -> str | None:
+    """Return the reference CURIE from a reference field's value, or ``None``.
+
+    Mirrors ``ReferenceValidationPlugin._extract_reference_id`` upstream, which
+    accepts two shapes:
+
+    - a bare string, as the native ``reference: PMID:12345678`` slot carries
+    - an object with an ``id`` (or ``reference_id``), as the experimental
+      SEPIO-style ``reported_in:`` Document carries (issue #7439)
+
+    Without the object form the audit walks straight past every SEPIO evidence
+    item -- the excerpt is ``value`` on the DataItem but the reference lives one
+    level down at ``reported_in.id`` -- and reports a confidently wrong zero.
+    """
+    if isinstance(reference_value, str):
+        return reference_value if reference_value.strip() else None
+    if isinstance(reference_value, dict):
+        for key in ("id", "reference_id"):
+            candidate = reference_value.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate
+    return None
+
+
 def iter_snippet_pairs(
     path: Path,
     data: Any,
@@ -252,9 +276,9 @@ def iter_snippet_pairs(
         if isinstance(node, dict):
             reference_id = next(
                 (
-                    node[name]
+                    resolved
                     for name in references
-                    if isinstance(node.get(name), str) and node[name].strip()
+                    if (resolved := extract_reference_id(node.get(name))) is not None
                 ),
                 None,
             )

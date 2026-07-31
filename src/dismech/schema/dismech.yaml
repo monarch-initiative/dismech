@@ -130,6 +130,100 @@ enums:
       OTHER:
         title: Other
         description: Evidence not fitting the above (e.g., expert consensus without data, image atlases without cohort context)
+  # ---------------------------------------------------------------------------
+  # EXPERIMENTAL: enums supporting the SEPIO evidence pilot (issue #7439).
+  # ---------------------------------------------------------------------------
+  EvidenceStrengthEnum:
+    description: >-
+      EXPERIMENTAL (issue #7439). Qualitative strength of the argument an evidence line
+      makes, recorded separately from its direction. Strength is a curator judgement about
+      how much weight the argument carries, not a restatement of study design (that is
+      `evidence_type`) and not a restatement of which way it cuts (that is
+      `direction_of_evidence_provided`). Omit when there is no defensible basis for a call.
+    permissible_values:
+      STRONG:
+        title: Strong
+        description: >-
+          The argument would on its own be sufficient to establish the assertion for most
+          readers (e.g., a well-powered human study directly measuring the claimed relation,
+          or convergent replication across independent groups).
+      MODERATE:
+        title: Moderate
+        description: >-
+          The argument meaningfully raises or lowers confidence in the assertion but leaves
+          room for alternative explanations (e.g., a single small cohort, or a mechanism
+          demonstrated in a well-validated model system).
+      WEAK:
+        title: Weak
+        description: >-
+          The argument is consistent with the assertion but is indirect, underpowered, or
+          heavily confounded, and would not be persuasive on its own.
+      VERY_WEAK:
+        title: Very weak
+        description: >-
+          The argument is little more than suggestive (e.g., anecdote, a single case, or an
+          untested computational prediction). Recorded so that the reasoning is visible
+          rather than silently omitted.
+  DocumentTypeEnum:
+    description: >-
+      EXPERIMENTAL (issue #7439). The kind of document an evidence item was reported in.
+      Type here is about the document's editorial nature, not about the study design it
+      reports; a review that summarizes clinical trials is a REVIEW whose evidence line is
+      still typed HUMAN_CLINICAL.
+    permissible_values:
+      PRIMARY_LITERATURE:
+        title: Primary literature
+        description: A peer-reviewed research article reporting original data
+      REVIEW:
+        title: Review
+        description: A review, systematic review, or meta-analysis synthesizing other work
+      PREPRINT:
+        title: Preprint
+        description: A manuscript posted to a preprint server without peer review
+      CLINICAL_TRIAL_RECORD:
+        title: Clinical trial record
+        description: A trial registry entry (e.g., a ClinicalTrials.gov NCT record)
+      STRUCTURED_DATABASE:
+        title: Structured database
+        description: >-
+          A record drawn from a curated structured knowledge base rather than a narrative
+          document (e.g., an Orphanet disorder record, a ClinGen validity assertion, an
+          NCI Thesaurus edge)
+      PRACTICE_GUIDELINE:
+        title: Practice guideline
+        description: A clinical practice guideline or consensus recommendation statement
+      BOOK_OR_CHAPTER:
+        title: Book or chapter
+        description: A textbook, monograph, or book chapter
+      OTHER:
+        title: Other
+        description: A document type not covered above
+  DataItemTypeEnum:
+    description: >-
+      EXPERIMENTAL (issue #7439). The kind of information entity an evidence item holds.
+      dismech evidence is overwhelmingly quoted text, so TEXT_SPAN is the expected value;
+      the other members exist so the model does not have to be reopened the first time a
+      curator wants to cite a measured number or a figure.
+    permissible_values:
+      TEXT_SPAN:
+        title: Text span
+        description: >-
+          A verbatim excerpt from the source document. This is the SEPIO-form counterpart
+          of the native `snippet` slot and carries the same exact-quote discipline.
+      MEASUREMENT:
+        title: Measurement
+        description: A measured quantity reported in the source (e.g., an enzyme activity level)
+      STATISTIC:
+        title: Statistic
+        description: >-
+          A derived statistical quantity reported in the source (e.g., an odds ratio,
+          a p-value, a chi-square score)
+      IMAGE:
+        title: Image
+        description: A figure, micrograph, or other graphic reported in the source
+      OTHER:
+        title: Other
+        description: An information entity not covered above
   DefinitionTypeEnum:
     description: The type of definition or criteria set
     permissible_values:
@@ -2442,6 +2536,30 @@ slots:
     range: string
     examples:
       - value: Feingold_Syndrome-deep-research-falcon_artifacts/image-1.png
+  # ---------------------------------------------------------------------------
+  # EXPERIMENTAL: SEPIO-style evidence slots (issue #7439)
+  #
+  # These sit alongside the native `evidence` slot rather than replacing it. See
+  # docs/explanation/sepio-evidence-pilot.md for the mapping between the two
+  # forms and the deliberate simplifications taken in this pilot.
+  # ---------------------------------------------------------------------------
+  has_evidence_lines:
+    description: >-
+      EXPERIMENTAL (issue #7439). SEPIO-style evidence for this assertion, expressed
+      as one or more independent arguments (evidence lines) rather than as a flat
+      list of native EvidenceItems. Each line bundles the discrete pieces of
+      information being interpreted as evidence together with the direction, type,
+      and strength of the argument they make. This is an additive alternative to
+      `evidence`, not a replacement; an assertion may carry either or both.
+    multivalued: true
+    range: EvidenceLine
+    inlined_as_list: true
+  # The remaining SEPIO fields are declared as class-local `attributes` on
+  # EvidenceLine / DataItem / Document rather than as global slots. SEPIO's names
+  # (`value`, `data_type`, `id`, `title`) collide with existing dismech slots that
+  # mean entirely different things -- `value` is a Qualifier filler, `data_type` is
+  # a Dataset omics type, `id` is an ontology-term identifier -- and class-local
+  # attributes keep the SEPIO vocabulary intact without overloading any of them.
   # Slots for top-level references with findings
   references:
     description: Top-level list of references with their key findings for this disease
@@ -5161,6 +5279,128 @@ classes:
       - snippet
       - explanation
       - images
+  # ---------------------------------------------------------------------------
+  # EXPERIMENTAL: SEPIO evidence classes (issue #7439).
+  #
+  # The native EvidenceItem above flattens five separable things into one object:
+  # the study type, the direction, the quoted passage, the source document, and
+  # the curator's reasoning. The three classes below pull those apart along the
+  # lines SEPIO draws, so that an assertion is supported by *arguments*, each of
+  # which interprets one or more *information entities* drawn from *documents*.
+  #
+  # This is additive. Native `evidence` is unchanged and remains the default.
+  # See docs/explanation/sepio-evidence-pilot.md.
+  # ---------------------------------------------------------------------------
+  EvidenceLine:
+    description: >-
+      EXPERIMENTAL (issue #7439). An independent, evidence-based argument that supports or
+      disputes the assertion it is attached to. The argument's direction and strength come
+      from a curator interpreting the attached evidence items as bearing on that assertion —
+      the items themselves are just information, and only become evidence in the context of
+      a line. Two passages that make the same point belong in one line with two evidence
+      items; two passages that make different points belong in two lines.
+    slots:
+      - description
+    slot_usage:
+      description:
+        description: >-
+          The curator's rationale: why the attached evidence items bear on the assertion in
+          the stated direction. This is the SEPIO-form counterpart of the native
+          `explanation` slot on EvidenceItem.
+        recommended: true
+    attributes:
+      evidence_type:
+        description: >-
+          The kind of evidence being applied in this evidence line. Corresponds to the
+          native EvidenceItem `evidence_source` slot, recast as a property of the argument
+          rather than of an individual quoted passage.
+        range: EvidenceSourceEnum
+        recommended: true
+      direction_of_evidence_provided:
+        description: >-
+          Whether this evidence line supports or disputes the assertion it is attached to.
+          Deliberately reuses the native `EvidenceItemSupportEnum` so that an evidence line
+          and an evidence item say "SUPPORT" the same way, and the two forms stay
+          mechanically inter-convertible.
+        range: EvidenceItemSupportEnum
+        recommended: true
+      strength_of_evidence_provided:
+        description: >-
+          Qualitative strength of the argument this evidence line makes, independent of its
+          direction. Optional: omit rather than guess. The native evidence model has no
+          equivalent — `supports` conflates direction with strength — so this is new
+          expressive capacity rather than a restatement.
+        range: EvidenceStrengthEnum
+      has_evidence_items:
+        description: >-
+          The discrete information entities interpreted as evidence in this line. For
+          dismech these are nearly always spans of text quoted from a publication. Several
+          items in one line make a single joint argument; separate arguments belong in
+          separate evidence lines.
+        multivalued: true
+        range: DataItem
+        inlined_as_list: true
+        recommended: true
+  DataItem:
+    description: >-
+      EXPERIMENTAL (issue #7439). One discrete piece of information evaluated as evidence
+      within an evidence line, together with the document it was reported in. For dismech
+      this is nearly always a verbatim span of text quoted from a publication, which is why
+      `value` carries the same exact-quote validation as the native `snippet` slot.
+    attributes:
+      data_type:
+        description: The kind of information entity this evidence item holds.
+        range: DataItemTypeEnum
+        recommended: true
+      value:
+        description: >-
+          The content of the evidence item. For a TEXT_SPAN this is the verbatim excerpt
+          from the source document, and carries exactly the same exact-quote discipline as
+          the native `snippet` slot: it must appear in the cited reference and must never
+          be paraphrased.
+        range: string
+        required: true
+        comments:
+          - This is automatically validated by the linkml-reference-validator tool.
+        implements:
+          - linkml:excerpt
+      reported_in:
+        description: >-
+          The document in which this evidence item was reported. Nesting the reference
+          inside a Document — rather than carrying a bare CURIE — is what lets an evidence
+          item state the kind and title of its source alongside the identifier.
+        range: Document
+        inlined: true
+        recommended: true
+        implements:
+          - linkml:authoritative_reference
+  Document:
+    description: >-
+      EXPERIMENTAL (issue #7439). A publication or other document that an evidence item was
+      reported in. Giving the source its own object — rather than a bare CURIE on the
+      evidence item — is what makes room for the document's kind and title to travel with
+      the reference.
+    attributes:
+      id:
+        description: >-
+          Identifier of the source document as a CURIE, using the same prefixes as the
+          native `reference` slot (PMID, DOI, ORPHA, clinicaltrials, ...). This is the
+          identifier the reference validator resolves against `references_cache/`.
+        range: uriorcurie
+        required: true
+        examples:
+          - value: PMID:9922375
+      document_type:
+        description: >-
+          What kind of document this is. dismech weighs a primary study differently from a
+          review or a structured-database row, but has had nowhere to record which is
+          which; this makes that explicit.
+        range: DocumentTypeEnum
+        recommended: true
+      title:
+        description: Title of the source document, as published.
+        range: string
+        recommended: true
   CausalEdge:
     description: A reference to a downstream effect or consequence in a causal relationship
     slots:
@@ -5690,6 +5930,8 @@ classes:
       - description
       - cell_types
       - evidence
+      # EXPERIMENTAL (issue #7439): SEPIO-form evidence, additive to `evidence` above.
+      - has_evidence_lines
       - biological_processes
       - molecular_functions
       - locations
@@ -5727,6 +5969,8 @@ classes:
       - diagnostic
       - sequelae
       - evidence
+      # EXPERIMENTAL (issue #7439): SEPIO-form evidence, additive to `evidence` above.
+      - has_evidence_lines
       - context
       - review_notes
       - severity

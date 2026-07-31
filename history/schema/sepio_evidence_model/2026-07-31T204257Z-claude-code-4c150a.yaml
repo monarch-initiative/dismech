@@ -1,0 +1,42 @@
+history_version: 1
+target:
+  kind: schema
+  slug: sepio_evidence_model
+  path: src/dismech/schema/dismech.yaml
+session:
+  id: 2026-07-31T204257Z-claude-code-4c150a
+  timestamp: '2026-07-31T20:42:57Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/7439
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - schema
+  - validators
+  - rendering
+  - docs
+  summary: 'Experimental SEPIO evidence model: EvidenceLine/DataItem/Document + validator
+    and renderer support'
+  details: |
+    Additive, experimental implementation of a partial SEPIO evidence representation alongside the untouched native EvidenceItem model (issue #7439), following upstream worked examples drafted against dismech's own Cystic Fibrosis entry.
+
+    Schema: added classes EvidenceLine, DataItem, Document; enums EvidenceStrengthEnum, DocumentTypeEnum, DataItemTypeEnum; and the slot has_evidence_lines, attached to Pathophysiology and Phenotype only. The three classes declare class-local attributes rather than global slots because SEPIO's field names (value, data_type, id) collide with existing dismech slots meaning entirely different things (Qualifier filler, Dataset omics type, ontology-term identifier). direction_of_evidence_provided and evidence_type deliberately reuse the existing EvidenceItemSupportEnum and EvidenceSourceEnum so the two forms stay mechanically inter-convertible.
+
+    Validators: linkml-reference-validator needed no change -- its plugin already accepts an object-valued reference field and reads .id/.title off it, so marking value with linkml:excerpt and reported_in with linkml:authoritative_reference gets snippet validation for free. Side effect worth noting: the SEPIO form also gets title checking that the native form silently skips (a bare reference string gives the validator no title to check), which caught a wrong ORPHA title on the first run. The in-repo reference_snippet_audit walker DID need a change: it paired an excerpt with a reference only when both were strings in the same object, so it walked past every SEPIO evidence item and reported a confident zero -- exactly the failure mode issue #7252 exists to prevent. It now extracts reference ids from objects too, mirroring upstream _extract_reference_id. Four new tests cover this.
+
+    Rendering: new render_evidence_lines macro in disorder.html.j2, sibling of render_evidence, wired into the pathophysiology and phenotype sections. Evidence items nest inside their evidence line so the grouping is visible on the page. Assertions without has_evidence_lines render unchanged.
+
+    Fixture: kb/experimental/Cystic_Fibrosis_SEPIO.yaml carries BOTH representations of the same three Cystic Fibrosis assertions (content copied verbatim from the production entry, nothing newly curated) covering the three interesting mapping cases: two snippets from one paper making two different points (two lines), one snippet plus the new strength axis, and two snippets from documents of different kinds making one joint argument (one line, two items -- not expressible natively). Deliberately outside kb/disorders/; it is a fixture, not a curation target.
+
+    Validation: linkml-validate clean, term validation clean, reference validation clean, snippet audit 12/12 verified (7 native + 5 SEPIO). Production Cystic_Fibrosis.html renders with zero evidence-line blocks, confirming no regression.
+
+    Recorded in the design-decision register as an open question rather than a decision: the register previously said 'SEPIO reserved for the export layer', and this pilot deliberately probes that boundary because grouping and document typing are curator inputs an export-layer converter could not invent.

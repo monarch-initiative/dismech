@@ -21,6 +21,7 @@ from dismech.reference_snippet_audit import (
     audit_files,
     check_pair,
     discover_field_names,
+    extract_reference_id,
     load_cache_dir,
     load_skip_prefixes,
     main,
@@ -201,6 +202,110 @@ def test_fields_are_discovered_from_schema_implements_annotations() -> None:
 
     assert "snippet" in excerpts
     assert "reference" in references
+    # Experimental SEPIO evidence model (issue #7439): the excerpt is `value` on a
+    # DataItem and the reference is a `reported_in` Document, both declared as
+    # class-local attributes rather than global slots.
+    assert "value" in excerpts
+    assert "reported_in" in references
+
+
+# --- SEPIO-style object-valued references (issue #7439) ----------------------
+#
+# In the experimental SEPIO evidence model the excerpt and its reference are no
+# longer siblings in one dict: the quote is `value` on a DataItem and the source
+# is one level down at `reported_in.id`. The audit has to follow that or it
+# reports a confident zero for evidence it never looked at.
+
+
+def _write_sepio_entry(path: Path, items: list[tuple[str, str]]) -> Path:
+    lines = ["name: Test Disease", "pathophysiology:", "- name: Test Mechanism"]
+    lines.append("  has_evidence_lines:")
+    for reference, snippet in items:
+        lines.append("  - direction_of_evidence_provided: SUPPORT")
+        lines.append("    has_evidence_items:")
+        lines.append("    - data_type: TEXT_SPAN")
+        lines.append(f"      value: {snippet!r}")
+        lines.append("      reported_in:")
+        lines.append(f"        id: {reference}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def test_counts_pairs_whose_reference_is_a_nested_document(tmp_path: Path) -> None:
+    _write_cache(tmp_path / "references_cache", "PMID_123.md", ABSTRACT)
+    entry = _write_sepio_entry(
+        tmp_path / "sepio.yaml",
+        [
+            ("PMID:123", "recessive mutations in EPG5"),
+            ("PMID:123", "agenesis of the corpus callosum"),
+        ],
+    )
+
+    report = audit_files([entry], cache_dir=tmp_path / "references_cache")
+
+    assert (report.total, report.verified) == (2, 2)
+    assert report.mismatched == []
+
+
+def test_nested_document_mismatch_is_reported_at_its_own_location(
+    tmp_path: Path,
+) -> None:
+    _write_cache(tmp_path / "references_cache", "PMID_123.md", ABSTRACT)
+    entry = _write_sepio_entry(
+        tmp_path / "sepio.yaml",
+        [
+            ("PMID:123", "recessive mutations in EPG5"),
+            ("PMID:123", "The moon is made of green cheese."),
+        ],
+    )
+
+    report = audit_files([entry], cache_dir=tmp_path / "references_cache")
+
+    assert (report.total, report.verified) == (2, 1)
+    assert len(report.mismatched) == 1
+    unverified = report.mismatched[0]
+    assert unverified.pair.reference_id == "PMID:123"
+    assert unverified.pair.location == (
+        "pathophysiology[0].has_evidence_lines[1].has_evidence_items[0].value"
+    )
+
+
+def test_extract_reference_id_accepts_both_shapes() -> None:
+    assert extract_reference_id("PMID:123") == "PMID:123"
+    assert extract_reference_id({"id": "PMID:123"}) == "PMID:123"
+    # Upstream's ``_extract_reference_id`` also honours ``reference_id``.
+    assert extract_reference_id({"reference_id": "PMID:123"}) == "PMID:123"
+    # A Document with a title but no identifier is not a usable reference.
+    assert extract_reference_id({"title": "A real paper"}) is None
+    assert extract_reference_id("   ") is None
+    assert extract_reference_id(None) is None
+
+
+def test_both_evidence_forms_are_counted_in_one_file(tmp_path: Path) -> None:
+    """A file carrying native and SEPIO evidence reports the sum, not one form."""
+    _write_cache(tmp_path / "references_cache", "PMID_123.md", ABSTRACT)
+    path = tmp_path / "both.yaml"
+    path.write_text(
+        "name: Test Disease\n"
+        "evidence:\n"
+        "- reference: PMID:123\n"
+        "  supports: SUPPORT\n"
+        "  snippet: 'recessive mutations in EPG5'\n"
+        "pathophysiology:\n"
+        "- name: Test Mechanism\n"
+        "  has_evidence_lines:\n"
+        "  - direction_of_evidence_provided: SUPPORT\n"
+        "    has_evidence_items:\n"
+        "    - data_type: TEXT_SPAN\n"
+        "      value: 'agenesis of the corpus callosum'\n"
+        "      reported_in:\n"
+        "        id: PMID:123\n",
+        encoding="utf-8",
+    )
+
+    report = audit_files([path], cache_dir=tmp_path / "references_cache")
+
+    assert (report.total, report.verified) == (2, 2)
 
 
 def test_config_loaders_read_the_repository_config() -> None:

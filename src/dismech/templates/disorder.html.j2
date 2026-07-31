@@ -686,6 +686,112 @@
             font-style: italic;
         }
 
+        /* ------------------------------------------------------------------
+           EXPERIMENTAL: SEPIO evidence lines (issue #7439).
+           An evidence line is an argument, so it is drawn as a container that
+           holds its evidence items, rather than as another flat card. The
+           left rule is what visually says "these quotes belong to this claim".
+           ------------------------------------------------------------------ */
+        .evidence-line {
+            padding: 12px 14px;
+            background: #fbfaff;
+            border: 1px solid #e2e8f0;
+            border-left: 3px solid #a78bfa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .evidence-line-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .evidence-line-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #7c3aed;
+        }
+
+        .evidence-strength {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .strength-STRONG { background: #ddd6fe; color: #4c1d95; }
+        .strength-MODERATE { background: #ede9fe; color: #5b21b6; }
+        .strength-WEAK { background: #f3f4f6; color: #4b5563; }
+        .strength-VERY_WEAK { background: #f3f4f6; color: #6b7280; }
+
+        .evidence-line-rationale {
+            font-size: 0.85rem;
+            color: var(--text);
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        .evidence-line-items {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .evidence-data-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 12px;
+        }
+
+        .evidence-data-item-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.8rem;
+        }
+
+        .evidence-data-type {
+            font-size: 0.68rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: #e2e8f0;
+            color: #334155;
+        }
+
+        .evidence-document-type {
+            font-size: 0.68rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        .evidence-document-title {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .evidence-item-count {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
         .findings-section {
             margin-top: 12px;
         }
@@ -3003,6 +3109,80 @@
     {% endif %}
     {% endmacro %}
 
+    {# EXPERIMENTAL: SEPIO evidence-line rendering macro (issue #7439).
+
+       Sibling of render_evidence above, for assertions carrying `has_evidence_lines`
+       instead of (or as well as) native `evidence`. The nesting is the point: an
+       evidence line is one argument, and the quoted passages sit *inside* it, so the
+       page can show that two quotes make one case rather than two. #}
+    {% macro render_evidence_lines(evidence_lines, max_visible=3) %}
+    {% if evidence_lines %}
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show SEPIO evidence ({{ evidence_lines | length }} evidence line{{ 's' if evidence_lines | length != 1 else '' }})
+        </summary>
+        <div class="evidence-list">
+            {% for line in evidence_lines[:max_visible] %}
+            {% set items = line.has_evidence_items or [] %}
+            <div class="evidence-line"
+                 data-dismech-evidence-line="{{ loop.index }}"
+                 data-dismech-direction="{{ line.direction_of_evidence_provided or '' }}">
+                <div class="evidence-line-header">
+                    <span class="evidence-line-label">Evidence line</span>
+                    {% if line.direction_of_evidence_provided %}
+                    <span class="evidence-support support-{{ line.direction_of_evidence_provided }}">{{ line.direction_of_evidence_provided }}</span>
+                    {% endif %}
+                    {% if line.evidence_type %}
+                    <span class="evidence-source source-{{ line.evidence_type }}">{{ line.evidence_type | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {% if line.strength_of_evidence_provided %}
+                    <span class="evidence-strength strength-{{ line.strength_of_evidence_provided }}">{{ line.strength_of_evidence_provided | replace('_', ' ') }}</span>
+                    {% endif %}
+                    {% if items %}
+                    <span class="evidence-item-count">{{ items | length }} evidence item{{ 's' if items | length != 1 else '' }}</span>
+                    {% endif %}
+                </div>
+                {% if line.description %}
+                <div class="evidence-line-rationale">{{ line.description }}</div>
+                {% endif %}
+                {% if items %}
+                <div class="evidence-line-items">
+                    {% for item in items %}
+                    {% set doc = item.reported_in %}
+                    <div class="evidence-data-item" data-dismech-evidence="{{ (doc.id if doc else '') | e }}">
+                        <div class="evidence-data-item-header">
+                            {% if item.data_type %}
+                            <span class="evidence-data-type">{{ item.data_type | replace('_', ' ') }}</span>
+                            {% endif %}
+                            {% if doc and doc.id %}
+                            <span class="evidence-ref">
+                                <a href="{{ doc.id | curie_to_url }}" target="_blank">{{ doc.id }}</a>
+                            </span>
+                            {% endif %}
+                            {% if doc and doc.document_type %}
+                            <span class="evidence-document-type">{{ doc.document_type | replace('_', ' ') | title }}</span>
+                            {% endif %}
+                        </div>
+                        {% if doc and doc.title %}
+                        <div class="evidence-document-title">{{ doc.title }}</div>
+                        {% endif %}
+                        {% if item.value %}
+                        <div class="evidence-snippet">"{{ item.value | truncate(300) }}"</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% if evidence_lines | length > max_visible %}
+            <div class="evidence-more">+ {{ evidence_lines | length - max_visible }} more evidence line{{ 's' if (evidence_lines | length - max_visible) != 1 else '' }}</div>
+            {% endif %}
+        </div>
+    </details>
+    {% endif %}
+    {% endmacro %}
+
     {# Phenotype contexts rendering macro #}
     {% macro render_phenotype_contexts(contexts) %}
     {% if contexts %}
@@ -4737,6 +4917,8 @@
 	                </div>
 	                {% endif %}
 	                {{ render_evidence(patho.evidence) }}
+	                {# EXPERIMENTAL (issue #7439): SEPIO-form evidence, if present #}
+	                {{ render_evidence_lines(patho.has_evidence_lines) }}
 	            </div>
 	            {% endfor %}
         </div>
@@ -4860,6 +5042,8 @@
                     </div>
                     {% endif %}
                     {{ render_evidence(pheno.evidence) }}
+                    {# EXPERIMENTAL (issue #7439): SEPIO-form evidence, if present #}
+                    {{ render_evidence_lines(pheno.has_evidence_lines) }}
                     {{ render_phenotype_contexts(pheno.phenotype_contexts) }}
                 </div>
                 {% endfor %}
@@ -4924,6 +5108,8 @@
                 </div>
                 {% endif %}
                 {{ render_evidence(pheno.evidence) }}
+                {# EXPERIMENTAL (issue #7439): SEPIO-form evidence, if present #}
+                {{ render_evidence_lines(pheno.has_evidence_lines) }}
                 {{ render_phenotype_contexts(pheno.phenotype_contexts) }}
             </div>
             {% endfor %}

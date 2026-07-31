@@ -727,6 +727,24 @@ validate-references file:
     @just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
+# EXPERIMENTAL (issue #7439): validate and render the SEPIO evidence-model pilot
+# fixture. The fixture carries both the native and the SEPIO representation of the
+# same three Cystic Fibrosis assertions, so the two can be compared on one page.
+# See docs/explanation/sepio-evidence-pilot.md.
+[group('QC')]
+sepio-pilot:
+    #!/usr/bin/env bash
+    set -e
+    file=kb/experimental/Cystic_Fibrosis_SEPIO.yaml
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "$file"
+    echo "Term validation..."
+    {{term_validator}} validate-data "$file" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+    echo "Reference validation (both evidence forms)..."
+    {{ref_validator}} validate data "$file" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    echo "Rendering..."
+    uv run python -m dismech.render "$file"
+
 # Count reference/snippet pairs and re-verify each against references_cache/,
 # without running the (network-touching) validator. Advisory only: it reports
 # "Snippets checked: N/N verified" and never gates. Pass --strict to exit 1 on a

@@ -530,6 +530,13 @@ evidence:
     explanation: "Why this evidence supports/refutes the claim"
 ```
 
+**EXPERIMENTAL — do not use while curating.** A parallel SEPIO-style evidence
+representation (`has_evidence_lines:` with `EvidenceLine` / `DataItem` / `Document`) exists
+on `Pathophysiology` and `Phenotype` as a pilot (issue #7439). It is additive and validates,
+but it is **not** a curation target: keep writing native `evidence:` in `kb/disorders/`. The
+only file that uses it is the fixture `kb/experimental/Cystic_Fibrosis_SEPIO.yaml`. See
+[`docs/explanation/sepio-evidence-pilot.md`](docs/explanation/sepio-evidence-pilot.md).
+
 **IMPORTANT**: The `evidence_source` field classifies **the type of evidence presented in the cited publication**, NOT how the curation was performed. Even if an AI agent is curating the entry, `evidence_source` describes what kind of study the paper reports (human clinical trial, animal model, cell culture, computational simulation, etc.).
 
 Set `evidence_source` to clarify the publication's evidence type:
