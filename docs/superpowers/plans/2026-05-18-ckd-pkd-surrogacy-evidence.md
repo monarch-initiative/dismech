@@ -6,7 +6,7 @@
 
 **Architecture:** For each of three `SurrogateEndpoint` rows, populate `clinical_benefit` (plain English) and append one verified `EvidenceItem` whose `snippet` is an exact substring of a freshly fetched PubMed abstract. Mirror each row with a `BiomarkerReadout` in the corresponding disorder file carrying `regulatory_endpoint_refs`. All quantitative surrogacy numbers appear only as verbatim quotes.
 
-**Tech Stack:** dismech LinkML KB; `just` targets (`fetch-reference`, `validate`, `validate-references`, `validate-terms`); pytest; PubMed MCP / web for PMID discovery.
+**Tech Stack:** dismech LinkML KB; `just` targets (`fetch-reference`, `validate`, `validate-references`, `validate-terms-file`); pytest; PubMed MCP / web for PMID discovery.
 
 **Spec:** `docs/superpowers/specs/2026-05-18-ckd-pkd-surrogacy-evidence-design.md`
 
@@ -261,7 +261,7 @@ Expected: PASS. If the `target` foreign-key or `direction`/`relationship` enum f
 - [ ] **Step 4: Reference- and term-validate**
 
 Run: `just validate-references kb/disorders/Chronic_Kidney_Disease.yaml`
-Run: `just validate-terms kb/disorders/Chronic_Kidney_Disease.yaml`
+Run: `just validate-terms-file kb/disorders/Chronic_Kidney_Disease.yaml`
 Expected: both PASS.
 
 - [ ] **Step 5: Commit**
@@ -318,7 +318,7 @@ Expected: PASS. Fix any `target` foreign-key / enum errors against the schema.
 - [ ] **Step 4: Reference- and term-validate**
 
 Run: `just validate-references kb/disorders/Polycystic_Kidney_Disease.yaml`
-Run: `just validate-terms kb/disorders/Polycystic_Kidney_Disease.yaml`
+Run: `just validate-terms-file kb/disorders/Polycystic_Kidney_Disease.yaml`
 Expected: both PASS.
 
 - [ ] **Step 5: Commit**

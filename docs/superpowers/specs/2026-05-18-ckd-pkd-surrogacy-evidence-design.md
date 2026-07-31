@@ -136,7 +136,7 @@ Before commit:
 - `just validate kb/disorders/Chronic_Kidney_Disease.yaml`
 - `just validate kb/disorders/Polycystic_Kidney_Disease.yaml`
 - `just validate-references` on the FDA YAML and both disorder files
-- `just validate-terms` on both disorder files
+- `just validate-terms-file` on both disorder files
 - `pytest tests/test_fda_surrogate_endpoints.py tests/test_regulatory_endpoint_refs.py`
 
 Targeted `git add` only:
