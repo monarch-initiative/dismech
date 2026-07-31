@@ -255,7 +255,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
 
    Note that the "Setup script" is the home for any other one-time bootstraps that you may want to add.
 
-For the steps above, setting up the cloud configuration is the only hard part. Once the environment exists, curation on the web works the same
+Setting up the cloud configuration is the only hard part. Once the environment exists, curation on the web works the same
 as on the command line — `/curate` a disorder, then create the PR when ready.
 
 #### Cloud sessions
