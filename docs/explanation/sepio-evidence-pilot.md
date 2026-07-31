@@ -171,7 +171,30 @@ visible on the page rather than only in the YAML.
 
 Assertions with no `has_evidence_lines` render exactly as before; the macro emits nothing.
 
+## The rendered example
+
+**[→ Rendered pilot page](../examples/sepio-evidence-pilot-page.html)** — the same three
+Cystic Fibrosis assertions with both evidence forms stacked on each one. Open the
+"Show evidence" and "Show SEPIO evidence" toggles on a pathophysiology node to compare
+them directly.
+
+This is a committed snapshot, which is a deliberate exception to the repo's
+don't-commit-derived-HTML rule: the whole argument of this pilot is a visual one about
+structure, and it does not survive being described in prose. The page is regenerated and
+re-copied by `just sepio-pilot`, so `git diff` after that recipe tells you whether the
+snapshot has drifted from the fixture.
+
+Two caveats on the snapshot: the site-navigation links in its header point at
+`pages/…` paths that do not exist under `docs/`, so they 404 — the evidence sections
+themselves are fully functional. And it is a static capture, not a live page.
+
 ## Trying it
+
+```bash
+just sepio-pilot          # validate (schema + terms + references), render, refresh snapshot
+```
+
+or piecewise:
 
 ```bash
 just validate kb/experimental/Cystic_Fibrosis_SEPIO.yaml

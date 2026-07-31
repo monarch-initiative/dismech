@@ -744,6 +744,14 @@ sepio-pilot:
     {{ref_validator}} validate data "$file" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "Rendering..."
     uv run python -m dismech.render "$file"
+    # The rendered page is the whole point of the pilot -- it is the only place the
+    # two evidence forms can be compared side by side -- so unlike other derived
+    # HTML a snapshot IS committed, under docs/examples/. Refreshing it here means
+    # the committed copy cannot silently drift from the fixture: re-run this recipe
+    # and `git diff` tells you whether it moved.
+    cp pages/disorders/Cystic_Fibrosis_SEPIO_evidence_pilot.html \
+       docs/examples/sepio-evidence-pilot-page.html
+    echo "Snapshot refreshed: docs/examples/sepio-evidence-pilot-page.html"
 
 # Count reference/snippet pairs and re-verify each against references_cache/,
 # without running the (network-touching) validator. Advisory only: it reports
