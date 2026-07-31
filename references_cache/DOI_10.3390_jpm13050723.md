@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jpm13050723"
+reference_id: DOI:10.3390/jpm13050723
 title: Prognostic Impact of Pathologic Features in Molecular Subgroups of Endometrial Carcinoma
 authors:
 - Martina Ruscelli
@@ -37,6 +37,7 @@ journal: Journal of Personalized Medicine
 year: '2023'
 doi: 10.3390/jpm13050723
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Prognostic Impact of Pathologic Features in Molecular Subgroups of Endometrial Carcinoma

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fonc.2018.00556"
+reference_id: DOI:10.3389/fonc.2018.00556
 title: "Metabolic Reprogramming of Non-Hodgkin's B-Cell Lymphomas and Potential Therapeutic Strategies"
 authors:
 - Jean-Ehrland Ricci
@@ -8,6 +8,7 @@ journal: Frontiers in Oncology
 year: '2018'
 doi: 10.3389/fonc.2018.00556
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Metabolic Reprogramming of Non-Hodgkin's B-Cell Lymphomas and Potential Therapeutic Strategies

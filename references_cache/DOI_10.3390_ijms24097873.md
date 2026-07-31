@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24097873"
+reference_id: DOI:10.3390/ijms24097873
 title: "Breaking the Mold: Epigenetics and Genomics Approaches Addressing Novel Treatments and Chemoresponse in TGCT Patients"
 authors:
 - Berenice Cuevas-Estrada
@@ -12,6 +12,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24097873
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Breaking the Mold: Epigenetics and Genomics Approaches Addressing Novel Treatments and Chemoresponse in TGCT Patients

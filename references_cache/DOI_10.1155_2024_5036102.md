@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1155/2024/5036102"
+reference_id: DOI:10.1155/2024/5036102
 title: "Desmoplastic Small Round Cell Tumors: Clinical Presentation, Molecular Characterization, and Therapeutic Approach of Seven Patients"
 authors:
 - Verena I. Gaidzik
@@ -24,6 +24,7 @@ journal: Sarcoma
 year: '2024'
 doi: 10.1155/2024/5036102
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Desmoplastic Small Round Cell Tumors: Clinical Presentation, Molecular Characterization, and Therapeutic Approach of Seven Patients

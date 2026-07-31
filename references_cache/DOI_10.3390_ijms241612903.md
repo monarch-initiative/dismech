@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms241612903"
+reference_id: DOI:10.3390/ijms241612903
 title: Hedgehog-Related Mutation Causes Bone Malformations with or without Hereditary Gene Mutations
 authors:
 - Shoko Onodera
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms241612903
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hedgehog-Related Mutation Causes Bone Malformations with or without Hereditary Gene Mutations

@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE56284"
+reference_id: GEO:GSE56284
 title: Transcriptome profiling of severe spinal muscular atrophy mouse embryonic stem cell-derived motor neurons
 content_type: summary
+full_text_attempted: true
 ---
 
 # Transcriptome profiling of severe spinal muscular atrophy mouse embryonic stem cell-derived motor neurons

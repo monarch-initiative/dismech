@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12102229"
+reference_id: DOI:10.3390/biomedicines12102229
 title: "Liver Fibrosis Leading to Cirrhosis: Basic Mechanisms and Clinical Perspectives"
 authors:
 - Kaumudi Somnay
@@ -12,6 +12,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12102229
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Liver Fibrosis Leading to Cirrhosis: Basic Mechanisms and Clinical Perspectives

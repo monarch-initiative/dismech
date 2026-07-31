@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1515/jpem-2024-0512"
+reference_id: DOI:10.1515/jpem-2024-0512
 title: "Osteogenesis imperfecta: shifting paradigms in pathophysiology and care in children"
 authors:
 - Stefanie Stasek
@@ -14,6 +14,7 @@ journal: Journal of Pediatric Endocrinology and Metabolism
 year: '2025'
 doi: 10.1515/jpem-2024-0512
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Osteogenesis imperfecta: shifting paradigms in pathophysiology and care in children

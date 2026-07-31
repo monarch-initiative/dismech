@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26052184"
+reference_id: DOI:10.3390/ijms26052184
 title: "Molecular Approaches to Treating Chronic Obstructive Pulmonary Disease: Current Perspectives and Future Directions"
 authors:
 - Sheryl-Phuc Vu
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26052184
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Approaches to Treating Chronic Obstructive Pulmonary Disease: Current Perspectives and Future Directions

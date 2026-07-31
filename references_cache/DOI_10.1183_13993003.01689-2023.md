@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/13993003.01689-2023"
+reference_id: DOI:10.1183/13993003.01689-2023
 title: "Airway clearance management in people with bronchiectasis: data from the European Bronchiectasis Registry (EMBARC)"
 authors:
 - Arietta Spinou
@@ -44,6 +44,7 @@ journal: European Respiratory Journal
 year: '2024'
 doi: 10.1183/13993003.01689-2023
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Airway clearance management in people with bronchiectasis: data from the European Bronchiectasis Registry (EMBARC)

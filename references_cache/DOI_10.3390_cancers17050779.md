@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers17050779"
+reference_id: DOI:10.3390/cancers17050779
 title: Antibody-Based and Other Novel Agents in Adult B-Cell Acute Lymphoblastic Leukemia
 authors:
 - Clifford M. Csizmar
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2025'
 doi: 10.3390/cancers17050779
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Antibody-Based and Other Novel Agents in Adult B-Cell Acute Lymphoblastic Leukemia
