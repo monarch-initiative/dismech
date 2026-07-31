@@ -12,7 +12,6 @@ from typing import Any
 import yaml
 from oaklib import get_adapter
 
-from dismech.graph import build_causal_graph
 from dismech.export.utils import (
     count_classifications,
     count_comorbidities,
@@ -20,6 +19,7 @@ from dismech.export.utils import (
     count_research_reports,
     discover_disorder_files,
 )
+from dismech.graph import build_causal_graph
 
 # Direct children of HP:0000118 (Phenotypic abnormality) — the broad phenotype categories.
 # Keys match PhenotypeCategoryEnum permissible_value keys in the schema.
@@ -97,7 +97,7 @@ def _build_adjacency(edges: list[tuple[str, str]]) -> tuple[dict[str, list[str]]
 
 def _topological_order(adj: dict[str, list[str]], nodes: set[str]) -> list[str] | None:
     indegree = {node: 0 for node in nodes}
-    for source, targets in adj.items():
+    for targets in adj.values():
         for target in targets:
             indegree[target] += 1
 
@@ -146,8 +146,7 @@ def _longest_path_length(edges: list[tuple[str, str]]) -> int:
     for node in order:
         for target in adj.get(node, []):
             candidate = distances[node] + 1
-            if candidate > distances[target]:
-                distances[target] = candidate
+            distances[target] = max(distances[target], candidate)
 
     return max(distances.values()) if distances else 0
 

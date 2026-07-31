@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2174/1381612013397726"
+reference_id: DOI:10.2174/1381612013397726
 title: "Pax3 and the Splotch Mutations: Structure, Function, and Relationship to Teratogenesis, Including Gene-Chemical Interactions"
 authors:
 - Antonio Machado
@@ -9,6 +9,7 @@ journal: Current Pharmaceutical Design
 year: '2001'
 doi: 10.2174/1381612013397726
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pax3 and the Splotch Mutations: Structure, Function, and Relationship to Teratogenesis, Including Gene-Chemical Interactions

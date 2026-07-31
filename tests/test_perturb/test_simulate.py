@@ -1,15 +1,15 @@
 """Tests for ODE simulation module."""
 
 import importlib.util
+from pathlib import Path
 
 import pytest
-from pathlib import Path
 
 from dismech.perturb.simulate import (
     ModelConfig,
+    SimulationResult,
     extract_model_variables,
     load_model_config,
-    SimulationResult,
 )
 
 
@@ -141,8 +141,9 @@ def test_load_config_with_disorder_yaml():
 @pytest.mark.skipif(not _tellurium_available(), reason="tellurium not installed")
 def test_run_baseline_with_yaml_variables():
     """Test simulation using YAML-derived variable mappings."""
-    from dismech.perturb.simulate import run_perturbation
     import yaml as _yaml
+
+    from dismech.perturb.simulate import run_perturbation
 
     yaml_path = Path("kb/disorders/CKD-Mineral_Bone_Disorder.yaml")
     config_path = Path("models/BIOMD0000000613.config.yaml")

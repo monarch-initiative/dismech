@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1155/2014/520651"
+reference_id: DOI:10.1155/2014/520651
 title: Traumatic Fracture in a Patient with Osteopoikilosis
 authors:
 - Adeline Du Mortier
@@ -8,6 +8,7 @@ journal: Case Reports in Orthopedics
 year: '2014'
 doi: 10.1155/2014/520651
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Traumatic Fracture in a Patient with Osteopoikilosis

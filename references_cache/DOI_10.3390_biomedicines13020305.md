@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines13020305"
+reference_id: DOI:10.3390/biomedicines13020305
 title: Novel Insights into the Pathogenesis of Inflammatory Bowel Diseases
 authors:
 - Valentin Calvez
@@ -18,6 +18,7 @@ journal: Biomedicines
 year: '2025'
 doi: 10.3390/biomedicines13020305
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Novel Insights into the Pathogenesis of Inflammatory Bowel Diseases

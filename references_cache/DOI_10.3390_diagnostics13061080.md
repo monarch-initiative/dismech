@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics13061080"
+reference_id: DOI:10.3390/diagnostics13061080
 title: "Therapeutic Management and Prognostic Factors for Ovarian Malignant Tumours in Adolescents: A Comprehensive Review of Current Guidelines"
 authors:
 - Chrysoula Margioula-Siarkou
@@ -14,6 +14,7 @@ journal: Diagnostics
 year: '2023'
 doi: 10.3390/diagnostics13061080
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Therapeutic Management and Prognostic Factors for Ovarian Malignant Tumours in Adolescents: A Comprehensive Review of Current Guidelines

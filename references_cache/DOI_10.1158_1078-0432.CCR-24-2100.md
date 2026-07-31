@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.CCR-24-2100"
+reference_id: DOI:10.1158/1078-0432.CCR-24-2100
 title: Update on Surveillance for Wilms Tumor and Hepatoblastoma in Beckwith–Wiedemann Syndrome and Other Predisposition Syndromes
 authors:
 - Jennifer M. Kalish
@@ -26,6 +26,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.CCR-24-2100
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Update on Surveillance for Wilms Tumor and Hepatoblastoma in Beckwith–Wiedemann Syndrome and Other Predisposition Syndromes

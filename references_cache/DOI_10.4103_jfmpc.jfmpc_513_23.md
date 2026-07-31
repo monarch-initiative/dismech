@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4103/jfmpc.jfmpc_513_23"
+reference_id: DOI:10.4103/jfmpc.jfmpc_513_23
 title: A cross-sectional study on the prevalence and determinants of various neonatal dermatoses
 authors:
 - Sabiha Quazi
@@ -12,6 +12,7 @@ journal: Journal of Family Medicine and Primary Care
 year: '2023'
 doi: 10.4103/jfmpc.jfmpc_513_23
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A cross-sectional study on the prevalence and determinants of various neonatal dermatoses

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13175225"
+reference_id: DOI:10.3390/jcm13175225
 title: "Vitiligo: From Pathogenesis to Treatment"
 authors:
 - Reinhart Speeckaert
@@ -11,6 +11,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13175225
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Vitiligo: From Pathogenesis to Treatment

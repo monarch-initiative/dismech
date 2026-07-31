@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13161383"
+reference_id: DOI:10.3390/cells13161383
 title: Molecular Susceptibility and Treatment Challenges in Melanoma
 authors:
 - Kiran Kumar Kolathur
@@ -13,6 +13,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13161383
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Susceptibility and Treatment Challenges in Melanoma

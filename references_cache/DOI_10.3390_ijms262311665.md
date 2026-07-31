@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms262311665"
+reference_id: DOI:10.3390/ijms262311665
 title: "Therapeutic Advances in Metastatic Prostate Cancer: A Journey from Standard of Care to New Emerging Treatment"
 authors:
 - Rossella Cicchetti
@@ -19,6 +19,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms262311665
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Therapeutic Advances in Metastatic Prostate Cancer: A Journey from Standard of Care to New Emerging Treatment

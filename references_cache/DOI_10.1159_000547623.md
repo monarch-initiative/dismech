@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000547623"
+reference_id: DOI:10.1159/000547623
 title: "The Role of Interventional Radiology for the Treatment of Liver CE and AE Lesions: Current Concepts"
 authors:
 - Okan Akhan
@@ -8,6 +8,7 @@ journal: Visceral Medicine
 year: '2025'
 doi: 10.1159/000547623
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of Interventional Radiology for the Treatment of Liver CE and AE Lesions: Current Concepts

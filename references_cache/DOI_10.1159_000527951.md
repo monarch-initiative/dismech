@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000527951"
+reference_id: DOI:10.1159/000527951
 title: Aptima HR-HPV Testing of Cytology Specimens Is an Effective Supplement for p16 Staining to Improve Diagnostic Accuracy for HPV-Related Oropharyngeal Squamous Cell Carcinoma
 authors:
 - Xin Yang
@@ -14,6 +14,7 @@ journal: Acta Cytologica
 year: '2023'
 doi: 10.1159/000527951
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Aptima HR-HPV Testing of Cytology Specimens Is an Effective Supplement for p16 Staining to Improve Diagnostic Accuracy for HPV-Related Oropharyngeal Squamous Cell Carcinoma

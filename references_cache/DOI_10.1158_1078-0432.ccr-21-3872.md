@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-21-3872"
-title: "Phase Ib/II Trial of Ribociclib in Combination with Binimetinib in Patients with
-                    <i>NRAS</i>
-                    -mutant Melanoma"
+reference_id: DOI:10.1158/1078-0432.ccr-21-3872
+title: "Phase Ib/II Trial of Ribociclib in Combination with Binimetinib in Patients with <i>NRAS</i> -mutant Melanoma"
 authors:
 - Martin Schuler
 - Lisa Zimmer
@@ -23,11 +21,10 @@ journal: Clinical Cancer Research
 year: '2022'
 doi: 10.1158/1078-0432.ccr-21-3872
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Phase Ib/II Trial of Ribociclib in Combination with Binimetinib in Patients with
-                    <i>NRAS</i>
-                    -mutant Melanoma
+# Phase Ib/II Trial of Ribociclib in Combination with Binimetinib in Patients with <i>NRAS</i> -mutant Melanoma
 **Authors:** Martin Schuler, Lisa Zimmer, Kevin B. Kim, Jeffrey A. Sosman, Paolo A. Ascierto, Michael A. Postow, Filip Y.F.L. De Vos, Carla M.L. van Herpen, Matteo S. Carlino, Douglas B. Johnson, Carola Berking, Micaela B. Reddy, Allison S. Harney, Jordan D. Berlin, Rodabe N. Amaria
 **Journal:** Clinical Cancer Research (2022)
 **DOI:** [10.1158/1078-0432.ccr-21-3872](https://doi.org/10.1158/1078-0432.ccr-21-3872)

@@ -1,0 +1,178 @@
+# Perturbation config for the Topp 2000 beta-cell mass / insulin / glucose model
+# (BioModels BIOMD0000000341, PMID:11013117), wired to Type_2_Diabetes_Mellitus.
+#
+# The base model is three ODEs (Topp et al. 2000):
+#   dG/dt = R0 - (Eg0 + si*I)*G          (plasma glucose, mg/dL)
+#   dI/dt = B*sigma*G^2/(alpha+G^2) - k*I (plasma insulin, uU/mL)
+#   dB/dt = (-d0 + r1*G - r2*G^2)*B       (beta-cell mass, mg)
+#
+# For normal parameters the system is bistable: a physiological fixed point
+# (G~=100 mg/dL) and a pathological, insulinopenic fixed point (G~=600 mg/dL,
+# beta-cell mass collapse), separated by a saddle. The deposited initial state
+# (G=250) sits on that saddle - the metabolically at-risk / impaired-fasting
+# tipping point - so an impairing lesion decompensates to overt diabetes while a
+# sufficiently corrective treatment recompensates to euglycemia.
+#
+# No extension model is needed: every treatment/gene target below is a native
+# Topp parameter. The disease-severity dial (`gfr_parameter`) is repurposed to
+# insulin sensitivity `si`; baseline_gfr = 0.72 is the healthy (Topp default) si.
+
+model_id: BIOMD0000000341
+sbml_file: BIOMD0000000341.xml
+
+# Gene perturbations mapped to Topp parameters. Multipliers are calibrated to the
+# model's saddle-separated bistability, not to clinical effect sizes.
+gene_effects:
+  PPARG:
+    parameter: si
+    LoF: 0.4
+    description: >-
+      PPARG is the master adipogenic regulator and the thiazolidinedione target;
+      loss-of-function (e.g. FPLD3) causes severe insulin resistance. Modeled as
+      reduced whole-body insulin sensitivity si.
+  TCF7L2:
+    parameter: sigma
+    LoF: 0.5
+    description: >-
+      TCF7L2 is the strongest common type 2 diabetes risk locus; risk alleles
+      impair glucose-stimulated insulin secretion. Modeled as reduced maximal
+      per-beta-cell secretory capacity sigma.
+  KCNJ11:
+    parameter: sigma
+    LoF: 0.5
+    description: >-
+      KCNJ11 encodes the Kir6.2 subunit of the beta-cell K_ATP channel;
+      activating variants hold the channel open and blunt insulin secretion
+      (neonatal diabetes / T2D risk). Modeled as reduced secretory capacity sigma.
+  HNF1A:
+    parameter: sigma
+    LoF: 0.5
+    description: >-
+      HNF1A loss-of-function causes MODY3, a progressive beta-cell secretory
+      defect. Modeled as reduced secretory capacity sigma.
+  GCK:
+    parameter: alpha
+    LoF: 3.0
+    description: >-
+      Glucokinase is the beta-cell glucose sensor; loss-of-function raises the
+      glucose set-point for insulin secretion (MODY2 when heterozygous; permanent
+      neonatal diabetes when biallelic). Modeled as an increased half-maximal
+      glucose constant alpha (higher glucose needed for the same secretion).
+  SLC5A2:
+    parameter: Eg0
+    LoF: 2.5
+    description: >-
+      SLC5A2 encodes SGLT2, the renal glucose transporter and gliflozin target;
+      loss-of-function causes familial renal glucosuria and raises insulin-
+      independent glucose clearance. Modeled as increased glucose effectiveness
+      Eg0 (protective).
+
+# Scenarios. `gfr` sets insulin sensitivity si absolutely (0.72 = healthy);
+# param_overrides are multiplicative on the named parameter (applied after si is
+# set), so a treatment scenario = a diseased si plus the drug's parameter change.
+scenarios:
+  # --- disease drivers ---
+  insulin_resistance:
+    label: "Severe insulin resistance (si=0.30)"
+    gfr: 0.30
+    causal_root: Insulin Resistance
+  mild_insulin_resistance:
+    label: "Insulin resistance (si=0.45)"
+    gfr: 0.45
+    causal_root: Insulin Resistance
+  PPARG_LoF:
+    label: "PPARG loss-of-function (insulin resistance)"
+    gene: PPARG
+    effect: LoF
+    gfr: 0.72
+    causal_root: Insulin Resistance
+  TCF7L2_LoF:
+    label: "TCF7L2 risk variant (impaired secretion)"
+    gene: TCF7L2
+    effect: LoF
+    gfr: 0.72
+    causal_root: Beta Cell Dysfunction
+  KCNJ11_LoF:
+    label: "KCNJ11 K_ATP gain (impaired secretion)"
+    gene: KCNJ11
+    effect: LoF
+    gfr: 0.72
+    causal_root: Beta Cell Dysfunction
+  HNF1A_LoF:
+    label: "HNF1A loss-of-function (MODY3)"
+    gene: HNF1A
+    effect: LoF
+    gfr: 0.72
+    causal_root: Beta Cell Dysfunction
+  GCK_LoF:
+    label: "GCK loss-of-function (glucose-sensing defect)"
+    gene: GCK
+    effect: LoF
+    gfr: 0.72
+    causal_root: Beta Cell Dysfunction
+  SLC5A2_LoF:
+    label: "SLC5A2 loss-of-function (renal glucosuria; protective)"
+    gene: SLC5A2
+    effect: LoF
+    gfr: 0.72
+    causal_root: Hyperglycemia
+
+  # --- treatments (diseased si + drug parameter change) ---
+  metformin:
+    label: "Metformin (reduced hepatic glucose output)"
+    gfr: 0.45
+    param_overrides:
+      R0: 0.7
+    causal_root: Hepatic Glucose Overproduction
+  tzd_pioglitazone:
+    label: "Thiazolidinedione (insulin sensitizer)"
+    gfr: 0.45
+    param_overrides:
+      si: 1.6
+    causal_root: Insulin Resistance
+  sglt2_inhibitor:
+    label: "SGLT2 inhibitor (insulin-independent glucose clearance)"
+    gfr: 0.30
+    param_overrides:
+      Eg0: 2.5
+    causal_root: Hyperglycemia
+  sulfonylurea:
+    label: "Sulfonylurea (secretagogue) - fails once beta cells collapse"
+    gfr: 0.45
+    param_overrides:
+      sigma: 1.5
+    causal_root: Beta Cell Dysfunction
+  glp1_agonist:
+    label: "GLP-1 receptor agonist (secretion + reduced hepatic output)"
+    gfr: 0.45
+    param_overrides:
+      sigma: 1.4
+      R0: 0.8
+    causal_root: Incretin Axis Dysfunction
+  insulin_therapy:
+    label: "Insulin therapy (increased net insulin action)"
+    gfr: 0.45
+    param_overrides:
+      si: 2.0
+    causal_root: Hyperglycemia
+  combination_metformin_sglt2:
+    label: "Metformin + SGLT2 inhibitor (severe disease)"
+    gfr: 0.30
+    param_overrides:
+      R0: 0.7
+      Eg0: 2.5
+    causal_root: Hyperglycemia
+
+# Coupling / simulation plumbing. No extension model, so base_to_extension and
+# feedback are empty. Topp time units are days; duration 4000 (~11 yr) reaches
+# steady state. The disease-severity dial is insulin sensitivity si.
+coupling:
+  dt_hours: 100
+  duration_hours: 4000
+  gfr_parameter: si
+  baseline_gfr: 0.72
+  # Looser absolute tolerance than the CKD default (1e-12): the pathological
+  # fixed point drives beta-cell mass and insulin to ~0, and the tighter default
+  # fails CVODE convergence at that stiff transition.
+  abs_tol: 1.0e-6
+  max_num_steps: 200000

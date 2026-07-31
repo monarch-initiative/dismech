@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/thalassrep14040010"
+reference_id: DOI:10.3390/thalassrep14040010
 title: "Thalassemia: Pathophysiology, Diagnosis, and Advances in Treatment"
 authors:
 - Idris Zubairu Sadiq
@@ -14,6 +14,7 @@ journal: Thalassemia Reports
 year: '2024'
 doi: 10.3390/thalassrep14040010
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Thalassemia: Pathophysiology, Diagnosis, and Advances in Treatment

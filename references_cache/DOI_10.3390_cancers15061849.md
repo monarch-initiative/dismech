@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15061849"
+reference_id: DOI:10.3390/cancers15061849
 title: Advances in PARP Inhibitors for Prostate Cancer
 authors:
 - Steven Tisseverasinghe
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15061849
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advances in PARP Inhibitors for Prostate Cancer

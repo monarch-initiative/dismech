@@ -56,7 +56,7 @@ def test_enum_cache_scan_and_repair_reject_stale_invalid_and_duplicate_rows(
     enum_dir.mkdir(parents=True)
     _write_toy_schema(schema_path)
 
-    def fake_membership(self, value, enum_def, schema_view=None):  # noqa: ANN001
+    def fake_membership(self, value, enum_def, schema_view=None):
         return value.startswith("GOOD:")
 
     monkeypatch.setattr(BindingValidationPlugin, "is_value_in_enum", fake_membership)
@@ -120,7 +120,7 @@ def test_enum_cache_offline_scan_skips_membership_but_keeps_structural_checks(
     enum_dir.mkdir(parents=True)
     _write_toy_schema(schema_path)
 
-    def boom(self, value, enum_def, schema_view=None):  # noqa: ANN001
+    def boom(self, value, enum_def, schema_view=None):
         raise AssertionError("offline scan must not call is_value_in_enum")
 
     monkeypatch.setattr(BindingValidationPlugin, "is_value_in_enum", boom)

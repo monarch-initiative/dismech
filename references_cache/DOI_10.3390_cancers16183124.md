@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16183124"
+reference_id: DOI:10.3390/cancers16183124
 title: "Dermatofibrosarcoma Protuberans: An Updated Review of the Literature"
 authors:
 - Marcin Jozwik
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16183124
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Dermatofibrosarcoma Protuberans: An Updated Review of the Literature

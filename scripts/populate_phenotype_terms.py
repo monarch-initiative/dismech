@@ -7,8 +7,9 @@ This script:
 2. Updates the YAML files with the found terms
 """
 
-import yaml
 from pathlib import Path
+
+import yaml
 from oaklib import get_adapter
 
 # Initialize adapters
@@ -114,10 +115,7 @@ def search_hp(phenotype_name: str) -> tuple[str, str] | None:
 
     # Try mapped term first (case-insensitive lookup)
     search_key = phenotype_name.lower()
-    if search_key in mappings:
-        search_term = mappings[search_key]
-    else:
-        search_term = phenotype_name
+    search_term = mappings.get(search_key, phenotype_name)
 
     results = list(hp.basic_search(search_term))
     # Filter to only HP terms
@@ -151,25 +149,26 @@ def process_file(file_path: Path) -> dict:
     # Process phenotypes
     if "phenotypes" in data and isinstance(data["phenotypes"], list):
         for phenotype in data["phenotypes"]:
-            if isinstance(phenotype, dict) and "name" in phenotype:
-                # Only add phenotype_term if not already present
-                if "phenotype_term" not in phenotype or phenotype.get("phenotype_term") is None:
-                    name = phenotype["name"]
-                    result = search_hp(name)
-                    if result:
-                        hp_id, label = result
-                        phenotype["phenotype_term"] = {
-                            "preferred_term": label,
-                            "term": {
-                                "id": hp_id,
-                                "label": label
-                            }
+            # Only add phenotype_term if not already present
+            if isinstance(phenotype, dict) and "name" in phenotype and (
+                "phenotype_term" not in phenotype or phenotype.get("phenotype_term") is None
+            ):
+                name = phenotype["name"]
+                result = search_hp(name)
+                if result:
+                    hp_id, label = result
+                    phenotype["phenotype_term"] = {
+                        "preferred_term": label,
+                        "term": {
+                            "id": hp_id,
+                            "label": label
                         }
-                        stats["phenotypes_updated"] += 1
-                        modified = True
-                        print(f"    Added phenotype_term: {hp_id} ({label}) for '{name}'")
-                    else:
-                        print(f"    WARNING: Could not find HP term for '{name}'")
+                    }
+                    stats["phenotypes_updated"] += 1
+                    modified = True
+                    print(f"    Added phenotype_term: {hp_id} ({label}) for '{name}'")
+                else:
+                    print(f"    WARNING: Could not find HP term for '{name}'")
 
     if modified:
         # Preserve order and formatting

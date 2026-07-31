@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15133512"
+reference_id: DOI:10.3390/cancers15133512
 title: "Modern Risk Stratification of Acute Myeloid Leukemia in 2023: Integrating Established and Emerging Prognostic Factors"
 authors:
 - Eleonora Boscaro
@@ -19,6 +19,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15133512
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Modern Risk Stratification of Acute Myeloid Leukemia in 2023: Integrating Established and Emerging Prognostic Factors

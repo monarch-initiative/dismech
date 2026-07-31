@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2022008632"
+reference_id: DOI:10.1182/bloodadvances.2022008632
 title: "Enasidenib as maintenance following allogeneic hematopoietic cell transplantation for <i>IDH2</i>-mutated myeloid malignancies"
 authors:
 - Amir T. Fathi
@@ -27,6 +27,7 @@ journal: Blood Advances
 year: '2022'
 doi: 10.1182/bloodadvances.2022008632
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Enasidenib as maintenance following allogeneic hematopoietic cell transplantation for <i>IDH2</i>-mutated myeloid malignancies

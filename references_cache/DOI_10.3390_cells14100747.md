@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells14100747"
+reference_id: DOI:10.3390/cells14100747
 title: "The Sebaceous Gland: A Key Player in the Balance Between Homeostasis and Inflammatory Skin Diseases"
 authors:
 - Sarah Mosca
@@ -11,6 +11,7 @@ journal: Cells
 year: '2025'
 doi: 10.3390/cells14100747
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Sebaceous Gland: A Key Player in the Balance Between Homeostasis and Inflammatory Skin Diseases

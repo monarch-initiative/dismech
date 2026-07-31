@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.21037/tlcr-24-856"
+reference_id: DOI:10.21037/tlcr-24-856
 title: A potential central nervous system niche for trastuzumab deruxtecan in patients with HER2-expressing non-small cell lung cancer
 authors:
 - Anna-Maria Lazaratos
@@ -11,6 +11,7 @@ journal: Translational Lung Cancer Research
 year: '2024'
 doi: 10.21037/tlcr-24-856
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A potential central nervous system niche for trastuzumab deruxtecan in patients with HER2-expressing non-small cell lung cancer

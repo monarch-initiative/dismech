@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/wnl.51.1.85"
+reference_id: DOI:10.1212/wnl.51.1.85
 title: Physiologic studies of spinal inhibitory circuits in patients with stiff-person syndrome
 authors:
 - M. K. Floeter
@@ -11,6 +11,7 @@ journal: Neurology
 year: '1998'
 doi: 10.1212/wnl.51.1.85
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Physiologic studies of spinal inhibitory circuits in patients with stiff-person syndrome

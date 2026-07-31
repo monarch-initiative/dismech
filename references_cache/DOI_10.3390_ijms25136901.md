@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25136901"
+reference_id: DOI:10.3390/ijms25136901
 title: "Comprehensive Overview of Alzheimer’s Disease: Etiological Insights and Degradation Strategies"
 authors:
 - Manish Kumar Singh
@@ -12,6 +12,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25136901
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Comprehensive Overview of Alzheimer’s Disease: Etiological Insights and Degradation Strategies

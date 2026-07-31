@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/11795735241249693"
+reference_id: DOI:10.1177/11795735241249693
 title: "From progression to progress: The future of multiple sclerosis"
 authors:
 - Jiwon Oh
@@ -12,6 +12,7 @@ journal: Journal of Central Nervous System Disease
 year: '2024'
 doi: 10.1177/11795735241249693
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From progression to progress: The future of multiple sclerosis

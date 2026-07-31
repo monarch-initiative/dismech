@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25147873"
+reference_id: DOI:10.3390/ijms25147873
 title: "Liver Fibrosis: From Basic Science towards Clinical Progress, Focusing on the Central Role of Hepatic Stellate Cells"
 authors:
 - Hikmet Akkız
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25147873
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Liver Fibrosis: From Basic Science towards Clinical Progress, Focusing on the Central Role of Hepatic Stellate Cells

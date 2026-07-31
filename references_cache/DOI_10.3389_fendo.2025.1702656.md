@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fendo.2025.1702656"
+reference_id: DOI:10.3389/fendo.2025.1702656
 title: "Biochemical evaluation of X-linked hypophosphatemia and tumor-induced osteomalacia: insights into diagnosis and management"
 authors:
 - Jorge Díaz-Garzón Marco
@@ -12,6 +12,7 @@ journal: Frontiers in Endocrinology
 year: '2025'
 doi: 10.3389/fendo.2025.1702656
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Biochemical evaluation of X-linked hypophosphatemia and tumor-induced osteomalacia: insights into diagnosis and management

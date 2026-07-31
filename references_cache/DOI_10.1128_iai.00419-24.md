@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1128/iai.00419-24"
-title: "Unveiling the impact of
-            <i>Leptospira</i>
-            TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential"
+reference_id: DOI:10.1128/iai.00419-24
+title: "Unveiling the impact of <i>Leptospira</i> TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential"
 authors:
 - Saswat Hota
 - Manish Kumar
@@ -10,11 +8,10 @@ journal: Infection and Immunity
 year: '2024'
 doi: 10.1128/iai.00419-24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Unveiling the impact of
-            <i>Leptospira</i>
-            TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential
+# Unveiling the impact of <i>Leptospira</i> TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential
 **Authors:** Saswat Hota, Manish Kumar
 **Journal:** Infection and Immunity (2024)
 **DOI:** [10.1128/iai.00419-24](https://doi.org/10.1128/iai.00419-24)

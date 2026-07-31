@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/tropicalmed9090215"
+reference_id: DOI:10.3390/tropicalmed9090215
 title: "Murine Extraparenchymal Neurocysticercosis: Appropriate Model for Evaluating Anthelminthic and Anti-Inflammatory Treatment Schedules"
 authors:
 - Vinícius Tadeu Oliveira
@@ -17,6 +17,7 @@ journal: Tropical Medicine and Infectious Disease
 year: '2024'
 doi: 10.3390/tropicalmed9090215
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Murine Extraparenchymal Neurocysticercosis: Appropriate Model for Evaluating Anthelminthic and Anti-Inflammatory Treatment Schedules

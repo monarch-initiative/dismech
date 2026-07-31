@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-23-0730"
+reference_id: DOI:10.1158/1078-0432.ccr-23-0730
 title: Detection of Recurrence through microRNA-371a-3p Serum Levels in a Follow-up of Stage I Testicular Germ Cell Tumors in the DRKS-00019223 Study
 authors:
 - Gazanfer Belge
@@ -33,6 +33,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-23-0730
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Detection of Recurrence through microRNA-371a-3p Serum Levels in a Follow-up of Stage I Testicular Germ Cell Tumors in the DRKS-00019223 Study

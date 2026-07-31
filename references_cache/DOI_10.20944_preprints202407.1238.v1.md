@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.20944/preprints202407.1238.v1"
+reference_id: DOI:10.20944/preprints202407.1238.v1
 title: "Sodium Deficiency Diseases: The Association With the Renin-Angiotensin-Aldosterone System, Aging and Inflammation"
 authors:
 - Chantelle Thimm
@@ -7,6 +7,7 @@ authors:
 year: '2024'
 doi: 10.20944/preprints202407.1238.v1
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Sodium Deficiency Diseases: The Association With the Renin-Angiotensin-Aldosterone System, Aging and Inflammation

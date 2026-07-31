@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms251910861"
+reference_id: DOI:10.3390/ijms251910861
 title: "Immunotherapy for Treatment of Pleural Mesothelioma: Current and Emerging Therapeutic Strategies"
 authors:
 - Lauren Chiec
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms251910861
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Immunotherapy for Treatment of Pleural Mesothelioma: Current and Emerging Therapeutic Strategies

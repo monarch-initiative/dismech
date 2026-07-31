@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pathogens13100870"
+reference_id: DOI:10.3390/pathogens13100870
 title: The Functions of Cytokines in the Cardiac Immunopathogenesis of Chagas Disease
 authors:
 - Mariana Citlalli de Alba-Alvarado
@@ -11,6 +11,7 @@ journal: Pathogens
 year: '2024'
 doi: 10.3390/pathogens13100870
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Functions of Cytokines in the Cardiac Immunopathogenesis of Chagas Disease

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes16121472"
+reference_id: DOI:10.3390/genes16121472
 title: "RET Gene Alterations in Clinical Practice: A Comprehensive Review and Database Update"
 authors:
 - Claudio Ricciardi Tenore
@@ -16,6 +16,7 @@ journal: Genes
 year: '2025'
 doi: 10.3390/genes16121472
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # RET Gene Alterations in Clinical Practice: A Comprehensive Review and Database Update

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000534031"
+reference_id: DOI:10.1159/000534031
 title: "Reanalysis of Whole-Exome Sequencing Data of an Infant with Suspected Diagnosis of Jeune Syndrome Revealed a Likely Pathogenic Variant in &lt;i&gt;GRK2:&lt;/i&gt; A Newly Associated Gene for Jeune Syndrome Phenotype"
 authors:
 - Vehap Topcu
@@ -9,6 +9,7 @@ journal: Molecular Syndromology
 year: '2024'
 doi: 10.1159/000534031
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Reanalysis of Whole-Exome Sequencing Data of an Infant with Suspected Diagnosis of Jeune Syndrome Revealed a Likely Pathogenic Variant in &lt;i&gt;GRK2:&lt;/i&gt; A Newly Associated Gene for Jeune Syndrome Phenotype

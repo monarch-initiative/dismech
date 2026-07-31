@@ -53,6 +53,7 @@ taken from the first `# H1`).
 | `status` | One of `PLANNED`, `IN_PROGRESS`, `ACTIVE`, `COMPLETE`, `EVERGREEN`, `ARCHIVED`. Rendered as a colored badge. |
 | `description` | One-line summary shown on the project index card. |
 | `tags` | Free-text labels shown as chips and aggregated on the index. |
+| `nih_topics` | List of `NIHResearchPriorityEnum` keys (e.g. `NIH_HT_89_cellular_quiescence_senescence_cell_death_in`) tagging the NIH Highlighted Funding Topic(s) this project targets. Rendered as blue linked chips to the NIH topic page. See [NIH research-priority classification](nih-research-priorities.md). |
 
 ### Entity keys
 

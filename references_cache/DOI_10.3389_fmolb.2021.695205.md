@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fmolb.2021.695205"
+reference_id: DOI:10.3389/fmolb.2021.695205
 title: Molecular and Cellular Studies Reveal Folding Defects of Human Ornithine Aminotransferase Variants Associated With Gyrate Atrophy of the Choroid and Retina
 authors:
 - Riccardo Montioli
@@ -13,6 +13,7 @@ journal: Frontiers in Molecular Biosciences
 year: '2021'
 doi: 10.3389/fmolb.2021.695205
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular and Cellular Studies Reveal Folding Defects of Human Ornithine Aminotransferase Variants Associated With Gyrate Atrophy of the Choroid and Retina

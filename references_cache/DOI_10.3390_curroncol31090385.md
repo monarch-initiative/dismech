@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/curroncol31090385"
+reference_id: DOI:10.3390/curroncol31090385
 title: Systemic Therapy for Metastatic Pancreatic Cancer—Current Landscape and Future Directions
 authors:
 - Daniel Netto
@@ -12,6 +12,7 @@ journal: Current Oncology
 year: '2024'
 doi: 10.3390/curroncol31090385
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Systemic Therapy for Metastatic Pancreatic Cancer—Current Landscape and Future Directions
