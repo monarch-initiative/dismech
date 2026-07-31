@@ -24,6 +24,47 @@ fail independently:
 | **Compliance scoring** | **`linkml-data-qc`** | **How *complete* is the entry — are recommended fields populated?** |
 | Graph integrity | `dismech.graph --validate` | Do causal edges point at real nodes (no orphan targets)? |
 
+### Reading reference-validation output ("Total checks: 0" is not a no-op)
+
+`linkml-reference-validator` prints `Total checks: 0` on **every** clean run,
+including entries with hundreds of verified snippets. The counter is mislabeled
+upstream: it holds the number of *issues found*, not the number of checks
+*performed* (the plugin only emits a result when something fails), so on a
+passing file it is 0 by definition. This has already been misdiagnosed as a
+silently broken validator — see issue #7252.
+
+As a downstream mitigation, `scripts/run_reference_validator.sh` appends an
+affirmative count after every `validate data` run:
+
+```console
+$ just validate-references kb/disorders/Vici_Syndrome.yaml
+Validation Summary:
+  Files validated: 1
+  Total checks: 0
+  All validations passed!
+  Snippets checked: 46/46 verified against cached references
+```
+
+That line comes from `dismech.reference_snippet_audit`, which independently
+walks the same `reference`/`snippet` pairs (discovered from the schema's
+`implements: [linkml:excerpt]` / `[linkml:authoritative_reference]`
+annotations) and re-checks each against the body already in
+`references_cache/`, reusing the validator's own normalization so "verified"
+means the same thing in both places. It is **read-only, offline, and advisory**:
+it never fetches, and it never changes the exit code — `linkml-reference-validator`
+remains the sole authority on pass/fail. Set `DISMECH_SKIP_SNIPPET_AUDIT=1` to
+suppress it, or run it on its own:
+
+```bash
+just count-verified-snippets kb/disorders/Asthma.yaml
+just count-verified-snippets --strict kb/disorders/Asthma.yaml   # exit 1 on any unverified snippet
+```
+
+Pairs whose reference prefix is listed in `skip_prefixes`
+(`conf/reference_validator_config.yaml`) or whose reference is not cached
+locally are reported separately rather than counted as verified, so the ratio
+never overstates what was checked.
+
 Validation layers are **binary** (pass/fail). Compliance scoring is **graded**:
 it produces a percentage per field, per file, and across the whole KB, and is
 used to rank curation priorities. This page focuses on that graded layer and its
