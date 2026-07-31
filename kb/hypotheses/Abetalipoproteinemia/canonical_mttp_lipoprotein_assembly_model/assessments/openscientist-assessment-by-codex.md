@@ -75,6 +75,27 @@ absent apoB particles, chronic fat-soluble-vitamin deficiency, acanthocytosis,
 neuropathy, or retinal degeneration. “Precisely recapitulates ABL
 manifestations” is false.
 
+### Phenocopies are useful differentials; HCV is pathway-analogue evidence
+
+The report correctly distinguishes two genetic phenocopies from MTTP-related
+ABL:
+
+- Biallelic `APOB`-related homozygous familial hypobetalipoproteinemia can be
+  clinically indistinguishable in the proband, while carrier lipid profiles and
+  molecular testing distinguish it
+  ([PMID:24288038](https://pubmed.ncbi.nlm.nih.gov/24288038/),
+  [PMID:38710625](https://pubmed.ncbi.nlm.nih.gov/38710625/)).
+- `SAR1B`-related chylomicron retention disease disrupts downstream
+  ER-to-Golgi trafficking in the intestine while preserving hepatic VLDL
+  secretion, making it a partial phenocopy
+  ([PMID:30640893](https://pubmed.ncbi.nlm.nih.gov/30640893/)).
+
+HCV-core expression reducing MTP activity and VLDL secretion in transgenic mice
+is also useful convergent support for the MTP–VLDL–steatosis route
+([PMID:11818366](https://pubmed.ncbi.nlm.nih.gov/11818366/)). It is an acquired
+viral model with additional HCV-core effects, not an independent genetic test
+of ABL or evidence for the intestinal and multisystem branches.
+
 ### Single cases and cross-species leads need narrower wording
 
 - The oligogenic report is one severe-hypobetalipoproteinemia case with
@@ -159,10 +180,13 @@ provider-internal retrieval, but they cannot be used as review-quality metrics.
 | Residual activity establishes a predictive genotype–phenotype gradient | **Qualified** | One complex splice allele with in-vitro/patient-context differences |
 | Mouse microbiome adaptations were confirmed in humans | **Qualified** | Two ABL observations within the healthy-control range |
 | No ABL registry exists | **Rejected** | PROLIPID and NYU resources were missed |
+| APOB-related Ho-FHBL is a clinically important ABL phenocopy | **Retained** | Convergent particle-secretion defect with distinct genetics |
+| SAR1B-related CRD is a downstream partial phenocopy | **Retained** | Intestinal trafficking defect with preserved hepatic VLDL |
+| HCV core independently validates the ABL MTP–VLDL–steatosis link | **Qualified** | Convergent viral mouse model, not ABL-specific causal evidence |
 | `GO:0006497` for apoB lipid loading | **Rejected** | It means covalent protein lipidation |
 | `GO:0030433` as a current ERAD term | **Rejected** | Obsolete; replaced by `GO:0036503` |
 | `CL:0000127` as cerebellar astrocyte | **Rejected** | The identifier is generic astrocyte |
-| Eighty papers reviewed | **Needs verification** | Only 32 unique PMIDs are exposed |
+| 82 papers reviewed | **Needs verification** | Only 32 unique PMIDs are exposed |
 
 ## Curation consequence
 
