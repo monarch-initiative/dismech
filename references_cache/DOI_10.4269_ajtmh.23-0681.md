@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4269/ajtmh.23-0681"
+reference_id: DOI:10.4269/ajtmh.23-0681
 title: Predicting the Environmental Suitability and Identifying Climate and Sociodemographic Correlates of Guinea Worm (Dracunculus medinensis) in Chad
 authors:
 - Obiora A. Eneanya
@@ -17,6 +17,7 @@ journal: The American Journal of Tropical Medicine and Hygiene
 year: '2024'
 doi: 10.4269/ajtmh.23-0681
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Predicting the Environmental Suitability and Identifying Climate and Sociodemographic Correlates of Guinea Worm (Dracunculus medinensis) in Chad

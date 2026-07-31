@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16173075"
+reference_id: DOI:10.3390/cancers16173075
 title: Therapeutic Advances in Advanced Basal Cell Carcinoma
 authors:
 - Samer Alkassis
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16173075
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Therapeutic Advances in Advanced Basal Cell Carcinoma

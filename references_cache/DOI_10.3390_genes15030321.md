@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes15030321"
+reference_id: DOI:10.3390/genes15030321
 title: "Understanding the Variability of 22q11.2 Deletion Syndrome: The Role of Epigenetic Factors"
 authors:
 - Francesca Cillo
@@ -22,6 +22,7 @@ journal: Genes
 year: '2024'
 doi: 10.3390/genes15030321
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Understanding the Variability of 22q11.2 Deletion Syndrome: The Role of Epigenetic Factors

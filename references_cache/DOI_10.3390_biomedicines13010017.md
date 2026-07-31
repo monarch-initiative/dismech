@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines13010017"
+reference_id: DOI:10.3390/biomedicines13010017
 title: "Exploring RNF213 in Ischemic Stroke and Moyamoya Disease: From Cellular Models to Clinical Insights"
 authors:
 - Benjamin Y. Q. Tan
@@ -16,6 +16,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines13010017
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring RNF213 in Ischemic Stroke and Moyamoya Disease: From Cellular Models to Clinical Insights

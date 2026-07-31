@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14134785"
+reference_id: DOI:10.3390/jcm14134785
 title: "Transthyretin Amyloid Cardiomyopathy—2025 Update: Current Diagnostic Approaches and Emerging Therapeutic Options"
 authors:
 - Carsten Tschöpe
@@ -9,6 +9,7 @@ journal: Journal of Clinical Medicine
 year: '2025'
 doi: 10.3390/jcm14134785
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Transthyretin Amyloid Cardiomyopathy—2025 Update: Current Diagnostic Approaches and Emerging Therapeutic Options

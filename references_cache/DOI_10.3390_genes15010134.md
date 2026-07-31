@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes15010134"
+reference_id: DOI:10.3390/genes15010134
 title: "Aromatic L-Amino Acid Decarboxylase Deficiency: A Genetic Screening in Sicilian Patients with Neurological Disorders"
 authors:
 - Sandro Santa Paola
@@ -16,6 +16,7 @@ journal: Genes
 year: '2024'
 doi: 10.3390/genes15010134
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Aromatic L-Amino Acid Decarboxylase Deficiency: A Genetic Screening in Sicilian Patients with Neurological Disorders

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25158196"
+reference_id: DOI:10.3390/ijms25158196
 title: "Can We Exploit Inflammasomes for Host-Directed Therapy in the Fight against Mycobacterium tuberculosis Infection?"
 authors:
 - Lilitha Cebani
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25158196
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Can We Exploit Inflammasomes for Host-Directed Therapy in the Fight against Mycobacterium tuberculosis Infection?

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24097775"
+reference_id: DOI:10.3390/ijms24097775
 title: The Epithelial Sodium Channel—An Underestimated Drug Target
 authors:
 - Rosa Lemmens-Gruber
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24097775
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Epithelial Sodium Channel—An Underestimated Drug Target

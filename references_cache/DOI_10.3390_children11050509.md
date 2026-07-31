@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/children11050509"
+reference_id: DOI:10.3390/children11050509
 title: "Klinefelter Syndrome: A Genetic Disorder Leading to Neuroendocrine Modifications and Psychopathological Vulnerabilities in Children—A Literature Review and Case Report"
 authors:
 - Fabiola Panvino
@@ -16,6 +16,7 @@ journal: Children
 year: '2024'
 doi: 10.3390/children11050509
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Klinefelter Syndrome: A Genetic Disorder Leading to Neuroendocrine Modifications and Psychopathological Vulnerabilities in Children—A Literature Review and Case Report

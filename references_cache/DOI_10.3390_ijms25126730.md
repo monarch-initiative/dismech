@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25126730"
+reference_id: DOI:10.3390/ijms25126730
 title: The Role of the PAX Genes in Renal Cell Carcinoma
 authors:
 - Lei Li
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25126730
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of the PAX Genes in Renal Cell Carcinoma

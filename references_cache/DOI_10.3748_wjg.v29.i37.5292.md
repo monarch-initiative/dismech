@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3748/wjg.v29.i37.5292"
+reference_id: DOI:10.3748/wjg.v29.i37.5292
 title: New insights into the pathogenesis of primary biliary cholangitis asymptomatic stage
 authors:
 - Vasiliy Ivanovich Reshetnyak
@@ -8,6 +8,7 @@ journal: World Journal of Gastroenterology
 year: '2023'
 doi: 10.3748/wjg.v29.i37.5292
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # New insights into the pathogenesis of primary biliary cholangitis asymptomatic stage

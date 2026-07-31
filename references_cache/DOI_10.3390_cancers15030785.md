@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15030785"
+reference_id: DOI:10.3390/cancers15030785
 title: Follicular Lymphoma in the 5th Edition of the WHO-Classification of Haematolymphoid Neoplasms—Updated Classification and New Biological Data
 authors:
 - Katrin S. Kurz
@@ -12,6 +12,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15030785
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Follicular Lymphoma in the 5th Edition of the WHO-Classification of Haematolymphoid Neoplasms—Updated Classification and New Biological Data

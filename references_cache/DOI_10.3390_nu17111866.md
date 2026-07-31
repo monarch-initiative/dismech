@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu17111866"
+reference_id: DOI:10.3390/nu17111866
 title: "Understanding Refeeding Syndrome in Critically Ill Patients: A Narrative Review"
 authors:
 - Raffaele Borriello
@@ -15,6 +15,7 @@ journal: Nutrients
 year: '2025'
 doi: 10.3390/nu17111866
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Understanding Refeeding Syndrome in Critically Ill Patients: A Narrative Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms241210114"
+reference_id: DOI:10.3390/ijms241210114
 title: "Management of Neonatal Isolated and Combined Growth Hormone Deficiency: Current Status"
 authors:
 - Stefano Stagi
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms241210114
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Management of Neonatal Isolated and Combined Growth Hormone Deficiency: Current Status

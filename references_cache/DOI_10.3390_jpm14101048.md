@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jpm14101048"
+reference_id: DOI:10.3390/jpm14101048
 title: Personalized Treatment Strategies via Integration of Gene Expression Biomarkers in Molecular Profiling of Laryngeal Cancer
 authors:
 - Antonino Maniaci
@@ -16,6 +16,7 @@ journal: Journal of Personalized Medicine
 year: '2024'
 doi: 10.3390/jpm14101048
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Personalized Treatment Strategies via Integration of Gene Expression Biomarkers in Molecular Profiling of Laryngeal Cancer
