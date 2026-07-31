@@ -447,21 +447,22 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** claude_code
-**Generated:** 2026-07-31T05:18:34.437531
+**Generated:** 2026-07-30T23:45:51.806509
 
 1. https://omim.org/entry/229120
-2. https://omim.org/entry/616863
-3. https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&Expert=3219
-4. https://orpha.net/en/disease/detail/643549
-5. https://pubmed.ncbi.nlm.nih.gov/4431800/
-6. https://pubmed.ncbi.nlm.nih.gov/3565469/
+2. https://rarediseases.info.nih.gov/diseases/64/fountain-syndrome
+3. https://www.malacards.org/card/fountain_syndrome
+4. https://en.wikipedia.org/wiki/Fountain_syndrome
+5. https://www.ncbi.nlm.nih.gov/medgen/C0795944
+6. https://rarediseases.org/mondo-disease/fountain-syndrome/
 7. https://pubmed.ncbi.nlm.nih.gov/2585470/
-8. https://www.omim.org/entry/613272
-9. https://www.orpha.net/en/disease/detail/643538
-10. https://rarediseases.info.nih.gov/diseases/64/fountain-syndrome
-11. https://rarediseases.org/rare-diseases/fountain-syndrome/
-12. https://en.wikipedia.org/wiki/Fountain_syndrome
-13. https://en.wikipedia.org/wiki/Hao-Fountain_syndrome
-14. https://www.malacards.org/card/fountain_syndrome
-15. https://www.icd10data.com/ICD10CM/Codes/Q00-QA0/Q80-Q89/Q87-/Q87.87
-16. https://onlinelibrary.wiley.com/doi/10.1111/cge.14480
+8. https://pubmed.ncbi.nlm.nih.gov/4431800/
+9. https://pmc.ncbi.nlm.nih.gov/articles/PMC1645940/
+10. https://pubmed.ncbi.nlm.nih.gov/3565469/
+11. https://orpha.net/consor/cgi-bin/OC_Exp.php?Expert=3219&lng=en
+12. https://omim.org/entry/616863
+13. https://www.ncbi.nlm.nih.gov/books/NBK619577/
+14. https://pmc.ncbi.nlm.nih.gov/articles/PMC5378843/
+15. https://pubmed.ncbi.nlm.nih.gov/24913193/
+16. https://pubmed.ncbi.nlm.nih.gov/32873933/
+17. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8568048/

@@ -446,22 +446,18 @@ This report will be used to populate a disease knowledge base entry with:
 - Epidemiology, prognosis, diagnostic, and prevention information
 - Animal model descriptions with phenotype recapitulation details
 
-**Provider:** claude_code
-**Generated:** 2026-07-31T05:18:34.437531
+**Provider:** openscientist
+**Generated:** 2026-07-31T06:15:05.909053
 
-1. https://omim.org/entry/229120
-2. https://omim.org/entry/616863
-3. https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&Expert=3219
-4. https://orpha.net/en/disease/detail/643549
-5. https://pubmed.ncbi.nlm.nih.gov/4431800/
-6. https://pubmed.ncbi.nlm.nih.gov/3565469/
-7. https://pubmed.ncbi.nlm.nih.gov/2585470/
-8. https://www.omim.org/entry/613272
-9. https://www.orpha.net/en/disease/detail/643538
-10. https://rarediseases.info.nih.gov/diseases/64/fountain-syndrome
-11. https://rarediseases.org/rare-diseases/fountain-syndrome/
-12. https://en.wikipedia.org/wiki/Fountain_syndrome
-13. https://en.wikipedia.org/wiki/Hao-Fountain_syndrome
-14. https://www.malacards.org/card/fountain_syndrome
-15. https://www.icd10data.com/ICD10CM/Codes/Q00-QA0/Q80-Q89/Q87-/Q87.87
-16. https://onlinelibrary.wiley.com/doi/10.1111/cge.14480
+1. PMID:3565469
+2. PMID:8897038
+3. PMID:38221796
+4. PMID:39862434
+5. PMID:40982686
+6. PMID:40166258
+7. PMID:39919828
+8. PMID:37961719
+9. PMID:38126281
+10. PMID:41086218
+11. PMID:39999290
+12. PMID:41713382
