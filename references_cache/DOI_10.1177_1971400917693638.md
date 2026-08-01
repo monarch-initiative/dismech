@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/1971400917693638"
+reference_id: DOI:10.1177/1971400917693638
 title: "Encephalocraniocutaneous lipomatosis: A case report with review of literature"
 authors:
 - Shaista Siddiqui
@@ -12,6 +12,7 @@ journal: The Neuroradiology Journal
 year: '2017'
 doi: 10.1177/1971400917693638
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Encephalocraniocutaneous lipomatosis: A case report with review of literature

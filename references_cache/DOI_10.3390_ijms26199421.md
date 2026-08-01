@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26199421"
+reference_id: DOI:10.3390/ijms26199421
 title: Gene Therapy Strategies for the Treatment of Bestrophinopathies
 authors:
 - Silja B. Haldrup
@@ -11,6 +11,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26199421
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gene Therapy Strategies for the Treatment of Bestrophinopathies

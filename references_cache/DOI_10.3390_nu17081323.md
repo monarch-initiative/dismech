@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu17081323"
+reference_id: DOI:10.3390/nu17081323
 title: Recent Advances in Gut Microbiota in Psoriatic Arthritis
 authors:
 - Maria Grazia Bonomo
@@ -11,6 +11,7 @@ journal: Nutrients
 year: '2025'
 doi: 10.3390/nu17081323
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent Advances in Gut Microbiota in Psoriatic Arthritis

@@ -12,10 +12,11 @@ from __future__ import annotations
 import csv
 import logging
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
-from typing import ClassVar, Iterable, Iterator
+from typing import ClassVar
 from urllib.parse import unquote, urlparse
 
 import httpx
@@ -605,7 +606,8 @@ def _parse_snapshot_date(value: str) -> str:
     from datetime import datetime
 
     try:
-        return datetime.strptime(value, "%d %B,%Y").date().isoformat()
+        # Source snapshot dates carry no timezone; a naive date is correct here.
+        return datetime.strptime(value, "%d %B,%Y").date().isoformat()  # noqa: DTZ007
     except ValueError:
         return value
 

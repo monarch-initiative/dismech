@@ -1,0 +1,60 @@
+name: Close Fork PRs
+
+# Deterministic policy gate: this repository does not accept pull requests from
+# forks. Fork-authored PR content (title/body/diff) is the entry point for
+# prompt injection into the repo's agentic workflows (model-driven review and
+# PR shepherding), and fork-triggered workflows don't get repo secrets so they
+# can't be reviewed anyway. Rather than try to contain that risk, close fork PRs
+# at the door and point the author at CONTRIBUTING.md. No model is involved.
+#
+# Trigger note: uses `pull_request_target`, so the job runs from the BASE repo's
+# copy of this workflow (a fork cannot modify it) with a write-scoped token. It
+# NEVER checks out or runs fork code — it only calls the GitHub API — so the
+# usual pull_request_target code-execution risk does not apply here.
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: close-fork-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  close-fork-pr:
+    # Act only on cross-repository (fork) PRs; same-repo PRs are untouched.
+    if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close fork PR with guidance
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+          cat > "${RUNNER_TEMP}/fork-pr-comment.md" <<EOF
+          Hi @${AUTHOR}, thanks for your interest in dismech! 🙏
+
+          This repository **does not accept pull requests from forks**, so this PR is being
+          closed automatically. This is not about your change: fork PRs cannot receive our
+          automated AI review (GitHub does not expose repository secrets to fork-triggered
+          workflows), and fork-authored content flowing into our agentic workflows is a
+          prompt-injection risk — so we close fork PRs at the door as a security policy.
+
+          **How to contribute instead** — see
+          [CONTRIBUTING.md](https://github.com/${REPO}/blob/main/CONTRIBUTING.md#important-open-prs-from-origin-branches-not-forks):
+
+          - Push your branch directly to **origin** and open the PR from that branch.
+          - New contributor without access yet? Please open an issue asking to be added to
+            the repository; Monarch/OBO contributors are usually granted branch access quickly.
+          - Issues, bug reports, and feedback are always welcome from anyone — no access needed.
+
+          Sorry for the friction, and thanks for understanding.
+          EOF
+          gh pr comment "${PR}" --repo "${REPO}" --body-file "${RUNNER_TEMP}/fork-pr-comment.md"
+          gh pr close "${PR}" --repo "${REPO}"

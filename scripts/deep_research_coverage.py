@@ -9,12 +9,14 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Sequence, TextIO
+from typing import TextIO
 
 import yaml
 
+from dismech.yaml_io import safe_load
 
 RESEARCH_FILE_RE = re.compile(r"^(?P<disorder>.+)-deep-research-(?P<provider>.+)\.md$")
 FRONTMATTER_DELIMITER = "---"
@@ -106,7 +108,7 @@ def load_disorder_info(path: Path) -> DisorderInfo:
                 if not raw_value:
                     continue
                 try:
-                    parsed_value = yaml.safe_load(raw_value)
+                    parsed_value = safe_load(raw_value)
                 except yaml.YAMLError:
                     parsed_value = raw_value
                 values[match.group("key")] = str(parsed_value).strip()
@@ -147,7 +149,7 @@ def parse_frontmatter(path: Path) -> Mapping[str, object]:
         return {}
     raw = "\n".join(lines)
     try:
-        parsed = yaml.safe_load(raw) or {}
+        parsed = safe_load(raw) or {}
     except yaml.YAMLError:
         return {}
     return parsed if isinstance(parsed, Mapping) else {}

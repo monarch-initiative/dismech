@@ -447,49 +447,30 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-04-28T10:13:45.410530
+**Generated:** 2026-07-29T23:19:56.590799
 
-1. wilson2024bulimianervosaand pages 2-3
-2. hay2023epidemiologyofeating pages 1-2
-3. yu2023efficacyofpharmacotherapies pages 1-2
-4. horovitz2025advancementsinthe pages 1-2
-5. wong2024epigeneticsofeating pages 1-2
-6. wilson2024bulimianervosaand pages 1-2
-7. kozmer2025accuracyandsuitability pages 1-6
-8. meijsen2025sharedgeneticarchitecture pages 1-4
-9. davies2025mappingthegenetic pages 5-8
-10. alharbi2024effectivetreatmentapproaches pages 5-6
-11. ahmed2025psychologicalapproachesfor pages 3-6
-12. ge2025globalregionaland pages 2-4
-13. amiri2025trendsprevalenceincidence pages 1-2
-14. hay2023currentapproachesin pages 2-3
-15. goldstein1995longtermfluoxetinetreatment pages 1-2
-16. liu2025globaltrendsand pages 2-3
-17. kozmer2025accuracyandsuitability pages 14-18
-18. lynch2025eatingdisordersclinical pages 3-4
-19. 1,360
-20. https://doi.org/10.5694/mja2.52008
-21. https://doi.org/10.1186/s40337-025-01289-9
-22. https://doi.org/10.1007/s40519-025-01769-6
-23. https://doi.org/10.1192/bjp.2025.10450
-24. https://doi.org/10.1186/s40337-023-00738-7
-25. https://doi.org/10.3389/fpsyg.2024.1386347
-26. https://doi.org/10.1186/s40360-023-00713-7
-27. https://doi.org/10.1192/bjp.166.5.660
-28. https://doi.org/10.3399/bjgpo.2025.0149
-29. https://doi.org/10.3389/fpsyg.2024.1386347,
-30. https://doi.org/10.1186/s40337-023-00738-7,
-31. https://doi.org/10.1186/s40337-025-01289-9,
-32. https://doi.org/10.1192/bjp.166.5.660,
-33. https://doi.org/10.1186/s40360-023-00713-7,
-34. https://doi.org/10.3390/nu17101744,
-35. https://doi.org/10.1192/bjp.2025.10450,
-36. https://doi.org/10.65031/rzeq8592,
-37. https://doi.org/10.3399/bjgpo.2025.0149,
-38. https://doi.org/10.1101/2024.10.20.24315825,
-39. https://doi.org/10.1101/2025.09.25.25336612,
-40. https://doi.org/10.7759/cureus.74003,
-41. https://doi.org/10.5772/intechopen.1009601,
-42. https://doi.org/10.5694/mja2.52008,
-43. https://doi.org/10.1007/s40519-025-01769-6,
-44. https://doi.org/10.1017/ipm.2024.47,
+1. barakat2023riskfactorsfor pages 7-8
+2. donnelly2018neuroimaginginbulimia pages 1-2
+3. butler2021theroleof pages 10-12
+4. alharbi2024effectivetreatmentapproaches pages 5-6
+5. wilson2024bulimianervosaand pages 1-2
+6. yu2023efficacyofpharmacotherapies pages 1-2
+7. gkintoni2024clinicalinterventionstrategies pages 30-31
+8. wilson2024bulimianervosaand pages 2-3
+9. suggested/unverified HPO ID
+10. structure/system mapping suggested
+11. suggested/unverified GO term mapping
+12. https://doi.org/10.1186/s40360-023-00713-7
+13. https://doi.org/10.3389/fpsyg.2024.1386347
+14. https://doi.org/10.3390/jcm13144084
+15. https://doi.org/10.7759/cureus.74003
+16. https://doi.org/10.1186/s40337-022-00717-4
+17. https://doi.org/10.1186/s40337-018-0187-1
+18. https://doi.org/10.3390/nu13020500
+19. https://doi.org/10.1186/s40360-023-00713-7,
+20. https://doi.org/10.3389/fpsyg.2024.1386347,
+21. https://doi.org/10.1186/s40337-018-0187-1,
+22. https://doi.org/10.1186/s40337-022-00717-4,
+23. https://doi.org/10.3390/jcm13144084,
+24. https://doi.org/10.7759/cureus.74003,
+25. https://doi.org/10.3390/nu13020500,

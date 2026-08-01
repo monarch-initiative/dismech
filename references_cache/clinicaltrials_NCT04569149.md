@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04569149"
 title: "Primordial Dwarfism Registry at Nemours Children's Hospital, Delaware"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Primordial Dwarfism Registry at Nemours Children's Hospital, Delaware

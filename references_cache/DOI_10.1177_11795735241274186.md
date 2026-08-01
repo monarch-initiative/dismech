@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/11795735241274186"
+reference_id: DOI:10.1177/11795735241274186
 title: "Diagnostic value of soluble Interleukin-2 receptor in patients suffering neurosarcoidosis: A systematic review"
 authors:
 - Aditya Chanpura
@@ -10,6 +10,7 @@ journal: Journal of Central Nervous System Disease
 year: '2024'
 doi: 10.1177/11795735241274186
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Diagnostic value of soluble Interleukin-2 receptor in patients suffering neurosarcoidosis: A systematic review

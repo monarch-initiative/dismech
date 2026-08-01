@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16244192"
+reference_id: DOI:10.3390/cancers16244192
 title: "Acute Promyelocytic Leukemia-like AML: Genetic Perspective and Clinical Implications"
 authors:
 - Luca Guarnera
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16244192
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Acute Promyelocytic Leukemia-like AML: Genetic Perspective and Clinical Implications
