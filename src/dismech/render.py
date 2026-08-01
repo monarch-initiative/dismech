@@ -18,23 +18,15 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-# Prefer the libyaml-backed C loader (~12x faster than the pure-Python loader).
-# The standard PyYAML Linux wheel used on GitHub's ubuntu-latest runner bundles
-# libyaml, so this path is taken in CI; the SafeLoader fallback keeps rendering
-# correct if libyaml is ever unavailable. See issue #5198.
-try:  # pragma: no cover - exercised implicitly wherever YAML is loaded
-    from yaml import CSafeLoader as _FastYamlLoader
-except ImportError:  # pragma: no cover - only when libyaml is not built
-    from yaml import SafeLoader as _FastYamlLoader
-
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
+from dismech.yaml_io import safe_load, safe_load_path
 
-
-def _fast_yaml_load(stream):
-    """Parse YAML from a file object or string using the fastest safe loader."""
-    return yaml.load(stream, Loader=_FastYamlLoader)
+# Module-local alias kept so existing call sites read unchanged. The
+# libyaml-vs-pure-Python loader choice now lives in dismech.yaml_io
+# (introduced in issue #5198, consolidated in #7502).
+_fast_yaml_load = safe_load
 
 
 @lru_cache(maxsize=8)
@@ -187,6 +179,73 @@ def _strip_line_end_whitespace(text: str) -> str:
 def slugify(name: str) -> str:
     """Convert a disorder name to a filename-safe slug."""
     return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
+
+
+def _prune_orphan_pages(
+    output_dir: Path,
+    rendered: list[Path],
+    *,
+    label: str,
+    keep_names: tuple[str, ...] = ("index.html",),
+) -> list[Path]:
+    """Delete ``*.html`` pages in ``output_dir`` that a *full* build did not write.
+
+    Page filenames come from ``slugify(name)`` rather than the source YAML stem,
+    so renaming an entry silently forks its page: the new slug gets rendered and
+    the old one is left behind forever as a stale, publicly served snapshot
+    (issue #7426). After a full build the rendered set is authoritative, so any
+    other HTML file directly in the output directory has no KB source and is
+    removed.
+
+    Only ever call this from a full build. On an incremental build (``only=`` /
+    ``--changed``) the rendered set is a small subset by design (issue #5507),
+    and pruning would delete every page that simply was not rebuilt.
+
+    Args:
+        output_dir: Directory holding the generated pages.
+        rendered: Page paths written by this build.
+        label: Noun used in log lines (e.g. ``"disorder"``).
+        keep_names: Filenames never pruned, for pages generated elsewhere.
+
+    Returns:
+        List of deleted page paths.
+    """
+    if not output_dir.is_dir():
+        return []
+
+    # An empty rendered set is never authoritative: a full build that wrote
+    # nothing means the *input* was missing (e.g. a mistyped input directory),
+    # not that every existing page is an orphan. Without this, one bad path
+    # argument would delete the entire output directory.
+    if not rendered:
+        return []
+
+    keep = {path.resolve() for path in rendered}
+    # A case-only slug difference (``Holt-Oram_Syndrome`` vs
+    # ``Holt-Oram_syndrome``) is two distinct pages on Linux but one file on a
+    # case-insensitive filesystem, where deleting the "orphan" would throw away
+    # the page just rendered. Fall back to a same-file check before unlinking.
+    keep_by_folded_name: dict[str, list[Path]] = defaultdict(list)
+    for path in rendered:
+        keep_by_folded_name[path.name.casefold()].append(path)
+
+    removed: list[Path] = []
+    for page in sorted(output_dir.glob("*.html")):
+        if page.name in keep_names or page.resolve() in keep:
+            continue
+        if any(
+            page.samefile(candidate)
+            for candidate in keep_by_folded_name.get(page.name.casefold(), ())
+            if candidate.exists()
+        ):
+            continue
+        page.unlink()
+        removed.append(page)
+        print(f"Pruned orphan {label} page: {page}")
+
+    if removed:
+        print(f"Pruned {len(removed)} orphan {label} page(s) from {output_dir}")
+    return removed
 
 
 def _normalize_disorder_lookup(value: str | None) -> str:
@@ -2275,7 +2334,6 @@ _OBO_CURIE_PREFIXES: dict[str, str] = {
         "CL",
         "UBERON",
         "CHEBI",
-        "MAXO",
         "DOID",
         "GENO",
         "NCIT",
@@ -2605,7 +2663,7 @@ def _scan_research_syntheses(research_dir: Path) -> list[dict]:
     syntheses: list[dict] = []
     for path in sorted(research_dir.glob("*-research-synthesis.yaml")):
         try:
-            data = yaml.safe_load(path.read_text()) or {}
+            data = safe_load_path(path) or {}
         except yaml.YAMLError:
             continue
         slug = data.get("disease") or path.name[: -len("-research-synthesis.yaml")]
@@ -2742,6 +2800,7 @@ def render_all_modules(
     index_path = render_module_index(module_summaries, output_dir / "index.html")
     output_files.append(index_path)
     print(f"Rendered module index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="module")
     return output_files
 
 
@@ -2784,6 +2843,7 @@ def render_all_comorbidities(
     )
     output_files.append(index_path)
     print(f"Rendered comorbidity index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="comorbidity")
     return output_files
 
 
@@ -3714,6 +3774,7 @@ def render_all_groupings(
     index_path = render_grouping_index(summaries, output_dir / "index.html")
     output_files.append(index_path)
     print(f"Rendered grouping index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="grouping")
     return output_files
 
 
@@ -3741,7 +3802,7 @@ def _nih_topic_display() -> dict[str, dict]:
     if not _NIH_TOPICS_ENUM_PATH.exists():
         return {}
     with _NIH_TOPICS_ENUM_PATH.open(encoding="utf-8") as fh:
-        doc = yaml.safe_load(fh) or {}
+        doc = safe_load(fh) or {}
     pvs = (
         (doc.get("enums") or {})
         .get("NIHResearchPriorityEnum", {})
@@ -3922,6 +3983,81 @@ def _autolink_project_body(body: str, link_map: dict[str, tuple[str, str]]) -> s
     return "\n".join(out_lines)
 
 
+#: Path prefixes under ``docs/`` that MkDocs does not publish. Mirrors the
+#: ``exclude_docs`` block in ``mkdocs.yml`` — keep the two in step. Links into
+#: these resolve to a real repository file that has no published URL, so they
+#: are rewritten to GitHub rather than to ``elements/``.
+_DOCS_EXCLUDED_FROM_SITE = (
+    "templates-linkml/",
+    "elements/",
+    "issues/",
+    "todo/",
+    "ntr/",
+)
+
+#: Matches an *inline* markdown link whose target is a repo-relative
+#: ``../docs/`` path, capturing the path and any trailing ``#anchor``
+#: separately. Titled, reference-style, and angle-bracket link forms are not
+#: matched — no project file uses them for docs links today.
+_PROJECT_DOCS_LINK_RE = re.compile(r"\]\(\.\./docs/([^)#\s]+)(#[^)\s]*)?\)")
+
+
+def _project_docs_link_href(doc_rel: str, anchor: str, docs_dir: Path) -> str | None:
+    """Map a ``docs/``-relative path to the URL a rendered project page should use.
+
+    Project markdown links to documentation with repo-relative ``../docs/…``
+    paths, which are correct when the file is read on GitHub but wrong once
+    rendered to ``pages/projects/*.html`` — there, ``../docs/`` resolves to the
+    nonexistent ``pages/docs/``. MkDocs publishes ``docs/`` into ``elements/``,
+    and the project templates already reach the site root with ``../../``.
+
+    Returns ``None`` when the link should be left exactly as written.
+    """
+    source = docs_dir / doc_rel
+    if not source.is_file():
+        # A genuinely broken source link. Leave it visibly broken rather than
+        # silently rewriting it to a differently-broken URL.
+        return None
+
+    if doc_rel.startswith(_DOCS_EXCLUDED_FROM_SITE):
+        # Real file, but excluded from the MkDocs build, so it has no published
+        # URL. The repository copy is the only thing to point at. GitHub renders
+        # markdown headings with the same slug style, so the anchor still works.
+        return f"{_github_blob_url(Path('docs') / doc_rel)}{anchor}"
+
+    if not doc_rel.endswith(".md"):
+        # Non-markdown files are copied into the site verbatim.
+        return f"../../elements/{doc_rel}{anchor}"
+
+    # use_directory_urls (MkDocs default) publishes foo.md as foo/index.html,
+    # foo/index.md as foo/, and the root index.md as the site root itself.
+    stem = doc_rel.removesuffix(".md")
+    stem = "" if stem == "index" else stem.removesuffix("/index")
+    return f"../../elements/{f'{stem}/' if stem else ''}{anchor}"
+
+
+def _rewrite_project_docs_links(body: str, docs_dir: Path) -> str:
+    """Point ``../docs/`` links at their published URLs for the rendered page.
+
+    See :func:`_project_docs_link_href`. Fenced code blocks are left alone so
+    documentation *about* these paths is not rewritten.
+    """
+
+    def _sub(match: re.Match) -> str:
+        href = _project_docs_link_href(match.group(1), match.group(2) or "", docs_dir)
+        return match.group(0) if href is None else f"]({href})"
+
+    out_lines: list[str] = []
+    in_fence = False
+    for line in body.split("\n"):
+        if line.lstrip().startswith(("```", "~~~")):
+            in_fence = not in_fence
+            out_lines.append(line)
+            continue
+        out_lines.append(line if in_fence else _PROJECT_DOCS_LINK_RE.sub(_sub, line))
+    return "\n".join(out_lines)
+
+
 def _project_summary(
     md_path: Path,
     metadata: dict,
@@ -3971,6 +4107,11 @@ def _render_project_html(
         if entry.get("href")
     }
     linked_body = _autolink_project_body(body, link_map)
+    # docs/ is resolved from the project file itself (projects/X.md -> ../docs)
+    # rather than the process CWD, so rendering works from any directory.
+    linked_body = _rewrite_project_docs_links(
+        linked_body, md_path.resolve().parent.parent / "docs"
+    )
 
     md = markdown_lib.Markdown(
         extensions=["tables", "fenced_code", "toc", "sane_lists"]
@@ -4499,6 +4640,11 @@ def render_all_disorders(
         print(f"Rendered: {disorder_name} -> {output_path}")
 
     render_classification_pages(input_dir=input_dir)
+
+    if only is None:
+        # Full build only: the rendered set is authoritative, so drop pages left
+        # behind by renamed/deleted entries (issue #7426).
+        _prune_orphan_pages(output_dir, output_files, label="disorder")
 
     scope = "changed" if only is not None else "all"
     print(

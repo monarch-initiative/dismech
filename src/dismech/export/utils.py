@@ -5,12 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import yaml
-
-try:  # libyaml C loader when available (see render.py)
-    from yaml import CSafeLoader as _SafeLoader
-except ImportError:  # pragma: no cover
-    from yaml import SafeLoader as _SafeLoader
+from dismech.yaml_io import safe_load_path
 
 # Deep-research report filename pattern: ``<slug>-deep-research-<provider>.md``.
 # Shared with render.py so the homepage report count and the research index page
@@ -85,6 +80,6 @@ def count_classifications(
         return 0
     total = 0
     for path in classification_dir.glob("*.yaml"):
-        data = yaml.load(path.read_text(), Loader=_SafeLoader) or {}
+        data = safe_load_path(path) or {}
         total += len(data.get("enums") or {})
     return total

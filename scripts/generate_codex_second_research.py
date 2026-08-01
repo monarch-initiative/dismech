@@ -14,7 +14,7 @@ from collections.abc import Mapping, MutableMapping
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 RESEARCH_FILE_RE = re.compile(
     r"^(?P<name>.+)-deep-research-(?P<provider>[^.]+)\.md(?:\.citations\.md)?$"
@@ -112,7 +112,7 @@ def extract_refs(text: str) -> list[str]:
 
 
 def load_yaml(path: Path) -> MutableMapping[str, Any]:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data = safe_load(path.read_text(encoding="utf-8"))
     return data or {}
 
 
