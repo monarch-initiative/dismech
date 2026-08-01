@@ -12,6 +12,8 @@ from pathlib import Path
 import yaml
 from oaklib import get_adapter
 
+from dismech.yaml_io import safe_load
+
 # Initialize adapters
 print("Loading HP ontology adapter...")
 hp = get_adapter("sqlite:obo:hp")
@@ -139,7 +141,7 @@ def process_file(file_path: Path) -> dict:
     stats = {"phenotypes_updated": 0, "file": str(file_path.name)}
 
     with open(file_path, 'r') as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     if not data:
         return stats

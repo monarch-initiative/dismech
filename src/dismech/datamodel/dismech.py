@@ -877,7 +877,7 @@ class InheritanceDescriptor(Descriptor):
 @dataclass(repr=False)
 class TreatmentDescriptor(Descriptor):
     """
-    A descriptor for treatments/medical actions, bindable to MAXO or NCIT clinical interventions
+    A descriptor for treatments/medical actions, bindable to NCIT clinical interventions
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -6029,11 +6029,11 @@ class AnatomicalEntityTerm(EnumDefinitionImpl):
 
 class TreatmentActionTerm(EnumDefinitionImpl):
     """
-    A term representing a medical action or treatment (from MAXO or NCIT)
+    A term representing a medical action or treatment (from NCIT)
     """
     _defn = EnumDefinition(
         name="TreatmentActionTerm",
-        description="A term representing a medical action or treatment (from MAXO or NCIT)",
+        description="A term representing a medical action or treatment (from NCIT)",
     )
 
 class RegimenTerm(EnumDefinitionImpl):
