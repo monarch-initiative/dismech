@@ -511,6 +511,26 @@ def test_docs_prefix_list_matches_the_code_exactly() -> None:
     )
 
 
+def _committed_text(path: Path) -> str | None:
+    """`path` as of HEAD, or None outside a git checkout.
+
+    Deliberately does not fall back to the working tree on failure: the point of
+    reading the committed blob is to be unaffected by local mutation, and a
+    silent fallback would reintroduce exactly what it exists to avoid.
+    """
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "show", f"HEAD:{path.as_posix()}"],
+            capture_output=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return out.stdout.decode("utf-8")
+
+
 def test_prose_domain_role_lists_are_complete() -> None:
     """Any prose list of `domain_role` values must name all of them.
 
@@ -531,29 +551,45 @@ def test_prose_domain_role_lists_are_complete() -> None:
 
     roles = set(SchemaView(str(SCHEMA_PATH)).get_enum("DomainRoleEnum").permissible_values)
 
-    for path in (Path("CLAUDE.md"), Path("docs/phenotype-distributions.md")):
-        text = path.read_text(encoding="utf-8")
-        matched = 0
+    def enumerations(text: str) -> list[set[str]]:
+        """Every parenthesised run in `text` that is enumerating `DomainRoleEnum`.
+
+        Two matches qualify a run, not one: `PRIMARY` alone is a plausible word
+        in some unrelated list, but two role values together are not a
+        coincidence.
+        """
+        found = []
         # Newlines are in the class because both files wrap these lists mid-run.
         for group in re.findall(r"\(([^()]*`[A-Z_]+`[^()]*)\)", text, flags=re.DOTALL):
             named = {v for v in re.findall(r"`([A-Z_]+)`", group) if v in roles}
-            # Two matches, not one: `PRIMARY` alone is a plausible word in some
-            # unrelated list, but two DomainRoleEnum values together are not a
-            # coincidence — that group is enumerating the enum.
-            if len(named) < 2:
-                continue
-            matched += 1
+            if len(named) >= 2:
+                found.append(named)
+        return found
+
+    for path in (Path("CLAUDE.md"), Path("docs/phenotype-distributions.md")):
+        # Completeness is checked against the working tree, so a curator editing
+        # prose sees their own drift before committing it.
+        for named in enumerations(path.read_text(encoding="utf-8")):
             assert named == roles, (
                 f"{path} enumerates domain_role but omits {sorted(roles - named)}; "
                 "list every value or drop the parenthetical"
             )
-        # Anchored, like `test_docs_prefix_list_matches_the_code_exactly`. Without
-        # this, "delete the list" is an unguarded escape from "keep the list
-        # current" — the guard would go green on a file that had silently lost
-        # the guidance it exists to protect.
-        assert matched, (
-            f"{path} no longer enumerates domain_role anywhere; if the guidance "
-            "moved, point this test at its new home rather than deleting it"
+
+        # The anchor is checked against the *committed* blob instead. Anchoring on
+        # the working tree is what makes "delete the list" a green escape from
+        # "keep the list current", but it also makes the guard hostage to any
+        # tooling that mutates a checkout: an agent harness in this org blanks
+        # this repo's `CLAUDE.md` section, which would fire this assertion for a
+        # reason having nothing to do with the docs, and invite whoever hit it to
+        # weaken a working guard. Committed content is what CI gates and what
+        # readers actually get, so that is what must not lose its list.
+        committed = _committed_text(path)
+        if committed is None:  # not a git checkout (sdist, vendored tree)
+            continue
+        assert enumerations(committed), (
+            f"{path} no longer enumerates domain_role anywhere in the committed "
+            "blob; if the guidance moved, point this test at its new home rather "
+            "than deleting it"
         )
 
 
