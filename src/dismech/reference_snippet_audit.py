@@ -34,10 +34,7 @@ from typing import Any
 
 import yaml
 
-try:  # pragma: no cover - exercised implicitly wherever YAML is loaded
-    from yaml import CSafeLoader as _FastYamlLoader
-except ImportError:  # pragma: no cover - only when libyaml is not built
-    from yaml import SafeLoader as _FastYamlLoader
+from dismech.yaml_io import safe_load
 
 DEFAULT_SCHEMA = Path("src/dismech/schema/dismech.yaml")
 DEFAULT_CONFIG = Path("conf/reference_validator_config.yaml")
@@ -144,7 +141,7 @@ class AuditReport:
 
 def _load_yaml(path: Path) -> Any:
     with path.open(encoding="utf-8") as handle:
-        return yaml.load(handle, Loader=_FastYamlLoader)
+        return safe_load(handle)
 
 
 def _implements(definition: Any) -> list[str]:

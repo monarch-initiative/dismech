@@ -8,8 +8,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
 from oaklib import get_adapter
+
+from dismech.yaml_io import safe_load
 
 _HP_ADAPTER_SPEC = "sqlite:obo:hp"
 _FREQUENCY_PRIORITY = {
@@ -220,7 +221,7 @@ def load_disease_model(disease_slug: str, kb_dir: Path | None = None) -> dict[st
     """Load a disease model YAML by dismech slug."""
     path = _resolve_disease_path(disease_slug, kb_dir=kb_dir)
     with open(path) as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
     if not isinstance(data, dict):
         raise ValueError(f"Disease YAML at {path} must be an object")
     return data
