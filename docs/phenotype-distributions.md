@@ -9,7 +9,8 @@ cited from a disease entry as evidence.
 Schema: [`src/dismech/schema/phenotype_distribution.yaml`](https://github.com/monarch-initiative/dismech/blob/main/src/dismech/schema/phenotype_distribution.yaml)
 Tooling: `src/dismech/phenotype_distribution.py`
 Worked examples: `examples/phenotype_distributions/`
-Curated collections: `kb/phenotype_distributions/`
+Curated collections: `kb/phenotype_distributions/` (created by the first curated
+collection; this directory does not exist yet)
 
 ## Why a separate artifact
 
@@ -288,6 +289,42 @@ generated — **never hand-write or hand-edit one**.
 it, then `ACCEPTED`, `REJECTED`, `SUPERSEDED`, or `DEFERRED` with
 `binding_notes` saying why.
 
+## Provenance tier
+
+Every collection must declare `provenance_tier`, so "these numbers are
+illustrative" is a machine-readable fact rather than a sentence in a description
+that tooling cannot read:
+
+| Tier | Meaning |
+|---|---|
+| `CURATED` | Human-curated from literature or a named source; citable from a kb entry |
+| `TOOL_EXPORTED` | Transcribed from a model or pipeline export; the numbers are real, the mapping to disease concepts is curator judgement |
+| `ILLUSTRATIVE` | Synthetic or placeholder; must never be cited or rendered into the cache |
+
+The renderer refuses to write an `ILLUSTRATIVE` collection into
+`references_cache/`, so synthetic numbers cannot become citable even by mistake.
+
+## What gets verified
+
+Three checks exist because the schema's credibility rests on its terms and
+quotes being checkable, not merely well-formed:
+
+- **Ontology terms.** `--check-terms` (on in `just qc`) resolves every
+  `term_id`/`term_label` pair against OAK using `conf/oak_config.yaml`, and
+  errors when a CURIE does not exist or carries a label that is not its own.
+  This is the check that catches the hallucinated-CURIE pattern: an identifier
+  that exists but names something else. Prefixes absent from the OAK config are
+  skipped, matching the rest of the repo.
+- **Quoted evidence.** A `DataItem` citing a fetchable document (`PMID:`,
+  `DOI:`, `NCT`, `ORPHA:`, …) must be a verbatim substring of that document's
+  `references_cache/` file, and the cache file must exist. Without this, an
+  unverified quote could be rendered into a generated `PHENODIST_*.md` and then
+  cited from a kb entry, where `validate-references` would verify it against the
+  cache dismech itself produced — laundering an unverified quote into a
+  validated-looking one.
+- **Stale cache.** `write_cache_files` prunes orphaned `PHENODIST_*.md`, so a
+  renamed or deleted `record_id` cannot leave a citable file behind.
+
 ## Commands
 
 ```bash
@@ -300,6 +337,9 @@ just validate-phenotype-distributions
 # Regenerate references_cache/PHENODIST_*.md for curated collections
 just phenodist-rebuild
 ```
+
+`validate-phenotype-distributions` runs schema validation, the lint, and the OAK
+term check.
 
 The lint catches what LinkML cannot express: duplicate record ids, an
 `evidence_reference` disagreeing with its record, a `target_entry` that does not

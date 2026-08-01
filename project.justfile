@@ -212,7 +212,7 @@ validate-phenotype-distributions:
     fi
     printf 'Validating %s phenotype distribution collection(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{phenodist_schema_path}} --target-class PhenotypeDistributionCollection "${files[@]}"
-    uv run python -m dismech.phenotype_distribution "${files[@]}"
+    uv run python -m dismech.phenotype_distribution --check-terms "${files[@]}"
 
 # Regenerate references_cache/PHENODIST_*.md for curated (kb/) collections.
 # Examples are deliberately excluded: their numbers are synthetic and must not

@@ -231,11 +231,17 @@ event count, or latent phenotype profile in a defined disease cohort. One record
   `references_cache/PHENODIST_<record_id>.md` so a disease entry cites
   `PHENODIST:<record_id>` and quotes a row — same mechanism as `ORPHA:`/`ICEES:`.
   As with every cache file, NEVER hand-write one.
+- Every collection declares `provenance_tier` (`CURATED` / `TOOL_EXPORTED` /
+  `ILLUSTRATIVE`); the renderer refuses to write an `ILLUSTRATIVE` collection
+  into `references_cache/`, so synthetic numbers cannot become citable.
 - `just validate-phenotype-distributions` (part of `just qc`) runs schema
-  validation plus a lint for things LinkML cannot express (duplicate record ids,
-  mismatched `evidence_reference`, unresolvable `target_entry`, matrix dimension
-  mismatch, an interval that fails to bracket its point estimate, a
-  self-contradictory attestation, a frequency band the estimate contradicts).
+  validation, an OAK term check (`--check-terms`, catching a CURIE that exists
+  but names something else), and a lint for things LinkML cannot express
+  (duplicate record ids, mismatched `evidence_reference`, unresolvable
+  `target_entry`, matrix dimension mismatch, an interval that fails to bracket
+  its point estimate, a self-contradictory attestation, a frequency band the
+  estimate contradicts, and a quoted `DataItem` that is not a verbatim substring
+  of its cited reference's cache file).
 - Worked examples live in `examples/phenotype_distributions/` and carry
   **synthetic** numbers; they are excluded from cache rebuild and must never be
   cited. See [`docs/phenotype-distributions.md`](docs/phenotype-distributions.md).

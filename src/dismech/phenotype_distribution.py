@@ -77,6 +77,9 @@ _PROPORTION_MEASURES = {"PHENOTYPE_PROPORTION", "PENETRANCE"}
 #: Estimands that may describe a whole latent mixture rather than one phenotype.
 _MIXTURE_MEASURES = {"LATENT_PHENOTYPE_WEIGHT", "CODE_PROBABILITY"}
 
+#: Document prefixes whose quoted text must be verifiable against the cache.
+_VERIFIABLE_PREFIXES = ("PMID:", "DOI:", "NCT", "ORPHA:", "CGGV:", "CGDS:", "ICEES:")
+
 _yaml = YAML(typ="safe")
 _yaml.allow_duplicate_keys = False
 
@@ -222,6 +225,11 @@ def _check_interval(
     lower = summary.get("interval_lower")
     upper = summary.get("interval_upper")
     point = summary.get("point_estimate")
+    # Degrade to a lint finding rather than a traceback if YAML hands us a
+    # string where a number belongs.
+    for name, val in (("interval_lower", lower), ("interval_upper", upper), ("point_estimate", point)):
+        if val is not None and not isinstance(val, (int, float)):
+            return f"{name} is {val!r}, which is not a number"
     if lower is not None and upper is not None and lower > upper:
         return f"interval bounds are inverted ({lower} > {upper})"
     if point is None:
@@ -234,8 +242,15 @@ def _check_interval(
 
 
 def _implied_band(value: float) -> str | None:
-    """HPO frequency band a proportion falls in, or None if out of range."""
+    """HPO frequency band a proportion falls in, or None if it has none.
+
+    A point estimate of exactly zero has no band: "never observed in this
+    cohort" is a different claim from VERY_RARE's "<5%", and collapsing the two
+    would let a null observation assert a frequency.
+    """
     if value < 0.0 or value > 1.0:
+        return None
+    if value == 0.0:
         return None
     if value >= 1.0:
         return "OBLIGATE"
@@ -245,10 +260,149 @@ def _implied_band(value: float) -> str | None:
     return None
 
 
+def _cache_path_for(document_id: str, cache_dir: Path) -> Path | None:
+    """Cache file a document identifier resolves to, if it is a fetchable one.
+
+    Mirrors the normalization used by ``ReferenceCacheEntry.filename``.
+    """
+    if not any(document_id.startswith(p) for p in _VERIFIABLE_PREFIXES):
+        return None
+    stem = (
+        document_id.replace(":", "_")
+        .replace("/", "_")
+        .replace("?", "_")
+        .replace("=", "_")
+    )
+    return cache_dir / f"{stem}.md"
+
+
+def _check_quoted_items(
+    record: dict[str, Any],
+    cache_dir: Path,
+) -> list[tuple[str, str]]:
+    """Verify quoted evidence items against the reference cache.
+
+    Returns ``(severity, message)`` pairs. A ``DataItem`` that cites a fetchable
+    document is a verbatim quote, and ``render_body`` writes it into the
+    generated PHENODIST cache file. Without this check a curator could later
+    cite ``PHENODIST:<id>`` and quote that rendered row, and
+    ``validate-references`` would verify it happily — laundering an unverified
+    quote into a validated-looking snippet. So the quote is checked here, at the
+    point it enters the system.
+    """
+    out: list[tuple[str, str]] = []
+    for line in record.get("evidence_lines") or []:
+        for item in line.get("has_evidence_items") or []:
+            doc = item.get("reported_in") or {}
+            doc_id = str(doc.get("id") or "")
+            path = _cache_path_for(doc_id, cache_dir)
+            if path is None:
+                continue
+            value = str(item.get("item_value") or "").strip()
+            if not value:
+                continue
+            if not path.exists():
+                out.append(
+                    (
+                        "ERROR",
+                        f"evidence item quotes {doc_id} but {path.name} is not "
+                        "cached; run `just fetch-reference` before citing it",
+                    )
+                )
+                continue
+            body = path.read_text(encoding="utf-8")
+            if _normalize_quote(value) not in _normalize_quote(body):
+                out.append(
+                    (
+                        "ERROR",
+                        f"evidence item quoting {doc_id} is not a verbatim "
+                        f"substring of {path.name}",
+                    )
+                )
+    return out
+
+
+def _normalize_quote(text: str) -> str:
+    """Collapse whitespace so YAML folding does not break substring matching."""
+    return " ".join(text.split())
+
+
+def iter_terms(node: Any, where: str = "record") -> Iterator[tuple[dict, str]]:
+    """Yield every ``{term_id, term_label}`` mapping in a record, with a path."""
+    if isinstance(node, dict):
+        if "term_id" in node and "term_label" in node:
+            yield node, where
+        for key, value in node.items():
+            yield from iter_terms(value, f"{where}.{key}")
+    elif isinstance(node, list):
+        for i, item in enumerate(node):
+            yield from iter_terms(item, f"{where}[{i}]")
+
+
+def check_terms(
+    collections: Iterable[Collection],
+    oak_config: Path = REPO_ROOT / "conf" / "oak_config.yaml",
+) -> list[Issue]:
+    """Verify every ontology term against its authoritative source via OAK.
+
+    This is the check that catches the classic hallucinated-CURIE failure: an
+    identifier that exists but names something else entirely, carrying a label
+    that was never its own. Without it a distribution can assert any CURIE with
+    any label and pass the rest of QC — and since the whole value of this schema
+    is machine-readable, ontology-anchored statistics, that gap would undercut
+    the point of it.
+
+    Prefixes absent from the OAK config are skipped, matching the behaviour of
+    the repo's other term validation.
+    """
+    from oaklib import get_adapter
+
+    with oak_config.open(encoding="utf-8") as fh:
+        adapters_cfg = (_yaml.load(fh) or {}).get("ontology_adapters", {}) or {}
+
+    issues: list[Issue] = []
+    adapters: dict[str, Any] = {}
+    for coll in collections:
+        for record in coll.records:
+            rid = str(record.get("record_id", ""))
+            for term, where in iter_terms(record):
+                term_id = str(term.get("term_id") or "")
+                label = str(term.get("term_label") or "")
+                prefix = term_id.split(":", 1)[0] if ":" in term_id else ""
+                spec = adapters_cfg.get(prefix)
+                if not spec:
+                    continue
+                if prefix not in adapters:
+                    try:
+                        adapters[prefix] = get_adapter(spec)
+                    except Exception as exc:  # pragma: no cover - env dependent
+                        logger.warning("could not load adapter %s: %s", spec, exc)
+                        adapters[prefix] = None
+                adapter = adapters[prefix]
+                if adapter is None:
+                    continue
+                actual = adapter.label(term_id)
+                if actual is None:
+                    issues.append(
+                        Issue(coll.path, rid, "ERROR", f"{where}: {term_id} does not exist")
+                    )
+                elif actual != label:
+                    issues.append(
+                        Issue(
+                            coll.path,
+                            rid,
+                            "ERROR",
+                            f"{where}: {term_id} is {actual!r}, not {label!r}",
+                        )
+                    )
+    return issues
+
+
 def lint_record(
     coll: Collection,
     record: dict[str, Any],
     known_entries: dict[str, set[str]],
+    cache_dir: Path = DEFAULT_CACHE_DIR,
 ) -> list[Issue]:
     """Lint one record. Returns the issues found."""
     rid = str(record.get("record_id", ""))
@@ -361,6 +515,9 @@ def lint_record(
                 "`binding_notes` explaining why"
             )
 
+    for severity, message in _check_quoted_items(record, cache_dir):
+        out.append(Issue(coll.path, rid, severity, message))
+
     if not record.get("bias_risks") and not record.get("caveats"):
         warn(
             "record declares neither `bias_risks` nor `caveats`; 'nobody checked' "
@@ -383,7 +540,10 @@ def _iter_attestations(node: Any, where: str = "record") -> Iterator[tuple[dict,
             yield from _iter_attestations(item, f"{where}[{i}]")
 
 
-def lint_collections(collections: Iterable[Collection]) -> LintResult:
+def lint_collections(
+    collections: Iterable[Collection],
+    cache_dir: Path = DEFAULT_CACHE_DIR,
+) -> LintResult:
     """Lint a set of collections, including cross-collection id uniqueness."""
     collections = list(collections)
     known_entries = {kind: _entry_names(d) for kind, d in _TARGET_DIRS.items()}
@@ -405,7 +565,7 @@ def lint_collections(collections: Iterable[Collection]) -> LintResult:
             )
         else:
             seen[rid] = coll.path
-        result.issues.extend(lint_record(coll, record, known_entries))
+        result.issues.extend(lint_record(coll, record, known_entries, cache_dir))
 
     return result
 
@@ -429,8 +589,12 @@ def _fmt(value: Any) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, float):
-        text = f"{value:.6g}"
-        return text
+        # `repr` gives the shortest string that round-trips, so a tight alpha or
+        # a small p-value is not silently truncated in the row curators cite.
+        # Integral floats render without the trailing `.0`.
+        if value.is_integer() and abs(value) < 1e16:
+            return str(int(value))
+        return repr(value)
     return str(value).replace("\n", " ").replace("|", r"\|").strip()
 
 
@@ -742,7 +906,7 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
         ):
             if tte.get(key) is not None:
                 lines.append(_row([label, tte.get(key)]))
-        if tte.get("interval_lower") is not None:
+        if tte.get("interval_lower") is not None or tte.get("interval_upper") is not None:
             lines.append(_row(["Interval", _interval_text(tte)]))
         lines.append("")
         if tte.get("curve"):
@@ -799,7 +963,10 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
         ):
             if comparison.get(key) is not None:
                 lines.append(_row([label, comparison.get(key)]))
-        if comparison.get("interval_lower") is not None:
+        if (
+            comparison.get("interval_lower") is not None
+            or comparison.get("interval_upper") is not None
+        ):
             lines.append(_row(["Interval", _interval_text(comparison)]))
         if comparison.get("adjusted_for"):
             lines.append(_row(["Adjusted for", "; ".join(comparison["adjusted_for"])]))
@@ -998,8 +1165,26 @@ def cache_entry(coll: Collection, record: dict[str, Any]) -> ReferenceCacheEntry
 def write_cache_files(
     collections: Iterable[Collection],
     cache_dir: Path = DEFAULT_CACHE_DIR,
-) -> list[Path]:
-    """Write one cache file per record. Returns the written paths."""
+    prune: bool = True,
+) -> tuple[list[Path], list[Path]]:
+    """Write one cache file per record, pruning orphans.
+
+    Returns ``(written, pruned)``. Pruning matters because a renamed or deleted
+    ``record_id`` would otherwise leave its old ``PHENODIST_<old_id>.md`` in the
+    cache forever, still resolvable and still citable from a kb entry — a
+    citation to a record that no longer exists.
+    """
+    collections = list(collections)
+    illustrative = [
+        c.path.name for c in collections if c.data.get("provenance_tier") == "ILLUSTRATIVE"
+    ]
+    if illustrative:
+        raise ValueError(
+            "refusing to render ILLUSTRATIVE collections into the reference "
+            f"cache: {', '.join(sorted(illustrative))}. Synthetic numbers must "
+            "never become citable."
+        )
+
     written: list[Path] = []
     cache_dir.mkdir(parents=True, exist_ok=True)
     for coll, record in iter_records(collections):
@@ -1013,7 +1198,15 @@ def write_cache_files(
         tmp.write_text(text, encoding="utf-8")
         tmp.replace(path)
         written.append(path)
-    return written
+
+    pruned: list[Path] = []
+    if prune:
+        keep = {p.name for p in written}
+        for stale in sorted(cache_dir.glob(f"{PREFIX}_*.md")):
+            if stale.name not in keep:
+                stale.unlink()
+                pruned.append(stale)
+    return written, pruned
 
 
 # ---------------------------------------------------------------------------
@@ -1046,6 +1239,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Cache directory to write into.",
     )
     parser.add_argument(
+        "--check-terms",
+        action="store_true",
+        help=(
+            "Also verify every ontology term against OAK. Off by default "
+            "because it needs the ontology databases; on in `just qc`."
+        ),
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit nonzero on warnings as well as errors.",
@@ -1058,6 +1259,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     result = lint_collections(collections)
+    if args.check_terms:
+        result.issues.extend(check_terms(collections))
     for issue in result.issues:
         print(issue.format())
 
@@ -1071,8 +1274,10 @@ def main(argv: list[str] | None = None) -> int:
         if result.errors:
             print("Refusing to write cache files while errors remain.")
             return 1
-        paths = write_cache_files(collections, args.cache_dir)
+        paths, pruned = write_cache_files(collections, args.cache_dir)
         print(f"Wrote {len(paths)} cache file(s) to {args.cache_dir}.")
+        for stale in pruned:
+            print(f"Pruned orphaned cache file {stale.name}")
 
     if result.errors:
         return 1

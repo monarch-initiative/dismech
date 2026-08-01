@@ -40,6 +40,15 @@ def _all_paths() -> list[Path]:
     return sorted(EXAMPLES_DIR.glob("*.yaml")) + sorted(KB_DIR.glob("*.yaml"))
 
 
+def _renderable_collections():
+    """Collections the cache renderer will accept (everything not illustrative)."""
+    return [
+        c
+        for c in discover_collections(_all_paths())
+        if c.data.get("provenance_tier") != "ILLUSTRATIVE"
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Schema
 # ---------------------------------------------------------------------------
@@ -86,18 +95,34 @@ def test_model_layer_stays_at_the_common_denominator() -> None:
     sv = SchemaView(str(SCHEMA_PATH))
     assert "ModelProperty" in sv.all_classes()
     model_slots = set(sv.class_slots("LatentPhenotypeModel"))
-    assert "model_properties" in model_slots
-    # Structure belonging to one family must not have become a first-class slot.
-    family_specific = {
-        "gating",
-        "group_variable",
-        "groups",
-        "group_proportions",
-        "background_only_proportion",
-        "topic_blocks",
-        "eta_scale",
+    # An allowlist, not a denylist: a denylist only catches the family-specific
+    # slot names someone thought of today, and says nothing about the one added
+    # next year. Adding a slot here should require justifying it as common to
+    # every model class.
+    allowed = {
+        "model_name",
+        "model_family",
+        "version",
+        "n_components",
+        "component_count_inferred",
+        "vocabulary_size",
+        "covariate_formula",
+        "inference_method",
+        "hyperparameters",
+        "model_properties",
+        "training_cohort",
+        "fit_metrics",
+        "contains_patient_data",
+        "artifact_url",
+        "sha256",
+        "software",
+        "description",
+        "notes",
     }
-    assert not (model_slots & family_specific)
+    assert model_slots == allowed, (
+        "LatentPhenotypeModel slots changed; family-specific structure belongs "
+        f"in model_properties. Unexpected: {sorted(model_slots - allowed)}"
+    )
 
 
 @pytest.mark.parametrize("path", _all_paths(), ids=lambda p: p.name)
@@ -289,17 +314,126 @@ def test_suppressed_bins_render_distinguishably_from_zero() -> None:
     assert not set(suppressed) & set(reported_zero)
 
 
+def test_illustrative_collections_cannot_be_rendered_into_the_cache(
+    tmp_path: Path,
+) -> None:
+    """Synthetic numbers must not be able to become citable, even by mistake."""
+    illustrative = [
+        c
+        for c in discover_collections(_all_paths())
+        if c.data.get("provenance_tier") == "ILLUSTRATIVE"
+    ]
+    assert illustrative, "expected at least one illustrative example collection"
+    with pytest.raises(ValueError, match="ILLUSTRATIVE"):
+        write_cache_files(illustrative, tmp_path)
+    assert not list(tmp_path.glob("*.md"))
+
+
+def test_write_cache_files_prunes_orphaned_records(tmp_path: Path) -> None:
+    """A renamed or deleted record must not leave a citable cache file behind."""
+    collections = _renderable_collections()
+    write_cache_files(collections, tmp_path)
+    orphan = tmp_path / "PHENODIST_GONE-FOREVER-001.md"
+    orphan.write_text("---\nreference_id: x\n---\n", encoding="utf-8")
+    _written, pruned = write_cache_files(collections, tmp_path)
+    assert orphan.name in {p.name for p in pruned}
+    assert not orphan.exists()
+
+
+def test_lint_rejects_a_quote_not_in_the_cited_reference(
+    cf_collection_path: Path,
+) -> None:
+    """Blocks laundering an unverified quote through the PHENODIST cache."""
+
+    def mutate(data):
+        line = data["distributions"][0]["evidence_lines"][1]
+        line["has_evidence_items"][0]["item_value"] = "This sentence is not in the paper."
+
+    assert "not a verbatim substring" in _error_messages(
+        _mutate(cf_collection_path, mutate)
+    )
+
+
+def test_lint_rejects_a_quote_whose_reference_is_not_cached(
+    cf_collection_path: Path,
+) -> None:
+    def mutate(data):
+        line = data["distributions"][0]["evidence_lines"][1]
+        line["has_evidence_items"][0]["reported_in"]["id"] = "PMID:99999999"
+
+    assert "is not cached" in _error_messages(_mutate(cf_collection_path, mutate))
+
+
+def test_zero_point_estimate_implies_no_frequency_band() -> None:
+    """"Never observed" is a different claim from "<5%"."""
+    from dismech.phenotype_distribution import _implied_band
+
+    assert _implied_band(0.0) is None
+    assert _implied_band(0.01) == "VERY_RARE"
+    assert _implied_band(1.0) == "OBLIGATE"
+
+
+def test_float_rendering_does_not_truncate_precision() -> None:
+    """The quotable row must not silently round a tight parameter."""
+    from dismech.phenotype_distribution import _fmt
+
+    assert _fmt(5.272386501517754) == "5.272386501517754"
+    assert _fmt(1.5071340388291068e-38) == "1.5071340388291068e-38"
+    assert _fmt(1070.0) == "1070"
+
+
+def _hp_db_available() -> bool:
+    """Whether the local OAK HPO database is already downloaded."""
+    return (Path.home() / ".data" / "oaklib" / "hp.db").exists()
+
+
+@pytest.mark.skipif(not _hp_db_available(), reason="OAK HPO database not present")
+def test_term_check_catches_a_wrong_curie(cf_collection_path: Path) -> None:
+    """The regression guard for the CURIE that slipped through review.
+
+    HP:0410017 is "Otitis externa". It reached this PR because nothing
+    term-validated the new collections — `validate-terms-all` is hardcoded to
+    `kb/disorders` with `-t Disease`.
+    """
+    from dismech.phenotype_distribution import check_terms
+
+    def mutate(data):
+        def walk(node):
+            if isinstance(node, dict):
+                if node.get("term_id") == "HP:0012236":
+                    node["term_id"] = "HP:0410017"
+                for v in node.values():
+                    walk(v)
+            elif isinstance(node, list):
+                for i in node:
+                    walk(i)
+
+        walk(data)
+
+    issues = check_terms([_mutate(cf_collection_path, mutate)])
+    assert issues, "term check failed to flag a known-wrong CURIE"
+    assert any("Otitis externa" in i.message for i in issues)
+
+
+@pytest.mark.skipif(not _hp_db_available(), reason="OAK HPO database not present")
+def test_example_terms_are_all_valid() -> None:
+    from dismech.phenotype_distribution import check_terms
+
+    issues = check_terms(discover_collections(_all_paths()))
+    assert not issues, [i.format() for i in issues]
+
+
 def test_written_cache_files_satisfy_the_frontmatter_contract(
     tmp_path: Path,
 ) -> None:
-    collections = discover_collections(_all_paths())
-    written = write_cache_files(collections, tmp_path)
+    collections = _renderable_collections()
+    written, _pruned = write_cache_files(collections, tmp_path)
     assert written
     assert frontmatter_main([str(tmp_path)]) == 0
 
 
 def test_write_cache_files_is_idempotent(tmp_path: Path) -> None:
-    collections = discover_collections(_all_paths())
+    collections = _renderable_collections()
     write_cache_files(collections, tmp_path)
     first = {p.name: p.read_bytes() for p in tmp_path.glob("*.md")}
     write_cache_files(collections, tmp_path)
@@ -308,7 +442,7 @@ def test_write_cache_files_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_no_temporary_files_left_behind(tmp_path: Path) -> None:
-    write_cache_files(discover_collections(_all_paths()), tmp_path)
+    write_cache_files(_renderable_collections(), tmp_path)
     assert not list(tmp_path.glob("*.tmp"))
 
 
