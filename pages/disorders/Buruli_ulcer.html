@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -526,7 +645,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -2983,6 +3101,49 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
 
 
@@ -3074,7 +3235,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Buruli%20ulcer"
@@ -3232,7 +3393,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3310,7 +3471,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mycobacterial-rna-polymerase-rifampicin-target" data-dismech-node="Mycobacterial RNA Polymerase (Rifampicin Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Mycobacterial RNA Polymerase (Rifampicin Target)</div>
 
-                <div class="item-desc">Mycobacterium ulcerans depends on DNA-dependent RNA polymerase for transcription. Rifampicin, the backbone of WHO-recommended antimycobacterial therapy (with clarithromycin or streptomycin), binds the RpoB beta subunit and blocks RNA elongation; because single rpoB mutations confer high-level resistance, it is given in combination.</div>
+                <div class="item-desc">Mycobacterium ulcerans depends on DNA-dependent RNA polymerase for transcription. Rifampicin, the backbone of WHO-recommended antimycobacterial therapy with clarithromycin, binds the RpoB beta subunit and blocks RNA elongation; because single rpoB mutations confer high-level resistance, it is given in combination.</div>
 
 
 
@@ -3413,6 +3574,21 @@
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Skin ulcer</span>
+
+	                            <span class="crosslink-desc">Mycolactone-driven tissue destruction produces the characteristic deep skin ulcer.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -3429,6 +3605,8 @@
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -3473,7 +3651,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antimycobacterial therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antimycobacterial therapy is effective for early lesions.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rifampicin\"]}}, {\"id\": \"Mycobacterial RNA Polymerase (Rifampicin Target)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mycobacterium ulcerans depends on DNA-dependent RNA polymerase for transcription. Rifampicin, the backbone of WHO-recommended antimycobacterial therapy (with clarithromycin or streptomycin), binds the RpoB beta subunit and blocks RNA elongation; because single rpoB mutations confer high-level resistance, it is given in combination.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA-Templated Transcription\"], \"role\": \"therapeutic_vulnerability\"}}], \"edges\": [{\"source\": \"Antimycobacterial therapy\", \"target\": \"Mycobacterial RNA Polymerase (Rifampicin Target)\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antimycobacterial therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Eight weeks of rifampicin-based dual oral antibiotic therapy, combined with clarithromycin or a fluoroquinolone, is the contemporary standard treatment.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rifampicin\", \"clarithromycin\"]}}, {\"id\": \"Mycobacterial RNA Polymerase (Rifampicin Target)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mycobacterium ulcerans depends on DNA-dependent RNA polymerase for transcription. Rifampicin, the backbone of WHO-recommended antimycobacterial therapy with clarithromycin, binds the RpoB beta subunit and blocks RNA elongation; because single rpoB mutations confer high-level resistance, it is given in combination.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA-Templated Transcription\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Mycolactone-mediated tissue destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mycolactone toxin leads to subcutaneous tissue destruction and immunosuppression, producing deep ulcers.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Skin ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200042\"}}], \"edges\": [{\"source\": \"Mycolactone-mediated tissue destruction\", \"target\": \"Skin ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mycolactone-driven tissue destruction produces the characteristic deep skin ulcer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antimycobacterial therapy\", \"target\": \"Mycobacterial RNA Polymerase (Rifampicin Target)\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3530,6 +3708,8 @@
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -3616,11 +3796,23 @@
 
                     </span>
 
+                    <span class="tag tag-treatment">
+                        clarithromycin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3732" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3732">CHEBI:3732</a>
+
+
+
+                    </span>
+
                 </div>
 
 
 
-                <div class="item-desc">Antimycobacterial therapy is effective for early lesions.</div>
+                <div class="item-desc">Eight weeks of rifampicin-based dual oral antibiotic therapy, combined with clarithromycin or a fluoroquinolone, is the contemporary standard treatment.</div>
 
 
                 <div class="item-meta" style="margin-top: 8px;">
@@ -3635,6 +3827,38 @@
                         <span style="color: #7c3aed;"> &mdash; Rifampicin binds the M. ulcerans RpoB subunit and blocks transcription.</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32342856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32342856" target="_blank">PMID:32342856</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most clinically important and extensively studied class of antibiotics known to inhibit bacterial RNAP are the rifamycins."</div>
+
+
+                <div class="evidence-explanation">This directly supports rifamycin inhibition of bacterial RNA polymerase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                     </div>
@@ -3651,21 +3875,23 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21240839" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.5694/mja2.52591" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21240839" target="_blank">PMID:21240839</a>
+                        <a href="https://bioregistry.io/DOI:10.5694/mja2.52591" target="_blank">DOI:10.5694/mja2.52591</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
 
-                <div class="evidence-snippet">"While antimycobacterial therapy is often effective for the earliest nodular or ulcerative lesions"</div>
+                <div class="evidence-snippet">"There is high quality evidence to support treatment of eight weeks’ duration using rifampicin-based dual oral antibiotic therapy, in combination with clarithromycin or a fluoroquinolone"</div>
 
 
-                <div class="evidence-explanation">The abstract describes antimycobacterial therapy effectiveness in early lesions.</div>
+                <div class="evidence-explanation">The 2025 consensus statement supports the current oral dual-antibiotic regimen.</div>
 
 
 
@@ -3713,7 +3939,7 @@
 
 
 
-                <div class="item-desc">Surgery may be required for advanced ulcerated lesions.</div>
+                <div class="item-desc">Surgery is usually not required but can be used selectively to shorten healing, reduce antibiotic exposure, or manage paradoxical reactions.</div>
 
 
 
@@ -3726,21 +3952,23 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21240839" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.5694/mja2.52591" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21240839" target="_blank">PMID:21240839</a>
+                        <a href="https://bioregistry.io/DOI:10.5694/mja2.52591" target="_blank">DOI:10.5694/mja2.52591</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
 
-                <div class="evidence-snippet">"for advanced ulcerated lesions, surgery is sometimes necessary."</div>
+                <div class="evidence-snippet">"Surgical management is usually not required, but may be beneficial to reduce healing times, avoid or reduce the duration of antibiotics, and manage paradoxical reactions."</div>
 
 
-                <div class="evidence-explanation">The abstract notes surgery for advanced lesions.</div>
+                <div class="evidence-explanation">The 2025 consensus statement defines the current adjunctive role of surgery.</div>
 
 
 
@@ -3790,7 +4018,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Buruli ulcer
 creation_date: &#39;2026-01-26T15:56:41Z&#39;
-updated_date: &#39;2026-04-11T01:06:52Z&#39;
+updated_date: &#39;2026-07-30T19:45:00Z&#39;
 category: Infectious Disease
 description: &gt;-
   Buruli ulcer is an indolent necrotizing disease of the skin and subcutaneous
@@ -3823,7 +4051,7 @@ pathophysiology:
   description: &gt;-
     Mycobacterium ulcerans depends on DNA-dependent RNA polymerase for
     transcription. Rifampicin, the backbone of WHO-recommended antimycobacterial
-    therapy (with clarithromycin or streptomycin), binds the RpoB beta subunit and
+    therapy with clarithromycin, binds the RpoB beta subunit and
     blocks RNA elongation; because single rpoB mutations confer high-level
     resistance, it is given in combination.
   role: therapeutic_vulnerability
@@ -3835,6 +4063,7 @@ pathophysiology:
       label: DNA-templated transcription
   evidence:
   - reference: PMID:32342856
+    reference_title: &#34;Inhibition of RNA Polymerase by Rifampicin and Rifamycin-Like Molecules.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -3849,8 +4078,20 @@ pathophysiology:
   - reference: PMID:30429139
     reference_title: &#34;Cutaneous Mycobacterial Infections.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Mycobacterium ulcerans produces a mycolactone toxin that leads to subcutaneous tissue destruction and immunosuppression, resulting in deep ulcerations&#34;
     explanation: The abstract links mycolactone to tissue destruction and ulceration.
+  downstream:
+  - target: Skin ulcer
+    description: Mycolactone-driven tissue destruction produces the characteristic deep skin ulcer.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:30429139
+      reference_title: &#34;Cutaneous Mycobacterial Infections.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Mycobacterium ulcerans produces a mycolactone toxin that leads to subcutaneous tissue destruction and immunosuppression, resulting in deep ulcerations&#34;
+      explanation: The review directly links mycolactone-mediated tissue destruction to deep ulceration.
 phenotypes:
 - name: Skin ulcer
   category: Dermatologic
@@ -3864,11 +4105,14 @@ phenotypes:
   - reference: PMID:19362692
     reference_title: &#34;Buruli ulcer.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Buruli ulcer is an indolent necrotizing disease of the skin, subcutaneous tissue, and bone&#34;
     explanation: The disease is defined by necrotizing skin disease with ulceration.
 treatments:
 - name: Antimycobacterial therapy
-  description: Antimycobacterial therapy is effective for early lesions.
+  description: &gt;-
+    Eight weeks of rifampicin-based dual oral antibiotic therapy, combined with
+    clarithromycin or a fluoroquinolone, is the contemporary standard treatment.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -3879,30 +4123,53 @@ treatments:
       term:
         id: CHEBI:28077
         label: rifampicin
+    - preferred_term: clarithromycin
+      term:
+        id: CHEBI:3732
+        label: clarithromycin
   therapeutic_modality: SMALL_MOLECULE
   target_mechanisms:
   - target: Mycobacterial RNA Polymerase (Rifampicin Target)
     description: &gt;-
       Rifampicin binds the M. ulcerans RpoB subunit and blocks transcription.
+    evidence:
+    - reference: PMID:32342856
+      reference_title: &#34;Inhibition of RNA Polymerase by Rifampicin and Rifamycin-Like Molecules.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        The most clinically important and extensively studied class of antibiotics
+        known to inhibit bacterial RNAP are the rifamycins.
+      explanation: This directly supports rifamycin inhibition of bacterial RNA polymerase.
   evidence:
-  - reference: PMID:21240839
-    reference_title: &#34;Buruli ulcer: a review of in vitro tests to screen natural products for activity against Mycobacterium ulcerans.&#34;
+  - reference: DOI:10.5694/mja2.52591
+    reference_title: &#34;Management of Mycobacterium ulcerans infection (Buruli ulcer) in Australia: consensus statement&#34;
     supports: SUPPORT
-    snippet: &#34;While antimycobacterial therapy is often effective for the earliest nodular or ulcerative lesions&#34;
-    explanation: The abstract describes antimycobacterial therapy effectiveness in early lesions.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      There is high quality evidence to support treatment of eight weeks’
+      duration using rifampicin-based dual oral antibiotic therapy, in
+      combination with clarithromycin or a fluoroquinolone
+    explanation: The 2025 consensus statement supports the current oral dual-antibiotic regimen.
 - name: Surgical management
-  description: Surgery may be required for advanced ulcerated lesions.
+  description: &gt;-
+    Surgery is usually not required but can be used selectively to shorten
+    healing, reduce antibiotic exposure, or manage paradoxical reactions.
   treatment_term:
     preferred_term: Surgical Management
     term:
       id: NCIT:C16080
       label: Surgical Management
   evidence:
-  - reference: PMID:21240839
-    reference_title: &#34;Buruli ulcer: a review of in vitro tests to screen natural products for activity against Mycobacterium ulcerans.&#34;
+  - reference: DOI:10.5694/mja2.52591
+    reference_title: &#34;Management of Mycobacterium ulcerans infection (Buruli ulcer) in Australia: consensus statement&#34;
     supports: SUPPORT
-    snippet: &#34;for advanced ulcerated lesions, surgery is sometimes necessary.&#34;
-    explanation: The abstract notes surgery for advanced lesions.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Surgical management is usually not required, but may be beneficial to
+      reduce healing times, avoid or reduce the duration of antibiotics, and
+      manage paradoxical reactions.
+    explanation: The 2025 consensus statement defines the current adjunctive role of surgery.
 references:
 - reference: DOI:10.1016/j.heliyon.2023.e22018
   title: &#39;Buruli ulcer in Africa: Geographical distribution, ecology, risk factors, diagnosis, and indigenous plant treatment options – A comprehensive review&#39;
@@ -5528,6 +5795,11 @@ references:
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Buruli_Ulcer.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -5568,7 +5840,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Buruli ulcer", "mondoId": "MONDO:0000327", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Buruli_ulcer", "yamlRevision": "0abd61a5cc01"};
+        const OS_CONFIG = {"diseaseName": "Buruli ulcer", "mondoId": "MONDO:0000327", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Buruli_ulcer", "yamlRevision": "6244454c0122"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

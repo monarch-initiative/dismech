@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -526,7 +645,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -2983,6 +3101,49 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
 
 
@@ -3938,56 +4099,6 @@
 
 
 
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39337637" data-dismech-supports="NO_EVIDENCE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39337637" target="_blank">PMID:39337637</a>
-                    </span>
-
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Many skin diseases begin with inflammatory changes on a molecular level."</div>
-
-
-                <div class="evidence-explanation">Inflammatory changes at the molecular level drive keratinocyte hyperproliferation in psoriasis, linking inflammation to cellular proliferation.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39576422" data-dismech-supports="NO_EVIDENCE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39576422" target="_blank">PMID:39576422</a>
-                    </span>
-
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Psoriasis represents a chronic autoimmune skin condition defined by various clinical forms, including inverse, erythrodermic, pustular, guttate, plaque types."</div>
-
-
-                <div class="evidence-explanation">The chronic autoimmune nature of psoriasis results in persistent inflammatory signaling that drives sustained keratinocyte hyperproliferation, manifesting as the characteristic plaque types.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
 
 	            </div>
 
@@ -4405,7 +4516,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
@@ -4424,26 +4535,6 @@
 
 
                 <div class="evidence-explanation">This confirms IL-23 as the hierarchically dominant regulatory cytokine in psoriasis, supporting its central role in the IL-23/IL-17 axis and why it is the major therapeutic target.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39337637" data-dismech-supports="NO_EVIDENCE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39337637" target="_blank">PMID:39337637</a>
-                    </span>
-
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Many skin diseases begin with inflammatory changes on a molecular level."</div>
-
-
-                <div class="evidence-explanation">This establishes that inflammatory molecular mechanisms are fundamental to skin disease pathogenesis, consistent with the IL-23/IL-17 inflammatory axis driving psoriasis.</div>
 
 
 
@@ -4762,7 +4853,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AP1S3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype risk factor\"}}, {\"id\": \"CARD14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Causative\"}}, {\"id\": \"Dendritic Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasmacytoid and myeloid dendritic cells produce inflammatory cytokines and present antigens to activate T cells, initiating and perpetuating the inflammatory cascade.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dendritic Cell\"]}}, {\"id\": \"IL-12/23 Inhibitor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ustekinumab targets shared p40 subunit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IL-17 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Secukinumab, ixekizumab - highly effective targeted therapy.\"}, {\"id\": \"IL-23 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Guselkumab, risankizumab - high efficacy with infrequent dosing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IL-23/IL-17 Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-23 produced by dendritic cells drives Th17 cell differentiation and IL-17 production. This axis is the major therapeutic target in modern psoriasis treatment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T-helper 17 cell\", \"Dendritic cell\"], \"biological_processes\": [\"Cytokine Signaling\", \"T-helper 17 type immune response\"], \"genes\": [\"IL12B\", \"IL23R\", \"TYK2\", \"TRAF3IP2\", \"STAT3\"], \"gene_terms\": [{\"label\": \"IL12B\", \"id\": \"hgnc:5970\"}, {\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}, {\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}, {\"label\": \"TRAF3IP2\", \"id\": \"hgnc:1343\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}]}}, {\"id\": \"IL-36 Keratinocyte Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In pustular psoriasis, keratinocyte-derived IL-36 signaling amplifies chemokine production, recruits neutrophils, and sustains sterile pustule formation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Keratinocyte\", \"Neutrophil\"], \"biological_processes\": [\"Inflammatory Response\", \"Neutrophil Chemotaxis\"], \"genes\": [\"IL36RN\", \"IL1RL2\", \"AP1S3\"], \"gene_terms\": [{\"label\": \"IL36RN\", \"id\": \"hgnc:15561\"}, {\"label\": \"IL1RL2\", \"id\": \"hgnc:5999\"}, {\"label\": \"AP1S3\", \"id\": \"hgnc:18971\"}], \"subtypes\": [\"Pustular Psoriasis\"]}}, {\"id\": \"IL12B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"IL1RL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype pathway gene\"}}, {\"id\": \"IL23R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"IL36RN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype risk factor\"}}, {\"id\": \"JAK Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral therapy option (deucravacitinib - TYK2 inhibitor).\"}, {\"id\": \"Keratinocyte Hyperproliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines stimulate rapid keratinocyte proliferation, reducing epidermal turnover from 28 days to 3-4 days. This produces characteristic thick, scaly plaques.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Cell Proliferation\"], \"genes\": [\"CARD14\"], \"gene_terms\": [{\"label\": \"CARD14\", \"id\": \"hgnc:16446\"}]}}, {\"id\": \"Pustules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pustular Psoriasis\"], \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0200039\"}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"Spesolimab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-in-class IL-36 receptor inhibitor approved for generalized pustular psoriasis flares.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"T Cell-Mediated Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated T cells (Th1, Th17, Th22) infiltrate skin and release cytokines including IL-17, IL-22, TNF-alpha, and IFN-gamma that drive keratinocyte hyperproliferation and inflammation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T Helper 17 Cell\", \"T Helper 1 Cell\"], \"biological_processes\": [\"T Cell Activation\"]}}, {\"id\": \"TRAF3IP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"GWAS\"}}, {\"id\": \"TYK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"GWAS\"}}], \"edges\": [{\"source\": \"T Cell-Mediated Inflammation\", \"target\": \"Keratinocyte Hyperproliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Effector cytokines from activated T cells drive keratinocyte proliferation and plaque formation.\"}, {\"source\": \"Dendritic Cell Activation\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dendritic-cell-derived IL-23 initiates the central psoriatic cytokine circuit.\"}, {\"source\": \"IL-23/IL-17 Axis\", \"target\": \"T Cell-Mediated Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-23 expands IL-17-producing T-cell responses that sustain plaque inflammation.\"}, {\"source\": \"IL-36 Keratinocyte Activation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-36-driven neutrophilic inflammation produces sterile pustules.\"}, {\"source\": \"IL-17 Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-23 Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-12/23 Inhibitor\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"JAK Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Spesolimab\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL12B\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL23R\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TYK2\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRAF3IP2\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CARD14\", \"target\": \"Keratinocyte Hyperproliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL36RN\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL1RL2\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AP1S3\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AP1S3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype risk factor\"}}, {\"id\": \"CARD14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Causative\"}}, {\"id\": \"Dendritic Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasmacytoid and myeloid dendritic cells produce inflammatory cytokines and present antigens to activate T cells, initiating and perpetuating the inflammatory cascade.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dendritic Cell\"]}}, {\"id\": \"IL-12/23 Inhibitor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ustekinumab targets shared p40 subunit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IL-17 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Secukinumab, ixekizumab - highly effective targeted therapy.\"}, {\"id\": \"IL-23 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Guselkumab, risankizumab - high efficacy with infrequent dosing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IL-23/IL-17 Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-23 produced by dendritic cells drives Th17 cell differentiation and IL-17 production. This axis is the major therapeutic target in modern psoriasis treatment.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T-helper 17 cell\", \"Dendritic cell\"], \"biological_processes\": [\"Cytokine Signaling\", \"T-helper 17 type immune response\"], \"genes\": [\"IL12B\", \"IL23R\", \"TYK2\", \"TRAF3IP2\", \"STAT3\"], \"gene_terms\": [{\"label\": \"IL12B\", \"id\": \"hgnc:5970\"}, {\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}, {\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}, {\"label\": \"TRAF3IP2\", \"id\": \"hgnc:1343\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}]}}, {\"id\": \"IL-36 Keratinocyte Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In pustular psoriasis, keratinocyte-derived IL-36 signaling amplifies chemokine production, recruits neutrophils, and sustains sterile pustule formation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Keratinocyte\", \"Neutrophil\"], \"biological_processes\": [\"Inflammatory Response\", \"Neutrophil Chemotaxis\"], \"genes\": [\"IL36RN\", \"IL1RL2\", \"AP1S3\"], \"gene_terms\": [{\"label\": \"IL36RN\", \"id\": \"hgnc:15561\"}, {\"label\": \"IL1RL2\", \"id\": \"hgnc:5999\"}, {\"label\": \"AP1S3\", \"id\": \"hgnc:18971\"}], \"subtypes\": [\"Pustular Psoriasis\"]}}, {\"id\": \"IL12B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"IL1RL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype pathway gene\"}}, {\"id\": \"IL23R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"IL36RN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype risk factor\"}}, {\"id\": \"JAK Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral therapy option (deucravacitinib - TYK2 inhibitor).\"}, {\"id\": \"Keratinocyte Hyperproliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines stimulate rapid keratinocyte proliferation, reducing epidermal turnover from 28 days to 3-4 days. This produces characteristic thick, scaly plaques.\\n\", \"meta\": {\"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Cell Proliferation\"], \"genes\": [\"CARD14\"], \"gene_terms\": [{\"label\": \"CARD14\", \"id\": \"hgnc:16446\"}]}}, {\"id\": \"Pustules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pustular Psoriasis\"], \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0200039\"}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"Spesolimab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-in-class IL-36 receptor inhibitor approved for generalized pustular psoriasis flares.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"T Cell-Mediated Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated T cells (Th1, Th17, Th22) infiltrate skin and release cytokines including IL-17, IL-22, TNF-alpha, and IFN-gamma that drive keratinocyte hyperproliferation and inflammation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T Helper 17 Cell\", \"T Helper 1 Cell\"], \"biological_processes\": [\"T Cell Activation\"]}}, {\"id\": \"TRAF3IP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"GWAS\"}}, {\"id\": \"TYK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"GWAS\"}}], \"edges\": [{\"source\": \"T Cell-Mediated Inflammation\", \"target\": \"Keratinocyte Hyperproliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Effector cytokines from activated T cells drive keratinocyte proliferation and plaque formation.\"}, {\"source\": \"Dendritic Cell Activation\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dendritic-cell-derived IL-23 initiates the central psoriatic cytokine circuit.\"}, {\"source\": \"IL-23/IL-17 Axis\", \"target\": \"T Cell-Mediated Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-23 expands IL-17-producing T-cell responses that sustain plaque inflammation.\"}, {\"source\": \"IL-36 Keratinocyte Activation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-36-driven neutrophilic inflammation produces sterile pustules.\"}, {\"source\": \"IL-17 Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-23 Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-12/23 Inhibitor\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"JAK Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Spesolimab\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL12B\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL23R\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TYK2\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRAF3IP2\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CARD14\", \"target\": \"Keratinocyte Hyperproliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL36RN\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL1RL2\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AP1S3\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4992,13 +5083,13 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31491865" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:31491865" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31491865" target="_blank">PMID:31491865</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5008,7 +5099,7 @@
                 <div class="evidence-snippet">"Drug-related psoriasis would manifest as plaque psoriasis, palmoplantar psoriasis, nail psoriasis, scalp psoriasis, pustular psoriasis, and erythrodermic psoriasis"</div>
 
 
-                <div class="evidence-explanation">Erythrodermic psoriasis is recognized as a distinct clinical manifestation of psoriasis.</div>
+                <div class="evidence-explanation">Names erythrodermic psoriasis among recognized clinical forms of the disease. Partial because the sentence describes the morphologic spectrum in the specific context of drug-related psoriasis and gives no frequency for erythroderma overall.</div>
 
 
 
@@ -5544,13 +5635,13 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36745557" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:36745557" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36745557" target="_blank">PMID:36745557</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5560,7 +5651,7 @@
                 <div class="evidence-snippet">"Pooled effect estimates suggest that female sex and psoriatic arthritis were associated with depression"</div>
 
 
-                <div class="evidence-explanation">Meta-analysis confirming significant association between psoriasis and depression, with psoriatic arthritis as an additional risk factor.</div>
+                <div class="evidence-explanation">Meta-analysis identifies female sex and psoriatic arthritis as factors associated with depression among people with psoriasis. Partial because it characterizes risk within the psoriasis population and does not itself establish excess depression prevalence versus the general population.</div>
 
 
 
@@ -6091,21 +6182,23 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38686385" data-dismech-supports="NO_EVIDENCE">
+            <div class="evidence-item" data-dismech-evidence="PMID:19169254" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38686385" target="_blank">PMID:38686385</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19169254" target="_blank">PMID:19169254</a>
                     </span>
 
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Interleukin (IL)-23, an IL-12 cytokine family member, is a hierarchically dominant regulatory cytokine in a cluster of immune-mediated inflammatory diseases (IMIDs), including psoriasis, psoriatic arthritis, and inflammatory bowel disease."</div>
+                <div class="evidence-snippet">"demonstrated association at established susceptibility loci HLA-C (rs12191877, p = 4×10−53), IL12B (rs2082412, p = 5×10−10), and IL23R (rs2201841, p = 3×10−7)."</div>
 
 
-                <div class="evidence-explanation">IL12B encodes the p40 subunit shared by IL-12 and IL-23. Given IL-23&#39;s hierarchically dominant role in psoriasis, genetic variants in IL12B that affect IL-23 levels represent important risk factors.</div>
+                <div class="evidence-explanation">Genome-wide association scan reports IL12B association with psoriasis at genome-wide significance.</div>
 
 
 
@@ -6135,21 +6228,23 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38686385" data-dismech-supports="NO_EVIDENCE">
+            <div class="evidence-item" data-dismech-evidence="PMID:19169254" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38686385" target="_blank">PMID:38686385</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19169254" target="_blank">PMID:19169254</a>
                     </span>
 
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"We review IL-23 biology, IL-23 signaling in IMIDs, and the effect of IL-23 inhibition in treating these diseases."</div>
+                <div class="evidence-snippet">"demonstrated association at established susceptibility loci HLA-C (rs12191877, p = 4×10−53), IL12B (rs2082412, p = 5×10−10), and IL23R (rs2201841, p = 3×10−7)."</div>
 
 
-                <div class="evidence-explanation">IL23R encodes the IL-23 receptor, and genetic variants affecting IL-23 signaling are risk factors for psoriasis given the central role of this pathway.</div>
+                <div class="evidence-explanation">The same genome-wide scan reports IL23R association with psoriasis, implicating the IL-23 receptor locus.</div>
 
 
 
@@ -7719,17 +7814,6 @@ pathophysiology:
     term:
       id: hgnc:16446
       label: CARD14
-  evidence:
-  - reference: PMID:39337637
-    reference_title: &#34;Pathogenesis of Inflammation in Skin Disease: From Molecular Mechanisms to Pathology.&#34;
-    supports: NO_EVIDENCE
-    snippet: &#34;Many skin diseases begin with inflammatory changes on a molecular level.&#34;
-    explanation: &#34;Inflammatory changes at the molecular level drive keratinocyte hyperproliferation in psoriasis, linking inflammation to cellular proliferation.&#34;
-  - reference: PMID:39576422
-    reference_title: &#34;Naturally derived bioactive compounds as precision modulators of immune and inflammatory mechanisms in psoriatic conditions.&#34;
-    supports: NO_EVIDENCE
-    snippet: &#34;Psoriasis represents a chronic autoimmune skin condition defined by various clinical forms, including inverse, erythrodermic, pustular, guttate, plaque types.&#34;
-    explanation: &#34;The chronic autoimmune nature of psoriasis results in persistent inflammatory signaling that drives sustained keratinocyte hyperproliferation, manifesting as the characteristic plaque types.&#34;
 - name: Dendritic Cell Activation
   description: &gt;
     Plasmacytoid and myeloid dendritic cells produce inflammatory
@@ -7810,11 +7894,6 @@ pathophysiology:
     supports: PARTIAL
     snippet: &#34;Interleukin (IL)-23, an IL-12 cytokine family member, is a hierarchically dominant regulatory cytokine in a cluster of immune-mediated inflammatory diseases (IMIDs), including psoriasis, psoriatic arthritis, and inflammatory bowel disease.&#34;
     explanation: &#34;This confirms IL-23 as the hierarchically dominant regulatory cytokine in psoriasis, supporting its central role in the IL-23/IL-17 axis and why it is the major therapeutic target.&#34;
-  - reference: PMID:39337637
-    reference_title: &#34;Pathogenesis of Inflammation in Skin Disease: From Molecular Mechanisms to Pathology.&#34;
-    supports: NO_EVIDENCE
-    snippet: &#34;Many skin diseases begin with inflammatory changes on a molecular level.&#34;
-    explanation: &#34;This establishes that inflammatory molecular mechanisms are fundamental to skin disease pathogenesis, consistent with the IL-23/IL-17 inflammatory axis driving psoriasis.&#34;
 - name: IL-36 Keratinocyte Activation
   description: &gt;
     In pustular psoriasis, keratinocyte-derived IL-36 signaling amplifies
@@ -8020,10 +8099,10 @@ phenotypes:
   evidence:
   - reference: PMID:31491865
     reference_title: &#39;Risk Factors for the Development of Psoriasis.&#39;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Drug-related psoriasis would manifest as plaque psoriasis, palmoplantar psoriasis, nail psoriasis, scalp psoriasis, pustular psoriasis, and erythrodermic psoriasis&#34;
-    explanation: Erythrodermic psoriasis is recognized as a distinct clinical manifestation of psoriasis.
+    explanation: Names erythrodermic psoriasis among recognized clinical forms of the disease. Partial because the sentence describes the morphologic spectrum in the specific context of drug-related psoriasis and gives no frequency for erythroderma overall.
   phenotype_contexts:
   - subtype: Pustular Psoriasis
     frequency: VERY_FREQUENT
@@ -8148,10 +8227,10 @@ phenotypes:
   evidence:
   - reference: PMID:36745557
     reference_title: &#39;Factors associated with depression, anxiety and severe mental illness among adults with atopic eczema or psoriasis: a systematic review and meta-analysis.&#39;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pooled effect estimates suggest that female sex and psoriatic arthritis were associated with depression&#34;
-    explanation: Meta-analysis confirming significant association between psoriasis and depression, with psoriatic arthritis as an additional risk factor.
+    explanation: Meta-analysis identifies female sex and psoriatic arthritis as factors associated with depression among people with psoriasis. Partial because it characterizes risk within the psoriasis population and does not itself establish excess depression prevalence versus the general population.
   - reference: PMID:35757712
     reference_title: &#39;Epidemiology of Psoriasis and Comorbid Diseases: A Narrative Review.&#39;
     supports: SUPPORT
@@ -8164,20 +8243,24 @@ genetic:
   notes: Strongest genetic association
 - name: IL12B
   association: Risk Factor
+  notes: Encodes the p40 subunit shared by IL-12 and IL-23; established psoriasis susceptibility locus.
   evidence:
-  - reference: PMID:38686385
-    reference_title: &#34;IL-23 past, present, and future: a roadmap to advancing IL-23 science and therapy.&#34;
-    supports: NO_EVIDENCE
-    snippet: &#34;Interleukin (IL)-23, an IL-12 cytokine family member, is a hierarchically dominant regulatory cytokine in a cluster of immune-mediated inflammatory diseases (IMIDs), including psoriasis, psoriatic arthritis, and inflammatory bowel disease.&#34;
-    explanation: &#34;IL12B encodes the p40 subunit shared by IL-12 and IL-23. Given IL-23&#39;s hierarchically dominant role in psoriasis, genetic variants in IL12B that affect IL-23 levels represent important risk factors.&#34;
+  - reference: PMID:19169254
+    reference_title: &#34;Genome-wide scan reveals association of psoriasis with IL-23 and NF-kappaB pathways.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;demonstrated association at established susceptibility loci HLA-C (rs12191877, p = 4×10−53), IL12B (rs2082412, p = 5×10−10), and IL23R (rs2201841, p = 3×10−7).&#34;
+    explanation: &#34;Genome-wide association scan reports IL12B association with psoriasis at genome-wide significance.&#34;
 - name: IL23R
   association: Risk Factor
+  notes: Encodes a subunit of the IL-23 receptor; established psoriasis susceptibility locus.
   evidence:
-  - reference: PMID:38686385
-    reference_title: &#34;IL-23 past, present, and future: a roadmap to advancing IL-23 science and therapy.&#34;
-    supports: NO_EVIDENCE
-    snippet: &#34;We review IL-23 biology, IL-23 signaling in IMIDs, and the effect of IL-23 inhibition in treating these diseases.&#34;
-    explanation: &#34;IL23R encodes the IL-23 receptor, and genetic variants affecting IL-23 signaling are risk factors for psoriasis given the central role of this pathway.&#34;
+  - reference: PMID:19169254
+    reference_title: &#34;Genome-wide scan reveals association of psoriasis with IL-23 and NF-kappaB pathways.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;demonstrated association at established susceptibility loci HLA-C (rs12191877, p = 4×10−53), IL12B (rs2082412, p = 5×10−10), and IL23R (rs2201841, p = 3×10−7).&#34;
+    explanation: &#34;The same genome-wide scan reports IL23R association with psoriasis, implicating the IL-23 receptor locus.&#34;
 - name: TYK2
   association: GWAS
   notes: Cytokine kinase mediating IL-23 and IL-12 signaling; therapeutic target of deucravacitinib.
@@ -8862,6 +8945,11 @@ Psoriasis pathophysiology centers on an IL‑23→Th17→IL‑17/IL‑22 axis th
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Psoriasis.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -8902,7 +8990,7 @@ Psoriasis pathophysiology centers on an IL‑23→Th17→IL‑17/IL‑22 axis th
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Psoriasis", "mondoId": "MONDO:0005083", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Psoriasis", "yamlRevision": "0aeba82526b2"};
+        const OS_CONFIG = {"diseaseName": "Psoriasis", "mondoId": "MONDO:0005083", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Psoriasis", "yamlRevision": "4c03d5dfc89e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
