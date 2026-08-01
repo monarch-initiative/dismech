@@ -927,6 +927,11 @@ gen-discussions-data:
 gen-pathographs:
     uv run python -m dismech.export.pathograph_export -i kb/disorders -o pathographs
 
+# Draw one pathograph as a PNG with OpenCV (experimental; derived, do not commit)
+[group('Browser')]
+draw-pathograph file out='pathograph.png':
+    uv run --group pathograph-draw python scripts/draw_pathograph_cv.py {{file}} -o {{out}}
+
 # Serve the browser app locally
 [group('Browser')]
 serve-browser: gen-browser-data gen-discussions-data
