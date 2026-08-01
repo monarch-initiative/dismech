@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,7 +34,6 @@ DEFAULT_MONDO_DB = Path.home() / ".data" / "oaklib" / "mondo.db"
 DEFAULT_CLINGEN_CSV = REPO_ROOT / "cache" / "clingen" / "gene_validity.csv"
 DEFAULT_CONFIG = REPO_ROOT / "conf" / "mondo_prioritizer.yaml"
 
-YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
 HIGH_CONFIDENCE = {"HIGH", "MEDIUM"}
 
@@ -258,7 +257,7 @@ def parse_args() -> argparse.Namespace:
 
 def load_yaml(path: Path) -> Any:
     with path.open(encoding="utf-8") as stream:
-        return yaml.load(stream, Loader=YAML_LOADER)
+        return safe_load(stream)
 
 
 def load_mondo_priority_helpers() -> tuple[Any, Any, Any, Any]:

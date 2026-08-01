@@ -21,7 +21,6 @@ def _tellurium_available():
 @pytest.fixture
 def ckd_disorder():
     """Load the CKD-MBD disorder YAML."""
-
     yaml_path = Path("kb/disorders/CKD-Mineral_Bone_Disorder.yaml")
     if not yaml_path.exists():
         pytest.skip("CKD-MBD YAML not found")
@@ -139,7 +138,6 @@ def test_load_config_with_disorder_yaml():
 @pytest.mark.skipif(not _tellurium_available(), reason="tellurium not installed")
 def test_run_baseline_with_yaml_variables():
     """Test simulation using YAML-derived variable mappings."""
-
     from dismech.perturb.simulate import run_perturbation
 
     yaml_path = Path("kb/disorders/CKD-Mineral_Bone_Disorder.yaml")

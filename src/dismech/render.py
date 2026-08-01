@@ -21,7 +21,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load, safe_load_path
 
 # Module-local alias kept so existing call sites read unchanged. The
 # libyaml-vs-pure-Python loader choice now lives in dismech.yaml_io
@@ -2596,7 +2596,7 @@ def _scan_research_syntheses(research_dir: Path) -> list[dict]:
     syntheses: list[dict] = []
     for path in sorted(research_dir.glob("*-research-synthesis.yaml")):
         try:
-            data = safe_load(path.read_text()) or {}
+            data = safe_load_path(path) or {}
         except yaml.YAMLError:
             continue
         slug = data.get("disease") or path.name[: -len("-research-synthesis.yaml")]
