@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discussions Browser - dismech</title>
+    <title>Computational Models Browser - dismech</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
     <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -654,8 +654,8 @@
             <a href="../../" class="nav-logo">dismech</a>
             <div class="nav-links">
                 <a href="../index.html">Browse</a>
-                <a href="../models/index.html">Models</a>
-                <a href="index.html" class="active">Discussions</a>
+                <a href="index.html" class="active">Models</a>
+                <a href="../discussions/index.html">Discussions</a>
                 <a href="../embeddings/index.html">Embeddings</a>
                 <a href="../../details/">Docs</a>
                 <a href="../../pages/modules/">Modules</a>
@@ -674,15 +674,16 @@
     <div class="notice-banner" role="button" tabindex="0">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</div>
     <div class="container">
         <header>
-            <h1>Discussions Browser</h1>
-            <p>Browse open questions, knowledge gaps, controversies, and other curation discussions across the dismech knowledge base. Use the <strong>Knowledge Gap?</strong> facet to narrow to gaps and human/model mismatches. Each discussion links back to the disorder or module where it is recorded.</p>
+            <h1>Computational Models Browser</h1>
+            <p>Browse every computational and in-silico model curated across the dismech knowledge base &mdash; genome-scale metabolic reconstructions, ODE/kinetic models, Boolean networks, agent-based simulations, PBPK and physiological models, and machine-learning models. Use the <strong>Model Type</strong>, <strong>Exchange Format</strong>, and <strong>Simulation Software</strong> facets to find models you can actually run, and <strong>Runnable In-Repo</strong> to narrow to the ones wired into <code>dismech-perturb</code>. Each model links back to the disorder or module entry that curates it.</p>
             <div class="header-actions">
                 <a class="header-action" href="../index.html">Browse Disorders</a>
+                <a class="header-action" href="../discussions/index.html">Browse Discussions</a>
             </div>
         </header>
 
         <div class="search-container">
-            <input type="text" class="search-input" id="searchInput" placeholder="Search discussions by question, mechanism node, rationale, or source...">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search models by name, software, format, gene perturbation, variable, or disorder...">
         </div>
 
         <div class="main-content">
@@ -889,14 +890,14 @@
             }
 
             compareNames(a, b) {
-                // Gaps sort primarily by the source entry they belong to, then
-                // by their question text as a stable tiebreaker.
-                const bySource = (a.source_name || '').localeCompare(b.source_name || '', undefined, {
+                // Models sort primarily by model name; the owning entry is the
+                // tiebreaker, because one model (e.g. AGORA2) is cited by several.
+                const byName = (a.name || '').localeCompare(b.name || '', undefined, {
                     sensitivity: 'base',
                     numeric: true,
                 });
-                if (bySource !== 0) return bySource;
-                return (a.name || '').localeCompare(b.name || '', undefined, {
+                if (byName !== 0) return byName;
+                return (a.source_name || '').localeCompare(b.source_name || '', undefined, {
                     sensitivity: 'base',
                     numeric: true,
                 });
@@ -970,14 +971,14 @@
 
                 const hasSearch = !!this.searchQuery;
                 let html = `<div class="results-header">
-                    <span class="results-count">${results.length} discussion${results.length !== 1 ? 's' : ''}</span>
+                    <span class="results-count">${results.length} model${results.length !== 1 ? 's' : ''}</span>
                     <div class="results-controls">
                         <label class="sort-control" for="sortSelect">
                             Sort by
                             <select id="sortSelect" class="sort-select">
                                 ${hasSearch ? `<option value="relevance" ${this.sortBy === 'relevance' ? 'selected' : ''}>Relevance</option>` : ''}
-                                <option value="name-asc" ${this.sortBy === 'name-asc' ? 'selected' : ''}>Source entry (A-Z)</option>
-                                <option value="name-desc" ${this.sortBy === 'name-desc' ? 'selected' : ''}>Source entry (Z-A)</option>
+                                <option value="name-asc" ${this.sortBy === 'name-asc' ? 'selected' : ''}>Model name (A-Z)</option>
+                                <option value="name-desc" ${this.sortBy === 'name-desc' ? 'selected' : ''}>Model name (Z-A)</option>
                                 <option value="created-desc" ${this.sortBy === 'created-desc' ? 'selected' : ''}>Entry created (Newest first)</option>
                                 <option value="created-asc" ${this.sortBy === 'created-asc' ? 'selected' : ''}>Entry created (Oldest first)</option>
                             </select>
@@ -988,13 +989,13 @@
 
                 if (results.length === 0) {
                     html += `<div class="no-results">
-                        <h3>No discussions found</h3>
+                        <h3>No models found</h3>
                         <p>Try adjusting your search or filters</p>
                     </div>`;
                 } else {
                     html += '<div class="results-list">';
                     results.forEach(record => {
-                        html += this.renderDiscussionCard(record);
+                        html += this.renderModelCard(record);
                     });
                     html += '</div>';
                 }
@@ -1002,91 +1003,114 @@
                 container.innerHTML = html;
             }
 
-            renderDiscussionCard(record) {
+            renderModelCard(record) {
                 const { terms: matchedTerms, fields: matchedFields } = this.getMatchedFields(record._matchInfo);
 
-                const titleHtml = (matchedFields.has('name') || matchedFields.has('prompt'))
+                const titleHtml = matchedFields.has('name')
                     ? this.highlightText(record.name, matchedTerms)
                     : this.escapeHtml(record.name);
 
                 let html = `<div class="disorder-card">
                     <div class="disorder-header">
-                        <span class="disorder-title"><a href="${record.page_url}">${titleHtml}</a></span>
+                        <span class="disorder-title"><a href="${this.escapeHtml(record.page_url)}">🧮 ${titleHtml}</a></span>
                     </div>`;
 
-                // Gap-type / status / source-type tags
+                // Model type / format / software / runnability tags.
                 html += '<div class="tag-list" style="margin: 6px 0 4px;">';
-                if (record.kind) {
-                    html += `<span class="tag" style="background:#eef2ff;color:#4338ca;">${this.escapeHtml(record.kind)}</span>`;
+                if (record.model_type) {
+                    html += `<span class="tag" style="background:#eef2ff;color:#4338ca;">${this.escapeHtml(record.model_type)}</span>`;
                 }
-                if (record.status) {
-                    html += `<span class="tag" style="background:#ecfdf5;color:#047857;">${this.escapeHtml(record.status)}</span>`;
+                if (record.model_format && record.model_format !== 'Format not recorded') {
+                    html += `<span class="tag" style="background:#ecfeff;color:#0e7490;">${this.escapeHtml(record.model_format)}</span>`;
                 }
-                if (record.source_type) {
-                    html += `<span class="tag" style="background:#fef3c7;color:#b45309;">${this.escapeHtml(record.source_type)}</span>`;
+                if (record.model_software && record.model_software !== 'Software not recorded') {
+                    html += `<span class="tag" style="background:#f0fdf4;color:#15803d;">${this.escapeHtml(record.model_software)}</span>`;
+                }
+                if (record.runnable === 'Runnable in-repo') {
+                    html += '<span class="tag" style="background:#fef3c7;color:#b45309;">▶ Runnable in-repo</span>';
                 }
                 html += '</div>';
 
-                // Source entry link (back to the disorder/module page)
-                html += `<div class="disorder-category">In: <a href="${record.page_url}">${this.escapeHtml(record.source_name)}</a>`;
+                // Owning entry (back-link to the disorder/module page).
+                html += `<div class="disorder-category">In: <a href="${this.escapeHtml(record.page_url)}">${this.escapeHtml(record.source_name)}</a>`;
                 if (record.disease_id) {
                     const url = this.curieToUrl(record.disease_id);
-                    html += ` &middot; <a href="${url}" target="_blank">${this.escapeHtml(record.disease_id)}</a>`;
+                    html += ` &middot; <a href="${url}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(record.disease_id)}</a>`;
+                }
+                if (record.model_id) {
+                    html += ` &middot; <code>${this.escapeHtml(record.model_id)}</code>`;
                 }
                 html += '</div>';
 
                 if (matchedTerms.length > 0) {
                     const fieldLabels = {
-                        rationale: 'rationale', attached_nodes: 'attached nodes',
-                        attaches_to: 'attachments', experiment_names: 'experiments',
-                        evidence_refs: 'evidence', source_name: 'source',
+                        description: 'description', source_name: 'source entry',
+                        model_software: 'software', model_type: 'model type',
+                        model_format: 'format', base_model: 'base model',
+                        model_id: 'model ID', variables: 'variables',
+                        variable_ids: 'variable IDs', variable_terms: 'variable ontology terms',
+                        perturbations: 'perturbations', modeled_mechanisms: 'modeled mechanisms',
+                        findings: 'findings', evidence_refs: 'evidence', notes: 'notes',
                     };
                     const nonTitleFields = [...matchedFields]
-                        .filter(f => f !== 'name' && f !== 'prompt')
+                        .filter(f => f !== 'name')
                         .map(f => fieldLabels[f] || f);
                     if (nonTitleFields.length > 0) {
                         html += `<div class="match-info">Matched in ${nonTitleFields.map(f => `<span class="match-field">${f}</span>`).join(' ')}</div>`;
                     }
                 }
 
-                if (record.rationale) {
-                    const desc = record.rationale.length > 300
-                        ? record.rationale.substring(0, 300) + '...'
-                        : record.rationale;
-                    const descHtml = matchedFields.has('rationale')
+                if (record.description) {
+                    const desc = record.description.length > 400
+                        ? record.description.substring(0, 400) + '...'
+                        : record.description;
+                    const descHtml = matchedFields.has('description')
                         ? this.highlightText(desc, matchedTerms)
                         : this.escapeHtml(desc);
                     html += `<div class="disorder-description">${descHtml}</div>`;
                 }
 
-                // Attached mechanism nodes
-                if (record.attached_nodes?.length) {
-                    html += this.renderSection('Attached to', record.attached_nodes, 'pathophys', matchedFields.has('attached_nodes') ? matchedTerms : null);
+                if (record.modeled_mechanisms?.length) {
+                    html += this.renderSection('Modeled mechanisms', record.modeled_mechanisms, 'pathophys', matchedFields.has('modeled_mechanisms') ? matchedTerms : null);
+                }
+                if (record.perturbations?.length) {
+                    html += this.renderSection('Perturbed genes', record.perturbations, 'gene', matchedFields.has('perturbations') ? matchedTerms : null);
+                }
+                if (record.variables?.length) {
+                    html += this.renderSection('Variables', record.variables, 'environmental', matchedFields.has('variables') ? matchedTerms : null);
                 }
 
-                // Proposed experiments
-                if (record.experiment_names?.length) {
-                    html += this.renderSection('Proposed experiments', record.experiment_names, 'treatment', matchedFields.has('experiment_names') ? matchedTerms : null);
+                // External model links: repository deposit and the source publication.
+                const links = [];
+                if (record.repository_url) {
+                    const hostLabel = record.repository_host && record.repository_host !== 'Other'
+                        ? record.repository_host
+                        : 'Model repository';
+                    links.push(`<a href="${this.escapeHtml(record.repository_url)}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(hostLabel)} ↗</a>`);
                 }
-
-                // Entry metadata date
-                if (record.creation_date) {
-                    html += '<div class="disorder-dates">';
-                    html += `<span class="date-stat"><strong>Entry created:</strong> ${this.escapeHtml(this.formatDateForDisplay(record.creation_date))}</span>`;
-                    html += '</div>';
+                if (record.publication) {
+                    links.push(`<a href="${this.curieToUrl(record.publication)}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(record.publication)} ↗</a>`);
+                }
+                if (record.base_model) {
+                    links.push(`Base model: ${this.escapeHtml(record.base_model)}`);
+                }
+                if (links.length) {
+                    html += `<div class="disorder-category" style="margin-top:8px;">${links.join(' &middot; ')}</div>`;
                 }
 
                 // Stats
                 html += `<div class="disorder-stats">
-                    <span class="stat"><strong>${record.num_experiments || 0}</strong> proposed experiments</span>
+                    <span class="stat"><strong>${record.num_variables || 0}</strong> variables</span>
+                    <span class="stat"><strong>${record.perturbations?.length || 0}</strong> perturbations</span>
+                    <span class="stat"><strong>${record.num_mechanisms || 0}</strong> modeled mechanisms</span>
+                    <span class="stat"><strong>${record.num_findings || 0}</strong> findings</span>
                     <span class="stat"><strong>${record.num_evidence || 0}</strong> evidence items</span>
-                    <span class="stat"><strong>${record.attached_nodes?.length || 0}</strong> attached nodes</span>
                 </div>`;
 
                 // Source link
                 if (record.source_file) {
                     const url = `https://github.com/monarch-initiative/dismech/blob/main/${record.source_file}`;
-                    html += `<div class="source-link"><a href="${url}" target="_blank">View source YAML</a></div>`;
+                    html += `<div class="source-link"><a href="${url}" target="_blank" rel="noopener noreferrer">View source YAML</a></div>`;
                 }
 
                 html += '</div>';
