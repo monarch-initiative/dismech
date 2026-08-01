@@ -73,6 +73,14 @@ Findings that generalise beyond a single disease. Add to this as studies accumul
 - **Agreement tracks the source, not the curator.** Divergence concentrates where
   the literature says "were frequent" without a count, and collapses wherever a
   denominator is stated.
+- **A coarse action vocabulary hides disagreement.** Agreement measured at the
+  ontology-term level can overstate agreement about the underlying content, because
+  two curators can bind the same catch-all term to different things. In the FG
+  syndrome 1 study, 7 shared NCIT treatment ids reduced to 4 genuine agreements once
+  the names behind them were read: `NCIT:C15747` Supportive Care absorbed both bowel
+  management and audiology surveillance, and `NCIT:C15302` Physical Therapy was a
+  pure collision. Report id-level and content-level agreement separately; the former
+  alone is not a measure of curator agreement.
 - **Independent re-curation and code review catch different things.** Review
   checks whether a snippet supports its claim; it is far less likely to notice
   that a better, more specific source exists and was not cited. That class of
