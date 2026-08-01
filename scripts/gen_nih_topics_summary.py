@@ -25,6 +25,8 @@ from pathlib import Path
 
 import yaml
 
+from dismech.yaml_io import safe_load
+
 ROOT = Path(__file__).resolve().parent.parent
 DISORDERS = ROOT / "kb" / "disorders"
 PROJECTS = ROOT / "projects"
@@ -35,7 +37,7 @@ OUT = ROOT / "pages" / "nih-topics" / "index.html"
 
 def _load_topics() -> dict[str, dict]:
     """key -> {number, title, expires, url} from the generated enum descriptions."""
-    doc = yaml.safe_load(ENUM_PATH.read_text())
+    doc = safe_load(ENUM_PATH.read_text())
     pvs = doc["enums"]["NIHResearchPriorityEnum"]["permissible_values"]
     topics: dict[str, dict] = {}
     for key, meta in pvs.items():
@@ -69,7 +71,7 @@ def _split_front_matter(text: str) -> dict:
     if len(parts) < 3:
         return {}
     try:
-        return yaml.safe_load(parts[1]) or {}
+        return safe_load(parts[1]) or {}
     except yaml.YAMLError:
         return {}
 
@@ -86,7 +88,7 @@ def _collect() -> dict[str, dict]:
         text = path.read_text()
         if "nih_research_priority" not in text:
             continue
-        data = yaml.safe_load(text) or {}
+        data = safe_load(text) or {}
         assignments = (
             (data.get("classifications") or {}).get("nih_research_priority") or []
         )
