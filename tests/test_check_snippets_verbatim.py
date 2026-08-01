@@ -230,7 +230,7 @@ def test_every_snippet_on_an_uncached_reference_is_reported(tmp_path, monkeypatc
         "- reference: PMID:99999999\n"
         "  snippet: third quote\n"
     )
-    verified, failures, skipped = csv_mod.check_file(doc)
+    verified, failures, _skipped = csv_mod.check_file(doc)
     assert verified == 0
     assert len(failures) == 3, "each snippet on the uncached ref must be reported"
     assert all("NO CACHE FILE" in f for f in failures)

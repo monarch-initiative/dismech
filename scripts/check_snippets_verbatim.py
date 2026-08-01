@@ -214,7 +214,7 @@ def diagnose(snippet: str, body: str) -> str:
     if len(snippet) >= window:
         anywhere = any(
             snippet[i:i + window] in body
-            for i in range(0, len(snippet) - window + 1)
+            for i in range(len(snippet) - window + 1)
         )
     else:
         anywhere = snippet in body
