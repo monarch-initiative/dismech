@@ -49,8 +49,8 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from discover_datasets import discover, load_entry  # noqa: E402
-from verify_dataset_accessions import (  # noqa: E402
+from discover_datasets import discover, load_entry
+from verify_dataset_accessions import (
     OK,
     PREFIX_MISMATCH,
     Throttle,
@@ -112,7 +112,7 @@ def candidate_to_record(cand: dict, disease_name: str) -> dict:
     if cand.get("pubmed_ids"):
         rec["publication"] = f"PMID:{cand['pubmed_ids'][0]}"
 
-    today = dt.date.today().isoformat()
+    today = dt.datetime.now(dt.UTC).date().isoformat()
     rec["notes"] = (
         f"Identified by GEO DataSets index search for {disease_name} "
         f"(scripts/discover_datasets.py); accession and metadata verified against "
@@ -144,7 +144,7 @@ def propose(slugs: list[str], limit: int, out_path: Path, min_score: float) -> i
 
         try:
             cands = discover(slug, limit=limit, per_query=20, use_synonyms=True)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"[{i}/{len(slugs)}] {slug}: discovery failed ({exc})", file=sys.stderr)
             continue
 

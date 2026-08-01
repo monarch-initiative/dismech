@@ -90,7 +90,7 @@ def http_json(url: str, retries: int = 3) -> dict | None:
         try:
             with urllib.request.urlopen(req, timeout=45) as resp:
                 return json.loads(resp.read().decode("utf-8", "replace"))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             last = exc
             time.sleep(1.5 * (attempt + 1))
     print(f"WARN  NCBI request failed: {last}", file=sys.stderr)
@@ -143,7 +143,7 @@ def mondo_synonyms(mondo_id: str) -> list[str]:
     try:
         out = subprocess.run(
             ["uv", "run", "runoak", "-i", "sqlite:obo:mondo", "info", mondo_id, "-O", "obo"],
-            capture_output=True, text=True, timeout=180, cwd=REPO_ROOT,
+            capture_output=True, text=True, timeout=180, cwd=REPO_ROOT, check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return []
@@ -204,7 +204,7 @@ def has_qualifier_conflict(text: str, entry_qualifier: str, core: str) -> str:
     if not core:
         return ""
     pattern = re.compile(
-        r"\b([a-z]+)\s+(?:\w+\s+){0,1}?" + re.escape(core.lower()), re.I
+        r"\b([a-z]+)\s+(?:\w+\s+){0,1}?" + re.escape(core.lower()), re.IGNORECASE
     )
     own = qualifier_group(entry_qualifier) or frozenset({entry_qualifier.lower()})
     for m in pattern.finditer(text.lower()):
@@ -360,8 +360,10 @@ def score_candidate(
             cand.relevance = "CONFLICT"
             cand.score = -10.0
             cand.score_notes = [
-                f"names '{competing} {core.lower()}' but this entry is "
-                f"'{stripped} {core.lower()}' - likely a sibling disease"
+                (
+                    f"names '{competing} {core.lower()}' but this entry is "
+                    f"'{stripped} {core.lower()}' - likely a sibling disease"
+                )
             ]
             return
 
@@ -473,7 +475,7 @@ def coverage(fmt: str, only_missing: bool = True) -> int:
     for path in sorted(KB_DIR.glob("*.yaml")):
         try:
             doc = yaml.safe_load(path.read_text()) or {}
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
         ds = doc.get("datasets")
         n = len(ds) if isinstance(ds, list) else 0

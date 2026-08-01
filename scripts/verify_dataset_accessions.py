@@ -58,9 +58,10 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import yaml
 
@@ -108,17 +109,17 @@ UNSUPPORTED_PREFIXES = {
 
 # accession shape checks, applied before hitting the network
 SHAPE = {
-    "geo": re.compile(r"^(GSE|GDS|GPL|GSM)\d+$", re.I),
-    "sra": re.compile(r"^([SED]R[PRXS])\d+$", re.I),
-    "bioproject": re.compile(r"^PRJ(NA|EB|DB)\d+$", re.I),
-    "dbgap": re.compile(r"^phs\d+(\.v\d+)?(\.p\d+)?$", re.I),
-    "arrayexpress": re.compile(r"^E-[A-Z]+-\d+$", re.I),
-    "pride": re.compile(r"^PXD\d+$", re.I),
-    "metabolights": re.compile(r"^MTBLS\d+$", re.I),
-    "ega": re.compile(r"^EGA[SD]\d+$", re.I),
-    "osdr": re.compile(r"^OSD-\d+$", re.I),
-    "massive": re.compile(r"^MSV\d+$", re.I),
-    "mgnify": re.compile(r"^MGYS\d+$", re.I),
+    "geo": re.compile(r"^(GSE|GDS|GPL|GSM)\d+$", re.IGNORECASE),
+    "sra": re.compile(r"^([SED]R[PRXS])\d+$", re.IGNORECASE),
+    "bioproject": re.compile(r"^PRJ(NA|EB|DB)\d+$", re.IGNORECASE),
+    "dbgap": re.compile(r"^phs\d+(\.v\d+)?(\.p\d+)?$", re.IGNORECASE),
+    "arrayexpress": re.compile(r"^E-[A-Z]+-\d+$", re.IGNORECASE),
+    "pride": re.compile(r"^PXD\d+$", re.IGNORECASE),
+    "metabolights": re.compile(r"^MTBLS\d+$", re.IGNORECASE),
+    "ega": re.compile(r"^EGA[SD]\d+$", re.IGNORECASE),
+    "osdr": re.compile(r"^OSD-\d+$", re.IGNORECASE),
+    "massive": re.compile(r"^MSV\d+$", re.IGNORECASE),
+    "mgnify": re.compile(r"^MGYS\d+$", re.IGNORECASE),
 }
 
 # Alternate spellings seen in the KB -> canonical prefix
@@ -181,7 +182,7 @@ def http_json(url: str, throttle: Throttle | None = None, retries: int = 3) -> A
                 return None
             last_err = exc
             time.sleep(1.5 * (attempt + 1))
-        except Exception as exc:  # noqa: BLE001 - network layer, report and move on
+        except Exception as exc:
             last_err = exc
             time.sleep(1.5 * (attempt + 1))
     raise RuntimeError(f"request failed after {retries} attempts: {url} ({last_err})")
@@ -394,7 +395,7 @@ def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | N
     if cached and cached.get("status") == NOT_FOUND:
         checked = cached.get("checked", "")
         try:
-            age = (dt.date.today() - dt.date.fromisoformat(checked[:10])).days
+            age = (dt.datetime.now(dt.UTC).date() - dt.date.fromisoformat(checked[:10])).days
         except (TypeError, ValueError):
             age = 10**6
         if age > NEGATIVE_CACHE_DAYS:
@@ -407,12 +408,12 @@ def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | N
     else:
         try:
             status, title, detail, extra = RESOLVERS[prefix](local_id, throttle, api_key)
-        except Exception as exc:  # noqa: BLE001 - network failure should not abort the run
+        except Exception as exc:
             res.status = ERROR
             res.detail = str(exc)[:200]
             return res
         if status in (OK, NOT_FOUND):
-            res.checked = dt.date.today().isoformat()
+            res.checked = dt.datetime.now(dt.UTC).date().isoformat()
             cache[key] = {"status": status, "title": title, "detail": detail,
                           "extra": extra, "checked": res.checked}
 
@@ -431,7 +432,7 @@ def collect_accessions(paths: Iterable[Path]) -> dict[str, list[str]]:
     for path in paths:
         try:
             doc = yaml.safe_load(path.read_text())
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"WARN  could not parse {path}: {exc}", file=sys.stderr)
             continue
         if not isinstance(doc, dict):
