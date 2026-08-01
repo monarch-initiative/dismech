@@ -9,6 +9,8 @@ they stay valid as content changes.
 
 from pathlib import Path
 
+import pytest
+
 from dismech import render
 from dismech.export import utils
 from dismech.export.browser_export import BrowserExporter
@@ -16,7 +18,14 @@ from dismech.export.browser_export import BrowserExporter
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def _homepage_metrics() -> dict:
+@pytest.fixture(scope="session")
+def metrics() -> dict:
+    """Homepage stat-card metrics, built once for the whole session.
+
+    Building these parses every disorder in the KB (~1700 files). Each test below
+    used to rebuild them from scratch, paying that cost four times over for a
+    read-only dict. Session scope makes it one build. See issue #7502.
+    """
     files = utils.discover_disorder_files(REPO_ROOT / "kb" / "disorders")
     exporter = BrowserExporter()
     disorders = [exporter.load_disorder(path) for path in files]
@@ -30,8 +39,7 @@ def _homepage_metrics() -> dict:
     )
 
 
-def test_research_report_count_matches_research_index():
-    metrics = _homepage_metrics()
+def test_research_report_count_matches_research_index(metrics):
     rows = render._index_rows_from_reports(
         render._scan_research_reports(
             REPO_ROOT / "research", REPO_ROOT / "kb" / "disorders"
@@ -41,19 +49,16 @@ def test_research_report_count_matches_research_index():
     assert metrics["total_research_reports"] == section_total
 
 
-def test_classification_count_matches_classification_index():
-    metrics = _homepage_metrics()
+def test_classification_count_matches_classification_index(metrics):
     assert metrics["total_classifications"] == len(render._load_classification_enums())
 
 
-def test_comorbidity_count_matches_comorbidity_files():
-    metrics = _homepage_metrics()
+def test_comorbidity_count_matches_comorbidity_files(metrics):
     files = utils.discover_disorder_files(REPO_ROOT / "kb" / "comorbidities")
     assert metrics["total_comorbidities"] == len(files)
 
 
-def test_grouping_count_matches_grouping_files():
-    metrics = _homepage_metrics()
+def test_grouping_count_matches_grouping_files(metrics):
     files = utils.discover_disorder_files(REPO_ROOT / "kb" / "groupings")
     assert metrics["total_groupings"] == len(files)
 
