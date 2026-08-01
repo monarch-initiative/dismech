@@ -12,6 +12,8 @@ from typing import Any
 import openpyxl
 import yaml
 
+from dismech.yaml_io import safe_load_path
+
 FDA_SOURCE_URL = (
     "https://www.fda.gov/drugs/development-resources/"
     "table-surrogate-endpoints-were-basis-drug-approval-or-licensure"
@@ -192,7 +194,7 @@ def _load_disorder_index(kb_dir: Path) -> dict[str, tuple[str, str]]:
         if path.name.endswith(".history.yaml"):
             continue
         try:
-            data = yaml.safe_load(path.read_text())
+            data = safe_load_path(path)
         except Exception:
             continue
         if not isinstance(data, dict) or not data.get("name"):
