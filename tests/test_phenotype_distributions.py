@@ -357,6 +357,29 @@ def test_clinical_trial_quotes_resolve_to_the_right_cache_file() -> None:
     assert not list(cache.glob("NCT[0-9]*.md"))
 
 
+def test_docs_list_every_verifiable_prefix() -> None:
+    """Pin the docs to the code so the prefix list cannot drift again.
+
+    This sentence has now been wrong twice: first naming a bare `NCT` that
+    doesn't exist as a cache convention (which is what produced the original
+    bug), then reading as exhaustive while omitting `PHENODIST:`. Fixing prose
+    a third time without a guard just sets up a fourth.
+    """
+    from dismech.phenotype_distribution import _VERIFIABLE_PREFIXES
+
+    docs = Path("docs/phenotype-distributions.md").read_text(encoding="utf-8")
+    line = next(
+        ln
+        for ln in docs.splitlines()
+        if "citing a fetchable document" in ln
+    )
+    # The list wraps, so search the whole paragraph following that line.
+    start = docs.index(line)
+    paragraph = docs[start : start + 400]
+    missing = [p for p in _VERIFIABLE_PREFIXES if f"`{p}`" not in paragraph]
+    assert not missing, f"docs omit verifiable prefixes: {missing}"
+
+
 def test_single_collection_rebuild_does_not_prune_other_collections() -> None:
     """Naming one collection file must not delete every other cache file."""
     from dismech.phenotype_distribution import _is_full_rebuild

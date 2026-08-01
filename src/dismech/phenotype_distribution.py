@@ -32,7 +32,6 @@ Never hand-write or hand-edit one — regenerate with
 from __future__ import annotations
 
 import argparse
-import logging
 import sys
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
@@ -42,8 +41,6 @@ from typing import Any
 from ruamel.yaml import YAML
 
 from dismech.structured_sources.base import ReferenceCacheEntry
-
-logger = logging.getLogger(__name__)
 
 PREFIX = "PHENODIST"
 
@@ -453,7 +450,9 @@ def check_terms(
     for prefix, exc in sorted(unloadable.items()):
         issues.append(
             Issue(
-                collections[0].path if collections else Path("."),
+                # A run-level condition, so attribute it to the adapter config
+                # that failed rather than to an arbitrary collection file.
+                oak_config,
                 "",
                 "WARNING",
                 (
