@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -67,6 +68,8 @@ class CacheOrderFinding:
 
     @property
     def tail_size(self) -> int:
+        """Count every row after the first inversion, not only misplaced rows."""
+
         return self.row_count - self.sorted_through
 
     def format(self) -> str:
@@ -77,7 +80,18 @@ class CacheOrderFinding:
         )
 
 
-def canonical_curie_rows(rows: list[str] | set[str]) -> list[str]:
+@dataclass(frozen=True)
+class CacheOrderReadFinding:
+    """A cache CSV that could not be inspected for canonical ordering."""
+
+    path: Path
+    reason: str
+
+    def format(self) -> str:
+        return f"{self.path}: {self.reason}"
+
+
+def canonical_curie_rows(rows: Iterable[str]) -> list[str]:
     """Return the canonical enum-cache body (C/codepoint order, deduplicated)."""
 
     return sorted(set(rows))
@@ -111,14 +125,21 @@ def _read_first_column(path: Path) -> list[str]:
         return [row[0] for row in reader if row and row[0]]
 
 
-def scan_cache_order(cache_dir: Path) -> list[CacheOrderFinding]:
+def scan_cache_order(
+    cache_dir: Path,
+) -> list[CacheOrderFinding | CacheOrderReadFinding]:
     """Audit canonical CURIE order without modifying caches or consulting OAK."""
 
     paths = sorted((cache_dir / "enums").glob("*.csv"))
     paths.extend(sorted(cache_dir.glob("*/terms.csv")))
-    findings: list[CacheOrderFinding] = []
+    findings: list[CacheOrderFinding | CacheOrderReadFinding] = []
     for path in paths:
-        finding = _cache_order_finding(path, _read_first_column(path))
+        try:
+            rows = _read_first_column(path)
+        except (OSError, csv.Error, UnicodeError, ValueError) as error:
+            findings.append(CacheOrderReadFinding(path=path, reason=str(error)))
+            continue
+        finding = _cache_order_finding(path, rows)
         if finding is not None:
             findings.append(finding)
     return findings
@@ -187,7 +208,7 @@ def scan_enum_cache_dir(
     When ``offline`` is true the per-CURIE membership re-derivation
     (``is_value_in_enum``, which asks OAK to expand the enum and can trigger
     multi-GB ``sqlite:obo:*`` downloads) is skipped. The structural checks that
-    need no ontology access — stale-file detection, malformed headers, and
+    need no ontology access — stale-file detection, malformed headers,
     duplicate rows, and canonical ordering — still run. Use this in network-
     or disk-constrained environments where the committed ``cache/*.csv`` is
     trusted. Ordering is warning-only unless ``strict_order`` is true; that
@@ -416,13 +437,26 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         for finding in order_findings[: args.max_findings]:
-            print(f"  - [WARNING] {finding.format()}", file=sys.stderr)
+            level = (
+                "ERROR"
+                if args.strict_order and isinstance(finding, CacheOrderFinding)
+                else "WARNING"
+            )
+            print(f"  - [{level}] {finding.format()}", file=sys.stderr)
         if len(order_findings) > args.max_findings:
             print(
                 f"  ... {len(order_findings) - args.max_findings} more",
                 file=sys.stderr,
             )
-        return 1 if args.strict_order else 0
+        print(
+            "  Advisory only; run 'just normalize-cache' during the coordinated "
+            "cache-order cutover.",
+            file=sys.stderr,
+        )
+        has_order_error = any(
+            isinstance(finding, CacheOrderFinding) for finding in order_findings
+        )
+        return 1 if args.strict_order and has_order_error else 0
 
     oak_config = args.oak_config if args.oak_config.exists() else None
     findings = (
@@ -468,6 +502,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {finding.format()}", file=sys.stderr)
         if len(warnings) > args.max_findings:
             print(f"  ... {len(warnings) - args.max_findings} more", file=sys.stderr)
+        print(
+            "  Remediation: use 'just check-enum-cache --fix' for stale files; "
+            "use 'just normalize-cache' for ordering during the coordinated cutover.",
+            file=sys.stderr,
+        )
 
     if errors:
         print(

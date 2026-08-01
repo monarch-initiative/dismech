@@ -236,6 +236,40 @@ def test_cache_order_audit_covers_enum_and_term_caches(tmp_path: Path) -> None:
     )
 
 
+def test_cache_order_audit_reports_malformed_headers_without_failing(
+    tmp_path: Path, capsys
+) -> None:
+    cache_dir = tmp_path / "cache"
+    empty_term_dir = cache_dir / "empty"
+    malformed_term_dir = cache_dir / "malformed"
+    empty_term_dir.mkdir(parents=True)
+    malformed_term_dir.mkdir(parents=True)
+    (empty_term_dir / "terms.csv").write_text("", encoding="utf-8")
+    (malformed_term_dir / "terms.csv").write_text(
+        "id,label\nTEST:1,one\n", encoding="utf-8"
+    )
+
+    findings = scan_cache_order(cache_dir)
+    assert len(findings) == 2
+    assert all("expected first CSV column" in finding.format() for finding in findings)
+
+    assert main(["--cache-dir", str(cache_dir), "--check-order"]) == 0
+    assert (
+        main(
+            [
+                "--cache-dir",
+                str(cache_dir),
+                "--check-order",
+                "--strict-order",
+            ]
+        )
+        == 0
+    )
+    captured = capsys.readouterr()
+    assert "[WARNING]" in captured.err
+    assert "Traceback" not in captured.err
+
+
 def test_default_validate_recipes_do_not_run_online_check_enum_cache() -> None:
     """Default validation must not depend on the online enum cache audit, which
     re-derives every dynamic enum from OAK and can pull multi-GB DBs (#5150)."""

@@ -1444,7 +1444,8 @@ The dashboard shows priority curation targets - the 10 files with lowest complia
 Committed CSVs under `cache/` must remain in canonical CURIE order. Treat these
 files as tool-generated: `just normalize-cache` is the sanctioned way to write
 their final committed form after validation or cache population. Use
-`just check-cache-order` for a read-only ordering report.
+`just check-cache-order` for a read-only ordering report. During Phase 0 this
+report is advisory only and exits successfully even when it finds disorder.
 
 **Never append rows at end-of-file or hand-place rows to avoid reorder churn.**
 That creates a shared terminal Git hunk and causes repeated conflicts across
