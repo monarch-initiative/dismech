@@ -441,15 +441,29 @@ jobs:
           detail = str(r.get("result") or "").strip()
           haystack = f"{reason} {detail}".lower()
 
-          if reason == "rate_limit" or "usage limit" in haystack or "weekly limit" in haystack:
-              msg = (f"Claude USAGE LIMIT reached — NO review ran ({detail!r}). This is an "
-                     "account-quota issue on the credential in use, NOT a problem with this PR. "
-                     "This workflow prefers ANTHROPIC_API_KEY (pay-per-use, no weekly cap) and "
-                     "only falls back to CLAUDE_CODE_OAUTH_TOKEN when no API key is set — so a "
-                     "weekly-limit error here most likely means ANTHROPIC_API_KEY is unset and "
-                     "the run used the subscription token. Fix: set the ANTHROPIC_API_KEY repo "
-                     "secret, wait for the limit to reset, or rotate the OAuth token to an "
-                     "account with headroom. Re-run this check afterward.")
+          # Claude phrases this several ways and the wording has changed over time.
+          # Matching only "usage limit"/"weekly limit" missed the live message
+          # "You've hit your limit - resets 8pm (UTC)", which then fell through to
+          # the generic branch below and blamed --model/a bad token instead — hours
+          # of debugging pointed the wrong way. Match the family, not one phrasing.
+          LIMIT_MARKERS = (
+              "usage limit", "weekly limit", "hit your limit", "rate limit",
+              "limit reached", "out of credit", "credit balance", "insufficient quota",
+          )
+          if reason == "rate_limit" or any(m in haystack for m in LIMIT_MARKERS):
+              msg = (f"Claude USAGE LIMIT reached — NO review ran ({detail!r}). This is a "
+                     "credential-quota issue, NOT a problem with this PR. This workflow prefers "
+                     "ANTHROPIC_API_KEY (pay-per-use, no subscription cap) and falls back to "
+                     "CLAUDE_CODE_OAUTH_TOKEN only when no API key is set, so seeing this means "
+                     "the run used the subscription token. Two ways that happens: (1) the "
+                     "ANTHROPIC_API_KEY repo secret is unset; or (2) this PR targets a BASE "
+                     "BRANCH whose copy of this workflow predates the API-key fallback — for "
+                     "pull_request events GitHub runs the workflow file from head merged into "
+                     "BASE, not from main. To tell them apart, check the 'Run Claude Code "
+                     "Review' step's `with:` block in this log: no anthropic_api_key line means "
+                     "case (2), and the fix is to merge main into the base branch. Note that "
+                     "re-running this job will NOT help in case (2) — a re-run replays the "
+                     "original workflow file.")
               print(f"::error title=Claude review skipped: usage limit::{msg}")
               summary("### ⛔ Claude review skipped — usage limit reached\n\n" + msg)
               sys.exit(1)
