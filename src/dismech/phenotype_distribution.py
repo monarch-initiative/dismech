@@ -153,7 +153,7 @@ def discover_collections(
         elif p.suffix:
             # A named file that is missing is an error; a missing directory is
             # simply a collection set that does not exist yet.
-            raise FileNotFoundError(p)
+            raise FileNotFoundError(f"{p}: no such collection file")
     return [load_collection(f) for f in files]
 
 
@@ -1433,7 +1433,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    collections = discover_collections(args.paths or None)
+    try:
+        collections = discover_collections(args.paths or None)
+    except (ValueError, FileNotFoundError) as exc:
+        # Same treatment as the tier guard below: a mistyped path is a likelier
+        # user error than a tier violation, so it should read like every other
+        # failure in this CLI rather than as an unhandled traceback.
+        print(f"[ERROR] {exc}")
+        return 1
     prune = _is_full_rebuild(args.paths) and not args.no_prune
     if not collections:
         print("No phenotype-distribution collections found.")

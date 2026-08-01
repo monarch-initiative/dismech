@@ -533,6 +533,7 @@ def test_prose_domain_role_lists_are_complete() -> None:
 
     for path in (Path("CLAUDE.md"), Path("docs/phenotype-distributions.md")):
         text = path.read_text(encoding="utf-8")
+        matched = 0
         # Newlines are in the class because both files wrap these lists mid-run.
         for group in re.findall(r"\(([^()]*`[A-Z_]+`[^()]*)\)", text, flags=re.DOTALL):
             named = {v for v in re.findall(r"`([A-Z_]+)`", group) if v in roles}
@@ -541,10 +542,19 @@ def test_prose_domain_role_lists_are_complete() -> None:
             # coincidence — that group is enumerating the enum.
             if len(named) < 2:
                 continue
+            matched += 1
             assert named == roles, (
                 f"{path} enumerates domain_role but omits {sorted(roles - named)}; "
                 "list every value or drop the parenthetical"
             )
+        # Anchored, like `test_docs_prefix_list_matches_the_code_exactly`. Without
+        # this, "delete the list" is an unguarded escape from "keep the list
+        # current" — the guard would go green on a file that had silently lost
+        # the guidance it exists to protect.
+        assert matched, (
+            f"{path} no longer enumerates domain_role anywhere; if the guidance "
+            "moved, point this test at its new home rather than deleting it"
+        )
 
 
 def test_a_yaml_that_is_not_a_collection_is_rejected(tmp_path: Path) -> None:
@@ -565,6 +575,21 @@ def test_a_yaml_that_is_not_a_collection_is_rejected(tmp_path: Path) -> None:
 
     # And a genuine collection still loads.
     assert load_collection(EXAMPLES_DIR / "cystic_fibrosis_illustrative.yaml").data
+
+
+def test_cli_reports_bad_paths_as_errors_not_tracebacks(capsys) -> None:
+    """A mistyped path is the likeliest user error, so it must read like one.
+
+    The CLI already decided this shape for the provenance-tier guard. A
+    traceback for the far more common mistake would be the inconsistency.
+    """
+    from dismech.phenotype_distribution import main
+
+    for bad in (str(SCHEMA_PATH), str(EXAMPLES_DIR / "does-not-exist.yaml")):
+        assert main([bad]) == 1
+        out = capsys.readouterr().out
+        assert out.startswith("[ERROR] "), out
+        assert bad in out
 
 
 def test_single_collection_rebuild_does_not_prune_other_collections() -> None:
