@@ -1,12 +1,17 @@
 """Data validation tests for dismech KB."""
 
 import glob
+import sys
 import warnings
 from pathlib import Path
 
 import pytest
 import yaml
 from linkml.validator import Validator
+
+# scripts/ is not a package; make its modules importable for tests that reuse
+# validation logic shared with the CLI tools.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 # Paths
 ROOT_DIR = Path(__file__).parent.parent
@@ -1480,16 +1485,23 @@ def test_dataset_accession_prefix_and_shape(filepath):
     confirming the record actually exists -- is
     ``scripts/verify_dataset_accessions.py`` / ``just verify-datasets``.
     """
-    import sys
-
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
     from verify_dataset_accessions import SHAPE, UNSUPPORTED_PREFIXES, split_accession
 
     with open(filepath) as f:
         data = yaml.safe_load(f)
 
+    # Dataset records also hang off proposed experiments, which the verifier
+    # walks; keep the offline guard's scope identical so nothing is checked by
+    # one and not the other.
+    records = list(data.get("datasets") or [])
+    for disc in data.get("discussions") or []:
+        for exp in (disc or {}).get("proposed_experiments") or []:
+            records.extend((exp or {}).get("datasets") or [])
+
     errors = []
-    for ds in data.get("datasets") or []:
+    for ds in records:
+        if not isinstance(ds, dict):
+            continue
         accession = ds.get("accession")
         if not accession:
             errors.append("dataset record with no accession")

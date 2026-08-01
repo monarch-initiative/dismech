@@ -59,10 +59,24 @@ uv run python scripts/triage_dataset_proposals.py reject proposals/batch.json \
 # 5. Write approved records into the KB
 uv run python scripts/build_dataset_records.py apply proposals/batch.json
 
-# 6. Validate
+# 6. Confirm only `datasets:` moved
+git diff kb/disorders/Asthma.yaml
+
+# 7. Validate
 just verify-datasets kb/disorders/Asthma.yaml
 just validate kb/disorders/Asthma.yaml
+
+# 8. Record the change (CLAUDE.md requires a history record per KB edit)
+uv run python scripts/new_history.py --kind disorder --slug Asthma \
+    --event EDIT --outcome changed --sections datasets \
+    --summary "Add public dataset records from GEO" --details "..."
 ```
+
+`apply` splices records in as text and then re-parses to confirm nothing but
+`datasets:` changed, so step 6 should show a pure addition. Note that
+`just new-history` cannot take multi-word argument values (`just`'s `*ARGS`
+interpolation re-splits on whitespace) — scripted callers must invoke
+`scripts/new_history.py` directly, as above.
 
 For repositories GEO search cannot reach (PRIDE, MetaboLights, EGA, dbGaP,
 cellxgene), use the deep-research path:

@@ -50,6 +50,7 @@ not re-hit the public APIs. Use ``--refresh`` to bypass the cache.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import re
 import sys
@@ -80,6 +81,10 @@ ERROR = "ERROR"
 # (e.g. `sra:PRJNA290729`, which is really a BioProject accession).
 PREFIX_MISMATCH = "PREFIX_MISMATCH"
 
+# How long a NOT_FOUND result is trusted before being re-checked. Datasets are
+# often deposited under embargo and become visible only at publication.
+NEGATIVE_CACHE_DAYS = 30
+
 # Prefixes that are literature identifiers or lack a per-record public API.
 UNSUPPORTED_PREFIXES = {
     "pmid": "literature identifier, not a dataset accession",
@@ -89,6 +94,12 @@ UNSUPPORTED_PREFIXES = {
     "gtex": "GTEx portal tissue pointer, not a per-record accession",
     "encode": "ENCODE portal pointer; use the ENCSR accession if one is known",
     "tcga": "TCGA project pointer; use the GDC/dbGaP accession if one is known",
+    # Declared in the schema prefix map and legitimate to curate, but with no
+    # per-record public metadata API to resolve against. Listed here so a
+    # curator adding one gets "reported, not verifiable" rather than a CI error.
+    "hca": "Human Cell Atlas project pointer; no per-record metadata API contract",
+    "synapse": "Synapse entity pointer; access-controlled, no open metadata API",
+    "clinvar": "variant database pointer, not a dataset accession",
     "morphic": "MorPhiC gene-level pointer, not a repository accession",
     "phenopacket-store": "GitHub-hosted collection, no accession API",
     "https": "bare URL; replace with a repository CURIE",
@@ -128,6 +139,8 @@ class Result:
     detail: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
     sources: list[str] = field(default_factory=list)
+    # ISO date this accession was last resolved against the live API
+    checked: str = ""
 
     def as_row(self) -> str:
         return "\t".join(
@@ -193,6 +206,16 @@ def _eutils_lookup(db: str, term: str, local_id: str, throttle: Throttle, api_ke
         sparams["api_key"] = api_key
     summary = http_json(f"{EUTILS}/esummary.fcgi?{urllib.parse.urlencode(sparams)}", throttle)
     doc = ((summary or {}).get("result") or {}).get(ids[0]) or {}
+
+    # Defence in depth: confirm the record NCBI returned is the one asked for.
+    # Field-restricted misses currently return count=0 rather than falling back
+    # to an unrestricted search, but a silent fallback would otherwise turn a
+    # nonexistent accession into a confident OK -- the one thing this script
+    # exists to prevent.
+    echoed = str(doc.get("accession") or doc.get("project_acc") or "").upper()
+    if echoed and echoed != local_id.upper():
+        return NOT_FOUND, "", f"{db} returned {echoed}, not {local_id}", {}
+
     title = doc.get("title") or doc.get("project_title") or doc.get("d_study_name") or doc.get("expname") or ""
     extra = {}
     for key, out in (
@@ -365,10 +388,22 @@ def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | N
         mismatch_from, prefix = prefix, actual
 
     key = f"{prefix}:{local_id.upper()}"
-    if not refresh and key in cache:
-        cached = cache[key]
+    cached = cache.get(key) if not refresh else None
+    # A NOT_FOUND is not necessarily permanent -- GEO accessions are routinely
+    # embargoed until publication -- so negative results expire and get retried.
+    if cached and cached.get("status") == NOT_FOUND:
+        checked = cached.get("checked", "")
+        try:
+            age = (dt.date.today() - dt.date.fromisoformat(checked[:10])).days
+        except (TypeError, ValueError):
+            age = 10**6
+        if age > NEGATIVE_CACHE_DAYS:
+            cached = None
+
+    if cached:
         status, title = cached["status"], cached.get("title", "")
         detail, extra = cached.get("detail", ""), cached.get("extra", {})
+        res.checked = cached.get("checked", "")
     else:
         try:
             status, title, detail, extra = RESOLVERS[prefix](local_id, throttle, api_key)
@@ -377,7 +412,9 @@ def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | N
             res.detail = str(exc)[:200]
             return res
         if status in (OK, NOT_FOUND):
-            cache[key] = {"status": status, "title": title, "detail": detail, "extra": extra}
+            res.checked = dt.date.today().isoformat()
+            cache[key] = {"status": status, "title": title, "detail": detail,
+                          "extra": extra, "checked": res.checked}
 
     if mismatch_from and status == OK:
         status = PREFIX_MISMATCH

@@ -36,7 +36,14 @@ more valuable than a long, uncertain one.
    certain about is the single most damaging thing this report can contain.
 4. **Reproduce the repository's own title verbatim** where you can. Do not
    paraphrase a dataset title into something tidier.
-5. **If you find nothing, say so.** "No public omics dataset specific to this
+5. **Do not substitute a sibling disease.** {disease_name} may share most of its
+   name with a *different* disease that is far better represented in public
+   data — acquired vs hereditary angioedema, acquired vs familial partial
+   lipodystrophy, juvenile vs adult forms, primary vs secondary forms. A
+   dataset about the sibling is not a dataset about this disease, however
+   close the wording. If the only data you can find is for the sibling, say
+   that in prose and give no accession for it.
+6. **If you find nothing, say so.** "No public omics dataset specific to this
    disease was found" is a correct and useful answer for a rare disease. An
    empty result is strongly preferred over a fabricated one.
 

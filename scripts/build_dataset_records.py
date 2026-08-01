@@ -40,11 +40,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import io
 import json
 import re
 import sys
 from pathlib import Path
+
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -191,14 +192,59 @@ def propose(slugs: list[str], limit: int, out_path: Path, min_score: float) -> i
     return 0
 
 
+def render_records(records: list[dict]) -> str:
+    """Render records as a YAML sequence in the KB's prevailing style."""
+    text = yaml.safe_dump(
+        records,
+        sort_keys=False,
+        default_flow_style=False,
+        allow_unicode=True,
+        width=100000,  # keep each scalar on one line, as most KB entries do
+    )
+    # safe_dump indents sequence items under a mapping; at top level it already
+    # emits "- key: value" at column 0, which is the dismech convention.
+    return text if text.endswith("\n") else text + "\n"
+
+
+def splice_datasets(text: str, new_records: list[dict]) -> str:
+    """Insert records into a KB file's ``datasets:`` block *textually*.
+
+    Round-tripping the whole document through a YAML emitter reformats every
+    long scalar in the file (in one direction or the other, depending on the
+    configured width), which buries a three-line addition in a thousand-line
+    diff. Splicing text leaves every untouched byte untouched.
+    """
+    block = render_records(new_records)
+    lines = text.splitlines(keepends=True)
+
+    start = None
+    for i, line in enumerate(lines):
+        if re.match(r"^datasets:\s*(\[\s*\])?\s*$", line):
+            start = i
+            break
+
+    if start is None:
+        # No datasets key at all: append one at the end of the document.
+        prefix = text if text.endswith("\n") else text + "\n"
+        return prefix + "datasets:\n" + block
+
+    if re.match(r"^datasets:\s*\[\s*\]\s*$", lines[start]):
+        # `datasets: []` -> a real block
+        return "".join(lines[:start]) + "datasets:\n" + block + "".join(lines[start + 1 :])
+
+    # Existing non-empty block: find where it ends (the next top-level key).
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        if lines[j].strip() and not lines[j].startswith((" ", "-", "\t")):
+            end = j
+            break
+    body = "".join(lines[start : end])
+    if not body.endswith("\n"):
+        body += "\n"
+    return "".join(lines[:start]) + body + block + "".join(lines[end:])
+
+
 def apply_proposals(path: Path, dry_run: bool) -> int:
-    from ruamel.yaml import YAML
-
-    yaml_rt = YAML()
-    yaml_rt.preserve_quotes = True
-    yaml_rt.width = 100
-    yaml_rt.indent(mapping=2, sequence=2, offset=0)
-
     proposals = json.loads(path.read_text())
     changed, skipped = [], []
 
@@ -213,25 +259,31 @@ def apply_proposals(path: Path, dry_run: bool) -> int:
             skipped.append(prop["slug"])
             continue
 
-        doc = yaml_rt.load(fpath.read_text())
-        existing = doc.get("datasets")
-        have = {str(d.get("accession")) for d in (existing or []) if isinstance(d, dict)}
+        text = fpath.read_text()
+        doc = yaml.safe_load(text) or {}
+        have = {str(d.get("accession")) for d in (doc.get("datasets") or []) if isinstance(d, dict)}
         new = [r for r in approved if r["accession"] not in have]
         if not new:
             skipped.append(prop["slug"])
             continue
 
-        if isinstance(existing, list) and len(existing) > 0:
-            for rec in new:
-                existing.append(rec)
-        else:
-            # Replaces an empty `datasets: []` or adds the key outright.
-            doc["datasets"] = new
+        updated = splice_datasets(text, new)
+
+        # The splice must not change anything except the datasets list.
+        before, after = yaml.safe_load(text) or {}, yaml.safe_load(updated) or {}
+        before.pop("datasets", None)
+        after_ds = after.pop("datasets", None)
+        if before != after:
+            print(f"  !! {prop['slug']}: splice altered other content, skipping", file=sys.stderr)
+            skipped.append(prop["slug"])
+            continue
+        if len(after_ds or []) != len(doc.get("datasets") or []) + len(new):
+            print(f"  !! {prop['slug']}: unexpected dataset count after splice, skipping", file=sys.stderr)
+            skipped.append(prop["slug"])
+            continue
 
         if not dry_run:
-            buf = io.StringIO()
-            yaml_rt.dump(doc, buf)
-            fpath.write_text(buf.getvalue())
+            fpath.write_text(updated)
         changed.append((prop["slug"], len(new)))
 
     for slug, n in changed:

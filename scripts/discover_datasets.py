@@ -235,8 +235,16 @@ def core_term(name: str) -> tuple[str, str]:
     return short, stripped
 
 
-def build_queries(entry: dict, slug: str, use_synonyms: bool = True) -> list[tuple[str, str]]:
-    """Return [(label, geo_search_term)] from most to least specific."""
+def build_queries(
+    entry: dict, slug: str, use_synonyms: bool = True
+) -> tuple[list[tuple[str, str]], list[str], list[list[str]], list[tuple[str, str]]]:
+    """Build the GEO queries and the terms used to judge relevance.
+
+    Returns ``(queries, phrases, wordsets, cores)``:
+    ``queries`` are ``(label, geo_search_term)`` from most to least specific;
+    ``phrases``/``wordsets`` decide DIRECT vs GENE_ONLY; ``cores`` are
+    ``(core_term, stripped_qualifier)`` pairs used to detect sibling diseases.
+    """
     names: list[str] = []
     name = (entry.get("name") or slug).replace("_", " ")
     names.append(name)
@@ -340,6 +348,12 @@ def score_candidate(
     # how well the rest of it scores.
     for core, stripped in cores or []:
         if not stripped:
+            continue
+        # If the entry's own qualified name is also present ("chronic kidney
+        # disease" for a Chronic_ entry), the dataset covers this disease as
+        # well as its sibling -- comparative studies routinely name both -- so
+        # the veto would throw away a genuine hit.
+        if f"{stripped} {core}".lower() in hay_all:
             continue
         competing = has_qualifier_conflict(hay_all, stripped, core)
         if competing:
@@ -509,9 +523,11 @@ def main() -> int:
               f"openscientist {args.disorder}` for non-NCBI repositories.")
         return 0
 
-    direct = sum(1 for c in cands if c.relevance == "DIRECT")
-    print(f"{len(cands)} candidate dataset(s) for {args.disorder} "
-          f"({direct} DIRECT, {len(cands) - direct} GENE_ONLY):\n")
+    tally: dict[str, int] = {}
+    for c in cands:
+        tally[c.relevance] = tally.get(c.relevance, 0) + 1
+    breakdown = ", ".join(f"{n} {k}" for k, n in sorted(tally.items()))
+    print(f"{len(cands)} candidate dataset(s) for {args.disorder} ({breakdown}):\n")
     for c in cands:
         print(f"  [{c.score:>5}] {c.relevance:<9} {c.accession}  {c.data_type or '?'}  "
               f"n={c.sample_count or '?'}  {c.organism}")
