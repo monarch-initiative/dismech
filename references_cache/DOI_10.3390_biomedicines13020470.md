@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines13020470"
+reference_id: DOI:10.3390/biomedicines13020470
 title: "Targeting the Tumor Microenvironment in EGFR-Mutant Lung Cancer: Opportunities and Challenges"
 authors:
 - Jeong Uk Lim
@@ -16,6 +16,7 @@ journal: Biomedicines
 year: '2025'
 doi: 10.3390/biomedicines13020470
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Targeting the Tumor Microenvironment in EGFR-Mutant Lung Cancer: Opportunities and Challenges

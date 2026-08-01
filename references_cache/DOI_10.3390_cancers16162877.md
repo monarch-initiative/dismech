@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16162877"
+reference_id: DOI:10.3390/cancers16162877
 title: "Non-Small-Cell Lung Cancers (NSCLCs) Harboring RET Gene Fusion, from Their Discovery to the Advent of New Selective Potent RET Inhibitors: “Shadows and Fogs”"
 authors:
 - Gianluca Spitaleri
@@ -15,6 +15,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16162877
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Non-Small-Cell Lung Cancers (NSCLCs) Harboring RET Gene Fusion, from Their Discovery to the Advent of New Selective Potent RET Inhibitors: “Shadows and Fogs”

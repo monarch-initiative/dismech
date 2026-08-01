@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm12041494"
+reference_id: DOI:10.3390/jcm12041494
 title: "Response to Peptide Receptor Radionuclide Therapy in Pheocromocytomas and Paragangliomas: A Systematic Review and Meta-Analysis"
 authors:
 - Antonella Lucia Marretta
@@ -16,6 +16,7 @@ journal: Journal of Clinical Medicine
 year: '2023'
 doi: 10.3390/jcm12041494
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Response to Peptide Receptor Radionuclide Therapy in Pheocromocytomas and Paragangliomas: A Systematic Review and Meta-Analysis
