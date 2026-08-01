@@ -189,6 +189,73 @@ def slugify(name: str) -> str:
     return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
 
 
+def _prune_orphan_pages(
+    output_dir: Path,
+    rendered: list[Path],
+    *,
+    label: str,
+    keep_names: tuple[str, ...] = ("index.html",),
+) -> list[Path]:
+    """Delete ``*.html`` pages in ``output_dir`` that a *full* build did not write.
+
+    Page filenames come from ``slugify(name)`` rather than the source YAML stem,
+    so renaming an entry silently forks its page: the new slug gets rendered and
+    the old one is left behind forever as a stale, publicly served snapshot
+    (issue #7426). After a full build the rendered set is authoritative, so any
+    other HTML file directly in the output directory has no KB source and is
+    removed.
+
+    Only ever call this from a full build. On an incremental build (``only=`` /
+    ``--changed``) the rendered set is a small subset by design (issue #5507),
+    and pruning would delete every page that simply was not rebuilt.
+
+    Args:
+        output_dir: Directory holding the generated pages.
+        rendered: Page paths written by this build.
+        label: Noun used in log lines (e.g. ``"disorder"``).
+        keep_names: Filenames never pruned, for pages generated elsewhere.
+
+    Returns:
+        List of deleted page paths.
+    """
+    if not output_dir.is_dir():
+        return []
+
+    # An empty rendered set is never authoritative: a full build that wrote
+    # nothing means the *input* was missing (e.g. a mistyped input directory),
+    # not that every existing page is an orphan. Without this, one bad path
+    # argument would delete the entire output directory.
+    if not rendered:
+        return []
+
+    keep = {path.resolve() for path in rendered}
+    # A case-only slug difference (``Holt-Oram_Syndrome`` vs
+    # ``Holt-Oram_syndrome``) is two distinct pages on Linux but one file on a
+    # case-insensitive filesystem, where deleting the "orphan" would throw away
+    # the page just rendered. Fall back to a same-file check before unlinking.
+    keep_by_folded_name: dict[str, list[Path]] = defaultdict(list)
+    for path in rendered:
+        keep_by_folded_name[path.name.casefold()].append(path)
+
+    removed: list[Path] = []
+    for page in sorted(output_dir.glob("*.html")):
+        if page.name in keep_names or page.resolve() in keep:
+            continue
+        if any(
+            page.samefile(candidate)
+            for candidate in keep_by_folded_name.get(page.name.casefold(), ())
+            if candidate.exists()
+        ):
+            continue
+        page.unlink()
+        removed.append(page)
+        print(f"Pruned orphan {label} page: {page}")
+
+    if removed:
+        print(f"Pruned {len(removed)} orphan {label} page(s) from {output_dir}")
+    return removed
+
+
 def _normalize_disorder_lookup(value: str | None) -> str:
     """Normalize disease names/slugs for tolerant internal-link lookup."""
     if not value:
@@ -2741,6 +2808,7 @@ def render_all_modules(
     index_path = render_module_index(module_summaries, output_dir / "index.html")
     output_files.append(index_path)
     print(f"Rendered module index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="module")
     return output_files
 
 
@@ -2783,6 +2851,7 @@ def render_all_comorbidities(
     )
     output_files.append(index_path)
     print(f"Rendered comorbidity index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="comorbidity")
     return output_files
 
 
@@ -3713,6 +3782,7 @@ def render_all_groupings(
     index_path = render_grouping_index(summaries, output_dir / "index.html")
     output_files.append(index_path)
     print(f"Rendered grouping index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="grouping")
     return output_files
 
 
@@ -4578,6 +4648,11 @@ def render_all_disorders(
         print(f"Rendered: {disorder_name} -> {output_path}")
 
     render_classification_pages(input_dir=input_dir)
+
+    if only is None:
+        # Full build only: the rendered set is authoritative, so drop pages left
+        # behind by renamed/deleted entries (issue #7426).
+        _prune_orphan_pages(output_dir, output_files, label="disorder")
 
     scope = "changed" if only is not None else "all"
     print(
