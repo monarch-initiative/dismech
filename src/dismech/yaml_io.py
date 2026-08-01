@@ -31,7 +31,7 @@ try:  # pragma: no cover - exercised implicitly wherever YAML is loaded
 except ImportError:  # pragma: no cover - only when libyaml is not built
     from yaml import SafeLoader  # type: ignore[assignment]
 
-__all__ = ["HAVE_LIBYAML", "SafeLoader", "safe_load", "safe_load_all", "safe_load_path"]
+__all__ = ["HAVE_LIBYAML", "SafeLoader", "safe_load", "safe_load_path"]
 
 #: Whether the fast libyaml-backed loader is in use. Informational only — callers
 #: get correct results either way.
@@ -43,14 +43,11 @@ def safe_load(stream: str | bytes | IO[str] | IO[bytes]) -> Any:
     return yaml.load(stream, Loader=SafeLoader)
 
 
-def safe_load_all(stream: str | bytes | IO[str] | IO[bytes]) -> Any:
-    """Drop-in replacement for :func:`yaml.safe_load_all` using the fastest loader."""
-    return yaml.load_all(stream, Loader=SafeLoader)
-
-
 def safe_load_path(path: str | Path, encoding: str = "utf-8") -> Any:
     """Read and parse a YAML file.
 
-    Convenience for the very common ``safe_load(path.read_text())`` pairing.
+    Convenience for the very common ``safe_load(path.read_text())`` pairing, and
+    the reason it pins ``utf-8`` rather than inheriting the platform's locale
+    default the way a bare ``read_text()`` does.
     """
     return safe_load(Path(path).read_text(encoding=encoding))

@@ -25,7 +25,7 @@ from pathlib import Path
 
 import yaml
 
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load, safe_load_path
 
 ROOT = Path(__file__).resolve().parent.parent
 DISORDERS = ROOT / "kb" / "disorders"
@@ -37,7 +37,7 @@ OUT = ROOT / "pages" / "nih-topics" / "index.html"
 
 def _load_topics() -> dict[str, dict]:
     """key -> {number, title, expires, url} from the generated enum descriptions."""
-    doc = safe_load(ENUM_PATH.read_text())
+    doc = safe_load_path(ENUM_PATH)
     pvs = doc["enums"]["NIHResearchPriorityEnum"]["permissible_values"]
     topics: dict[str, dict] = {}
     for key, meta in pvs.items():

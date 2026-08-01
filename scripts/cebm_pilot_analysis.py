@@ -34,7 +34,7 @@ from typing import Any
 import requests
 import yaml
 
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load_path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 KB_DIRS = [REPO_ROOT / "kb" / "disorders", REPO_ROOT / "kb" / "modules"]
@@ -78,7 +78,7 @@ def load_kb_evidence() -> list[dict[str, Any]]:
             if path.name.endswith(".history.yaml"):
                 continue
             try:
-                doc = safe_load(path.read_text())
+                doc = safe_load_path(path)
             except yaml.YAMLError as e:
                 print(f"WARN: could not parse {path}: {e}", file=sys.stderr)
                 continue
