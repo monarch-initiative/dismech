@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -526,7 +645,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -2983,6 +3101,49 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
 
 
@@ -3074,7 +3235,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 31</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Type%20I%20Diabetes"
@@ -3248,7 +3409,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">29</div>
+                <div class="stat-value">31</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -5149,6 +5310,13 @@
                     <span class="tag tag-bio">
                         autoantibody production
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002377">GO:0002377</a>
+
+
+
                     </span>
 
 
@@ -6092,7 +6260,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Autoimmune Destruction of Beta Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system mistakenly targets and destroys insulin-producing beta cells in the pancreas through T cell-mediated cytotoxicity and autoantibody production.\", \"meta\": {\"evidence_count\": 8, \"cell_types\": [\"type B pancreatic cell\", \"CD8-positive, alpha-beta cytotoxic T cell\", \"CD4-positive, alpha-beta T cell\", \"regulatory T cell\", \"B cell\", \"dendritic cell\", \"macrophage\"], \"biological_processes\": [\"T cell mediated cytotoxicity\", \"autoantibody production\", \"cytokine-mediated signaling pathway\"], \"locations\": [\"pancreatic islet\"]}}, {\"id\": \"Cardiovascular Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001626\"}}, {\"id\": \"Chronic Complications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent hyperglycemia over time can lead to damage in various tissues and organs.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Confusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001289\"}}, {\"id\": \"Diabetic Ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001953\"}}, {\"id\": \"Diabetic Ketoacidosis (DKA)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Life-threatening metabolic emergency from insulin deficiency\"}, {\"id\": \"ER Stress and Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines induce endoplasmic reticulum stress in beta cells, activating the unfolded protein response and contributing to beta cell dysfunction and apoptosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\", \"apoptotic process\"]}}, {\"id\": \"Environmental Triggers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infections or early dietary factors (cow\u0027s milk, gluten) may trigger or accelerate the autoimmune response in genetically susceptible individuals.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Certain HLA gene variants (HLA-DQ2, HLA-DQ8) and other susceptibility genes (INS) increase the risk of developing Type I Diabetes.\", \"meta\": {\"evidence_count\": 6, \"genes\": [\"HLA-DQ2\", \"HLA-DQ8\", \"INS\"], \"gene_terms\": [{\"label\": \"HLA-DQ2\"}, {\"label\": \"HLA-DQ8\"}, {\"label\": \"INS\", \"id\": \"hgnc:6081\"}]}}, {\"id\": \"Glucosuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003076\"}}, {\"id\": \"Gut-Pancreas Lymph Node Crosstalk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Shared draining lymph nodes for the pancreas and upper small intestine may integrate gut-derived viral inflammation with pancreatic antigen presentation, shifting beta-cell-reactive T cells toward inflammatory phenotypes and increasing islet infiltration.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"migratory dendritic cell\", \"beta-cell-reactive T cell\"], \"biological_processes\": [\"dendritic cell migration\", \"adaptive immune response\"], \"locations\": [\"lymph node\", \"pancreas\", \"duodenum\"]}}, {\"id\": \"HLA-DQ2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Susceptibility\"}}, {\"id\": \"HLA-DQ8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Susceptibility\"}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003074\"}}, {\"id\": \"INS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"INS\"], \"gene_terms\": [{\"label\": \"INS\", \"id\": \"hgnc:6081\"}], \"association\": \"Susceptibility\"}}, {\"id\": \"Impaired Glucose Utilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without insulin, cells are unable to utilize glucose for energy production, leading to cellular energy deficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Increased Lipolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin deficiency also leads to increased breakdown of fat (lipolysis) for energy, resulting in the production of ketones.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Insulin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of beta cells leads to a deficiency of insulin, a hormone required for glucose uptake.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Interferon-Driven Beta Cell Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I and type II interferons upregulate antigen presentation and chemokine production in beta cells while downregulating oxidative phosphorylation, increasing immunogenicity and metabolic stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"antigen processing and presentation of peptide antigen via MHC class I\", \"chemokine production\", \"oxidative phosphorylation\", \"defense response to virus\"]}}, {\"id\": \"Nephropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000112\"}}, {\"id\": \"Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Polydipsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001959\"}}, {\"id\": \"Polyuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000103\"}}, {\"id\": \"Rapid Breathing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002789\"}}, {\"id\": \"Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000488\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Genetic Susceptibility\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Environmental Triggers\", \"target\": \"Interferon-Driven Beta Cell Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral exposures may induce local islet interferon programs that make beta cells more immunogenic and stressed.\", \"hypothesis_groups\": [\"viral_interferon_beta_cell_autoimmunity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Beta-cell viral RNA sensing and local interferon signaling\"]}, {\"source\": \"Environmental Triggers\", \"target\": \"Gut-Pancreas Lymph Node Crosstalk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper-intestinal viral infection can reprogram shared draining lymph-node immune traffic toward pancreatic islet inflammation in a mouse model.\", \"hypothesis_groups\": [\"viral_interferon_beta_cell_autoimmunity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Shared pancreas-duodenum lymph-node drainage\", \"Migratory dendritic-cell and beta-cell-reactive T-cell inflammatory polarization\"]}, {\"source\": \"Environmental Triggers\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"viral_interferon_beta_cell_autoimmunity_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gut-Pancreas Lymph Node Crosstalk\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pro-inflammatory shared lymph-node crosstalk may increase pancreatic islet lymphocyte infiltration and accelerate beta-cell autoimmunity.\", \"hypothesis_groups\": [\"viral_interferon_beta_cell_autoimmunity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Beta-cell-reactive T-cell inflammatory polarization in shared draining lymph nodes\"]}, {\"source\": \"Interferon-Driven Beta Cell Response\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Interferon-exposed beta cells may amplify autoimmune recognition through antigen-presentation and chemokine programs.\", \"hypothesis_groups\": [\"viral_interferon_beta_cell_autoimmunity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"HLA class I upregulation\", \"CXCL10-mediated lymphocyte recruitment\"]}, {\"source\": \"Autoimmune Destruction of Beta Cells\", \"target\": \"Insulin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoimmune destruction of pancreatic beta cells leads to absolute or near-absolute insulin deficiency.\"}, {\"source\": \"Insulin Deficiency\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Insulin Deficiency\", \"target\": \"Impaired Glucose Utilization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Insulin Deficiency\", \"target\": \"Increased Lipolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Glucosuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Polyuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Polydipsia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Diabetic Ketoacidosis (DKA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Glucose Utilization\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Glucose Utilization\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER Stress and Unfolded Protein Response\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased Lipolysis\", \"target\": \"Diabetic Ketoacidosis (DKA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Nephropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Cardiovascular Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Diabetic Ketoacidosis\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Abdominal Pain\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Vomiting\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Rapid Breathing\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Confusion\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"HLA-DQ2\", \"target\": \"Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HLA-DQ8\", \"target\": \"Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"INS\", \"target\": \"Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Autoimmune Destruction of Beta Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system mistakenly targets and destroys insulin-producing beta cells in the pancreas through T cell-mediated cytotoxicity and autoantibody production.\", \"meta\": {\"evidence_count\": 8, \"cell_types\": [\"type B pancreatic cell\", \"CD8-positive, alpha-beta cytotoxic T cell\", \"CD4-positive, alpha-beta T cell\", \"regulatory T cell\", \"B cell\", \"dendritic cell\", \"macrophage\"], \"biological_processes\": [\"T cell mediated cytotoxicity\", \"autoantibody production\", \"cytokine-mediated signaling pathway\"], \"locations\": [\"pancreatic islet\"]}}, {\"id\": \"Cardiovascular Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001626\"}}, {\"id\": \"Chronic Complications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent hyperglycemia over time can lead to damage in various tissues and organs.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Confusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001289\"}}, {\"id\": \"Diabetic Ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001953\"}}, {\"id\": \"Diabetic Ketoacidosis (DKA)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Life-threatening metabolic emergency from insulin deficiency\"}, {\"id\": \"ER Stress and Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines induce endoplasmic reticulum stress in beta cells, activating the unfolded protein response and contributing to beta cell dysfunction and apoptosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\", \"apoptotic process\"]}}, {\"id\": \"Environmental Triggers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infections or early dietary factors (cow\u0027s milk, gluten) may trigger or accelerate the autoimmune response in genetically susceptible individuals.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Certain HLA gene variants (HLA-DQ2, HLA-DQ8) and other susceptibility genes (INS) increase the risk of developing Type I Diabetes.\", \"meta\": {\"evidence_count\": 6, \"genes\": [\"HLA-DQ2\", \"HLA-DQ8\", \"INS\"], \"gene_terms\": [{\"label\": \"HLA-DQ2\"}, {\"label\": \"HLA-DQ8\"}, {\"label\": \"INS\", \"id\": \"hgnc:6081\"}]}}, {\"id\": \"Glucosuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003076\"}}, {\"id\": \"Gut-Pancreas Lymph Node Crosstalk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Shared draining lymph nodes for the pancreas and upper small intestine may integrate gut-derived viral inflammation with pancreatic antigen presentation, shifting beta-cell-reactive T cells toward inflammatory phenotypes and increasing islet infiltration.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"migratory dendritic cell\", \"beta-cell-reactive T cell\"], \"biological_processes\": [\"dendritic cell migration\", \"adaptive immune response\"], \"locations\": [\"lymph node\", \"pancreas\", \"duodenum\"]}}, {\"id\": \"HLA-DQ2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Susceptibility\"}}, {\"id\": \"HLA-DQ8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Susceptibility\"}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003074\"}}, {\"id\": \"INS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"INS\"], \"gene_terms\": [{\"label\": \"INS\", \"id\": \"hgnc:6081\"}], \"association\": \"Susceptibility\"}}, {\"id\": \"Immunotherapy (Teplizumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"T-cell-targeting therapy that delays progression from stage 2 to stage 3 disease by approximately 2-3 years in early-stage patients.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"teplizumab\"]}}, {\"id\": \"Impaired Glucose Utilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without insulin, cells are unable to utilize glucose for energy production, leading to cellular energy deficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Increased Lipolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin deficiency also leads to increased breakdown of fat (lipolysis) for energy, resulting in the production of ketones.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Insulin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of beta cells leads to a deficiency of insulin, a hormone required for glucose uptake.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Insulin Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Essential treatment to replace the missing insulin and regulate blood glucose levels.\", \"meta\": {\"evidence_count\": 10}}, {\"id\": \"Interferon-Driven Beta Cell Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I and type II interferons upregulate antigen presentation and chemokine production in beta cells while downregulating oxidative phosphorylation, increasing immunogenicity and metabolic stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"antigen processing and presentation of peptide antigen via MHC class I\", \"chemokine production\", \"oxidative phosphorylation\", \"defense response to virus\"]}}, {\"id\": \"Nephropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000112\"}}, {\"id\": \"Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Polydipsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001959\"}}, {\"id\": \"Polyuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000103\"}}, {\"id\": \"Rapid Breathing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002789\"}}, {\"id\": \"Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000488\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Genetic Susceptibility\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Environmental Triggers\", \"target\": \"Interferon-Driven Beta Cell Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral exposures may induce local islet interferon programs that make beta cells more immunogenic and stressed.\", \"hypothesis_groups\": [\"viral_interferon_beta_cell_autoimmunity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Beta-cell viral RNA sensing and local interferon signaling\"]}, {\"source\": \"Environmental Triggers\", \"target\": \"Gut-Pancreas Lymph Node Crosstalk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper-intestinal viral infection can reprogram shared draining lymph-node immune traffic toward pancreatic islet inflammation in a mouse model.\", \"hypothesis_groups\": [\"viral_interferon_beta_cell_autoimmunity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Shared pancreas-duodenum lymph-node drainage\", \"Migratory dendritic-cell and beta-cell-reactive T-cell inflammatory polarization\"]}, {\"source\": \"Environmental Triggers\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"viral_interferon_beta_cell_autoimmunity_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gut-Pancreas Lymph Node Crosstalk\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pro-inflammatory shared lymph-node crosstalk may increase pancreatic islet lymphocyte infiltration and accelerate beta-cell autoimmunity.\", \"hypothesis_groups\": [\"viral_interferon_beta_cell_autoimmunity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Beta-cell-reactive T-cell inflammatory polarization in shared draining lymph nodes\"]}, {\"source\": \"Interferon-Driven Beta Cell Response\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Interferon-exposed beta cells may amplify autoimmune recognition through antigen-presentation and chemokine programs.\", \"hypothesis_groups\": [\"viral_interferon_beta_cell_autoimmunity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"HLA class I upregulation\", \"CXCL10-mediated lymphocyte recruitment\"]}, {\"source\": \"Autoimmune Destruction of Beta Cells\", \"target\": \"Insulin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoimmune destruction of pancreatic beta cells leads to absolute or near-absolute insulin deficiency.\"}, {\"source\": \"Insulin Deficiency\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Insulin Deficiency\", \"target\": \"Impaired Glucose Utilization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Insulin Deficiency\", \"target\": \"Increased Lipolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Glucosuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Polyuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Polydipsia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Diabetic Ketoacidosis (DKA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Glucose Utilization\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Glucose Utilization\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER Stress and Unfolded Protein Response\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased Lipolysis\", \"target\": \"Diabetic Ketoacidosis (DKA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Nephropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Cardiovascular Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Diabetic Ketoacidosis\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Abdominal Pain\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Vomiting\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Rapid Breathing\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Confusion\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Insulin Therapy\", \"target\": \"Insulin Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunotherapy (Teplizumab)\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HLA-DQ2\", \"target\": \"Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HLA-DQ8\", \"target\": \"Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"INS\", \"target\": \"Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7974,12 +8142,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">insulin treatment</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Injected Insulin Diabetes Therapy</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000259" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000259">MAXO:0000259</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C179441" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C179441">NCIT:C179441</a>
 
 
 
@@ -8004,6 +8173,24 @@
 
                 <div class="item-desc">Essential treatment to replace the missing insulin and regulate blood glucose levels.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Insulin Deficiency</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Type 1 diabetes is absolute insulin deficiency from autoimmune beta-cell loss, so treatment is hormone REPLACEMENT: exogenous insulin directly corrects the deficiency node, normalizing the downstream metabolic abnormalities (hyperglycemia, lipolysis) and attenuating complications. This is the graph-level distinction from type 2 — insulin acts on the deficiency itself, not on insulin resistance or hepatic glucose output.</span>
+
+
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -8085,12 +8272,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">blood glucose assessment</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Blood Glucose Measurement</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000567" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000567">MAXO:0000567</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C92744" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C92744">NCIT:C92744</a>
 
 
 
@@ -8367,6 +8555,24 @@
                 <div class="item-desc">T-cell-targeting therapy that delays progression from stage 2 to stage 3 disease by approximately 2-3 years in early-stage patients.</div>
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Autoimmune Destruction of Beta Cells</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Teplizumab (anti-CD3 monoclonal antibody) targets the autoimmune T-cell attack itself — the upstream driver node — rather than its downstream metabolic consequences, blunting T-cell-mediated beta-cell destruction to delay progression from Stage 2 to clinical Stage 3 disease. It is the only T1D therapy that acts on the autoimmune mechanism node instead of the insulin-deficiency/hyperglycemia consequences, which is why it is disease-modifying (delays onset) rather than purely glucose-lowering.</span>
+
+
+
+
+                    </div>
+
+                </div>
+
 
 
 
@@ -8411,13 +8617,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">continuous blood glucose assessment</span>
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: blood glucose assessment</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Blood Glucose Measurement</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000567" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000567">MAXO:0000567</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C92744" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C92744">NCIT:C92744</a>
 
 
 
@@ -9128,7 +9334,7 @@ pathophysiology:
   - reference: PMID:31593953
     reference_title: &#34;Type 1 Diabetes Mellitus and Celiac Disease: Distinct Autoimmune Disorders That Share Common Pathogenic Mechanisms.&#34;
     supports: SUPPORT
-    snippet: Viral infections and early exposure to gluten or cow&#39;&#39;s milk in the infant diet have been implicated in disease pathogenesis.
+    snippet: Viral infections and early exposure to gluten or cow&#39;s milk in the infant diet have been implicated in disease pathogenesis.
     explanation: The reference supports the statement by linking viral infections and early dietary factors to the pathogenesis of type 1 diabetes.
 - name: Gut-Pancreas Lymph Node Crosstalk
   description: &gt;-
@@ -9276,6 +9482,9 @@ pathophysiology:
       id: GO:0001913
       label: T cell mediated cytotoxicity
   - preferred_term: autoantibody production
+    term:
+      id: GO:0002377
+      label: immunoglobulin production
     modifier: ABNORMAL
   - preferred_term: cytokine-mediated signaling pathway
     term:
@@ -9370,6 +9579,7 @@ pathophysiology:
     explanation: This also supports the idea that loss of beta cells leads to insulin deficiency and subsequent glucose control issues, relevant to both Type 1 and Type 2 diabetes.
 - name: Hyperglycemia
   description: Lack of insulin results in high blood glucose levels, as glucose cannot be efficiently taken up by cells.
+  conforms_to: &#34;diabetic_vascular_complications#Chronic Hyperglycemia&#34;
   assays:
   - preferred_term: Elevated Blood Glucose
   - preferred_term: Elevated Hemoglobin A1c (HbA1c)
@@ -9470,6 +9680,7 @@ pathophysiology:
     explanation: Although the study highlights immune responses related to ketosis-prone Type 2 Diabetes, it indirectly supports the notion that immune-mediated processes can contribute to ketosis and DKA.
 - name: Chronic Complications
   description: Persistent hyperglycemia over time can lead to damage in various tissues and organs.
+  conforms_to: &#34;diabetic_vascular_complications#Diabetic End-Organ Complications&#34;
   downstream:
   - target: Retinopathy
   - target: Neuropathy
@@ -10131,15 +10342,25 @@ treatments:
   treatment_term:
     preferred_term: insulin treatment
     term:
-      id: MAXO:0000259
-      label: insulin treatment
+      id: NCIT:C179441
+      label: Injected Insulin Diabetes Therapy
+  target_mechanisms:
+  - target: Insulin Deficiency
+    treatment_effect: RESTORES
+    description: &gt;-
+      Type 1 diabetes is absolute insulin deficiency from autoimmune beta-cell
+      loss, so treatment is hormone REPLACEMENT: exogenous insulin directly
+      corrects the deficiency node, normalizing the downstream metabolic
+      abnormalities (hyperglycemia, lipolysis) and attenuating complications.
+      This is the graph-level distinction from type 2 — insulin acts on the
+      deficiency itself, not on insulin resistance or hepatic glucose output.
 - name: Blood Glucose Monitoring
   description: Regular monitoring to manage glucose levels effectively.
   treatment_term:
     preferred_term: blood glucose assessment
     term:
-      id: MAXO:0000567
-      label: blood glucose assessment
+      id: NCIT:C92744
+      label: Blood Glucose Measurement
   evidence:
   - reference: PMID:30215903
     reference_title: &#34;Type 1 Diabetes: Management Strategies.&#34;
@@ -10208,6 +10429,17 @@ treatments:
       term:
         id: NCIT:C88647
         label: Teplizumab
+  target_mechanisms:
+  - target: Autoimmune Destruction of Beta Cells
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Teplizumab (anti-CD3 monoclonal antibody) targets the autoimmune T-cell
+      attack itself — the upstream driver node — rather than its downstream
+      metabolic consequences, blunting T-cell-mediated beta-cell destruction to
+      delay progression from Stage 2 to clinical Stage 3 disease. It is the only
+      T1D therapy that acts on the autoimmune mechanism node instead of the
+      insulin-deficiency/hyperglycemia consequences, which is why it is
+      disease-modifying (delays onset) rather than purely glucose-lowering.
   evidence:
   - reference: PMID:36877454
     reference_title: &#34;Teplizumab: First Approval.&#34;
@@ -10220,8 +10452,8 @@ treatments:
   treatment_term:
     preferred_term: continuous blood glucose assessment
     term:
-      id: MAXO:0000567
-      label: blood glucose assessment
+      id: NCIT:C92744
+      label: Blood Glucose Measurement
   evidence:
   - reference: PMID:34872983
     reference_title: &#34;Universal Subsidized Continuous Glucose Monitoring Funding for Young People With Type 1 Diabetes: Uptake and Outcomes Over 2 Years, a Population-Based Study.&#34;
@@ -10582,6 +10814,11 @@ Authoritative 2024–2025 reviews converge on a model wherein HLA-driven adaptiv
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/Type_I_Diabetes.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -10622,7 +10859,7 @@ Authoritative 2024–2025 reviews converge on a model wherein HLA-driven adaptiv
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Type I Diabetes", "mondoId": "MONDO:0005147", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Type_I_Diabetes", "yamlRevision": "463939479521"};
+        const OS_CONFIG = {"diseaseName": "Type I Diabetes", "mondoId": "MONDO:0005147", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Type_I_Diabetes", "yamlRevision": "a3db025a236c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
