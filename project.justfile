@@ -1166,6 +1166,67 @@ upload-cx2-test-all *args="":
 research_dir := "research"
 templates_dir := "templates"
 
+# Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
+# The report is a source of *candidate* accessions only: every accession it
+# returns must be resolved against the repository API with
+# `just verify-datasets --accession <acc>` before it is curated into a
+# `datasets:` block. See `just discover-datasets` for the deterministic
+# NCBI-search-based candidate generator that complements this.
+# Examples:
+#   just research-datasets openscientist Marfan_Syndrome
+#   just research-datasets openscientist Asthma -- --param max_iterations=1
+[group('Research')]
+research-datasets provider disorder *args="":
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p {{research_dir}}/datasets
+    yaml_file="{{kb_dir}}/{{disorder}}.yaml"
+    if [ ! -f "$yaml_file" ]; then
+        echo "Error: Disorder file not found: $yaml_file"
+        exit 1
+    fi
+    disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
+    mondo_id=$(grep -A3 "^disease_term:" "$yaml_file" | grep -o "MONDO:[0-9]*" | head -1 || echo "")
+    output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
+    echo "Dataset discovery: $disease_name ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    uv run deep-research-client research \
+        --template {{templates_dir}}/disease_datasets_research.md \
+        --var "disease_name=$disease_name" \
+        --var "mondo_id=$mondo_id" \
+        --var "category=$category" \
+        $provider_arg \
+        --output "$output_file" \
+        --separate-citations "$output_file.citations.md" \
+        {{args}}
+
+# Verify that datasets[].accession values resolve to real repository records.
+# Nothing else in the validation stack checks dataset accessions, so run this
+# before committing any new `datasets:` block.
+# Examples:
+#   just verify-datasets --all
+#   just verify-datasets kb/disorders/Asthma.yaml
+#   just verify-datasets --accession geo:GSE67472
+[group('Research')]
+verify-datasets *args="":
+    @uv run python scripts/verify_dataset_accessions.py {{args}}
+
+# Deterministically generate candidate datasets for a disorder by searching the
+# NCBI GEO DataSets index (and optionally EBI repositories). Every candidate it
+# emits is real by construction -- the metadata comes back from the repository.
+# Examples:
+#   just discover-datasets Asthma
+#   just discover-datasets Asthma --limit 10 --json /tmp/asthma.json
+[group('Research')]
+discover-datasets disorder *args="":
+    @uv run python scripts/discover_datasets.py {{disorder}} {{args}}
+
+# Report which KB entries have no datasets yet (the dataset-curation worklist).
+[group('Research')]
+datasets-coverage *args="":
+    @uv run python scripts/discover_datasets.py --coverage {{args}}
+
 # Deep research on a disorder using specified provider
 # Examples:
 #   just research-disorder perplexity Marfan_Syndrome

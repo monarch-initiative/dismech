@@ -1467,3 +1467,49 @@ def test_grouping_evaluation_runs(filepath):
     index = load_disease_index()
     for ev in evaluate_grouping(grouping, index):
         assert isinstance(ev.result, Satisfaction)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_dataset_accession_prefix_and_shape(filepath):
+    """Dataset accessions must use a known prefix whose shape they match.
+
+    This is the offline half of the dataset-accession guard: it catches a
+    typo'd or mis-prefixed accession (e.g. ``sra:PRJNA290729``, which is really
+    a BioProject ID) without touching the network. The online half --
+    confirming the record actually exists -- is
+    ``scripts/verify_dataset_accessions.py`` / ``just verify-datasets``.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from verify_dataset_accessions import SHAPE, UNSUPPORTED_PREFIXES, split_accession
+
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    errors = []
+    for ds in data.get("datasets") or []:
+        accession = ds.get("accession")
+        if not accession:
+            errors.append("dataset record with no accession")
+            continue
+        prefix, local_id = split_accession(str(accession))
+        if not prefix:
+            errors.append(f"{accession}: no repository prefix and shape not recognized")
+            continue
+        if prefix in UNSUPPORTED_PREFIXES:
+            # PMID/DOI/cellxgene-style entries are tolerated for now; they are
+            # reported as UNSUPPORTED by the verifier rather than failed.
+            continue
+        shape = SHAPE.get(prefix)
+        if shape is None:
+            errors.append(f"{accession}: unknown repository prefix '{prefix}'")
+        elif not shape.match(local_id):
+            actual = [p for p, pat in SHAPE.items() if pat.match(local_id)]
+            hint = f" (looks like a '{actual[0]}' accession)" if actual else ""
+            errors.append(f"{accession}: '{local_id}' does not match the {prefix} pattern{hint}")
+
+    assert not errors, f"{Path(filepath).name} has malformed dataset accessions:\n" + "\n".join(
+        f"  - {e}" for e in errors
+    )
