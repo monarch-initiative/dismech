@@ -71,6 +71,64 @@ def test_prune_is_a_noop_when_output_dir_is_missing(tmp_path: Path) -> None:
     assert _prune_orphan_pages(tmp_path / "nope", [], label="disorder") == []
 
 
+def test_prune_is_a_noop_when_nothing_was_rendered(tmp_path: Path) -> None:
+    """An empty rendered set means the input was missing, not that all pages died.
+
+    ``python -m dismech.render --all <typo>`` binds the mistyped path to
+    ``input_dir`` while ``output_dir`` stays at the default ``pages/disorders``,
+    so a build that wrote nothing would otherwise delete every committed page.
+    """
+    output_dir = tmp_path / "pages"
+    output_dir.mkdir()
+    pages = [output_dir / "One.html", output_dir / "Two.html"]
+    for page in pages:
+        page.write_text("<html></html>")
+
+    assert _prune_orphan_pages(output_dir, [], label="disorder") == []
+    assert all(page.exists() for page in pages)
+
+
+def test_full_disorder_render_over_an_empty_input_dir_keeps_pages(
+    tmp_path: Path, isolated_disorder_render: None
+) -> None:
+    """The end-to-end shape of the mistyped-path case: no input, no deletions."""
+    input_dir = tmp_path / "kb" / "typo"
+    input_dir.mkdir(parents=True)
+    output_dir = tmp_path / "pages" / "disorders"
+    output_dir.mkdir(parents=True)
+    survivor = output_dir / "Real_Disease.html"
+    survivor.write_text("<html></html>")
+
+    rendered = render_all_disorders(input_dir=input_dir, output_dir=output_dir)
+
+    assert rendered == []
+    assert survivor.exists()
+
+
+def test_prune_keeps_a_differently_named_page_that_is_the_same_file(
+    tmp_path: Path,
+) -> None:
+    """Exercise the ``samefile`` fallback on a case-sensitive filesystem.
+
+    The branch exists for case-insensitive filesystems, where two case-only
+    slug variants are one file — a condition Linux CI can never reach. A
+    hardlink reproduces the same "two names, one inode" shape so the guard
+    that prevented the #599 self-deletion is actually covered.
+    """
+    output_dir = tmp_path / "pages"
+    output_dir.mkdir()
+    rendered = output_dir / "Holt-Oram_syndrome.html"
+    rendered.write_text("<html></html>")
+    alias = output_dir / "Holt-Oram_Syndrome.html"
+    alias.hardlink_to(rendered)
+
+    removed = _prune_orphan_pages(output_dir, [rendered], label="disorder")
+
+    assert removed == []
+    assert alias.exists()
+    assert rendered.exists()
+
+
 def test_full_disorder_render_prunes_orphan_pages(
     tmp_path: Path, isolated_disorder_render: None
 ) -> None:

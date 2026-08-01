@@ -221,6 +221,13 @@ def _prune_orphan_pages(
     if not output_dir.is_dir():
         return []
 
+    # An empty rendered set is never authoritative: a full build that wrote
+    # nothing means the *input* was missing (e.g. a mistyped input directory),
+    # not that every existing page is an orphan. Without this, one bad path
+    # argument would delete the entire output directory.
+    if not rendered:
+        return []
+
     keep = {path.resolve() for path in rendered}
     # A case-only slug difference (``Holt-Oram_Syndrome`` vs
     # ``Holt-Oram_syndrome``) is two distinct pages on Linux but one file on a
