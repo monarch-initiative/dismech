@@ -922,6 +922,12 @@ gen-browser-data:
 [group('Browser')]
 gen-discussions-data:
     uv run python -m dismech.export.discussions_export
+
+# Generate computational-models browser data.js from disorder + module models
+[group('Browser')]
+gen-models-data:
+    uv run python -m dismech.export.models_export
+
 # Generate Mondo-keyed pathograph JSON artifact (for runtime embedding, e.g. Monarch pages)
 [group('Browser')]
 gen-pathographs:
@@ -929,7 +935,7 @@ gen-pathographs:
 
 # Serve the browser app locally
 [group('Browser')]
-serve-browser: gen-browser-data gen-discussions-data
+serve-browser: gen-browser-data gen-discussions-data gen-models-data
     @echo "Starting local server at http://localhost:8000/app/"
     uv run python -m http.server 8000
 
@@ -1037,7 +1043,7 @@ gen-schema-docs:
 
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-nih-topics-page gen-schema-docs
+gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-models-data gen-pages gen-grouping-pages gen-project-pages gen-nih-topics-page gen-schema-docs
     @echo "Generated browser data, pathographs, disorder/comorbidity/grouping/project pages, and schema docs"
 
 # ============== KGX Export ==============
@@ -2074,6 +2080,33 @@ g2p-compare-json gene:
 [group('Analysis')]
 perturb file *args="":
     uv run python -m dismech.perturb {{file}} {{args}}
+
+# Export dismech-perturb model configs as SED-ML / COMBINE archives, so any
+# SED-ML-capable engine (COPASI, tellurium, VCell, runBioSimulations, ...) can
+# run a dismech scenario. Writes exports/sedml/<model_id>/ (committed) and,
+# with --omex, the zipped exports/sedml/<model_id>.omex (derived, gitignored).
+# Examples:
+#   just sedml-export
+#   just sedml-export --id urate_homeostasis --omex
+[group('Analysis')]
+sedml-export *args="":
+    uv run python -m dismech.perturb.sedml_export {{args}}
+
+# Run every dismech-perturb scenario and persist the results (final observable
+# values, fold change vs baseline, and the HP phenotypes the curated thresholds
+# activate) to exports/model_runs/<model_id>.json. Derived artifact, committed
+# so the disorder pages can render it; regenerate rather than hand-edit.
+# Requires tellurium: uv pip install tellurium
+[group('Analysis')]
+gen-model-results *args="":
+    uv run python -m dismech.perturb.results_export {{args}}
+
+# Check the exported archives reproduce dismech-perturb's own numbers by
+# running each .omex through tellurium's SED-ML interpreter and diffing.
+# Requires tellurium: uv pip install tellurium
+[group('Analysis')]
+verify-sedml-export *args="":
+    uv run python scripts/verify_sedml_export.py {{args}}
 
 # ============== Agent Helper Commands ==============
 # These commands help Claude Code agents explore the KB without requiring
