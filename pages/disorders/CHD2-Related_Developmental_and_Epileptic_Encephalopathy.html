@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -526,7 +645,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -2983,6 +3101,49 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
 
 
@@ -3074,7 +3235,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=CHD2-Related%20Developmental%20and%20Epileptic%20Encephalopathy"
@@ -3248,7 +3409,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3529,6 +3690,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36115870" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36115870" target="_blank">PMID:36115870</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified genome-wide CHD2 binding profiles during hcIN differentiation, defining direct CHD2 targets related to neurogenesis in hcIN progenitors and to neuronal function in hcINs."</div>
+
+
+                <div class="evidence-explanation">Existing genome-wide CHD2 binding maps establish the feasibility and relevance of extending target-gene and chromatin-state mapping in patient-derived neurons and organoids.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 
     </div>
@@ -3641,6 +3834,38 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39442041" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39442041" target="_blank">PMID:39442041</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the CHASERR deletion results in increased CHD2 protein abundance in patient-derived cell lines"</div>
+
+
+                <div class="evidence-explanation">Patient-derived cells demonstrate that CHASERR loss raises CHD2 protein, motivating an explicit dose-window experiment before therapeutic upregulation is considered.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -3760,6 +3985,44 @@
 
                 </div>
 
+
+                <div class="item-meta">
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CHD2
+
+
+    <a href="https://bioregistry.io/hgnc:1917" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1917">hgnc:1917</a>
+
+
+
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4296,6 +4559,39 @@
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global Developmental Delay</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual Disability</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Developmental Regression</span>
+
+	                            <span class="crosslink-desc">The abnormal developmental substrate may contribute to regression, although the terminal mechanism is unresolved.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Autistic Behavior</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4415,6 +4711,57 @@
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Developmental Regression</span>
+
+	                            <span class="crosslink-desc">Frequent ongoing epileptiform activity can drive cognitive slowing or regression in CHD2-related epileptic encephalopathy.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Epileptic Encephalopathy</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myoclonic Seizures</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Absence Seizures</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Atonic Seizures</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Photosensitive Seizures</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">EEG Abnormality</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4499,7 +4846,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Neuronal Gene Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired chromatin remodeling changes the transcription of CHD2 target genes, including genes governing neuronal development and neuronal excitability, so that the coordinated gene-expression programs of the developing brain are dysregulated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of transcription\", \"regulation of gene expression\"]}}, {\"id\": \"CHD2 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"De novo heterozygous loss-of-function variants in CHD2 (protein-truncating variants, deletions, and destabilizing missense variants) reduce the amount of functional CHD2 chromatin-remodeling enzyme to roughly half, producing haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chromatin remodeling\"]}}, {\"id\": \"Cortical Network Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated expression of genes controlling neuronal excitability shifts the balance between excitation and inhibition in cortical networks, producing neuronal hyperexcitability and hypersynchrony that generate seizures, including photosensitive and myoclonic seizures. Human stem-cell models show that CHD2 loss selectively impairs the maturation of cortical inhibitory (GABAergic) interneurons while sparing excitatory neurons, providing a mechanistic substrate for the excitation-inhibition imbalance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of membrane potential\"]}}, {\"id\": \"Dysregulated Chromatin Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With reduced CHD2 activity, ATP-dependent repositioning of nucleosomes and deposition of histone variants that regulate chromatin accessibility are impaired, disrupting the chromatin landscape that CHD2 normally maintains.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chromatin remodeling\"]}}, {\"id\": \"Impaired Neuronal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated expression of neurodevelopmental genes impairs neuronal differentiation and maturation of cortical circuits, the substrate of the disorder\u0027s developmental delay and intellectual disability. CHD2 has a role in human brain development that is not compensated despite its ubiquitous expression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron differentiation\", \"nervous system development\"]}}], \"edges\": [{\"source\": \"CHD2 Haploinsufficiency\", \"target\": \"Dysregulated Chromatin Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CHD2 impairs ATP-dependent chromatin remodeling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Chromatin Remodeling\", \"target\": \"Aberrant Neuronal Gene Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted chromatin accessibility alters transcription at target genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Gene Expression\", \"target\": \"Impaired Neuronal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated developmental gene expression impairs neuronal maturation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Gene Expression\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated excitability-gene expression predisposes to seizures.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Neuronal Gene Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired chromatin remodeling changes the transcription of CHD2 target genes, including genes governing neuronal development and neuronal excitability, so that the coordinated gene-expression programs of the developing brain are dysregulated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of transcription\", \"regulation of gene expression\"]}}, {\"id\": \"Absence Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atypical and typical absence seizures occur as part of the atonic-myoclonic-absence seizure spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002121\"}}, {\"id\": \"Atonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atonic (drop) seizures are among the typical seizure types.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010819\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorders and behavioral difficulties are common.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"CHD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CHD2\"], \"gene_terms\": [{\"label\": \"CHD2\", \"id\": \"hgnc:1917\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CHD2 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"De novo heterozygous loss-of-function variants in CHD2 (protein-truncating variants, deletions, and destabilizing missense variants) reduce the amount of functional CHD2 chromatin-remodeling enzyme to roughly half, producing haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chromatin remodeling\"], \"genes\": [\"CHD2\"], \"gene_terms\": [{\"label\": \"CHD2\", \"id\": \"hgnc:1917\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Cortical Network Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated expression of genes controlling neuronal excitability shifts the balance between excitation and inhibition in cortical networks, producing neuronal hyperexcitability and hypersynchrony that generate seizures, including photosensitive and myoclonic seizures. Human stem-cell models show that CHD2 loss selectively impairs the maturation of cortical inhibitory (GABAergic) interneurons while sparing excitatory neurons, providing a mechanistic substrate for the excitation-inhibition imbalance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of membrane potential\"]}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired skills (developmental regression) frequently occurs around the time of seizure onset.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysregulated Chromatin Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With reduced CHD2 activity, ATP-dependent repositioning of nucleosomes and deposition of histone variants that regulate chromatin accessibility are impaired, disrupting the chromatin landscape that CHD2 normally maintains.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chromatin remodeling\"]}}, {\"id\": \"EEG Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The EEG typically shows generalized spike-wave discharges and a photoparoxysmal response, with epileptiform abnormalities in the large majority of individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002353\"}}, {\"id\": \"Epileptic Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A developmental and epileptic encephalopathy with refractory seizures and cognitive slowing or regression associated with frequent epileptiform activity, typically with childhood onset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200134\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive slowing or regression, reflecting global developmental impairment, is characteristic and often becomes apparent around seizure onset.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Neuronal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated expression of neurodevelopmental genes impairs neuronal differentiation and maturation of cortical circuits, the substrate of the disorder\u0027s developmental delay and intellectual disability. CHD2 has a role in human brain development that is not compensated despite its ubiquitous expression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron differentiation\", \"nervous system development\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability, ranging from mild to severe, is characteristic.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Myoclonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonic seizures (myoclonus) are a prominent and characteristic seizure type.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002123\"}}, {\"id\": \"Photosensitive Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinical photosensitivity, with visually- or light-induced seizures and a photoparoxysmal EEG response, is a characteristic and near-defining feature.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0020216\"}}], \"edges\": [{\"source\": \"CHD2 Haploinsufficiency\", \"target\": \"Dysregulated Chromatin Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CHD2 impairs ATP-dependent chromatin remodeling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Chromatin Remodeling\", \"target\": \"Aberrant Neuronal Gene Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted chromatin accessibility alters transcription at target genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Gene Expression\", \"target\": \"Impaired Neuronal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated developmental gene expression impairs neuronal maturation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Neuronal Gene Expression\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated excitability-gene expression predisposes to seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Development\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Development\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Development\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The abnormal developmental substrate may contribute to regression, although the terminal mechanism is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Development\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frequent ongoing epileptiform activity can drive cognitive slowing or regression in CHD2-related epileptic encephalopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"Epileptic Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"Myoclonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"Absence Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"Atonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"Photosensitive Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"EEG Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD2\", \"target\": \"CHD2 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5541,12 +5888,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5618,12 +5966,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5928,7 +6277,7 @@
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0014633" target="_blank">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0014633" target="_blank" class="missing-ontology-link">
                             MONDO:0014633
                         </a>
                     </span>
@@ -6091,6 +6440,12 @@ pathophysiology:
     variants, deletions, and destabilizing missense variants) reduce the amount
     of functional CHD2 chromatin-remodeling enzyme to roughly half, producing
     haploinsufficiency.
+  gene:
+    preferred_term: CHD2
+    modifier: DECREASED
+    term:
+      id: hgnc:1917
+      label: CHD2
   cell_types:
   - preferred_term: neuron
     term:
@@ -6123,6 +6478,16 @@ pathophysiology:
     causal_link_type: DIRECT
     description: &gt;-
       Reduced CHD2 impairs ATP-dependent chromatin remodeling.
+    evidence:
+    - reference: PMID:29962935
+      reference_title: &#34;Chromatin Remodeling Proteins in Epilepsy: Lessons From CHD2-Associated Epilepsy.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        The chromodomain helicase DNA-binding (CHD) family of proteins are ATP-dependent chromatin remodelers that contribute to the reorganization of chromatin structure and deposition of histone variants necessary to regulate gene expression.
+      explanation: &gt;-
+        CHD2 is an ATP-dependent CHD-family chromatin remodeler, so reduced CHD2
+        dosage directly reduces this remodeling function.
 - name: Dysregulated Chromatin Remodeling
   description: &gt;-
     With reduced CHD2 activity, ATP-dependent repositioning of nucleosomes and
@@ -6153,6 +6518,16 @@ pathophysiology:
     causal_link_type: DIRECT
     description: &gt;-
       Disrupted chromatin accessibility alters transcription at target genes.
+    evidence:
+    - reference: PMID:29962935
+      reference_title: &#34;Chromatin Remodeling Proteins in Epilepsy: Lessons From CHD2-Associated Epilepsy.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        chromatin remodelers that contribute to the reorganization of chromatin structure and deposition of histone variants necessary to regulate gene expression.
+      explanation: &gt;-
+        The review directly links chromatin reorganization and histone-variant
+        deposition to regulation of gene expression.
 - name: Aberrant Neuronal Gene Expression
   description: &gt;-
     Impaired chromatin remodeling changes the transcription of CHD2 target genes,
@@ -6188,10 +6563,33 @@ pathophysiology:
     causal_link_type: DIRECT
     description: &gt;-
       Dysregulated developmental gene expression impairs neuronal maturation.
+    evidence:
+    - reference: PMID:36115870
+      reference_title: &#34;Regulation of human cortical interneuron development by the chromatin remodeling protein CHD2.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        CHD2 haploinsufficiency altered CHD2 and H3K27ac coenrichment on chromatin and expression of associated genes, decreasing acetylation and expression of cell cycle genes while increasing acetylation and expression of neuronal genes, to cause precocious differentiation.
+      explanation: &gt;-
+        A human cortical-interneuron model directly links CHD2-dependent
+        expression changes to abnormal neuronal differentiation.
   - target: Cortical Network Hyperexcitability
     causal_link_type: DIRECT
     description: &gt;-
       Dysregulated excitability-gene expression predisposes to seizures.
+    evidence:
+    - reference: PMID:36115870
+      reference_title: &#34;Regulation of human cortical interneuron development by the chromatin remodeling protein CHD2.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        a significantly lower threshold for action potential firing and larger peak sodium currents
+      explanation: &gt;-
+        This discussion sentence summarizes prior biallelic CHD2-knockout hESC
+        work, in which complete CHD2 loss lowered the action-potential firing
+        threshold and increased sodium currents. It supports a possible
+        hyperexcitability mechanism but uses a more severe dosage regime than
+        the heterozygous disease state.
 - name: Impaired Neuronal Development
   description: &gt;-
     Dysregulated expression of neurodevelopmental genes impairs neuronal
@@ -6224,6 +6622,56 @@ pathophysiology:
     explanation: &gt;-
       CHD2 has a brain-specific developmental role whose disruption impairs
       neurodevelopment.
+  downstream:
+  - target: Global Developmental Delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:40934838
+      reference_title: &#34;Characterizing CHD2-associated epilepsy: A multicenter study and pooled analysis of the literature.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Most common comorbidities included intellectual disability (86%, 121/141), developmental delay (88%, 156/177), and autism (45%, 68/150).
+      explanation: &gt;-
+        Developmental delay occurred in 88% of the pooled CHD2 cohort; the
+        terminal steps downstream of abnormal neuronal development remain open.
+  - target: Intellectual Disability
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:40934838
+      reference_title: &#34;Characterizing CHD2-associated epilepsy: A multicenter study and pooled analysis of the literature.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Most common comorbidities included intellectual disability (86%, 121/141), developmental delay (88%, 156/177), and autism (45%, 68/150).
+      explanation: &gt;-
+        Intellectual disability occurred in 86% of the pooled CHD2 cohort; the
+        terminal developmental intermediates are not fully resolved.
+  - target: Developmental Regression
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: The abnormal developmental substrate may contribute to regression, although the terminal mechanism is unresolved.
+    evidence:
+    - reference: PMID:40934838
+      reference_title: &#34;Characterizing CHD2-associated epilepsy: A multicenter study and pooled analysis of the literature.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Most common comorbidities included intellectual disability (86%, 121/141), developmental delay (88%, 156/177), and autism (45%, 68/150).
+      explanation: &gt;-
+        The high prevalence of developmental delay supports a developmental
+        substrate, but does not by itself establish the route to regression.
+  - target: Autistic Behavior
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:40934838
+      reference_title: &#34;Characterizing CHD2-associated epilepsy: A multicenter study and pooled analysis of the literature.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Most common comorbidities included intellectual disability (86%, 121/141), developmental delay (88%, 156/177), and autism (45%, 68/150).
+      explanation: &gt;-
+        Autism occurred in 45% of the pooled CHD2 cohort; the downstream
+        developmental intermediates remain unresolved.
 - name: Cortical Network Hyperexcitability
   description: &gt;-
     Dysregulated expression of genes controlling neuronal excitability shifts the
@@ -6262,6 +6710,90 @@ pathophysiology:
     explanation: &gt;-
       In a human stem-cell model, CHD2 knockdown or knockout delays maturation of
       inhibitory interneurons, biasing cortical networks toward excitation.
+  downstream:
+  - target: Developmental Regression
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Frequent ongoing epileptiform activity can drive cognitive slowing or regression in CHD2-related epileptic encephalopathy.
+    evidence:
+    - reference: PMID:26677509
+      reference_title: &#34;CHD2-Related Neurodevelopmental Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        refractory seizures and cognitive slowing or regression associated with frequent ongoing epileptiform activity
+      explanation: GeneReviews directly associates regression with frequent ongoing epileptiform activity, placing this evidence on the epilepsy branch.
+  - target: Epileptic Encephalopathy
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:26677509
+      reference_title: &#34;CHD2-Related Neurodevelopmental Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        CHD2-related neurodevelopmental disorders are characterized by early-onset epileptic encephalopathy
+      explanation: &gt;-
+        Early-onset epileptic encephalopathy is the defining network-level
+        outcome of CHD2-related disease; multiple circuit intermediates remain.
+  - target: Myoclonic Seizures
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:26677509
+      reference_title: &#34;CHD2-Related Neurodevelopmental Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Seizure types typically include drop attacks, myoclonus, and rapid onset of multiple seizure types
+      explanation: &gt;-
+        GeneReviews identifies myoclonus among the typical seizure types
+        generated by CHD2-related epileptic networks.
+  - target: Absence Seizures
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:26677509
+      reference_title: &#34;CHD2-Related Neurodevelopmental Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        atonic-myoclonic-absence seizures, and clinical photosensitivity.
+      explanation: &gt;-
+        GeneReviews identifies absence seizures in the characteristic
+        generalized seizure spectrum.
+  - target: Atonic Seizures
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:26677509
+      reference_title: &#34;CHD2-Related Neurodevelopmental Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Seizure types typically include drop attacks
+      explanation: &gt;-
+        GeneReviews identifies drop attacks, the clinical manifestation of
+        atonic seizures, among the typical seizure types.
+  - target: Photosensitive Seizures
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:25783594
+      reference_title: &#34;CHD2 variants are a risk factor for photosensitivity in epilepsy.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Chd2 knockdown markedly enhanced mild innate zebrafish larval photosensitivity.
+      explanation: &gt;-
+        Chd2 knockdown causally enhances photosensitivity in vivo, while the
+        intervening network mechanism remains unresolved.
+  - target: EEG Abnormality
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:26677509
+      reference_title: &#34;CHD2-Related Neurodevelopmental Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        rapid onset of multiple seizure types associated with generalized spike-wave on EEG
+      explanation: &gt;-
+        Generalized spike-wave EEG abnormalities accompany the characteristic
+        seizure network phenotype.
 phenotypes:
 - category: Neurologic
   name: Epileptic Encephalopathy
@@ -6533,8 +7065,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: genetic testing
     term:
-      id: MAXO:0000127
-      label: genetic testing
+      id: NCIT:C15709
+      label: Genetic Testing
   evidence:
   - reference: PMID:26677509
     reference_title: &#34;CHD2-Related Neurodevelopmental Disorders.&#34;
@@ -6555,10 +7087,7 @@ differential_diagnoses:
     and myoclonic seizures, and developmental impairment; CHD2 encephalopathy has
     been described as sharing features with Dravet syndrome.
   distinguishing_features:
-  - Dravet syndrome is caused by SCN1A loss-of-function variants and typically
-    begins in the first year with prolonged, often hemiclonic, fever-provoked
-    seizures, whereas CHD2-related disease has later onset and prominent
-    clinical photosensitivity that is not characteristic of Dravet syndrome.
+  - Dravet syndrome is caused by SCN1A loss-of-function variants and typically begins in the first year with prolonged, often hemiclonic, fever-provoked seizures, whereas CHD2-related disease has later onset and prominent clinical photosensitivity that is not characteristic of Dravet syndrome.
   evidence:
   - reference: PMID:26262932
     reference_title: &#34;CHD2 mutations are a rare cause of generalized epilepsy with myoclonic-atonic seizures.&#34;
@@ -6579,9 +7108,7 @@ differential_diagnoses:
     types (including drop attacks) and intellectual disability; CHD2 variants
     have been reported in individuals diagnosed with Lennox-Gastaut syndrome.
   distinguishing_features:
-  - Lennox-Gastaut syndrome is defined by tonic seizures with slow (&lt;2.5 Hz)
-    spike-wave and paroxysmal fast activity on EEG, whereas CHD2-related disease
-    features prominent photosensitivity, myoclonus, and generalized spike-wave.
+  - Lennox-Gastaut syndrome is defined by tonic seizures with slow (&lt;2.5 Hz) spike-wave and paroxysmal fast activity on EEG, whereas CHD2-related disease features prominent photosensitivity, myoclonus, and generalized spike-wave.
   evidence:
   - reference: PMID:26262932
     reference_title: &#34;CHD2 mutations are a rare cause of generalized epilepsy with myoclonic-atonic seizures.&#34;
@@ -6602,10 +7129,7 @@ differential_diagnoses:
     absences; CHD2 variants have been reported in individuals with Jeavons
     syndrome.
   distinguishing_features:
-  - Jeavons syndrome is typically a genetic generalized epilepsy with eyelid
-    myoclonia and eye-closure sensitivity and generally lacks the severe
-    developmental and epileptic encephalopathy and regression seen in
-    CHD2-related disease.
+  - Jeavons syndrome is typically a genetic generalized epilepsy with eyelid myoclonia and eye-closure sensitivity and generally lacks the severe developmental and epileptic encephalopathy and regression seen in CHD2-related disease.
   evidence:
   - reference: PMID:26262932
     reference_title: &#34;CHD2 mutations are a rare cause of generalized epilepsy with myoclonic-atonic seizures.&#34;
@@ -6626,10 +7150,7 @@ differential_diagnoses:
     as CHD2 variants are a recognized (rare) cause of the myoclonic-atonic
     seizure phenotype.
   distinguishing_features:
-  - Epilepsy with myoclonic-atonic seizures is an electroclinical syndrome with
-    multiple genetic causes (notably SLC6A1); CHD2-related disease is one
-    molecular cause distinguished by prominent photosensitivity, and molecular
-    genetic testing separates the underlying etiologies.
+  - Epilepsy with myoclonic-atonic seizures is an electroclinical syndrome with multiple genetic causes (notably SLC6A1); CHD2-related disease is one molecular cause distinguished by prominent photosensitivity, and molecular genetic testing separates the underlying etiologies.
   evidence:
   - reference: PMID:26262932
     reference_title: &#34;CHD2 mutations are a rare cause of generalized epilepsy with myoclonic-atonic seizures.&#34;
@@ -6669,6 +7190,17 @@ discussions:
       accessibility, and transcriptional changes across neurodevelopment, and
       test whether restoring specific dysregulated excitability genes rescues the
       hyperexcitability phenotype.
+    evidence:
+    - reference: PMID:36115870
+      reference_title: &#34;Regulation of human cortical interneuron development by the chromatin remodeling protein CHD2.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        We identified genome-wide CHD2 binding profiles during hcIN differentiation, defining direct CHD2 targets related to neurogenesis in hcIN progenitors and to neuronal function in hcINs.
+      explanation: &gt;-
+        Existing genome-wide CHD2 binding maps establish the feasibility and
+        relevance of extending target-gene and chromatin-state mapping in
+        patient-derived neurons and organoids.
   evidence:
   - reference: PMID:29962935
     reference_title: &#34;Chromatin Remodeling Proteins in Epilepsy: Lessons From CHD2-Associated Epilepsy.&#34;
@@ -6711,6 +7243,17 @@ discussions:
       normal level, rescue of interneuron-maturation and network-excitability
       phenotypes, and any deleterious effects of overshoot into CHD2
       overexpression.
+    evidence:
+    - reference: PMID:39442041
+      reference_title: &#34;Neurodevelopmental Disorder Caused by Deletion of CHASERR, a lncRNA Gene.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        the CHASERR deletion results in increased CHD2 protein abundance in patient-derived cell lines
+      explanation: &gt;-
+        Patient-derived cells demonstrate that CHASERR loss raises CHD2 protein,
+        motivating an explicit dose-window experiment before therapeutic
+        upregulation is considered.
   evidence:
   - reference: PMID:31704914
     reference_title: &#34;Regulation of CHD2 expression by the Chaserr long noncoding RNA gene is essential for viability.&#34;
@@ -6789,8 +7332,8 @@ treatments:
   treatment_term:
     preferred_term: supportive care
     term:
-      id: MAXO:0000950
-      label: supportive care
+      id: NCIT:C15747
+      label: Supportive Care
   evidence:
   - reference: PMID:26677509
     reference_title: &#34;CHD2-Related Neurodevelopmental Disorders.&#34;
@@ -6807,8 +7350,8 @@ treatments:
   treatment_term:
     preferred_term: supportive care
     term:
-      id: MAXO:0000950
-      label: supportive care
+      id: NCIT:C15747
+      label: Supportive Care
   evidence:
   - reference: PMID:26677509
     reference_title: &#34;CHD2-Related Neurodevelopmental Disorders.&#34;
@@ -7463,6 +8006,11 @@ Cellular component: GO:0005634 nucleus; GO:0000785 chromatin.</p>
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/CHD2-Related_Developmental_and_Epileptic_Encephalopathy.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -7503,7 +8051,7 @@ Cellular component: GO:0005634 nucleus; GO:0000785 chromatin.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CHD2-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0014150", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CHD2-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "5d8fedca5cb3"};
+        const OS_CONFIG = {"diseaseName": "CHD2-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0014150", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CHD2-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "962a0fadbb44"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
