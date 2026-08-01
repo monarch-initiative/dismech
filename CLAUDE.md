@@ -197,7 +197,7 @@ Rules:
   entry's `association_signals`
 - See "Structured-Database Reference Sources" below
 
-### Statistical Phenotype Distributions (`kb/phenotype_distributions/`)
+### Statistical Phenotype Distributions (`kb/phenotype_distributions/`, created by the first curated collection)
 A separate LinkML schema (`src/dismech/schema/phenotype_distribution.yaml`,
 target class `PhenotypeDistributionCollection`) for the full statistical object
 behind a phenotype claim: the distribution of a phenotype, onset age, lab value,
@@ -217,8 +217,9 @@ event count, or latent phenotype profile in a defined disease cohort. One record
   **OMOP concept IDs** (harmonized All of Us data); future work may range over
   source terminologies (ICD, LOINC, RxNorm, SNOMED). A mappable MONDO/HP subset
   is a distant and deliberately lossy option, not the default. Every domain
-  therefore declares `feature_namespace` (`FeatureNamespaceEnum`), and the lint
-  errors/warns when a feature cannot resolve to one — never read a component's
+  should therefore declare `feature_namespace` (`FeatureNamespaceEnum`) — the
+  schema does not require it, but the lint warns when it is missing and errors
+  when a feature's `domain_name` cannot resolve to one — never read a component's
   `top_features` as HPO terms. Any ontology term on a component lives in
   `mapped_phenotype_terms` and is a curator's mapping judgement, not model
   output. Keep this separate from `cohort_identification_vocabulary`, which is
@@ -255,9 +256,15 @@ event count, or latent phenotype profile in a defined disease cohort. One record
   its point estimate, a self-contradictory attestation, a frequency band the
   estimate contradicts, and a quoted `DataItem` that is not a verbatim substring
   of its cited reference's cache file).
-- Worked examples live in `examples/phenotype_distributions/` and carry
-  **synthetic** numbers; they are excluded from cache rebuild and must never be
-  cited. See [`docs/phenotype-distributions.md`](docs/phenotype-distributions.md).
+- Worked examples live in `examples/phenotype_distributions/`. They are **not
+  the same kind of object** and the difference matters:
+  `cystic_fibrosis_illustrative.yaml` is `ILLUSTRATIVE` — synthetic numbers, and
+  the renderer *raises* rather than write them to the cache;
+  `charmpheno_population_eds.yaml` is `TOOL_EXPORTED` — every number is real,
+  transcribed from an exported model, but the component→phenotype mappings are
+  unreviewed curator judgement. Neither may be cited from a kb entry (a test
+  enforces it), but treat the CHARMPheno numbers as real-but-unreviewed, not as
+  made up. See [`docs/phenotype-distributions.md`](docs/phenotype-distributions.md).
 
 ### Validation Stack
 - **linkml-validate**: Schema conformance checking
