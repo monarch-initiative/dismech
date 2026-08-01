@@ -214,7 +214,14 @@ def splice_datasets(text: str, new_records: list[dict]) -> str:
     configured width), which buries a three-line addition in a thousand-line
     diff. Splicing text leaves every untouched byte untouched.
     """
+    # Match the file's existing line terminator throughout. One KB entry
+    # (Mycosis_Fungoides) is CRLF, and emitting LF into it would rewrite every
+    # line of the file as a line-ending change.
+    nl = "\r\n" if "\r\n" in text else "\n"
     block = render_records(new_records)
+    if nl == "\r\n":
+        block = block.replace("\r\n", "\n").replace("\n", "\r\n")
+    header = f"datasets:{nl}"
     lines = text.splitlines(keepends=True)
 
     start = None
@@ -225,12 +232,12 @@ def splice_datasets(text: str, new_records: list[dict]) -> str:
 
     if start is None:
         # No datasets key at all: append one at the end of the document.
-        prefix = text if text.endswith("\n") else text + "\n"
-        return prefix + "datasets:\n" + block
+        prefix = text if text.endswith(("\n", "\r")) else text + nl
+        return prefix + header + block
 
     if re.match(r"^datasets:\s*\[\s*\]\s*$", lines[start]):
         # `datasets: []` -> a real block
-        return "".join(lines[:start]) + "datasets:\n" + block + "".join(lines[start + 1 :])
+        return "".join(lines[:start]) + header + block + "".join(lines[start + 1 :])
 
     # Existing non-empty block: find where it ends (the next top-level key).
     end = len(lines)
@@ -238,9 +245,9 @@ def splice_datasets(text: str, new_records: list[dict]) -> str:
         if lines[j].strip() and not lines[j].startswith((" ", "-", "\t")):
             end = j
             break
-    body = "".join(lines[start : end])
-    if not body.endswith("\n"):
-        body += "\n"
+    body = "".join(lines[start:end])
+    if not body.endswith(("\n", "\r")):
+        body += nl
     return "".join(lines[:start]) + body + block + "".join(lines[end:])
 
 
@@ -259,7 +266,7 @@ def apply_proposals(path: Path, dry_run: bool) -> int:
             skipped.append(prop["slug"])
             continue
 
-        text = fpath.read_text()
+        text = fpath.read_text(newline="")
         doc = yaml.safe_load(text) or {}
         have = {str(d.get("accession")) for d in (doc.get("datasets") or []) if isinstance(d, dict)}
         new = [r for r in approved if r["accession"] not in have]
@@ -283,7 +290,7 @@ def apply_proposals(path: Path, dry_run: bool) -> int:
             continue
 
         if not dry_run:
-            fpath.write_text(updated)
+            fpath.write_text(updated, newline="")
         changed.append((prop["slug"], len(new)))
 
     for slug, n in changed:
