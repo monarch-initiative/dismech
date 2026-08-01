@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers13112835"
+reference_id: DOI:10.3390/cancers13112835
 title: "Sinonasal Squamous Cell Carcinoma, a Narrative Reappraisal of the Current Evidence"
 authors:
 - Marco Ferrari
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2021'
 doi: 10.3390/cancers13112835
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Sinonasal Squamous Cell Carcinoma, a Narrative Reappraisal of the Current Evidence

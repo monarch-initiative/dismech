@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25115758"
+reference_id: DOI:10.3390/ijms25115758
 title: Structural Variants and Implicated Processes Associated with Familial Tourette Syndrome
 authors:
 - Jakub P. Fichna
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25115758
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Structural Variants and Implicated Processes Associated with Familial Tourette Syndrome

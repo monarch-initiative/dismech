@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/jvi.00848-24"
+reference_id: DOI:10.1128/jvi.00848-24
 title: Suppression of the host antiviral response by non-infectious varicella zoster virus extracellular vesicles
 authors:
 - Christy S. Niemeyer
@@ -22,6 +22,7 @@ journal: Journal of Virology
 year: '2024'
 doi: 10.1128/jvi.00848-24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Suppression of the host antiviral response by non-infectious varicella zoster virus extracellular vesicles

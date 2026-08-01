@@ -28,6 +28,7 @@ from pathlib import Path
 
 import yaml
 
+from dismech.yaml_io import safe_load
 
 # ---------------------------------------------------------------------------
 # API key helpers
@@ -90,7 +91,7 @@ def _update_research_file(
     frontmatter_str = text[4:end_idx]
     body = text[end_idx + 5:]  # content after the closing ---\n
 
-    metadata = yaml.safe_load(frontmatter_str) or {}
+    metadata = safe_load(frontmatter_str) or {}
 
     # Preserve existing trajectory_id if already set
     metadata["trajectory_id"] = trajectory_id
@@ -141,10 +142,10 @@ def fetch_artifacts(trajectory_id: str, output_file: Path) -> int:
 
     Returns the number of artifacts saved.
     """
+    from deep_research_client.models import ProviderConfig
+    from deep_research_client.providers.falcon import FalconProvider
     from edison_client import EdisonClient
     from edison_client.models.app import TaskResponseVerbose
-    from deep_research_client.providers.falcon import FalconProvider
-    from deep_research_client.models import ProviderConfig
 
     api_key = _load_api_key()
     client = EdisonClient(api_key=api_key)

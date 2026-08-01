@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/17455057231213270"
+reference_id: DOI:10.1177/17455057231213270
 title: A rare case of Swyer syndrome from Pakistan in a young girl with primary amenorrhea and 46XY genotype
 authors:
 - Inshal Jawed
@@ -12,6 +12,7 @@ journal: "Women's Health"
 year: '2023'
 doi: 10.1177/17455057231213270
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A rare case of Swyer syndrome from Pakistan in a young girl with primary amenorrhea and 46XY genotype

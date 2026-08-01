@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/life14010022"
+reference_id: DOI:10.3390/life14010022
 title: Tyrosine Kinase Inhibitors for Radioactive Iodine Refractory Differentiated Thyroid Cancer
 authors:
 - Christos Cortas
@@ -8,6 +8,7 @@ journal: Life
 year: '2023'
 doi: 10.3390/life14010022
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Tyrosine Kinase Inhibitors for Radioactive Iodine Refractory Differentiated Thyroid Cancer

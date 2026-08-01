@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16112075"
+reference_id: DOI:10.3390/cancers16112075
 title: Hereditary Syndromes Associated with Pancreatic and Lung Neuroendocrine Tumors
 authors:
 - Nektaria Papadopoulou-Marketou
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16112075
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hereditary Syndromes Associated with Pancreatic and Lung Neuroendocrine Tumors

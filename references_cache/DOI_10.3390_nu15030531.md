@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu15030531"
+reference_id: DOI:10.3390/nu15030531
 title: Treatment of HMG-CoA Lyase Deficiency—Longitudinal Data on Clinical and Nutritional Management of 10 Australian Cases
 authors:
 - Susan Thompson
@@ -23,6 +23,7 @@ journal: Nutrients
 year: '2023'
 doi: 10.3390/nu15030531
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatment of HMG-CoA Lyase Deficiency—Longitudinal Data on Clinical and Nutritional Management of 10 Australian Cases

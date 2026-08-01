@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/bjophthalmol-2019-313984"
+reference_id: DOI:10.1136/bjophthalmol-2019-313984
 title: "Naevus of Ota: clinical characteristics and proposal for a new ocular classification and grading system"
 authors:
 - Vicktoria Vishnevskia-Dai
@@ -15,6 +15,7 @@ journal: British Journal of Ophthalmology
 year: '2021'
 doi: 10.1136/bjophthalmol-2019-313984
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Naevus of Ota: clinical characteristics and proposal for a new ocular classification and grading system
