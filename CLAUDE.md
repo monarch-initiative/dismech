@@ -138,6 +138,30 @@ the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #52
 
 ### Scripts (`scripts/`)
 
+#### Translator disease-drug leads (`just translator-drug-links`)
+
+`scripts/translator_drug_links.py` queries the **NCATS Biomedical Translator**
+ARS (the service behind [ui.transltr.io](https://ui.transltr.io/)) with a TRAPI
+creative-mode "what chemicals may treat this disease?" query, and reports ranked
+drug candidates with their PMIDs/NCT ids, flagging which the entry already
+curates.
+
+```bash
+just translator-drug-links kb/disorders/Asthma.yaml     # ranked leads
+just translator-drug-gaps kb/disorders/Asthma.yaml      # asserted + not-yet-curated only
+just translator-drug-links --mondo MONDO:0004979 --top 40
+just translator-drug-links --pk <ars-pk>                # re-render an earlier run
+```
+
+**Output is LEADS, never evidence.** Translator answers are aggregated and
+partly model-inferred and carry no quotable snippet, so they are subject to the
+same discipline as deep-research output: fetch every PMID with
+`just fetch-reference`, confirm the quote with `just validate-references`, and
+check drug CURIEs with `just validate-terms`. The script deliberately writes no
+KB YAML — unlike `just cohd-signal`, which emits an `association_signals` block
+because COHD returns a citable cohort statistic. Runs take a few minutes. See
+[`docs/translator-drug-links.md`](docs/translator-drug-links.md).
+
 ### Research Artifacts (`research/`)
 
 **`research/` is ONLY for deep-research outputs — do not hand-place files here.**

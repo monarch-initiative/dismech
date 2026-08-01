@@ -1568,6 +1568,27 @@ cohd-signal *args="":
 cohd-add-signal file *args="":
     uv run python scripts/cohd_add_signal_to_comorbidity.py {{file}} {{args}}
 
+# Submits a TRAPI creative-mode "what may treat this disease?" query to the ARS and
+# reports ranked drug candidates with their PMIDs/NCT ids, flagging which are already
+# curated in the entry. Takes a few minutes per run.
+# Examples:
+#   just translator-drug-links kb/disorders/Asthma.yaml
+#   just translator-drug-links --mondo MONDO:0004979 --top 40
+#   just translator-drug-links --name "Marfan syndrome"
+#   just translator-drug-links --pk <ars-pk>          # re-render an earlier run
+# Output is LEADS ONLY — verify every PMID with `just fetch-reference` before citing
+# it, and never paste Translator text into an entry. See docs/translator-drug-links.md
+# Explore candidate disease-drug links via the NCATS Biomedical Translator (leads only)
+[group('Research')]
+translator-drug-links *args="":
+    uv run python scripts/translator_drug_links.py {{args}}
+
+#   just translator-drug-gaps kb/disorders/Asthma.yaml
+# Translator drug links that are asserted and NOT already curated in the entry
+[group('Research')]
+translator-drug-gaps file *args="":
+    uv run python scripts/translator_drug_links.py {{file}} --asserted-only --new-only {{args}}
+
 # ============== Structured-database reference sources ==============
 #
 # Structured sources (e.g. Orphanet) ingest a knowledge base and emit
