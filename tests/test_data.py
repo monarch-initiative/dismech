@@ -8,6 +8,8 @@ import pytest
 import yaml
 from linkml.validator import Validator
 
+from dismech.yaml_io import safe_load
+
 # Paths
 ROOT_DIR = Path(__file__).parent.parent
 SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "dismech.yaml"
@@ -41,7 +43,7 @@ def _disease_names():
     names = set()
     for fp in DISORDER_FILES:
         with open(fp) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         if isinstance(data, dict) and data.get("name"):
             names.add(data["name"])
     return names
@@ -57,7 +59,7 @@ def _grouping_names():
     names = set()
     for fp in GROUPING_FILES:
         with open(fp) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         if isinstance(data, dict) and data.get("name"):
             names.add(data["name"])
     return names
@@ -104,7 +106,7 @@ def validator():
 def test_valid_disorder_files(filepath, validator):
     """Test that all disorder files validate against the schema."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     report = validator.validate(data, target_class="Disease")
 
@@ -120,7 +122,7 @@ def test_valid_disorder_files(filepath, validator):
 def test_valid_comorbidity_files(filepath, validator):
     """Test that all comorbidity files validate against the schema."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     report = validator.validate(data, target_class="ComorbidityAssociation")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
@@ -133,7 +135,7 @@ def test_valid_comorbidity_files(filepath, validator):
 def test_disorder_has_required_fields(filepath):
     """Test that all disorders have required fields."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     assert "name" in data, f"Missing 'name' in {filepath}"
     assert data["name"], f"Empty 'name' in {filepath}"
@@ -144,7 +146,7 @@ def test_disorder_has_required_fields(filepath):
 def test_evidence_items_have_references(filepath):
     """Test that evidence items use supported reference prefixes."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     allowed_reference_prefixes = (
         "PMID:",
@@ -515,8 +517,8 @@ def test_treatment_dietary_modifications_validate(validator):
                 "treatment_term": {
                     "preferred_term": "dietary intervention",
                     "term": {
-                        "id": "MAXO:0000088",
-                        "label": "dietary intervention",
+                        "id": "NCIT:C15447",
+                        "label": "Dietary Intervention",
                     },
                     "dietary_modifications": [
                         {
@@ -551,8 +553,8 @@ def test_treatment_dietary_modifications_accept_chebi_nutrient(validator):
                 "treatment_term": {
                     "preferred_term": "dietary intervention",
                     "term": {
-                        "id": "MAXO:0000088",
-                        "label": "dietary intervention",
+                        "id": "NCIT:C15447",
+                        "label": "Dietary Intervention",
                     },
                     "dietary_modifications": [
                         {
@@ -587,7 +589,7 @@ def test_treatment_action_category_validates(validator):
                 "action_category": "SCREENING",
                 "treatment_term": {
                     "preferred_term": "disease screening",
-                    "term": {"id": "MAXO:0000124", "label": "disease screening"},
+                    "term": {"id": "NCIT:C15419", "label": "Disease Screening"},
                 },
             }
         ],
@@ -660,7 +662,7 @@ def test_therapeutic_action_target_check_allows_mechanism_targets():
 def test_non_therapeutic_actions_do_not_use_treatment_targets(filepath):
     """Annotated non-therapeutic medical actions must not use treatment-style target links."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     errors = _non_therapeutic_action_target_errors(data)
 
@@ -674,7 +676,7 @@ def test_all_disorders_have_unique_names():
     names = []
     for filepath in DISORDER_FILES:
         with open(filepath) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         names.append(data.get("name"))
 
     duplicates = [name for name in names if names.count(name) > 1]
@@ -686,7 +688,7 @@ def test_all_disorders_have_unique_names():
 def test_subtype_foreign_keys(filepath):
     """Test that subtype references match has_subtypes names."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     valid_subtypes = {s["name"] for s in data.get("has_subtypes", [])}
     if not valid_subtypes:
@@ -744,7 +746,7 @@ def test_hypothesis_based_definition_attaches_to_foreign_keys(filepath):
     Cross-file references (`<file>:<kind>#<name>`) are not resolved here.
     """
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     definitions = data.get("definitions", []) or []
     if not definitions:
@@ -845,7 +847,7 @@ def test_phenotype_multivalued_subtypes_fk_catches_bad_refs(tmp_path):
 def test_experimental_model_mechanism_targets(filepath):
     """Experimental model links should reference declared pathophysiology nodes."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     valid_targets = {
         item["name"]
@@ -875,7 +877,7 @@ def test_experimental_model_mechanism_targets(filepath):
 def test_computational_model_mechanism_targets(filepath):
     """Computational model links should reference declared pathophysiology nodes."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     valid_targets = {
         item["name"]
@@ -909,7 +911,7 @@ def test_subtypes_have_disease_term(filepath):
     the subtype_term descriptor so that subtypes are machine-queryable.
     """
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     subtypes = data.get("has_subtypes", [])
     if not subtypes:
@@ -1090,7 +1092,7 @@ def _module_stem(ref):
 def test_valid_grouping_files(filepath, validator):
     """All grouping files validate against the Grouping class."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     report = validator.validate(data, target_class="Grouping")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
@@ -1109,7 +1111,7 @@ def synthesis_validator():
 def test_valid_research_synthesis_files(filepath, synthesis_validator):
     """All research-synthesis files validate against the ResearchSynthesis class."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     report = synthesis_validator.validate(data, target_class="ResearchSynthesis")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
@@ -1122,7 +1124,7 @@ def test_valid_research_synthesis_files(filepath, synthesis_validator):
 def test_synthesis_provider_references_resolve(filepath):
     """Every provider_support.provider must be declared in the top-level providers list."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     declared = {p.get("name") for p in data.get("providers", []) or []}
     errors = []
@@ -1173,7 +1175,7 @@ def hypothesis_assessment_validator():
 def test_valid_hypothesis_assessment_files(filepath, hypothesis_assessment_validator):
     """All assessment sidecars validate against the HypothesisAssessment class."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     report = hypothesis_assessment_validator.validate(
         data, target_class="HypothesisAssessment"
@@ -1198,7 +1200,7 @@ def test_hypothesis_assessment_links_and_quotes(filepath):
 def test_grouping_member_foreign_keys(filepath):
     """Each grouping member must resolve to a real Disease, module, or grouping."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     disease_names = _disease_names()
     module_stems = _module_stems()
@@ -1230,7 +1232,7 @@ def test_grouping_member_foreign_keys(filepath):
 def test_grouping_module_references(filepath):
     """Every `module` reference in a grouping must resolve to a module file."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     module_stems = _module_stems()
     errors = []
@@ -1262,7 +1264,7 @@ def test_grouping_unique_names():
     seen = {}
     for fp in GROUPING_FILES:
         with open(fp) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         name = data.get("name") if isinstance(data, dict) else None
         if name:
             seen.setdefault(name, []).append(Path(fp).name)
@@ -1281,7 +1283,7 @@ def test_grouping_criteria_well_formed(filepath):
     from dismech.groupings import lint_criterion
 
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     errors = []
     for c, criteria in enumerate(data.get("membership_criteria", []) or []):
@@ -1462,7 +1464,7 @@ def test_grouping_evaluation_runs(filepath):
     )
 
     with open(filepath) as f:
-        grouping = yaml.safe_load(f)
+        grouping = safe_load(f)
 
     index = load_disease_index()
     for ev in evaluate_grouping(grouping, index):
