@@ -199,22 +199,34 @@ def qualifier_group(word: str) -> frozenset[str] | None:
     return None
 
 
+# How many words before the core term to scan for a qualifying adjective.
+QUALIFIER_WINDOW = 3
+
+
 def has_qualifier_conflict(text: str, entry_qualifier: str, core: str) -> str:
-    """Return the competing qualifier if `text` applies one to `core`, else ""."""
+    """Return the competing qualifier if `text` applies one to `core`, else "".
+
+    Scans the words immediately preceding each occurrence of the core term and
+    takes the *nearest* qualifier found. An earlier single-regex version tried
+    to capture the qualifier positionally and silently missed cases: in
+    "causes of hereditary angioedema" the optional-intervening-word branch let
+    "of" claim the match, so "hereditary" was never examined and the sibling
+    disease slipped through.
+    """
     if not core:
         return ""
-    pattern = re.compile(
-        r"\b([a-z]+)\s+(?:\w+\s+){0,1}?" + re.escape(core.lower()), re.IGNORECASE
-    )
     own = qualifier_group(entry_qualifier) or frozenset({entry_qualifier.lower()})
-    for m in pattern.finditer(text.lower()):
-        word = m.group(1)
-        grp = qualifier_group(word)
-        if grp is None:
-            continue
-        if word.lower() == entry_qualifier.lower() or grp == own:
-            continue
-        return word
+    low, core_l = text.lower(), core.lower()
+
+    for m in re.finditer(re.escape(core_l), low):
+        preceding = re.findall(r"[a-z]+", low[: m.start()])[-QUALIFIER_WINDOW:]
+        for word in reversed(preceding):  # nearest qualifier wins
+            grp = qualifier_group(word)
+            if grp is None:
+                continue
+            if word == entry_qualifier.lower() or grp == own:
+                break  # the entry's own qualifier is the closest one: not a conflict
+            return word
     return ""
 
 
