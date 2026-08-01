@@ -27,21 +27,22 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 import tempfile
 import zipfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "src"))
-
-from dismech.perturb.sedml_export import (  # noqa: E402
+from dismech.perturb.sedml_export import (
     export_config,
     find_disorder_for_model,
     read_sbml_model_info,
 )
-from dismech.perturb.simulate import load_model_config, run_perturbation  # noqa: E402
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.perturb.simulate import load_model_config, run_perturbation
+from dismech.yaml_io import safe_load
+
+# Run this through `uv run` (or `just verify-sedml-export`) so the installed
+# dismech package is on the path; no sys.path manipulation is needed, which
+# keeps every import at the top of the file.
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def run_archive(omex_path: Path) -> dict[str, object]:
@@ -61,7 +62,7 @@ def run_archive(omex_path: Path) -> dict[str, object]:
         # are slow and noisy.
         source = "\n".join(line for line in code.split("\n") if "plt." not in line)
         namespace: dict[str, object] = {}
-        exec(compile(source, str(omex_path), "exec"), namespace)  # noqa: S102
+        exec(compile(source, str(omex_path), "exec"), namespace)
         return namespace
 
 
