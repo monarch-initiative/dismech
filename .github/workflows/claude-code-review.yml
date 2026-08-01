@@ -83,7 +83,7 @@ jobs:
 
       # The review agent's allowedTools grant `Bash(just:*)` and `Bash(uv run:*)`
       # so it can run the deterministic validators (just qc / validate-references /
-      # validate-terms-file). Those binaries are not on standard runners, so set
+      # validate-terms). Those binaries are not on standard runners, so set
       # them up here — mirrors the setup in main.yaml.
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -102,7 +102,14 @@ jobs:
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Auth precedence: ANTHROPIC_API_KEY (pay-per-use) wins when it is set —
+          # it has no weekly subscription cap, so it keeps reviews running when the
+          # shared OAuth account is exhausted. CLAUDE_CODE_OAUTH_TOKEN (Claude
+          # subscription) is the fallback used only when no API key is configured.
+          # The conditional keeps exactly one of the two non-empty so there is no
+          # precedence ambiguity inside the action.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.ANTHROPIC_API_KEY == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           github_token: ${{ steps.reviewer-token.outputs.token || github.token }}
           path_to_claude_code_executable: /home/runner/.local/bin/claude
           track_progress: ${{ github.event_name == 'pull_request' }}
@@ -214,10 +221,13 @@ jobs:
 
           if reason == "rate_limit" or "usage limit" in haystack or "weekly limit" in haystack:
               msg = (f"Claude USAGE LIMIT reached — NO review ran ({detail!r}). This is an "
-                     "account-quota issue on CLAUDE_CODE_OAUTH_TOKEN, NOT a problem with this "
-                     "PR. Fix: wait for the limit to reset, rotate the token to an account with "
-                     "headroom, or set ANTHROPIC_API_KEY (pay-per-use) on the workflow. "
-                     "Re-run this check afterward.")
+                     "account-quota issue on the credential in use, NOT a problem with this PR. "
+                     "This workflow prefers ANTHROPIC_API_KEY (pay-per-use, no weekly cap) and "
+                     "only falls back to CLAUDE_CODE_OAUTH_TOKEN when no API key is set — so a "
+                     "weekly-limit error here most likely means ANTHROPIC_API_KEY is unset and "
+                     "the run used the subscription token. Fix: set the ANTHROPIC_API_KEY repo "
+                     "secret, wait for the limit to reset, or rotate the OAuth token to an "
+                     "account with headroom. Re-run this check afterward.")
               print(f"::error title=Claude review skipped: usage limit::{msg}")
               summary("### ⛔ Claude review skipped — usage limit reached\n\n" + msg)
               sys.exit(1)

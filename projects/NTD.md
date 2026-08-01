@@ -43,7 +43,7 @@ This is an evergreen project: beyond the WHO core list, "Other" expansion catego
 ## Goals
 - Create or enhance NTD YAML files in `kb/disorders/`
 - Capture vector/reservoir/host interactions
-- Annotate phenotypes with HPO terms and treatments with MAXO terms
+- Annotate phenotypes with HPO terms and treatments with NCIT terms
 - Provide PMID-supported evidence for core mechanisms
 
 ## Existing NTD Entries in KB (2)
