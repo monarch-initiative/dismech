@@ -333,7 +333,7 @@ For each mechanism, describe:
   - Personalized medicine approaches (genotype-guided treatment)
     > **Search first:** My Cancer Genome, CIViC, PharmGKB, precision medicine databases
 
-For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.
+For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.
 
 ### 13. Prevention
 
@@ -427,7 +427,7 @@ For each treatment, suggest MAXO (Medical Action Ontology) terms where applicabl
 Structure your response as a comprehensive narrative organized by the sections above.
 For each section, provide:
 - Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
-- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
 - Evidence citations with PMIDs
 - Direct quotes from abstracts to support key claims
 - Clear indication when information is not available or not applicable for this disease
@@ -439,7 +439,7 @@ This report will be used to populate a disease knowledge base entry with:
 - Cell type involvement (CL terms)
 - Anatomical locations (UBERON terms)
 - Chemical entities (CHEBI terms)
-- Treatment annotations (MAXO terms)
+- Treatment annotations (NCIT terms)
 - Evidence items with PMIDs and exact abstract quotes
 - Epidemiology, prognosis, diagnostic, and prevention information
 - Animal model descriptions with phenotype recapitulation details

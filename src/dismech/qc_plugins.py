@@ -41,6 +41,7 @@ from linkml_data_qc.models import (
 )
 
 from dismech.graph import _genetic_item_infers_mechanism_edges, build_causal_graph
+from dismech.yaml_io import safe_load
 
 # Predicates that mechanistically *explain* a downstream node. A phenotype is
 # considered "wired in" only when something causes it via one of these. A
@@ -290,7 +291,6 @@ def _main() -> None:
     import argparse
     from pathlib import Path
 
-    import yaml
 
     parser = argparse.ArgumentParser(
         description=(
@@ -368,7 +368,7 @@ def _main() -> None:
 
     for path in files:
         with open(path) as fh:
-            data = yaml.safe_load(fh)
+            data = safe_load(fh)
         if not isinstance(data, dict):
             continue
 
