@@ -1439,6 +1439,18 @@ just gen-dashboard
 
 The dashboard shows priority curation targets - the 10 files with lowest compliance scores.
 
+## Ontology and Enum Cache Ordering
+
+Committed CSVs under `cache/` must remain in canonical CURIE order. Treat these
+files as tool-generated: `just normalize-cache` is the sanctioned way to write
+their final committed form after validation or cache population. Use
+`just check-cache-order` for a read-only ordering report.
+
+**Never append rows at end-of-file or hand-place rows to avoid reorder churn.**
+That creates a shared terminal Git hunk and causes repeated conflicts across
+concurrent curation PRs. If normalization reveals unrelated existing churn,
+surface it rather than reverting the canonical ordering.
+
 
 
 ## CRITICAL: Reference Cache Files — NEVER Create Manually
