@@ -333,8 +333,10 @@ def _check_quoted_items(
                 out.append(
                     (
                         "ERROR",
-                        f"evidence item quotes {doc_id} but {path.name} is not "
-                        "cached; run `just fetch-reference` before citing it",
+                        (
+                            f"evidence item quotes {doc_id} but {path.name} is "
+                            "not cached; run `just fetch-reference` first"
+                        ),
                     )
                 )
                 continue
@@ -343,8 +345,10 @@ def _check_quoted_items(
                 out.append(
                     (
                         "ERROR",
-                        f"evidence item quoting {doc_id} is not a verbatim "
-                        f"substring of {path.name}",
+                        (
+                            f"evidence item quoting {doc_id} is not a verbatim "
+                            f"substring of {path.name}"
+                        ),
                     )
                 )
     return out
@@ -390,6 +394,8 @@ def check_terms(
 
     issues: list[Issue] = []
     adapters: dict[str, Any] = {}
+    unloadable: dict[str, str] = {}
+    collections = list(collections)
     for coll in collections:
         for record in coll.records:
             rid = str(record.get("record_id", ""))
@@ -404,8 +410,12 @@ def check_terms(
                     try:
                         adapters[prefix] = get_adapter(spec)
                     except Exception as exc:  # pragma: no cover - env dependent
-                        logger.warning("could not load adapter %s: %s", spec, exc)
                         adapters[prefix] = None
+                        # Report once per ontology, not per term. This is the
+                        # more consequential failure of the two — every term for
+                        # the ontology goes unchecked — so it must not be
+                        # quieter than a single failed lookup.
+                        unloadable[prefix] = str(exc)
                 adapter = adapters[prefix]
                 if adapter is None:
                     continue
@@ -439,6 +449,19 @@ def check_terms(
                             f"{where}: {term_id} is {actual!r}, not {label!r}",
                         )
                     )
+
+    for prefix, exc in sorted(unloadable.items()):
+        issues.append(
+            Issue(
+                collections[0].path if collections else Path("."),
+                "",
+                "WARNING",
+                (
+                    f"could not load the {prefix} adapter ({exc}); every "
+                    f"{prefix} term in this run was left unchecked"
+                ),
+            )
+        )
     return issues
 
 
@@ -783,9 +806,12 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
                 _row(
                     [
                         "Identity attestation",
-                        f"rows={_fmt(att.get('row_count'))} "
-                        f"persons={_fmt(att.get('unique_person_count'))} "
-                        f"one_row_per_person={_fmt(att.get('one_row_per_person'))}",
+                        (
+                            f"rows={_fmt(att.get('row_count'))} "
+                            f"persons={_fmt(att.get('unique_person_count'))} "
+                            "one_row_per_person="
+                            f"{_fmt(att.get('one_row_per_person'))}"
+                        ),
                     ]
                 )
             )
@@ -1039,8 +1065,10 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
                 _row(
                     [
                         "Mapped term",
-                        f"{_fmt(mapped.get('preferred_term'))} "
-                        f"({_term(mapped.get('term'))})",
+                        (
+                            f"{_fmt(mapped.get('preferred_term'))} "
+                            f"({_term(mapped.get('term'))})"
+                        ),
                     ]
                 )
             )
@@ -1335,7 +1363,13 @@ def main(argv: list[str] | None = None) -> int:
         if result.errors:
             print("Refusing to write cache files while errors remain.")
             return 1
-        paths, pruned = write_cache_files(collections, args.cache_dir, prune=prune)
+        try:
+            paths, pruned = write_cache_files(collections, args.cache_dir, prune=prune)
+        except ValueError as exc:
+            # Report the tier guard the way every other failure in this CLI
+            # reads, rather than as an unhandled traceback.
+            print(f"[ERROR] {exc}")
+            return 1
         print(f"Wrote {len(paths)} cache file(s) to {args.cache_dir}.")
         for stale in pruned:
             print(f"Pruned orphaned cache file {stale.name}")

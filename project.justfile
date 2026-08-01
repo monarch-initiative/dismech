@@ -197,7 +197,7 @@ validate-synthesis-all:
 [group('QC')]
 validate-phenotype-distribution file:
     uv run linkml-validate --schema {{phenodist_schema_path}} --target-class PhenotypeDistributionCollection {{file}}
-    uv run python -m dismech.phenotype_distribution {{file}}
+    uv run python -m dismech.phenotype_distribution --check-terms {{file}}
 
 # Validate all statistical phenotype-distribution collections (kb + examples)
 [group('QC')]

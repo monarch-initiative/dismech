@@ -332,7 +332,8 @@ quotes being checkable, not merely well-formed:
     LOINC by hand. A network-backed adapter that fails to respond yields a
     warning, not an error — an unperformed lookup is not evidence of a bad term.
 - **Quoted evidence.** A `DataItem` citing a fetchable document (`PMID:`,
-  `DOI:`, `NCT`, `ORPHA:`, …) must be a verbatim substring of that document's
+  `DOI:`, `clinicaltrials:`, `ORPHA:`, `CGGV:`, `CGDS:`, `ICEES:`, `NCIT:`) must
+  be a verbatim substring of that document's
   `references_cache/` file, and the cache file must exist. Without this, an
   unverified quote could be rendered into a generated `PHENODIST_*.md` and then
   cited from a kb entry, where `validate-references` would verify it against the
