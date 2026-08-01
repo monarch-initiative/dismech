@@ -162,6 +162,79 @@ def load_entry(slug: str) -> dict:
     return yaml.safe_load(path.read_text()) or {}
 
 
+# Leading qualifiers that make a dismech entry name clinically precise but stop
+# it from ever matching a dataset title verbatim.
+LEADING_QUALIFIERS = (
+    "systemic", "acquired", "congenital", "primary", "secondary", "chronic",
+    "acute", "familial", "hereditary", "idiopathic", "juvenile", "adult",
+    "classic", "classical", "isolated", "generalized", "localized", "severe",
+    "benign", "malignant", "recurrent", "progressive", "neonatal", "infantile",
+)
+STOPWORDS = {"and", "the", "of", "with", "due", "to", "type", "disease", "disorder", "syndrome"}
+
+# Qualifiers that distinguish *sibling diseases* rather than just phrasing.
+# "Acquired partial lipodystrophy" and "familial partial lipodystrophy" are
+# different diseases; "systemic AL amyloidosis" and "AL amyloidosis" are the
+# same one. When the entry name carries one of these and a candidate applies a
+# competing qualifier to the same core term, the candidate is about a sibling
+# disease and must not be curated here.
+CONTRASTING_QUALIFIERS = (
+    {"acquired"},
+    {"hereditary", "familial", "congenital", "inherited", "genetic"},
+    {"primary", "idiopathic"},
+    {"secondary"},
+    {"systemic", "generalized"},
+    {"localized", "local", "cutaneous"},
+    {"juvenile", "infantile", "neonatal", "pediatric", "childhood"},
+    {"adult"},
+    {"acute"},
+    {"chronic"},
+)
+
+
+def qualifier_group(word: str) -> frozenset[str] | None:
+    for grp in CONTRASTING_QUALIFIERS:
+        if word.lower() in grp:
+            return frozenset(grp)
+    return None
+
+
+def has_qualifier_conflict(text: str, entry_qualifier: str, core: str) -> str:
+    """Return the competing qualifier if `text` applies one to `core`, else ""."""
+    if not core:
+        return ""
+    pattern = re.compile(
+        r"\b([a-z]+)\s+(?:\w+\s+){0,1}?" + re.escape(core.lower()), re.I
+    )
+    own = qualifier_group(entry_qualifier) or frozenset({entry_qualifier.lower()})
+    for m in pattern.finditer(text.lower()):
+        word = m.group(1)
+        grp = qualifier_group(word)
+        if grp is None:
+            continue
+        if word.lower() == entry_qualifier.lower() or grp == own:
+            continue
+        return word
+    return ""
+
+
+def core_term(name: str) -> tuple[str, str]:
+    """Shorten a precise entry name to the phrase a dataset would actually use.
+
+    Returns ``(core, stripped_qualifier)``; e.g. "Systemic AL Amyloidosis" ->
+    ("AL Amyloidosis", "systemic"). Both are "" when nothing useful is left.
+    """
+    words = name.split()
+    stripped = ""
+    while len(words) > 1 and words[0].lower() in LEADING_QUALIFIERS:
+        stripped = stripped or words[0].lower()
+        words = words[1:]
+    short = " ".join(words)
+    if short.lower() == name.lower() or len(short) < 5:
+        return "", ""
+    return short, stripped
+
+
 def build_queries(entry: dict, slug: str, use_synonyms: bool = True) -> list[tuple[str, str]]:
     """Return [(label, geo_search_term)] from most to least specific."""
     names: list[str] = []
@@ -180,10 +253,33 @@ def build_queries(entry: dict, slug: str, use_synonyms: bool = True) -> list[tup
             if len(syn) >= 8 and syn.lower() not in {n.lower() for n in names}:
                 names.append(syn)
 
+    # Add shortened forms so a precise entry name still reaches real datasets.
+    cores: list[tuple[str, str]] = []
+    for n in list(names):
+        short, stripped = core_term(n)
+        if short and short.lower() not in {x.lower() for x in names}:
+            names.append(short)
+            cores.append((short, stripped))
+
     queries: list[tuple[str, str]] = []
-    for n in names[:6]:
+    seen_terms: set[str] = set()
+
+    def add(label: str, term: str) -> None:
+        if term not in seen_terms:
+            seen_terms.add(term)
+            queries.append((label, term))
+
+    for n in names[:8]:
         esc = n.replace('"', "")
-        queries.append((f"name:{n}", f'"{esc}"[All Fields] AND "gse"[Entry Type]'))
+        add(f"name:{n}", f'"{esc}"[All Fields] AND "gse"[Entry Type]')
+
+    # An unquoted AND of the significant words, as a fallback for names whose
+    # exact phrasing never appears in GEO ("Systemic AL Amyloidosis").
+    for n in names[:3]:
+        words = [w for w in re.findall(r"[A-Za-z0-9\-]+", n) if len(w) >= 3 and w.lower() not in STOPWORDS]
+        if len(words) >= 2:
+            term = " AND ".join(f'"{w}"[All Fields]' for w in words) + ' AND "gse"[Entry Type]'
+            add(f"words:{' '.join(words)}", term)
 
     # Causal genes -- the fallback that rescues rare disorders whose name never
     # appears in a GEO title.
@@ -193,9 +289,18 @@ def build_queries(entry: dict, slug: str, use_synonyms: bool = True) -> list[tup
         if sym and re.fullmatch(r"[A-Z0-9orf\-]{2,10}", sym):
             genes.append(sym)
     for sym in list(dict.fromkeys(genes))[:4]:
-        queries.append((f"gene:{sym}", f'"{sym}"[Title] AND "gse"[Entry Type]'))
+        add(f"gene:{sym}", f'"{sym}"[Title] AND "gse"[Entry Type]')
 
-    return queries
+    # Terms used to decide DIRECT vs GENE_ONLY: any phrase matching, or a
+    # word-set where every significant word is present.
+    phrases = [n for n in names if len(n) >= 5]
+    wordsets = []
+    for n in names[:3]:
+        words = [w.lower() for w in re.findall(r"[A-Za-z0-9\-]+", n) if len(w) >= 4 and w.lower() not in STOPWORDS]
+        if len(words) >= 2:
+            wordsets.append(words)
+
+    return queries, phrases, wordsets, cores
 
 
 def search_geo(term: str, retmax: int) -> list[str]:
@@ -218,18 +323,44 @@ def summarize_geo(uids: list[str]) -> list[dict]:
     return docs
 
 
-def score_candidate(cand: Candidate, disease_terms: list[str]) -> None:
+def score_candidate(
+    cand: Candidate,
+    phrases: list[str],
+    wordsets: list[list[str]],
+    cores: list[tuple[str, str]] | None = None,
+) -> None:
     """Rank by how directly the dataset speaks to this disease."""
     score = 0.0
     notes = []
     hay_title = cand.title.lower()
     hay_all = f"{cand.title} {cand.summary}".lower()
 
-    if any(t.lower() in hay_title for t in disease_terms):
+    # A candidate that applies a competing qualifier to the disease's core term
+    # is about a sibling disease (hereditary vs acquired angioedema), no matter
+    # how well the rest of it scores.
+    for core, stripped in cores or []:
+        if not stripped:
+            continue
+        competing = has_qualifier_conflict(hay_all, stripped, core)
+        if competing:
+            cand.relevance = "CONFLICT"
+            cand.score = -10.0
+            cand.score_notes = [
+                f"names '{competing} {core.lower()}' but this entry is "
+                f"'{stripped} {core.lower()}' - likely a sibling disease"
+            ]
+            return
+
+    def hits(hay: str) -> bool:
+        if any(p.lower() in hay for p in phrases):
+            return True
+        return any(all(w in hay for w in ws) for ws in wordsets)
+
+    if hits(hay_title):
         score += 5.0
         notes.append("disease named in title")
         cand.relevance = "DIRECT"
-    elif any(t.lower() in hay_all for t in disease_terms):
+    elif hits(hay_all):
         score += 2.0
         notes.append("disease named in summary")
         cand.relevance = "DIRECT"
@@ -290,8 +421,7 @@ def score_candidate(cand: Candidate, disease_terms: list[str]) -> None:
 
 def discover(slug: str, limit: int, per_query: int, use_synonyms: bool) -> list[Candidate]:
     entry = load_entry(slug)
-    queries = build_queries(entry, slug, use_synonyms)
-    disease_terms = [q[0].split(":", 1)[1] for q in queries if q[0].startswith("name:")]
+    queries, phrases, wordsets, cores = build_queries(entry, slug, use_synonyms)
 
     seen: dict[str, Candidate] = {}
     for label, term in queries:
@@ -317,7 +447,7 @@ def discover(slug: str, limit: int, per_query: int, use_synonyms: bool) -> list[
                 matched_query=label,
             )
             cand.data_type = map_data_type(cand.gds_type)
-            score_candidate(cand, disease_terms)
+            score_candidate(cand, phrases, wordsets, cores)
             seen[acc] = cand
 
     ranked = sorted(seen.values(), key=lambda c: c.score, reverse=True)
