@@ -65,6 +65,68 @@ Pairs whose reference prefix is listed in `skip_prefixes`
 locally are reported separately rather than counted as verified, so the ratio
 never overstates what was checked.
 
+### Not-verified is several different diagnoses
+
+A snippet that is not found in its cached reference is not automatically a
+misquote — issue #7450 un-skipped the `DOI` prefix across the whole KB, found 86
+mismatches, and traced most of them to defects in *our cache* rather than in the
+curation. The audit therefore separates the cases:
+
+| State | What it means |
+|---|---|
+| verified | found in the cached text |
+| verified after cache-defect normalization | found only once PDF ligatures (`ﬁ` → `fi`) are folded and markup-stripped word joins (`theANAPC7locus`) are tolerated — the quote is right, the cache is mangled |
+| quoted beyond an abstract-only cache | not found, but only an abstract was ever cached, so the full text may well contain it — **unverified, not disproved** |
+| not found in cached text | the whole paper is cached and the words are genuinely absent — worth a human |
+
+The relaxed pass only ever runs on a pair that already failed the strict check,
+and it still requires the snippet's characters to appear contiguously and in
+order, so it merges word boundaries rather than admitting arbitrary text.
+
+The abstract-only state is a distinct *diagnosis*, not an exemption: roughly
+23,000 cached references are abstract-only, so waving them through would hide far
+more than the skip that prompted the investigation. `--strict` still fails on
+them unless you pass `--allow-abstract-only`. (Upstream agrees on the substance:
+`SupportingTextValidator` appends its "only abstract available" note to a result
+whose severity stays `ERROR`.)
+
+To measure what a `skip_prefixes` entry is hiding without changing what the
+gating validator does:
+
+```bash
+just count-verified-snippets --unskip-prefix DOI kb/disorders/*.yaml
+```
+
+### Minimum evidence-snippet length
+
+`just check-snippet-length` (part of `just qc`) rejects **new** evidence snippets
+shorter than five words. A bare term carries no propositional content — it cannot
+support or refute the claim it is attached to — and in practice these are lifted
+from clinical-features tables whose cells never survive text extraction, so they
+are unverifiable by construction:
+
+```yaml
+phenotypes:
+- name: Strabismus
+  evidence:
+  - reference: DOI:10.1016/j.molcel.2021.11.031
+    snippet: 'Strabismus'          # supports nothing
+```
+
+The check needs no network and no cache; it is independent of the reference
+validator. Pipe-delimited rows quoted from a structured-source cache
+(`HP:0001987 | Hyperammonemia | Very frequent (99-80%)`) are exempt — short in
+words, but fully propositional. A baseline
+(`tests/snippet_length_baseline.txt`) grandfathers the pre-existing backlog, so
+the check gates new occurrences only; `just list-short-snippets` shows the whole
+backlog and `just update-snippet-length-baseline` regenerates it.
+
+The baseline records an **occurrence count** per `(file, snippet)`, not just the
+key, so a snippet also fails when it appears *more often* than the count on
+record. That matters because the anti-pattern is reuse: `'Hearing loss'` cited
+for a phenotype and two unrelated treatments in the same file. Keys alone would
+wave the next paste straight through.
+
 Validation layers are **binary** (pass/fail). Compliance scoring is **graded**:
 it produces a percentage per field, per file, and across the whole KB, and is
 used to rank curation priorities. This page focuses on that graded layer and its
