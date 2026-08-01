@@ -51,11 +51,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from discover_datasets import (
-    STOPWORDS,
-    core_term,
-    has_qualifier_conflict,
-)
+from disease_title_match import compile_phrases, entry_phrases, match_title
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 KB_DIR = REPO_ROOT / "kb" / "disorders"
@@ -76,33 +72,6 @@ STUDY_TYPE_TO_ENUM = {
     "rna sequencing": "BULK_RNA_SEQ",
     "epigenetics": "METHYLATION",
     "metagenomics": "WGS",
-}
-
-# A title match on a very short or generic phrase is noise, not evidence.
-MIN_PHRASE_LEN = 6
-
-# Phrases too generic to be evidence of anything, even at full length. These
-# turn up when an entry's `disease_term` is bound to a near-root MONDO class
-# (Dorsalgia is currently bound to a term labelled simply "disease"), which
-# would otherwise match a large fraction of the archive.
-GENERIC_PHRASES = {
-    "disease", "diseases", "syndrome", "syndromes", "disorder", "disorders",
-    "deficiency", "cancer", "carcinoma", "tumor", "tumour", "infection",
-    "inflammation", "neoplasm", "abnormality", "malformation", "failure",
-}
-
-# Head-nouns that name a *class* of disease rather than a disease. Safe inside a
-# multi-word phrase ("AL Amyloidosis"), unsafe alone: bare "Sclerosis" matches
-# multiple sclerosis, tuberous sclerosis and ALS alike. Only ever applied to a
-# core term derived by stripping a qualifier, never to an entry's own name.
-GENERIC_HEAD_NOUNS = {
-    "sclerosis", "fibrosis", "anemia", "anaemia", "dystrophy", "atrophy",
-    "ataxia", "neuropathy", "myopathy", "dysplasia", "palsy", "leukemia",
-    "leukaemia", "lymphoma", "sarcoma", "hepatitis", "nephritis", "arthritis",
-    "dermatitis", "colitis", "encephalopathy", "encephalitis", "myelitis",
-    "retinopathy", "cardiomyopathy", "thalassemia", "porphyria", "amyloidosis",
-    "hypertension", "hypotension", "diabetes", "epilepsy", "psoriasis",
-    "vasculitis", "thrombocytopenia", "neutropenia", "immunodeficiency",
 }
 
 
@@ -157,55 +126,6 @@ def load_index() -> dict:
     return json.loads(INDEX_PATH.read_text())
 
 
-def _significant(text: str) -> set[str]:
-    return {w for w in re.findall(r"[a-z0-9]+", text.lower()) if len(w) > 2 and w not in STOPWORDS}
-
-
-def _label_is_broader(name: str, label: str) -> bool:
-    """True when the entry's own name carries qualifiers its MONDO label lacks.
-
-    Several entries are bound to a *parent* concept: `BRCA_Mutant_Prostate_Cancer`
-    to "prostate cancer", `NRAS_Mutant_Melanoma` to "cutaneous melanoma",
-    `Arsenic_Related_Cancers` to "squamous cell carcinoma",
-    `Hospital-Acquired_Acute_Kidney_Injury` to "kidney injury". Searching the
-    bare label then retrieves the general disease -- exactly what this script is
-    supposed to avoid -- so the label is dropped as a match phrase and only the
-    entry's full name is used.
-    """
-    extra = _significant(name) - _significant(label)
-    return bool(extra)
-
-
-def entry_phrases(entry: dict, slug: str) -> tuple[list[str], list[tuple[str, str]]]:
-    """Disease phrases to look for in a title, plus (core, qualifier) pairs."""
-    names: list[str] = []
-    name = (entry.get("name") or slug).replace("_", " ").strip()
-    if name:
-        names.append(name)
-    label = (((entry.get("disease_term") or {}).get("term") or {}).get("label") or "").strip()
-    if label and label.lower() != name.lower() and not _label_is_broader(name, label):
-        names.append(label)
-
-    cores: list[tuple[str, str]] = []
-    for n in list(names):
-        short, stripped = core_term(n)
-        if not short or short.lower() in {x.lower() for x in names}:
-            continue
-        # A single-word core that is a generic pathology head-noun heads dozens
-        # of distinct diseases: stripping "Systemic Sclerosis" to "Sclerosis"
-        # matched Multiple Sclerosis. Keep the qualified form only.
-        if " " not in short.strip() and short.strip().lower() in GENERIC_HEAD_NOUNS:
-            continue
-        names.append(short)
-        cores.append((short, stripped))
-
-    phrases = [
-        n for n in names
-        if len(n) >= MIN_PHRASE_LEN and n.strip().lower() not in GENERIC_PHRASES
-    ]
-    return phrases, cores
-
-
 def match_entry(slug: str, index: dict) -> list[dict]:
     path = KB_DIR / f"{slug}.yaml"
     if not path.exists():
@@ -214,29 +134,13 @@ def match_entry(slug: str, index: dict) -> list[dict]:
     phrases, cores = entry_phrases(entry, slug)
     if not phrases:
         return []
-
-    # Word-boundary matching, not substring: "H Syndrome" must not match
-    # "Denys-Drash Syndrome" or "MRKH syndrome".
-    patterns = [(p, re.compile(rf"\b{re.escape(p.lower())}\b")) for p in phrases]
+    patterns = compile_phrases(phrases)
 
     hits = []
     for acc, s in index.items():
-        title_l = s["title"].lower()
-        matched = next((p for p, rx in patterns if rx.search(title_l)), None)
+        matched, conflict = match_title(s["title"], patterns, cores)
         if not matched:
             continue
-
-        # Sibling-disease veto: a competing qualifier on the core term.
-        conflict = ""
-        for core, stripped in cores:
-            if not stripped:
-                continue
-            if f"{stripped} {core}".lower() in title_l:
-                continue
-            competing = has_qualifier_conflict(title_l, stripped, core)
-            if competing:
-                conflict = f"title says '{competing} {core.lower()}', entry is '{stripped} {core.lower()}'"
-                break
 
         hits.append(
             {
