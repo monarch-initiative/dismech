@@ -35,7 +35,12 @@ from typing import Any
 
 from dismech.perturb.phenotypes import evaluate_phenotypes
 from dismech.perturb.sedml_export import find_disorder_for_model
-from dismech.perturb.simulate import ModelConfig, load_model_config, run_perturbation
+from dismech.perturb.simulate import (
+    ModelConfig,
+    load_model_config,
+    resolve_scenario_dial,
+    run_perturbation,
+)
 from dismech.yaml_io import safe_load
 
 #: Decimal places kept in the artifact. Six is far finer than any observable's
@@ -43,16 +48,19 @@ from dismech.yaml_io import safe_load
 #: than the ~1e-9 spread seen between integrator paths.
 ROUNDING_DECIMALS = 6
 
-#: The CLI's fallback when a scenario omits `gfr` (a CKD-era default).
-DIAL_FALLBACK = 2.0
-
 DEFAULT_OUTPUT_DIR = Path("exports/model_runs")
 
 
 def _round(value: float | None) -> float | None:
     if value is None:
         return None
-    return round(float(value), ROUNDING_DECIMALS)
+    rounded = round(float(value), ROUNDING_DECIMALS)
+    # `round(-4.5e-303, 6)` is -0.0, which json.dumps writes as "-0.0". The sign
+    # of a denormal residual is exactly the cross-machine jitter this rounding
+    # exists to suppress, and it renders as negative beta-cell mass on the
+    # disorder page. Normalise it — note `-0.0 == 0.0`, so a test that only
+    # compares values cannot catch this; assert on the sign.
+    return 0.0 if rounded == 0 else rounded
 
 
 def _sha256(path: Path) -> str:
@@ -90,6 +98,19 @@ def build_observables(config: ModelConfig) -> list[dict[str, Any]]:
     return observables
 
 
+def threshold_kind(direction: str) -> str:
+    """Whether a threshold value is an absolute reading or a baseline ratio.
+
+    ``phenotypes.evaluate_phenotypes`` treats the two directions asymmetrically:
+    an ``above`` threshold is compared against the raw value in the observable's
+    own unit, while a ``below`` threshold is compared against
+    ``value / baseline``. Published side by side with no discriminator, a
+    ``below`` threshold of 0.5 beside a "mg/dL" column reads as 0.5 mg/dL when
+    it means 50% of baseline — five times the number shown, for urate.
+    """
+    return "ratio_of_baseline" if direction == "below" else "absolute"
+
+
 def build_thresholds(config: ModelConfig) -> list[dict[str, Any]]:
     """The curated phenotype activation rules, so the table is self-explaining."""
     return [
@@ -98,6 +119,7 @@ def build_thresholds(config: ModelConfig) -> list[dict[str, Any]]:
             "hp_label": threshold.hp_label,
             "model_variable": threshold.model_variable,
             "direction": threshold.direction,
+            "threshold_kind": threshold_kind(threshold.direction),
             "threshold": _round(threshold.threshold),
             "severity_scale": [
                 [_round(value), name] for value, name in threshold.severity_scale
@@ -107,15 +129,23 @@ def build_thresholds(config: ModelConfig) -> list[dict[str, Any]]:
     ]
 
 
-def run_scenarios(config: ModelConfig) -> dict[str, Any]:
-    """Run the baseline and every scenario, and assemble the artifact body."""
+def run_scenarios(
+    config: ModelConfig, *, severity_comparable: bool = True
+) -> dict[str, Any]:
+    """Run the baseline and every scenario, and assemble the artifact body.
+
+    ``severity_comparable=False`` drops the severity tier from each activated
+    phenotype while keeping the activation itself: for a bistable model whose
+    lesions all land on one attractor, the tier is an artefact of the attractor
+    rather than a graded statement about the lesion.
+    """
     baseline_dial = config.coupling.baseline_gfr
     baseline = run_perturbation(config, gfr=baseline_dial).variables
 
     scenarios: list[dict[str, Any]] = []
     for scenario_id, scenario in config.scenarios.items():
         scenario = scenario or {}
-        dial = scenario.get("gfr", DIAL_FALLBACK)
+        dial = resolve_scenario_dial(config, scenario)
         result = run_perturbation(
             config,
             gfr=dial,
@@ -152,7 +182,7 @@ def run_scenarios(config: ModelConfig) -> dict[str, Any]:
                     {
                         "hp_id": item.hp_id,
                         "hp_label": item.hp_label,
-                        "severity": item.severity,
+                        "severity": item.severity if severity_comparable else None,
                         "value_description": item.value_description,
                     }
                     for item in activated
@@ -197,9 +227,17 @@ def run_config(
         config_path.parent / config.extension_file if config.extension_file else None
     )
 
+    # A model whose scenarios are not comparable in severity (see the Topp
+    # config) publishes its phenotype activations without a severity tier, plus
+    # the caveat explaining why. Both are optional config keys.
+    severity_comparable = bool(raw.get("severity_comparable", True))
+    caveat = (raw.get("caveat") or "").strip() or None
+
     payload: dict[str, Any] = {
         "model_id": model_id,
         "disease": (disorder or {}).get("name"),
+        "severity_comparable": severity_comparable,
+        "caveat": caveat,
         "provenance": {
             "generator": "dismech.perturb.results_export",
             "runner": "dismech-perturb (tellurium / libRoadRunner CVODE)",
@@ -220,7 +258,7 @@ def run_config(
         "observables": build_observables(config),
         "thresholds": build_thresholds(config),
     }
-    payload.update(run_scenarios(config))
+    payload.update(run_scenarios(config, severity_comparable=severity_comparable))
 
     output_path = output_dir / f"{model_id}.json"
     if write:

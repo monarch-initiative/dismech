@@ -31,17 +31,22 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+# Run this through `uv run` (or `just verify-sedml-export`) so the installed
+# dismech package is on the path. No sys.path manipulation is needed, which is
+# what keeps every import below at the top of the file.
 from dismech.perturb.sedml_export import (
     export_config,
     find_disorder_for_model,
     read_sbml_model_info,
+    sanitize_sid,
 )
-from dismech.perturb.simulate import load_model_config, run_perturbation
+from dismech.perturb.simulate import (
+    load_model_config,
+    resolve_scenario_dial,
+    run_perturbation,
+)
 from dismech.yaml_io import safe_load
 
-# Run this through `uv run` (or `just verify-sedml-export`) so the installed
-# dismech package is on the path; no sys.path manipulation is needed, which
-# keeps every import at the top of the file.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -104,13 +109,15 @@ def verify_model(
         scenario = scenario or {}
         dismech = run_perturbation(
             config,
-            gfr=scenario.get("gfr", 2.0),
+            gfr=resolve_scenario_dial(config, scenario),
             gene=scenario.get("gene"),
             effect=scenario.get("effect"),
             param_overrides=scenario.get("param_overrides"),
         ).variables
 
-        task = namespace.get(f"task_{scenario_id.replace('-', '_')}")
+        # Must use the exporter's own mapping: a local re-implementation
+        # diverges silently, surfacing as a missing task rather than an error.
+        task = namespace.get(f"task_{sanitize_sid(scenario_id)}")
         if task is None:
             failures.append(f"{model_id}/{scenario_id}: task missing from archive run")
             continue

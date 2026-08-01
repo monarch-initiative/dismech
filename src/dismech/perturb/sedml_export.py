@@ -45,7 +45,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from dismech.perturb.simulate import ModelConfig, load_model_config
+from dismech.perturb.simulate import (
+    ModelConfig,
+    load_model_config,
+    resolve_scenario_dial,
+)
 from dismech.yaml_io import safe_load
 
 SEDML_NS = "http://sed-ml.org/sed-ml/level1/version3"
@@ -72,14 +76,29 @@ _ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
 
 def _fmt(value: float) -> str:
-    """Format a float for XML with shortest round-trip precision."""
+    """Format a float for XML as briefly as round-trips exactly.
+
+    `repr` alone leaks binary-representation noise into the archive: the
+    pioglitazone scenario's 0.45 x 1.6 reprs as "0.7200000000000001". 15
+    significant digits renders that as "0.72" and covers every value these
+    configs produce; anything that does not survive the round trip falls back to
+    `repr`, so exactness is never traded for brevity.
+    """
+    value = float(value)
     if value == int(value) and abs(value) < 1e15:
         return str(int(value))
-    return repr(float(value))
+    text = f"{value:.15g}"
+    return text if float(text) == value else repr(value)
 
 
-def _sanitize(value: str) -> str:
-    """Make a SED-ML SId out of an arbitrary label (e.g. a gene name)."""
+def sanitize_sid(value: str) -> str:
+    """Make a SED-ML SId out of an arbitrary label (e.g. a gene name).
+
+    Public because anything that has to reconstruct a task/model id from a
+    scenario id — the verification script, for one — must use this exact
+    mapping. A private re-implementation diverges silently: the id simply fails
+    to resolve and the lookup returns None rather than raising.
+    """
     out = "".join(ch if (ch.isalnum() or ch == "_") else "_" for ch in str(value))
     if not out or out[0].isdigit():
         out = f"_{out}"
@@ -197,22 +216,15 @@ def resolve_scenario(
         reasons.setdefault(symbol_id, []).append(reason)
 
     # 1. Disease-severity dial, set absolutely (only if the model exposes it).
+    # A scenario without `gfr` resolves to the model's healthy baseline, the
+    # same value every other execution path uses.
     dial = config.coupling.gfr_parameter
-    if "gfr" in scenario:
-        dial_value = float(scenario["gfr"])
-        if dial in info.symbols:
-            record(dial, dial_value, f"severity dial {dial}={_fmt(dial_value)}")
-        else:
-            resolved.unresolved.append(
-                f"severity dial '{dial}' is not a parameter or species of the model"
-            )
+    dial_value = resolve_scenario_dial(config, scenario)
+    if dial in info.symbols:
+        record(dial, dial_value, f"severity dial {dial}={_fmt(dial_value)}")
     else:
-        # The CLI substitutes a hardcoded 2.0 for a missing `gfr` (a CKD-era
-        # default). Exporting that as if it were curated intent would be
-        # misleading, so leave the SBML value and say so.
         resolved.unresolved.append(
-            "scenario has no 'gfr': the SBML initial value for the severity dial "
-            f"'{dial}' is used, whereas the CLI would substitute its 2.0 fallback"
+            f"severity dial '{dial}' is not a parameter or species of the model"
         )
 
     # 2. Gene effect, multiplicative on the value in force.
@@ -330,7 +342,7 @@ def build_sedml(
             models_el,
             f"{{{SEDML_NS}}}model",
             {
-                "id": f"model_{_sanitize(scenario.scenario_id)}",
+                "id": f"model_{sanitize_sid(scenario.scenario_id)}",
                 "name": scenario.label,
                 "language": "urn:sedml:language:sbml",
                 "source": "base_model",
@@ -393,9 +405,9 @@ def build_sedml(
             tasks_el,
             f"{{{SEDML_NS}}}task",
             {
-                "id": f"task_{_sanitize(scenario.scenario_id)}",
+                "id": f"task_{sanitize_sid(scenario.scenario_id)}",
                 "name": scenario.label,
-                "modelReference": f"model_{_sanitize(scenario.scenario_id)}",
+                "modelReference": f"model_{sanitize_sid(scenario.scenario_id)}",
                 "simulationReference": "time_course",
             },
         )
@@ -425,18 +437,18 @@ def build_sedml(
         ci.text = variable_id
 
     for scenario in scenarios:
-        task_id = f"task_{_sanitize(scenario.scenario_id)}"
-        suffix = _sanitize(scenario.scenario_id)
+        task_id = f"task_{sanitize_sid(scenario.scenario_id)}"
+        suffix = sanitize_sid(scenario.scenario_id)
         add_generator(f"dg_time_{suffix}", "Time", task_id, None)
         for label, symbol in observables:
             add_generator(
-                f"dg_{suffix}_{_sanitize(symbol.symbol_id)}", label, task_id, symbol
+                f"dg_{suffix}_{sanitize_sid(symbol.symbol_id)}", label, task_id, symbol
             )
 
     # --- outputs: one report + one plot per scenario -------------------------
     outputs_el = ET.SubElement(root, f"{{{SEDML_NS}}}listOfOutputs")
     for scenario in scenarios:
-        suffix = _sanitize(scenario.scenario_id)
+        suffix = sanitize_sid(scenario.scenario_id)
         report = ET.SubElement(
             outputs_el,
             f"{{{SEDML_NS}}}report",
@@ -458,10 +470,10 @@ def build_sedml(
                 data_sets,
                 f"{{{SEDML_NS}}}dataSet",
                 {
-                    "id": f"ds_{suffix}_{_sanitize(symbol.symbol_id)}",
+                    "id": f"ds_{suffix}_{sanitize_sid(symbol.symbol_id)}",
                     "label": symbol.symbol_id,
                     "name": label,
-                    "dataReference": f"dg_{suffix}_{_sanitize(symbol.symbol_id)}",
+                    "dataReference": f"dg_{suffix}_{sanitize_sid(symbol.symbol_id)}",
                 },
             )
 
@@ -478,12 +490,12 @@ def build_sedml(
                 curves,
                 f"{{{SEDML_NS}}}curve",
                 {
-                    "id": f"curve_{suffix}_{_sanitize(symbol.symbol_id)}",
+                    "id": f"curve_{suffix}_{sanitize_sid(symbol.symbol_id)}",
                     "name": label,
                     "logX": "false",
                     "logY": "false",
                     "xDataReference": f"dg_time_{suffix}",
-                    "yDataReference": f"dg_{suffix}_{_sanitize(symbol.symbol_id)}",
+                    "yDataReference": f"dg_{suffix}_{sanitize_sid(symbol.symbol_id)}",
                 },
             )
 

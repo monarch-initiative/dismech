@@ -11,12 +11,14 @@ import pytest
 from dismech.perturb.sedml_export import (
     SEDML_NS,
     ModelSymbol,
+    _fmt,
     build_manifest,
     build_sedml,
     export_all,
     export_config,
     read_sbml_model_info,
     resolve_scenario,
+    sanitize_sid,
     write_omex,
 )
 from dismech.perturb.simulate import load_model_config
@@ -119,10 +121,36 @@ def test_unresolvable_references_are_reported_not_silently_dropped(
     assert any("nope" in note for note in resolved.unresolved)
 
 
-def test_missing_gfr_is_flagged_against_the_cli_fallback(urate_config, urate_info):
+def test_missing_gfr_falls_back_to_the_model_baseline(urate_config, urate_info):
+    """Not to a hardcoded literal: the dial means something different per model."""
     resolved = resolve_scenario("no_dial", {}, urate_config, urate_info)
-    assert not resolved.changes
-    assert any("2.0 fallback" in note for note in resolved.unresolved)
+    assert _changes(resolved) == {"f_exc": urate_config.coupling.baseline_gfr}
+    assert not resolved.unresolved
+
+
+def test_fmt_never_trades_exactness_for_brevity():
+    """The shortest form is used only where it round-trips to the same double.
+
+    `0.45 * 1.6` is `0.7200000000000001`, and `f"{v:.15g}"` renders it as
+    "0.72" — but `float("0.72")` is a *different* double. Shortening it would
+    make the archive encode a value dismech-perturb never computes, so the long
+    form stays. Values that genuinely are short stay short.
+    """
+    noisy = 0.45 * 1.6
+    assert float(_fmt(noisy)) == noisy
+    assert _fmt(noisy) == "0.7200000000000001"
+
+    for value in (0.5, 0.8, 0.35, 2.5, 1e-12):
+        assert float(_fmt(value)) == value
+        assert _fmt(value) == f"{value:.15g}"
+
+    assert _fmt(1.0) == "1"
+
+
+def test_sanitize_sid_is_the_single_source_of_id_mapping():
+    assert sanitize_sid("NKX2-1_LoF") == "NKX2_1_LoF"
+    assert sanitize_sid("2fast") == "_2fast"
+    assert sanitize_sid("") == "_"
 
 
 def test_build_sedml_emits_the_expected_skeleton(urate_config, urate_info):

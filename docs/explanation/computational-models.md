@@ -419,6 +419,23 @@ hand-edited, and rendered with an explicit "derived artifact" notice so no
 reader mistakes a simulated value for evidence. Nothing is written into the KB
 YAML, and the schema is unchanged.
 
+**Two optional config keys guard interpretation.** A model whose scenarios are
+not comparable in severity sets `severity_comparable: false`, which publishes each
+phenotype activation *without* a severity tier, and `caveat: <text>`, which is
+surfaced as a warning beside the results table. `BIOMD0000000341` (Topp) uses
+both: the model is bistable with a baseline near the saddle, so every impairing
+lesion collapses to the same attractor and a per-scenario tier would report
+GCK-MODY — clinically mild and non-progressive — as severe hyperglycemia with
+beta-cell mass zero. The model still reports the *direction* of each effect
+faithfully; it just carries no information about magnitude.
+
+**Thresholds are not all in the same units.** `evaluate_phenotypes` compares an
+`above` threshold against the raw value in the observable's own unit, but a
+`below` threshold against `value / baseline`. The artifact therefore publishes
+`threshold_kind: "absolute" | "ratio_of_baseline"` per threshold, and the page
+renders ratio thresholds with an explicit `× baseline` suffix — without it,
+urate's Hypouricemia threshold of 0.5 reads as 0.5 mg/dL when it means ~2.5.
+
 Two properties keep the committed diff honest:
 
 - **Rounded values.** Integrator jitter between machines or tellurium versions

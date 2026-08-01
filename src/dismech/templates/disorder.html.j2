@@ -1850,6 +1850,16 @@
             background: #ecfdf5;
             font-weight: 500;
         }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
         .model-run-provenance {
             padding: 8px 12px 10px;
             font-size: 0.75rem;
@@ -5810,20 +5820,23 @@
                                             {% else %}
                                             {{ mapping.preferred_term or '' }}
                                             {% endif %}
-                                            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ mapping.threshold_direction or '' }} {{ mapping.threshold }}</span>
+                                            {# A "below" threshold is a ratio of the healthy baseline, not a reading in
+                                               the column's unit; without the suffix it reads ~5x off for urate. #}
+                                            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ mapping.threshold_direction or '' }} {{ mapping.threshold }}{% if mapping.threshold_direction == 'below' %}&times; baseline{% endif %}</span>
                                         </span>
                                         {% if mapping.severity_scale %}
                                         <div>
                                             {% for sev in mapping.severity_scale %}
                                             {% set sev_name = sev.name | lower %}
+                                            {% set sev_value = sev.threshold ~ ('&times; baseline' if mapping.threshold_direction == 'below' else '') %}
                                             {% if sev_name in ('mild', 'growth impairment') %}
-                                            <span class="severity-pill severity-mild">{{ sev.name }} {{ sev.threshold }}</span>
+                                            <span class="severity-pill severity-mild">{{ sev.name }} {{ sev_value | safe }}</span>
                                             {% elif sev_name in ('moderate', 'moderate risk') %}
-                                            <span class="severity-pill severity-moderate">{{ sev.name }} {{ sev.threshold }}</span>
+                                            <span class="severity-pill severity-moderate">{{ sev.name }} {{ sev_value | safe }}</span>
                                             {% elif sev_name in ('severe', 'high risk', 'calciphylaxis risk') %}
-                                            <span class="severity-pill severity-severe">{{ sev.name }} {{ sev.threshold }}</span>
+                                            <span class="severity-pill severity-severe">{{ sev.name }} {{ sev_value | safe }}</span>
                                             {% else %}
-                                            <span class="severity-pill severity-other">{{ sev.name }} {{ sev.threshold }}</span>
+                                            <span class="severity-pill severity-other">{{ sev.name }} {{ sev_value | safe }}</span>
                                             {% endif %}
                                             {% endfor %}
                                         </div>
@@ -5848,6 +5861,11 @@
                             {{ run.provenance.severity_dial }} = {{ run.baseline_dial }}
                         </span>
                     </summary>
+                    {% if run.caveat %}
+                    <div class="model-run-caveat">
+                        <strong>Interpretation caveat.</strong> {{ run.caveat }}
+                    </div>
+                    {% endif %}
                     <div class="model-run-scroll">
                     <table class="model-variables-table model-run-table">
                         <thead>
@@ -5895,8 +5913,10 @@
                                     {% set sev = phenotype.severity | lower %}
                                     <span class="severity-pill severity-{{ 'mild' if sev == 'mild' else ('moderate' if sev == 'moderate' else ('severe' if sev == 'severe' else 'other')) }}"
                                           title="{{ phenotype.value_description }}">
-                                        <a href="{{ phenotype.hp_id | curie_to_url }}" target="_blank">{{ phenotype.hp_label }}</a>
-                                        {% if sev != 'unknown' %}&middot; {{ phenotype.severity }}{% endif %}
+                                        <a href="{{ phenotype.hp_id | curie_to_url }}" target="_blank" rel="noopener noreferrer">{{ phenotype.hp_label }}</a>
+                                        {# Suppressed entirely when the model declares its scenarios not
+                                           comparable in severity — see the caveat above. #}
+                                        {% if phenotype.severity and sev != 'unknown' %}&middot; {{ phenotype.severity }}{% endif %}
                                     </span>
                                     {% else %}
                                     <span class="model-var-desc">none</span>
