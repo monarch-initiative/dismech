@@ -398,7 +398,12 @@ def test_docs_prefix_list_matches_the_code_exactly() -> None:
     from dismech.phenotype_distribution import _VERIFIABLE_PREFIXES
 
     bullet = _verifiable_prefix_bullet()
-    documented = set(re.findall(r"`([A-Za-z_]+:)`", bullet))
+    # Digits and hyphens are in the class because this repo already uses
+    # prefixes that need them (`ICD10CM:`, `icd11f:` in conf/oak_config.yaml).
+    # A narrower class would silently fail to extract such a prefix from the
+    # docs and report it as undocumented when it is documented — a false alarm
+    # whose cause would be hard to see from the assertion message.
+    documented = set(re.findall(r"`([A-Za-z0-9_-]+:)`", bullet))
     coded = set(_VERIFIABLE_PREFIXES)
 
     assert not (coded - documented), f"docs omit verified prefixes: {sorted(coded - documented)}"
