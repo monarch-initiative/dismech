@@ -237,9 +237,15 @@ event count, or latent phenotype profile in a defined disease cohort. One record
   (`EvidenceLine` → `DataItem` → `Document`, with direction separate from
   strength). `EvidenceDirectionEnum` copies `EvidenceItemSupportEnum`'s
   permissible values verbatim; a test enforces they do not drift.
-- **Reliability**: `DomainReliability` (per source data domain, identified by
-  name never by position) and `IdentityAttestation` (row/person counts proving
-  one-row-per-person without identifiers), plus an enum-backed `bias_risks`.
+- **Reliability**: `ModelDomain` is the per-source-data-domain object, always
+  identified by name and never by position; `DomainReliability` is the
+  assessment nested on its `reliability` slot. **Act on `domain_role`**
+  (`PRIMARY` / `SPECIALIST` / `EXCLUDED` / `SUPPORTING`), not on
+  `reliability_score`: tested domain weighting had little recoverable headroom,
+  so the useful conclusion is routing a domain to the diseases it serves, not
+  blending it into every estimate. Plus `IdentityAttestation` (row/person counts
+  proving one-row-per-person without identifiers) and an enum-backed
+  `bias_risks`.
 - **Import bridge**: each record declares `dismech_bindings` naming the target
   entry, section, and `target_path`, and `just phenodist-rebuild` renders it to
   `references_cache/PHENODIST_<record_id>.md` so a disease entry cites
