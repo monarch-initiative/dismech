@@ -20,8 +20,6 @@ term-identity agreement only.
 from __future__ import annotations
 
 import argparse
-import json
-import re
 import subprocess
 import sys
 
@@ -68,17 +66,44 @@ def phenotype_map(entry: dict) -> dict[str, tuple[str | None, str | None, str | 
     return out
 
 
-def treatment_terms(entry: dict) -> dict[str, str]:
-    out: dict[str, str] = {}
+def treatment_terms(entry: dict) -> dict[str, list[str]]:
+    """NCIT term id -> every treatment name bound to it.
+
+    Values are lists, not strings: two treatments may legitimately share one
+    action term (e.g. NCIT:C15747 Supportive Care), and keying by id alone would
+    silently drop all but the last.
+    """
+    out: dict[str, list[str]] = {}
     for treatment in entry.get("treatments") or []:
         term = (treatment.get("treatment_term") or {}).get("term") or {}
         if term.get("id"):
-            out[term["id"]] = treatment.get("name") or ""
+            out.setdefault(term["id"], []).append(treatment.get("name") or "")
     return out
 
 
+def _walk(node):
+    """Yield every (key, value) pair in a nested dict/list structure."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield key, value
+            yield from _walk(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk(item)
+
+
 def pmids(entry: dict) -> set[str]:
-    return set(re.findall(r"PMID:\d+", json.dumps(entry)))
+    """PMIDs actually cited, i.e. appearing in a `reference:` field.
+
+    Deliberately not a regex over the whole JSON dump: a PMID mentioned only in
+    prose (an explanation or a note) is not a citation and should not count
+    toward reference-set agreement.
+    """
+    found = set()
+    for key, value in _walk(entry):
+        if key == "reference" and isinstance(value, str) and value.startswith("PMID:"):
+            found.add(value)
+    return found
 
 
 def edge_count(entry: dict) -> int:
@@ -86,7 +111,8 @@ def edge_count(entry: dict) -> int:
 
 
 def snippet_count(entry: dict) -> int:
-    return json.dumps(entry).count('"snippet"')
+    """Count `snippet:` keys structurally rather than by string-matching the dump."""
+    return sum(1 for key, _ in _walk(entry) if key == "snippet")
 
 
 _ancestor_cache: dict[str, set[str]] = {}
@@ -98,7 +124,11 @@ def ancestors(term_id: str) -> set[str]:
     if term_id in _ancestor_cache:
         return _ancestor_cache[term_id]
     proc = subprocess.run(
-        ["uv", "run", "runoak", "-i", "sqlite:obo:hp", "ancestors", term_id],
+        # -p i restricts the closure to is_a. Without it runoak walks every edge
+        # type, so a part_of relation would be reported as "same concept, different
+        # granularity" — which it is not. Terms are queried one at a time because a
+        # batched call merges the closures and loses per-term attribution.
+        ["uv", "run", "runoak", "-i", "sqlite:obo:hp", "ancestors", "-p", "i", term_id],
         capture_output=True,
         text=True,
         check=False,
@@ -216,14 +246,20 @@ def main() -> int:
     print("=" * 72)
     print("TREATMENT TERM BINDING")
     print("=" * 72)
-    print(f"  {la}: {len(ta)}   {lb}: {len(tb)}   shared term ids: {len(set(ta) & set(tb))}")
-    print(f"  Jaccard: {jaccard(set(ta), set(tb)):.3f}")
+    n_treat_a = len(a.get("treatments") or [])
+    n_treat_b = len(b.get("treatments") or [])
+    print(f"  {la}: {n_treat_a} treatments ({len(ta)} distinct term ids)")
+    print(f"  {lb}: {n_treat_b} treatments ({len(tb)} distinct term ids)")
+    print(f"  shared term ids: {len(set(ta) & set(tb))}   Jaccard: {jaccard(set(ta), set(tb)):.3f}")
+    print("  NOTE: this is id-level agreement. A shared id does not by itself mean")
+    print("  the two curators described the same intervention — compare the names.")
     for term_id in sorted(set(ta) & set(tb)):
-        print(f"    both: {term_id:16} {ta[term_id][:34]:34} | {tb[term_id]}")
+        print(f"    both: {term_id:16} {la}={'; '.join(ta[term_id])}")
+        print(f"    {'':22} {lb}={'; '.join(tb[term_id])}")
     for term_id in sorted(set(ta) - set(tb)):
-        print(f"    {la} only: {term_id:16} {ta[term_id]}")
+        print(f"    {la} only: {term_id:16} {'; '.join(ta[term_id])}")
     for term_id in sorted(set(tb) - set(ta)):
-        print(f"    {lb} only: {term_id:16} {tb[term_id]}")
+        print(f"    {lb} only: {term_id:16} {'; '.join(tb[term_id])}")
 
     ra, rb = pmids(a), pmids(b)
     print()

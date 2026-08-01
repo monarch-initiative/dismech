@@ -26,6 +26,15 @@ uv run python experiments/interannotator/compare.py \
   experiments/interannotator/FG_Syndrome_1/FG_Syndrome_1.curator-B.independent.yaml
 ```
 
+**Both files are frozen snapshots, not live entries.** A was byte-identical to
+`kb/disorders/FG_Syndrome_1.yaml` at `ba33465dd`; the live entry has since diverged as
+the defects listed below were fixed, so a `diff` against `kb/` will no longer be empty
+— that is expected. Neither snapshot is covered by `tests/test_data.py`, which globs
+`kb/disorders/*.yaml` only (deliberately — two files named `FG Syndrome 1` would trip
+the unique-name check). Both were validated clean against the schema as of
+**2026-08-01**; that is a point-in-time statement and they may rot as the schema
+evolves.
+
 ## Protocol, and how far it actually held
 
 B ran the documented `/curate` pipeline end to end: a fresh falcon deep-research run
@@ -78,7 +87,9 @@ nodes or ~47 phenotypes.
 ### Phenotype agreement (uncontaminated)
 
 - **Strict HPO term identity:** Jaccard **0.484**, Dice/F1 **0.653** (31 shared of 64 union)
-- **Subsumption-aware:** A **76.6%**, B **81.2%**
+- **Subsumption-aware:** A **76.6%**, B **81.2%** (ancestor closure restricted to
+  `is_a`; recomputing without that restriction gives the same eight pairs and the
+  same figures, so the result does not depend on the predicate choice)
 
 Strict identity substantially *understates* agreement. Eight apparent disagreements
 are the same clinical concept bound at different granularity:
@@ -112,6 +123,9 @@ plausible wrong answers, and both curators landed identically:
 - Both scoped strictly to `MONDO:0010590`, explicitly excluded the historical umbrella
   `MONDO:0002010`, and cited the same <3% molecular-confirmation figure to justify it.
 - Both corrected macrocephaly from the historical "universal" to `FREQUENT`.
+- `NCIT:C15184` Behavioral Intervention for the behavioural arm — chosen independently
+  by both, over the neighbouring `NCIT:C181743` Behavioral Counseling that `CLAUDE.md`
+  uses as its example of a behavioural action term.
 
 ### Frequency band agreement (uncontaminated)
 
@@ -133,11 +147,37 @@ All six disagreements, with an assessment:
 
 ### Treatment binding (uncontaminated)
 
-Jaccard **0.700**, and more informatively: **every one of B's 7 treatment terms is
-also in A**. Where both curated the same intervention, the NCIT binding was identical
-7/7 — including `NCIT:C15184` Behavioral Intervention, where `CLAUDE.md`'s own mapping
-table suggests a different term (`NCIT:C181743` Behavioral Counseling). A has three
-B lacks: Early Intervention, Gastrostomy, and Pharmacotherapy for bowel management.
+A curated 10 treatments across 10 distinct NCIT ids; B curated 8 across 7 (B binds
+`NCIT:C15747` Supportive Care twice). Every one of B's 7 ids also appears in A, giving
+an id-level Jaccard of **0.700**.
+
+**That 7 is agreement about term ids, not about interventions**, and the two come
+apart. Reading the names behind each shared id:
+
+| Shared id | A | B | Same intervention? |
+|---|---|---|---|
+| `NCIT:C121351` | Occupational therapy | Occupational therapy | yes |
+| `NCIT:C15184` | Behavioral management | Individualized behavioral management | yes |
+| `NCIT:C15240` | Genetic counseling and family testing | Genetic counseling | yes |
+| `NCIT:C159273` | Speech and language therapy | Speech therapy | yes |
+| `NCIT:C15329` | Surgical repair of congenital anomalies | Surgical repair of imperforate anus | partial — B narrower |
+| `NCIT:C15747` | Ophthalmologic and audiologic surveillance | Management of chronic constipation; Annual audiology evaluation | partial — audiology overlaps, constipation does not |
+| `NCIT:C15302` | Physical therapy | Early intervention and developmental therapies | **no** — a collision |
+
+So the honest figure is **4 of 7 shared ids pair the same intervention**, 2 partially
+overlap, and 1 is a pure collision: A curates early intervention separately under
+`NCIT:C159524`, so B's use of `NCIT:C15302` for it is a different judgement that
+happens to land on a term A used for something else.
+
+Four unambiguous agreements out of eight possible bindings is still a real signal —
+these were free choices from a large NCIT subtree — but it is a much weaker claim than
+id-level Jaccard suggests, and the gap is instructive: **a coarse action vocabulary
+lets two curators agree on the term while disagreeing about the treatment.**
+`NCIT:C15747` Supportive Care absorbing both bowel management and audiology
+surveillance is the clearest case.
+
+A has three ids B lacks: Early Intervention (`NCIT:C159524`), Gastrostomy
+(`NCIT:C52006`), and Pharmacotherapy for bowel management (`NCIT:C15986`).
 
 ### Reference set (partly contaminated)
 

@@ -138,6 +138,23 @@ the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #52
 
 ### Scripts (`scripts/`)
 
+### Curation Experiments (`experiments/`)
+
+Measurements *about* the knowledge base rather than content *of* it — inter-annotator
+consistency studies, curation-methodology pilots. Not KB content, and deliberately
+outside `kb/` so no validator, `just` recipe, or test in `tests/test_data.py` picks
+the files up: several are snapshots of `Disease` entries that would otherwise collide
+on the unique-`name` check.
+
+This is **not** `research/` (deep-research provider outputs consumed as curation
+inputs) and **not** `docs/reports/` (analysis of the KB's content). An experiment here
+may cite either, but its own artifacts live in this tree.
+
+Each experiment type gets a subdirectory holding shared tooling plus an index
+`README.md`; each individual run gets its own subdirectory with its inputs and a
+`FINDINGS.md`. Scripts that compute metrics are committed alongside so numbers can be
+regenerated rather than trusted. See [`experiments/README.md`](experiments/README.md).
+
 ### Research Artifacts (`research/`)
 
 **`research/` is ONLY for deep-research outputs — do not hand-place files here.**
