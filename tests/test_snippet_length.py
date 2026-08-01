@@ -132,3 +132,57 @@ def test_baseline_key_is_location_independent():
     assert _baseline_key("kb/x.yaml", "Strabismus") == _baseline_key(
         "kb/x.yaml", "Strabismus"
     )
+
+
+def test_extra_reuse_of_a_baselined_snippet_is_a_new_finding(tmp_path):
+    """The motivating anti-pattern: one bare term cited for several claims.
+
+    A set-of-keys baseline would wave the fourth paste of an already-known
+    snippet straight through, which is exactly what this check exists to catch.
+    """
+    known = [
+        ("kb/disorders/X.yaml", "phenotypes[0]", 2, "Hearing loss"),
+        ("kb/disorders/X.yaml", "treatments[0]", 2, "Hearing loss"),
+    ]
+    baseline_path = tmp_path / "baseline.txt"
+    write_baseline(known, baseline_path)
+    baseline = load_baseline(baseline_path)
+
+    # The two grandfathered uses stay quiet.
+    assert not new_findings(known, baseline)
+
+    # A third use of the same snippet in the same file does not.
+    reused = [*known, ("kb/disorders/X.yaml", "treatments[1]", 2, "Hearing loss")]
+    extra = new_findings(reused, baseline)
+    assert len(extra) == 1
+    assert extra[0][1] == "treatments[1]"
+
+
+def test_baseline_records_occurrence_counts(tmp_path):
+    baseline_path = tmp_path / "baseline.txt"
+    write_baseline(
+        [
+            ("kb/disorders/X.yaml", "a", 1, "Strabismus"),
+            ("kb/disorders/X.yaml", "b", 1, "Strabismus"),
+            ("kb/disorders/Y.yaml", "c", 1, "Hypotonia"),
+        ],
+        baseline_path,
+    )
+    baseline = load_baseline(baseline_path)
+
+    assert baseline[_baseline_key("kb/disorders/X.yaml", "Strabismus")] == 2
+    assert baseline[_baseline_key("kb/disorders/Y.yaml", "Hypotonia")] == 1
+    assert "count<TAB>path<TAB>snippet" in baseline_path.read_text()
+
+
+def test_baseline_tolerates_the_pre_count_line_format(tmp_path):
+    """An older `path<TAB>snippet` baseline still grandfathers its entries."""
+    baseline_path = tmp_path / "baseline.txt"
+    baseline_path.write_text(
+        "# legacy header\nkb/disorders/X.yaml\tStrabismus\n", encoding="utf-8"
+    )
+    baseline = load_baseline(baseline_path)
+
+    assert not new_findings(
+        [("kb/disorders/X.yaml", "p[0]", 1, "Strabismus")], baseline
+    )

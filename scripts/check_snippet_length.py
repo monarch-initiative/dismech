@@ -53,6 +53,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -112,7 +113,15 @@ def scan_repo(scan_dir: Path = SCAN_DIR, schema_path: Path | None = None):
         try:
             with path.open(encoding="utf-8") as handle:
                 data = safe_load(handle)
-        except Exception:
+        except Exception as exc:
+            # Not this check's job to gate on malformed YAML (`validate-all`
+            # does that), but skipping silently would make the file invisible
+            # here rather than merely unchecked.
+            print(
+                f"warning: skipping unparseable {path.relative_to(ROOT).as_posix()}: "
+                f"{exc.__class__.__name__}",
+                file=sys.stderr,
+            )
             continue
         rel = path.relative_to(ROOT).as_posix()
         for location, words, snippet in find_violations(
@@ -124,8 +133,7 @@ def scan_repo(scan_dir: Path = SCAN_DIR, schema_path: Path | None = None):
 
 def _baseline_key(rel: str, snippet: str) -> str:
     # Keyed on (file, snippet text) rather than on the YAML location, which
-    # shifts whenever a list above it grows. Same convention as the
-    # folded-hyphen baseline.
+    # shifts whenever a list above it grows.
     #
     # Whitespace is collapsed first: the baseline file is line-oriented, so a
     # snippet carrying an embedded newline (plenty do -- YAML plain scalars wrap)
@@ -133,32 +141,62 @@ def _baseline_key(rel: str, snippet: str) -> str:
     return f"{rel}\t{' '.join(snippet.split())}"
 
 
-def load_baseline(path: Path = BASELINE_PATH) -> set[str]:
+def count_by_key(findings) -> Counter:
+    """How many times each ``(file, snippet)`` appears in *findings*."""
+    return Counter(_baseline_key(rel, snippet) for rel, _, _, snippet in findings)
+
+
+def load_baseline(path: Path = BASELINE_PATH) -> Counter:
+    """Read the baseline as ``{key: grandfathered occurrence count}``.
+
+    The count matters. The motivating anti-pattern in #7450 is one bare snippet
+    reused across *several* unrelated claims (``'Hearing loss'`` cited for a
+    phenotype and two treatments), so a plain set of keys would happily let a
+    curator paste an already-baselined snippet a fourth time -- the check would
+    be blind to precisely what it exists to catch.
+    """
+    counts: Counter = Counter()
     if not path.exists():
-        return set()
-    keys = set()
+        return counts
     for line in path.read_text(encoding="utf-8").splitlines():
-        if line and not line.startswith("#"):
-            keys.add(line)
-    return keys
+        if not line or line.startswith("#"):
+            continue
+        count, tab, key = line.partition("\t")
+        if tab and count.isdigit():
+            counts[key] = int(count)
+        else:  # tolerate a pre-count baseline
+            counts[line] = counts.get(line, 0) + 1
+    return counts
 
 
 def write_baseline(findings, path: Path = BASELINE_PATH) -> None:
-    keys = sorted({_baseline_key(rel, snippet) for rel, _, _, snippet in findings})
+    counts = count_by_key(findings)
     header = (
         "# Grandfathered short evidence snippets (see "
         "scripts/check_snippet_length.py).\n"
-        "# Each line is `path<TAB>snippet`. New snippets under "
-        f"{MIN_SNIPPET_WORDS} words that are\n"
-        "# NOT listed here fail the guard. Remove entries as the backlog is\n"
+        "# Each line is `count<TAB>path<TAB>snippet`, where count is how many\n"
+        f"# times that snippet is cited in that file. A snippet under "
+        f"{MIN_SNIPPET_WORDS} words\n"
+        "# fails the guard if it is absent here OR appears MORE often than the\n"
+        "# count recorded -- reusing one bare term across extra claims is the\n"
+        "# anti-pattern this exists to catch. Remove entries as the backlog is\n"
         "# fixed; do not add new ones. Regenerate with:\n"
         "#   just update-snippet-length-baseline\n"
     )
-    path.write_text(header + "\n".join(keys) + "\n", encoding="utf-8")
+    lines = [f"{counts[key]}\t{key}" for key in sorted(counts)]
+    path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
 
 
-def new_findings(findings, baseline: set[str]):
-    return [f for f in findings if _baseline_key(f[0], f[3]) not in baseline]
+def new_findings(findings, baseline: Counter):
+    """Findings not covered by *baseline*, including extra reuses of a known one."""
+    seen: Counter = Counter()
+    new = []
+    for finding in findings:
+        key = _baseline_key(finding[0], finding[3])
+        seen[key] += 1
+        if seen[key] > baseline.get(key, 0):
+            new.append(finding)
+    return new
 
 
 def main(argv=None) -> int:
@@ -196,7 +234,10 @@ def main(argv=None) -> int:
         baseline = load_baseline()
         files = {rel for rel, _, _, _ in findings}
         print(f"total findings: {len(findings)} across {len(files)} file(s)")
-        print(f"baseline entries: {len(baseline)}")
+        print(
+            f"baseline: {len(baseline)} distinct snippet(s), "
+            f"{sum(baseline.values())} grandfathered occurrence(s)"
+        )
         print(f"new (non-baselined): {len(new_findings(findings, baseline))}")
         return 0
 
@@ -218,7 +259,8 @@ def main(argv=None) -> int:
         return 1
     print(
         f"OK: no new snippets under {MIN_SNIPPET_WORDS} words "
-        f"({len(baseline)} grandfathered in baseline)."
+        f"({sum(baseline.values())} occurrence(s) of {len(baseline)} distinct "
+        "snippet(s) grandfathered in baseline)."
     )
     return 0
 

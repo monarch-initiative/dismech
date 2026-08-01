@@ -57,7 +57,7 @@ import argparse
 import re
 import unicodedata
 from collections import OrderedDict
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -91,10 +91,20 @@ NORMALIZED_CACHE_SIZE = 512
 # full count.
 MAX_REPORTED_MISMATCHES = 20
 
-# Ligatures PDF text extraction emits as single codepoints. NFKC decomposes all
-# of these, but it also rewrites a great deal else (superscripts, fullwidth
-# forms), so the explicit table runs first and NFKC only mops up the rest.
+# Multi-letter forms that must be expanded before matching. Two different kinds
+# live here, and the table is NOT redundant with the NFKC pass that follows it:
+#
+# - The first block are true *compatibility* ligatures, the ones PDF text
+#   extraction emits as single codepoints. NFKC does decompose these, so listing
+#   them is a fast path rather than a necessity.
+# - ``Æ æ Œ œ`` are encoded as distinct letters, not compatibility characters,
+#   and NFKC leaves them exactly as they are. For those four this table is the
+#   only thing doing the folding. They are also genuine orthography (archaic
+#   ``anæmia``, ``fœtal``) rather than an extractor artifact -- folding them
+#   symmetrically costs nothing for matching and lets a modern transcription
+#   match an old-spelling source.
 LIGATURES = {
+    # Compatibility ligatures (NFKC would also handle these).
     "ﬀ": "ff",
     "ﬁ": "fi",
     "ﬂ": "fl",
@@ -104,6 +114,7 @@ LIGATURES = {
     "ﬆ": "st",
     "Ĳ": "IJ",
     "ĳ": "ij",
+    # Distinct letters: NFKC does NOT touch these, so the table is required.
     "Œ": "OE",
     "œ": "oe",
     "Æ": "AE",
@@ -560,7 +571,7 @@ class CachedReferenceIndex:
         self,
         memo: OrderedDict[str, str | None],
         reference_id: str,
-        normalizer: Any,
+        normalizer: Callable[[str], str],
     ) -> str | None:
         if reference_id in memo:
             memo.move_to_end(reference_id)

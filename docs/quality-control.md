@@ -121,6 +121,12 @@ words, but fully propositional. A baseline
 the check gates new occurrences only; `just list-short-snippets` shows the whole
 backlog and `just update-snippet-length-baseline` regenerates it.
 
+The baseline records an **occurrence count** per `(file, snippet)`, not just the
+key, so a snippet also fails when it appears *more often* than the count on
+record. That matters because the anti-pattern is reuse: `'Hearing loss'` cited
+for a phenotype and two unrelated treatments in the same file. Keys alone would
+wave the next paste straight through.
+
 Validation layers are **binary** (pass/fail). Compliance scoring is **graded**:
 it produces a percentage per field, per file, and across the whole KB, and is
 used to rank curation priorities. This page focuses on that graded layer and its
