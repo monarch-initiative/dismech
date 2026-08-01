@@ -124,6 +124,24 @@ def test_model_layer_stays_at_the_common_denominator() -> None:
         f"in model_properties. Unexpected: {sorted(model_slots - allowed)}"
     )
 
+    # ModelDomain is the sibling the model layer can also grow sideways through,
+    # so pin it too rather than leaving one door guarded and the other open.
+    domain_slots = set(sv.class_slots("ModelDomain"))
+    allowed_domain = {
+        "domain_name",
+        "vocabulary",
+        "feature_namespace",
+        "feature_namespace_detail",
+        "n_features",
+        "domain_role",
+        "reliability",
+        "description",
+    }
+    assert domain_slots == allowed_domain, (
+        "ModelDomain slots changed; justify any addition as common to every "
+        f"model class. Unexpected: {sorted(domain_slots - allowed_domain)}"
+    )
+
 
 @pytest.mark.parametrize("path", _all_paths(), ids=lambda p: p.name)
 def test_collections_validate_against_schema(path: Path) -> None:
@@ -377,6 +395,86 @@ def _verifiable_prefix_bullet() -> str:
     ):
         end += 1
     return "\n".join(lines[start:end])
+
+
+@pytest.fixture()
+def eds_collection_path() -> Path:
+    return EXAMPLES_DIR / "charmpheno_population_eds.yaml"
+
+
+def _warning_messages(coll: Collection) -> str:
+    return " ".join(i.message for i in lint_collections([coll]).warnings)
+
+
+def test_lint_warns_when_a_model_declares_no_domains(eds_collection_path: Path) -> None:
+    """Omitting `domains` entirely must not be quieter than getting it wrong.
+
+    Guarding only the declaring side caught the careful curator and missed the
+    careless one: a collection that declared domains and forgot the enum warned,
+    while one that omitted the block said nothing.
+    """
+
+    def drop(data):
+        data.pop("domains")
+
+    assert "declares no `domains`" in _warning_messages(
+        _mutate(eds_collection_path, drop)
+    )
+
+    def empty(data):
+        data["domains"] = []
+
+    assert "declares no `domains`" in _warning_messages(
+        _mutate(eds_collection_path, empty)
+    )
+
+
+def test_lint_warns_when_a_domain_omits_its_feature_namespace(
+    eds_collection_path: Path,
+) -> None:
+    def mutate(data):
+        for domain in data["domains"]:
+            domain.pop("feature_namespace", None)
+
+    assert "does not declare a `feature_namespace`" in _warning_messages(
+        _mutate(eds_collection_path, mutate)
+    )
+
+
+def test_lint_errors_on_a_feature_referencing_an_undeclared_domain(
+    eds_collection_path: Path,
+) -> None:
+    """`domain_name` is how a feature reaches its namespace; a dangling ref breaks it."""
+
+    def mutate(data):
+        for record in data["distributions"]:
+            for feature in (record.get("latent_phenotype") or {}).get(
+                "top_features"
+            ) or []:
+                feature["domain_name"] = "nonexistent"
+                return
+
+    assert "is not declared in `domains`" in _error_messages(
+        _mutate(eds_collection_path, mutate)
+    )
+
+
+def test_lint_warns_on_an_ambiguous_feature_namespace(
+    eds_collection_path: Path,
+) -> None:
+    """With more than one domain declared, an unlabelled feature has no namespace."""
+
+    def mutate(data):
+        for record in data["distributions"]:
+            for feature in (record.get("latent_phenotype") or {}).get(
+                "top_features"
+            ) or []:
+                feature.pop("domain_name", None)
+                return
+
+    assert "its namespace is ambiguous" in _warning_messages(
+        _mutate(eds_collection_path, mutate)
+    )
 
 
 def test_docs_prefix_list_matches_the_code_exactly() -> None:

@@ -605,6 +605,95 @@ def _iter_attestations(node: Any, where: str = "record") -> Iterator[tuple[dict,
             yield from _iter_attestations(item, f"{where}[{i}]")
 
 
+def _check_feature_namespaces(coll: Collection) -> list[Issue]:
+    """Check that every model-derived feature resolves to a declared namespace.
+
+    A model-derived collection whose feature space is undeclared cannot be read
+    correctly — the codes could be OMOP concepts, source terminology codes, or
+    ontology terms, and a consumer that guesses wrong misreads every component.
+
+    Both sides of the link are checked, because guarding only the declaring side
+    catches the careful curator and misses the careless one: a collection that
+    declares domains and forgets the enum would warn, while one that omits the
+    `domains` block entirely would say nothing at all. A feature reaches its
+    namespace through `domain_name`, so a dangling or absent reference breaks the
+    resolution just as thoroughly as a missing declaration.
+    """
+    if not coll.data.get("model"):
+        return []
+
+    out: list[Issue] = []
+    domains = coll.data.get("domains") or []
+
+    if not domains:
+        return [
+            Issue(
+                coll.path,
+                "",
+                "WARNING",
+                (
+                    "collection is model-derived but declares no `domains`, so "
+                    "no feature has a resolvable `feature_namespace`; what the "
+                    "distribution ranges over should not be guessed"
+                ),
+            )
+        ]
+
+    declared: set[str] = set()
+    for domain in domains:
+        name = domain.get("domain_name")
+        if name:
+            declared.add(str(name))
+        if not domain.get("feature_namespace"):
+            out.append(
+                Issue(
+                    coll.path,
+                    "",
+                    "WARNING",
+                    (
+                        f"domain {name!r} does not declare a "
+                        "`feature_namespace`; what the distribution ranges over "
+                        "should not be guessed"
+                    ),
+                )
+            )
+
+    for record in coll.records:
+        rid = str(record.get("record_id", ""))
+        latent = record.get("latent_phenotype") or {}
+        for feature in latent.get("top_features") or []:
+            ref = feature.get("domain_name")
+            fid = feature.get("feature_id")
+            if ref is None:
+                if len(domains) > 1:
+                    out.append(
+                        Issue(
+                            coll.path,
+                            rid,
+                            "WARNING",
+                            (
+                                f"feature {fid!r} omits `domain_name` while "
+                                f"{len(domains)} domains are declared, so its "
+                                "namespace is ambiguous"
+                            ),
+                        )
+                    )
+            elif str(ref) not in declared:
+                out.append(
+                    Issue(
+                        coll.path,
+                        rid,
+                        "ERROR",
+                        (
+                            f"feature {fid!r} references domain {ref!r}, which "
+                            "is not declared in `domains`; its feature "
+                            "namespace cannot be resolved"
+                        ),
+                    )
+                )
+    return out
+
+
 def lint_collections(
     collections: Iterable[Collection],
     cache_dir: Path = DEFAULT_CACHE_DIR,
@@ -615,26 +704,7 @@ def lint_collections(
     result = LintResult(n_collections=len(collections))
 
     for coll in collections:
-        # A model-derived collection whose feature space is undeclared cannot be
-        # read correctly: the codes could be OMOP concepts, source terminology
-        # codes, or ontology terms, and a consumer that guesses wrong misreads
-        # every component. Warn rather than error, since older collections
-        # predate the slot.
-        if coll.data.get("model"):
-            for domain in coll.data.get("domains") or []:
-                if not domain.get("feature_namespace"):
-                    result.issues.append(
-                        Issue(
-                            coll.path,
-                            "",
-                            "WARNING",
-                            (
-                                f"domain {domain.get('domain_name')!r} does not "
-                                "declare a `feature_namespace`; what the "
-                                "distribution ranges over should not be guessed"
-                            ),
-                        )
-                    )
+        result.issues.extend(_check_feature_namespaces(coll))
 
     seen: dict[str, Path] = {}
     for coll, record in iter_records(collections):
