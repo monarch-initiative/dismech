@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/blood.2019004158"
+reference_id: DOI:10.1182/blood.2019004158
 title: TET family dioxygenases and the TET activator vitamin C in immune responses and cancer
 authors:
 - Xiaojing Yue
@@ -8,6 +8,7 @@ journal: Blood
 year: '2020'
 doi: 10.1182/blood.2019004158
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # TET family dioxygenases and the TET activator vitamin C in immune responses and cancer

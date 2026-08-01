@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.18.02459"
+reference_id: DOI:10.1200/jco.18.02459
 title: "Binimetinib, Encorafenib, and Cetuximab Triplet Therapy for Patients With <i>BRAF</i> V600E–Mutant Metastatic Colorectal Cancer: Safety Lead-In Results From the Phase III BEACON Colorectal Cancer Study"
 authors:
 - Eric Van Cutsem
@@ -26,6 +26,7 @@ journal: Journal of Clinical Oncology
 year: '2019'
 doi: 10.1200/jco.18.02459
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Binimetinib, Encorafenib, and Cetuximab Triplet Therapy for Patients With <i>BRAF</i> V600E–Mutant Metastatic Colorectal Cancer: Safety Lead-In Results From the Phase III BEACON Colorectal Cancer Study

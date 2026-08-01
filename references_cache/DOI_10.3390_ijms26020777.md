@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26020777"
+reference_id: DOI:10.3390/ijms26020777
 title: "Botulinum Toxin: A Comprehensive Review of Its Molecular Architecture and Mechanistic Action"
 authors:
 - Raj Kumar
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26020777
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Botulinum Toxin: A Comprehensive Review of Its Molecular Architecture and Mechanistic Action

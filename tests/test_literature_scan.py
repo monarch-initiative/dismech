@@ -6,7 +6,6 @@ import importlib.util
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).parent.parent
 SCRIPT_PATH = ROOT / "scripts" / "literature_scan.py"
 SPEC = importlib.util.spec_from_file_location("literature_scan", SCRIPT_PATH)

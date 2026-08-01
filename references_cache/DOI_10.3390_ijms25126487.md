@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25126487"
+reference_id: DOI:10.3390/ijms25126487
 title: The Role of Copper Overload in Modulating Neuropsychiatric Symptoms
 authors:
 - Mirko Manchia
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25126487
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of Copper Overload in Modulating Neuropsychiatric Symptoms

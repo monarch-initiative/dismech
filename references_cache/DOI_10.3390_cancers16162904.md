@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16162904"
+reference_id: DOI:10.3390/cancers16162904
 title: "The Mutational and Microenvironmental Landscape of Cutaneous Squamous Cell Carcinoma: A Review"
 authors:
 - Tara M. Hosseini
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16162904
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Mutational and Microenvironmental Landscape of Cutaneous Squamous Cell Carcinoma: A Review

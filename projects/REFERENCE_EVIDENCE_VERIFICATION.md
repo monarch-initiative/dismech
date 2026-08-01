@@ -159,7 +159,7 @@ modules, treatments) — that dilutes review and is a different goal.
 ```bash
 just validate kb/disorders/<Slug>.yaml
 just validate-references kb/disorders/<Slug>.yaml
-just validate-terms-file kb/disorders/<Slug>.yaml
+just validate-terms kb/disorders/<Slug>.yaml
 just check-reference-cache-frontmatter
 just new-history --kind disorder --slug <Slug> --event REVIEW --outcome changed \
   --summary "Reference-title backfill + evidence re-verification" \
@@ -217,7 +217,7 @@ green-and-mergeable awaiting the human merge gate.
 
 - `find_missing_reference_titles.py` reports **0** files missing titles.
 - Every touched file passes `just validate` / `validate-references` /
-  `validate-terms-file`.
+  `validate-terms`.
 - Every disease has a merged (or ready-to-merge, human-gated) PR with a
   `history/` record.
 - All evidence repairs and human-flagged items are documented in their PRs.

@@ -51,12 +51,12 @@ from __future__ import annotations
 import argparse
 import csv
 import re
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
-import yaml
-
+from dismech.yaml_io import safe_load_path
 
 HPOA_VERSION = "dismech-extended-v1"
 BIOCURATOR = "Monarch:dismech"
@@ -206,7 +206,7 @@ def hpoa_rows_for_disorder(
     yaml_path: Path,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     """Read one disorder YAML and project to (hpoa_rows, comorbidity_rows)."""
-    data = yaml.safe_load(yaml_path.read_text()) or {}
+    data = safe_load_path(yaml_path) or {}
     disease = ((data.get("disease_term") or {}).get("term") or {})
     disease_id = disease.get("id") or ""
     if not disease_id.startswith("MONDO:"):
@@ -214,7 +214,7 @@ def hpoa_rows_for_disorder(
     disease_name = disease.get("label") or data.get("name") or yaml_path.stem
     entry_slug = slugify(yaml_path.stem)
     creation_date = (data.get("creation_date") or "")[:10] or datetime.now(
-        timezone.utc
+        UTC
     ).strftime("%Y-%m-%d")
     biocuration = f"{BIOCURATOR}[{creation_date}]"
 
@@ -287,7 +287,7 @@ def export(kb_dir: Path, out_dir: Path) -> tuple[int, int]:
     out_dir.mkdir(parents=True, exist_ok=True)
     hpoa_path = out_dir / "phenotype.dismech.hpoa"
     comorb_path = out_dir / "disease_comorbidity.tsv"
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
 
     total_hpoa = 0
     total_comorb = 0

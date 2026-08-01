@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02778711"
+reference_id: clinicaltrials:NCT02778711
 title: Anti-IL-17 a New Treatment for Contact Dermatititis
 content_type: summary
+full_text_attempted: true
 ---
 
 # Anti-IL-17 a New Treatment for Contact Dermatititis

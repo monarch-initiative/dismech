@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/hematology.2025000702"
+reference_id: DOI:10.1182/hematology.2025000702
 title: Update in the diagnosis of complement-mediated thrombotic microangiopathy/atypical hemolytic uremic syndrome
 authors:
 - Michael Arthur Cole
@@ -7,6 +7,7 @@ journal: Hematology
 year: '2025'
 doi: 10.1182/hematology.2025000702
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Update in the diagnosis of complement-mediated thrombotic microangiopathy/atypical hemolytic uremic syndrome
