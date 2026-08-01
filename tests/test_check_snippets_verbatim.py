@@ -146,6 +146,133 @@ def test_diagnose_reports_divergence_point_when_partially_present():
     ("PMID:12345678", "PMID_12345678.md"),
     ("DOI:10.1016/j.cell.2020.01.001", "DOI_10.1016_j.cell.2020.01.001.md"),
 ])
-def test_cache_path_naming(ref, expected):
-    assert csv_mod.cache_path_for.__doc__  # sanity: helper is documented
-    assert ref.replace(":", "_").replace("/", "_") + ".md" == expected
+def test_cache_path_naming(ref, expected, tmp_path, monkeypatch):
+    """cache_path_for maps a CURIE onto its cache filename."""
+    monkeypatch.setattr(csv_mod, "CACHE_DIR", tmp_path)
+    (tmp_path / expected).write_text("body")
+    got = csv_mod.cache_path_for(ref)
+    assert got is not None and got.name == expected
+
+
+# --- second-round calibration: the residual noise a reviewer triaged by hand ---
+# Every case below was an observed false positive in the first full-KB run.
+
+
+def test_hyphen_with_spaces_on_both_sides_is_tolerated():
+    # PDF extraction: "emo - tional"
+    assert check("emotional lability", "showed emo - tional lability in childhood")
+
+
+def test_hyphenated_compound_broken_at_line_break_still_matches():
+    # "T-\ncell" must match a snippet written "T-cell"
+    assert check("T-cell lymphopenia", "showed T-\ncell lymphopenia in most patients")
+
+
+def test_hyphenated_compound_matches_unhyphenated_line_break():
+    assert check("T-cell counts", "reduced T- cell counts were seen")
+
+
+def test_space_before_punctuation_is_tolerated():
+    assert check("ACVR1(R206H), the recurrent variant",
+                 "ACVR1(R206H) , the recurrent variant was found")
+
+
+@pytest.mark.parametrize("snip,cache", [
+    ("a mean of 12 +/- 3 years", "a mean of 12 ± 3 years"),
+    ("in patients <= 18 years", "in patients ⩽ 18 years"),
+    ("a 3 x 4 cm lesion", "a 3 × 4 cm lesion"),
+    ("the 5' untranslated region", "the 5′ untranslated region"),
+])
+def test_symbol_transliterations_are_tolerated(snip, cache):
+    assert check(snip, cache)
+
+
+def test_early_divergence_is_not_called_absent():
+    """A quote that is present but wrong near its start is a divergence, not a fabrication.
+
+    Gating "absent entirely" on a fixed 40-char prefix put these in the
+    fabrication bucket and defeated the two-class triage.
+    """
+    cache = _body("Patients with the variant showed marked improvement over twelve weeks of therapy in this cohort")
+    snippet = _snippet("Subjects with the variant showed marked improvement over twelve weeks of therapy in this cohort")
+    msg = csv_mod.diagnose(snippet, cache)
+    assert "absent from this reference entirely" not in msg
+    assert "diverges after" in msg
+
+
+def test_non_literature_prefixes_are_skipped_not_failed(tmp_path, monkeypatch):
+    """url:/GEO:/metabolights: refs are dataset accessions, not prose to quote."""
+    monkeypatch.setattr(csv_mod, "CACHE_DIR", tmp_path)
+    doc = tmp_path / "d.yaml"
+    doc.write_text(
+        "evidence:\n"
+        "- reference: url:https://example.org/dataset\n"
+        "  snippet: anything at all\n"
+        "- reference: GEO:GSE12345\n"
+        "  snippet: also anything\n"
+    )
+    verified, failures, skipped = csv_mod.check_file(doc)
+    assert failures == []
+    assert len(skipped) == 2
+    assert verified == 0
+
+
+def test_every_snippet_on_an_uncached_reference_is_reported(tmp_path, monkeypatch):
+    """A cache miss must not silently swallow the 2nd..Nth snippet on that ref."""
+    monkeypatch.setattr(csv_mod, "CACHE_DIR", tmp_path)
+    doc = tmp_path / "d.yaml"
+    doc.write_text(
+        "evidence:\n"
+        "- reference: PMID:99999999\n"
+        "  snippet: first quote\n"
+        "- reference: PMID:99999999\n"
+        "  snippet: second quote\n"
+        "- reference: PMID:99999999\n"
+        "  snippet: third quote\n"
+    )
+    verified, failures, skipped = csv_mod.check_file(doc)
+    assert verified == 0
+    assert len(failures) == 3, "each snippet on the uncached ref must be reported"
+    assert all("NO CACHE FILE" in f for f in failures)
+
+
+def test_hyphen_rendered_as_space_is_tolerated():
+    """A source hyphen quoted as a space must still match, and vice versa.
+
+    Real case: L1_Syndrome quotes "spastic paraplegia shuffling gait adducted
+    thumbs syndrome" where GeneReviews hyphenates the compound. Collapsing
+    hyphens to nothing fixes "emo - tional" but breaks this; the squash fallback
+    covers both.
+    """
+    assert check("spastic paraplegia shuffling gait adducted thumbs syndrome",
+                 "the spastic paraplegia-shuffling gait-adducted thumbs syndrome phenotype")
+    assert check("spastic paraplegia-shuffling gait syndrome",
+                 "the spastic paraplegia shuffling gait syndrome phenotype")
+
+
+def test_squash_fallback_still_rejects_a_paraphrase():
+    """The looser fallback must not open a hole for real fabrication."""
+    assert not check("roughly two thirds of patients had lymphopenia",
+                     "An estimated 67-80% of individuals have some degree of T cell lymphopenia.")
+    assert not check("the treatment was effective", "the treatment was not effective")
+    assert not check("showed marked improvement", "showed marked deterioration")
+
+
+def test_short_snippet_mostly_matching_is_a_divergence_not_an_absence():
+    """A short quote that nearly matches is a slip, not a fabrication.
+
+    Real case: the source reads "AMH) levels below detection sensitivity" and the
+    curator quoted "AMH levels below detection sensitivity", dropping the paren.
+    Too short for the 40-char window, so it was misfiled as "absent entirely".
+    """
+    msg = csv_mod.diagnose(
+        _snippet("amh levels below detection sensitivity."),
+        _body("Mullerian hormone (AMH) levels below detection sensitivity. In this cohort"),
+    )
+    assert "absent from this reference entirely" not in msg
+
+
+def test_short_snippet_genuinely_absent_is_still_absent():
+    msg = csv_mod.diagnose(_snippet("hypertelorism"),
+                           _body("APC7 mediates ubiquitin signaling in heterochromatin."))
+    assert "absent from this reference entirely" in msg
