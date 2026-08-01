@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 # Discussion kinds that count as "knowledge gaps" (used for the Gap? facet).
 GAP_KINDS = {"KNOWLEDGE_GAP", "HUMAN_MODEL_MISMATCH"}
@@ -54,7 +54,7 @@ class DiscussionsExporter:
 
     def load_entry(self, file_path: Path) -> dict[str, Any]:
         with open(file_path) as f:
-            return yaml.safe_load(f) or {}
+            return safe_load(f) or {}
 
     def extract_discussions(
         self,
