@@ -49,8 +49,8 @@ cross-disease family rather than a one-off.
   proposals below can be minted the same way, and each cites a **verified GO term**.
 - **proteostasis deficiencies** (`MONDO:0021179`) carries *no* `RO:0004021`
   axiom — it is a textual grouping with asserted children. That is the precedent
-  for proposal #3, whose mechanism (toxic-metabolite accumulation under catabolic
-  stress) is a convergence pattern rather than one GO process.
+  for proposal #1, whose mechanism (toxic-metabolite accumulation under catabolic
+  stress) is a convergence pattern rather than one GO process, and for proposal #8.
 
 ---
 
@@ -657,10 +657,10 @@ despite thin dismech backing: MONDO already has spondylocostal dysostosis 1–6
 typed by the exact segmentation-clock genes (*DLL3*, *MESP2*, *LFNG*, *HES7*,
 *TBX6*), so the member set is pre-built and only the parent class is missing.
 
-**Side finding — three dismech entries lack a `disease_term`**, surfaced while
-assembling §3.5's member list: `NDE1-related_Microcephaly_Lissencephaly`,
-`KATNB1-related_Cortical_Malformation`, `TUBB_TUBB5-related_Microcephaly`. Also
-`MCM9-related_gametogenic_failure` (§3.6). These are either unmapped-to-MONDO
+**Side finding — four dismech entries lack a `disease_term`**, surfaced while
+assembling member lists: `NDE1-related_Microcephaly_Lissencephaly`,
+`KATNB1-related_Cortical_Malformation`, `TUBB_TUBB5-related_Microcephaly` (§3.5),
+and `MCM9-related_gametogenic_failure` (§3.6). These are either unmapped-to-MONDO
 dismech entries or genuine MONDO new-term candidates; either way they are dismech
 curation gaps worth their own issue.
 
