@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04179175"
+reference_id: clinicaltrials:NCT04179175
 title: "A Multicenter, Double-blind, Randomized Withdrawal Extension Study of Subcutaneous Secukinumab to Demonstrate Long-term Efficacy, Safety and Tolerability in Subjects With Moderate to Severe Hidradenitis Suppurativa"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Multicenter, Double-blind, Randomized Withdrawal Extension Study of Subcutaneous Secukinumab to Demonstrate Long-term Efficacy, Safety and Tolerability in Subjects With Moderate to Severe Hidradenitis Suppurativa

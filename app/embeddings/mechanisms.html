@@ -11,8 +11,12 @@
        Mirrors src/dismech/templates/_disclaimer.css.j2 — keep the two in step.
        Palette variables carry literal fallbacks so the bar renders correctly
        on pages that do not define the DisMech palette. */
+    /* Flex rather than an absolutely positioned button: the dismiss control stays
+       in flow, so it can never overlap the text however the bar wraps. */
     .dismech-disclaimer {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       width: 100%;
       box-sizing: border-box;
       margin: 0;
@@ -25,9 +29,38 @@
       line-height: 1.5;
       text-align: center;
     }
-    .dismech-disclaimer p { max-width: var(--max-width, 960px); margin: 0 auto; }
+    /* `display: flex` above outranks the UA rule for the `hidden` attribute. */
+    .dismech-disclaimer[hidden] { display: none; }
+    .dismech-disclaimer p {
+      flex: 1 1 auto; min-width: 0; max-width: var(--max-width, 960px); margin: 0 auto;
+    }
     .dismech-disclaimer strong { color: var(--gray-900, #111827); }
     .dismech-disclaimer a { color: var(--primary, #00838f); text-decoration: underline; }
+    /* Hidden until the script confirms it can act on a click, so a reader without
+       JavaScript is never shown a dead control. */
+    .dismech-disclaimer-dismiss { display: none; }
+    /* margin-right clears the Hypothes.is sidebar toolbar, which covers the
+       rightmost ~33px of the pages that embed the annotation client and swallows
+       clicks there. Applied everywhere for consistency; elsewhere it is whitespace. */
+    .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+      display: flex; flex: 0 0 auto; margin-right: 28px;
+      align-items: center; justify-content: center;
+      width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px;
+      background: none; color: inherit; font: inherit; font-size: 1.15rem;
+      line-height: 1; cursor: pointer;
+    }
+    .dismech-disclaimer-dismiss:hover { background: var(--gray-300, #d1d5db); }
+    .dismech-disclaimer-dismiss:focus-visible {
+      outline: 2px solid var(--primary, #00838f); outline-offset: 2px;
+    }
+    /* The button's footprint sits only on the right, so the centred text lands about
+       half that left of true centre. Mirroring it fixes that but costs the same width
+       again, so it applies only where there is room to spare. */
+    @media (min-width: 900px) {
+      .dismech-disclaimer.is-dismissible::before {
+        content: ""; flex: 0 0 auto; width: 28px; margin-left: 28px;
+      }
+    }
 
         * {
             box-sizing: border-box;
@@ -250,7 +283,42 @@
     resources. Nothing here is intended to inform medical diagnosis or treatment.
     <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
   </p>
+  <button type="button" class="dismech-disclaimer-dismiss"
+          aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+    <span aria-hidden="true">&times;</span>
+  </button>
 </aside>
+<!-- Runs synchronously, immediately after the bar, so an already-dismissed bar is
+     hidden before first paint rather than flashing and disappearing. Dismissal is
+     kept for the browsing session in sessionStorage; see design-decisions.md §11. -->
+<script>
+  (function () {
+    var KEY = 'dismech-disclaimer-dismissed';
+    var bar = document.querySelector('.dismech-disclaimer');
+    if (!bar) { return; }
+    // sessionStorage access itself throws when storage is blocked (Safari
+    // private browsing, cookies-disabled), so every use is guarded.
+    var store = null;
+    try { store = window.sessionStorage; } catch (err) { store = null; }
+    try {
+      if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+    } catch (err) { /* unreadable storage: show the bar */ }
+    var button = bar.querySelector('.dismech-disclaimer-dismiss');
+    if (!button) { return; }
+    bar.classList.add('is-dismissible');
+    button.addEventListener('click', function () {
+      bar.hidden = true;
+      try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+      // Focus would otherwise fall back to <body>, losing a keyboard reader's
+      // place. preventScroll keeps the viewport where it was.
+      var next = document.querySelector('main, h1');
+      if (next) {
+        if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+        try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+      }
+    });
+  })();
+</script>
     <div class="header">
         <h1>Mechanism Embedding Comparison</h1>
         <a href="index.html">&larr; Back to Disease Explorer</a>
