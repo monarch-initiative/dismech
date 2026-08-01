@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15061795"
+reference_id: DOI:10.3390/cancers15061795
 title: Deregulated Gene Expression Profiles and Regulatory Networks in Adult and Pediatric RUNX1/RUNX1T1-Positive AML Patients
 authors:
 - Peggy Kanellou
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15061795
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Deregulated Gene Expression Profiles and Regulatory Networks in Adult and Pediatric RUNX1/RUNX1T1-Positive AML Patients

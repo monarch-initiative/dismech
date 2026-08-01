@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.23.00774"
+reference_id: DOI:10.1200/jco.23.00774
 title: "Phase II, Open-Label Study of Encorafenib Plus Binimetinib in Patients With <i>BRAF</i><sup>V600</sup>-Mutant Metastatic Non–Small-Cell Lung Cancer"
 authors:
 - Gregory J. Riely
@@ -31,6 +31,7 @@ journal: Journal of Clinical Oncology
 year: '2023'
 doi: 10.1200/jco.23.00774
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Phase II, Open-Label Study of Encorafenib Plus Binimetinib in Patients With <i>BRAF</i><sup>V600</sup>-Mutant Metastatic Non–Small-Cell Lung Cancer

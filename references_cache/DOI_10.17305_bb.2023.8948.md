@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.17305/bb.2023.8948"
+reference_id: DOI:10.17305/bb.2023.8948
 title: "The effects of SCARB2 and SELPLG gene polymorphisms on EV71 infection in hand, foot and mouth disease"
 authors:
 - Feng Yuan Duan
@@ -14,6 +14,7 @@ journal: Biomolecules and Biomedicine
 year: '2023'
 doi: 10.17305/bb.2023.8948
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The effects of SCARB2 and SELPLG gene polymorphisms on EV71 infection in hand, foot and mouth disease

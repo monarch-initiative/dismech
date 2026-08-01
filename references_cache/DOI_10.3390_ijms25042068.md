@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25042068"
+reference_id: DOI:10.3390/ijms25042068
 title: GATOR1 Mutations Impair PI3 Kinase-Dependent Growth Factor Signaling Regulation of mTORC1
 authors:
 - Maéline Muller
@@ -12,6 +12,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25042068
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # GATOR1 Mutations Impair PI3 Kinase-Dependent Growth Factor Signaling Regulation of mTORC1

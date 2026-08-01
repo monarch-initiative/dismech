@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.6004/jnccn.2023.0056"
+reference_id: DOI:10.6004/jnccn.2023.0056
 title: "Basal Cell Skin Cancer, Version 2.2024, NCCN Clinical Practice Guidelines in Oncology"
 authors:
 - Chrysalyne D. Schmults
@@ -42,6 +42,7 @@ journal: Journal of the National Comprehensive Cancer Network
 year: '2023'
 doi: 10.6004/jnccn.2023.0056
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Basal Cell Skin Cancer, Version 2.2024, NCCN Clinical Practice Guidelines in Oncology

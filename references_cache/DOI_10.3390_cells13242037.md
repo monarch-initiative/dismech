@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13242037"
+reference_id: DOI:10.3390/cells13242037
 title: "Astrocytic Alterations and Dysfunction in Down Syndrome: Focus on Neurogenesis, Synaptogenesis, and Neural Circuits Formation"
 authors:
 - Beatrice Uguagliati
@@ -8,6 +8,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13242037
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Astrocytic Alterations and Dysfunction in Down Syndrome: Focus on Neurogenesis, Synaptogenesis, and Neural Circuits Formation
