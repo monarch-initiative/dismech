@@ -62,17 +62,25 @@ def cache_path_for(ref: str) -> Path | None:
 
 
 def strip_frontmatter(text: str) -> str:
-    """Drop the cache file's YAML frontmatter before searching it.
+    """Reduce a cache file to its quotable body before searching it.
 
-    The header carries title, authors and journal. Without this, a snippet that
-    merely repeats the paper's title or an author's name "verifies" — which is
-    the opposite of what this tool is for — and diagnose() reports its context
-    window from the header rather than the abstract.
+    Two headers have to go, not one. Dropping only the ``---`` YAML block is
+    insufficient: 29,656 of 32,969 cache files then *restate* the title, authors
+    and journal as markdown before a ``## Content`` marker, so a snippet echoing
+    the paper's title still "verifies" — the opposite of what this tool is for.
+    Seven live KB snippets did exactly that.
+
+    So: drop the YAML block, then advance past ``## Content`` when present.
+    Structured-source caches (``ORPHA_*``, ``CGGV_*``, ``CGDS_*``) have no such
+    marker and their tables ARE the quotable content, so they are left whole.
     """
     if text.startswith("---"):
         end = text.find("\n---", 3)
         if end != -1:
-            return text[end + 4:]
+            text = text[end + 4:]
+    marker = text.find("## Content")
+    if marker != -1:
+        text = text[marker + len("## Content"):]
     return text
 
 
@@ -188,8 +196,14 @@ def _squash(text: str) -> str:
 
     Same reasoning as deartifact(): squashing "5-10 mg" to "510mg" would let a
     snippet claiming "510 mg" verify against a source that says "5-10 mg".
+
+    The guard must strip a hyphen unless BOTH neighbours are digits. An earlier
+    form, ``(?<!\\d)-(?!\\d)``, inverted that — it stripped only when *neither*
+    neighbour was a digit, so a quote truncated on a trailing digit-hyphen
+    became unmatchable. That inversion was the entire cost of the numeric
+    shield across the KB.
     """
-    text = re.sub(r"(?<!\d)-(?!\d)", "", text)
+    text = re.sub(r"-(?!\d)|(?<!\d)-", "", text)
     return re.sub(r"\s+", "", text)
 
 

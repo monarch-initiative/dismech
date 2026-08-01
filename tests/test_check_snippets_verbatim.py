@@ -337,3 +337,57 @@ def test_skip_is_decided_by_missing_cache_not_by_prefix(tmp_path, monkeypatch):
     assert verified == 1, "the cached trial snippet should be verified, not skipped"
     assert len(failures) == 1, "the non-matching trial snippet should fail"
     assert skipped == []
+
+
+# --- fourth-round: two one-liners the reviewer measured ---
+
+
+def test_squash_digit_guard_strips_unless_both_neighbours_are_digits():
+    """The guard must not be inverted.
+
+    (?<!\\d)-(?!\\d) stripped only when NEITHER neighbour was a digit, which made
+    a quote truncated on a trailing digit-hyphen unmatchable. Real case:
+    ER_Positive_Breast_Cancer / PMID:32954927, diverging after 139/140 chars.
+    """
+    # stripped: at least one neighbour is not a digit
+    assert csv_mod._squash("her2-negative") == "her2negative"
+    assert csv_mod._squash("t-cell") == "tcell"
+    assert csv_mod._squash("grade 3- ") == "grade3"
+    # kept: both neighbours are digits, so this is a range
+    assert csv_mod._squash("5-10") == "5-10"
+    assert csv_mod._squash("1-2 months") == "1-2months"
+
+
+def test_squash_still_shields_true_ranges():
+    assert not check("510 mg daily", "dosed at 5-10 mg daily")
+    assert not check("12 months", "over 1-2 months")
+    assert not check("in 25 patients", "in 2-5 patients")
+
+
+def test_markdown_header_after_frontmatter_is_not_searchable():
+    """Dropping only the YAML block leaves a restated title/author header."""
+    cache = (
+        "---\n"
+        "reference_id: \"PMID:123\"\n"
+        "---\n\n"
+        "# Excess EEG beta-band oscillations in Dup15q syndrome\n\n"
+        "**Authors:** Hipp JF, Chamberlain S\n\n"
+        "**Journal:** Neuron\n\n"
+        "## Content\n\n"
+        "The abstract proper concerns mice and lactate.\n"
+    )
+    body = _body(csv_mod.strip_frontmatter(cache))
+    assert not contains(_snippet("Excess EEG beta-band oscillations in Dup15q syndrome"), body)
+    assert not contains(_snippet("Hipp JF"), body)
+    assert contains(_snippet("concerns mice and lactate"), body)
+
+
+def test_structured_source_caches_are_left_whole():
+    """ORPHA/CGGV tables have no '## Content' marker and ARE the quotable body."""
+    cache = (
+        "---\nreference_id: ORPHA:558\n---\n\n"
+        "## Phenotypes\n\n"
+        "| HP:0002616 | Aortic root aneurysm | Very frequent (99-80%) |\n"
+    )
+    body = _body(csv_mod.strip_frontmatter(cache))
+    assert contains(_snippet("HP:0002616 | Aortic root aneurysm | Very frequent (99-80%)"), body)
