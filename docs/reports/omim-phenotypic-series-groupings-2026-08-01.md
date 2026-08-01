@@ -264,15 +264,21 @@ most of the `SINGLE_DISEASE` rows there is nothing to create — only risk-locus
 dismech curates none or one of their members. A grouping is a union over *existing* entries;
 these are curation targets first, groupings later.
 
-**For 5, yes — as groupings over the *genetic subset*, never over the clinical parent.** In
+**For 5, yes — as groupings over the *genetic subset*, never over the clinical parent.**
+Two of these are built in this PR (marked ✅ below). In
 descending order of readiness (member entries already in `kb/disorders/` shown):
 
 1. **immunodeficiency disease** (16 member entries). But see below — dismech has already
    solved this one.
-2. **hypogonadotropic hypogonadism** (6): FGFR1-Related Hypogonadotropic Hypogonadism,
+2. ✅ **hypogonadotropic hypogonadism** (6): FGFR1-Related Hypogonadotropic Hypogonadism,
    Boucher-Neuhauser, Cerebellar Ataxia-Hypogonadism, Woodhouse-Sakati, Schaaf-Yang, Bosma
    Arhinia Microphthalmia. MONDO already has the recipient class,
    `MONDO:0015770 congenital hypogonadotropic hypogonadism` (32 gene-defined descendants).
+   The grouping as built has **7** members: curating it added Kallmann Syndrome, which the
+   automated count missed because MONDO models `MONDO:0018800` as a grouper with no
+   `has_material_basis_in_germline_mutation_in` relation, so it typed as `UNSPECIFIED`
+   rather than `MENDELIAN`. Expect the automated member counts to run one or two low for
+   this reason wherever the disease has a genetically heterogeneous grouper class.
 3. **arthrogryposis multiplex congenita** (3): Marden-Walker, Wieacker-Wolff, X-Linked
    Infantile SMA.
 4. **Parkinson disease** (3): PRKN-Related Juvenile PD, PARK7-Related Early-Onset PD,
@@ -281,7 +287,7 @@ descending order of readiness (member entries already in `kb/disorders/` shown):
    monogenic entries are *not* members. Either extend it or mint a sibling
    `Monogenic_Parkinson_Disease`; do not create a grouping that silently re-lumps the acquired
    member.
-5. **holoprosencephaly** (3): SHH Holoprosencephaly Spectrum, HPE9, HPE12.
+5. ✅ **holoprosencephaly** (3): SHH Holoprosencephaly Spectrum, HPE9, HPE12.
 
 **For 2, already covered.** `craniosynostosis` members sit in `FGFR-Related Skeletal
 Dysplasias`; `lymphoproliferative syndrome` members sit in `Immune Dysregulation IEIs`. No new
@@ -337,6 +343,25 @@ arm is a set of risk loci rather than of diseases, there is no grouping at all.
 
 - `scripts/omimps_grouping_audit.py` — the reproducible audit.
 - `docs/reports/data/omimps-phenotypic-series-heterogeneity-2026-08-01.tsv` — full per-class table.
+- `kb/groupings/Hedgehog_Pathway_Holoprosencephaly.yaml` — worked example of a
+  `SHARED_PATHWAY` grouping minted over the **genetic subset**: SHH (ligand), GLI2
+  (terminal transcriptional activator), CNOT1 (post-transcriptional regulator of SHH
+  repression), with the non-genetic causes of holoprosencephaly — maternal
+  pregestational diabetes, teratogens, trisomy 13 — deliberately outside the boundary.
+  All three members audit SATISFIED against the AND(holoprosencephaly, smoothened
+  signalling) criterion.
+- `kb/groupings/Congenital_and_Syndromic_Hypogonadotropic_Hypogonadism.yaml` — worked
+  example of the harder case: a shared *final common mechanism* (deficient GnRH drive)
+  reached by two routes the OMIM series and the MONDO class do not distinguish —
+  **developmental** (Kallmann/ANOS1, FGFR1: GnRH neurons never arrive or never signal)
+  versus **degenerative** (Gordon Holmes/RNF216, Boucher-Neuhauser/PNPLA6: normal
+  puberty, then loss) — plus three syndromic members. That split is the thing the
+  grouping records and neither source does.
+- `kb/disorders/FGFR1_Hypogonadotropic_Hypogonadism.yaml` — a curation defect the
+  grouping audit surfaced: the entry annotated its cardinal phenotype with the parent
+  term HP:0000135 (Hypogonadism) despite hypogonadotropic hypogonadism being its
+  defining feature. Refined to HP:0000044, supported by a GeneReviews sentence already
+  cited elsewhere in the same file.
 - `kb/disorders/Celiac_Disease.yaml` — the worked example of the recommended shape: the ten
   GWAS risk genes gain `gene_term` HGNC bindings and `relationship_type: SUSCEPTIBILITY`, and
   the HLA-DQ2/DQ8 haplotype rows gain `relationship_type: RISK_FACTOR` with a note recording
@@ -346,11 +371,20 @@ arm is a set of risk loci rather than of diseases, there is no grouping at all.
 
 ## Follow-ups
 
-- **dismech:** mint groupings for hypogonadotropic hypogonadism, arthrogryposis multiplex
-  congenita, holoprosencephaly, and monogenic Parkinson disease (each needs `grouping_basis`,
-  `membership_criteria`, and per-member `differentiating_mechanisms` — a curation task per
-  grouping, not a bulk edit). Enrich the risk-locus blocks of the other `SINGLE_DISEASE`
-  entries dismech already holds.
+- **dismech:** two of the four recommended groupings are built here (holoprosencephaly,
+  hypogonadotropic hypogonadism). Remaining: **fetal akinesia / arthrogryposis multiplex
+  congenita** (Marden-Walker, Wieacker-Wolff, CHRNA1 fetal hypokinesia, X-linked infantile
+  SMA, and Schaaf-Yang, which reaches it through distal arthrogryposis — note dismech
+  already holds an `Arthrogryposis Multiplex Congenita` umbrella Disease entry, so this one
+  takes the `Diabetes_Mellitus` shape of Grouping-beside-umbrella-Disease); and **monogenic
+  Parkinson disease**, best done by extending the existing
+  `Parkinsonism_Dopaminergic_Degeneration_Disorders` grouping (currently idiopathic PD +
+  Manganism) rather than minting a new one, since a fresh grouping would silently re-lump
+  the acquired member. Separately, enrich the risk-locus blocks of the other
+  `SINGLE_DISEASE` entries dismech already holds. Two curation gaps the grouping audits
+  surfaced: `Schaaf-Yang Syndrome` documents hypogonadism without a gonadotropin profile
+  (retained as a member and flagged, not silently admitted), and
+  `SHH_Holoprosencephaly_Spectrum` has four subtypes with no `subtype_term` bindings.
 - **Mondo:** (i) drop autism from the PATTERN list — it is correctly placed under
   `inherited disease susceptibility`; (ii) for the 16 susceptibility/locus series, STRIP rather
   than PATTERN — there is no genetic subset to group; (iii) for immunodeficiency disease,
