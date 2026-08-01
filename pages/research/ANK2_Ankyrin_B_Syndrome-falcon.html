@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1448,7 +1610,7 @@ For each section, provide:
 <td>Diagnostics</td>
 <td>12-lead ECG</td>
 <td>Core first-line evaluation for QTc prolongation, sinus bradycardia/sinus arrhythmia, premature atrial beats, conduction disease, and ST-segment abnormalities in some newer ANK2-associated families</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000001" target="_blank" rel="noopener noreferrer">MAXO:0000001</a> clinical examination; <a href="http://purl.obolibrary.org/obo/MAXO_0000487" target="_blank" rel="noopener noreferrer">MAXO:0000487</a> electrocardiography</td>
+<td><a href="https://bioregistry.io/MAXO:0000001" target="_blank" rel="noopener noreferrer">MAXO:0000001</a> clinical examination; <a href="https://bioregistry.io/MAXO:0000487" target="_blank" rel="noopener noreferrer">MAXO:0000487</a> electrocardiography</td>
 <td>Original E1425G family had mean QTc ~490 ± 30 ms in adults and ~465 ± 38 ms in children; ECG examples showed bradycardia/sinus arrhythmia and multiple premature atrial contractions; one 2024 case reported QT 470 ms</td>
 <td>(<a href="#ref-mohler2003ankyrinbmutationcauses-pages-1-2">mohler2003ankyrinbmutationcauses pages 1-2</a>, mohler2003ankyrinbmutationcauses media 3330bf40, mohler2003ankyrinbmutationcauses media b13c3b4f, <a href="#ref-haase2024asinglenucleotide-pages-2-4">haase2024asinglenucleotide pages 2-4</a>)</td>
 </tr>
@@ -1456,7 +1618,7 @@ For each section, provide:
 <td>Diagnostics</td>
 <td>Holter / ambulatory rhythm monitoring</td>
 <td>Used to capture intermittent ventricular tachycardia, sinus-node dysfunction, escape rhythms, and atrial arrhythmias not evident on resting ECG</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000487" target="_blank" rel="noopener noreferrer">MAXO:0000487</a> electrocardiography</td>
+<td><a href="https://bioregistry.io/MAXO:0000487" target="_blank" rel="noopener noreferrer">MAXO:0000487</a> electrocardiography</td>
 <td>24-hour Holter was used in 2023 family investigation; 2024 case used patch Holter/Kardia tracings showing salvos of VT</td>
 <td>(<a href="#ref-korn2023anewinherited-pages-1-2">korn2023anewinherited pages 1-2</a>, <a href="#ref-haase2024asinglenucleotide-pages-2-4">haase2024asinglenucleotide pages 2-4</a>)</td>
 </tr>
@@ -1464,7 +1626,7 @@ For each section, provide:
 <td>Diagnostics</td>
 <td>Exercise stress testing / treadmill testing</td>
 <td>Helps reveal exercise- or catecholamine-associated ventricular ectopy/arrhythmia and may support phenotype clarification in inherited arrhythmia clinics</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0001024" target="_blank" rel="noopener noreferrer">MAXO:0001024</a> exercise test</td>
+<td><a href="https://bioregistry.io/MAXO:0001024" target="_blank" rel="noopener noreferrer">MAXO:0001024</a> exercise test</td>
 <td>Giudicessi 2020 minimum evaluation included treadmill exercise testing in all referred individuals with alleged ANK2 variants; 2023 family workup included exercise ECGs</td>
 <td>(<a href="#ref-giudicessi2020establishedlossoffunctionvariants-pages-1-5">giudicessi2020establishedlossoffunctionvariants pages 1-5</a>, <a href="#ref-korn2023anewinherited-pages-1-2">korn2023anewinherited pages 1-2</a>)</td>
 </tr>
@@ -1472,7 +1634,7 @@ For each section, provide:
 <td>Diagnostics</td>
 <td>Transthoracic echocardiography</td>
 <td>Used to exclude or define structural heart disease, cardiomyopathy, ventricular dysfunction, or congenital heart disease in ANK2 carriers</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000372" target="_blank" rel="noopener noreferrer">MAXO:0000372</a> echocardiography</td>
+<td><a href="https://bioregistry.io/MAXO:0000372" target="_blank" rel="noopener noreferrer">MAXO:0000372</a> echocardiography</td>
 <td>Giudicessi 2020 included echocardiography in all cases; 2023 family evaluation used standard TTE; important because some ANK2 variants are associated with structural disease/ACM while others are not</td>
 <td>(<a href="#ref-giudicessi2020establishedlossoffunctionvariants-pages-1-5">giudicessi2020establishedlossoffunctionvariants pages 1-5</a>, <a href="#ref-korn2023anewinherited-pages-1-2">korn2023anewinherited pages 1-2</a>, <a href="#ref-swayne2017novelvariantin-pages-1-2">swayne2017novelvariantin pages 1-2</a>)</td>
 </tr>
@@ -1480,7 +1642,7 @@ For each section, provide:
 <td>Diagnostics</td>
 <td>Family history and pedigree assessment</td>
 <td>Essential because disease is typically autosomal dominant with incomplete penetrance and variable expressivity</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> genetic counseling</td>
+<td><a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> genetic counseling</td>
 <td>Mohler 2003 screened 45 relatives (24 carriers); Scouarnec 2008 screened 74 relatives and identified 25 affected by SND; 2023 multidisciplinary workup emphasized pedigree analysis</td>
 <td>(<a href="#ref-mohler2003ankyrinbmutationcauses-pages-1-2">mohler2003ankyrinbmutationcauses pages 1-2</a>, <a href="#ref-scouarnec2008dysfunctioninankyrinbdependent-pages-1-2">scouarnec2008dysfunctioninankyrinbdependent pages 1-2</a>, <a href="#ref-korn2023anewinherited-pages-1-2">korn2023anewinherited pages 1-2</a>)</td>
 </tr>
@@ -1488,7 +1650,7 @@ For each section, provide:
 <td>Diagnostics</td>
 <td>Targeted inherited-arrhythmia gene panel</td>
 <td>Preferred clinical genetic approach in many inherited arrhythmia settings; can include ANK2 with other LQTS/SND/arrhythmia genes</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000129" target="_blank" rel="noopener noreferrer">MAXO:0000129</a> genetic testing</td>
+<td><a href="https://bioregistry.io/MAXO:0000129" target="_blank" rel="noopener noreferrer">MAXO:0000129</a> genetic testing</td>
 <td>2024 case used a 42-gene arrhythmia panel; 2023 molecular-autopsy/family workup used a 174-gene inherited-cardiac-disease panel on MiSeq; targeted panels are generally favored for depth and coverage</td>
 <td>(<a href="#ref-haase2024asinglenucleotide-pages-2-4">haase2024asinglenucleotide pages 2-4</a>, <a href="#ref-korn2023anewinherited-pages-1-2">korn2023anewinherited pages 1-2</a>, <a href="#ref-spoonamore2016genetictestingand-pages-14-17">spoonamore2016genetictestingand pages 14-17</a>)</td>
 </tr>
@@ -1496,7 +1658,7 @@ For each section, provide:
 <td>Diagnostics</td>
 <td>Whole-exome sequencing (WES)</td>
 <td>Useful when phenotype is heterogeneous, syndromic, or panel testing is unrevealing; may help discover atypical ANK2-associated syndromes</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000129" target="_blank" rel="noopener noreferrer">MAXO:0000129</a> genetic testing</td>
+<td><a href="https://bioregistry.io/MAXO:0000129" target="_blank" rel="noopener noreferrer">MAXO:0000129</a> genetic testing</td>
 <td>2023 SCD family study performed WES on the index patient plus 2 affected relatives; general inherited-arrhythmia guidance notes WES is increasingly used but may have lower depth and incidental findings</td>
 <td>(<a href="#ref-korn2023anewinherited-pages-1-2">korn2023anewinherited pages 1-2</a>, <a href="#ref-spoonamore2016genetictestingand-pages-10-14">spoonamore2016genetictestingand pages 10-14</a>, <a href="#ref-spoonamore2016genetictestingand-pages-14-17">spoonamore2016genetictestingand pages 14-17</a>)</td>
 </tr>
@@ -1504,7 +1666,7 @@ For each section, provide:
 <td>Diagnostics</td>
 <td>Variant interpretation (ACMG/ClinVar/gnomAD comparison)</td>
 <td>Needed because ANK2 has disputed/low-penetrance variants and population frequency can complicate causality assessment</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000129" target="_blank" rel="noopener noreferrer">MAXO:0000129</a> genetic testing</td>
+<td><a href="https://bioregistry.io/MAXO:0000129" target="_blank" rel="noopener noreferrer">MAXO:0000129</a> genetic testing</td>
 <td>2023 family report used ACMG revised criteria; Giudicessi 2020 compared 1,727 referrals with gnomAD and found no overall enrichment of 4 alleged ABS variants [12/1,727 (0.7%) vs 1,297/141,456 (0.9%)]</td>
 <td>(<a href="#ref-korn2023anewinherited-pages-1-2">korn2023anewinherited pages 1-2</a>, <a href="#ref-giudicessi2020establishedlossoffunctionvariants-pages-1-5">giudicessi2020establishedlossoffunctionvariants pages 1-5</a>)</td>
 </tr>
@@ -1512,7 +1674,7 @@ For each section, provide:
 <td>Diagnostics</td>
 <td>Molecular autopsy</td>
 <td>Post-mortem genetic testing in unexplained young sudden death to identify ANK2 and other inherited arrhythmia causes</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000129" target="_blank" rel="noopener noreferrer">MAXO:0000129</a> genetic testing</td>
+<td><a href="https://bioregistry.io/MAXO:0000129" target="_blank" rel="noopener noreferrer">MAXO:0000129</a> genetic testing</td>
 <td>2023 study combined autopsy, preserved heart analysis, gene panel testing, and WES; broader inherited-arrhythmia review notes postmortem molecular autopsy yields ~20–50% in cohorts and can be especially useful in pediatric SCD</td>
 <td>(<a href="#ref-korn2023anewinherited-pages-1-2">korn2023anewinherited pages 1-2</a>, <a href="#ref-spoonamore2016genetictestingand-pages-14-17">spoonamore2016genetictestingand pages 14-17</a>)</td>
 </tr>
@@ -1520,7 +1682,7 @@ For each section, provide:
 <td>Diagnostics / Prevention</td>
 <td>Cascade screening of relatives</td>
 <td>Genetic and clinical evaluation of at-risk relatives once a pathogenic/likely pathogenic familial variant is identified</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000129" target="_blank" rel="noopener noreferrer">MAXO:0000129</a> genetic testing; <a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> genetic counseling</td>
+<td><a href="https://bioregistry.io/MAXO:0000129" target="_blank" rel="noopener noreferrer">MAXO:0000129</a> genetic testing; <a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> genetic counseling</td>
 <td>Recommended across inherited arrhythmia practice; relatives positive for the familial pathogenic variant should undergo surveillance, whereas genotype-negative relatives generally do not require surveillance; VUS should not be used for predictive testing</td>
 <td>(<a href="#ref-spoonamore2016genetictestingand-pages-14-17">spoonamore2016genetictestingand pages 14-17</a>, <a href="#ref-spoonamore2016genetictestingand-pages-6-10">spoonamore2016genetictestingand pages 6-10</a>, <a href="#ref-scouarnec2008dysfunctioninankyrinbdependent-pages-1-2">scouarnec2008dysfunctioninankyrinbdependent pages 1-2</a>)</td>
 </tr>
@@ -1528,7 +1690,7 @@ For each section, provide:
 <td>Treatment</td>
 <td>Beta-blockers</td>
 <td>Mechanistically rational for catecholamine/stress-triggered ventricular arrhythmias in ANK2-related disease</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000120" target="_blank" rel="noopener noreferrer">MAXO:0000120</a> beta-adrenergic receptor antagonist therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug therapy; <a href="https://bioregistry.io/MAXO:0000120" target="_blank" rel="noopener noreferrer">MAXO:0000120</a> beta-adrenergic receptor antagonist therapy</td>
 <td>In the p.Q1283H knock-in model, metoprolol reduced stress-induced ventricular arrhythmias; 2024 ANK2-variant myocarditis case also reported suppression of VT with beta-blockers in combination therapy</td>
 <td>(<a href="#ref-zhu2018ankyrinbq1283hvariant-pages-1-2">zhu2018ankyrinbq1283hvariant pages 1-2</a>, <a href="#ref-haase2024asinglenucleotide-pages-1-2">haase2024asinglenucleotide pages 1-2</a>)</td>
 </tr>
@@ -1536,7 +1698,7 @@ For each section, provide:
 <td>Treatment</td>
 <td>Flecainide</td>
 <td>Antiarrhythmic option supported by preclinical ANK2 evidence for stress-induced VT susceptibility</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> anti-arrhythmic agent therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug therapy; <a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> anti-arrhythmic agent therapy</td>
 <td>In p.Q1283H knock-in mice, flecainide decreased catecholamine-induced ventricular arrhythmias; a 2024 case report used flecainide early in management of recurrent VT</td>
 <td>(<a href="#ref-zhu2018ankyrinbq1283hvariant-pages-1-2">zhu2018ankyrinbq1283hvariant pages 1-2</a>, <a href="#ref-haase2024asinglenucleotide-pages-1-2">haase2024asinglenucleotide pages 1-2</a>)</td>
 </tr>
@@ -1544,7 +1706,7 @@ For each section, provide:
 <td>Treatment</td>
 <td>Mexiletine</td>
 <td>Used in a recent mechanistically selected case with ANK2 variant and VT; may be considered case-by-case rather than disease-standard therapy</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> anti-arrhythmic agent therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug therapy; <a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> anti-arrhythmic agent therapy</td>
 <td>2024 case report described mexiletine plus beta-blockers suppressing highly symptomatic VT and coinciding with QT normalization as myocarditis resolved</td>
 <td>(<a href="#ref-haase2024asinglenucleotide-pages-1-2">haase2024asinglenucleotide pages 1-2</a>)</td>
 </tr>
@@ -1552,7 +1714,7 @@ For each section, provide:
 <td>Treatment</td>
 <td>Pacemaker implantation</td>
 <td>Important for severe sinus-node dysfunction/bradycardia in ANK2 families</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000582" target="_blank" rel="noopener noreferrer">MAXO:0000582</a> cardiac pacemaker implantation</td>
+<td><a href="https://bioregistry.io/MAXO:0000582" target="_blank" rel="noopener noreferrer">MAXO:0000582</a> cardiac pacemaker implantation</td>
 <td>Mohler 2003 noted some affected individuals required atrial pacing; Scouarnec 2008 reported pacemaker implantation in 14 patients from the mapped SND kindreds</td>
 <td>(<a href="#ref-mohler2003ankyrinbmutationcauses-pages-1-2">mohler2003ankyrinbmutationcauses pages 1-2</a>, <a href="#ref-scouarnec2008dysfunctioninankyrinbdependent-pages-1-2">scouarnec2008dysfunctioninankyrinbdependent pages 1-2</a>)</td>
 </tr>
@@ -1560,7 +1722,7 @@ For each section, provide:
 <td>Treatment</td>
 <td>Implantable cardioverter-defibrillator (ICD)</td>
 <td>Used for prevention of sudden cardiac death in malignant ventricular arrhythmia syndromes / ACM settings when clinically indicated</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000445" target="_blank" rel="noopener noreferrer">MAXO:0000445</a> implantable cardioverter-defibrillator implantation</td>
+<td><a href="https://bioregistry.io/MAXO:0000445" target="_blank" rel="noopener noreferrer">MAXO:0000445</a> implantable cardioverter-defibrillator implantation</td>
 <td>Roberts 2019 notes ICDs can be life-saving in ACM management, though such therapy is palliative and does not correct underlying ANK2 pathophysiology</td>
 <td>(<a href="#ref-roberts2019ankyrinbdysfunctionpredisposes-pages-9-10">roberts2019ankyrinbdysfunctionpredisposes pages 9-10</a>, <a href="#ref-roberts2019ankyrinbdysfunctionpredisposes-pages-1-2">roberts2019ankyrinbdysfunctionpredisposes pages 1-2</a>)</td>
 </tr>
@@ -1568,7 +1730,7 @@ For each section, provide:
 <td>Treatment</td>
 <td>Catheter ablation</td>
 <td>May be useful for suppression of malignant ventricular arrhythmias or recurrent arrhythmic burden in selected patients</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000005" target="_blank" rel="noopener noreferrer">MAXO:0000005</a> catheter-based procedure; <a href="http://purl.obolibrary.org/obo/MAXO_0000944" target="_blank" rel="noopener noreferrer">MAXO:0000944</a> catheter ablation</td>
+<td><a href="https://bioregistry.io/MAXO:0000005" target="_blank" rel="noopener noreferrer">MAXO:0000005</a> catheter-based procedure; <a href="https://bioregistry.io/MAXO:0000944" target="_blank" rel="noopener noreferrer">MAXO:0000944</a> catheter ablation</td>
 <td>Roberts 2019 notes catheter ablation may be effective in suppressing malignant ventricular arrhythmias in ACM, but does not target root disease mechanism</td>
 <td>(<a href="#ref-roberts2019ankyrinbdysfunctionpredisposes-pages-9-10">roberts2019ankyrinbdysfunctionpredisposes pages 9-10</a>, <a href="#ref-roberts2019ankyrinbdysfunctionpredisposes-pages-1-2">roberts2019ankyrinbdysfunctionpredisposes pages 1-2</a>)</td>
 </tr>
@@ -1576,7 +1738,7 @@ For each section, provide:
 <td>Treatment</td>
 <td>Standard acute VT care (e.g., cardioversion; amiodarone in selected settings)</td>
 <td>Relevant for unstable sustained VT regardless of ANK2 status; supportive rather than genotype-specific</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000514" target="_blank" rel="noopener noreferrer">MAXO:0000514</a> cardioversion; <a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000514" target="_blank" rel="noopener noreferrer">MAXO:0000514</a> cardioversion; <a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug therapy</td>
 <td>2024 case report explicitly discusses prompt cardioversion for hemodynamically unstable sustained VT and mentions amiodarone as an option for recurrent monomorphic VT</td>
 <td>(<a href="#ref-haase2024asinglenucleotide-pages-1-2">haase2024asinglenucleotide pages 1-2</a>)</td>
 </tr>
@@ -1584,7 +1746,7 @@ For each section, provide:
 <td>Experimental treatment</td>
 <td>SB-216763 / WNT-β-catenin pathway activation</td>
 <td>Preclinical targeted therapy for ANK2-related arrhythmogenic cardiomyopathy caused by ankyrin-B dysfunction and abnormal β-catenin signaling</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug therapy</td>
 <td>In Ank2-cKO mice, SB-216763 prevented disease when started at 4 weeks and partially reversed established disease; figure evidence showed prevention/reversal of EF/FS decline and fibrosis; no human trial evidence retrieved</td>
 <td>(<a href="#ref-roberts2019ankyrinbdysfunctionpredisposes-pages-9-10">roberts2019ankyrinbdysfunctionpredisposes pages 9-10</a>, <a href="#ref-roberts2019ankyrinbdysfunctionpredisposes-pages-1-2">roberts2019ankyrinbdysfunctionpredisposes pages 1-2</a>, roberts2019ankyrinbdysfunctionpredisposes media 52e6c3c8)</td>
 </tr>
@@ -1592,7 +1754,7 @@ For each section, provide:
 <td>Prevention</td>
 <td>Ongoing surveillance of ANK2 variant carriers</td>
 <td>Serial clinical follow-up for arrhythmia and cardiomyopathy given incomplete penetrance and age-dependent expression</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000408" target="_blank" rel="noopener noreferrer">MAXO:0000408</a> monitoring</td>
+<td><a href="https://bioregistry.io/MAXO:0000408" target="_blank" rel="noopener noreferrer">MAXO:0000408</a> monitoring</td>
 <td>York 2022 recommends monitoring carriers of functional ANK2 variants for arrhythmia and cardiomyopathy; inherited-arrhythmia guidance recommends surveillance for relatives who carry the familial pathogenic variant</td>
 <td>(<a href="#ref-york2022mechanismsunderlyingthe-pages-14-16">york2022mechanismsunderlyingthe pages 14-16</a>, <a href="#ref-spoonamore2016genetictestingand-pages-14-17">spoonamore2016genetictestingand pages 14-17</a>)</td>
 </tr>
@@ -1600,7 +1762,7 @@ For each section, provide:
 <td>Prevention</td>
 <td>Genetic counseling / family planning counseling</td>
 <td>Important because disease is usually autosomal dominant and expression is variable</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> genetic counseling</td>
+<td><a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> genetic counseling</td>
 <td>General inherited-arrhythmia guidance recommends testing/counseling at diagnosis, at transition of care, and during family planning; counseling is also crucial when ANK2 findings are VUS or low-penetrance alleles</td>
 <td>(<a href="#ref-spoonamore2016genetictestingand-pages-10-14">spoonamore2016genetictestingand pages 10-14</a>, <a href="#ref-spoonamore2016genetictestingand-pages-14-17">spoonamore2016genetictestingand pages 14-17</a>, <a href="#ref-giudicessi2020establishedlossoffunctionvariants-pages-1-5">giudicessi2020establishedlossoffunctionvariants pages 1-5</a>)</td>
 </tr>
