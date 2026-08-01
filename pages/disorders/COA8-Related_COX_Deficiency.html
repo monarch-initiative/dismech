@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -526,7 +645,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -2983,6 +3101,49 @@
     </script>
 </head>
 <body>
+
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
 
 
@@ -3074,7 +3235,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=COA8-Related%20COX%20Deficiency"
@@ -3222,7 +3383,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3233,7 +3394,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3309,6 +3470,44 @@
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COA8
+
+
+    <a href="https://bioregistry.io/hgnc:20492" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20492">hgnc:20492</a>
+
+
+
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -3366,6 +3565,14 @@
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Decreased Complex IV Activity</span>
+
+	                            <span class="crosslink-desc">Reduced COX holoenzyme directly produces decreased Complex IV activity in patient muscle.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -3373,7 +3580,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -3394,6 +3601,28 @@
 
 
                 <div class="evidence-explanation">COA8 is an assembly/maturation factor whose loss produces isolated COX deficiency.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25175347" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25175347" target="_blank">PMID:25175347</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutant fibroblasts showed reduced amount of COX holocomplex and higher levels of reactive oxygen species, which both shifted toward control values by expressing a recombinant, wild-type APOPT1 cDNA."</div>
+
+
+                <div class="evidence-explanation">Complementation rescue directly links COA8/APOPT1 loss to reduced Complex IV holoenzyme.</div>
 
 
 
@@ -3594,6 +3823,14 @@
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysarthria</span>
+
+	                            <span class="crosslink-desc">Neuromuscular involvement can impair motor speech.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -3601,7 +3838,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (7 references)
         </summary>
         <div class="evidence-list">
 
@@ -3614,7 +3851,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -3627,6 +3864,52 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:25175347" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25175347" target="_blank">PMID:25175347</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three subjects presented a distinctive brain MRI pattern characterized by cavitating leukodystrophy, predominantly in the posterior region of the cerebral hemispheres."</div>
+
+
+                <div class="evidence-explanation">Supports cavitating leukodystrophy as the characteristic CNS outcome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38098475" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38098475" target="_blank">PMID:38098475</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"showed bilateral ptosis, muscle weakness, peripheral neuropathy, mild dysarthria and dysphonia"</div>
+
+
+                <div class="evidence-explanation">Supports the neuromuscular and speech-motor manifestations of the later-onset phenotype.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 4 more references</div>
 
         </div>
     </details>
@@ -3659,7 +3942,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Amenorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary amenorrhea reported in COA8-deficient sisters.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000141\"}}, {\"id\": \"COA8 Loss and Defective Complex IV Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function COA8 variants remove a Complex IV assembly/stability factor, preventing maturation or maintenance of a functional COX holoenzyme.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial respiratory chain complex IV assembly\"]}}, {\"id\": \"COA8 c.170_173dupGACC (p.Pro59fs)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous COA8 frameshift duplication identified in an Italian familial case of mitochondrial myopathy with COX deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COA8\"], \"gene_terms\": [{\"label\": \"COA8\", \"id\": \"hgnc:20492\"}]}}, {\"id\": \"COA8 pathogenic variants causing COX deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"COA8\"], \"gene_terms\": [{\"label\": \"COA8\", \"id\": \"hgnc:20492\"}], \"variant_count\": 1}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise-induced cramps and myalgia in the myopathy-predominant phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral hearing loss.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional COX blocks electron transfer from cytochrome c to oxygen and proton pumping, collapsing oxidative ATP synthesis, with prominent central white matter and skeletal muscle involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle cell\"], \"biological_processes\": [\"mitochondrial electron transport, cytochrome c to oxygen\", \"ATP synthesis coupled electron transport\"]}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cavitating leukoencephalopathy, the classic CNS phenotype of COA8 deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002352\"}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy in the myopathy-predominant phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral ptosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000508\"}}, {\"id\": \"Ragged-red muscle fibers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ragged-red fibers and reduced COX staining on muscle biopsy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003200\"}}, {\"id\": \"Retinitis pigmentosa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinitis pigmentosa reported in a COA8-deficient patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000510\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized epilepsy reported in COA8-related disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"COA8 Loss and Defective Complex IV Assembly\", \"target\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to assemble or stabilize the holoenzyme abolishes terminal electron transfer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy failure in central white matter produces cavitating leukoencephalopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Ragged-red muscle fibers\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic deficit in skeletal muscle produces mitochondrial myopathy with ragged-red fibers.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired oxidative phosphorylation in skeletal muscle limits exertional energy production.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High-energy auditory tissues are vulnerable to Complex IV deficiency, producing hearing impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic failure in peripheral nerves contributes to the neuropathy reported in COA8-related disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial myopathy from impaired ATP synthesis can involve extraocular and eyelid muscles.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central nervous system energy failure contributes to epilepsy in COA8-related COX deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Retinitis pigmentosa\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal photoreceptors are energy-dependent cells vulnerable to Complex IV deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Amenorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic mitochondrial dysfunction can disrupt endocrine or reproductive-axis function.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COA8 c.170_173dupGACC (p.Pro59fs)\", \"target\": \"COA8 pathogenic variants causing COX deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Amenorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary amenorrhea reported in COA8-deficient sisters.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000869\"}}, {\"id\": \"COA8 Loss and Defective Complex IV Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function COA8 variants remove a Complex IV assembly/stability factor, preventing maturation or maintenance of a functional COX holoenzyme.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial respiratory chain complex IV assembly\"], \"genes\": [\"COA8\"], \"gene_terms\": [{\"label\": \"COA8\", \"id\": \"hgnc:20492\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"COA8 c.170_173dupGACC (p.Pro59fs)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous COA8 frameshift duplication identified in an Italian familial case of mitochondrial myopathy with COX deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COA8\"], \"gene_terms\": [{\"label\": \"COA8\", \"id\": \"hgnc:20492\"}]}}, {\"id\": \"COA8 pathogenic variants causing COX deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COA8\"], \"gene_terms\": [{\"label\": \"COA8\", \"id\": \"hgnc:20492\"}], \"variant_count\": 1}}, {\"id\": \"Decreased Complex IV Activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffusely reduced cytochrome-c oxidase activity in affected muscle.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008347\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild dysarthria in the myopathy-predominant COA8 phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise-induced cramps and myalgia in the myopathy-predominant phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral hearing loss.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional COX blocks electron transfer from cytochrome c to oxygen and proton pumping, collapsing oxidative ATP synthesis, with prominent central white matter and skeletal muscle involvement.\\n\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"skeletal muscle cell\"], \"biological_processes\": [\"mitochondrial electron transport, cytochrome c to oxygen\", \"ATP synthesis coupled electron transport\"]}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cavitating leukoencephalopathy, the classic CNS phenotype of COA8 deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033369\"}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy in the myopathy-predominant phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral ptosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000508\"}}, {\"id\": \"Ragged-red muscle fibers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ragged-red fibers and reduced COX staining on muscle biopsy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003200\"}}, {\"id\": \"Retinitis pigmentosa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinitis pigmentosa reported in a COA8-deficient patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000510\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized epilepsy reported in COA8-related disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"COA8 Loss and Defective Complex IV Assembly\", \"target\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to assemble or stabilize the holoenzyme abolishes terminal electron transfer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COA8 Loss and Defective Complex IV Assembly\", \"target\": \"Decreased Complex IV Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced COX holoenzyme directly produces decreased Complex IV activity in patient muscle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy failure in central white matter produces cavitating leukoencephalopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Ragged-red muscle fibers\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic deficit in skeletal muscle produces mitochondrial myopathy with ragged-red fibers.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired oxidative phosphorylation in skeletal muscle limits exertional energy production.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High-energy auditory tissues are vulnerable to Complex IV deficiency, producing hearing impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic failure in peripheral nerves contributes to the neuropathy reported in COA8-related disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial myopathy from impaired ATP synthesis can involve extraocular and eyelid muscles.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central nervous system energy failure contributes to epilepsy in COA8-related COX deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Retinitis pigmentosa\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal photoreceptors are energy-dependent cells vulnerable to Complex IV deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Amenorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic mitochondrial dysfunction can disrupt endocrine or reproductive-axis function.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuromuscular involvement can impair motor speech.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COA8 pathogenic variants causing COX deficiency\", \"target\": \"COA8 Loss and Defective Complex IV Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COA8 c.170_173dupGACC (p.Pro59fs)\", \"target\": \"COA8 pathogenic variants causing COX deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3672,7 +3955,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">9</span>
+                <span class="card-count">11</span>
             </div>
 
 
@@ -3688,7 +3971,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -3902,11 +4185,11 @@
 
 
                     <span class="phenotype-id">
-                        Amenorrhea
+                        Secondary amenorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000141" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000141">HP:0000141</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000869" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000869">HP:0000869</a>
 
 
                     </span>
@@ -3966,65 +4249,6 @@
 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Leukoencephalopathy
-
-
-                    <span class="phenotype-id">
-                        Leukoencephalopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002352">HP:0002352</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38098475" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38098475" target="_blank">PMID:38098475</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Loss-of-function COA8 mutations have been associated with cavitating leukoencephalopathy with COX deficiency in 9 reported individuals."</div>
-
-
-                <div class="evidence-explanation">Documents cavitating leukoencephalopathy as the classic COA8-related phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
                         Peripheral neuropathy
 
 
@@ -4067,6 +4291,65 @@
 
 
                 <div class="evidence-explanation">Documents peripheral neuropathy on neurological examination in COA8-related disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Dysarthria
+
+
+                    <span class="phenotype-id">
+                        Dysarthria
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38098475" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38098475" target="_blank">PMID:38098475</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"bilateral ptosis, muscle weakness, peripheral neuropathy, mild dysarthria and dysphonia"</div>
+
+
+                <div class="evidence-explanation">Neurological examination explicitly documents mild dysarthria.</div>
 
 
 
@@ -4215,8 +4498,126 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Leukoencephalopathy
+
+
+                    <span class="phenotype-id">
+                        Cavitating leukodystrophy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033369">HP:0033369</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38098475" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38098475" target="_blank">PMID:38098475</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss-of-function COA8 mutations have been associated with cavitating leukoencephalopathy with COX deficiency in 9 reported individuals."</div>
+
+
+                <div class="evidence-explanation">Documents cavitating leukoencephalopathy as the classic COA8-related phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Decreased Complex IV Activity
+
+
+                    <span class="phenotype-id">
+                        Decreased activity of mitochondrial complex IV
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008347">HP:0008347</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38098475" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38098475" target="_blank">PMID:38098475</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Muscle biopsy displayed a diffuse reduction of COX activity staining and ragged-red fibers."</div>
+
+
+                <div class="evidence-explanation">Muscle biopsy directly demonstrates reduced Complex IV activity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
@@ -4348,6 +4749,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38098475" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38098475" target="_blank">PMID:38098475</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whole Exome Sequencing analysis identified the novel homozygous COA8 defect c.170_173dupGACC, p.(Pro59fs) in the probands."</div>
+
+
+                <div class="evidence-explanation">Identifies a homozygous loss-of-function COA8 variant in affected siblings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -4370,12 +4803,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">supportive care</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" class="curie-chip curie-chip-maxo" title="Open MAXO:0000950">MAXO:0000950</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -4491,6 +4925,12 @@ pathophysiology:
     Biallelic loss-of-function COA8 variants remove a Complex IV
     assembly/stability factor, preventing maturation or maintenance of a
     functional COX holoenzyme.
+  gene:
+    preferred_term: COA8
+    modifier: DECREASED
+    term:
+      id: hgnc:20492
+      label: COA8
   biological_processes:
   - preferred_term: mitochondrial respiratory chain complex IV assembly
     term:
@@ -4504,10 +4944,22 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: Causative mutations are mainly identified in structural COX subunits or in proteins involved in the maturation and assembly of the COX holocomplex.
     explanation: COA8 is an assembly/maturation factor whose loss produces isolated COX deficiency.
+  - reference: PMID:25175347
+    reference_title: &#34;Mutations in APOPT1, encoding a mitochondrial protein, cause cavitating leukoencephalopathy with cytochrome c oxidase deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Mutant fibroblasts showed reduced amount of COX holocomplex and higher
+      levels of reactive oxygen species, which both shifted toward control
+      values by expressing a recombinant, wild-type APOPT1 cDNA.
+    explanation: Complementation rescue directly links COA8/APOPT1 loss to reduced Complex IV holoenzyme.
   downstream:
   - target: Impaired Terminal Electron Transfer and ATP Synthesis
     causal_link_type: DIRECT
     description: Failure to assemble or stabilize the holoenzyme abolishes terminal electron transfer.
+  - target: Decreased Complex IV Activity
+    causal_link_type: DIRECT
+    description: Reduced COX holoenzyme directly produces decreased Complex IV activity in patient muscle.
 - name: Impaired Terminal Electron Transfer and ATP Synthesis
   conforms_to: &#34;complex_iv_assembly_deficiency#Impaired Terminal Electron Transfer and ATP Synthesis&#34;
   description: &gt;
@@ -4534,9 +4986,50 @@ pathophysiology:
   - reference: PMID:10545952
     reference_title: &#34;Fatal infantile cardioencephalomyopathy with COX deficiency and mutations in SCO2, a COX assembly gene.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: Mammalian cytochrome c oxidase (COX) catalyses the transfer of reducing equivalents from cytochrome c to molecular oxygen and pumps protons across the inner mitochondrial membrane.
     explanation: Defines the terminal electron-transfer and proton-pumping function lost in COA8-related COX deficiency.
+  - reference: PMID:25175347
+    reference_title: &#34;Mutations in APOPT1, encoding a mitochondrial protein, cause cavitating leukoencephalopathy with cytochrome c oxidase deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      All three subjects presented a distinctive brain MRI pattern characterized
+      by cavitating leukodystrophy, predominantly in the posterior region of the
+      cerebral hemispheres.
+    explanation: Supports cavitating leukodystrophy as the characteristic CNS outcome.
+  - reference: PMID:38098475
+    reference_title: &#34;Prominent muscle involvement in a familial form of mitochondrial disease due to a COA8 variant.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      showed bilateral ptosis, muscle weakness, peripheral neuropathy, mild
+      dysarthria and dysphonia
+    explanation: Supports the neuromuscular and speech-motor manifestations of the later-onset phenotype.
+  - reference: PMID:38098475
+    reference_title: &#34;Prominent muscle involvement in a familial form of mitochondrial disease due to a COA8 variant.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Muscle biopsy displayed a diffuse reduction of COX activity staining and ragged-red fibers.
+    explanation: Supports decreased Complex IV activity and ragged-red muscle fibers.
+  - reference: PMID:38098475
+    reference_title: &#34;Prominent muscle involvement in a familial form of mitochondrial disease due to a COA8 variant.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: cramps and myalgia after exercise, and bilateral hearing loss emerged
+    explanation: Supports exercise intolerance and bilateral hearing loss.
+  - reference: PMID:38098475
+    reference_title: &#34;Prominent muscle involvement in a familial form of mitochondrial disease due to a COA8 variant.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: presented generalized epilepsy and retinitis pigmentosa at 10 years of age
+    explanation: Supports epilepsy and retinitis pigmentosa in COA8-related disease.
+  - reference: PMID:38098475
+    reference_title: &#34;Prominent muscle involvement in a familial form of mitochondrial disease due to a COA8 variant.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: presented secondary amenorrhea
+    explanation: Supports secondary amenorrhea in affected siblings.
   downstream:
   - target: Leukoencephalopathy
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
@@ -4565,14 +5058,17 @@ pathophysiology:
   - target: Amenorrhea
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     description: Systemic mitochondrial dysfunction can disrupt endocrine or reproductive-axis function.
+  - target: Dysarthria
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: Neuromuscular involvement can impair motor speech.
 phenotypes:
 - name: Leukoencephalopathy
   description: Cavitating leukoencephalopathy, the classic CNS phenotype of COA8 deficiency.
   phenotype_term:
-    preferred_term: Cavitating leukoencephalopathy
+    preferred_term: Cavitating leukodystrophy
     term:
-      id: HP:0002352
-      label: Leukoencephalopathy
+      id: HP:0033369
+      label: Cavitating leukodystrophy
   evidence:
   - reference: PMID:38098475
     reference_title: &#34;Prominent muscle involvement in a familial form of mitochondrial disease due to a COA8 variant.&#34;
@@ -4580,6 +5076,20 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: Loss-of-function COA8 mutations have been associated with cavitating leukoencephalopathy with COX deficiency in 9 reported individuals.
     explanation: Documents cavitating leukoencephalopathy as the classic COA8-related phenotype.
+- name: Decreased Complex IV Activity
+  description: Diffusely reduced cytochrome-c oxidase activity in affected muscle.
+  phenotype_term:
+    preferred_term: Decreased activity of mitochondrial complex IV
+    term:
+      id: HP:0008347
+      label: Decreased activity of mitochondrial complex IV
+  evidence:
+  - reference: PMID:38098475
+    reference_title: &#34;Prominent muscle involvement in a familial form of mitochondrial disease due to a COA8 variant.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Muscle biopsy displayed a diffuse reduction of COX activity staining and ragged-red fibers.
+    explanation: Muscle biopsy directly demonstrates reduced Complex IV activity.
 - name: Ragged-red muscle fibers
   description: Ragged-red fibers and reduced COX staining on muscle biopsy.
   phenotype_term:
@@ -4650,6 +5160,20 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;bilateral ptosis, muscle weakness, peripheral neuropathy, mild dysarthria and dysphonia&#34;
     explanation: Documents bilateral ptosis on neurological examination in COA8-related disease.
+- name: Dysarthria
+  description: Mild dysarthria in the myopathy-predominant COA8 phenotype.
+  phenotype_term:
+    preferred_term: Dysarthria
+    term:
+      id: HP:0001260
+      label: Dysarthria
+  evidence:
+  - reference: PMID:38098475
+    reference_title: &#34;Prominent muscle involvement in a familial form of mitochondrial disease due to a COA8 variant.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;bilateral ptosis, muscle weakness, peripheral neuropathy, mild dysarthria and dysphonia&#34;
+    explanation: Neurological examination explicitly documents mild dysarthria.
 - name: Seizures
   description: Generalized epilepsy reported in COA8-related disease.
   phenotype_term:
@@ -4683,8 +5207,8 @@ phenotypes:
   phenotype_term:
     preferred_term: Secondary amenorrhea
     term:
-      id: HP:0000141
-      label: Amenorrhea
+      id: HP:0000869
+      label: Secondary amenorrhea
   evidence:
   - reference: PMID:38098475
     reference_title: &#34;Prominent muscle involvement in a familial form of mitochondrial disease due to a COA8 variant.&#34;
@@ -4729,6 +5253,13 @@ genetic:
     Biallelic loss-of-function COA8 variants cause isolated COX deficiency,
     classically cavitating leukoencephalopathy and, in a familial report, a
     prominent mitochondrial myopathy phenotype.
+  evidence:
+  - reference: PMID:38098475
+    reference_title: &#34;Prominent muscle involvement in a familial form of mitochondrial disease due to a COA8 variant.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Whole Exome Sequencing analysis identified the novel homozygous COA8 defect c.170_173dupGACC, p.(Pro59fs) in the probands.
+    explanation: Identifies a homozygous loss-of-function COA8 variant in affected siblings.
 treatments:
 - name: Supportive and Metabolic Care
   description: &gt;
@@ -4737,8 +5268,8 @@ treatments:
   treatment_term:
     preferred_term: supportive care
     term:
-      id: MAXO:0000950
-      label: supportive care
+      id: NCIT:C15747
+      label: Supportive Care
 </pre>
             </div>
         </div>
@@ -4754,6 +5285,11 @@ treatments:
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/COA8-Related_COX_Deficiency.yaml" target="_blank">View source on GitHub</a>
             </p>
+
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
 
@@ -4794,7 +5330,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "COA8-Related COX Deficiency", "mondoId": "MONDO:0033652", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COA8-Related_COX_Deficiency", "yamlRevision": "864f40cc64b3"};
+        const OS_CONFIG = {"diseaseName": "COA8-Related COX Deficiency", "mondoId": "MONDO:0033652", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COA8-Related_COX_Deficiency", "yamlRevision": "b4fed94d04b8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
