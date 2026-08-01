@@ -546,6 +546,19 @@ def test_prose_domain_role_lists_are_complete() -> None:
     slash-separated backticked runs anywhere in either file and requires any run
     already naming two or more roles to name them all. Prose can be rewritten
     freely; it just cannot go back to being partial.
+
+    Be precise about what that enforces, because it is weaker than it sounds for
+    `CLAUDE.md`. The matched group is the whole parenthetical, and that one names
+    `UNDETERMINED` twice — in the slash-list and again in the inline "use
+    `UNDETERMINED` … *not* `EXCLUDED`" contrast. So the enforced property is "the
+    parenthetical names every value somewhere", not "each slash-list is
+    complete": deleting it from the list alone leaves the set intact and the
+    guard green. That is the property worth having. The harm is a curator meeting
+    four assessed verdicts and no way to say "not assessed", and a reader of that
+    parenthetical still meets all five whichever half carries them. Tightening
+    the regex to per-list granularity would buy precision this failure mode does
+    not need, at the cost of brittleness against ordinary rewording — which is
+    the thing this design is trying to avoid.
     """
     import re
 
@@ -566,11 +579,14 @@ def test_prose_domain_role_lists_are_complete() -> None:
                 found.append(named)
         return found
 
-    def assert_complete(source: str, text: str) -> list[set[str]]:
+    def assert_complete(where: Path, source: str, text: str) -> list[set[str]]:
+        # `where` is threaded through rather than closed over: this is called
+        # from inside a loop that rebinds `path`, and a late-binding closure is
+        # how a helper like this quietly starts naming the wrong file.
         found = enumerations(text)
         for named in found:
             assert named == roles, (
-                f"{path} ({source}) enumerates domain_role but omits "
+                f"{where} ({source}) enumerates domain_role but omits "
                 f"{sorted(roles - named)}; list every value or drop the parenthetical"
             )
         return found
@@ -584,7 +600,7 @@ def test_prose_domain_role_lists_are_complete() -> None:
         # blanks this repo's `CLAUDE.md` section, which would fire for a reason
         # having nothing to do with the docs and invite whoever hit it to weaken
         # a working guard.
-        assert_complete("working tree", path.read_text(encoding="utf-8"))
+        assert_complete(path, "working tree", path.read_text(encoding="utf-8"))
 
         # Everything that actually gates is asserted against the committed blob:
         # it is what CI checks out and what readers get, and it is unaffected by
@@ -595,10 +611,12 @@ def test_prose_domain_role_lists_are_complete() -> None:
         committed = _committed_text(path)
         if committed is None:  # not a git checkout (sdist, vendored tree)
             continue
-        assert assert_complete("committed", committed), (
+        assert assert_complete(path, "committed", committed), (
             f"{path} no longer enumerates domain_role anywhere in the committed "
-            "blob; if the guidance moved, point this test at its new home rather "
-            "than deleting it"
+            "blob. Either the guidance moved — point this test at its new home "
+            "rather than deleting it — or a list eroded down to a single value, "
+            "which falls under the two-value threshold and so reads here as no "
+            "list at all."
         )
 
 
