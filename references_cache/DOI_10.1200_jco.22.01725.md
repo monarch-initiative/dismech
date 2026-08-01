@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.22.01725"
+reference_id: DOI:10.1200/jco.22.01725
 title: "Epcoritamab, a Novel, Subcutaneous CD3xCD20 Bispecific T-Cell–Engaging Antibody, in Relapsed or Refractory Large B-Cell Lymphoma: Dose Expansion in a Phase I/II Trial"
 authors:
 - Catherine Thieblemont
@@ -29,6 +29,7 @@ journal: Journal of Clinical Oncology
 year: '2023'
 doi: 10.1200/jco.22.01725
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epcoritamab, a Novel, Subcutaneous CD3xCD20 Bispecific T-Cell–Engaging Antibody, in Relapsed or Refractory Large B-Cell Lymphoma: Dose Expansion in a Phase I/II Trial

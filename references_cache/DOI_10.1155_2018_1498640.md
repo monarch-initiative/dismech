@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1155/2018/1498640"
+reference_id: DOI:10.1155/2018/1498640
 title: "Autoimmune Inner Ear Disease: Immune Biomarkers, Audiovestibular Aspects, and Therapeutic Modalities of Cogan’s Syndrome"
 authors:
 - Oded Shamriz
@@ -9,6 +9,7 @@ journal: Journal of Immunology Research
 year: '2018'
 doi: 10.1155/2018/1498640
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Autoimmune Inner Ear Disease: Immune Biomarkers, Audiovestibular Aspects, and Therapeutic Modalities of Cogan’s Syndrome

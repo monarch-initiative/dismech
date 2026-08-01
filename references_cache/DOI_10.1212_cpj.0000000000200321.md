@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/cpj.0000000000200321"
+reference_id: DOI:10.1212/cpj.0000000000200321
 title: "Predictive Value of Clinical, CSF and Vessel Wall MRI Variables in Diagnosing Primary Angiitis of the CNS"
 authors:
 - G. Abbas Kharal
@@ -13,6 +13,7 @@ journal: Neurology Clinical Practice
 year: '2024'
 doi: 10.1212/cpj.0000000000200321
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Predictive Value of Clinical, CSF and Vessel Wall MRI Variables in Diagnosing Primary Angiitis of the CNS

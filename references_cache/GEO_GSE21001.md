@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE21001"
+reference_id: GEO:GSE21001
 title: Infection of MK2 cells with monkeypox virus
 content_type: summary
+full_text_attempted: true
 ---
 
 # Infection of MK2 cells with monkeypox virus

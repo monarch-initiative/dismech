@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25179495"
+reference_id: DOI:10.3390/ijms25179495
 title: "Pathological Mechanisms Involved in Epidermolysis Bullosa Simplex: Current Knowledge and Therapeutic Perspectives"
 authors:
 - Mbarka Bchetnia
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25179495
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathological Mechanisms Involved in Epidermolysis Bullosa Simplex: Current Knowledge and Therapeutic Perspectives

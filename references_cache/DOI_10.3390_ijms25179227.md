@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25179227"
+reference_id: DOI:10.3390/ijms25179227
 title: "Navigating the Landscape of CMT1B: Understanding Genetic Pathways, Disease Models, and Potential Therapeutic Approaches"
 authors:
 - Mary Kate McCulloch
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25179227
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Navigating the Landscape of CMT1B: Understanding Genetic Pathways, Disease Models, and Potential Therapeutic Approaches

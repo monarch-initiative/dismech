@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biom14020164"
+reference_id: DOI:10.3390/biom14020164
 title: Bioinformatics Prediction for Network-Based Integrative Multi-Omics Expression Data Analysis in Hirschsprung Disease
 authors:
 - Helena Lucena-Padros
@@ -15,6 +15,7 @@ journal: Biomolecules
 year: '2024'
 doi: 10.3390/biom14020164
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Bioinformatics Prediction for Network-Based Integrative Multi-Omics Expression Data Analysis in Hirschsprung Disease
