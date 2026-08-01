@@ -2065,6 +2065,15 @@ perturb file *args="":
 sedml-export *args="":
     uv run python -m dismech.perturb.sedml_export {{args}}
 
+# Run every dismech-perturb scenario and persist the results (final observable
+# values, fold change vs baseline, and the HP phenotypes the curated thresholds
+# activate) to exports/model_runs/<model_id>.json. Derived artifact, committed
+# so the disorder pages can render it; regenerate rather than hand-edit.
+# Requires tellurium: uv pip install tellurium
+[group('Analysis')]
+gen-model-results *args="":
+    uv run python -m dismech.perturb.results_export {{args}}
+
 # Check the exported archives reproduce dismech-perturb's own numbers by
 # running each .omex through tellurium's SED-ML interpreter and diffing.
 # Requires tellurium: uv pip install tellurium

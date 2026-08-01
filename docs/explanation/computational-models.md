@@ -392,6 +392,47 @@ The framework is generic. No Python code changes are needed to add a new disorde
 - A `*.config.yaml` with `gene_effects` and `coupling` for simulation plumbing
 - `downstream` edges in the disorder YAML connecting mechanisms to phenotypes
 
+## Persisting Run Results
+
+`dismech-perturb` prints its scenario table to a terminal and keeps nothing, so
+the numbers a model actually produces never reached the disorder page.
+`just gen-model-results` closes that: it runs every scenario in every
+`models/*.config.yaml`, evaluates the curated phenotype thresholds against each
+result, and writes `exports/model_runs/<model_id>.json`.
+
+```bash
+just gen-model-results                        # all four runnable models
+just gen-model-results --id urate_homeostasis # one model
+```
+
+Per scenario the artifact records the final value of each curated observable,
+its fold change against the healthy baseline, and **which HP phenotypes the
+thresholds activate, at what severity** — the step that turns a simulation
+number into a dismech claim. The disorder page renders it as a collapsible
+table under the model's card, with each scenario's `causal_root` linking to the
+pathophysiology node it drives.
+
+**Results are derived, not curated.** They live in `exports/model_runs/`
+alongside the SED-ML archives, in the same spirit as `pathographs/`: committed
+so the site can render them and reviewers can diff them, regenerated rather than
+hand-edited, and rendered with an explicit "derived artifact" notice so no
+reader mistakes a simulated value for evidence. Nothing is written into the KB
+YAML, and the schema is unchanged.
+
+Two properties keep the committed diff honest:
+
+- **Rounded values.** Integrator jitter between machines or tellurium versions
+  is ~1e-9; values are rounded to 6 decimals so that noise never churns the
+  artifact. (It also collapses the Topp beta-cell-collapse scenarios, which land
+  around 1e-300, to a stable `0.0`.)
+- **Input hashes instead of timestamps.** Each artifact carries the sha256 of
+  the config and SBML it was generated from, and a test asserts they still
+  match. A stale run therefore fails loudly rather than rendering a quietly
+  wrong table.
+
+`gen-model-results` is deliberately *not* part of `just gen-all`: it needs
+tellurium, which is an optional dependency, and takes a few minutes.
+
 ## Exporting Scenarios as SED-ML / COMBINE Archives
 
 A `models/*.config.yaml` is, in substance, a private encoding of a SED-ML

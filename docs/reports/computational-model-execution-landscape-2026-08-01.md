@@ -222,6 +222,13 @@ Ordered by effort-to-value:
    Three of the four export (43 scenarios); the CKD-MBD model does not, because its coupled
    base+extension co-simulation with inter-step Hill feedback has no SED-ML equivalent — a
    concrete instance of the §2.2 composition gap that Vivarium, not SED-ML, is the answer to.
+
+   Run results are now persisted too: `just gen-model-results` writes
+   `exports/model_runs/<model_id>.json` — per scenario, the final observable values, fold change
+   vs baseline, and the HP phenotypes the curated thresholds activate — and the disorder pages
+   render it. All four runnable models produce results (54 scenarios, 42 activating a phenotype),
+   including the CKD-MBD model that SED-ML cannot express: dismech-perturb runs the coupled
+   co-simulation natively, which is precisely why the artifact is worth keeping.
 3. **Add a COBRApy execution path alongside `dismech-perturb`.** Metabolic models are dismech's
    largest category with zero runnable entries. The PKU Recon3D+PAH-knockout case is the obvious
    pilot: `cobra.io.read_sbml_model` → knock out PAH → FBA → read the phenylalanine flux, mapping
