@@ -276,3 +276,64 @@ def test_short_snippet_genuinely_absent_is_still_absent():
     msg = csv_mod.diagnose(_snippet("hypertelorism"),
                            _body("APC7 mediates ubiquitin signaling in heterochromatin."))
     assert "absent from this reference entirely" in msg
+
+
+# --- third-round calibration: holes the reviewer found in the fixes themselves ---
+
+
+def test_numeric_range_is_not_collapsed_into_a_point_value():
+    """"1-2 months" must NOT match a snippet claiming "12 months".
+
+    The hyphen collapse that fixes "emo - tional" also erased ranges, because \\w
+    includes digits. A range quoted as a point value is exactly the class of
+    misquote this tool exists to catch, so it must survive every normalization.
+    """
+    assert not check("12 months of therapy", "treated for 1-2 months of therapy")
+    assert not check("510 mg daily", "dosed at 5-10 mg daily")
+    assert not check("in 25 patients", "in 2-5 patients")
+
+
+def test_real_ranges_still_match_themselves():
+    assert check("1-2 months of therapy", "treated for 1-2 months of therapy")
+    assert check("5-10 mg daily", "dosed at 5-10 mg daily")
+
+
+def test_list_marker_hyphen_still_tolerated():
+    """ORPHA rows begin with a list marker; letter-only stripping broke these."""
+    assert check("- Autosomal recessive", "Inheritance\n- Autosomal recessive\n")
+
+
+def test_frontmatter_is_not_searchable():
+    """A snippet echoing the paper title must not 'verify' against the header."""
+    cache = (
+        "---\n"
+        "reference_id: \"PMID:123\"\n"
+        "title: Excess EEG beta-band oscillations in Dup15q syndrome\n"
+        "authors:\n- Hipp JF\n"
+        "---\n\n"
+        "The abstract proper says something entirely different about mice.\n"
+    )
+    body = _body(csv_mod.strip_frontmatter(cache))
+    assert not contains(_snippet("Excess EEG beta-band oscillations in Dup15q syndrome"), body)
+    assert not contains(_snippet("Hipp JF"), body)
+    assert contains(_snippet("something entirely different about mice"), body)
+
+
+def test_skip_is_decided_by_missing_cache_not_by_prefix(tmp_path, monkeypatch):
+    """A clinicaltrials ref WITH a cache body must be checked, not waved through."""
+    monkeypatch.setattr(csv_mod, "CACHE_DIR", tmp_path)
+    (tmp_path / "clinicaltrials_NCT01.md").write_text(
+        "---\nreference_id: clinicaltrials:NCT01\n---\n\nA study of widgets in adults.\n"
+    )
+    doc = tmp_path / "d.yaml"
+    doc.write_text(
+        "evidence:\n"
+        "- reference: clinicaltrials:NCT01\n"
+        "  snippet: A study of widgets in adults.\n"
+        "- reference: clinicaltrials:NCT01\n"
+        "  snippet: A study of gizmos in children.\n"
+    )
+    verified, failures, skipped = csv_mod.check_file(doc)
+    assert verified == 1, "the cached trial snippet should be verified, not skipped"
+    assert len(failures) == 1, "the non-matching trial snippet should fail"
+    assert skipped == []

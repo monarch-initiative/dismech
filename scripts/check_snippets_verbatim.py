@@ -61,6 +61,21 @@ def cache_path_for(ref: str) -> Path | None:
     return matches[0] if matches else None
 
 
+def strip_frontmatter(text: str) -> str:
+    """Drop the cache file's YAML frontmatter before searching it.
+
+    The header carries title, authors and journal. Without this, a snippet that
+    merely repeats the paper's title or an author's name "verifies" — which is
+    the opposite of what this tool is for — and diagnose() reports its context
+    window from the header rather than the abstract.
+    """
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end != -1:
+            return text[end + 4:]
+    return text
+
+
 def normalize(text: str) -> str:
     """Collapse the differences that are typographic rather than substantive.
 
@@ -121,10 +136,26 @@ def deartifact(text: str) -> str:
     text = re.sub(r"\s*\[\d+(?:\s*[,\-]\s*\d+)*\]", "", text)  # [13], [4,5], [7-9]
     # Collapse every intra-word hyphen (with or without surrounding spaces) so that
     # line-broken and unbroken spellings of the same compound converge.
-    text = re.sub(r"(?<=\w)\s*-\s*(?=\w)", "", text)
+    # NB the digit guards: "1-2 months" is a RANGE, and collapsing it would make a
+    # snippet saying "12 months" match — a range quoted as a point value is exactly
+    # the kind of misquote this tool exists to catch. Letter-only stripping is too
+    # narrow though (it breaks ORPHA list-marker snippets like "- Autosomal
+    # recessive"), so the rule is: strip hyphens EXCEPT between two digits.
+    text = _collapse_hyphens(text)
     # Drop whitespace sitting before punctuation ("acvr1(r206h) ," -> "acvr1(r206h),").
     text = re.sub(r"\s+([,.;:)\]])", r"\1", text)
     return text
+
+
+# Sentinel used to shield digit-hyphen-digit while other hyphens are collapsed.
+_RANGE = "\x00"
+
+
+def _collapse_hyphens(text: str) -> str:
+    """Collapse intra-word hyphens, but never one sitting between two digits."""
+    text = re.sub(r"(?<=\d)\s*-\s*(?=\d)", _RANGE, text)
+    text = re.sub(r"(?<=\w)\s*-\s*(?=\w)", "", text)
+    return text.replace(_RANGE, "-")
 
 
 def contains(snippet: str, body: str) -> bool:
@@ -153,7 +184,13 @@ def contains(snippet: str, body: str) -> bool:
 
 
 def _squash(text: str) -> str:
-    return re.sub(r"[\s-]+", "", text)
+    """Strip whitespace and hyphens, but never a hyphen between two digits.
+
+    Same reasoning as deartifact(): squashing "5-10 mg" to "510mg" would let a
+    snippet claiming "510 mg" verify against a source that says "5-10 mg".
+    """
+    text = re.sub(r"(?<!\d)-(?!\d)", "", text)
+    return re.sub(r"\s+", "", text)
 
 
 def _contains_strict(snippet: str, body: str) -> bool:
@@ -253,21 +290,21 @@ def check_file(path: Path) -> tuple[int, list[str], list[str]]:
 
     bodies: dict[str, str] = {}
     for ref, snippet in walk(data):
-        if ref.startswith(SKIP_PREFIXES):
-            skipped.append(f"{ref} (non-abstract source)")
-            continue
-
         if ref not in bodies:
             cache = cache_path_for(ref)
-            bodies[ref] = deartifact(normalize(cache.read_text())) if cache else None
+            bodies[ref] = deartifact(normalize(strip_frontmatter(cache.read_text()))) if cache else None
 
         body = bodies[ref]
         if body is None:
-            # Every snippet on an uncached reference is unverifiable, not just the
-            # first one. An earlier version reported the miss once and then silently
-            # dropped the rest — counting them as neither verified nor failed, which
-            # contradicted the totals this script prints.
-            failures.append(f"NO CACHE FILE for {ref} — snippet: {snippet[:90]!r}")
+            # Nothing to check against. For dataset accessions and bare URLs that is
+            # expected, so report it as skipped; for a literature reference it is a
+            # real gap. Either way the decision is made on whether a cache body
+            # EXISTS, not on the prefix — an earlier version skipped by prefix and
+            # thereby declined to check 1,525 snippets that did have cache bodies.
+            if ref.startswith(SKIP_PREFIXES):
+                skipped.append(f"{ref} (no cache body; non-literature source)")
+            else:
+                failures.append(f"NO CACHE FILE for {ref} — snippet: {snippet[:90]!r}")
             continue
 
         norm_snippet = deartifact(normalize(snippet))
