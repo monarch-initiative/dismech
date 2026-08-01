@@ -301,8 +301,15 @@ that tooling cannot read:
 | `TOOL_EXPORTED` | Transcribed from a model or pipeline export; the numbers are real, the mapping to disease concepts is curator judgement |
 | `ILLUSTRATIVE` | Synthetic or placeholder; must never be cited or rendered into the cache |
 
-The renderer refuses to write an `ILLUSTRATIVE` collection into
+The renderer *raises* on an `ILLUSTRATIVE` collection rather than writing it to
 `references_cache/`, so synthetic numbers cannot become citable even by mistake.
+
+Note the exact scope of that guard: it is a hard error for `ILLUSTRATIVE` only.
+A `TOOL_EXPORTED` collection under `examples/` — like the CHARMPheno one — stays
+uncitable because `just phenodist-rebuild` only globs `kb/phenotype_distributions/`,
+which is a directory convention rather than an enforced invariant, backed by a
+test asserting no kb entry cites an example record. The tier is the hard guard
+for synthetic numbers; the directory is the guard for real-but-unreviewed ones.
 
 ## What gets verified
 
@@ -313,8 +320,17 @@ quotes being checkable, not merely well-formed:
   `term_id`/`term_label` pair against OAK using `conf/oak_config.yaml`, and
   errors when a CURIE does not exist or carries a label that is not its own.
   This is the check that catches the hallucinated-CURIE pattern: an identifier
-  that exists but names something else. Prefixes absent from the OAK config are
-  skipped, matching the rest of the repo.
+  that exists but names something else.
+
+    **Only prefixes present in `conf/oak_config.yaml` are checked** — currently
+    HP, MONDO, CL, GO, UBERON, CHEBI, NCIT and the other configured ontologies.
+    **LOINC is not configured, so LOINC terms are not verified**, and a clean
+    `--check-terms` run does not mean every term was checked. That gap is real:
+    the one term error found by hand while writing these examples
+    (`LOINC:2075-0`, serum chloride, where sweat chloride `LOINC:2077-6` was
+    meant) is in precisely the class the automated check cannot see. Verify
+    LOINC by hand. A network-backed adapter that fails to respond yields a
+    warning, not an error — an unperformed lookup is not evidence of a bad term.
 - **Quoted evidence.** A `DataItem` citing a fetchable document (`PMID:`,
   `DOI:`, `NCT`, `ORPHA:`, …) must be a verbatim substring of that document's
   `references_cache/` file, and the cache file must exist. Without this, an
@@ -323,7 +339,10 @@ quotes being checkable, not merely well-formed:
   cache dismech itself produced — laundering an unverified quote into a
   validated-looking one.
 - **Stale cache.** `write_cache_files` prunes orphaned `PHENODIST_*.md`, so a
-  renamed or deleted `record_id` cannot leave a citable file behind.
+  renamed or deleted `record_id` cannot leave a citable file behind. Pruning
+  runs only for a *full* rebuild — no paths, or directory paths — so naming an
+  individual collection file never deletes another collection's cache;
+  `--no-prune` disables it entirely.
 
 ## Commands
 

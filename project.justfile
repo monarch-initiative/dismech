@@ -221,13 +221,10 @@ validate-phenotype-distributions:
 phenodist-rebuild:
     #!/usr/bin/env bash
     set -e
-    shopt -s nullglob
-    files=({{phenodist_dir}}/*.yaml)
-    if [ ${#files[@]} -eq 0 ]; then
-        echo "No curated phenotype distribution collections in {{phenodist_dir}}; nothing to rebuild."
-        exit 0
-    fi
-    uv run python -m dismech.phenotype_distribution --write-cache "${files[@]}"
+    # Pass the directory, not a file glob: a full rebuild must still prune when
+    # the directory is empty or absent, which is exactly the case where stale
+    # citable cache files would otherwise be left behind.
+    uv run python -m dismech.phenotype_distribution --write-cache {{phenodist_dir}}
 
 # Schema validation for all files (batched: one process startup for all files)
 [group('QC')]

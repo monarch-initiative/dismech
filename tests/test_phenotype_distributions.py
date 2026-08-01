@@ -340,6 +340,40 @@ def test_write_cache_files_prunes_orphaned_records(tmp_path: Path) -> None:
     assert not orphan.exists()
 
 
+def test_clinical_trial_quotes_resolve_to_the_right_cache_file() -> None:
+    """Trials are cited `clinicaltrials:NCT…` and cached `clinicaltrials_NCT….md`.
+
+    A bare `NCT` prefix failed both ways: it silently skipped the real citation
+    form, and it manufactured a never-existing `NCT….md` path for the other.
+    """
+    from dismech.phenotype_distribution import _cache_path_for
+
+    cache = Path("references_cache")
+    assert _cache_path_for("clinicaltrials:NCT00000146", cache) == (
+        cache / "clinicaltrials_NCT00000146.md"
+    )
+    # And that file really is the naming convention used in this repo.
+    assert (cache / "clinicaltrials_NCT00000146.md").exists()
+    assert not list(cache.glob("NCT[0-9]*.md"))
+
+
+def test_single_collection_rebuild_does_not_prune_other_collections() -> None:
+    """Naming one collection file must not delete every other cache file."""
+    from dismech.phenotype_distribution import _is_full_rebuild
+
+    assert _is_full_rebuild(None) is True
+    assert _is_full_rebuild([]) is True
+    assert _is_full_rebuild([Path("kb/phenotype_distributions")]) is True
+    assert _is_full_rebuild([Path("kb/phenotype_distributions/one.yaml")]) is False
+
+
+def test_discover_collections_tolerates_a_missing_directory() -> None:
+    """A collection set that does not exist yet is not an error."""
+    assert discover_collections([Path("kb/phenotype_distributions")]) == []
+    with pytest.raises(FileNotFoundError):
+        discover_collections([Path("kb/phenotype_distributions/nope.yaml")])
+
+
 def test_lint_rejects_a_quote_not_in_the_cited_reference(
     cf_collection_path: Path,
 ) -> None:

@@ -78,7 +78,21 @@ _PROPORTION_MEASURES = {"PHENOTYPE_PROPORTION", "PENETRANCE"}
 _MIXTURE_MEASURES = {"LATENT_PHENOTYPE_WEIGHT", "CODE_PROBABILITY"}
 
 #: Document prefixes whose quoted text must be verifiable against the cache.
-_VERIFIABLE_PREFIXES = ("PMID:", "DOI:", "NCT", "ORPHA:", "CGGV:", "CGDS:", "ICEES:")
+#: Clinical trials are cited as ``clinicaltrials:NCT12345678`` and cached as
+#: ``clinicaltrials_NCT12345678.md`` — a bare ``NCT`` prefix would both miss the
+#: real citation form (silently skipping the check) and manufacture a
+#: never-existing ``NCT12345678.md`` path for the wrong one.
+_VERIFIABLE_PREFIXES = (
+    "PMID:",
+    "DOI:",
+    "clinicaltrials:",
+    "ORPHA:",
+    "CGGV:",
+    "CGDS:",
+    "ICEES:",
+    "NCIT:",
+    "PHENODIST:",
+)
 
 _yaml = YAML(typ="safe")
 _yaml.allow_duplicate_keys = False
@@ -130,9 +144,23 @@ def discover_collections(
             files.extend(sorted(p.glob("*.yaml")))
         elif p.is_file():
             files.append(p)
-        elif paths is not None:
+        elif p.suffix:
+            # A named file that is missing is an error; a missing directory is
+            # simply a collection set that does not exist yet.
             raise FileNotFoundError(p)
     return [load_collection(f) for f in files]
+
+
+def _is_full_rebuild(paths: list[Path] | None) -> bool:
+    """Whether the given paths represent a complete collection set.
+
+    Pruning deletes every cache file not in the current write set, which is
+    only correct when the write set is complete. Rebuilding a single collection
+    by filename must not delete the others' cache files.
+    """
+    if not paths:
+        return True
+    return all(not p.suffix for p in paths)
 
 
 def iter_records(
@@ -381,7 +409,23 @@ def check_terms(
                 adapter = adapters[prefix]
                 if adapter is None:
                     continue
-                actual = adapter.label(term_id)
+                try:
+                    actual = adapter.label(term_id)
+                except Exception as exc:
+                    # Network-backed adapters (MONDO resolves via `ols:`) fail
+                    # transiently. A lookup that could not be performed is not
+                    # evidence that the term is wrong, so it must not read as a
+                    # data error.
+                    issues.append(
+                        Issue(
+                            coll.path,
+                            rid,
+                            "WARNING",
+                            f"{where}: could not resolve {term_id} ({exc}); "
+                            "term left unverified",
+                        )
+                    )
+                    continue
                 if actual is None:
                     issues.append(
                         Issue(coll.path, rid, "ERROR", f"{where}: {term_id} does not exist")
@@ -1239,6 +1283,15 @@ def main(argv: list[str] | None = None) -> int:
         help="Cache directory to write into.",
     )
     parser.add_argument(
+        "--no-prune",
+        action="store_true",
+        help=(
+            "Never delete orphaned cache files. Pruning is on only for a full "
+            "rebuild (no paths, or directory paths); naming individual "
+            "collection files never prunes."
+        ),
+    )
+    parser.add_argument(
         "--check-terms",
         action="store_true",
         help=(
@@ -1254,8 +1307,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     collections = discover_collections(args.paths or None)
+    prune = _is_full_rebuild(args.paths) and not args.no_prune
     if not collections:
         print("No phenotype-distribution collections found.")
+        # A full rebuild that finds nothing still has orphans to clear: the case
+        # where every curated collection was deleted is exactly when stale
+        # citable cache files would otherwise linger.
+        if args.write_cache and prune:
+            _written, pruned = write_cache_files([], args.cache_dir, prune=True)
+            for stale in pruned:
+                print(f"Pruned orphaned cache file {stale.name}")
         return 0
 
     result = lint_collections(collections)
@@ -1274,7 +1335,7 @@ def main(argv: list[str] | None = None) -> int:
         if result.errors:
             print("Refusing to write cache files while errors remain.")
             return 1
-        paths, pruned = write_cache_files(collections, args.cache_dir)
+        paths, pruned = write_cache_files(collections, args.cache_dir, prune=prune)
         print(f"Wrote {len(paths)} cache file(s) to {args.cache_dir}.")
         for stale in pruned:
             print(f"Pruned orphaned cache file {stale.name}")
