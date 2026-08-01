@@ -211,6 +211,19 @@ event count, or latent phenotype profile in a defined disease cohort. One record
   and compositional latent-profile weights (categorical/Dirichlet/
   logistic-normal). Vector- and matrix-valued parameters carry concentration
   vectors and mean/correlation structure.
+- **Profiles are distributions over CLINICAL CODES, not ontology terms.** This is
+  the assumption most likely to be made wrong in this repo, because everything
+  else here is HPO/MONDO-centric. Latent phenotype profiles currently range over
+  **OMOP concept IDs** (harmonized All of Us data); future work may range over
+  source terminologies (ICD, LOINC, RxNorm, SNOMED). A mappable MONDO/HP subset
+  is a distant and deliberately lossy option, not the default. Every domain
+  therefore declares `feature_namespace` (`FeatureNamespaceEnum`), and the lint
+  errors/warns when a feature cannot resolve to one — never read a component's
+  `top_features` as HPO terms. Any ontology term on a component lives in
+  `mapped_phenotype_terms` and is a curator's mapping judgement, not model
+  output. Keep this separate from `cohort_identification_vocabulary`, which is
+  routinely a different vocabulary (recent fits identify cohorts with MONDO and
+  place patients with SNOMED while still emitting OMOP-coded profiles).
 - **Common denominator, not one model's output.** Latent-phenotype modelling
   iterates fast, so the model layer holds only what all model classes share
   (component + weighted features, a weight distribution, optional covariate

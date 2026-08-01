@@ -177,8 +177,15 @@ difference and cannot be read as one.
 
 The single most important fact about a profile is its **feature namespace** —
 the identifier system its features are drawn from. Declare it per domain
-(`ModelDomain.feature_namespace`); the lint warns when a model-derived
-collection leaves it unset.
+(`ModelDomain.feature_namespace`).
+
+The lint guards both sides of that link, because declaring a namespace is no use
+if a feature cannot reach it. For a model-derived collection it **warns** when
+the `domains` block is absent or empty, when a domain omits `feature_namespace`,
+and when a feature omits `domain_name` while more than one domain is declared
+(with one domain there is no ambiguity, so it stays silent) — and it **errors**
+when a feature's `domain_name` does not resolve to a declared domain, since that
+reference is simply broken.
 
 Profiles are distributions over **clinical codes, not ontology terms**. Current
 CHARMPheno work is over OMOP concept IDs from harmonized All of Us data.
