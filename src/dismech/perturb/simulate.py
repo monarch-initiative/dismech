@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 
 @dataclass
@@ -196,7 +196,7 @@ def load_model_config(config_path: Path, disorder: dict | None = None) -> ModelC
         ModelConfig with all perturbation settings
     """
     with open(config_path) as f:
-        raw = yaml.safe_load(f)
+        raw = safe_load(f)
 
     model_id = raw["model_id"]
 
