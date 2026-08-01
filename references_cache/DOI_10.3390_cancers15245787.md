@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15245787"
+reference_id: DOI:10.3390/cancers15245787
 title: Current State-of-the-Art Therapy for Malignant Pleural Mesothelioma and Future Options Centered on Immunotherapy
 authors:
 - Susana Cedres
@@ -16,6 +16,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15245787
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Current State-of-the-Art Therapy for Malignant Pleural Mesothelioma and Future Options Centered on Immunotherapy

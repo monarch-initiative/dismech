@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/11795476251353333"
+reference_id: DOI:10.1177/11795476251353333
 title: "Pfeiffer Syndrome (Acrocephalosyndactyly) With Significant Syndactyly and Brachydactyly: A Case Report"
 authors:
 - Justus Omokhafe Justus
@@ -7,6 +7,7 @@ journal: "Clinical Medicine Insights: Case Reports"
 year: '2025'
 doi: 10.1177/11795476251353333
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pfeiffer Syndrome (Acrocephalosyndactyly) With Significant Syndactyly and Brachydactyly: A Case Report

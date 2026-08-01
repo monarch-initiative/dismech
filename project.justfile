@@ -3,6 +3,7 @@
 # Default schema path
 schema_path := "src/dismech/schema/dismech.yaml"
 history_schema_path := "src/dismech/schema/history.yaml"
+synthesis_schema_path := "src/dismech/schema/research_synthesis.yaml"
 kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
@@ -162,6 +163,33 @@ validate-history-all:
     printf 'Validating %s history record(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{history_schema_path}} --target-class HistoryRecord "${files[@]}"
 
+# Validate a single cross-provider research synthesis (research/*-research-synthesis.yaml)
+[group('QC')]
+validate-synthesis file:
+    uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis {{file}}
+    uv run python -m dismech.research_synthesis {{file}}
+
+# Validate all cross-provider research syntheses
+[group('QC')]
+validate-synthesis-all:
+    #!/usr/bin/env bash
+    set -e
+    if [[ ! -d "{{research_dir}}" ]]; then
+        echo "No research directory found."
+        exit 0
+    fi
+    files=()
+    while IFS= read -r f; do
+        files+=("$f")
+    done < <(find "{{research_dir}}" -type f -name '*-research-synthesis.yaml' | sort)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No research synthesis YAML files found in {{research_dir}}."
+        exit 0
+    fi
+    printf 'Validating %s research synthesis file(s).\n' "${#files[@]}"
+    uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
+    uv run python -m dismech.research_synthesis "${files[@]}"
+
 # Schema validation for all files (batched: one process startup for all files)
 [group('QC')]
 validate-schema-all:
@@ -210,6 +238,51 @@ validate-comorbidity file:
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
+# Full validation of one or more comorbidity files, batched by validator phase.
+# This is intended for CI changed-file validation. Reference validation stays
+# cache-bound (`--no-full-text`) so CI does not expand the reference cache or
+# download PDFs.
+[group('QC')]
+validate-comorbidity-batch *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    # Use real positional args rather than interpolating {{files}} as shell text.
+    for f in "$@"; do
+        if [[ "$f" == {{comorbidity_dir}}/*.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
+        else
+            echo "Skipping non-comorbidity file: $f"
+        fi
+    done
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing comorbidity YAML files to validate."
+        exit 0
+    fi
+
+    exit_code=0
+    echo "Validating ${#existing[@]} comorbidity file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache || exit_code=1
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more comorbidity files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} comorbidity file(s) passed validation."
+
 # Full validation of all comorbidity YAML files (schema + terms + references)
 [group('QC')]
 validate-comorbidities-all:
@@ -247,7 +320,11 @@ validate-comorbidities-all:
             failed_files+=("$f")
             echo -e "$errors"
         else
-            echo "  ✓ OK"
+            # Surface the wrapper's affirmative snippet count (issue #7252):
+            # without it this loop prints a wall of "✓ OK" that is
+            # indistinguishable from having checked nothing.
+            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
+            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
         fi
     done
     echo ""
@@ -313,7 +390,11 @@ validate-modules:
             failed_files+=("$f")
             echo -e "$errors"
         else
-            echo "  ✓ OK"
+            # Surface the wrapper's affirmative snippet count (issue #7252):
+            # without it this loop prints a wall of "✓ OK" that is
+            # indistinguishable from having checked nothing.
+            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
+            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
         fi
     done
     echo ""
@@ -393,7 +474,11 @@ validate-groupings:
             failed_files+=("$f")
             echo -e "$errors"
         else
-            echo "  ✓ OK"
+            # Surface the wrapper's affirmative snippet count (issue #7252):
+            # without it this loop prints a wall of "✓ OK" that is
+            # indistinguishable from having checked nothing.
+            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
+            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
         fi
     done
     echo ""
@@ -484,6 +569,13 @@ check-enum-cache:
 check-enum-cache-offline:
     uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}} --offline
 
+# Report non-canonical CURIE ordering in enum and ontology term caches.
+# Phase 0 is advisory/read-only: warnings do not fail until the coordinated
+# cache normalization cutover enables strict ordering.
+[group('QC')]
+check-cache-order:
+    uv run python -m dismech.enum_cache --cache-dir cache --check-order
+
 # Pre-provision the sqlite:obo:* ontology DBs (with resume/retry) that term
 # validation needs, so a flaky/blocked download does not abort validation
 # mid-run. Fetch all, or only the named ontologies:
@@ -495,7 +587,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-folded-hyphens validate-all validate-modules validate-groupings qc-deep-research
+qc: check-reference-cache-frontmatter check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -634,10 +726,21 @@ sync-epic-checkboxes *args:
 
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
 # Note: First run fetches from PubMed and caches; subsequent runs use cache
+# Note: linkml-reference-validator's "Total checks: 0" counts *issues found*, not
+# checks performed (issue #7252) -- read the "Snippets checked: N/N verified"
+# line the wrapper appends for the affirmative count.
 [group('QC')]
 validate-references file:
     @just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Count reference/snippet pairs and re-verify each against references_cache/,
+# without running the (network-touching) validator. Advisory only: it reports
+# "Snippets checked: N/N verified" and never gates. Pass --strict to exit 1 on a
+# snippet that is not present in its cached reference text. See issue #7252.
+[group('QC')]
+count-verified-snippets *args:
+    uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
 
 # Deterministically validate reference cache frontmatter against the
 # linkml-reference-validator cache contract before the heavier data validators.
@@ -658,6 +761,26 @@ check-folded-hyphens:
 [group('QC')]
 update-folded-hyphen-baseline:
     uv run python scripts/check_folded_hyphens.py --update-baseline
+
+# Guard against NEW degenerate evidence snippets in kb/ -- bare terms too short
+# to carry a claim (e.g. snippet: 'Strabismus'), which support nothing and are
+# usually lifted from a table that never survives text extraction (#7450).
+# Pipe-delimited structured-source rows are exempt; a baseline grandfathers the
+# pre-existing backlog, so this fails only on new ones.
+[group('QC')]
+check-snippet-length:
+    uv run python scripts/check_snippet_length.py
+
+# List every short snippet, baselined or not (triage view).
+[group('QC')]
+list-short-snippets:
+    uv run python scripts/check_snippet_length.py --all
+
+# Regenerate the short-snippet baseline after intentionally changing the set
+# (e.g. fixing backlog entries). Review the diff before committing.
+[group('QC')]
+update-snippet-length-baseline:
+    uv run python scripts/check_snippet_length.py --update-baseline
 
 # Validate ALL snippet/reference pairs across all disorder files.
 # Warning: First run may take a while if references are not already cached.
@@ -729,6 +852,11 @@ warm-reference-cache-preview limit="0":
 [group('QC')]
 test-search:
     node --test tests/js/*.test.mjs
+
+# Run dismech-curator browser-extension tests (pure Node, no dependencies)
+[group('QC')]
+test-extension:
+    node extension/test/run.mjs
 
 # Run pytest tests (with verbose output)
 [group('QC')]
@@ -815,6 +943,8 @@ deploy-browser: gen-browser-data
 # (Grouping pages are intentionally excluded — they re-parse every disorder and
 # are generated by their own, less-frequent workflow. Run `just gen-grouping-pages`
 # explicitly, or `just gen-all` to include them locally.)
+# Being a FULL build, this also prunes pages left behind by renamed/deleted
+# entries (issue #7426); the incremental recipes below never prune.
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
@@ -890,6 +1020,11 @@ gen-project-pages:
     uv run python -m dismech.render --project projects
     @echo "Generated $(ls -1 pages/projects/*.html 2>/dev/null | wc -l | tr -d ' ') project pages"
 
+# Generate the NIH funding-topic coverage summary page (pages/nih-topics/index.html)
+[group('Pages')]
+gen-nih-topics-page:
+    uv run python scripts/gen_nih_topics_summary.py
+
 # Generate static schema docs site via MkDocs (served at /elements/)
 [group('Pages')]
 gen-schema-docs:
@@ -902,7 +1037,7 @@ gen-schema-docs:
 
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-schema-docs
+gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-nih-topics-page gen-schema-docs
     @echo "Generated browser data, pathographs, disorder/comorbidity/grouping/project pages, and schema docs"
 
 # ============== KGX Export ==============
@@ -1877,7 +2012,7 @@ normalize-cache:
     for f in cache/enums/*.csv; do
         header=$(head -1 "$f")
         tmp="$tmp_dir/$(basename "$f")"
-        tail -n+2 "$f" | grep -E '^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_./-]+$' | sort -u > "$tmp"
+        tail -n+2 "$f" | grep -E '^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_./-]+$' | LC_ALL=C sort -u > "$tmp"
         echo "$header" > "$f"
         cat "$tmp" >> "$f"
     done

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/ard-2023-224842"
+reference_id: DOI:10.1136/ard-2023-224842
 title: "Inhibition of JAK-STAT pathway corrects salivary gland inflammation and interferon driven immune activation in Sjögren's disease"
 authors:
 - Sarthak Gupta
@@ -31,6 +31,7 @@ journal: Annals of the Rheumatic Diseases
 year: '2024'
 doi: 10.1136/ard-2023-224842
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Inhibition of JAK-STAT pathway corrects salivary gland inflammation and interferon driven immune activation in Sjögren's disease

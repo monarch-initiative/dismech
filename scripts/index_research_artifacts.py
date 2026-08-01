@@ -20,11 +20,12 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
 
+from dismech.yaml_io import safe_load
 
 # ---------------------------------------------------------------------------
 # Frontmatter parsing
@@ -46,7 +47,7 @@ def _split_frontmatter(text: str) -> tuple[dict, str]:
     fm_text = "".join(lines[1:close])
     body = "".join(lines[close + 1 :])
     try:
-        fm = yaml.safe_load(fm_text) or {}
+        fm = safe_load(fm_text) or {}
     except yaml.YAMLError:
         fm = {}
     return fm, body
@@ -148,7 +149,7 @@ def build_index(research_dir: Path) -> dict:
     reports_with_artifacts = [r for r in all_reports if r["artifact_count"] > 0]
 
     return {
-        "generated": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generated": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "report_count": len(all_reports),
         "reports_with_artifacts_count": len(reports_with_artifacts),
         "artifact_total": sum(e["artifact_count"] for e in reports_with_artifacts),

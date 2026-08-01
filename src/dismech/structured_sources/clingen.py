@@ -13,10 +13,11 @@ from __future__ import annotations
 import csv
 import logging
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
-from typing import ClassVar, Iterable, Iterator
+from typing import ClassVar
 from urllib.parse import unquote, urlparse
 
 import httpx

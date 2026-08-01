@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25158202"
+reference_id: DOI:10.3390/ijms25158202
 title: Molecular Mechanisms behind Obesity and Their Potential Exploitation in Current and Future Therapy
 authors:
 - Michał Nicze
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25158202
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Mechanisms behind Obesity and Their Potential Exploitation in Current and Future Therapy

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fgene.2023.1032346"
+reference_id: DOI:10.3389/fgene.2023.1032346
 title: "Exome sequencing in fetuses with short long bones detected by ultrasonography: A retrospective cohort study"
 authors:
 - Yanlin Huang
@@ -16,6 +16,7 @@ journal: Frontiers in Genetics
 year: '2023'
 doi: 10.3389/fgene.2023.1032346
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exome sequencing in fetuses with short long bones detected by ultrasonography: A retrospective cohort study

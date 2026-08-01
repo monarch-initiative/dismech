@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15030706"
+reference_id: DOI:10.3390/cancers15030706
 title: A Suggested Modification to FIGO Stage IV Epithelial Ovarian Cancer
 authors:
 - Marie Métairie
@@ -32,6 +32,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15030706
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Suggested Modification to FIGO Stage IV Epithelial Ovarian Cancer

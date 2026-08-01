@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/wnl.50.6.1806"
+reference_id: DOI:10.1212/wnl.50.6.1806
 title: Neuronal nicotinic ACh receptor antibody in subacute autonomic neuropathy and cancer‐related syndromes
 authors:
 - Steven Vernino
@@ -11,6 +11,7 @@ journal: Neurology
 year: '1998'
 doi: 10.1212/wnl.50.6.1806
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Neuronal nicotinic ACh receptor antibody in subacute autonomic neuropathy and cancer‐related syndromes
