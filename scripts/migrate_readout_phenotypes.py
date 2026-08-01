@@ -88,7 +88,7 @@ PURE = re.compile(
     r"alpha-fetoprotein|fetoprotein|chorionic gonadotropin|prostate-specific|"
     r"carcinoembryonic|\bCA-?125\b|\bCA ?19|tryptase|acylcarnitine|"
     r"electroretinogram|electrophysiolog)",
-    re.I,
+    re.IGNORECASE,
 )
 
 

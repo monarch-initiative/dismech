@@ -7,13 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from dismech.render import render_disorder
-from dismech.render import _build_hierarchy_path
+from dismech.render import _build_hierarchy_path, render_disorder
 
 
 def _extract_graph_data(html: str) -> dict:
     """Extract the embedded graphData payload from a rendered disorder page."""
-    match = re.search(r"var graphData = JSON\.parse\((\".*?\")\);", html, re.S)
+    match = re.search(r"var graphData = JSON\.parse\((\".*?\")\);", html, re.DOTALL)
     assert match is not None, "Rendered HTML did not include graphData payload"
     return json.loads(json.loads(match.group(1)))
 
@@ -497,12 +496,12 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             {
                 (
                     "SLC26A2 Pathogenic Variants",
-                    "Sulfate Transport Deficiency in Chondrocytes",
+                    "Loss of SLC26A2 Sulfate Transport in Chondrocytes",
                 )
             },
             {"SLC26A2 Pathogenic Variants": "genetic"},
             {
-                "Sulfate Transport Deficiency in Chondrocytes": [
+                "Loss of SLC26A2 Sulfate Transport in Chondrocytes": [
                     "sulfate transmembrane transporter activity"
                 ]
             },
@@ -611,10 +610,10 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "Ataxia_Telangiectasia.yaml",
-            {("ATM", "ATM kinase deficiency and defective DNA damage signaling")},
+            {("ATM", "ATM kinase deficiency and defective DNA-damage signaling")},
             {"ATM": "genetic"},
             {
-                "ATM kinase deficiency and defective DNA damage signaling": [
+                "ATM kinase deficiency and defective DNA-damage signaling": [
                     "protein serine/threonine kinase activity"
                 ]
             },
@@ -638,22 +637,31 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             "Atelosteogenesis_Type_I.yaml",
             {
                 (
-                    "FLNB Pathogenic Variants",
-                    "FLNB Gain-of-Function Cytoskeletal Dysregulation",
+                    "Heterozygous gain-of-function FLNB pathogenic variants",
+                    "Monoallelic FLNB gain-of-function and abnormal actin binding",
                 )
             },
-            {"FLNB Pathogenic Variants": "genetic"},
+            {"Heterozygous gain-of-function FLNB pathogenic variants": "genetic"},
             {
-                "FLNB Gain-of-Function Cytoskeletal Dysregulation": [
+                "Monoallelic FLNB gain-of-function and abnormal actin binding": [
                     "actin filament binding"
                 ]
             },
         ),
         (
             "Atelosteogenesis_Type_III.yaml",
-            {("FLNB Pathogenic Variants", "FLNB Cytoskeletal Signaling Dysfunction")},
-            {"FLNB Pathogenic Variants": "genetic"},
-            {"FLNB Cytoskeletal Signaling Dysfunction": ["actin filament binding"]},
+            {
+                (
+                    "Heterozygous gain-of-function FLNB pathogenic variants",
+                    "Monoallelic FLNB gain-of-function cytoskeletal disorder",
+                )
+            },
+            {"Heterozygous gain-of-function FLNB pathogenic variants": "genetic"},
+            {
+                "Monoallelic FLNB gain-of-function cytoskeletal disorder": [
+                    "actin filament binding"
+                ]
+            },
         ),
         (
             "FLNA_Intestinal_Pseudoobstruction.yaml",
@@ -734,12 +742,31 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "RYR2_CPVT.yaml",
-            {("RYR2 gain-of-function variants", "RYR2 Gain-of-Function Calcium Leak")},
+            # PR #7227 renamed the central-effector node "RYR2 Gain-of-Function
+            # Calcium Leak" to "Diastolic Sarcoplasmic Reticulum Calcium Leak",
+            # genericizing it so the non-RYR2 CPVT lesions (CASQ2, CALM1-3,
+            # TRDN, TECRL) converge on it. Same conforms_to, same
+            # role: central_effector, same hgnc:10484 gene link and GO:0005219
+            # molecular function, so the inferred gene edge is unchanged.
+            # The trigger node "RYR2 Gain-of-Function Variant" is a separate,
+            # pre-existing node — not a rename of the effector. Assert both so
+            # the central-effector coverage this case carried before #7227 is
+            # not silently dropped.
+            {
+                ("RYR2 gain-of-function variants", "RYR2 Gain-of-Function Variant"),
+                (
+                    "RYR2 gain-of-function variants",
+                    "Diastolic Sarcoplasmic Reticulum Calcium Leak",
+                ),
+            },
             {"RYR2 gain-of-function variants": "genetic"},
             {
-                "RYR2 Gain-of-Function Calcium Leak": [
+                "RYR2 Gain-of-Function Variant": [
                     "ryanodine-sensitive calcium-release channel activity"
-                ]
+                ],
+                "Diastolic Sarcoplasmic Reticulum Calcium Leak": [
+                    "ryanodine-sensitive calcium-release channel activity"
+                ],
             },
         ),
         (

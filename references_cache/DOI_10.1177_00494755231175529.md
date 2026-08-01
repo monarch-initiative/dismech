@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/00494755231175529"
+reference_id: DOI:10.1177/00494755231175529
 title: "Psychosocial aspects of Noma (Cancrum Oris) in sub-Saharan Africa: A scoping review"
 authors:
 - Justus U. Onu
@@ -9,6 +9,7 @@ journal: Tropical Doctor
 year: '2023'
 doi: 10.1177/00494755231175529
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Psychosocial aspects of Noma (Cancrum Oris) in sub-Saharan Africa: A scoping review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.23.00205"
+reference_id: DOI:10.1200/jco.23.00205
 title: "Targeting<i>NRAS</i>Mutations in Advanced Melanoma"
 authors:
 - Manali S. Phadke
@@ -8,6 +8,7 @@ journal: Journal of Clinical Oncology
 year: '2023'
 doi: 10.1200/jco.23.00205
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Targeting<i>NRAS</i>Mutations in Advanced Melanoma

@@ -120,9 +120,9 @@ synthase is essential and accessible (Candida, Aspergillus) — not in
 
 ## 3. Three-Tier Encoding
 
-**Tier 1 — crude baseline.** `treatment_term: MAXO:0000168` (antiviral/antimicrobial
+**Tier 1 — crude baseline.** `treatment_term: NCIT:C15986` (Pharmacotherapy/antimicrobial
 agent therapy as appropriate) or `NCIT:C15986` (Pharmacotherapy) /
-`MAXO:0001573` (topical pharmacotherapy) + `therapeutic_agent` (CHEBI for the
+`NCIT:C15986` (Pharmacotherapy) + `therapeutic_agent` (CHEBI for the
 drug, e.g. `CHEBI:3764` clotrimazole, plus fluconazole/itraconazole/amphotericin
 B/caspofungin/flucytosine) + `therapeutic_modality: SMALL_MOLECULE`. Says
 "clotrimazole is used for otomycosis."

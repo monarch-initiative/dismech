@@ -94,6 +94,10 @@ jobs:
               - 'package-lock.json'
               - 'justfile'
               - 'project.justfile'
+            extension:
+              - 'extension/**'
+              - 'justfile'
+              - 'project.justfile'
 
       - name: Check curation PR scope
         if: github.event_name == 'pull_request'
@@ -102,11 +106,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-
-          git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA"
-          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          # Use GitHub's own PR file list (equivalent to a merge-base diff) rather than
+          # a local two-dot `git diff BASE..HEAD`. The two-dot form blamed main's newer
+          # kb/ commits on any PR branch that had fallen behind fast-moving main, which
+          # spuriously failed infra PRs (they had to be rebased to pass). This reflects
+          # only what the PR itself changes and needs no local history.
+          CHANGED=$(gh api --paginate \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --jq '.[].filename')
 
           if echo "$CHANGED" | grep -q '^kb/'; then
             INFRA=$(echo "$CHANGED" \
@@ -136,15 +143,18 @@ jobs:
       # `just new-history`.
       - name: Check curation history coverage
         if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-
-          git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true
-          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
-          ADDED_HISTORY=$(git diff --name-only --diff-filter=A "$BASE_SHA" "$HEAD_SHA" \
+          # Merge-base diff via GitHub's PR file list (see "Check curation PR scope"
+          # above for why a local two-dot `git diff BASE..HEAD` misblames main's kb/
+          # commits on branches behind main). `status == "added"` replaces --diff-filter=A.
+          PR_FILES="repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files"
+          CHANGED=$(gh api --paginate "$PR_FILES" --jq '.[].filename')
+          ADDED_HISTORY=$(gh api --paginate "$PR_FILES" \
+            --jq '.[] | select(.status == "added") | .filename' \
             | grep -E '^history/.*\.yaml$' || true)
 
           # KB entries touched by this PR (exclude legacy *.history.yaml).
@@ -242,7 +252,7 @@ jobs:
         run: just validate-history-all
 
       - name: Set up Node.js
-        if: steps.changes.outputs.app == 'true'
+        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.extension == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -250,6 +260,12 @@ jobs:
       - name: Install Node.js dependencies
         if: steps.changes.outputs.app == 'true'
         run: npm ci
+
+      # The browser-extension tests are pure Node (no npm deps), so they run
+      # whenever extension/ changes without needing `npm ci`.
+      - name: Run browser-extension tests
+        if: steps.changes.outputs.extension == 'true'
+        run: just test-extension
 
       # CI runs narrower slices of `just test-code` so unrelated test-only
       # changes do not pay for full LinkML project generation or Node setup.

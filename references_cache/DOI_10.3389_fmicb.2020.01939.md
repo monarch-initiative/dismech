@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fmicb.2020.01939"
+reference_id: DOI:10.3389/fmicb.2020.01939
 title: Genome-Wide Transcription Start Site Mapping and Promoter Assignments to a Sigma Factor in the Human Enteropathogen Clostridioides difficile
 authors:
 - Olga Soutourina
@@ -15,6 +15,7 @@ journal: Frontiers in Microbiology
 year: '2020'
 doi: 10.3389/fmicb.2020.01939
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Genome-Wide Transcription Start Site Mapping and Promoter Assignments to a Sigma Factor in the Human Enteropathogen Clostridioides difficile
