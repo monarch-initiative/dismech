@@ -2,9 +2,9 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-04-28T09:45:49.869771'
-end_time: '2026-04-28T10:13:45.410530'
-duration_seconds: 1675.54
+start_time: '2026-07-29T23:12:15.149479'
+end_time: '2026-07-29T23:19:56.590799'
+duration_seconds: 461.44
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Bulimia Nervosa
@@ -16,8 +16,18 @@ provider_config:
   parameters:
     allowed_domains: []
     temperature: 0.1
-    max_tokens: 5000
-citation_count: 44
+    max_embedded_images: 8
+citation_count: 25
+artifact_count: 1
+artifact_sources:
+  edison_answer_artifacts: 1
+artifacts:
+- filename: artifact-00.md
+  path: Bulimia_Nervosa-deep-research-falcon_artifacts/artifact-00.md
+  media_type: text/markdown
+  source: edison_answer_artifacts
+  data_storage_id: null
+  description: Edison artifact artifact-00
 ---
 
 ## Question
@@ -930,359 +940,253 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Bulimia Nervosa (BN) — Disease Characteristics Research Report (Psychiatric)
+# Bulimia Nervosa: Disease Characteristics Research Report
 
 ## Executive summary
-Bulimia nervosa (BN) is a feeding/eating disorder characterized by recurrent episodes of binge eating with loss of control followed by compensatory behaviors (e.g., self-induced vomiting, laxatives, fasting, excessive exercise), with self-evaluation unduly influenced by shape/weight concerns. DSM-5 requires symptoms on average at least weekly for 3 months; DSM-5 also grades severity by compensatory behavior frequency. BN is common, often undertreated, and associated with substantial morbidity including electrolyte abnormalities and cardiovascular complications, as well as elevated suicide risk. Recent (2023–2025) burden analyses using Global Burden of Disease (GBD) data show rising prevalence/incidence/DALYs globally, with pronounced SDI and regional heterogeneity. Evidence-based care is anchored in psychological therapies (CBT-E/CBT-BN; family-based therapy in adolescents) with adjunct pharmacotherapy (notably fluoxetine 60 mg/day) and emerging digital/neuromodulation approaches.
 
----
+Bulimia nervosa (BN) is a psychiatric eating disorder defined by recurrent, objectively large binge-eating episodes with loss of control, recurrent inappropriate compensatory behavior, and excessive influence of weight or shape on self-evaluation. Under DSM-5-style criteria, binge eating and compensation occur at least weekly for 3 months and do not occur exclusively during anorexia nervosa. BN is usually episodic or relapsing, often begins in adolescence, and can occur at any body mass index; consequently, visual recognition is unreliable. Current understanding is that BN is multifactorial and polygenic rather than a single-gene disorder. Psychological vulnerability, sociocultural pressures, trauma, dieting, and altered reward/inhibitory-control circuitry interact to produce and perpetuate binge–purge cycles. (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2, barakat2023riskfactorsfor pages 7-8)
+
+The strongest evidence-based treatment for adults is eating-disorder-focused cognitive behavioral therapy, commonly CBT-E. Family-based treatment is particularly important for adolescents. Fluoxetine is the best-established medication and is generally adjunctive rather than a replacement for psychotherapy. Medical monitoring is essential because vomiting, laxative or diuretic misuse, fasting, and excessive exercise may produce electrolyte, cardiac, gastrointestinal, dental, and endocrine complications. (yu2023efficacyofpharmacotherapies pages 1-2, gkintoni2024clinicalinterventionstrategies pages 30-31, alharbi2024effectivetreatmentapproaches pages 5-6)
 
 ## 1. Disease information
 
-### 1.1 Concise overview
-BN is defined by recurrent binge-eating episodes with a sense of loss of control and compensatory behaviors to prevent weight gain, occurring at least weekly for at least 3 months, with undue influence of shape/weight on self-evaluation, and not occurring exclusively during anorexia nervosa. (wilson2024bulimianervosaand pages 2-3)
+### Definition and identifiers
 
-### 1.2 Key identifiers
-- **ICD-11:** **6B81 Bulimia nervosa** (explicitly listed in a 2023 rapid review) (hay2023epidemiologyofeating pages 1-2)
-- **ICD-10:** commonly mapped clinically as **F50.2** (note: not directly sourced in retrieved primary texts; included here only as a commonly used mapping and should be verified in an ICD crosswalk) (hay2023epidemiologyofeating pages 1-2)
-- **MeSH / MONDO / OMIM / Orphanet:** Not retrieved in the available full-text sources within this tool run; should be added from ontology databases (gap).
+* **Preferred name:** Bulimia nervosa.
+* **Abbreviation/synonym:** BN; historically “bulimia.” “Binge–purge eating disorder” is descriptive but is not the preferred controlled label.
+* **Category:** Feeding or eating disorder; psychiatric disease.
+* **MONDO:** **MONDO:0005452**, confirmed by the Open Targets disease record. No associated molecular targets were returned, consistent with the absence of a validated single causal target. (OpenTargets Search: bulimia nervosa)
+* **ICD-10-CM:** **F50.2**, bulimia nervosa.
+* **ICD-11:** **6B81**, bulimia nervosa.
+* **MeSH:** *Bulimia Nervosa*.
+* **OMIM/Orphanet:** No appropriate Mendelian OMIM phenotype or rare-disease Orphanet entry is established for ordinary BN; assigning one would incorrectly imply monogenic or rare-disease causation.
 
-### 1.3 Synonyms / alternative names
-- “Bulimia”
-- “Binge–purge disorder” (used descriptively in clinical contexts; not a distinct ICD-11 entity in the retrieved sources)
+These are aggregated disease-level definitions. They are not individual-patient EHR observations, although ICD/SNOMED labels can be instantiated in EHRs.
 
-### 1.4 Evidence sources (patient-level vs aggregated)
-This report synthesizes (i) aggregated epidemiology and burden estimates from GBD analyses (population-level modeling) and (ii) clinical trial and systematic review evidence from peer-reviewed literature (study-level aggregated clinical outcomes). (ge2025globalregionaland pages 2-4, goldstein1995longtermfluoxetinetreatment pages 1-2)
+### Diagnostic concept
 
----
+A binge includes unusually large food consumption in a discrete interval and subjective loss of control. Compensation can include self-induced vomiting, laxative or diuretic misuse, fasting, or excessive exercise. Weight/shape overvaluation is required, and BN is differentiated from binge-eating disorder by recurrent compensation and from anorexia nervosa binge–purge type by the absence of persistently significantly low weight meeting AN criteria. (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3)
 
 ## 2. Etiology
 
-### 2.1 Disease causal factors (current understanding)
-BN is best understood as **multifactorial** with contributions from genetic liability, environmental exposures, and psychological traits. A 2023 pharmacotherapy meta-analysis background summarizes that eating disorders are “multifactorial, with genetic predisposition, environmental factors, and psychological characteristics involved.” (yu2023efficacyofpharmacotherapies pages 1-2)
+### Causal and risk factors
 
-### 2.2 Risk factors
-**Psychological/behavioral and social-developmental risk factors (adolescents):**
-A 2025 pediatric narrative review describes BN in youth as linked to emotional dysregulation, impulsivity, deficits in self-regulation, and psychosocial triggers including puberty-related challenges, peer pressure, and societal beauty ideals. (horovitz2025advancementsinthe pages 1-2)
+BN has no single sufficient cause. Evidence supports interacting genetic susceptibility, developmental and psychiatric vulnerability, environmental exposure, and learned behavioral reinforcement. A 2023 rapid review grouped eating-disorder risks into genetics; microbiota/autoimmune factors; childhood exposures; personality and psychiatric comorbidity; sex/gender; socioeconomic and minority-related factors; body image/social influence; and elite sport. It emphasized that association does not necessarily establish causality. (barakat2023riskfactorsfor pages 7-8)
 
-**Mood disturbance and comorbidity (risk/maintenance):**
-Binge eating may be “triggered by dysphoric mood” and accompanied by depression and self-criticism. A large review summarized comorbidity patterns with **mood disorders (43%) and anxiety disorders (53%)**, and that **~80–90% of BN patients** may have had at least one lifetime mood disorder episode (mostly depressive). (yu2023efficacyofpharmacotherapies pages 1-2)
+**Genetic susceptibility.** Family/twin literature supports moderate heritability, but the retrieved evidence does not justify a precise BN-specific estimate. Candidate associations have been reported in dopamine- and serotonin-related neuroendocrine receptors, glucocorticoid-pathway genes, and the serotonin-transporter-linked polymorphic region, 5-HTTLPR. These are susceptibility findings—not ACMG-pathogenic variants—and are not suitable for clinical prediction. Binge-type eating disorders show genetic overlap with ADHD, while BN also shares genomic liability with overweight/obesity. (barakat2023riskfactorsfor pages 7-8)
 
-### 2.3 Protective factors
-Not clearly specified in the retrieved sources (gap). Prevention/intervention-focused public health strategies are suggested by GBD burden authors, but explicit protective factors are not enumerated. (liu2025globaltrendsand pages 2-3, ge2025globalregionaland pages 2-4)
+**Environmental/developmental risks.** Childhood maltreatment or trauma, body dissatisfaction, internalization of thin/appearance ideals, appearance-focused social media, dieting or restraint, weight stigma, mood/anxiety symptoms, impulsivity, and family/social stress are associated risks. Autoimmune or autoinflammatory disease in childhood was associated with a reported **73% increase in BN risk**, although confounding and mechanisms remain uncertain. (butler2021theroleof pages 10-12, barakat2023riskfactorsfor pages 7-8)
 
-### 2.4 Gene–environment interactions and epigenetic mediation
-A 2024 review emphasizes that epigenetic mechanisms may mediate environmental and genetic risks across eating disorders, highlighting DNA methylation and stating that “epigenetic mechanisms serve as key mediators of environmental and genetic risk factors” and that dynamic methylation changes may influence disordered eating through altered gene expression. (wong2024epigeneticsofeating pages 1-2)
+**Gene–environment interaction.** Reported examples include maltreatment interacting with glucocorticoid-receptor pathway polymorphisms or 5-HTTLPR. Lower cortisol following maltreatment has been reported in BN relative to controls, suggesting stress-axis calibration may mediate vulnerability. These findings remain observational and are not actionable biomarkers. (barakat2023riskfactorsfor pages 7-8)
 
----
+### Protective factors
+
+No reproducible protective allele is established. Plausible environmental protection includes positive body image, reduced appearance-based social comparison, media literacy, supportive family/peer relationships, flexible eating, avoidance of restrictive dieting, early recognition, and rapid access to evidence-based care. These should be treated as prevention targets rather than proven disease-specific protective mechanisms.
 
 ## 3. Phenotypes
 
-### 3.1 Core behavioral and cognitive/affective phenotypes
-- **Recurrent binge eating with loss of control** (DSM-aligned). (wilson2024bulimianervosaand pages 2-3)
-- **Compensatory behaviors:** self-induced vomiting; misuse of laxatives/diuretics/enemas; fasting; excessive exercise. (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3)
-- **Self-evaluation strongly influenced by shape/weight.** (wilson2024bulimianervosaand pages 2-3)
-- **Youth-associated affective features:** intense shame/guilt after binges, emotional dysregulation, impulsivity. (horovitz2025advancementsinthe pages 1-2)
+### Core behavioral and psychiatric phenotypes
 
-### 3.2 Phenotype characteristics
-- **Typical onset:** adolescence/early adulthood; one review reports median age of onset ~12.4 years. (wilson2024bulimianervosaand pages 1-2)
-- **Course:** relapsing course is common; one review cites ~80% remission “with proper treatment,” but details vary by study and setting. (wilson2024bulimianervosaand pages 2-3)
+* Recurrent binge eating with loss of control—episodic and variable in frequency.
+* Self-induced vomiting or other compensation: laxatives/diuretics, fasting, or driven exercise.
+* Overvaluation of body weight/shape, body dissatisfaction, dietary restraint, shame, secrecy, and impaired emotion regulation.
+* Depression, anxiety, self-harm, suicidality, and substance-use symptoms are important comorbid phenotypes. Review estimates include mood disorders in **43%**, anxiety disorders in **53%**, and lifetime mood disorder in **80–90%**, but estimates vary substantially by sample and definition. (yu2023efficacyofpharmacotherapies pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2)
 
-### 3.3 Quality-of-life impact
-Delayed identification reduces quality of life and increases comorbidity risk in primary care contexts; highlighted as a key rationale for screening/early intervention. (kozmer2025accuracyandsuitability pages 1-6)
+### Physical signs, manifestations, and laboratory abnormalities
 
-### 3.4 Suggested HPO terms (examples; should be validated against HPO)
-Behavioral:
-- Binge eating → **HP:0033256 (Binge eating)** (suggested)
-- Self-induced vomiting → **HP:0002013 (Vomiting)** (suggested)
-- Laxative misuse (no single HPO term; may map to medication misuse / purging behavior)
-Cognitive/affective:
-- Body image disturbance (map to terms capturing distorted body image; specific HPO term should be confirmed)
-- Impulsivity → **HP:0000710 (Impulsivity)** (suggested)
+Vomiting may cause dental enamel erosion, caries, pharyngeal trauma, salivary-gland enlargement, reflux or other gastrointestinal symptoms, dehydration, and electrolyte/acid–base abnormalities. Severe electrolyte disturbance can precipitate weakness, syncope, QT abnormalities, or arrhythmia. Menstrual irregularity can occur, although it is less diagnostically central than in restrictive disorders. Normal or high weight does not exclude serious medical instability. (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3, alharbi2024effectivetreatmentapproaches pages 5-6)
 
-(horovitz2025advancementsinthe pages 1-2, wilson2024bulimianervosaand pages 2-3)
+Suggested HPO mappings include **Binge eating**, **Self-induced vomiting**, **Abnormality of electrolyte homeostasis**, **Hypokalemia**, **Dehydration**, **Cardiac arrhythmia**, **Dental erosion**, **Salivary-gland enlargement**, **Menstrual irregularity**, **Anxiety**, and **Depressive symptom**. Exact term IDs should be validated against the current HPO release before ingestion.
 
----
+### Severity, progression, and quality of life
 
-## 4. Genetic/molecular information
+DSM severity is based on weekly compensatory-event frequency: mild 1–3, moderate 4–7, severe 8–13, and extreme ≥14, with clinical judgment allowing adjustment for disability. Course is commonly fluctuating or relapsing. Individual phenotypes impair school/work attendance, relationships, finances, concentration, self-esteem, and social eating. The evidence base uses inconsistent remission and recovery definitions, limiting precise cross-study estimates.
 
-### 4.1 Genetic architecture (current evidence)
-Heritability evidence supports a meaningful genetic component for BN.
-- A 2024 epigenetics review reports twin-study heritability for BN **~55%–62%**. (wong2024epigeneticsofeating pages 1-2)
-- A population-register study across Denmark/Sweden reports **moderate heritability** for BN diagnosis (~**39%**), and notes substantial heritability for core behaviors including binge eating and self-induced vomiting. (meijsen2025sharedgeneticarchitecture pages 1-4)
-- Symptom-level heritability estimates reported include **self-induced vomiting ~72% in females** and a range for binge eating across sexes/samples; the authors emphasize that symptom genetics and clinical course remain under-studied. (davies2025mappingthegenetic pages 5-8)
+## 4. Genetic and molecular information
 
-### 4.2 Causal genes / pathogenic variants
-No single-gene causal variants for BN were identified in the retrieved sources; BN is discussed as polygenic/multifactorial. (meijsen2025sharedgeneticarchitecture pages 1-4, wong2024epigeneticsofeating pages 1-2)
+BN should be annotated as **multifactorial/polygenic**, not Mendelian. There are no established causal genes, pathogenic germline variants, recurrent chromosomal abnormalities, founder mutations, carrier frequencies, penetrance estimates, anticipation, or germline mosaicism relevant to routine BN. Correspondingly, Open Targets returned **zero disease–target associations** for MONDO:0005452. (OpenTargets Search: bulimia nervosa)
 
-### 4.3 Epigenetics
-DNA methylation is highlighted as a likely mediator of environmental/genetic risk in eating disorders broadly, with current limitations including sample size and biomarker scarcity. (wong2024epigeneticsofeating pages 1-2)
+Reported candidate loci in serotonergic, dopaminergic, and glucocorticoid signaling are association-level observations. They should not be labeled pathogenic or likely pathogenic under ACMG/AMP criteria. No validated modifier gene or clinically useful pharmacogenomic marker exists for selecting CBT or fluoxetine specifically in BN. (barakat2023riskfactorsfor pages 7-8)
 
-### 4.4 Gene–environment interactions
-A 2025 symptom-onset genetics preprint emphasizes interplay: “genetic risk interacts with early environment and sex-at-birth” (general statement; not BN-specific mechanistic GxE). (davies2025mappingthegenetic pages 5-8)
-
-**Suggested GO biological process terms (examples):**
-- Regulation of feeding behavior (confirm GO ID)
-- Reward processing / dopaminergic signaling (confirm GO IDs)
-- DNA methylation (e.g., GO:0006306; confirm)
-
----
+Epigenetic evidence specific to BN is sparse and confounded by trauma, diet, medication, smoking, adiposity, and illness state. No methylation signature is validated diagnostically. WGS, WES, gene panels, CMA, karyotyping, FISH, mitochondrial sequencing, and repeat-expansion testing are therefore **not indicated for uncomplicated BN**; they are reserved for syndromic presentations suggesting another disorder.
 
 ## 5. Environmental information
 
-### 5.1 Environmental and lifestyle contributors
-Recent reviews emphasize socio-cultural and personal experiential contributors (e.g., beauty ideals, peer pressure), with adolescence as a vulnerable developmental window. (horovitz2025advancementsinthe pages 1-2, wong2024epigeneticsofeating pages 1-2)
+There is no infectious cause and no evidence supporting vaccination, antimicrobial treatment, or zoonotic control. No toxin, radiation, or occupational exposure is established as a specific cause. Relevant exposures are predominantly psychosocial and behavioral: restrictive dieting, weight cycling, appearance pressure, social-media comparison, bullying/weight stigma, trauma, elite sports emphasizing leanness, and family or peer reinforcement. Alcohol, nicotine, stimulant, or other substance use may coexist and can increase medical and behavioral risk. (barakat2023riskfactorsfor pages 7-8)
 
-### 5.2 Infectious agents
-Not applicable based on retrieved evidence (no pathogen-triggered etiology described).
+## 6. Mechanism and pathophysiology
 
----
+### Integrated causal model
 
-## 6. Mechanism / pathophysiology
+A defensible causal chain is: polygenic/developmental vulnerability plus appearance, trauma, or dieting exposures → negative affect, restraint, altered interoception and reward valuation → food restriction and heightened cue salience → loss-of-control binge → acute distress and fear of weight gain → purging/fasting/exercise, which provides short-term negative reinforcement → renewed restriction and repeated cycles. Recurrent purging then produces downstream electrolyte, dental, salivary, gastrointestinal, and cardiovascular injury.
 
-### 6.1 Conceptual causal chain (current consensus framing)
-A practical mechanistic framing supported by the retrieved clinical literature is:
-1) underlying vulnerability (genetic liability + environmental/psychological stressors) (yu2023efficacyofpharmacotherapies pages 1-2, meijsen2025sharedgeneticarchitecture pages 1-4)
-2) episodes of loss-of-control eating (binge eating), often mood-triggered (yu2023efficacyofpharmacotherapies pages 1-2)
-3) compensatory behaviors (purging/non-purging) leading to physiologic perturbations (dehydration, electrolyte abnormalities) (alharbi2024effectivetreatmentapproaches pages 5-6)
-4) downstream medical complications (cardiovascular, dental/oral, GI, respiratory) and psychiatric morbidity/suicidality (wilson2024bulimianervosaand pages 1-2)
+### Neural circuitry and signaling
 
-### 6.2 Epigenetic mediation hypothesis
-Epigenetics is proposed as a bridge between environmental exposures and gene expression changes relevant to disordered eating behaviors, particularly via DNA methylation. (wong2024epigeneticsofeating pages 1-2)
+Human neuroimaging studies report reduced activity in frontostriatal control circuits and abnormal responses in the insula, amygdala, middle frontal gyrus, orbitofrontal cortex, and anterior cingulate cortex. These findings support impaired inhibitory control, altered reward sensitivity, food-cue attentional bias, and emotion/interoceptive dysregulation. Greater binge/bulimic frequency correlates with more pronounced neural alteration. However, a systematic review found substantial methodological heterogeneity and small samples, so no imaging pattern is diagnostic or demonstrably causal. (donnelly2018neuroimaginginbulimia pages 1-2)
 
-### 6.3 Molecular profiling / biomarkers
-The epigenetics review notes that biomarker research “significantly lags behind” for eating disorders; no validated BN biomarker diagnostic was identified in retrieved sources. (wong2024epigeneticsofeating pages 1-2)
+Suggested processes include GO concepts related to **regulation of feeding behavior**, **dopamine receptor signaling**, **serotonin receptor signaling**, **response to stress**, **reward learning**, and **behavioral response inhibition**. Relevant cells include excitatory and inhibitory neurons, dopaminergic neurons, serotonergic neurons, and peripheral T lymphocytes; current evidence does not support a BN-specific cellular lesion.
 
-**Suggested CL cell types (examples; confirm in Cell Ontology):**
-- Neuron (CL:0000540)
-- GABAergic neuron (as implicated in ED transcriptomics in related work; not BN-specific in retrieved evidence) (ahmed2025psychologicalapproachesfor pages 3-6)
+### Gut–brain, metabolic, and immune findings
 
----
+Microbiome/metabolite differences have been reported across eating disorders and binge–purge versus restricting patterns, but small, mixed-diagnosis samples and diet/adiposity confounding prevent a BN-specific signature. These findings are hypothesis-generating, not grounds for probiotics or fecal transplantation as standard treatment.
+
+BN does **not** show a consistent systemic inflammatory-cytokine phenotype: meta-analysis found no reliable IL-6 or TNF-α difference; PBMC production of IFN-γ, IL-1β, IL-6, and TNF-α was also not consistently altered. A cohort of 76 obese BN patients showed higher IL-1β, IL-6, and TNF-α, plausibly attributable to adiposity. Lower CD4/CD8 ratios and reduced CD2, CD3, CD4, CD8, and CD57 have been reported, but confounding and replication limitations preclude an immune biomarker. (butler2021theroleof pages 10-12)
+
+No validated transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, CRISPR-screen, or multi-omic diagnostic signature exists for BN.
 
 ## 7. Anatomical structures affected
-BN affects multiple organ systems primarily through binge/purge behaviors.
 
-### 7.1 Organ-level (examples)
-- **Cardiovascular system:** electrolyte disturbances increase cardiovascular risk including ischemic heart disease; “abnormal heartbeat patterns” are cited in inpatient-indication criteria. (wilson2024bulimianervosaand pages 1-2, alharbi2024effectivetreatmentapproaches pages 5-6)
-- **Oral cavity and salivary glands:** dental erosion; salivary gland hypertrophy. (wilson2024bulimianervosaand pages 1-2)
-- **Pharynx/esophagus:** pharyngeal trauma; esophageal damage from vomiting. (wilson2024bulimianervosaand pages 1-2, horovitz2025advancementsinthe pages 1-2)
-- **Respiratory system:** aspiration pneumonia risk. (wilson2024bulimianervosaand pages 1-2)
-- **Gastrointestinal tract:** bloating, dysphagia, acid reflux. (wilson2024bulimianervosaand pages 2-3)
-- **Reproductive/endocrine:** irregular menses. (wilson2024bulimianervosaand pages 2-3)
+The primary functional system is the central nervous system, especially frontostriatal, salience, reward, and emotion-regulation networks. Secondary injury involves teeth/enamel, oral mucosa and pharynx, salivary glands, esophagus and gastrointestinal tract, kidneys through volume/electrolyte disturbance, heart through electrolyte-mediated conduction abnormalities, and reproductive/endocrine systems. (wilson2024bulimianervosaand pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2, alharbi2024effectivetreatmentapproaches pages 5-6)
 
-### 7.2 Suggested UBERON terms (examples; confirm)
-- Heart (UBERON:0000948)
-- Esophagus (UBERON:0001043)
-- Salivary gland (UBERON:0001836)
-- Tooth (UBERON:0001091)
-- Stomach (UBERON:0000945)
-
----
+Suggested UBERON annotations are brain, cerebral cortex, insula, amygdala, orbitofrontal cortex, anterior cingulate cortex, striatum, tooth enamel, salivary gland, pharynx, esophagus, stomach, kidney, and heart. Lateralization is not a defining feature. Subcellular pathology is not established; synaptic and receptor signaling are implicated functionally rather than through a known organelle defect.
 
 ## 8. Temporal development
 
-### 8.1 Onset
-Evidence indicates typical onset in adolescence/early adulthood, with median onset reported as ~12.4 years in one 2024 review; another synthesis reports average onset 16–17 years. (wilson2024bulimianervosaand pages 1-2, yu2023efficacyofpharmacotherapies pages 1-2)
+Onset is typically adolescent to young-adult and often insidious, beginning with dieting, shape concern, or episodic bingeing. One review reported average onset at **16–17 years**, whereas a 2024 disparities review cited median onset at **12.4 years**; the discrepancy reflects different samples and ascertainment and should not be collapsed into one value. (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2)
 
-### 8.2 Progression/course
-BN can be chronic with relapse; prognosis is variable and influenced by psychological factors and treatment timing. (wilson2024bulimianervosaand pages 2-3)
-
----
+The disease is episodic or relapsing-remitting and can become chronic. Diagnostic crossover with anorexia nervosa or other specified eating disorders occurs. Early treatment is a key opportunity because repeated cycles become behaviorally reinforced and medical complications accumulate. Remission may be spontaneous or treatment-induced, but relapse prevention and follow-up remain necessary.
 
 ## 9. Inheritance and population
 
-### 9.1 Epidemiology (recent statistics)
-**Sex-specific pooled prevalence (global):** A 2023 MJA review table reports BN prevalence estimates:
-- **12-month:** women **0.7%**, men **0.4%**
-- **Lifetime:** women **1.9%**, men **0.6%**
-- **Point:** women **1.5%**, men **0.1%** (hay2023currentapproachesin pages 2-3, hay2023currentapproachesin media 4293f313)
+Lifetime prevalence estimates vary by diagnostic threshold and survey. Recent reviews cite approximately **0.9–3% overall**, **1.5–3% in females**, and **0.5% to >1% in males**; 12-month prevalence around **0.4%** has been reported. These values should be represented as ranges rather than a universal estimate. (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2)
 
-**GBD 2021 global burden (BN-specific):**
-A 2025 GBD analysis reports global increases from 1990 to 2021:
-- Incident cases: **5,595,035 → 8,227,657**
-- Prevalent cases: **7,416,420 → 12,367,024**
-- DALYs: **1,564,211 → 2,604,702**
-with increasing ASRs (EAPCs: prevalence 0.66; incidence 0.55; DALYs 0.67). (ge2025globalregionaland pages 2-4)
+Females are diagnosed more often, but BN occurs in males, gender-diverse people, all racial/ethnic groups, and across body sizes and socioeconomic strata. Research samples have often been **80–100% female and 80–100% White**, meaning apparent demographic gradients partly reflect ascertainment and access bias. Older adults, males, and racial minorities remain underrepresented. (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3)
 
-**SDI disparities (2021):** High-SDI ASPR **311.26/100,000** vs Low-SDI **96.69/100,000**; high-SDI DALYs rate **65.38/100,000** vs low-SDI **20.31/100,000**. (ge2025globalregionaland pages 2-4)
-
-**Country example (Iran, GBD 2019):** BN ASPR **186.42/100,000** (2019). (amiri2025trendsprevalenceincidence pages 1-2)
-
-### 9.2 Inheritance pattern
-BN is consistent with **complex/polygenic** inheritance with moderate-to-high heritability estimates. (meijsen2025sharedgeneticarchitecture pages 1-4, wong2024epigeneticsofeating pages 1-2)
-
----
+Inheritance is polygenic/multifactorial with incomplete, probabilistic expression. Mendelian penetrance, carrier frequency, consanguinity, anticipation, founder effects, and geographic variant distributions are not applicable.
 
 ## 10. Diagnostics
 
-### 10.1 Clinical criteria
-DSM-5-aligned clinical features summarized in a 2024 review include: binge eating with loss of control, recurrent compensatory behaviors, frequency at least weekly for 3 months, undue influence of weight/shape on self-evaluation, and exclusion of anorexia nervosa. (wilson2024bulimianervosaand pages 2-3)
+### Clinical assessment
 
-### 10.2 Diagnostic tests and instruments
-- **EDE (Eating Disorder Examination) interview** is described as the **gold standard** diagnostic interview; **EDE-Q** is its self-report derivative used for diagnostic assessment/psychopathology. (hay2023currentapproachesin pages 2-3)
+Diagnosis is made by confidential clinical interview using DSM-5-TR or ICD-11 criteria. Assessment should characterize objective and subjective binges, loss of control, each compensatory method, weekly frequency/duration, shape/weight overvaluation, dietary restraint, exercise, medications/substances, menstrual history, self-harm/suicide risk, and comorbidity. Collateral family information is useful in adolescents.
 
-### 10.3 Screening in real-world settings (primary care)
-- The MJA review states that screening measures “lack high levels of positive predictive power,” indicating false positives are common and positive screens should be followed by diagnostic evaluation. (hay2023currentapproachesin pages 2-3)
-- A 2025 BJGP Open primary-care screening systematic review reports for **SCOFF** (BN): **sensitivity 97.88%–100%** and **specificity 89.6%–94.4%**, noting increased false positives and reporting low PPV (~24.4% in one study). It also identifies implementation barriers: time constraints, stigma, and lack of trust in screening/clinicians. (kozmer2025accuracyandsuitability pages 14-18, kozmer2025accuracyandsuitability pages 1-6)
+Screening instruments such as SCOFF can identify possible eating disorders but cannot establish BN. There is no newborn, carrier, prenatal, genomic, or population laboratory screen.
 
-### 10.4 Biomarkers / imaging
-No validated biomarker diagnostics for BN were identified in the retrieved sources; biomarker research is described as lagging. (wong2024epigeneticsofeating pages 1-2)
+### Medical evaluation
 
----
+Physical assessment should include weight trajectory rather than BMI alone, pulse, blood pressure including orthostasis, temperature, hydration, oral/dental and salivary examination, and signs of self-induced vomiting. Depending on severity and purging method, tests commonly include CBC, electrolytes, bicarbonate, renal function, glucose, magnesium, phosphate, liver tests, urinalysis, pregnancy testing when relevant, and ECG. Electrolyte abnormality, dehydration, and arrhythmia are indications for urgent escalation or hospitalization. (alharbi2024effectivetreatmentapproaches pages 5-6)
 
-## 11. Outcome / prognosis
+No blood, imaging, electrophysiological, biopsy, genetic, or omics biomarker confirms BN. MRI/PET/fMRI are research tools, not diagnostic tests. (donnelly2018neuroimaginginbulimia pages 1-2)
 
-### 11.1 Morbidity and mortality
-BN is associated with medical complications of purging (electrolyte abnormalities, cardiovascular disease) and elevated mortality and suicide risk. A 2024 review reports standardized mortality in BN of **~1.5–2.5%** and suicide risk **~8-fold** versus the general population. (wilson2024bulimianervosaand pages 1-2)
+### Differential diagnosis
 
-### 11.2 Treatment seeking and disparities (real-world implementation)
-A 2024 review reports that **~85–94%** of people with BN “never seek or delay treatment,” often delaying by **4–5 years**. Reviewed RCT samples were predominantly female and White, suggesting evidence gaps for males and racial minorities and potential disparities in access and representation. (wilson2024bulimianervosaand pages 1-2)
+Important alternatives include binge-eating disorder, anorexia nervosa binge–purge type, purging disorder/OSFED, avoidant-restrictive food intake disorder, mood or bipolar illness with appetite change, substance-induced behavior, gastrointestinal disease, endocrine disease, and neurologic conditions. The decisive distinctions are low-weight AN status, presence/absence of recurrent compensation, objective binge criteria, and weight/shape psychopathology.
 
----
+## 11. Outcome and prognosis
+
+Recovery is possible, including after prolonged illness. One narrative review cited remission approaching **80% with proper treatment**, but this should be interpreted cautiously because outcome definitions and follow-up periods vary. CBT effects are generally moderate, and long-term maintenance is less certain. (wilson2024bulimianervosaand pages 2-3, donnelly2018neuroimaginginbulimia pages 1-2)
+
+BN carries elevated mortality through suicide and medical complications. A 2024 review cited standardized mortality ratios of approximately **1.5–2.5** and an **eightfold greater suicide-death risk** than the general population. These are population-level estimates, not individual predictions. (wilson2024bulimianervosaand pages 1-2)
+
+Adverse prognostic features include severe/frequent binge–purge behavior, suicidality, substance use, trauma/PTSD, mood/anxiety comorbidity, medical instability, longer untreated duration, and poor treatment access. A striking **85–94%** reportedly delay or never seek treatment, making under-detection a major real-world determinant of outcome. (wilson2024bulimianervosaand pages 1-2)
 
 ## 12. Treatment
 
-### 12.1 Evidence-based psychological therapies
-- CBT-E is described as first-line for adults and typically delivered over **~20 weekly sessions** for BN. (hay2023currentapproachesin pages 2-3)
-- In adolescents, evidence supports **FBT-BN** and CBT variants. A 109-participant RCT reported end-of-treatment abstinence **39.4% (FBT-BN) vs 19.7% (CBT-A)** and 6-month abstinence **44% vs 25.4%**, favoring FBT-BN. (alharbi2024effectivetreatmentapproaches pages 5-6)
+### Treatment strategy and current implementation
 
-### 12.2 Pharmacotherapy
-**Fluoxetine 60 mg/day:**
-A multicenter double-blind placebo-controlled trial (1995) in DSM-III-R BN patients randomized **398** (3:1 fluoxetine 60 mg/day vs placebo) found significantly greater reductions in vomiting and binge-eating episodes, concluding fluoxetine was safe and effective up to 16 weeks. (goldstein1995longtermfluoxetinetreatment pages 1-2)
+Care should be multidisciplinary and least restrictive while medically safe: medical assessment and stabilization → collaborative nutritional rehabilitation and regular eating → evidence-based psychotherapy → adjunct medication where appropriate → relapse prevention and comorbidity treatment. About **5%** of patients were estimated to require inpatient care; dehydration, electrolyte disturbance, arrhythmia, severe self-harm, or psychiatric decompensation are key indications. Partial-hospital programs commonly provide 7–10 hours/day of structured treatment. (alharbi2024effectivetreatmentapproaches pages 5-6)
 
-**Medication class evidence (meta-analysis):**
-A 2023 systematic review/meta-analysis of 33 studies across multiple drug classes reported pooled improvements vs placebo in binge eating (SMD -0.40), vomiting (SMD -0.16), depressive symptoms (SMD -0.32), and weight (WMD -3.05 kg), with increased dropout due to adverse events (RR 1.66). (yu2023efficacyofpharmacotherapies pages 1-2)
+**Psychotherapy.** CBT/CBT-E is first-line for adults and targets irregular eating, restraint, binge–purge reinforcement, cognitive distortions, and weight/shape overvaluation. Guided self-help can improve access for less complex cases. Interpersonal therapy is an alternative when CBT is unavailable or unsuitable. DBT-informed approaches may help prominent emotion dysregulation, though they are not generally superior to BN-focused CBT. Suggested MAXO annotations: cognitive behavioral therapy, psychotherapy, nutritional counseling, family therapy, and behavioral intervention. (gkintoni2024clinicalinterventionstrategies pages 30-31, wilson2024bulimianervosaand pages 2-3)
 
-### 12.3 Emerging interventions
-Emerging/adjunct approaches include virtual reality-assisted therapy, neuromodulation (e.g., rTMS), and digitally delivered CBT (including guided internet-based CBT trial protocols), with evidence still developing. (lynch2025eatingdisordersclinical pages 3-4, wilson2024bulimianervosaand pages 2-3)
+**Adolescents.** Family-based treatment for BN is strongly supported. One synthesis reported remission of **39% with FBT versus 20% with CBT and 18% with supportive psychotherapy**. In an RCT of 109 adolescents aged 12–18, abstinence was **39.4% with FBT-BN versus 19.7% with CBT-A** at completion and **44.0% versus 25.4%** at 6 months. (alharbi2024effectivetreatmentapproaches pages 5-6)
 
-### 12.4 MAXO term suggestions
-See Treatment Evidence Table (artifact-02).
+**Pharmacotherapy.** Fluoxetine, an SSRI, has the strongest regulatory and trial evidence for adult BN and is usually used at 60 mg/day when appropriate. It may reduce bingeing, vomiting, and depressive symptoms but should generally complement psychotherapy. A 2023 meta-analysis of 33 studies covering 11 drugs found modest effects versus placebo: binge episodes SMD **−0.40** (95% CI −0.61 to −0.19), vomiting SMD **−0.16** (−0.30 to −0.03), depressive symptoms SMD **−0.32** (−0.51 to −0.13), and weight WMD **−3.05 kg** (−5.97 to −0.13). The evidence included SSRIs, TCAs, MAOIs, topiramate, lithium, and fenfluramine; this does not make all options clinically advisable. (yu2023efficacyofpharmacotherapies pages 1-2)
 
----
+Bupropion is generally avoided because purging/electrolyte disturbance increases seizure risk. TCAs and MAOIs have greater safety/tolerability burdens. Topiramate has some efficacy but cognitive, metabolic, and teratogenic concerns. No medication is FDA-approved specifically for pediatric BN. No validated genotype-guided therapy, gene/cell/RNA therapy, immunotherapy, or surgery exists. (gkintoni2024clinicalinterventionstrategies pages 30-31)
+
+**Experimental/current trials.** Retrieved ClinicalTrials.gov records illustrate current directions: MDMA-assisted therapy, NCT07542145, phase 1, recruiting, n=40; group therapy, NCT06063278, completed, n=100; eating-related inhibition/valuation, NCT05995496, recruiting, n=150; smartphone aftercare, NCT05728021, n=172; eating-related neurofeedback, NCT05614024, recruiting, n=30; web intervention, NCT04876196, completed, n=152; neurobiology study, NCT04225221, phase 2, completed, n=10; lisdexamfetamine, NCT03397446, phase 2, terminated, n=23; PET-guided serotonergic treatment, NCT02359513, phase 4, completed, n=51; and rTMS, NCT01530906, status uncertain, n=60. These are investigational and do not establish efficacy.
+
+### Access and disparities
+
+The evidence base underrepresents males, older adults, racial/ethnic minorities, and diverse body sizes. Digital CBT, guided self-help, primary-care screening, and stepped care are real-world attempts to close access gaps, but digital delivery still requires suicide and medical-risk pathways. (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3)
 
 ## 13. Prevention
 
-High-quality BN-specific primary prevention trials were not identified in the retrieved sources; however, burden analyses emphasize prevention and early intervention as priorities given projected increases. (liu2025globaltrendsand pages 2-3, ge2025globalregionaland pages 2-4)
+**Primary prevention:** school/community programs promoting media literacy, body functionality and diversity, reduced weight stigma, flexible eating, and avoidance of restrictive dieting; safeguards in leanness-focused sports; and trauma-informed environments. No vaccine or prophylactic drug applies.
 
-Practical prevention-related actions supported by the diagnostic literature include:
-- **Secondary prevention:** screening (with appropriate follow-up due to false positives) and early referral pathways in primary care. (kozmer2025accuracyandsuitability pages 14-18, hay2023currentapproachesin pages 2-3)
+**Secondary prevention:** targeted screening in adolescents, athletes, people presenting with dental erosion, recurrent electrolyte disturbance, depression/anxiety, self-harm, or weight-control behaviors; confidential questioning and rapid referral. Because most affected people do not promptly seek care, case finding is a high priority. (wilson2024bulimianervosaand pages 1-2)
 
----
+**Tertiary prevention:** relapse plans, continued meal regularity, monitoring for renewed purging, electrolyte/renal/cardiac surveillance when indicated, dental care, suicide prevention, and integrated treatment of mood, anxiety, PTSD, and substance-use disorders. Genetic counseling is not routinely indicated because risk is polygenic and non-deterministic.
 
-## 14. Other species / natural disease
-No naturally occurring BN analogue in other species was identified in the retrieved sources (gap).
+## 14. Other species and natural disease
 
----
+No well-established naturally occurring animal disease is homologous to human BN, and BN is not infectious, transmissible, or zoonotic. Animals can exhibit binge-like consumption or compensatory restriction, but the human syndrome requires subjective loss of control and weight/shape overvaluation, which cannot be directly established in animals. Therefore, veterinary breed, VBO, natural-disease gene, and cross-species transmission fields should be recorded as **not applicable/not established**.
 
 ## 15. Model organisms
-No BN-specific validated animal model details were retrieved in this tool run (gap).
 
----
+Rodent binge-eating models use intermittent access to palatable high-fat/high-sugar food, food restriction/refeeding, stress, or limited-access paradigms. They are useful for studying reward, dopamine, serotonin, opioid/endocannabinoid signaling, stress, and candidate drugs. Their central limitation for BN is that rats and mice lack an emetic response; purging must be modeled indirectly through restriction or exercise. They also cannot recapitulate human body-image cognition, shame, or sociocultural influences. Consequently, these are models of components—especially binge behavior—not complete models of BN.
 
-## Recent developments (2023–2025 highlights)
-1) **Global burden quantification and projections:** BN-specific GBD analyses (1990–2021; projections to 2030) quantify rising incident and prevalent cases and DALYs, with SDI and regional heterogeneity. (ge2025globalregionaland pages 2-4)
-2) **Primary-care screening evidence synthesis:** Updated synthesis of screening tool accuracy/suitability in primary care highlights high sensitivity but imperfect specificity and implementation barriers. (kozmer2025accuracyandsuitability pages 14-18, kozmer2025accuracyandsuitability pages 1-6)
-3) **Expanding mechanistic framing via epigenetics:** Reviews highlight DNA methylation and epigenetic mediation as a plausible pathway linking environment and genetic risk, while noting biomarker gaps. (wong2024epigeneticsofeating pages 1-2)
+Human fMRI/PET paradigms, ecological momentary assessment, smartphone monitoring, and experimentally controlled meal tasks have higher face validity for cognitive control and cue reactivity. No validated BN organoid, iPSC, humanized genetic model, or single causal-gene knockout exists.
 
----
+## Ontology-ready summary
 
-## Embedded summary artifacts
+The following table provides compact knowledge-base annotations. Terms explicitly marked “suggested” require verification against the current ontology release before production ingestion.
 
-| Disease | Category | Key identifiers | DSM-5 core diagnostic features | DSM-5 severity specifier | Key diagnostic/screening instruments |
-|---|---|---|---|---|---|
-| Bulimia nervosa (BN) | Psychiatric; feeding/eating disorder | ICD-11: **6B81**; ICD-10 commonly mapped as **F50.2**; DSM-5 feeding and eating disorder (hay2023epidemiologyofeating pages 1-2) | Recurrent binge-eating episodes with loss of control **plus** recurrent inappropriate compensatory behaviors (for example self-induced vomiting, laxative/diuretic misuse, fasting, or excessive exercise), occurring on average **at least once weekly for 3 months**; self-evaluation unduly influenced by body shape/weight; disturbance does **not** occur exclusively during anorexia nervosa (wilson2024bulimianervosaand pages 2-3, yu2023efficacyofpharmacotherapies pages 1-2) | Severity based on average number of inappropriate compensatory behaviors per week: **Mild 1–3; Moderate 4–7; Severe 8–13; Extreme 14+** (wilson2024bulimianervosaand pages 1-2) | **EDE** (Eating Disorder Examination) diagnostic interview = gold standard; **EDE-Q** self-report derivative used for diagnostic assessment/psychopathology; brief screening tools: **SCOFF** and **SDE** (Screen for Disordered Eating), with SCOFF widely used and SDE noted as highly sensitive; SCOFF sensitivity for BN in primary care reported at **97.88%–100%** with specificity **89.6%–94.4%** (hay2023currentapproachesin pages 2-3, kozmer2025accuracyandsuitability pages 1-6) |
-
-
-*Table: This table summarizes the core identifiers, DSM-5 diagnostic features, severity specifier, and commonly used diagnostic/screening tools for bulimia nervosa. It is useful as a compact reference for disease ontology mapping and clinical diagnosis.*
-
-| Source | Year | Journal | URL / DOI | Population / scope | Key bulimia nervosa estimates | Citation |
-|---|---:|---|---|---|---|---|
-| Hay et al. | 2023 | *Medical Journal of Australia* | https://doi.org/10.5694/mja2.52008 | Global pooled prevalence estimates | **12-month prevalence:** women **0.7%**, men **0.4%**; **Lifetime prevalence:** women **1.9%**, men **0.6%**; **Point prevalence:** women **1.5%**, men **0.1%** | (hay2023currentapproachesin pages 2-3, hay2023currentapproachesin media 4293f313) |
-| Ge et al. | 2025 | *Journal of Eating Disorders* | https://doi.org/10.1186/s40337-025-01289-9 | Global GBD 1990–2021 | Incident cases rose from **5,595,035 (1990)** to **8,227,657 (2021)**; prevalent cases from **7,416,420** to **12,367,024**; DALYs from **1,564,211** to **2,604,702**; global EAPCs: prevalence **0.66** (95% UI **0.61–0.71**), incidence **0.55** (**0.52–0.58**), DALYs **0.67** (**0.62–0.72**) | (ge2025globalregionaland pages 2-4) |
-| Ge et al. | 2025 | *Journal of Eating Disorders* | https://doi.org/10.1186/s40337-025-01289-9 | 2021 SDI-stratified burden | **High SDI:** ASPR **311.26/100,000** (95% UI **211.22–435.75**), ASIR **159.5/100,000** (**101.9–230.34**), age-standardized DALYs **65.38/100,000** (**37.29–106.61**); **Low SDI:** ASPR **96.69/100,000** (**62.85–140.31**), ASIR **82.94/100,000** (**51.73–124.85**), age-standardized DALYs **20.31/100,000** (**11.42–33.98**) | (ge2025globalregionaland pages 2-4) |
-| Amiri & Hosseini | 2025 | *Eating and Weight Disorders* | https://doi.org/10.1007/s40519-025-01769-6 | Iran, GBD 2019 | BN age-standardized prevalence rate (ASPR) **186.42 per 100,000** in **2019**; overall ED ASPR **254/100,000** (UI **189–328**); overall ED DALYs **53.94/100,000** (UI **33.53–80.20**) | (amiri2025trendsprevalenceincidence pages 1-2) |
-| Liu et al. | 2025 | *The British Journal of Psychiatry* | https://doi.org/10.1192/bjp.2025.10450 | Ages **15–29 years**, global GBD 1990–2021 | BN incidence increased **44.68%** from **298.24** to **351.29 per 100,000**; ASR increase **17.79%**; incidence EAPC **0.56** (95% UI **0.53–0.58**); BN total cases increased **53.18%**; BN DALYs increased **53.12%** with ASR increase **22.39%** and DALY EAPC **0.72** | (liu2025globaltrendsand pages 2-3) |
-
-
-*Table: This table compiles key recent bulimia nervosa epidemiology and burden estimates from pooled prevalence reviews and GBD-based analyses. It is useful for quickly comparing sex-specific prevalence, global burden trends, SDI disparities, and country-specific rates.*
-
-| Treatment | Population / setting | Evidence / study details | Key outcomes | Suggested MAXO term | Citation |
-|---|---|---|---|---|---|
-| CBT-E / CBT-BN (first-line psychotherapy) | Adults with BN; typically outpatient | CBT-E is described as first-line for adults and is typically delivered over **20 weekly sessions** for bulimia nervosa; unified meta-analysis of CBT across adult mental disorders found effect sizes for BN **between 0.5 and 1.0** vs inactive controls | First-line adult psychotherapy; moderate efficacy range in meta-analysis; used in routine care and guidelines | MAXO: cognitive behavioral psychotherapy | (hay2023currentapproachesin pages 2-3) |
-| FBT-BN vs CBT-A | Adolescents aged **12–18** with DSM-5 BN or partial BN | RCT summarized in 2024 review: **109 adolescents** randomized to **FBT-BN** or **CBT-A**, **18 sessions over 6 months** | Abstinence at end of treatment **39.4% vs 19.7%** (*p*=0.04) favoring FBT-BN; at 6 months **44.0% vs 25.4%** (*p*=0.03); no significant difference at 12 months | MAXO: family therapy | (alharbi2024effectivetreatmentapproaches pages 5-6) |
-| Family-based therapy (FBT) vs CBT / supportive psychotherapy | Adolescents with BN | Three high-quality RCTs summarized in review | Remission higher with **FBT vs CBT: 39% vs 20%**; higher with **FBT vs supportive psychotherapy: 39% vs 18%**; similar to guided self-help CBT in one trial (**10% vs 14%**) | MAXO: family therapy | (alharbi2024effectivetreatmentapproaches pages 5-6) |
-| Fluoxetine **60 mg/day** | Adult outpatients with BN | Double-blind multicenter trial at **15 US clinics**; **483 entered, 398 randomized** (3:1 fluoxetine 60 mg/day vs placebo), **225 completed** over **16 weeks** | Greater reductions in vomiting (**F[1,360]=14.73, P<0.0001**) and binge-eating (**F[1,360]=14.39, P=0.0002**) vs placebo; judged safe on adverse event, vital sign, and lab analyses | MAXO: selective serotonin reuptake inhibitor therapy | (goldstein1995longtermfluoxetinetreatment pages 1-2) |
-| Pharmacotherapy overall (all drug classes pooled) | BN patients across RCTs | 2023 systematic review/meta-analysis of **33 studies**, **11 drugs**, 6 drug classes: TCAs, SSRIs, MAOIs, antiepileptics, lithium, fenfluramine | vs placebo: binge-eating frequency **SMD -0.40** (95% CI **-0.61 to -0.19**); vomiting **SMD -0.16** (**-0.30 to -0.03**); depressive symptoms **SMD -0.32** (**-0.51 to -0.13**); weight **WMD -3.05** kg (**-5.97 to -0.13**); dropout due to adverse events **RR 1.66** (**1.14 to 2.41**) | MAXO: pharmacotherapy | (yu2023efficacyofpharmacotherapies pages 1-2) |
-| SSRIs (class; includes fluoxetine, citalopram, fluvoxamine) | BN patients in RCTs | Most studied drug class in 2023 meta-analysis (**14 SSRI trials**) | Contribute to pooled reductions in binge eating and vomiting; fluoxetine is the best-established SSRI and specifically supported at **60 mg/day** | MAXO: selective serotonin reuptake inhibitor therapy | (yu2023efficacyofpharmacotherapies pages 1-2, goldstein1995longtermfluoxetinetreatment pages 1-2) |
-| TCAs / MAOIs / topiramate and other agents | BN patients in RCTs | Included in pooled 2023 meta-analysis: **8 TCA trials**, **6 MAOI trials**, **3 topiramate trials**, plus lithium and fenfluramine | Drug effects varied by class; pooled benefits were statistically favorable but authors concluded overall efficacy remained limited/heterogeneous | MAXO: antidepressant therapy / antiepileptic therapy | (yu2023efficacyofpharmacotherapies pages 1-2) |
-| Guided internet-based CBT (ICBT) + treatment as usual | Women with BN; multicenter Japan trial protocol | 2023 multicenter assessor-blinded RCT protocol comparing **ICBT + TAU** vs **TAU** at **7 institutions**; outcomes include binge eating + purging, ED severity, depression, anxiety, QoL, satisfaction | Emerging digital implementation strategy aimed at improving access; efficacy results pending in protocol paper | MAXO: telehealth cognitive behavioral psychotherapy | (yu2023efficacyofpharmacotherapies pages 1-2) |
-| Other emerging interventions (DBT, ICAT, VR, PED-t, rTMS, D-cycloserine, motivational interviewing) | Mostly outpatient adult BN studies | 2024 treatment-disparities review of **17 RCTs** reported trials of multiple psychosocial and adjunctive approaches beyond CBT | Evidence base is smaller than for CBT/FBT; reviewed as adjunctive or alternative modalities rather than established first-line care | MAXO: dialectical behavior therapy / virtual reality therapy / transcranial magnetic stimulation | (wilson2024bulimianervosaand pages 2-3, lynch2025eatingdisordersclinical pages 3-4) |
+| Domain | Recommended terms/IDs | Evidence-backed annotation | Caveat |
+|---|---|---|---|
+| Disease identifier | MONDO: **MONDO_0005452**; ICD-10: **F50.2**; ICD-11: **6B81**; MeSH: **Bulimia Nervosa** | BN is a psychiatric eating disorder characterized by recurrent binge eating with compensatory behaviors; DSM-style features summarized in recent BN reviews and pharmacotherapy meta-analysis (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3) | MONDO exact match supported by Open Targets context; ICD/MeSH listed as standard identifiers but not directly validated in supplied abstracts; treat as standard ontology mappings (OpenTargets Search: bulimia nervosa) |
+| Synonyms / labels | **Bulimia nervosa**; **BN**; suggested synonym: **binge-purge eating disorder** | Literature consistently uses “bulimia nervosa (BN)” as the preferred label (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2) | Alternative names beyond BN abbreviation are suggested/unverified in supplied evidence |
+| Core phenotype | Suggested HPO: **binge eating** [suggested/unverified HPO ID]; **self-induced vomiting** [suggested/unverified HPO ID] | Core syndrome includes recurrent binge eating plus inappropriate compensatory behaviors such as self-induced vomiting, laxative/diuretic misuse, fasting, or excessive exercise (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3) | Exact HPO IDs were not supplied by the evidence set |
+| Electrolyte phenotype | Suggested HPO: **Electrolyte abnormality** [suggested/unverified HPO ID]; **Hypokalemia** [suggested/unverified HPO ID] | Purging-related medical complications include electrolyte imbalance; hospitalization indications include dehydration, electrolyte abnormalities, and arrhythmias (wilson2024bulimianervosaand pages 1-2, alharbi2024effectivetreatmentapproaches pages 5-6) | Hypokalemia is well known clinically but not quantified in supplied extracts; exact HPO IDs not supplied |
+| Oral/dental phenotype | Suggested HPO: **Dental erosion** [suggested/unverified HPO ID] | Dental erosion is repeatedly cited as a complication of recurrent vomiting/purging (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3) | Exact HPO ID not supplied |
+| Salivary phenotype | Suggested HPO: **Salivary gland enlargement** [suggested/unverified HPO ID] | Salivary gland hypertrophy/enlargement is described among purging-related complications (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3) | Exact HPO ID not supplied |
+| Reproductive phenotype | Suggested HPO: **Menstrual irregularity** [suggested/unverified HPO ID] | Menstrual irregularities are reported among medical complications in BN reviews (wilson2024bulimianervosaand pages 2-3) | Less emphasized than in restrictive EDs; exact HPO ID not supplied |
+| Cardiac phenotype | Suggested HPO: **Arrhythmia** [suggested/unverified HPO ID] | Cardiac arrhythmias are a recognized medical risk, especially in the context of dehydration/electrolyte disturbance from purging (alharbi2024effectivetreatmentapproaches pages 5-6) | Exact HPO ID not supplied |
+| Psychiatric comorbidity phenotype | Suggested HPO: **Anxiety** [suggested/unverified HPO ID]; **Depression** [suggested/unverified HPO ID] | Anxiety and mood disorders are common; meta-analysis/reviews cite anxiety disorders ~53%, mood disorders ~43%, and lifetime mood disorder burden up to 80–90% in BN cohorts (yu2023efficacyofpharmacotherapies pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2) | Percentages reflect review-level synthesis and may vary across diagnostic criteria/sample ascertainment |
+| Anatomy | UBERON suggested: **brain**; **frontostriatal circuitry** [structure/system mapping suggested]; **gastrointestinal tract**; **tooth/teeth**; **salivary gland**; **heart** | Neuroimaging review implicates frontostriatal circuits, insula, amygdala, orbitofrontal/anterior cingulate regions; purging complications involve GI tract, teeth, salivary glands, and heart (donnelly2018neuroimaginginbulimia pages 1-2, wilson2024bulimianervosaand pages 1-2, alharbi2024effectivetreatmentapproaches pages 5-6) | Exact UBERON IDs were not provided in evidence; “frontostriatal circuitry” may need post-coordination rather than a single UBERON term |
+| Cellular component / cell type | CL suggested: **neuron**; **peripheral blood mononuclear cell**; **T cell** | BN neurobiology centers on neuronal circuits; immune studies reported altered CD2/CD3/CD4/CD8/CD57 and lower CD4/CD8 ratios, including PBMC-based cytokine studies (butler2021theroleof pages 10-12) | Exact CL IDs not supplied; immune findings are less consistent than neural findings |
+| Biological process | GO suggested: **reward processing** [suggested/unverified GO term mapping]; **inhibitory control** [suggested/unverified GO term mapping]; **serotonin signaling**; **dopamine signaling**; **immune response** | Reviews implicate altered reward sensitivity, food-related attentional bias, impaired inhibitory control, and serotonergic/dopaminergic pathways; immune-response changes are mixed but T-cell alterations reported (donnelly2018neuroimaginginbulimia pages 1-2, barakat2023riskfactorsfor pages 7-8, butler2021theroleof pages 10-12) | “Reward processing” and “inhibitory control” may require nearest GO-process approximations rather than exact labels |
+| Genetics / inheritance | Suggested annotation: **multifactorial, polygenic psychiatric disorder** | BN is described as multifactorial with genetic predisposition, environmental factors, and psychological traits; risk review cites serotonin/dopamine receptor-related polymorphisms, glucocorticoid pathway variants, and 5-HTTLPR involvement (yu2023efficacyofpharmacotherapies pages 1-2, barakat2023riskfactorsfor pages 7-8) | No single causal gene/variant is established for routine clinical use in supplied evidence |
+| Gene–environment interaction | Suggested annotation: **childhood trauma × glucocorticoid/5-HTTLPR risk background** | Childhood trauma/abuse interacting with glucocorticoid receptor polymorphisms and 5-HTTLPR is reported as increasing BN risk; lower cortisol after maltreatment was noted in BN cases vs controls (barakat2023riskfactorsfor pages 7-8) | Evidence is review-level and not sufficient for deterministic biomarker use |
+| Immune / inflammatory annotation | Suggested annotation: **immune dysregulation with inconsistent cytokine signal; T-cell alterations reported** | BN does not show a consistent pro-inflammatory cytokine signature across studies, but reduced CD4/CD8 ratios and lower T-cell markers have been reported (butler2021theroleof pages 10-12) | Confounding by adiposity, comorbidity, treatment, and illness severity limits interpretation |
+| Neurobiology | Suggested annotation: **frontostriatal hypoactivity; aberrant insula/amygdala/OFC/ACC responses** | Neuroimaging synthesis found frontostriatal hypoactivity, altered inhibitory control, and abnormal responses to food/disorder-related cues; illness severity correlates with greater neural changes (donnelly2018neuroimaginginbulimia pages 1-2) | Evidence base is heterogeneous and often underpowered |
+| Epidemiology / onset | Suggested annotation: **adolescent onset; female predominance** | Reviews cite average onset around 16–17 years and median onset around 12.4 years; lifetime prevalence estimates include ~1.5% in females and 0.5% in males, with treatment non-engagement/delay in 85–94% (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2) | Onset/prevalence values vary by source, age window, and ascertainment method |
+| Prognosis / outcomes | Suggested annotation: **remission possible; relapse and mortality remain concerns** | Review-level evidence suggests remission is achievable, with one review citing up to 80% remission with proper treatment; suicide risk and SMR elevations are noted (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3) | Outcome definitions are inconsistent across studies |
+| MAXO treatment concepts | MAXO suggested: **cognitive behavioral therapy (CBT/CBT-E)**; **family-based therapy (FBT)**; **nutritional therapy**; **electrolyte monitoring**; **electrocardiographic monitoring (ECG)** | CBT is consistently first-line; FBT has supportive evidence in adolescents; nutritional therapy and medical monitoring are part of standard care; hospitalization may be required for dehydration/electrolyte disturbance/arrhythmia (gkintoni2024clinicalinterventionstrategies pages 30-31, wilson2024bulimianervosaand pages 2-3, alharbi2024effectivetreatmentapproaches pages 5-6) | Exact MAXO IDs were not supplied in evidence |
+| Pharmacotherapy | Suggested term: **fluoxetine**; broader classes: **SSRIs**, **TCAs**, **MAOIs**, **topiramate** | Meta-analysis of 33 studies found modest benefit of pharmacotherapy for binge frequency, vomiting frequency, weight, and depressive symptoms; SSRIs/fluoxetine are commonly referenced in guideline-style reviews (yu2023efficacyofpharmacotherapies pages 1-2) | Medication effects are modest overall; exact preferred agent hierarchy depends on guideline context |
+| Diagnostic workup | Suggested terms: **clinical interview/DSM criteria**, **electrolytes**, **ECG**, **medical assessment for purging complications** | Diagnosis is clinical, based on binge eating plus compensatory behaviors occurring at least weekly for 3 months; medical workup should assess dehydration, electrolyte abnormalities, and arrhythmias (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 2-3, alharbi2024effectivetreatmentapproaches pages 5-6) | No validated BN-specific molecular biomarker is established in supplied evidence |
 
 
-*Table: This table summarizes key bulimia nervosa treatments across psychotherapy, pharmacotherapy, and emerging digital or neuromodulatory approaches. It highlights study design, trial size, quantitative outcomes, and suggested MAXO mappings to support knowledge-base annotation.*
+*Table: This compact table organizes bulimia nervosa into ontology-ready disease, phenotype, anatomy, mechanism, and treatment annotations using only evidence available in the retrieved context. It is useful as a starting point for knowledge-base population, while clearly marking suggested or unverified ontology IDs where the supplied evidence did not provide exact identifiers.*
 
----
+## Evidence appraisal and authoritative interpretation
 
-## Visual evidence
-Bulimia nervosa sex-stratified prevalence estimates (12-month, lifetime, and point prevalence) are shown in the extracted Box 2 table from the 2023 MJA review. (hay2023currentapproachesin media 4293f313)
+The most reliable current conclusion is that BN is a clinically diagnosed, polygenic and environmentally responsive psychiatric syndrome—not a monogenic, inflammatory, infectious, or biomarker-defined disease. Evidence is strongest for CBT/CBT-E, adolescent FBT, adjunctive fluoxetine, and active medical monitoring. Genetic candidates, microbiome changes, cytokines, neuroimaging, and other omics remain mechanistic research signals rather than clinical tests or treatment-selection biomarkers. (OpenTargets Search: bulimia nervosa, yu2023efficacyofpharmacotherapies pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2, butler2021theroleof pages 10-12, barakat2023riskfactorsfor pages 7-8)
 
----
+Representative exact abstract language includes: **“BN is characterized by recurrent binge eating episodes with inappropriate compensatory behaviors”** in the 2023 pharmacotherapy synthesis, and the neuroimaging review concluded that **“heterogenous”** studies prevented robust conclusions regarding precise neurobiology. The 2024 disparities review’s central real-world warning is that older adults, males, and racial minorities remain systematically underrepresented. (yu2023efficacyofpharmacotherapies pages 1-2, wilson2024bulimianervosaand pages 1-2, donnelly2018neuroimaginginbulimia pages 1-2)
 
-## Limitations of this report (evidence gaps)
-- **MONDO/MeSH/OMIM/Orphanet identifiers** were not retrieved from ontology databases in this tool run; these should be added from authoritative ontology sources.
-- **BN-specific GWAS loci/genes and variant-level annotations** were not available in retrieved sources; evidence here is largely heritability and conceptual mechanistic framing.
-- **Model organisms and cross-species evidence** were not retrieved.
-- **Biomarker diagnostics** are described as underdeveloped; no validated BN biomarker was identified.
+### Key recent sources and URLs
 
----
+* Yu S, et al. *Efficacy of pharmacotherapies for bulimia nervosa: a systematic review and meta-analysis.* **December 2023.** https://doi.org/10.1186/s40360-023-00713-7 (yu2023efficacyofpharmacotherapies pages 1-2)
+* Wilson K, Kagabo R. *Bulimia nervosa and treatment-related disparities: a review.* **August 2024.** https://doi.org/10.3389/fpsyg.2024.1386347 (wilson2024bulimianervosaand pages 1-2, wilson2024bulimianervosaand pages 2-3)
+* Gkintoni E, et al. *Clinical intervention strategies and family dynamics in adolescent eating disorders.* **July 2024.** https://doi.org/10.3390/jcm13144084 (gkintoni2024clinicalinterventionstrategies pages 30-31)
+* Alharbi Y, et al. *Effective treatment approaches for eating disorders in children and adolescents.* **November 2024.** https://doi.org/10.7759/cureus.74003 (alharbi2024effectivetreatmentapproaches pages 5-6)
+* Barakat S, et al. *Risk factors for eating disorders: findings from a rapid review.* **January 2023.** https://doi.org/10.1186/s40337-022-00717-4 (barakat2023riskfactorsfor pages 7-8)
+* Donnelly B, et al. *Neuroimaging in bulimia nervosa and binge eating disorder: a systematic review.* **February 2018.** https://doi.org/10.1186/s40337-018-0187-1 (donnelly2018neuroimaginginbulimia pages 1-2)
+* Butler MJ, et al. *The role of the gut microbiome, immunity, and neuroinflammation in the pathophysiology of eating disorders.* **February 2021.** https://doi.org/10.3390/nu13020500 (butler2021theroleof pages 10-12)
 
-## Key source URLs (selected)
-- Hay et al., *Med J Aust* (2023-06): https://doi.org/10.5694/mja2.52008 (hay2023currentapproachesin pages 2-3)
-- Hay et al., *J Eat Disord* (2023-02): https://doi.org/10.1186/s40337-023-00738-7 (hay2023epidemiologyofeating pages 1-2)
-- Wilson & Kagabo, *Front Psychol* (2024-08): https://doi.org/10.3389/fpsyg.2024.1386347 (wilson2024bulimianervosaand pages 1-2)
-- Ge et al., *J Eat Disord* (2025-06): https://doi.org/10.1186/s40337-025-01289-9 (ge2025globalregionaland pages 2-4)
-- Yu et al., *BMC Pharmacol Toxicol* (2023-12): https://doi.org/10.1186/s40360-023-00713-7 (yu2023efficacyofpharmacotherapies pages 1-2)
-- Goldstein et al., *Br J Psychiatry* (1995-05): https://doi.org/10.1192/bjp.166.5.660 (goldstein1995longtermfluoxetinetreatment pages 1-2)
-- Kozmér et al., *BJGP Open* (2025-10): https://doi.org/10.3399/bjgpo.2025.0149 (kozmer2025accuracyandsuitability pages 1-6)
-
+PMIDs were not exposed in the retrieved full-text metadata and therefore are not fabricated here; DOI URLs are supplied as stable primary identifiers.
 
 References
 
-1. (wilson2024bulimianervosaand pages 2-3): Kim Wilson and Robert Kagabo. Bulimia nervosa and treatment-related disparities: a review. Frontiers in Psychology, Aug 2024. URL: https://doi.org/10.3389/fpsyg.2024.1386347, doi:10.3389/fpsyg.2024.1386347. This article has 11 citations and is from a peer-reviewed journal.
+1. (yu2023efficacyofpharmacotherapies pages 1-2): Sijie Yu, Yuhan Zhang, Chongkai Shen, and Fei Shao. Efficacy of pharmacotherapies for bulimia nervosa: a systematic review and meta-analysis. BMC Pharmacology and Toxicology, Dec 2023. URL: https://doi.org/10.1186/s40360-023-00713-7, doi:10.1186/s40360-023-00713-7. This article has 23 citations.
 
-2. (hay2023epidemiologyofeating pages 1-2): Phillipa Hay, Phillip Aouad, Anvi Le, Peta Marks, Danielle Maloney, Sarah Barakat, Robert Boakes, Leah Brennan, Emma Bryant, Susan Byrne, Belinda Caldwell, Shannon Calvert, Bronny Carroll, David Castle, Ian Caterson, Belinda Chelius, Lyn Chiem, Simon Clarke, Janet Conti, Lexi Crouch, Genevieve Dammery, Natasha Dzajkovski, Jasmine Fardouly, John Feneley, Nasim Foroughi, Mathew Fuller-Tyszkiewicz, Anthea Fursland, Veronica Gonzalez-Arce, Bethanie Gouldthorp, Kelly Griffin, Scott Griffiths, Ashlea Hambleton, Amy Hannigan, Mel Hart, Susan Hart, Ian Hickie, Francis Kay-Lambkin, Ross King, Michael Kohn, Eyza Koreshe, Isabel Krug, Jake Linardon, Randall Long, Amanda Long, Sloane Madden, Siân McLean, Thy Meddick, Jane Miskovic-Wheatley, Deborah Mitchison, Richard O’Kearney, Roger Paterson, Susan Paxton, Melissa Pehlivan, Genevieve Pepin, Andrea Phillipou, Judith Piccone, Rebecca Pinkus, Bronwyn Raykos, Paul Rhodes, Elizabeth Rieger, Karen Rockett, Sarah Rodan, Janice Russell, Haley Russell, Fiona Salter, Susan Sawyer, Beth Shelton, Urvashnee Singh, Sophie Smith, Evelyn Smith, Karen Spielman, Sarah Squire, Juliette Thomson, Marika Tiggemann, Ranjani Utpala, Lenny Vartanian, Andrew Wallis, Warren Ward, Sarah Wells, Eleanor Wertheim, Simon Wilksch, Michelle Williams, Stephen Touyz, and Sarah Maguire. Epidemiology of eating disorders: population, prevalence, disease burden and quality of life informing public policy in australia—a rapid review. Journal of Eating Disorders, Feb 2023. URL: https://doi.org/10.1186/s40337-023-00738-7, doi:10.1186/s40337-023-00738-7. This article has 189 citations and is from a peer-reviewed journal.
+2. (wilson2024bulimianervosaand pages 1-2): Kim Wilson and Robert Kagabo. Bulimia nervosa and treatment-related disparities: a review. Frontiers in Psychology, Aug 2024. URL: https://doi.org/10.3389/fpsyg.2024.1386347, doi:10.3389/fpsyg.2024.1386347. This article has 13 citations and is from a peer-reviewed journal.
 
-3. (ge2025globalregionaland pages 2-4): Yihao Ge, Shanshan Zhang, Zekun Li, Hongmin Guo, Xiaohan Li, Zhiyong Li, Fang Dong, and Feng Zhang. Global, regional and national level burden of bulimia nervosa from 1990 to 2021 and their projections to 2030: analysis of the global burden of disease study. Journal of Eating Disorders, Jun 2025. URL: https://doi.org/10.1186/s40337-025-01289-9, doi:10.1186/s40337-025-01289-9. This article has 1 citations and is from a peer-reviewed journal.
+3. (donnelly2018neuroimaginginbulimia pages 1-2): Brooke Donnelly, Stephen Touyz, Phillipa Hay, Amy Burton, Janice Russell, and Ian Caterson. Neuroimaging in bulimia nervosa and binge eating disorder: a systematic review. Journal of Eating Disorders, Feb 2018. URL: https://doi.org/10.1186/s40337-018-0187-1, doi:10.1186/s40337-018-0187-1. This article has 177 citations and is from a peer-reviewed journal.
 
-4. (goldstein1995longtermfluoxetinetreatment pages 1-2): David J. Goldstein, Michael G. Wilson, Vicki L. Thompson, Janet H. Potvin, and Alvin H. Rampey. Long-term fluoxetine treatment of bulimia nervosa. British Journal of Psychiatry, 166:660-666, May 1995. URL: https://doi.org/10.1192/bjp.166.5.660, doi:10.1192/bjp.166.5.660. This article has 301 citations and is from a highest quality peer-reviewed journal.
+4. (barakat2023riskfactorsfor pages 7-8): Sarah Barakat, S. McLean, E. Bryant, Ân H. Lê, P. Marks, Phillip Sarah Robert Leah Emma Susan Belinda Shannon Bronn Aouad Barakat Boakes Brennan Bryant Byrne Caldwell, P. Aouad, Sarah Barakat, R. Boakes, L. Brennan, S. Byrne, Belinda Caldwell, S. Calvert, B. Carroll, D. Castle, I. Caterson, Belinda Chelius, Lyn Chiem, S. Clarke, J. Conti, Lexi Crouch, Genevieve Dammery, Natasha Dzajkovski, J. Fardouly, Carmen Felicia, John Feneley, Amber-Marie Firriolo, N. Foroughi, M. Fuller-Tyszkiewicz, A. Fursland, V. Gonzalez-Arce, Bethanie Gouldthorp, Kelly Griffin, S. Griffiths, A. Hambleton, A. Hannigan, Melissa Hart, S. Hart, P. Hay, I. Hickie, Francis Kay-Lambkin, R. King, M. Kohn, E. Koreshe, I. Krug, Ân H. Lê, Jake Linardon, Randall Long, Amanda Long, S. Madden, S. Maguire, D. Maloney, S. McLean, Thy Meddick, J. Miskovic-Wheatley, Deborah Mitchison, R. O’Kearney, S. Ong, R. Paterson, S. Paxton, Melissa J Pehlivan, G. Pépin, A. Phillipou, J. Piccone, R. Pinkus, Bronwyn C Raykos, P. Rhodes, E. Rieger, Sarah Rodan, Karen Rockett, J. Russell, H. Russell, Fiona Salter, Susan S. Sawyer, Beth. Shelton, Urvashnee Singh, Sophie Smith, Evelyn Smith, K. Spielman, S. Squire, J. Thomson, M. Tiggemann, S. Touyz, Ranjani Utpala, L. Vartanian, Andrew Wallis, W. Ward, Sarah Wells, E. Wertheim, S. Wilksch, and Michelle Williams. Risk factors for eating disorders: findings from a rapid review. Journal of Eating Disorders, Jan 2023. URL: https://doi.org/10.1186/s40337-022-00717-4, doi:10.1186/s40337-022-00717-4. This article has 580 citations and is from a peer-reviewed journal.
 
-5. (yu2023efficacyofpharmacotherapies pages 1-2): Sijie Yu, Yuhan Zhang, Chongkai Shen, and Fei Shao. Efficacy of pharmacotherapies for bulimia nervosa: a systematic review and meta-analysis. BMC Pharmacology and Toxicology, Dec 2023. URL: https://doi.org/10.1186/s40360-023-00713-7, doi:10.1186/s40360-023-00713-7. This article has 19 citations.
+5. (gkintoni2024clinicalinterventionstrategies pages 30-31): Evgenia Gkintoni, Elias Kourkoutas, Stephanos P. Vassilopoulos, and Maria Mousi. Clinical intervention strategies and family dynamics in adolescent eating disorders: a scoping review for enhancing early detection and outcomes. Jul 2024. URL: https://doi.org/10.3390/jcm13144084, doi:10.3390/jcm13144084. This article has 45 citations.
 
-6. (horovitz2025advancementsinthe pages 1-2): Omer Horovitz. Advancements in the diagnosis and treatment of eating disorders in children and adolescents: challenges, progress, and future directions. Nutrients, 17:1744, May 2025. URL: https://doi.org/10.3390/nu17101744, doi:10.3390/nu17101744. This article has 10 citations.
+6. (alharbi2024effectivetreatmentapproaches pages 5-6): Yara Alharbi, Fatema Saleh, and Khaled A Shahat. Effective treatment approaches for eating disorders in children and adolescents: a review article. Cureus, Nov 2024. URL: https://doi.org/10.7759/cureus.74003, doi:10.7759/cureus.74003. This article has 7 citations.
 
-7. (liu2025globaltrendsand pages 2-3): Lu Liu, Ke Wang, Mengqin Dai, Wenxiu Luo, Lei Tang, Xianghong Ding, Yun Liu, Liling Wu, Nian Liu, and Jiaming Luo. Global trends and future projections of eating disorders among adolescents and young adults: comprehensive analysis from 1990 to 2050 using eight machine-learning models. The British Journal of Psychiatry, pages 1-15, Nov 2025. URL: https://doi.org/10.1192/bjp.2025.10450, doi:10.1192/bjp.2025.10450. This article has 2 citations.
+7. (OpenTargets Search: bulimia nervosa): Open Targets Query (bulimia nervosa, 0 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
 
-8. (wong2024epigeneticsofeating pages 1-2): Chloe Wong, Sang Hyuck Lee, Ying-Young Hui, Gerome Breen, and Moritz Herle. Epigenetics of eating disorders: from genetic and molecular pathways to therapeutic possibilities. Cutting Edge Psychiatry in Practice, 6:18-25, Dec 2024. URL: https://doi.org/10.65031/rzeq8592, doi:10.65031/rzeq8592. This article has 0 citations.
+8. (wilson2024bulimianervosaand pages 2-3): Kim Wilson and Robert Kagabo. Bulimia nervosa and treatment-related disparities: a review. Frontiers in Psychology, Aug 2024. URL: https://doi.org/10.3389/fpsyg.2024.1386347, doi:10.3389/fpsyg.2024.1386347. This article has 13 citations and is from a peer-reviewed journal.
 
-9. (wilson2024bulimianervosaand pages 1-2): Kim Wilson and Robert Kagabo. Bulimia nervosa and treatment-related disparities: a review. Frontiers in Psychology, Aug 2024. URL: https://doi.org/10.3389/fpsyg.2024.1386347, doi:10.3389/fpsyg.2024.1386347. This article has 11 citations and is from a peer-reviewed journal.
+9. (butler2021theroleof pages 10-12): Michael J. Butler, Alexis A. Perrini, and Lisa A. Eckel. The role of the gut microbiome, immunity, and neuroinflammation in the pathophysiology of eating disorders. Nutrients, 13:500, Feb 2021. URL: https://doi.org/10.3390/nu13020500, doi:10.3390/nu13020500. This article has 109 citations.
 
-10. (kozmer2025accuracyandsuitability pages 1-6): Stella Kozmér, Ruichen Yin, Joseph Evans, Alex Burns, and Jane Smith. Accuracy and suitability of eating disorder screening tools for binge eating disorder and bulimia nervosa in a primary care setting: a systematic review and narrative summary. BJGP Open, pages BJGPO.2025.0149, Oct 2025. URL: https://doi.org/10.3399/bjgpo.2025.0149, doi:10.3399/bjgpo.2025.0149. This article has 0 citations and is from a peer-reviewed journal.
+## Artifacts
 
-11. (meijsen2025sharedgeneticarchitecture pages 1-4): Joeri Meijsen, Kejia Hu, Dang Wei, Stefana Aicoboaie, Helena L Davies, Ruyue Zhang, Mischa Lundberg, Richard Zetterberg, Joëlle Pasman, Weimin Ye, Thomas Werge, Cynthia M. Bulik, Fang Fang, Alfonso Buil, and Nadia Micali. Shared genetic architecture between eating disorders, mental health conditions, and cardiometabolic diseases: a comprehensive population-wide study across two countries. MedRxiv, Oct 2025. URL: https://doi.org/10.1101/2024.10.20.24315825, doi:10.1101/2024.10.20.24315825. This article has 6 citations.
-
-12. (davies2025mappingthegenetic pages 5-8): Helena L. Davies, Abigail R. ter Kuile, Sang Hyuck Lee, Rujia Wang, Jessica Mundy, Zain-Ul-Abideen Ahmad, Jonathan Coleman, Saakshi Kakar, Emily Kelly, Chelsea Mika Malouf, Gursharan Kalsi, Moritz Herle, Gerome Breen, and Christopher Hübel. Mapping the genetic landscape of the age at onset and severity of eating disorder symptoms. MedRxiv, Sep 2025. URL: https://doi.org/10.1101/2025.09.25.25336612, doi:10.1101/2025.09.25.25336612. This article has 0 citations.
-
-13. (alharbi2024effectivetreatmentapproaches pages 5-6): Yara Alharbi, Fatema Saleh, and Khaled A Shahat. Effective treatment approaches for eating disorders in children and adolescents: a review article. Cureus, Nov 2024. URL: https://doi.org/10.7759/cureus.74003, doi:10.7759/cureus.74003. This article has 4 citations.
-
-14. (ahmed2025psychologicalapproachesfor pages 3-6): Fatema Ahmed, Chen Wu, Li Li, Qingyuan Ye, Waleed Ksebe, and Kefang Wang. Psychological approaches for eating disorders: the role of body image, self-esteem, and quality of life. Psychotherapy in the Third Millennium - Cross-Cutting Themes and Proposals for Reflection, Mar 2025. URL: https://doi.org/10.5772/intechopen.1009601, doi:10.5772/intechopen.1009601. This article has 4 citations.
-
-15. (hay2023currentapproachesin pages 2-3): Phillipa J. Hay, Rebekah M. Rankin, Lucie M. Ramjan, and J. Conti. Current approaches in the recognition and management of eating disorders. Medical Journal of Australia, 219:127-134, Jun 2023. URL: https://doi.org/10.5694/mja2.52008, doi:10.5694/mja2.52008. This article has 21 citations and is from a peer-reviewed journal.
-
-16. (hay2023currentapproachesin media 4293f313): Phillipa J. Hay, Rebekah M. Rankin, Lucie M. Ramjan, and J. Conti. Current approaches in the recognition and management of eating disorders. Medical Journal of Australia, 219:127-134, Jun 2023. URL: https://doi.org/10.5694/mja2.52008, doi:10.5694/mja2.52008. This article has 21 citations and is from a peer-reviewed journal.
-
-17. (amiri2025trendsprevalenceincidence pages 1-2): Sohrab Amiri and Seyed Morteza Hosseini. Trends, prevalence, incidence, and disability-adjusted life years of anorexia nervosa and bulimia nervosa in iran: global burden of disease study. Eating and Weight Disorders, Jul 2025. URL: https://doi.org/10.1007/s40519-025-01769-6, doi:10.1007/s40519-025-01769-6. This article has 0 citations.
-
-18. (kozmer2025accuracyandsuitability pages 14-18): Stella Kozmér, Ruichen Yin, Joseph Evans, Alex Burns, and Jane Smith. Accuracy and suitability of eating disorder screening tools for binge eating disorder and bulimia nervosa in a primary care setting: a systematic review and narrative summary. BJGP Open, pages BJGPO.2025.0149, Oct 2025. URL: https://doi.org/10.3399/bjgpo.2025.0149, doi:10.3399/bjgpo.2025.0149. This article has 0 citations and is from a peer-reviewed journal.
-
-19. (lynch2025eatingdisordersclinical pages 3-4): D. Lynch, H. Ogutlu, O. Gundogdu-Ogutlu, E. Barrett, and F. McNicholas. Eating disorders: clinical update. Irish Journal of Psychological Medicine, pages 1-5, Jan 2025. URL: https://doi.org/10.1017/ipm.2024.47, doi:10.1017/ipm.2024.47. This article has 2 citations.
+- [Edison artifact artifact-00](Bulimia_Nervosa-deep-research-falcon_artifacts/artifact-00.md)

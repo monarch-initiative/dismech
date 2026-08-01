@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5114/dr.2024.140820"
+reference_id: DOI:10.5114/dr.2024.140820
 title: Polish guidelines for the diagnosis and treatment of hidradenitis suppurativa
 authors:
 - Łukasz Matusiak
@@ -18,6 +18,7 @@ journal: Dermatology Review
 year: '2024'
 doi: 10.5114/dr.2024.140820
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Polish guidelines for the diagnosis and treatment of hidradenitis suppurativa

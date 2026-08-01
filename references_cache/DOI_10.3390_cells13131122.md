@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13131122"
+reference_id: DOI:10.3390/cells13131122
 title: "H3K27-Altered Diffuse Midline Glioma of the Brainstem: From Molecular Mechanisms to Targeted Interventions"
 authors:
 - Leo F. Nonnenbroich
@@ -12,6 +12,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13131122
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # H3K27-Altered Diffuse Midline Glioma of the Brainstem: From Molecular Mechanisms to Targeted Interventions

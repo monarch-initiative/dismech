@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16010113"
+reference_id: DOI:10.3390/cancers16010113
 title: The Impact of BRAF V600E Mutation Allele Frequency on the Histopathological Characteristics of Thyroid Cancer
 authors:
 - Mawaddah Abdulhaleem
@@ -15,6 +15,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers16010113
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Impact of BRAF V600E Mutation Allele Frequency on the Histopathological Characteristics of Thyroid Cancer

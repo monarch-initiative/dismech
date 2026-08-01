@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/kinasesphosphatases1010006"
+reference_id: DOI:10.3390/kinasesphosphatases1010006
 title: Therapeutic Perspectives on ROCK Inhibition for Cerebral Cavernous Malformations
 authors:
 - Tadeu L. Montagnoli
@@ -9,6 +9,7 @@ journal: Kinases and Phosphatases
 year: '2023'
 doi: 10.3390/kinasesphosphatases1010006
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Therapeutic Perspectives on ROCK Inhibition for Cerebral Cavernous Malformations

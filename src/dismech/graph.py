@@ -8,12 +8,13 @@ generates Mermaid flowchart code and pathograph JSON for visualization.
 """
 
 import json
+import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 
 @dataclass
@@ -173,9 +174,7 @@ def _genetic_item_infers_mechanism_edges(item: dict[str, Any]) -> bool:
     """Return whether a genetic item should auto-link to matching mechanisms."""
     relationship_type = item.get("relationship_type")
     if isinstance(relationship_type, str):
-        if relationship_type.upper() in _NON_CONTRIBUTING_RELATIONSHIP_TYPES:
-            return False
-        return True
+        return relationship_type.upper() not in _NON_CONTRIBUTING_RELATIONSHIP_TYPES
 
     association = item.get("association")
     if not isinstance(association, str):
@@ -612,9 +611,7 @@ def generate_mermaid(graph: CausalGraph) -> str:
         source_id = node_ids[edge.source]
         target_id = node_ids[edge.target]
         # Use dashed line for edges to orphan targets
-        if edge.target in graph.orphan_targets:
-            lines.append(f"    {source_id} -.-> {target_id}")
-        elif edge.predicate == "readout":
+        if edge.target in graph.orphan_targets or edge.predicate == "readout":
             lines.append(f"    {source_id} -.-> {target_id}")
         else:
             lines.append(f"    {source_id} --> {target_id}")
@@ -1232,7 +1229,7 @@ def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
         if yaml_path.name.endswith(".history.yaml"):
             continue
         with open(yaml_path) as f:
-            disorder = yaml.safe_load(f)
+            disorder = safe_load(f)
 
         graph = build_causal_graph(disorder)
         if graph.integrity_issues:
@@ -1266,14 +1263,14 @@ def main():
                 for issue in disorder_issues:
                     print(f"  - {issue}")
                 print()
-            exit(1)
+            sys.exit(1)
         else:
             print("All disorders have valid causal graphs.")
 
     elif args.show:
         yaml_path = Path(args.show)
         with open(yaml_path) as f:
-            disorder = yaml.safe_load(f)
+            disorder = safe_load(f)
 
         graph = build_causal_graph(disorder)
         mermaid_code = generate_mermaid(graph)

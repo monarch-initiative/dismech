@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/014107680609901011"
+reference_id: DOI:10.1177/014107680609901011
 title: "Meckel's Diverticulum: a Systematic Review"
 authors:
 - Jayesh Sagar
@@ -9,6 +9,7 @@ journal: Journal of the Royal Society of Medicine
 year: '2006'
 doi: 10.1177/014107680609901011
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Meckel's Diverticulum: a Systematic Review

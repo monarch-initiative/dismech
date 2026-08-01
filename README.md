@@ -2,22 +2,31 @@
 
 A curated knowledge base of disease pathophysiology, with structured evidence from the literature.
 
+## ⚠️ Disclaimer: AI-curated, and not medical advice
+
+- **DisMech is AI-curated and AI-maintained.** Most content is generated and maintained by AI curation agents, with human review as the pull-request gate. Automated validation guarantees that citations exist, quoted snippets are exact, and ontology terms are real — it does **not** guarantee scientific correctness.
+- **DisMech is not medical advice.** The contents of this resource are not intended to inform medical diagnosis or treatment. Inclusion of any statement or approach in a DisMech page is purely the result of generative methods and human review applied to publicly accessible literature, data, and other curated biomedical knowledge resources. If you have a health concern, consult a qualified healthcare professional.
+
+Full statement: [docs/disclaimer.md](docs/disclaimer.md) · rationale: [Design Decisions §11](docs/explanation/design-decisions.md#11-reader-facing-disclaimers-ai-curation--not-medical-advice)
+
 ## Browse the Knowledge Base
 
-**[View all disorders online](https://dismech.monarchinitiative.org/app/)** | **[QC Dashboard](https://dismech.monarchinitiative.org/dashboard/)** | **[Priority Dashboard](https://dismech.monarchinitiative.org/dashboard/priority.html)**
+**[View all disorders online](https://dismech.monarchinitiative.org/app/)**
 
 Each disorder page includes:
 - Disease mechanisms and pathophysiology
 - Clinical phenotypes with HPO term links
 - Genetic factors and variants
-- Treatment options with MAXO term links
+- Treatment options with NCIT term links
 - All claims backed by PubMed evidence
 
 ## How It Works
 
 ### Project Overview Slides
 
-- [DisMech presentation slides from February 2026](https://docs.google.com/presentation/d/1XrbLle8gVQQcoT8IzpIfll4VnUl_68mQVTa6cIzN2vs/edit?usp=sharing)
+- [Unlocking Disease Mechanisms: Agentic AI for Clinical Knowledge](https://zenodo.org/records/18720444) - TMC AI Keynote
+- [Assembling mechanistic evidence for rare disease surrogate endpoints: the role of AI and NAMs](https://zenodo.org/records/18720444)
+- [ICBO 2026](https://docs.google.com/presentation/d/1QxoM2ngynnsAMs35O-nOC8yZ1ezSEkNttkwuv8pRXxU/edit)
 
 ### Source of Truth: YAML Files
 
@@ -52,8 +61,8 @@ treatments:
     treatment_term:
       preferred_term: respiratory tract agent therapy
       term:
-        id: MAXO:0000312
-        label: respiratory tract agent therapy
+        id: NCIT:C15986
+        label: Pharmacotherapy
 ```
 
 ### Ontology Bindings
@@ -63,7 +72,7 @@ Entities are linked to authoritative ontologies:
 - **Cell types**: Cell Ontology (CL)
 - **Biological processes**: Gene Ontology (GO)
 - **Diseases**: Mondo Disease Ontology (MONDO)
-- **Treatments**: Medical Action Ontology (MAXO)
+- **Treatments**: NCI Thesaurus (NCIT)
 - **Anatomy**: Uberon (UBERON)
 
 ### Evidence Requirements
@@ -208,7 +217,7 @@ The `/curate` command triggers a full curation workflow: deep literature researc
 You can also ask the agent open-ended questions, request targeted edits, or run QC:
 
 ```
-> Add MAXO treatment terms to the Asthma entry
+> Add NCIT treatment terms to the Asthma entry
 > Validate references in kb/disorders/Lupus.yaml
 > Which files have the lowest compliance scores?
 ```

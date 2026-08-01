@@ -41,6 +41,7 @@ def test_overt_hypothyroidism_activates_phenotypes():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "HP:0002925" in result.stdout  # Elevated TSH
@@ -55,6 +56,7 @@ def test_levothyroxine_full_replacement_rescues():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "HP:0002925" not in result.stdout  # TSH normalized
@@ -69,6 +71,7 @@ def test_levothyroxine_over_replacement_causes_thyrotoxicosis():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "HP:0000836" in result.stdout  # Hyperthyroidism
@@ -82,6 +85,7 @@ def test_central_hypothyroidism_has_no_elevated_tsh():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "HP:0000821" in result.stdout  # Hypothyroidism (low free T4)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13020578"
+reference_id: DOI:10.3390/jcm13020578
 title: "Primary Lateral Sclerosis: An Overview"
 authors:
 - Veria Vacchiano
@@ -10,6 +10,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13020578
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Primary Lateral Sclerosis: An Overview

@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT01793168"
+reference_id: clinicaltrials:NCT01793168
 title: Coordination of Rare Diseases at Sanford
 content_type: summary
 full_text_attempted: true
