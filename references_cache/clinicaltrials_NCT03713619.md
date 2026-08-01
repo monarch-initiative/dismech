@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03713619"
+reference_id: clinicaltrials:NCT03713619
 title: "A Randomized, Double-blind, Multi-center Study Assessing Short (16 Weeks) and Long-term Efficacy (up to 1 Year), Safety, and Tolerability of 2 Subcutaneous Secukinumab Dose Regimens in Adult Patients With Moderate to Severe Hidradenitis Suppurativa (SUNSHINE)."
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized, Double-blind, Multi-center Study Assessing Short (16 Weeks) and Long-term Efficacy (up to 1 Year), Safety, and Tolerability of 2 Subcutaneous Secukinumab Dose Regimens in Adult Patients With Moderate to Severe Hidradenitis Suppurativa (SUNSHINE).

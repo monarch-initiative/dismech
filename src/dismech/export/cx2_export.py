@@ -19,7 +19,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 import networkx as nx
-import yaml
 from ndex2.client import Ndex2
 from ndex2.cx2 import CX2Network, CX2NetworkXFactory
 
@@ -32,6 +31,7 @@ from dismech.graph import (
     build_causal_graph,
     graph_to_json,
 )
+from dismech.yaml_io import safe_load
 
 logger = logging.getLogger(__name__)
 
@@ -362,7 +362,7 @@ VISUAL_EDITOR_PROPERTIES = {
 def load_disorder(yaml_path: Path) -> dict[str, Any]:
     """Load a disorder YAML file."""
     with open(yaml_path) as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
     if not isinstance(data, dict):
         raise ValueError(f"Expected mapping in {yaml_path}")
     return data
@@ -373,7 +373,7 @@ def _load_prefix_map() -> dict[str, str]:
     """Load CURIE prefix mappings from the schema."""
     if not _SCHEMA_PATH.exists():
         return {}
-    data = yaml.safe_load(_SCHEMA_PATH.read_text())
+    data = safe_load(_SCHEMA_PATH.read_text())
     prefixes = data.get("prefixes", {}) if isinstance(data, dict) else {}
     return {
         prefix: base
