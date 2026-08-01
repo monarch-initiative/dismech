@@ -173,6 +173,27 @@ Covariate coefficients go in `covariate_effects` with a mandatory
 `coefficient_scale` — a coefficient on a latent logit scale is not a probability
 difference and cannot be read as one.
 
+### What the distribution is over
+
+The single most important fact about a profile is its **feature namespace** —
+the identifier system its features are drawn from. Declare it per domain
+(`ModelDomain.feature_namespace`); the lint warns when a model-derived
+collection leaves it unset.
+
+Profiles are distributions over **clinical codes, not ontology terms**. Current
+CHARMPheno work is over OMOP concept IDs from harmonized All of Us data.
+Plausible future work is over the source terminologies (ICD, LOINC, RxNorm,
+SNOMED). A mappable MONDO/HP subset is a distant and deliberately lossy option,
+not the default — so a reader who assumes a component's top features are HPO
+terms, because dismech is HPO-centric, is wrong today for every existing
+profile.
+
+Keep this separate from the vocabulary used to *identify* the cohort, which is
+routinely different and drifting independently: recent fits identify the target
+cohort with MONDO and place patients automatically with SNOMED while still
+producing profiles over OMOP concept IDs. `CohortDescriptor.cohort_identification_vocabulary`
+records that side.
+
 ### A component is not a disease concept
 
 `LatentPhenotype` separates what the model produced (`top_features`,

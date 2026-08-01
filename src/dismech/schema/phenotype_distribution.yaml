@@ -47,7 +47,11 @@ description: >-
   So the model layer here is restricted to what LDA, HDP, structural topic
   models, matrix factorizations, mixtures, and their successors all share:
 
-  * a **component** with an identity, a label, and ranked weighted features;
+  * a **component** with an identity, a label, and ranked weighted features
+    over a **declared feature namespace** — profiles are distributions over
+    *clinical codes*, currently OMOP concept IDs, not over MONDO or HPO terms.
+    That mapping is lossy and is not what the models emit, so the namespace is
+    declared per domain rather than assumed;
   * a **distribution of component weight** over a population, expressible as an
     empirical distribution, a Dirichlet, or a logistic-normal;
   * optional **covariate dependence** of component prevalence, recorded as a
@@ -624,6 +628,48 @@ enums:
           likely too narrow.
       OTHER:
         description: Other bias risk; describe it in `caveats`.
+
+  FeatureNamespaceEnum:
+    description: >-
+      The identifier system a latent phenotype's features are drawn from — what
+      the distribution is actually *over*.
+
+      This is the single most important fact about a profile and must never be
+      assumed. Profiles are distributions over **clinical codes**, not over
+      ontology terms: current work is over OMOP concept IDs (from harmonized
+      All of Us data), plausible future work is over the source terminologies
+      (ICD, LOINC, RxNorm, SNOMED), and a mappable MONDO/HP subset is a distant
+      and deliberately lossy option rather than the default. A consumer that
+      reads a component's top features as HPO terms because dismech is
+      HPO-centric would be wrong today for every existing profile.
+
+      Terminology identities are stable even though model internals churn, so
+      this is an enum rather than an escape-hatch property; `OTHER` plus
+      `feature_namespace_detail` covers anything unlisted.
+    permissible_values:
+      OMOP_CONCEPT_ID:
+        description: >-
+          OMOP standard concept identifiers, the current feature space for
+          CHARMPheno profiles over harmonized All of Us data.
+      SNOMED_CT:
+        description: SNOMED CT concept identifiers.
+      ICD:
+        description: An ICD revision (ICD-9-CM, ICD-10-CM, ICD-11); name it in the detail slot.
+      LOINC:
+        description: LOINC codes, typically for laboratory measurement features.
+      RXNORM:
+        description: RxNorm identifiers for drug-exposure features.
+      MONDO:
+        description: >-
+          MONDO disease terms. Rare as a feature space and lossy relative to
+          source codes; more often the vocabulary used to *identify* a cohort
+          than the one the distribution ranges over.
+      HP:
+        description: >-
+          HPO phenotype terms. As with MONDO, lossy relative to source clinical
+          codes and not the default feature space.
+      OTHER:
+        description: Another identifier system; name it in `feature_namespace_detail`.
 
   ProvenanceTierEnum:
     description: >-
@@ -1536,8 +1582,29 @@ slots:
     minimum_value: 0.0
     maximum_value: 1.0
   feature_id:
-    description: Identifier of the feature (e.g. an OMOP concept id or code CURIE).
+    description: >-
+      Identifier of the feature, drawn from the domain's declared
+      `feature_namespace` (e.g. an OMOP concept id). Do not assume it is an
+      ontology term — see `FeatureNamespaceEnum`.
     required: true
+  feature_namespace:
+    description: >-
+      Identifier system this domain's `feature_id` values are drawn from.
+      Declare it: a profile whose feature space is unstated cannot be read
+      correctly, and the answer has already changed once and is expected to
+      change again.
+    range: FeatureNamespaceEnum
+  feature_namespace_detail:
+    description: >-
+      Free-text refinement of the namespace — the ICD revision, the OMOP
+      vocabulary release, or the system named when `feature_namespace` is OTHER.
+  cohort_identification_vocabulary:
+    description: >-
+      Vocabulary used to *identify* the cohort, when it differs from the
+      feature space the distribution ranges over. These are routinely different
+      and the difference is easy to lose: a recent fit identifies its target
+      cohort with MONDO and places patients automatically with SNOMED, while
+      the profiles it produces are over OMOP concept IDs.
 
   # --- generic model properties ---
   model_properties:
@@ -2017,6 +2084,7 @@ classes:
       - data_source_name
       - ascertainment
       - case_definition
+      - cohort_identification_vocabulary
       - definition_ref
       - geography
       - care_setting
@@ -2192,6 +2260,8 @@ classes:
     slots:
       - domain_name
       - vocabulary
+      - feature_namespace
+      - feature_namespace_detail
       - n_features
       - domain_role
       - reliability

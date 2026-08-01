@@ -614,6 +614,28 @@ def lint_collections(
     known_entries = {kind: _entry_names(d) for kind, d in _TARGET_DIRS.items()}
     result = LintResult(n_collections=len(collections))
 
+    for coll in collections:
+        # A model-derived collection whose feature space is undeclared cannot be
+        # read correctly: the codes could be OMOP concepts, source terminology
+        # codes, or ontology terms, and a consumer that guesses wrong misreads
+        # every component. Warn rather than error, since older collections
+        # predate the slot.
+        if coll.data.get("model"):
+            for domain in coll.data.get("domains") or []:
+                if not domain.get("feature_namespace"):
+                    result.issues.append(
+                        Issue(
+                            coll.path,
+                            "",
+                            "WARNING",
+                            (
+                                f"domain {domain.get('domain_name')!r} does not "
+                                "declare a `feature_namespace`; what the "
+                                "distribution ranges over should not be guessed"
+                            ),
+                        )
+                    )
+
     seen: dict[str, Path] = {}
     for coll, record in iter_records(collections):
         result.n_records += 1
