@@ -35,16 +35,27 @@ shape identifies it unambiguously.
 Baseline ratchet
 ----------------
 A large pre-existing backlog already lives in ``kb/``. To let this gate *new*
-occurrences without first cleaning up the backlog, current findings are
-grandfathered in ``tests/snippet_length_baseline.txt``. ``--check`` (the
-default) fails only on findings NOT in the baseline. Regenerate with
-``--update-baseline`` after intentionally changing the set.
+occurrences without first cleaning up the backlog, the current findings are
+grandfathered. ``--check`` (the default) fails only on findings NOT in the
+baseline. There are two ways to source that baseline:
+
+* ``--against-ref REF`` (env ``SNIPPET_BASELINE_REF``) derives it *live* from
+  the short snippets already in ``kb/`` at a git ref -- CI sets it to the base
+  branch (``origin/main``). Nothing is stored, so the base branch is green by
+  construction and parallel merges have nothing to clobber. This is the primary
+  path in CI.
+* ``tests/snippet_length_baseline.txt`` is the committed fallback used when no
+  ref is given or the ref can't be read (local runs, shallow checkouts, forks).
+  It is a *best-effort* snapshot: CI no longer reads it, so it may lag ``main``
+  and can produce local-only spurious findings until regenerated with
+  ``--update-baseline``.
 
 Usage
 -----
-    python scripts/check_snippet_length.py            # gate: fail on NEW ones
-    python scripts/check_snippet_length.py --all      # list every finding
-    python scripts/check_snippet_length.py --count    # summary counts
+    python scripts/check_snippet_length.py                        # gate: fail on NEW ones
+    python scripts/check_snippet_length.py --against-ref origin/main  # grandfather vs a ref
+    python scripts/check_snippet_length.py --all                 # list every finding
+    python scripts/check_snippet_length.py --count               # summary counts
     python scripts/check_snippet_length.py --update-baseline
 """
 
@@ -220,23 +231,35 @@ def baseline_from_ref(ref: str, root: Path = ROOT) -> Counter | None:
     construction, and a PR fails only on snippets it *adds* over the base.
 
     Returns ``None`` if *ref* cannot be read (no git, ref absent in a shallow
-    checkout, ...), so the caller can fall back to the committed baseline.
+    checkout, path missing at the ref, ...), so the caller can fall back to the
+    committed baseline. On failure git's own stderr is surfaced, so a CI
+    misconfiguration (e.g. a stale ``origin/main`` in a shallow checkout) is
+    diagnosable rather than a silent capability downgrade.
     """
-    scan_rel = SCAN_DIR.relative_to(root).as_posix()
+    # Relative to the real ROOT (always ``kb``), not *root*: tests pass a
+    # throwaway repo as *root* while the layout under it is still ``kb/``.
+    scan_rel = SCAN_DIR.relative_to(ROOT).as_posix()
     try:
-        archive = subprocess.run(
-            ["git", "-C", str(root), "archive", ref, "--", scan_rel],
+        proc = subprocess.run(
+            ["git", "-C", str(root), "archive", "--format=tar", ref, "--", scan_rel],
             capture_output=True,
-            check=True,
-        ).stdout
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        )
+    except (FileNotFoundError, OSError) as exc:
+        print(f"snippet baseline: git archive for {ref!r} could not run: {exc}",
+              file=sys.stderr)
         return None
-    if not archive:
+    if proc.returncode != 0:
+        detail = proc.stderr.decode("utf-8", "replace").strip() or f"exit {proc.returncode}"
+        print(f"snippet baseline: git archive {ref!r} failed: {detail}", file=sys.stderr)
         return None
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
-        with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
-            tar.extractall(tmp_path)  # noqa: S202 - trusted git-authored archive
+        with tarfile.open(fileobj=io.BytesIO(proc.stdout)) as tar:
+            # filter="data" is the safe extraction policy that becomes the
+            # default in Python 3.14; set it explicitly to silence the 3.13
+            # DeprecationWarning and pin behavior. The archive is git-authored
+            # (kb/ only), so "data" never rejects a legitimate member.
+            tar.extractall(tmp_path, filter="data")
         findings = scan_repo(scan_dir=tmp_path / scan_rel, rel_to=tmp_path)
     return count_by_key(findings)
 
@@ -253,9 +276,17 @@ def resolve_baseline(ref: str | None = None) -> Counter:
     if ref:
         from_ref = baseline_from_ref(ref)
         if from_ref is not None:
+            # State which baseline engaged: the test/gate behaves differently
+            # depending on whether the ref was reachable, so make that legible
+            # in CI logs instead of leaving it to be inferred.
+            print(
+                f"snippet baseline: grandfathered against ref {ref!r} "
+                f"({len(from_ref)} distinct snippet(s))",
+                file=sys.stderr,
+            )
             return from_ref
         print(
-            f"warning: could not read snippet baseline from ref {ref!r}; "
+            f"snippet baseline: could not read ref {ref!r}; "
             "falling back to the committed baseline",
             file=sys.stderr,
         )
