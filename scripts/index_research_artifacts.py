@@ -25,6 +25,8 @@ from pathlib import Path
 
 import yaml
 
+from dismech.yaml_io import safe_load
+
 # ---------------------------------------------------------------------------
 # Frontmatter parsing
 # ---------------------------------------------------------------------------
@@ -45,7 +47,7 @@ def _split_frontmatter(text: str) -> tuple[dict, str]:
     fm_text = "".join(lines[1:close])
     body = "".join(lines[close + 1 :])
     try:
-        fm = yaml.safe_load(fm_text) or {}
+        fm = safe_load(fm_text) or {}
     except yaml.YAMLError:
         fm = {}
     return fm, body
