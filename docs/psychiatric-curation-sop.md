@@ -247,7 +247,7 @@ When in doubt about a new psychiatric entry, mirror one of these:
 ## Related documents
 
 - `CLAUDE.md` — repo-wide curation conventions (evidence SOP, ontology
-  binding rules, MAXO/CHEBI treatment patterns)
+  binding rules, NCIT/CHEBI treatment patterns)
 - `docs/cancer-curation-sop.md` — analogous SOP for cancer entries (MONDO/NCIT
   anchoring, subtype axes)
 - `docs/pathographs.md` — how `pathophysiology.downstream` edges and

@@ -9,7 +9,6 @@ Usage:
 from pathlib import Path
 
 import typer
-import yaml
 
 from dismech.perturb.graph import extract_causal_edges, trace_causal_paths
 from dismech.perturb.phenotypes import evaluate_phenotypes
@@ -19,6 +18,7 @@ from dismech.perturb.simulate import (
     load_model_config,
     run_perturbation,
 )
+from dismech.yaml_io import safe_load
 
 app = typer.Typer(help="Causal perturbation analysis for dismech disorders.")
 
@@ -102,7 +102,7 @@ def perturb(
 ) -> None:
     """Run causal perturbation analysis on a disorder."""
     with open(disorder_yaml) as f:
-        disorder = yaml.safe_load(f)
+        disorder = safe_load(f)
 
     disorder_name = disorder.get("name", disorder_yaml.stem)
     typer.echo(f"Disorder: {disorder_name}")
