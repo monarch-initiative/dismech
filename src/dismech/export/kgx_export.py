@@ -886,7 +886,7 @@ def treatment_target_phenotype_to_edge(
 
     Args:
         disease_id: The disease term ID (used as disease_context_qualifier)
-        treatment_id: The treatment term ID (MAXO)
+        treatment_id: The treatment term ID (NCIT)
         phenotype: A phenotype descriptor dict from treatments[].target_phenotypes[]
         parent_evidence: Evidence from parent treatment (indirect)
 
@@ -1059,7 +1059,7 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
         treatment_id = _get_term_id(treatment, ["treatment_term", "term", "id"])
         treatment_label = _get_term_id(treatment, ["treatment_term", "term", "label"])
         # Use the canonical ontology label, not the free-text treatment.name —
-        # multiple disorders share one MAXO CURIE with different free-text names,
+        # multiple disorders share one NCIT CURIE with different free-text names,
         # and dedup would otherwise pick whichever name wins.
         node = _emit(treatment_id, treatment_label or treatment.get("name"), "biolink:Treatment")
         if node:

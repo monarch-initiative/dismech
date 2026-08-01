@@ -16,7 +16,7 @@ descriptor:
 
 | Field | Rule | Who checks it |
 |-------|------|---------------|
-| `term.label` | **Exact** canonical ontology string. Never paraphrase. | `just validate-terms-file` (OAK) |
+| `term.label` | **Exact** canonical ontology string. Never paraphrase. | `just validate-terms` (OAK) |
 | `preferred_term` | Human-readable display name. **May be more specific/nuanced** than the ontology term. | curator judgment |
 
 Why diverge? Because the ontology often only has a **broad parent** when you

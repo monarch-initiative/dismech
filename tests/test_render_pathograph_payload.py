@@ -742,12 +742,31 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "RYR2_CPVT.yaml",
-            {("RYR2 gain-of-function variants", "RYR2 Gain-of-Function Calcium Leak")},
+            # PR #7227 renamed the central-effector node "RYR2 Gain-of-Function
+            # Calcium Leak" to "Diastolic Sarcoplasmic Reticulum Calcium Leak",
+            # genericizing it so the non-RYR2 CPVT lesions (CASQ2, CALM1-3,
+            # TRDN, TECRL) converge on it. Same conforms_to, same
+            # role: central_effector, same hgnc:10484 gene link and GO:0005219
+            # molecular function, so the inferred gene edge is unchanged.
+            # The trigger node "RYR2 Gain-of-Function Variant" is a separate,
+            # pre-existing node — not a rename of the effector. Assert both so
+            # the central-effector coverage this case carried before #7227 is
+            # not silently dropped.
+            {
+                ("RYR2 gain-of-function variants", "RYR2 Gain-of-Function Variant"),
+                (
+                    "RYR2 gain-of-function variants",
+                    "Diastolic Sarcoplasmic Reticulum Calcium Leak",
+                ),
+            },
             {"RYR2 gain-of-function variants": "genetic"},
             {
-                "RYR2 Gain-of-Function Calcium Leak": [
+                "RYR2 Gain-of-Function Variant": [
                     "ryanodine-sensitive calcium-release channel activity"
-                ]
+                ],
+                "Diastolic Sarcoplasmic Reticulum Calcium Leak": [
+                    "ryanodine-sensitive calcium-release channel activity"
+                ],
             },
         ),
         (
