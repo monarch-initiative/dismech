@@ -51,8 +51,13 @@ Usage
 from __future__ import annotations
 
 import argparse
+import io
+import os
 import re
+import subprocess
 import sys
+import tarfile
+import tempfile
 from collections import Counter
 from pathlib import Path
 
@@ -69,6 +74,12 @@ from dismech.yaml_io import safe_load
 
 SCAN_DIR = ROOT / "kb"
 BASELINE_PATH = ROOT / "tests" / "snippet_length_baseline.txt"
+
+# When set (CI sets it to ``origin/main``), the grandfather baseline is derived
+# live from that git ref instead of the committed snapshot file -- see
+# baseline_from_ref(). This makes the base branch green by construction and
+# leaves nothing for parallel merges to clobber (issue #7450 follow-up).
+BASELINE_REF_ENV = "SNIPPET_BASELINE_REF"
 
 # Fewer than five words is the line issue #7450 drew, on the reasoning that a
 # quote that short is almost never a claim -- it is a label.
@@ -103,8 +114,19 @@ def find_violations(path: Path, data, excerpt_fields, reference_fields):
             yield (pair.location, words, snippet)
 
 
-def scan_repo(scan_dir: Path = SCAN_DIR, schema_path: Path | None = None):
-    """Return a sorted list of ``(relpath, location, words, snippet)`` findings."""
+def scan_repo(
+    scan_dir: Path = SCAN_DIR,
+    schema_path: Path | None = None,
+    rel_to: Path = ROOT,
+):
+    """Return a sorted list of ``(relpath, location, words, snippet)`` findings.
+
+    ``rel_to`` is the base the reported relative paths are computed against. It
+    defaults to :data:`ROOT` for the working tree, but :func:`baseline_from_ref`
+    scans an extracted copy of ``kb/`` under a temp dir and passes that dir so
+    the reported paths still come out as ``kb/disorders/X.yaml`` -- matching the
+    working-tree keys the baseline is compared on.
+    """
     excerpt_fields, reference_fields = discover_field_names(
         schema_path if schema_path is not None else ROOT / DEFAULT_SCHEMA
     )
@@ -118,12 +140,12 @@ def scan_repo(scan_dir: Path = SCAN_DIR, schema_path: Path | None = None):
             # does that), but skipping silently would make the file invisible
             # here rather than merely unchecked.
             print(
-                f"warning: skipping unparseable {path.relative_to(ROOT).as_posix()}: "
+                f"warning: skipping unparseable {path.relative_to(rel_to).as_posix()}: "
                 f"{exc.__class__.__name__}",
                 file=sys.stderr,
             )
             continue
-        rel = path.relative_to(ROOT).as_posix()
+        rel = path.relative_to(rel_to).as_posix()
         for location, words, snippet in find_violations(
             path, data, excerpt_fields, reference_fields
         ):
@@ -187,6 +209,59 @@ def write_baseline(findings, path: Path = BASELINE_PATH) -> None:
     path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
 
 
+def baseline_from_ref(ref: str, root: Path = ROOT) -> Counter | None:
+    """Grandfather baseline derived live from a git *ref* (e.g. ``origin/main``).
+
+    Returns the per-``(file, snippet)`` occurrence counts of the short snippets
+    as they exist in ``kb/`` at *ref* -- i.e. exactly the backlog already on the
+    base branch. Because the grandfather set is computed from the base branch
+    rather than a committed snapshot, there is nothing to keep in sync and
+    nothing for parallel merges to clobber: the base branch is green by
+    construction, and a PR fails only on snippets it *adds* over the base.
+
+    Returns ``None`` if *ref* cannot be read (no git, ref absent in a shallow
+    checkout, ...), so the caller can fall back to the committed baseline.
+    """
+    scan_rel = SCAN_DIR.relative_to(root).as_posix()
+    try:
+        archive = subprocess.run(
+            ["git", "-C", str(root), "archive", ref, "--", scan_rel],
+            capture_output=True,
+            check=True,
+        ).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    if not archive:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+            tar.extractall(tmp_path)  # noqa: S202 - trusted git-authored archive
+        findings = scan_repo(scan_dir=tmp_path / scan_rel, rel_to=tmp_path)
+    return count_by_key(findings)
+
+
+def resolve_baseline(ref: str | None = None) -> Counter:
+    """The grandfather baseline: live from *ref* when given, else the committed file.
+
+    *ref* defaults to the ``SNIPPET_BASELINE_REF`` environment variable, which CI
+    sets to ``origin/main``. If the ref cannot be read, fall back to the
+    committed baseline so local runs and shallow checkouts keep working.
+    """
+    if ref is None:
+        ref = os.environ.get(BASELINE_REF_ENV) or None
+    if ref:
+        from_ref = baseline_from_ref(ref)
+        if from_ref is not None:
+            return from_ref
+        print(
+            f"warning: could not read snippet baseline from ref {ref!r}; "
+            "falling back to the committed baseline",
+            file=sys.stderr,
+        )
+    return load_baseline()
+
+
 def new_findings(findings, baseline: Counter):
     """Findings not covered by *baseline*, including extra reuses of a known one."""
     seen: Counter = Counter()
@@ -212,6 +287,16 @@ def main(argv=None) -> int:
         action="store_true",
         help="rewrite the baseline from current findings",
     )
+    parser.add_argument(
+        "--against-ref",
+        metavar="REF",
+        default=None,
+        help=(
+            "grandfather against the short snippets present in kb/ at this git "
+            f"ref instead of the committed baseline (env: {BASELINE_REF_ENV}). "
+            "CI uses origin/main so the base branch is green by construction."
+        ),
+    )
     args = parser.parse_args(argv)
 
     findings = scan_repo()
@@ -231,7 +316,7 @@ def main(argv=None) -> int:
         return 0
 
     if args.count:
-        baseline = load_baseline()
+        baseline = resolve_baseline(args.against_ref)
         files = {rel for rel, _, _, _ in findings}
         print(f"total findings: {len(findings)} across {len(files)} file(s)")
         print(
@@ -241,7 +326,7 @@ def main(argv=None) -> int:
         print(f"new (non-baselined): {len(new_findings(findings, baseline))}")
         return 0
 
-    baseline = load_baseline()
+    baseline = resolve_baseline(args.against_ref)
     new = new_findings(findings, baseline)
     if new:
         print(f"New evidence snippet(s) under {MIN_SNIPPET_WORDS} words detected.")

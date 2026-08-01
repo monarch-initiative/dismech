@@ -21,6 +21,7 @@ from scripts.check_snippet_length import (
     is_structured_row,
     load_baseline,
     new_findings,
+    resolve_baseline,
     scan_repo,
     write_baseline,
 )
@@ -42,7 +43,11 @@ def _entry(snippet: str, reference: str = "PMID:1") -> dict:
 
 
 def test_no_new_short_snippets():
-    baseline = load_baseline()
+    # resolve_baseline() grandfathers against origin/main when CI sets
+    # SNIPPET_BASELINE_REF (so the base branch is green by construction and
+    # parallel merges cannot clobber the grandfather set), and falls back to
+    # the committed baseline for local runs / shallow checkouts.
+    baseline = resolve_baseline()
     new = [
         f"{rel}:{location}: {words} word(s): {snippet!r}"
         for rel, location, words, snippet in new_findings(scan_repo(), baseline)

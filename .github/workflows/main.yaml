@@ -42,6 +42,16 @@ jobs:
         with:
           persist-credentials: false
 
+      # Fetch the base-branch tip so the snippet-length ratchet can grandfather
+      # against the short snippets already on `main` (origin/main) instead of a
+      # committed snapshot file that parallel merges clobber -- keeping `main`
+      # green by construction. Shallow: only main's tip tree is needed. If this
+      # fails (e.g. a fork/private context), resolve_baseline() falls back to
+      # the committed baseline, so the gate degrades to its prior behavior.
+      - name: Fetch base branch for snippet ratchet
+        continue-on-error: true
+        run: git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
+
       - name: Check for changes
         uses: dorny/paths-filter@v4
         id: changes
@@ -275,6 +285,10 @@ jobs:
 
       - name: Run Python code/logic tests
         if: steps.changes.outputs.python == 'true'
+        env:
+          # Grandfather the snippet-length ratchet against main's live content,
+          # not the committed baseline snapshot (see the fetch step above).
+          SNIPPET_BASELINE_REF: origin/main
         run: just test-python-code
 
       - name: Run LinkML example tests
