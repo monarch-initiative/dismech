@@ -295,3 +295,22 @@ def test_disorder_page_renders_the_caveat_and_omits_suppressed_severity(tmp_path
     # The phenotype is still shown, but never with a severity tier.
     assert "Hyperglycemia" in html
     assert "&middot; severe" not in html.split("model-run-block")[-1]
+
+
+def test_template_consumes_threshold_kind_rather_than_re_deriving_it(tmp_path):
+    """The `x baseline` suffix must come from `threshold_kind`, not a second rule.
+
+    Urate has one threshold of each kind, so a single page proves both branches:
+    Hypouricemia (`below`, a ratio) carries the suffix and Hyperuricemia
+    (`above`, an absolute mg/dL reading) does not.
+    """
+    from dismech.render import render_disorder
+
+    output = tmp_path / "Gout.html"
+    render_disorder(REPO_ROOT / "kb" / "disorders" / "Gout.yaml", output)
+    html = output.read_text()
+
+    assert "below 0.5&times; baseline" in html
+    assert "above 6.8&times; baseline" not in html
+    # The severity pills take the same discriminator.
+    assert "moderate 0.35&times; baseline" in html
