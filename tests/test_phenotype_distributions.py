@@ -566,27 +566,36 @@ def test_prose_domain_role_lists_are_complete() -> None:
                 found.append(named)
         return found
 
-    for path in (Path("CLAUDE.md"), Path("docs/phenotype-distributions.md")):
-        # Completeness is checked against the working tree, so a curator editing
-        # prose sees their own drift before committing it.
-        for named in enumerations(path.read_text(encoding="utf-8")):
+    def assert_complete(source: str, text: str) -> list[set[str]]:
+        found = enumerations(text)
+        for named in found:
             assert named == roles, (
-                f"{path} enumerates domain_role but omits {sorted(roles - named)}; "
-                "list every value or drop the parenthetical"
+                f"{path} ({source}) enumerates domain_role but omits "
+                f"{sorted(roles - named)}; list every value or drop the parenthetical"
             )
+        return found
 
-        # The anchor is checked against the *committed* blob instead. Anchoring on
-        # the working tree is what makes "delete the list" a green escape from
-        # "keep the list current", but it also makes the guard hostage to any
-        # tooling that mutates a checkout: an agent harness in this org blanks
-        # this repo's `CLAUDE.md` section, which would fire this assertion for a
-        # reason having nothing to do with the docs, and invite whoever hit it to
-        # weaken a working guard. Committed content is what CI gates and what
-        # readers actually get, so that is what must not lose its list.
+    for path in (Path("CLAUDE.md"), Path("docs/phenotype-distributions.md")):
+        # The working tree is checked so a curator editing prose sees their own
+        # drift before committing it — but only for completeness, never as the
+        # anchor. Anchoring here is what makes "delete the list" a green escape
+        # from "keep the list current", and it would also make the guard hostage
+        # to any tooling that mutates a checkout: an agent harness in this org
+        # blanks this repo's `CLAUDE.md` section, which would fire for a reason
+        # having nothing to do with the docs and invite whoever hit it to weaken
+        # a working guard.
+        assert_complete("working tree", path.read_text(encoding="utf-8"))
+
+        # Everything that actually gates is asserted against the committed blob:
+        # it is what CI checks out and what readers get, and it is unaffected by
+        # local mutation. Completeness belongs here too, not only on the anchor —
+        # a mutated checkout whose worktree enumerations are empty would
+        # otherwise leave the committed list unchecked, which is exactly the
+        # exposure reading the blob exists to remove.
         committed = _committed_text(path)
         if committed is None:  # not a git checkout (sdist, vendored tree)
             continue
-        assert enumerations(committed), (
+        assert assert_complete("committed", committed), (
             f"{path} no longer enumerates domain_role anywhere in the committed "
             "blob; if the guidance moved, point this test at its new home rather "
             "than deleting it"
