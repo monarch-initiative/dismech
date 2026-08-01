@@ -580,7 +580,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-folded-hyphens validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-reference-cache-frontmatter check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -754,6 +754,26 @@ check-folded-hyphens:
 [group('QC')]
 update-folded-hyphen-baseline:
     uv run python scripts/check_folded_hyphens.py --update-baseline
+
+# Guard against NEW degenerate evidence snippets in kb/ -- bare terms too short
+# to carry a claim (e.g. snippet: 'Strabismus'), which support nothing and are
+# usually lifted from a table that never survives text extraction (#7450).
+# Pipe-delimited structured-source rows are exempt; a baseline grandfathers the
+# pre-existing backlog, so this fails only on new ones.
+[group('QC')]
+check-snippet-length:
+    uv run python scripts/check_snippet_length.py
+
+# List every short snippet, baselined or not (triage view).
+[group('QC')]
+list-short-snippets:
+    uv run python scripts/check_snippet_length.py --all
+
+# Regenerate the short-snippet baseline after intentionally changing the set
+# (e.g. fixing backlog entries). Review the diff before committing.
+[group('QC')]
+update-snippet-length-baseline:
+    uv run python scripts/check_snippet_length.py --update-baseline
 
 # Validate ALL snippet/reference pairs across all disorder files.
 # Warning: First run may take a while if references are not already cached.
