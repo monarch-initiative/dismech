@@ -24,7 +24,6 @@ import json
 import re
 import subprocess
 import sys
-from pathlib import Path
 
 import yaml
 
@@ -168,7 +167,7 @@ def main() -> int:
         if fa == fb:
             agree += 1
         else:
-            print(f"  DIFF {term_id:12} {str(pa[term_id][2])[:34]:34} {la}={str(fa):14} {lb}={fb}")
+            print(f"  DIFF {term_id:12} {str(pa[term_id][2])[:34]:34} {la}={fa!s:14} {lb}={fb}")
         if fa and fb:
             both_banded += 1
     if shared:
@@ -243,7 +242,7 @@ def main() -> int:
         print(f"  {label}:")
         for node in entry.get("pathophysiology") or []:
             print(
-                f"    [{str(node.get('biological_scale')):9}] "
+                f"    [{node.get('biological_scale')!s:9}] "
                 f"{node.get('name')} -> {len(node.get('downstream') or [])} edge(s)"
             )
     return 0
