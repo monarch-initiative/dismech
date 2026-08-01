@@ -34,7 +34,18 @@ ABSTRACT = (
 )
 
 
-def _write_cache(cache_dir: Path, filename: str, content: str) -> Path:
+def _write_cache(
+    cache_dir: Path,
+    filename: str,
+    content: str,
+    content_type: str = "full_text_html",
+) -> Path:
+    """Write one cache file.
+
+    ``content_type`` defaults to a full-text cache, so a snippet that is absent
+    reads as a genuine mismatch. Pass ``abstract_only`` to exercise the
+    incomplete-cache path added in #7450.
+    """
     cache_dir.mkdir(parents=True, exist_ok=True)
     path = cache_dir / filename
     path.write_text(
@@ -44,7 +55,7 @@ def _write_cache(cache_dir: Path, filename: str, content: str) -> Path:
         "authors:\n"
         "- Doe J\n"
         "journal: Example Journal\n"
-        "content_type: abstract_only\n"
+        f"content_type: {content_type}\n"
         "---\n\n"
         f"{content}\n",
         encoding="utf-8",
@@ -451,3 +462,187 @@ def test_per_file_validation_loops_surface_the_snippet_count() -> None:
 
     assert justfile.count("grep -o 'Snippets checked:.*'") == 3
     assert justfile.count('echo "  ✓ OK${snippet_line:+ ($snippet_line)}"') == 3
+
+
+# --- Cache-defect tolerance and the abstract-only state (issue #7450) --------
+#
+# NOTE: these use DOI references, which the repository config lists in
+# ``skip_prefixes`` -- the very gap #7450 is about. They therefore audit against
+# a config that skips nothing, or they would silently test nothing at all.
+
+
+def _audit_all_prefixes(tmp_path: Path, snippets: list[tuple[str, str]], **kwargs):
+    """Audit with prefix skipping disabled, so DOI pairs are really checked."""
+    config = tmp_path / "no_skips.yaml"
+    config.write_text("skip_prefixes: []\n", encoding="utf-8")
+    return _audit(tmp_path, snippets, config_path=config, **kwargs)
+
+
+#
+# ~6% of KB snippets cite a DOI, which `skip_prefixes` currently hides from the
+# validator entirely. Un-skipping it surfaced 86 mismatches, but most were
+# defects in the *cache* rather than in the curation. These cover the two
+# mechanical classes and the incomplete-cache state.
+
+
+def test_folds_pdf_ligatures_in_the_cached_text(tmp_path: Path) -> None:
+    """A PDF extractor emits 'ﬁ' (U+FB01); the curator typed 'fi'."""
+    _write_cache(
+        tmp_path / "references_cache",
+        "DOI_10.1000_x.md",
+        "Congo red staining revealed amyloid ﬁbrils in the biopsy.",
+        content_type="full_text_pdf",
+    )
+
+    report = _audit_all_prefixes(
+        tmp_path, [("DOI:10.1000/x", "amyloid fibrils in the biopsy")]
+    )
+
+    assert (report.verified, report.verified_relaxed) == (0, 1)
+    assert report.mismatched == []
+    assert "1/1 verified" in report.summary_line()
+    assert "1 only after cache-defect normalization" in report.summary_line()
+
+
+def test_tolerates_words_joined_by_stripped_inline_markup(tmp_path: Path) -> None:
+    """HTML extraction drops <i> without a space: 'the *ANAPC7* locus'."""
+    _write_cache(
+        tmp_path / "references_cache",
+        "DOI_10.1000_y.md",
+        "We found a deletion within theANAPC7locus in all probands.",
+        content_type="full_text_html",
+    )
+
+    report = _audit_all_prefixes(
+        tmp_path, [("DOI:10.1000/y", "a deletion within the ANAPC7 locus")]
+    )
+
+    assert (report.verified, report.verified_relaxed) == (0, 1)
+    assert report.mismatched == []
+
+
+def test_relaxed_pass_does_not_rescue_a_genuinely_absent_quote(tmp_path: Path) -> None:
+    """Ignoring word gaps must not admit text that simply is not there."""
+    _write_cache(tmp_path / "references_cache", "DOI_10.1000_z.md", ABSTRACT)
+
+    report = _audit_all_prefixes(
+        tmp_path, [("DOI:10.1000/z", "The moon is made of green cheese.")]
+    )
+
+    assert (report.verified, report.verified_relaxed) == (0, 0)
+    assert len(report.mismatched) == 1
+
+
+def test_relaxed_pass_does_not_reorder_words(tmp_path: Path) -> None:
+    """Characters must still appear contiguously and in order."""
+    _write_cache(tmp_path / "references_cache", "DOI_10.1000_o.md", "alpha beta gamma")
+
+    report = _audit_all_prefixes(tmp_path, [("DOI:10.1000/o", "gamma beta alpha")])
+
+    assert report.verified_relaxed == 0
+    assert len(report.mismatched) == 1
+
+
+def test_a_strictly_matching_snippet_never_reaches_the_relaxed_pass(
+    tmp_path: Path,
+) -> None:
+    _write_cache(tmp_path / "references_cache", "PMID_123.md", ABSTRACT)
+
+    report = _audit(tmp_path, [("PMID:123", "recessive mutations in EPG5")])
+
+    assert (report.verified, report.verified_relaxed) == (1, 0)
+
+
+def test_abstract_only_cache_is_its_own_state_not_a_mismatch(tmp_path: Path) -> None:
+    _write_cache(
+        tmp_path / "references_cache",
+        "DOI_10.1000_a.md",
+        ABSTRACT,
+        content_type="abstract_only",
+    )
+
+    report = _audit_all_prefixes(
+        tmp_path, [("DOI:10.1000/a", "a sentence from the full text")]
+    )
+
+    assert report.mismatched == []
+    assert report.abstract_only == 1
+    assert "quoted beyond an abstract-only cache" in report.summary_line()
+    assert "full text may contain the excerpt" in report.format()
+    # Not verified either: nothing was established in either direction.
+    assert report.verified == 0
+
+
+def test_a_full_text_cache_still_yields_a_hard_mismatch(tmp_path: Path) -> None:
+    """The abstract-only carve-out must not leak to full-text caches."""
+    _write_cache(
+        tmp_path / "references_cache",
+        "DOI_10.1000_b.md",
+        ABSTRACT,
+        content_type="full_text_pdf",
+    )
+
+    report = _audit_all_prefixes(
+        tmp_path, [("DOI:10.1000/b", "a sentence from the full text")]
+    )
+
+    assert report.abstract_only == 0
+    assert len(report.mismatched) == 1
+
+
+def test_strict_still_fails_on_an_abstract_only_pair_by_default(
+    tmp_path: Path,
+) -> None:
+    """An abstract-only pair is unverified, so --strict must not wave it through."""
+    _write_cache(
+        tmp_path / "references_cache",
+        "DOI_10.1000_c.md",
+        ABSTRACT,
+        content_type="abstract_only",
+    )
+    entry = _write_entry(
+        tmp_path / "entry.yaml", [("DOI:10.1000/c", "text from the full text")]
+    )
+    argv = [
+        str(entry),
+        "--cache-dir",
+        str(tmp_path / "references_cache"),
+        "--config",
+        str(tmp_path / "missing_config.yaml"),
+        "--strict",
+    ]
+
+    assert main(argv) == 1
+    assert main([*argv, "--allow-abstract-only"]) == 0
+
+
+def test_unskip_prefix_audits_a_configured_skip(tmp_path: Path) -> None:
+    """Measure the coverage skip_prefixes hides, without changing the config."""
+    config = tmp_path / "config.yaml"
+    config.write_text("skip_prefixes:\n  - DOI\n", encoding="utf-8")
+    _write_cache(tmp_path / "references_cache", "DOI_10.1000_d.md", ABSTRACT)
+    pairs = [("DOI:10.1000/d", "recessive mutations in EPG5")]
+
+    skipped = _audit(tmp_path, pairs, config_path=config)
+    assert (skipped.skipped_prefix, skipped.verified) == (1, 0)
+
+    audited = _audit(tmp_path, pairs, config_path=config, unskip_prefixes=["doi"])
+    assert (audited.skipped_prefix, audited.verified) == (0, 1)
+
+
+def test_content_type_is_read_from_the_cache_frontmatter(tmp_path: Path) -> None:
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(cache_dir, "DOI_10.1000_e.md", ABSTRACT, content_type="abstract_only")
+    index = CachedReferenceIndex(cache_dir)
+
+    assert index.content_type("DOI:10.1000/e") == "abstract_only"
+    assert index.is_abstract_only("DOI:10.1000/e")
+    assert index.content_type("DOI:10.1000/nope") is None
+    assert not index.is_abstract_only("DOI:10.1000/nope")
+
+
+def test_ligature_folding_is_symmetric() -> None:
+    fold = CachedReferenceIndex.fold_ligatures
+    assert fold("amyloid ﬁbrils") == "amyloid fibrils"
+    assert fold("aﬂatoxin") == "aflatoxin"
+    assert fold("amyloid fibrils") == "amyloid fibrils"

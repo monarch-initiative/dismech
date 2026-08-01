@@ -16,9 +16,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
+
+from dismech.yaml_io import safe_load
 
 CITATION_FILE_RE = re.compile(r"^(?P<name>.+)-deep-research-[^.]+\.md\.citations\.md$")
 PMID_RE = re.compile(r"\bPMID\s*[:#]?\s*(\d{4,9})\b", re.IGNORECASE)
@@ -271,7 +272,7 @@ def parse_cache_metadata_and_body(cache_path: Path) -> tuple[dict[str, Any], str
         if end_idx is not None:
             frontmatter = "\n".join(lines[1:end_idx])
             try:
-                meta = yaml.safe_load(frontmatter) or {}
+                meta = safe_load(frontmatter) or {}
                 body = "\n".join(lines[end_idx + 1 :]).strip()
                 return meta, body
             except Exception:
