@@ -357,27 +357,55 @@ def test_clinical_trial_quotes_resolve_to_the_right_cache_file() -> None:
     assert not list(cache.glob("NCT[0-9]*.md"))
 
 
-def test_docs_list_every_verifiable_prefix() -> None:
-    """Pin the docs to the code so the prefix list cannot drift again.
+def _verifiable_prefix_bullet() -> str:
+    """The docs bullet listing which document prefixes get quote-verified.
 
-    This sentence has now been wrong twice: first naming a bare `NCT` that
-    doesn't exist as a cache convention (which is what produced the original
-    bug), then reading as exhaustive while omitting `PHENODIST:`. Fixing prose
-    a third time without a guard just sets up a fourth.
+    Bounded to the bullet itself — a fixed character window trails into the
+    following bullet, where an unrelated mention would satisfy the check.
     """
+    docs = Path("docs/phenotype-distributions.md").read_text(encoding="utf-8")
+    lines = docs.splitlines()
+    starts = [i for i, ln in enumerate(lines) if "citing a fetchable document" in ln]
+    assert starts, (
+        "the docs sentence this test pins no longer exists; if it was reworded, "
+        "update this test rather than deleting it"
+    )
+    start = starts[0]
+    end = start + 1
+    while end < len(lines) and not (
+        lines[end].lstrip().startswith("- **") or lines[end].startswith("#")
+    ):
+        end += 1
+    return "\n".join(lines[start:end])
+
+
+def test_docs_prefix_list_matches_the_code_exactly() -> None:
+    """Pin the docs to the code, in both directions.
+
+    This sentence has been wrong twice: first naming a bare `NCT` that is not a
+    cache convention at all (which produced the original bug), then reading as
+    exhaustive while omitting `PHENODIST:`. Fixing prose a third time without a
+    guard just sets up a fourth.
+
+    Both directions matter, and the second one more. Docs omitting a prefix
+    under-promises, which is merely untidy. Docs listing a prefix the code does
+    not verify *over*-promises: a curator reads it, believes their quote was
+    checked, and it never was — the same failure the LOINC caveat exists to
+    prevent.
+    """
+    import re
+
     from dismech.phenotype_distribution import _VERIFIABLE_PREFIXES
 
-    docs = Path("docs/phenotype-distributions.md").read_text(encoding="utf-8")
-    line = next(
-        ln
-        for ln in docs.splitlines()
-        if "citing a fetchable document" in ln
+    bullet = _verifiable_prefix_bullet()
+    documented = set(re.findall(r"`([A-Za-z_]+:)`", bullet))
+    coded = set(_VERIFIABLE_PREFIXES)
+
+    assert not (coded - documented), f"docs omit verified prefixes: {sorted(coded - documented)}"
+    assert not (documented - coded), (
+        "docs claim verification for prefixes the code does not check: "
+        f"{sorted(documented - coded)}"
     )
-    # The list wraps, so search the whole paragraph following that line.
-    start = docs.index(line)
-    paragraph = docs[start : start + 400]
-    missing = [p for p in _VERIFIABLE_PREFIXES if f"`{p}`" not in paragraph]
-    assert not missing, f"docs omit verifiable prefixes: {missing}"
 
 
 def test_single_collection_rebuild_does_not_prune_other_collections() -> None:

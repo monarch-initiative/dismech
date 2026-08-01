@@ -392,7 +392,6 @@ def check_terms(
     issues: list[Issue] = []
     adapters: dict[str, Any] = {}
     unloadable: dict[str, str] = {}
-    collections = list(collections)
     for coll in collections:
         for record in coll.records:
             rid = str(record.get("record_id", ""))
