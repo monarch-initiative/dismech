@@ -1022,6 +1022,16 @@ def _load_module_context(
     )
 
     _annotate_module_usage(module, disorder_usage)
+
+    # Modules validate against the same Disease class, so they can carry
+    # computational_models too. Anchor them with the same scheme the disorder
+    # pages use, so the models browser can deep-link into a module page.
+    for model in module.get("computational_models") or []:
+        if isinstance(model, dict) and model.get("name"):
+            model["_anchor_id"] = _make_anchor_id(
+                "computational-model", str(model["name"])
+            )
+
     module["_module_id"] = module_id
     module["_pathophysiology_count"] = len(
         [node for node in pathophysiology_items if isinstance(node, dict)]

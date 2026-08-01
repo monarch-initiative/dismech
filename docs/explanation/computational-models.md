@@ -2,6 +2,16 @@
 
 ## Overview
 
+!!! tip "Finding models"
+
+    Every `computational_models` block curated across `kb/disorders/` and `kb/modules/` is
+    searchable in the **Computational Models Browser** (`app/models/index.html`, regenerated
+    with `just gen-models-data`), faceted by model type, exchange format, simulation software,
+    perturbed gene, and whether the model is runnable in-repo via `dismech-perturb`. For the
+    wider execution landscape — the COMBINE/SED-ML stack, BioSimulators, Vivarium, and which
+    model classes genuinely need HPC — see
+    [Computational Model Execution: State of the Art](../reports/computational-model-execution-landscape-2026-08-01.md).
+
 Some DisMech disorder entries reference SBML (Systems Biology Markup Language) models that capture the quantitative dynamics of disease mechanisms as ordinary differential equations (ODEs). The **dismech-perturb** framework connects these models back to the clinical knowledge in the YAML, answering questions like:
 
 > "If gene X is lost or environmental parameter Y changes, which phenotypes activate, how severely, and through which mechanistic path?"

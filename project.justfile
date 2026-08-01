@@ -895,6 +895,12 @@ gen-browser-data:
 [group('Browser')]
 gen-discussions-data:
     uv run python -m dismech.export.discussions_export
+
+# Generate computational-models browser data.js from disorder + module models
+[group('Browser')]
+gen-models-data:
+    uv run python -m dismech.export.models_export
+
 # Generate Mondo-keyed pathograph JSON artifact (for runtime embedding, e.g. Monarch pages)
 [group('Browser')]
 gen-pathographs:
@@ -902,7 +908,7 @@ gen-pathographs:
 
 # Serve the browser app locally
 [group('Browser')]
-serve-browser: gen-browser-data gen-discussions-data
+serve-browser: gen-browser-data gen-discussions-data gen-models-data
     @echo "Starting local server at http://localhost:8000/app/"
     uv run python -m http.server 8000
 
@@ -1010,7 +1016,7 @@ gen-schema-docs:
 
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-nih-topics-page gen-schema-docs
+gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-models-data gen-pages gen-grouping-pages gen-project-pages gen-nih-topics-page gen-schema-docs
     @echo "Generated browser data, pathographs, disorder/comorbidity/grouping/project pages, and schema docs"
 
 # ============== KGX Export ==============
