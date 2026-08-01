@@ -28,6 +28,8 @@ from pathlib import Path
 
 import yaml
 
+from dismech.yaml_io import safe_load
+
 # ---------------------------------------------------------------------------
 # API key helpers
 # ---------------------------------------------------------------------------
@@ -89,7 +91,7 @@ def _update_research_file(
     frontmatter_str = text[4:end_idx]
     body = text[end_idx + 5:]  # content after the closing ---\n
 
-    metadata = yaml.safe_load(frontmatter_str) or {}
+    metadata = safe_load(frontmatter_str) or {}
 
     # Preserve existing trajectory_id if already set
     metadata["trajectory_id"] = trajectory_id
