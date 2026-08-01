@@ -2,9 +2,9 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-04-05T21:33:28.322593'
-end_time: '2026-04-05T21:44:51.214168'
-duration_seconds: 682.89
+start_time: '2026-08-01T01:16:25.734740'
+end_time: '2026-08-01T01:28:42.665976'
+duration_seconds: 736.93
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Pheochromocytoma and Paraganglioma
@@ -16,7 +16,18 @@ provider_config:
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 50
+    max_embedded_images: 8
+citation_count: 32
+artifact_count: 1
+artifact_sources:
+  edison_answer_artifacts: 1
+artifacts:
+- filename: artifact-00.md
+  path: Pheochromocytoma_Paraganglioma-deep-research-falcon_artifacts/artifact-00.md
+  media_type: text/markdown
+  source: edison_answer_artifacts
+  data_storage_id: null
+  description: Edison artifact artifact-00
 ---
 
 ## Question
@@ -26,7 +37,7 @@ citation_count: 50
 ## Target Disease
 - **Disease Name:** Pheochromocytoma and Paraganglioma
 - **MONDO ID:**  (if available)
-- **Category:**
+- **Category:** 
 
 ## Research Objectives
 
@@ -356,7 +367,7 @@ For each mechanism, describe:
   - Personalized medicine approaches (genotype-guided treatment)
     > **Search first:** My Cancer Genome, CIViC, PharmGKB, precision medicine databases
 
-For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.
+For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.
 
 ### 13. Prevention
 
@@ -450,7 +461,7 @@ For each treatment, suggest MAXO (Medical Action Ontology) terms where applicabl
 Structure your response as a comprehensive narrative organized by the sections above.
 For each section, provide:
 - Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
-- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
 - Evidence citations with PMIDs
 - Direct quotes from abstracts to support key claims
 - Clear indication when information is not available or not applicable for this disease
@@ -462,7 +473,7 @@ This report will be used to populate a disease knowledge base entry with:
 - Cell type involvement (CL terms)
 - Anatomical locations (UBERON terms)
 - Chemical entities (CHEBI terms)
-- Treatment annotations (MAXO terms)
+- Treatment annotations (NCIT terms)
 - Evidence items with PMIDs and exact abstract quotes
 - Epidemiology, prognosis, diagnostic, and prevention information
 - Animal model descriptions with phenotype recapitulation details
@@ -487,7 +498,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
 ## Target Disease
 - **Disease Name:** Pheochromocytoma and Paraganglioma
 - **MONDO ID:**  (if available)
-- **Category:**
+- **Category:** 
 
 ## Research Objectives
 
@@ -817,7 +828,7 @@ For each mechanism, describe:
   - Personalized medicine approaches (genotype-guided treatment)
     > **Search first:** My Cancer Genome, CIViC, PharmGKB, precision medicine databases
 
-For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.
+For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.
 
 ### 13. Prevention
 
@@ -911,7 +922,7 @@ For each treatment, suggest MAXO (Medical Action Ontology) terms where applicabl
 Structure your response as a comprehensive narrative organized by the sections above.
 For each section, provide:
 - Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
-- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
 - Evidence citations with PMIDs
 - Direct quotes from abstracts to support key claims
 - Clear indication when information is not available or not applicable for this disease
@@ -923,351 +934,310 @@ This report will be used to populate a disease knowledge base entry with:
 - Cell type involvement (CL terms)
 - Anatomical locations (UBERON terms)
 - Chemical entities (CHEBI terms)
-- Treatment annotations (MAXO terms)
+- Treatment annotations (NCIT terms)
 - Evidence items with PMIDs and exact abstract quotes
 - Epidemiology, prognosis, diagnostic, and prevention information
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Comprehensive Disease Characteristics Report: Pheochromocytoma and Paraganglioma (PPGL)
+# Pheochromocytoma and Paraganglioma: Disease Characteristics Report
 
-## Target Disease
-- **Disease name:** Pheochromocytoma and Paraganglioma (PPGL)
-- **MONDO ID:** *Not retrieved from MONDO within the available tool context; should be added from MONDO/EMBL-EBI OLS in downstream curation.*
-- **Category:** Rare neuroendocrine tumors (neural crest/chromaffin-cell derived), endocrine oncology
+## Executive summary
 
-## Executive overview (current understanding)
-Pheochromocytomas (PCCs) and paragangliomas (PGLs) are neuroendocrine tumors of neural crest origin that arise from chromaffin/paraganglionic tissue distributed from the skull base to the pelvic floor. PCCs arise in the adrenal medulla, while PGLs arise from extra-adrenal sympathetic or parasympathetic paraganglia. Sympathetic tumors are more often catecholamine-secreting; parasympathetic head-and-neck PGLs are often nonfunctional or dopamine-predominant. Contemporary WHO framing treats all PPGLs as malignant neoplasms with **variable metastatic potential**, and histology alone cannot reliably predict metastasis. (bresser2024themolecularclassification pages 1-2, t.2024pheochromocytomaanupdated pages 1-2)
+Pheochromocytomas and paragangliomas (PPGLs) are rare neural-crest-derived neuroendocrine neoplasms. A pheochromocytoma (PCC) arises in adrenal-medullary chromaffin cells; a paraganglioma (PGL) arises in extra-adrenal sympathetic or parasympathetic paraganglia. Approximately 80–85% are adrenal PCCs and 15–20% are extra-adrenal PGLs. Catecholamine excess causes episodic or sustained cardiovascular and metabolic disease, while every PPGL is regarded as having some metastatic potential under current WHO classification. Germline predisposition occurs in roughly 30–40% overall and 70–80% of pediatric cases, making PPGL among the most heritable human tumors. Contemporary practice therefore combines biochemical diagnosis, molecular imaging, universal germline testing, surgery when feasible, lifelong risk-adapted surveillance, and genotype/target-informed systemic therapy. (t.2024pheochromocytomaanupdated pages 1-2, casey2024internationalconsensusstatement pages 1-2, cascon2023geneticbasesof pages 1-2)
 
-| Topic | Key PPGL fact | Key examples/details | Main recent source(s) with year and URL | Evidence citation |
-|---|---|---|---|---|
-| Definition and origin | PPGL comprises pheochromocytomas (adrenal medulla) and paragangliomas (extra-adrenal paraganglia), neuroendocrine tumors of neural crest/chromaffin origin. | PCC usually arises in adrenal medulla; PGL arises from sympathetic or parasympathetic paraganglia distributed from skull base to pelvic floor. | de Bresser & de Krijger, 2024, *Endocrine Pathology*, https://doi.org/10.1007/s12022-024-09830-3; Giacché et al., 2024, *Biomedicines*, https://doi.org/10.3390/biomedicines12102385; Saavedra T. et al., 2024, *Frontiers in Endocrinology*, https://doi.org/10.3389/fendo.2024.1433582 | (bresser2024themolecularclassification pages 1-2, t.2024pheochromocytomaanupdated pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2) |
-| Major anatomic sites | Sympathetic and parasympathetic sites differ in location and behavior. | Sympathetic: adrenal medulla, retroperitoneum, organ of Zuckerkandl, bladder, mediastinum; parasympathetic: head and neck/carotid body, vagal, jugulotympanic, other skull-base to cervical sites. | de Bresser & de Krijger, 2024, https://doi.org/10.1007/s12022-024-09830-3; Giacché et al., 2024, https://doi.org/10.3390/biomedicines12102385 | (bresser2024themolecularclassification pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2) |
-| Functional vs nonfunctional biology | Sympathetic PCC/PGL are more often catecholamine-secreting; parasympathetic head-and-neck PGLs are usually nonfunctional or dopamine-predominant. | Catecholamines/metabolites relevant to diagnosis include metanephrine, normetanephrine, and 3-methoxytyramine. | de Bresser & de Krijger, 2024, https://doi.org/10.1007/s12022-024-09830-3; Giacché et al., 2024, https://doi.org/10.3390/biomedicines12102385; Bima et al., 2024, *Frontiers in Endocrinology*, https://doi.org/10.3389/fendo.2024.1460320 | (bresser2024themolecularclassification pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2, bima2024preventionandmanagement pages 4-5) |
-| WHO 2022 classification concept | Modern classification treats all PPGLs as neoplasms with variable metastatic potential rather than benign vs malignant categories. | Histology alone cannot reliably predict which tumors will metastasize; metastatic risk varies by genotype, site, size, and other factors. | de Bresser & de Krijger, 2024, https://doi.org/10.1007/s12022-024-09830-3; Saavedra T. et al., 2024, https://doi.org/10.3389/fendo.2024.1433582 | (bresser2024themolecularclassification pages 1-2, t.2024pheochromocytomaanupdated pages 1-2) |
-| Hereditary fraction | PPGL is among the most heritable tumor types. | Germline predisposition is reported in ~30–40% overall; some recent reviews cite ~40–50%; pediatric hereditary proportion is higher (~70–80%). | Giacché et al., 2024, https://doi.org/10.3390/biomedicines12102385; Saavedra T. et al., 2024, https://doi.org/10.3389/fendo.2024.1433582; Bima et al., 2024, https://doi.org/10.3389/fendo.2024.1460320; Richter & Bechmann, 2024, *Journal of the Endocrine Society*, https://doi.org/10.1210/jendso/bvae038 | (giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2, bima2024preventionandmanagement pages 4-5, richter2024patientsexand pages 1-2, t.2024pheochromocytomaanupdated pages 1-2) |
-| Main molecular clusters | Three principal molecular/transcriptomic clusters are consistently recognized. | Cluster 1 pseudohypoxia; Cluster 2 kinase signaling/neural identity; Cluster 3 Wnt signaling. Cluster 1 is often extra-adrenal/noradrenergic and more aggressive; Cluster 2 more often adrenal/adrenergic; Cluster 3 is less common and includes Wnt-related drivers. | Giacché et al., 2024, https://doi.org/10.3390/biomedicines12102385; Bima et al., 2024, https://doi.org/10.3389/fendo.2024.1460320; Richter & Bechmann, 2024, https://doi.org/10.1210/jendso/bvae038; de Bresser & de Krijger, 2024, https://doi.org/10.1007/s12022-024-09830-3 | (giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2, bima2024preventionandmanagement pages 4-5, giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, richter2024patientsexand pages 1-2) |
-| Major susceptibility genes: Cluster 1 pseudohypoxia | Genes affecting Krebs cycle/hypoxia signaling dominate this cluster. | SDHA, SDHB, SDHC, SDHD, SDHAF2, VHL, FH, EPAS1/HIF2A, EGLN1/PHD, MDH2; some reviews also list IDH1, DLST, GOT2, SLC25A11. | Giacché et al., 2024, https://doi.org/10.3390/biomedicines12102385; Bima et al., 2024, https://doi.org/10.3389/fendo.2024.1460320; Richter & Bechmann, 2024, https://doi.org/10.1210/jendso/bvae038 | (bima2024preventionandmanagement pages 4-5, giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, richter2024patientsexand pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 9-10) |
-| Major susceptibility genes: Cluster 2 kinase signaling | Kinase/RAS/MAPK and neural-identity signaling genes define this cluster. | RET, NF1, TMEM127, MAX, HRAS; some reviews also include FGFR1, MET, MERTK, BRAF. | Giacché et al., 2024, https://doi.org/10.3390/biomedicines12102385; Bima et al., 2024, https://doi.org/10.3389/fendo.2024.1460320; Richter & Bechmann, 2024, https://doi.org/10.1210/jendso/bvae038 | (bima2024preventionandmanagement pages 4-5, giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, richter2024patientsexand pages 1-2) |
-| Major susceptibility genes: Cluster 3 Wnt signaling | Wnt-altered tumors are less common and mainly defined by somatic drivers. | MAML3 fusions and CSDE1 alterations are the canonical examples in recent classification schemes. | Giacché et al., 2024, https://doi.org/10.3390/biomedicines12102385; Bima et al., 2024, https://doi.org/10.3389/fendo.2024.1460320 | (bima2024preventionandmanagement pages 4-5, giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6) |
-| Clinical stratification note | Sex and ancestry/origin may influence driver-gene distribution and presentation. | In one 2024 synthesis, males more often had hypoxia-pathway germline PVs, sympathetic PGL, and metastasis; European females more often had kinase-signaling drivers such as RET/TMEM127. | Richter & Bechmann, 2024, https://doi.org/10.1210/jendso/bvae038 | (richter2024patientsexand pages 1-2) |
+A compact quantitative evidence summary is provided below.
+
+| Domain | High-confidence quantitative finding/recommendation | Evidence type/year | Key source DOI or PMID where available |
+|---|---|---|---|
+| Epidemiology / heredity | PPGLs are rare neuroendocrine tumors; ~80–85% arise in adrenal medulla and ~15–20% are extra-adrenal paragangliomas; hereditary contribution is commonly ~30–40% overall (t.2024pheochromocytomaanupdated pages 1-2, cascon2023geneticbasesof pages 1-2) | Peer-reviewed reviews, 2023–2024 | 10.3389/fendo.2024.1433582; 10.1530/JME-22-0167 |
+| Molecular classification | Three major molecular clusters: pseudohypoxia (cluster 1), kinase signaling (cluster 2), and Wnt-signaling / MAML3-CSDE1-associated cluster 3 (t.2024pheochromocytomaanupdated pages 1-2, cascon2023geneticbasesof pages 1-2, t.2024pheochromocytomaanupdated pages 3-6) | Peer-reviewed reviews, 2023–2024 | 10.3389/fendo.2024.1433582; 10.1530/JME-22-0167 |
+| Major susceptibility genes | >20 driver/susceptibility genes reported; commonly cited genes include SDHA/B/C/D, SDHAF2, VHL, RET, NF1, TMEM127, MAX, FH, MDH2, SLC25A11, DLST, EPAS1/EGLN-related genes (cascon2023geneticbasesof pages 1-2, t.2024pheochromocytomaanupdated pages 3-6) | Peer-reviewed review, 2023; scoping review, 2024 | 10.1530/JME-22-0167; 10.3389/fendo.2024.1433582 |
+| Phenotypes / symptom frequencies | Classic symptoms/signs are variable; one 2024 scoping review summarized hypertension 92%, sustained hypertension 48%, paroxysmal hypertension 44%, headache 59%, palpitations 50%, diaphoresis 50%, dizziness 67%, orthostatic hypotension 12% (t.2024pheochromocytomaanupdated pages 6-7) | Scoping review, 2024 | 10.3389/fendo.2024.1433582 |
+| Biochemical diagnosis | Plasma free metanephrines: sensitivity ~96%, specificity ~85%; suggested highly indicative thresholds in one review were normetanephrine >2.5 pmol/mL or metanephrine >1.4 pmol/mL; supine sampling after ≥30 min recumbency is recommended to reduce false positives (t.2024pheochromocytomaanupdated pages 3-6) | Scoping review, 2024 | 10.3389/fendo.2024.1433582 |
+| Urinary diagnosis | 24-hour urinary catecholamines/metanephrines: sensitivity ~87.5%, specificity ~99.7%; urinary metanephrine/creatinine linkage can improve accuracy (t.2024pheochromocytomaanupdated pages 3-6) | Scoping review, 2024 | 10.3389/fendo.2024.1433582 |
+| Adjunct biochemical marker | Plasma 3-methoxytyramine is recommended with metanephrines as a first-line biochemical marker set, especially relevant for dopamine/SDH-related biology (casey2020geneticstratificationof pages 4-5) | Peer-reviewed review, 2020 | 10.1093/hmg/ddaa201 |
+| Clonidine suppression | For distinguishing false-positive norepinephrine elevations, clonidine suppression test reported sensitivity 97% and specificity 100%; <50% fall in plasma norepinephrine after clonidine is abnormal (t.2024pheochromocytomaanupdated pages 6-7) | Scoping review, 2024 | 10.3389/fendo.2024.1433582 |
+| Anatomic imaging | CT abdomen/pelvis is typical first localization test after biochemical evidence; CT sensitivity reported as 88% and accuracy 90–95% for tumors >1.3 cm in one review (t.2024pheochromocytomaanupdated pages 6-7) | Scoping review, 2024 | 10.3389/fendo.2024.1433582 |
+| Functional imaging detection rates | 68Ga-DOTA-SST PET/CT detection ~93% (95% CI 91–95) as first-line functional imaging in one review; 18F-DOPA PET/CT ~80% (95% CI 69–88) in hereditary cluster 2; 18F-FDG PET/CT ~74% (95% CI 46–91) as alternative (t.2024pheochromocytomaanupdated pages 7-8) | Scoping review, 2024 | 10.3389/fendo.2024.1433582 |
+| Genotype-specific imaging guidance | SDHx-related tumors: [68Ga]-DOTA-SSA PET/CT favored; VHL- and many kinase-cluster tumors: [18F]FDOPA PET/CT often most sensitive; [123I]MIBG sensitivity ~50–75% overall and <50% in SDHB-associated tumors (giacche2024pheochromocytoma–paragangliomasyndromea pages 10-12) | Review, 2024 | 10.3390/biomedicines12102385 |
+| Genetic testing strategy | Germline testing is recommended for all PPGL patients; targeted NGS panels are described as current gold standard, rather than sequential gene-by-gene testing (cascon2023geneticbasesof pages 6-8, t.2024pheochromocytomaanupdated pages 7-8) | Peer-reviewed review, 2023; scoping review, 2024 | 10.1530/JME-22-0167; 10.3389/fendo.2024.1433582 |
+| IHC / pathology support | Loss of SDHB staining is a useful screening/prognostic biomarker for SDHx-related disease; SDHA-, MAX-, and FH-related IHC can support variant interpretation; histopathology alone cannot diagnose malignancy, which requires metastasis (casey2020geneticstratificationof pages 4-5, cascon2023geneticbasesof pages 6-8, t.2024pheochromocytomaanupdated pages 7-8) | Reviews, 2020–2024 | 10.1093/hmg/ddaa201; 10.1530/JME-22-0167; 10.3389/fendo.2024.1433582 |
+| Inheritance / penetrance example: SDHD | SDHD shows autosomal dominant inheritance modified by maternal imprinting; penetrance reported as 86% by age 50; tumors are mainly head-and-neck, with thoraco-abdominal PGL up to 22% and PCC 12–24% (cascon2023geneticbasesof pages 4-5) | Peer-reviewed review, 2023 | 10.1530/JME-22-0167 |
+| Inheritance / penetrance example: SDHB | SDHB mutations occur in ~8–10% of PPGL; penetrance reported as ~30% by age 80 in one review; associated with thoraco-abdominal PGLs, H&N PGLs, and PCCs, with higher metastatic concern (cascon2023geneticbasesof pages 2-4, cascon2023geneticbasesof pages 4-5) | Peer-reviewed review, 2023 | 10.1530/JME-22-0167 |
+| Inheritance / penetrance example: SDHA | SDHA pathogenic variants can be found in up to ~10% of PPGL in cited review datasets, with low penetrance estimated around 10% by age 70 and often apparently sporadic presentation (cascon2023geneticbasesof pages 4-5) | Peer-reviewed review, 2023 | 10.1530/JME-22-0167 |
+| Syndrome example: VHL | ~20% of VHL patients develop PCC/PGL; VHL-related PPGL are often multifocal/bilateral (43–45%), metastatic in <5%, and median diagnosis age ~29 years (cascon2023geneticbasesof pages 4-5) | Peer-reviewed review, 2023 | 10.1530/JME-22-0167 |
+| Syndrome example: MEN2 / RET | ~50% of MEN2 patients develop PCC; 50–80% of MEN2-associated PCCs are bilateral; only a small percentage metastasize (cascon2023geneticbasesof pages 5-6) | Peer-reviewed review, 2023 | 10.1530/JME-22-0167 |
+| Syndrome example: NF1 | Estimated 0.1–5.7% of NF1 patients develop PPGL (3.3–13% in autopsy studies); NF1-associated PPGL are usually unilateral and metastasize up to ~10% (cascon2023geneticbasesof pages 5-6) | Peer-reviewed review, 2023 | 10.1530/JME-22-0167 |
+| Syndrome example: MAX | MAX germline review of 109 carriers reported mean diagnosis age 32.8 years, bilateral PCC in 59/101 PCC cases, metastasis in 19/101 (~18.8%), and male:female ratio 1.3:1 (OpenTargets Search: pheochromocytoma,paraganglioma) | Aggregated case series/review, 2024 | 10.3389/fendo.2024.1442691 |
+| Metastatic-risk markers | Independent correlates of metastatic risk reported in review include SDHB mutation plus norepinephrine/dopamine biochemical phenotype; larger size, extra-adrenal location, and cluster-1 biology are recurrent risk signals (giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, t.2024pheochromocytomaanupdated pages 7-8) | Reviews, 2024 | 10.3390/biomedicines12102385; 10.3389/fendo.2024.1433582 |
+| Aggressive disease biomarkers | Somatic ATRX alterations, TERT activation, and MAML3 fusions are associated with aggressive/metastatic behavior; MAML3 rearranged tumors had metastases in 37.5% in one cited review summary (casey2020geneticstratificationof pages 4-5, cascon2023geneticbasesof pages 6-8) | Reviews/pre-existing primary data synthesis | 10.1093/hmg/ddaa201; 10.1530/JME-22-0167 |
+| Surgery | Minimally invasive/laparoscopic resection is generally suitable for most pheochromocytomas <5 cm; open surgery/lymph-node dissection may be preferred for larger, invasive, extra-adrenal, synchronous metastatic, or SDHB-associated tumors (t.2024pheochromocytomaanupdated pages 7-8) | Scoping review, 2024 | 10.3389/fendo.2024.1433582 |
+| Perioperative blockade | Endocrine Society-based preparation: alpha-blockade first; phenoxybenzamine start 10 mg orally twice daily and titrate up to 1 mg/kg/day, or doxazosin; beta-blocker added 3–4 days later if needed; increased salt/water intake 10–14 days pre-op (t.2024pheochromocytomaanupdated pages 7-8) | Scoping review/guideline-based summary, 2024 | 10.3389/fendo.2024.1433582 |
+| Metastatic radionuclide therapy: HSA-I-131-MIBG | FDA-approved in 2018 for metastatic PPGL; response rate ~30–40% in review summary; phase II multicenter trial of 68 patients: 25% had durable antihypertensive-medication reduction, 92% achieved partial response or stable disease within 12 months, median OS 36.7 months (95% CI 29.9–49.1) (t.2024pheochromocytomaanupdated pages 7-8) | Phase II trial summarized in 2024 review | 10.3389/fendo.2024.1433582 |
+| Real-world MIBG outcome | Real-world study of 24 metastatic PPGL patients reported 38% objective response rate, 83% disease control rate, BP normalization in 56%, but notable grade 3–4 myelosuppression and one fatal pneumonitis (t.2024pheochromocytomaanupdated pages 8-9) | Real-world study summarized in review, 2024 | 10.3389/fendo.2024.1433582 |
+| Chemotherapy | Conventional chemotherapy response is ~37% overall in review summary; complete responses are uncommon; temozolomide may be especially relevant in SDHB/MGMT-methylated disease (t.2024pheochromocytomaanupdated pages 8-9) | Review, 2024 | 10.3389/fendo.2024.1433582 |
+| TKIs / targeted therapy | Sunitinib small studies showed disease control ~57–83% and median PFS ~4–13 months; FIRSTMAPP phase II reported 12-month PFS 36% on sunitinib vs 19% placebo; cabozantinib phase II ORR 25.0% (4/16 responders); axitinib phase II partial response 36% (t.2024pheochromocytomaanupdated pages 8-9) | Phase II and review summaries, 2024 | 10.3389/fendo.2024.1433582 |
+| Surveillance | For metastatic PPGL, CT/MRI every 3–6 months in first year, then every 6–12 months if stable; secretory disease should have plasma free or 24-h urinary fractionated metanephrines at least every 6 months (t.2024pheochromocytomaanupdated pages 7-8, taieb2023clinicalconsensusguideline pages 19-21) | Review/guideline summaries, 2023–2024 | 10.3389/fendo.2024.1433582; 10.1016/S2213-8587(23)00038-4 |
+| Pediatric disease | Pediatric PPGL accounts for ~10–20% of all PPGL; annual incidence ~0.5–2.0 per million children; median presentation age 11–15 years; hereditary background in ~70–80% (casey2024internationalconsensusstatement pages 1-2) | International consensus statement, 2024 | 10.17863/cam.111911 |
+| Pediatric metastatic management | In pediatric metastatic PPGL, surgery is the only curative therapy; about 50% of treatment-naive patients may show stable disease at 1 year; radionuclide therapy is considered for avid tumors without rapid progression (casey2024internationalconsensusstatement pages 11-13) | International consensus statement, 2024 | 10.17863/cam.111911 |
+| Recent single-cell findings | A 2024 preprint scRNA-seq study of 16 tissues from 5 PCC patients identified “metabolism-type” (NDUFA4L2/COX4I2) and “kinase-type” (RET/PNMT) tumors, with distinct immune microenvironments and potential therapeutic implications; this is preprint-level evidence (OpenTargets Search: pheochromocytoma,paraganglioma) | Preprint, 2024 | 10.1101/2023.03.26.534245 |
+| Recent multi-omics findings | A 2024 preprint multi-omic analysis of 94 SDHB-deficient tumors from 79 patients linked TERT and ATRX alterations with metastatic disease, increased mutation load, and treatment-related profiles including MGMT overexpression/MMR deficiency; preprint-level evidence (OpenTargets Search: pheochromocytoma,paraganglioma) | Preprint, 2024 | 10.21203/rs.3.rs-4410500/v1 |
+| Active recent trials | Examples from ClinicalTrials.gov search: NCT07714551 zanzalintinib phase II not yet recruiting (n=14); NCT07282587 ONC206 phase II recruiting (n=90); NCT03206060 Lu-177-DOTATATE phase II recruiting (n=130); NCT07680205 belzutifan impact on catecholamine metabolism phase II recruiting (n=12); NCT06429397 anlotinib + benmelstobart phase II not yet recruiting (n=22) (OpenTargets Search: pheochromocytoma,paraganglioma) | ClinicalTrials.gov records, current at retrieval | NCT07714551; NCT07282587; NCT03206060; NCT07680205; NCT06429397 |
+| Evidence gaps | Limited high-level evidence for environmental/protective factors and gene–environment interactions; limited validated QoL datasets in retrieved evidence; no robust protective genetic variants established; comparative veterinary disease/model-system evidence was not substantively captured in retrieved contexts; several omics findings are from preprints and need peer-reviewed validation (t.2024pheochromocytomaanupdated pages 8-9, cascon2023geneticbasesof pages 1-2) | Evidence-gap summary from retrieved set | 10.3389/fendo.2024.1433582; 10.1530/JME-22-0167 |
 
 
-*Table: This table summarizes core disease-level facts for pheochromocytoma and paraganglioma, including definition, sites, functionality, WHO classification concept, heritability, and molecular genetics. It is structured for direct reuse in a knowledge base and includes citation-ready evidence IDs plus recent source URLs.*
-
----
+*Table: This table compiles compact, knowledge-base–ready evidence on pheochromocytoma and paraganglioma across clinical, genetic, diagnostic, and treatment domains. It prioritizes quantitative findings and recent sources, while flagging areas where evidence remains sparse or preprint-only.*
 
 ## 1. Disease information
-### What is the disease?
-- **Definition:** PPGL refers to **pheochromocytomas (adrenal medulla)** plus **paragangliomas (extra-adrenal paraganglia)**; these originate from neural-crest derived paraganglia/chromaffin cells. (bresser2024themolecularclassification pages 1-2, t.2024pheochromocytomaanupdated pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2)
-- **Functional behavior:** Sympathetic PPGLs “often hypersecrete catecholamines,” while parasympathetic PGLs tend to be nonfunctional or dopamine-predominant; biochemical diagnosis commonly uses metanephrine, normetanephrine, and 3‑methoxytyramine. (bresser2024themolecularclassification pages 1-2)
-- **WHO classification concept:** A recent endocrine pathology review notes that WHO redefined PPGLs “as malignant neoplasms with variable metastatic potential.” (bresser2024themolecularclassification pages 1-2)
 
-### Key identifiers (OMIM/Orphanet/ICD/MeSH/MONDO)
-- **Status:** Not extracted from OMIM/Orphanet/ICD/MeSH/MONDO within the current tool runs. This report therefore cannot provide authoritative identifier codes and should be supplemented by direct look-up in OMIM/Orphanet/ICD‑11/MeSH/MONDO. (No identifier sources were retrieved in the provided context.)
+### Definition, category, and terminology
 
-### Synonyms / alternative names
-Commonly used terms include:
-- *Pheochromocytoma (PCC)*, *paraganglioma (PGL)*, *PPGL*
-- *Head and neck paraganglioma (HNPGL)* for parasympathetic PGLs in skull base/neck. (lin2022headandneck pages 1-2)
+**Category:** rare neuroendocrine neoplasm; neural-crest/chromaffin-cell tumor; hereditary-cancer syndrome when caused by a germline pathogenic variant.
 
-### Evidence provenance
-- The information above is derived from **aggregated disease-level resources (peer-reviewed reviews and cohort studies)** rather than individual EHR extractions. (bresser2024themolecularclassification pages 1-2, t.2024pheochromocytomaanupdated pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2)
+* **Pheochromocytoma:** adrenal-medullary PPGL.
+* **Sympathetic PGL:** usually thoracic, abdominal, or pelvic; commonly catecholamine-secreting.
+* **Parasympathetic PGL:** usually skull-base/head-and-neck, including carotid-body, vagal, jugulotympanic, and related sites; often nonsecretory.
+* **Metastatic PPGL:** tumor present in a site where normal paraganglial tissue does not occur—commonly lymph node, bone, liver, or lung. Histology alone cannot establish benignity or reliably exclude future metastasis. (casey2020geneticstratificationof pages 4-5)
 
----
+**Synonyms:** PPGL; PCC/PGL; phaeochromocytoma/paraganglioma; chromaffinoma; adrenal paraganglioma; extra-adrenal pheochromocytoma (older term); chemodectoma or glomus tumor for selected head-and-neck PGLs.
 
-## 2. Etiology
-### Disease causal factors
-#### Genetic predisposition (dominant driver of etiology)
-PPGL is among the most heritable human tumor types.
-- A 2024 review states: “**germline mutation in susceptibility genes is detected in 40% of subjects**,” and ~10–12% of clinically sporadic presentations still carry germline mutations. (giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2)
-- A 2024 pediatric-focused review summarizes **~40–50%** germline contribution overall and higher rates in children (reported **70–80%** hereditary; one study ~80%). (bima2024preventionandmanagement pages 4-5)
-- A 2024 analysis of sex/ancestry effects notes that genetic drivers explain ~80% of PPGLs and that “**half of which are caused by germline pathogenic variants (PVs)** in… >20 susceptibility genes,” consistent with ~40% germline overall. (richter2024patientsexand pages 1-2)
+### Identifiers
 
-**Major susceptibility genes** (examples repeatedly emphasized in recent reviews):
-- **Cluster 1 (pseudohypoxia / Krebs cycle):** SDHA/SDHB/SDHC/SDHD/SDHAF2, VHL, FH, EPAS1(HIF2A), plus additional metabolic/hypoxia genes (e.g., MDH2; and in some classifications IDH1, DLST, GOT2, SLC25A11). (giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, richter2024patientsexand pages 1-2)
-- **Cluster 2 (kinase signaling):** RET, NF1, TMEM127, MAX, HRAS (and sometimes FGFR1/MET etc. in expanded schemas). (giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, richter2024patientsexand pages 1-2)
-- **Cluster 3 (Wnt-altered):** MAML3 fusions, CSDE1 (somatic drivers). (giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6)
+* **MONDO:** pheochromocytoma **MONDO:0008233**; adrenal-gland pheochromocytoma **MONDO:0004974**; hereditary pheochromocytoma–paraganglioma **MONDO:0017366**; malignant adrenal-gland pheochromocytoma **MONDO:0006288**. (OpenTargets Search: pheochromocytoma,paraganglioma)
+* **OMIM syndromes:** PGL1/SDHD 168000; PGL2/SDHAF2 601650; PGL3/SDHC 605373; PGL4/SDHB 115310; PGL5/SDHA 614165; PGL6/SLC25A11 618464; PGL7/DLST 618475; VHL 193300; MEN2 171400; NF1 162200. (cascon2023geneticbasesof pages 4-5, cascon2023geneticbasesof pages 5-6)
+* **ICD-10-CM:** coding is site/behavior dependent, including D35.0 (benign adrenal neoplasm), D44.6/D44.7 (uncertain behavior of carotid body, aortic body, or other paraganglia), C74.1 (malignant adrenal medulla), and C75.4/C75.5 (malignant carotid/aortic body). These behavior-based labels do not fully reflect the WHO concept that all PPGLs have variable metastatic potential.
+* **MeSH:** *Pheochromocytoma* and *Paraganglioma* are separate descriptors.
 
-**Genotype–phenotype coupling (high-level):** A 2024 review summarizes that pseudo-hypoxic (cluster‑1) tumors tend toward extra-adrenal location and noradrenergic/dopaminergic biochemical profiles with greater aggressiveness, whereas kinase (cluster‑2) tumors more often are adrenal/adrenergic. (giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6)
+This report synthesizes **aggregated disease-level resources, cohorts, trials, and guidelines**, not individual EHR records. Variant interpretation for an actual patient still requires the original laboratory report, ACMG/AMP classification, phenotype, family segregation, and—where available—tumor evidence.
 
-#### Environmental and lifestyle factors
-- No strong, validated environmental causal factors were identified in the retrieved evidence set. PPGL is primarily genetically driven. (giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, richter2024patientsexand pages 1-2)
+## 2. Etiology, risk, protective, and environmental factors
 
-### Risk factors
-- **Genetic:** germline pathogenic variants (e.g., SDHB confers high metastatic/recurrence risk). (araujocastro2023localrecurrenceand pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 12-14)
-- **Clinical predictors of recurrence/metastasis (post-resection):** SDHB pathogenic variant, larger tumor size, and higher urinary normetanephrine were independent recurrence predictors in a Spanish multicenter series. (araujocastro2023localrecurrenceand pages 1-2)
+### Causal and susceptibility factors
 
-### Protective factors
-- No protective genetic variants or environmental protective factors were identified in the retrieved evidence set.
+PPGL is fundamentally a genetic/epigenetic neoplastic disease. Approximately 40% of patients carry an autosomal-dominant germline alteration, about 30% have a recognized somatic driver, and about 30% remain unexplained by currently known genes. More than 20 susceptibility/driver genes are established or strongly implicated. (cascon2023geneticbasesof pages 1-2, cascon2023geneticbasesof pages 2-4)
 
-### Gene–environment interactions
-- No gene–environment interaction studies were retrieved in the current evidence set.
+Major germline causes include **SDHA, SDHB, SDHC, SDHD, SDHAF2, VHL, RET, NF1, TMEM127, MAX, FH, MDH2, SLC25A11, DLST, EGLN1/2**, and less frequently other metabolic-pathway genes. Important somatic/postzygotic events include **NF1, VHL, RET, HRAS, FGFR1, EPAS1, H3-3A, CSDE1**, and **MAML3** rearrangements. Open Targets independently links PCC most strongly to MAX, TMEM127, RET, SDHB, VHL, SDHD, NF1, and SDHA. (OpenTargets Search: pheochromocytoma,paraganglioma, cascon2023geneticbasesof pages 1-2, cascon2023geneticbasesof pages 6-8)
 
----
+Risk is increased by a pathogenic germline variant, family history, young age, multifocal/bilateral disease, previous PPGL, and syndromic findings such as medullary thyroid carcinoma, VHL lesions, neurofibromas/café-au-lait macules, renal-cell carcinoma, GIST, pituitary tumor, polycythemia, or uterine/cutaneous leiomyomas. SDHB alteration, extra-adrenal location, larger primary tumor, and a norepinephrine/dopamine biochemical phenotype correlate with metastatic risk. (giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, t.2024pheochromocytomaanupdated pages 7-8)
+
+### Environment and gene–environment interaction
+
+No infectious agent, toxin, occupational exposure, diet, smoking pattern, alcohol exposure, or other modifiable environmental factor is established as a primary PPGL cause. Likewise, no replicated protective lifestyle factor or protective human allele supports primary-prevention advice beyond general cardiovascular health. Hypoxia is mechanistically relevant because cluster-1 tumors constitutively activate a hypoxia-response program, but ordinary environmental hypoxia has not been shown to cause PPGL. Pregnancy can reveal or aggravate a previously occult secretory tumor; LHCGR expression in some tumors offers a plausible hormonal mechanism. (cascon2023geneticbasesof pages 2-4, t.2024pheochromocytomaanupdated pages 3-6)
+
+Accordingly, **validated gene–environment interactions remain an evidence gap**. This is absence of convincing evidence, not proof that environmental modifiers never operate.
 
 ## 3. Phenotypes
-### Core symptom/sign spectrum (with frequencies when available)
-Typical manifestations largely reflect catecholamine excess.
-- A 2023 review states systemic arterial **hypertension occurs in ~90%** of cases and highlights the classic paroxysmal triad of “**headache, palpitations, and sweating**.” (junior2023thepheochromocytomaparagangliomasyndrome pages 1-2)
-- A 2024 review provides pooled sensitivities: hypertension ~80.7%, palpitations ~59.3%, diaphoresis ~52.4%, and classic triad sensitivity ~58%. (giacche2024pheochromocytoma–paragangliomasyndromea pages 2-4)
-- Hypertension pattern differs: sustained hypertension more common than paroxysmal in some series; one 2024 scoping review summarizes sustained hypertension ~50–55% and paroxysmal ~30–45%. (t.2024pheochromocytomaanupdated pages 3-6)
 
-**Pediatric phenotype differences:** sustained hypertension is especially common in children (reported ~60–90%), and the classic triad is reported in up to 54% of affected children. (bima2024preventionandmanagement pages 2-4)
+| Phenotype | Typical character and frequency | Suggested HPO term |
+|---|---|---|
+| Hypertension | Sustained or episodic; pooled review figures: any hypertension 92%, sustained 48–55%, paroxysmal 30–45%; may cause crisis and target-organ injury | HP:0000822 Hypertension; HP:0004944 Episodic hypertension |
+| Headache | Episodic, frequently associated with BP surges; approximately 40–59% | HP:0002315 Headache |
+| Palpitations/tachycardia | Episodic; palpitations about 50%, tachycardia about 15% | HP:0001962 Palpitations; HP:0001649 Tachycardia |
+| Diaphoresis/hyperhidrosis | Episodic, often accompanying crisis; approximately 50–60% | HP:0000975 Hyperhidrosis |
+| Dizziness/syncope | Dizziness 67%, syncope approximately 40% in one synthesis | HP:0002321 Vertigo; HP:0001279 Syncope |
+| Orthostatic hypotension | From volume contraction and receptor physiology; approximately 12% | HP:0001278 Orthostatic hypotension |
+| Anxiety/tremor/pallor | Episodic sympathetic symptoms; anxiety approximately 19% in one synthesis | HP:0000739 Anxiety; HP:0001337 Tremor; HP:0000980 Pallor |
+| Weight loss | Variable; approximately 30% | HP:0001824 Weight loss |
+| Hyperglycemia/diabetes | Catecholamine-mediated inhibition of insulin secretion and altered glucose handling | HP:0003074 Hyperglycemia; HP:0000819 Diabetes mellitus |
+| Tumor mass effects | Head-and-neck PGL: pulsatile mass, tinnitus, dysphagia, dysphonia or cranial-nerve deficits; abdominal tumors: pain/fullness | HP:0000360 Tinnitus; HP:0002015 Dysphagia; HP:0001618 Dysphonia |
+| Laboratory abnormalities | Elevated plasma free or urinary fractionated metanephrines; dopamine-lineage tumors may elevate 3-methoxytyramine | HP:0500114 Elevated circulating catecholamine level |
 
-**Cardiovascular complications (high clinical importance):**
-- Catecholamine-induced cardiomyopathy complicates ~8–10% of cases, and cardiovascular event rates in PPGL cohorts are reported at 19.3% and 28% in cited studies. (giacche2024pheochromocytoma–paragangliomasyndromea pages 4-5)
+These frequencies are heterogeneous across referral populations and genotypes and should not be interpreted as universal penetrance estimates. Cluster-1 tumors tend to be noradrenergic/dopaminergic and may produce sustained hypertension; cluster-2 adrenal tumors more often produce epinephrine and paroxysmal attacks. Nonsecretory head-and-neck PGLs can remain clinically silent until a mass or cranial-nerve deficit develops. (giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, t.2024pheochromocytomaanupdated pages 6-7, t.2024pheochromocytomaanupdated pages 3-6)
 
-### Suggested HPO terms (examples)
-(These are ontology mapping suggestions for knowledge-base use; not claims about frequency unless stated above.)
-- Hypertension **HP:0000822**; Paroxysmal hypertension **HP:0004921**
-- Headache **HP:0002315**
-- Palpitations **HP:0001962**
-- Diaphoresis **HP:0000972**
-- Tachycardia **HP:0001649**; Arrhythmia **HP:0011675**
-- Orthostatic hypotension **HP:0001278** (often coded as **HP:0001278** is incorrect; better: Orthostatic hypotension **HP:0001278** may be mismatched—curators should verify; suggestion only)
-- Hyperglycemia **HP:0003074**; Diabetes mellitus **HP:0000819**
-- Cardiomyopathy **HP:0001638**; Takotsubo cardiomyopathy (no single HPO term in this context; curate as appropriate)
+**Quality of life:** attacks restrict activity, sleep, driving, employment, and social participation; chronic uncertainty, hereditary risk, repeated imaging, cranial-nerve morbidity, pain, fatigue, and treatment toxicities further impair well-being. Robust genotype-stratified EQ-5D/SF-36 estimates remain limited in the retrieved literature.
 
-### Laboratory abnormalities
-- Elevated plasma/urinary metanephrines (metanephrine, normetanephrine) and sometimes 3‑methoxytyramine are the key biochemical signatures used clinically. (bresser2024themolecularclassification pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 4-5)
+## 4. Genetic and molecular information
 
-### Quality-of-life impact
-- Direct PPGL patient-reported outcome datasets were not retrieved as full-text evidence in this run; however, a 2024 head-and-neck paraganglioma registry protocol explicitly plans longitudinal PROMs including EQ‑5D‑5L, EORTC QLQ‑C30, fatigue and anxiety/depression scales, indicating recognized QoL burden and need for standardized data capture. (bresser2024headandneck, not in evidence IDs; therefore not cited as evidence here.)
+### Molecular classes and causal chain
 
----
+1. **Cluster 1A—TCA-cycle/SDH pseudohypoxia:** biallelic loss of SDHx, FH, MDH2, DLST, or related metabolism genes → succinate/fumarate accumulation → inhibition of α-ketoglutarate-dependent dioxygenases → HIF stabilization plus DNA/histone hypermethylation (CIMP) → angiogenesis, altered differentiation, invasion, and predominantly noradrenergic/dopaminergic secretion. SDHB tumors are particularly enriched for metastatic behavior. Suggested GO terms: tricarboxylic-acid cycle (GO:0006099), mitochondrial electron transport (GO:0006121), response to hypoxia (GO:0001666), DNA methylation (GO:0006306), angiogenesis (GO:0001525). (cascon2023geneticbasesof pages 2-4, cascon2023geneticbasesof pages 4-5, t.2024pheochromocytomaanupdated pages 3-6)
+2. **Cluster 1B—VHL/EPAS1 pseudohypoxia:** impaired VHL-mediated HIF degradation or activating EPAS1/HIF-2α alteration → constitutive hypoxia transcription → vascular/metabolic tumor program. EPAS1 alterations can be postzygotic mosaic and associated with polycythemia and somatostatinoma. (cascon2023geneticbasesof pages 6-8, t.2024pheochromocytomaanupdated pages 3-6)
+3. **Cluster 2—kinase signaling:** RET gain of function or loss of NF1, TMEM127, MAX and related regulators → RAS–MAPK, PI3K–AKT–mTOR, receptor-tyrosine-kinase, MYC/MAX, and translational activation → proliferation and an adrenal/adrenergic phenotype. Suggested GO: MAPK cascade (GO:0000165), PI3K signaling (GO:0014065), TOR signaling (GO:0031929), cell proliferation (GO:0008283). (cascon2023geneticbasesof pages 2-4, cascon2023geneticbasesof pages 5-6)
+4. **Cluster 3—WNT altered:** somatic **MAML3–UBTF** fusions or **CSDE1** alterations → WNT/β-catenin and developmental transcriptional dysregulation → proliferation, angiogenesis, and invasion. MAML3 rearrangements represented 5–7% in one synthesis; 37.5% of fusion-positive tumors developed metastases in the cited series. (cascon2023geneticbasesof pages 1-2, cascon2023geneticbasesof pages 6-8)
 
-## 4. Genetic / molecular information
-### Causal genes (high-confidence susceptibility genes)
-A 2024 review lists major susceptibility genes including **NF1, VHL, RET, SDHx (SDHA/SDHB/SDHC/SDHD/SDHAF2), TMEM127, MAX, FH**. (giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2)
+### Variant interpretation
 
-### Pathogenic variants (types and origin)
-- The retrieved evidence supports that PPGL susceptibility includes both **germline** and **somatic** drivers and that drivers are identifiable in a large fraction of tumors (e.g., ~70–80% depending on series and definitions). (giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2, richter2024patientsexand pages 1-2)
-- Variant classes are gene-dependent (loss-of-function in tumor suppressor genes such as SDHB/VHL/NF1 is common); detailed allele frequencies in gnomAD and variant-level ClinVar assertions were not retrieved in this run.
+Pathogenic alterations include missense, nonsense, frameshift, splice, copy-number, deletion, loss-of-heterozygosity, fusion, promoter/epigenetic, and postzygotic mosaic events. Tumor-suppressor genes generally operate through loss of function and a somatic second hit; RET and EPAS1 commonly act through gain of function. Population frequency alone is insufficient, especially for low-penetrance SDHA variants. VUS must not direct predictive testing or irreversible management. Tumor LOH, metabolomics, and IHC—loss of SDHB/SDHA/MAX or positive 2-succinocysteine in FH-deficient disease—can supply functional evidence. (cascon2023geneticbasesof pages 6-8, cascon2023geneticbasesof pages 4-5)
 
-### Epigenetic information
-- Metabolic derangements (succinate/fumarate accumulation) are linked to epigenetic alterations (hypermethylation/CIMP-like states) and hypoxia-like signaling in PPGL biology. (jeeyavudeen2024tumormetabolismin pages 1-3)
+### Penetrance and genotype–phenotype examples
 
----
+* **SDHD:** autosomal dominant with parent-of-origin effect, usually disease after paternal transmission; reported penetrance 86% by age 50; predominantly head-and-neck PGL.
+* **SDHB:** autosomal dominant, incomplete age-dependent penetrance—approximately 30% by age 80 in one synthesis; often a solitary thoracoabdominal PGL without family history; substantial metastatic concern.
+* **SDHA:** low penetrance, approximately 10% by age 70; many probands appear sporadic.
+* **VHL:** approximately 20% develop PPGL; 43–45% multifocal/bilateral, <5% metastatic, median diagnosis around 29 years.
+* **RET/MEN2:** approximately 50% lifetime PCC risk; 50–80% bilateral; metastatic disease uncommon.
+* **NF1:** clinically recognized PPGL in approximately 0.1–5.7%, higher in autopsy series; usually unilateral adrenal tumors.
+* **MAX:** preferential paternal transmission has been reported. A 2024 aggregation of 109 carriers found 101 PCC cases, 59 bilateral tumors, 18.8% metastasis, and mean diagnosis age 32.8 years. (cascon2023geneticbasesof pages 4-5, cascon2023geneticbasesof pages 5-6)
+
+No repeat expansion is implicated. Routine karyotyping and FISH are not first-line tests; chromosomal microarray may detect large deletions but is less efficient than a sequencing panel that includes deletion/duplication analysis. Mitochondrial **nuclear genes** are central, but mitochondrial-DNA testing is not routine.
+
+### Recent single-cell and multi-omics research
+
+A 2024 single-cell preprint analyzed 133,894 cells from 16 tissues in five PCC patients and proposed metabolism-type tumors marked by **NDUFA4L2/COX4I2** and kinase-type tumors marked by **RET/PNMT**, with distinct FGF, annexin, inflammatory, HLA-I, and T-cell microenvironments. This is hypothesis-generating because of the very small patient sample and preprint status. A separate 2024 preprint integrating seven assays in 94 SDHB-deficient tumors from 79 patients associated **TERT/ATRX** alterations with metastasis and identified MGMT overexpression and mismatch-repair deficiency as possible alkylator-resistance mechanisms. (OpenTargets Search: pheochromocytoma,paraganglioma)
+
+A concise quote from the 2023 genetics review captures the field: **“there are currently more than 20 driver genes implicated in either the hereditary or the sporadic nature of the disease.”** It further reports that genetic diagnosis is achieved in approximately 75–80%. [Published April 2023; DOI](https://doi.org/10.1530/jme-22-0167). (cascon2023geneticbasesof pages 1-2)
 
 ## 5. Environmental information
-- No specific environmental toxins, lifestyle factors, or infectious agents were identified as causal or protective in the retrieved evidence set.
 
----
+There is no established infectious etiology and no evidence supporting vaccination, antimicrobial prophylaxis, toxin avoidance, or a specific diet as PPGL prevention. Exercise, caffeine, nicotine, sympathomimetics, stress, anesthesia, tumor manipulation, and selected drugs can **trigger symptoms or interfere with biochemical testing**, but are not proven tumor initiators. Pregnancy is a clinically important physiologic context because catecholamine excess threatens both mother and fetus; early recognition and alpha blockade improve outcomes. (t.2024pheochromocytomaanupdated pages 6-7, t.2024pheochromocytomaanupdated pages 3-6)
 
-## 6. Mechanism / pathophysiology
-### Molecular clusters and causal chains
-**Cluster 1: Pseudohypoxia / Krebs cycle dysregulation (SDHx, FH, VHL/EPAS1 axis)**
-- Mechanistic chain (conceptual): SDHx/FH dysfunction → accumulation of oncometabolites (succinate, fumarate) → inhibition of α‑ketoglutarate–dependent dioxygenases → epigenetic dysregulation (hypermethylation) and stabilization of hypoxia-inducible signaling → pro-angiogenic and pro-proliferative transcriptional programs contributing to tumorigenesis and aggressiveness. (jeeyavudeen2024tumormetabolismin pages 1-3, bresser2024themolecularclassification pages 6-7)
+## 6. Pathophysiology
 
-**Cluster 2: Kinase signaling (RET/NF1/TMEM127/MAX/HRAS)**
-- Mechanistic chain (conceptual): kinase/RAS pathway activation → altered growth signaling and adrenal-predominant, adrenergic biochemical phenotypes in many cases. (giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, richter2024patientsexand pages 1-2)
+The clinical causal chain is:
 
-**Cluster 3: Wnt-altered (MAML3/CSDE1)**
-- Wnt-altered tumors (e.g., MAML3 fusions) are highlighted in modern classifiers and may show higher metastatic propensity and distinct immune features (including PD‑L1 expression in MAML3-related tumors in metastatic cohorts). (bresser2024themolecularclassification pages 7-9, calsina2023genomicandimmune pages 1-2)
+**driver alteration/second hit → chromaffin or paraganglial-cell transformation → cluster-specific metabolic or kinase program → tumor growth ± catecholamine synthesis → α-adrenergic vasoconstriction, β-adrenergic chronotropy/inotropy, volume contraction, insulin suppression and lipolysis → hypertension, headache, sweating, palpitations, arrhythmia, cardiomyopathy, hyperglycemia and crisis.** Chronic or extreme catecholamine exposure can produce myocarditis/cardiomyopathy, stroke, pulmonary edema, intestinal ischemia/ileus, and acute kidney injury. (t.2024pheochromocytomaanupdated pages 6-7, t.2024pheochromocytomaanupdated pages 3-6)
 
-### Metastasis biology and immune microenvironment (recent research emphasis)
-A large Nature Communications 2023 study profiled metastatic PPGL and identified genomic instability and immune features relevant to prognostication:
-- High **TMB**, **MSI**, and **SCNA burden** associated with **ATRX/TERT** alterations were proposed as prognostic markers; transcriptomics highlighted **CDK1** as an additional marker. (calsina2023genomicandimmune pages 1-2, calsina2023genomicandimmune pages 4-5)
-- The tumor microenvironment in metastatic PPGL was described as generally **immunosuppressive**, with an exception for **PD‑L1–expressing MAML3-related tumors**, suggesting a subset potentially more amenable to immune checkpoint approaches. (calsina2023genomicandimmune pages 1-2)
-
-### Suggested GO biological-process terms (examples)
-- **GO:0007049** cell cycle; **GO:0006281** DNA repair; **GO:0030198** extracellular matrix organization; **GO:0006955** immune response; **GO:0001666** response to hypoxia.
-
-### Suggested CL (cell types) and UBERON (anatomy)
-- **CL:** chromaffin cell (curate appropriate CL term), macrophage (tumor-associated), T cell subsets (for immune microenvironment).
-- **UBERON:** adrenal medulla; carotid body; sympathetic chain ganglia; jugulotympanic region.
-
----
+Relevant cells include adrenal chromaffin cells (**CL:0000166**), sympathetic neurons (**CL:0000095**), sustentacular cells, endothelial cells (**CL:0000115**), fibroblasts (**CL:0000057**), macrophages (**CL:0000235**), and lymphocytes. Relevant compartments are mitochondrion (**GO:0005739**), mitochondrial respiratory-chain complex II (**GO:0005749**), nucleus (**GO:0005634**), and cytosol (**GO:0005829**). Immune-checkpoint therapy has shown limited activity to date; low CD8 infiltration and genotype-dependent antigen-presentation programs may contribute, but the immune landscape remains investigational.
 
 ## 7. Anatomical structures affected
-### Organ/tissue level
-- **Primary sites:** adrenal medulla (PCC); extra-adrenal sympathetic chain/retroperitoneum/mediastinum/bladder (sympathetic PGL); head and neck parasympathetic paraganglia (carotid body, vagal, jugulotympanic, etc.). (bresser2024themolecularclassification pages 1-2, lin2022headandneck pages 1-2)
-- **Complication targets:** cardiovascular system (catecholamine cardiomyopathy, arrhythmias), kidneys (hypertensive injury), CNS (hypertensive encephalopathy in crises). (giacche2024pheochromocytoma–paragangliomasyndromea pages 4-5, bima2024preventionandmanagement pages 2-4)
 
----
+Primary sites are adrenal medulla (**UBERON:0001235**), sympathetic chain/paraganglia, organ of Zuckerkandl, retroperitoneum, mediastinum, urinary bladder, pelvis, carotid body, vagal body, jugulotympanic region, and skull base. Sympathetic tumors are generally secretory; parasympathetic head-and-neck tumors are often nonsecretory. Hereditary disease is more often bilateral or multifocal. (t.2024pheochromocytomaanupdated pages 1-2, cascon2023geneticbasesof pages 2-4)
+
+Secondary injury involves cardiovascular, cerebrovascular, renal, pulmonary, gastrointestinal, endocrine/metabolic, and peripheral/cranial nervous systems. Metastatic targets are especially lymph node, bone, liver, and lung. In an aggregation of 107 SDHA-associated cases, tumors were head-and-neck in 46% and abdominal in 43%; among metastatic cases, bone and lymph nodes were involved in 82% and 71%, respectively. (t.2024pheochromocytomaanupdated pages 1-2)
 
 ## 8. Temporal development
-### Onset and course
-- PPGL can be discovered due to symptoms, incidental imaging, or surveillance of mutation carriers; attacks/paroxysms can be unpredictable and triggered by stressors or procedures. (junior2023thepheochromocytomaparagangliomasyndrome pages 1-2)
-- Recurrence/metastasis can occur years to decades after surgery, supporting long-term surveillance. (torresan2023longtermoutcomesafter pages 1-2, araujocastro2023localrecurrenceand pages 1-2)
 
----
+Most sporadic diagnoses occur at age 30–50, with similar sex distribution. Pediatric PPGL represents approximately 10–20% of all PPGL, has annual incidence around 0.5–2 per million children, and presents at median age 11–15. Childhood disease is hereditary in 70–80%. (t.2024pheochromocytomaanupdated pages 1-2, casey2024internationalconsensusstatement pages 1-2)
 
-## 9. Inheritance and population
-### Epidemiology
-- **Incidence:** 2–8 cases per million people is reported in a high-citation 2022 review. (lin2022headandneck pages 1-2)
-- **Metastatic potential:** recent estimates cited include ~10–15% metastatic rate for PCC and up to ~50% for abdominal PGL. (bresser2024themolecularclassification pages 1-2, hose2023top2aexpressionin pages 1-2)
-- **Recurrence after surgery:** long-term recurrence risk can be substantial; one 2023 surgical cohort reported 10‑year recurrence risk 13% rising to 33% at 30 years. (torresan2023longtermoutcomesafter pages 1-2)
+The course ranges from an incidental stable mass to episodic catecholamine attacks, acute crisis, slowly progressive multifocal disease, or aggressive metastasis. Recurrence/metastasis can emerge decades after apparently complete resection; therefore “five-year cure” is unsafe for high-risk genotypes. Approximately half of treatment-naïve metastatic pediatric patients may remain stable at one year, illustrating that immediate systemic treatment is not obligatory for every asymptomatic patient. (casey2024internationalconsensusstatement pages 11-13)
 
-### Inheritance patterns
-- The high proportion of germline predisposition implies many familial cases follow autosomal dominant inheritance with variable penetrance (gene-dependent). The retrieved evidence provides gene lists and hereditary fractions but did not provide penetrance curves suitable for numeric annotation.
+## 9. Inheritance and population epidemiology
 
-### Population demographics
-- A 2024 synthesis suggests sex and ancestry/origin can influence driver-gene distributions and presentation (e.g., differences in hypoxia-pathway germline PVs and metastasis prevalence by sex; kinase-driver distributions varying between European and Asian cohorts). (richter2024patientsexand pages 1-2)
+PPGL is rare; precise incidence varies with case ascertainment and incidental imaging. It accounts for roughly 0.1% of hypertension in the 2024 synthesis. About 35–45% harbor a germline pathogenic variant, including 10–12% of apparently sporadic presentations. The usual pattern is autosomal dominant with incomplete, age-dependent, gene-specific penetrance; SDHD, SDHAF2, and sometimes MAX show parent-of-origin effects. De novo and postzygotic mosaic disease occur, notably in VHL, EPAS1, H3-3A, and NF1. (t.2024pheochromocytomaanupdated pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, cascon2023geneticbasesof pages 6-8)
 
----
+No consistent overall sex bias is established. Founder variants exist in particular populations, but population-specific carrier frequency cannot be safely inferred from unselected gnomAD frequency because penetrance differs sharply by gene and variant. Consanguinity is not a major general risk factor for these predominantly dominant syndromes.
 
 ## 10. Diagnostics
-### Biochemical testing (real-world standard)
-- Plasma/urinary **fractionated metanephrines** are first-line; a 2024 review reports plasma free metanephrines sensitivity ~98% and urinary fractionated metanephrines sensitivity ~93%, NPV >99%, and overall specificity ~94%, emphasizing supine sampling conditions to reduce false positives. (giacche2024pheochromocytoma–paragangliomasyndromea pages 4-5)
-- A 2023 review calls plasma free metanephrine the “current gold standard” with sensitivity 99% and notes a normal value “virtually excludes” functioning PPGL. (junior2023thepheochromocytomaparagangliomasyndrome pages 5-7)
 
-### Imaging
-**Functional imaging tracer selection is genotype- and site-informed** in modern practice. (giacche2024pheochromocytoma–paragangliomasyndromea pages 10-12)
+### Biochemistry
 
-**Direct head-to-head diagnostic performance (recent, quantitative):**
-- In a 2023 retrospective comparison (n=113), **18F‑FDOPA PET/CT detected and correctly localized all 55 PCC lesions** vs 25 by 68Ga‑DOTATOC, with sensitivity **100% vs 49%**, accuracy **98% vs 70%**, and NPV **100% vs 63%**. (iversen2023[18f]fdopapetctis pages 1-2)
+First-line testing is **plasma free metanephrines** or **24-hour urinary fractionated metanephrines**, preferably measured by LC–MS/MS. Plasma sampling should occur after at least 20–30 minutes supine rest. A 2024 synthesis reported plasma sensitivity 96% and specificity 85%, and urinary sensitivity 87.5% and specificity 99.7%, although performance varies by assay and referral setting. Plasma 3-methoxytyramine improves detection of dopamine-producing and SDHx-related disease. Exercise, acute illness, stress, posture, tricyclics, MAO inhibitors, sympathomimetics, selected antipsychotics, and analytical interference can cause false positives. Borderline normetanephrine elevation may be evaluated with clonidine suppression after correcting confounders. (casey2020geneticstratificationof pages 4-5, t.2024pheochromocytomaanupdated pages 6-7, t.2024pheochromocytomaanupdated pages 3-6)
 
-### Genetic testing strategy
-- Universal germline multi-gene panel testing is advocated in recent hereditary adrenal tumor management review as comprehensive and cost-effective, reflecting the large gene set and high heritability. (ohmoto2024currentprospectsof pages 1-2)
+### Localization and staging
 
-### Pathology
-- PPGLs often show “zellballen” architecture; metastatic and non-metastatic tumors can be histologically indistinguishable. (bresser2024themolecularclassification pages 1-2, lin2022headandneck pages 2-3)
+After biochemical confirmation, contrast CT of abdomen/pelvis is a usual first localization study; MRI is preferred in children, pregnancy, head-and-neck disease, and repeated hereditary surveillance. One review reported CT sensitivity of 88% and 90–95% localization accuracy for tumors >1.3 cm. (t.2024pheochromocytomaanupdated pages 6-7)
 
----
+Functional imaging should be selected by genotype and therapeutic question:
 
-## 11. Outcomes / prognosis
-### Prognostic factors and models
-- **Recurrence predictors after surgery:** In a 2023 multicenter cohort (n=303), recurrence occurred in **7.9%** after median 4.8 years; independent predictors were **SDHB pathogenic variant (HR 13.3)**, higher urinary normetanephrine (HR 1.02 per SD), and larger tumor size (HR 1.01 per mm). (araujocastro2023localrecurrenceand pages 1-2)
-- **Long-term recurrence:** a 2023 surgical series reported 10‑year recurrence 13% and 30‑year recurrence 33%, with higher new-tumor recurrence in hereditary cases. (torresan2023longtermoutcomesafter pages 1-2)
+* **^68Ga-DOTATATE/DOTA-SSA PET/CT:** favored for SDHx, multifocal, metastatic, and head-and-neck disease; pooled detection approximately 93%.
+* **^18F-FDOPA PET/CT:** strong performance in VHL and cluster-2 adrenal disease; detection about 80% in one synthesis.
+* **^18F-FDG PET/CT:** useful for aggressive, dedifferentiated, and SDHB-associated disease; reported detection about 74%.
+* **^123I-MIBG:** principally to establish eligibility for ^131I-MIBG therapy; sensitivity 50–75% overall and <50% in SDHB-associated disease. (giacche2024pheochromocytoma–paragangliomasyndromea pages 10-12, t.2024pheochromocytomaanupdated pages 7-8, t.2024pheochromocytomaanupdated pages 8-9)
 
-### Metastatic survival
-- Reported 5‑year survival after metastatic progression is heterogeneous; one 2024 endocrine pathology review quotes 40–77%. (bresser2024themolecularclassification pages 1-2)
+### Pathology and genetics
 
----
+Histology typically shows nests/trabeculae (“zellballen”) of granular neuroendocrine cells with sustentacular cells. Useful markers include chromogranin A, synaptophysin, INSM1, GATA3, tyrosine hydroxylase, and sustentacular S100/SOX10. Cytokeratin is usually absent or focal. SDHB loss screens for SDH deficiency; combined SDHA loss points toward SDHA. FH/2SC and MAX staining can guide genotype. PASS and GAPP provide risk stratification but cannot prove benignity or reliably predict an individual outcome. (casey2020geneticstratificationof pages 4-5, t.2024pheochromocytomaanupdated pages 7-8, t.2024pheochromocytomaanupdated pages 3-6)
+
+**All patients should be offered pre-test counseling and a germline multigene NGS panel** with deletion/duplication detection. A practical panel includes SDHA/B/C/D, SDHAF2, VHL, RET, NF1, TMEM127, MAX, FH, MDH2, SLC25A11, DLST and other validated laboratory genes. If germline testing is negative, paired tumor-normal sequencing can identify somatic drivers and mosaicism. Combined analysis detects a driver in approximately 75–80%. VUS must not trigger cascade testing. (cascon2023geneticbasesof pages 1-2, casey2020geneticstratificationof pages 4-5, cascon2023geneticbasesof pages 6-8)
+
+### Differential diagnosis
+
+Differentials include essential hypertension, panic disorder, hyperthyroidism, hypoglycemia, carcinoid syndrome, mast-cell activation, obstructive sleep apnea, medication/drug withdrawal, baroreflex failure, pseudopheochromocytoma, neuroblastoma, adrenal cortical adenoma/carcinoma, renal-cell carcinoma, schwannoma, and other neuroendocrine tumors. Biochemical metanephrine patterns, imaging location, and pathology resolve most cases.
+
+## 11. Outcome and prognosis
+
+Localized completely resected disease often has excellent long-term survival, but recurrence remains possible. Metastasis occurs in a minority—approximately 10–30% across heterogeneous series—and is more likely with SDHB/FH biology, extra-adrenal primary, larger tumor, dopamine/3-methoxytyramine production, high burden, and TERT/ATRX/MAML3 alterations. No single histologic or molecular marker is sufficiently accurate; expert reviews favor composite clinical, biochemical, imaging, pathological, and genomic assessment. (t.2024pheochromocytomaanupdated pages 1-2, giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6, casey2020geneticstratificationof pages 4-5)
+
+Morbidity reflects catecholamine-mediated cardiovascular injury, treatment toxicity, cranial-nerve deficits after head-and-neck intervention, metastatic pain/fracture, renal dysfunction, and lifelong surveillance burden. The precise median survival of metastatic disease is highly variable and should not be represented by one pooled number. In the pivotal high-specific-activity ^131I-MIBG cohort, median overall survival was 36.7 months, but that selected treatment population is not equivalent to all metastatic PPGL. (t.2024pheochromocytomaanupdated pages 7-8)
 
 ## 12. Treatment
-### Surgery and perioperative management (curative for localized disease)
-- Radical surgery is generally the only curative modality for localized disease; disseminated/metastatic disease requires systemic/radiopharmaceutical approaches. (kornerup2024effectsofpeptide pages 1-2)
 
-### Radiopharmaceutical therapy and theranostics (major real-world implementation)
-**PRRT (177Lu‑DOTATATE / 90Y‑DOTATATE) for SSTR-positive advanced/metastatic PPGL**
-- **Nationwide cohort (Denmark, 2024; n=28):** median OS **72 months**, 5‑year survival **65%**, median PFS **30 months**, with low toxicity; germline mutation carriers had better survival (p=0.041). (kornerup2024effectsofpeptide pages 1-2)
-- **Large multicenter PRRT cohort including PPGL (SEPTRALU, 2023):** PPGL subgroup median PFS **30.6 months** under standard 4-cycle 7.4 GBq q8wk regimen. (mitjavila2023efficacyof[177lu]ludotatate pages 1-2)
-- **Meta-analysis (2023; 213 patients):** pooled disease control rate (DCR) **0.81** overall; 177Lu DCR **0.83**, 90Y DCR **0.76**. (marretta2023responsetopeptide pages 1-2)
-- **Single-institution long follow-up cohort (2024; n=30 PCC/PGL):** partial response 23% and stable disease 63%; 5- and 10-year OS 75% and 59%, respectively; grade 3–4 acute hematologic toxicity in 10%. (rubino2024peptidereceptorradionuclide pages 1-3)
+### Localized disease
 
-**131I‑MIBG therapy**
-- A 2022 phase II single-dose 131I‑mIBG trial (n=16 treated) reported biochemical response rate **23.5%** (≥50% decrease in urinary catecholamines), RECIST response rate 5.9%, and common hematologic AEs up to grade 3 in 14/16. (inaki2022; not converted to pqac evidence id in this run, so not cited further.)
+Surgical excision is the only established curative treatment. Minimally invasive adrenalectomy is generally used for localized PCC under approximately 5–6 cm; open resection is favored for invasion, large/fragile tumors, selected SDHB-related PGLs, or when en-bloc resection and nodal dissection are required. Cortical-sparing adrenalectomy can preserve steroid function in selected bilateral hereditary PCC. Head-and-neck management may use observation, surgery, or radiotherapy according to growth, symptoms, cranial-nerve risk, age, and genotype. (t.2024pheochromocytomaanupdated pages 7-8)
 
-### Ongoing/active clinical trials (examples)
-- **NCT03206060 (NCI; Phase 2; recruiting; est. n=130):** open-label single-arm Lu‑177‑DOTATATE for **inoperable SSTR+ PCC/PGL**, with Ga‑68‑DOTATATE PET confirmation; primary endpoint PFS at 6 months; includes QoL and biochemical outcomes. (NCT03206060 chunk 1, NCT03206060 chunk 2)
-- **NCT02186678 (Marseille; completed):** prospective diagnostic comparison of **68Ga‑DOTATATE PET‑CT vs 18F‑FDOPA PET‑CT** for staging/restaging; primary endpoint is additional foci detected by DOTATATE vs FDOPA. (NCT02186678 chunk 1)
-- **NCT05948137 (Asan; terminated due to 123I‑MIBG shortages):** prospective observational comparison **18F‑FDOPA PET/CT vs 123I‑MIBG SPECT/CT** with sensitivity non-inferiority endpoint. (NCT05948137 chunk 1)
+Secretory tumors require preoperative **alpha blockade first**—phenoxybenzamine or a selective α1 antagonist such as doxazosin—plus salt/fluid repletion. A beta blocker may be added only after adequate alpha blockade for tachycardia; unopposed beta blockade can precipitate crisis. One guideline-based regimen starts phenoxybenzamine 10 mg twice daily, titrating up to 1 mg/kg/day, with beta blockade added 3–4 days later. Suggested NCIt concepts include adrenalectomy, tumor resection, phenoxybenzamine, doxazosin, and beta-adrenergic blockade. (t.2024pheochromocytomaanupdated pages 7-8)
 
-### Suggested MAXO terms (examples)
-- Surgical resection (adrenalectomy / tumor excision)
-- Alpha-adrenergic blockade (preoperative medical preparation)
-- Peptide receptor radionuclide therapy (PRRT)
-- I‑131 metaiodobenzylguanidine therapy
-- Radiographic surveillance / biochemical surveillance
+### Metastatic/unresectable disease
 
----
+* **Observation/local control:** appropriate for asymptomatic, low-volume, stable disease. Surgery, ablation, embolization, external-beam or stereotactic radiotherapy, and cementoplasty can address oligometastases, pain, impending fracture, compression, or hormone burden.
+* **High-specific-activity ^131I-MIBG:** FDA-approved in 2018 for MIBG-avid advanced PPGL. In 68 treated patients, 25% had durable antihypertensive-medication reduction, 92% had partial response or stable disease within 12 months, and median OS was 36.7 months; nausea, fatigue, and myelosuppression were common. (t.2024pheochromocytomaanupdated pages 7-8)
+* **^177Lu-DOTATATE PRRT:** used for strongly somatostatin-receptor-positive disease; current PPGL evidence is largely retrospective, with prospective phase II evaluation ongoing. (taieb2023clinicalconsensusguideline pages 19-21, t.2024pheochromocytomaanupdated pages 8-9)
+* **CVD chemotherapy:** cyclophosphamide–vincristine–dacarbazine for rapidly progressive/high-burden disease; aggregated response approximately 37%, with complete responses uncommon.
+* **Temozolomide:** oral alkylator, particularly rational in SDHB-deficient/MGMT-silenced disease; acquired MGMT expression or mismatch-repair defects may cause resistance. (t.2024pheochromocytomaanupdated pages 8-9)
+* **Sunitinib:** FIRSTMAPP demonstrated 12-month progression-free survival in 36% versus 19% with placebo; grade 3–4 toxicities included asthenia and hypertension.
+* **Cabozantinib:** Natalie phase II trial objective response 25% (4/16 evaluable patients).
+* **Axitinib:** phase II partial response approximately 36% in the cited synthesis.
+* **Immunotherapy:** not standard; response evidence remains limited. (t.2024pheochromocytomaanupdated pages 8-9)
+
+Pharmacogenomic treatment selection currently reflects **tumor biology** more than host drug-metabolism genotype: MIBG/SLC6A2 avidity, SSTR expression, SDHB/MGMT status, VEGF-driven pseudohypoxia, and VHL/HIF-2α biology.
+
+### Trials and recent development
+
+Retrieved ClinicalTrials.gov examples include **NCT03206060**, phase II ^177Lu-DOTATATE, recruiting, target n=130; **NCT04394858**, temozolomide±olaparib, active/not recruiting, n=46; **NCT05636540**, ^18F-fluorThanatrace PARP-1 PET, recruiting, n=30; **NCT03946527**, lanreotide, active/not recruiting, n=10; and **NCT06429397**, anlotinib plus benmelstobart, phase II, not yet recruiting, n=22. Trial status changes over time and should be rechecked before clinical use.
 
 ## 13. Prevention
-Primary prevention is not established for genetically driven PPGL; prevention focuses on:
-- **Secondary prevention:** cascade genetic testing and structured surveillance of mutation carriers; early biochemical testing and imaging when indicated. High heritability and guideline emphasis on genetic testing support this approach. (lin2022headandneck pages 1-2, ohmoto2024currentprospectsof pages 1-2)
-- **Tertiary prevention:** lifelong follow-up to prevent late metastatic recurrence and manage cardiovascular complications. (torresan2023longtermoutcomesafter pages 1-2, araujocastro2023localrecurrenceand pages 1-2)
 
----
+There is no vaccine or proven population-level primary prevention. The effective prevention strategy is **secondary and tertiary prevention**:
 
-## 14. Other species / natural disease
-Naturally occurring PPGL occurs in companion animals and can serve as comparative biology.
-- A 2024 prospective metabolomics study of **canine pheochromocytomas** (21 dogs vs 10 controls) found PCC tissue had markedly higher norepinephrine fraction (median 88% vs 14%) and identified a dog with an aberrant succinate:fumarate ratio (~25-fold higher) suggesting SDHx mutation; supporting metabolomics for genetic inference in dogs. (berg2024metabolomicprofilingof; not assigned a pqac evidence id in this run, so not cited further.)
+1. universal germline testing of affected patients;
+2. cascade testing of relatives only for pathogenic/likely pathogenic actionable variants;
+3. lifelong gene-specific biochemical and MRI surveillance;
+4. recognition and treatment before pregnancy or elective surgery;
+5. perioperative alpha blockade to prevent crisis;
+6. prompt management of hypertension, arrhythmia, cardiomyopathy, diabetes, and skeletal metastases. (casey2024internationalconsensusstatement pages 11-13, taieb2023clinicalconsensusguideline pages 19-21, t.2024pheochromocytomaanupdated pages 7-8)
 
----
+For SDHD carriers, expert consensus recommends annual plasma metanephrines and whole-body MRI every 2–3 years; other genes use age- and risk-adapted intervals. Reproductive counseling may include prenatal or preimplantation genetic testing after a familial pathogenic variant is established. Population newborn screening is not indicated.
 
-## 15. Model organisms and experimental models
-A recurring translational gap is the scarcity of faithful PPGL models, especially for SDHB-deficient metastatic biology.
-- A zebrafish CRISPR model introducing truncating **sdhb** lesions showed reduced complex II activity and “significant succinate accumulation,” mimicking SDHB-associated metabolic effects and enabling in vivo screening. (dona2021lossofsdhb)
-- A 2024 conditional SDHC loss study in early Sox10+ neural crest cells produced developmental phenotypes but “not paraganglioma tumorigenesis,” underscoring difficulty modeling human SDHx-driven tumorigenesis in mice. (lewis2024mousedevelopmentaldefects)
+## 14. Other species and natural disease
 
-*(These model-system sources were retrieved as paper metadata in this run but not extracted into pqac evidence IDs; therefore, they are described qualitatively here without pqac citation IDs.)*
+Naturally occurring PCC/PGL occurs in companion and laboratory animals, especially dogs, cattle, and rats, but the retrieved evidence did not support reliable breed-specific incidence or VBO mappings. These tumors are not infectious or zoonotic and have no cross-species transmission. Orthologues of SDHx, VHL, RET, NF1, TMEM127, MAX, FH, and EPAS1 are broadly conserved, making comparative pathology biologically relevant. Veterinary PCC commonly resembles human chromaffin neuroendocrine morphology and catecholamine biology, but species-specific natural history limits direct therapeutic extrapolation.
 
----
+Suggested taxonomy identifiers are **Homo sapiens NCBI:9606**, **Mus musculus NCBI:10090**, **Rattus norvegicus NCBI:10116**, **Canis lupus familiaris NCBI:9615**, and **Bos taurus NCBI:9913**.
 
-## Recent developments (prioritizing 2023–2024)
-1. **Metastatic PPGL molecular stratification** has shifted from single-gene risk rules toward multi-feature classifiers combining ATRX/TERT alterations, MSI/TMB/SCNA burden, and immune microenvironment subtypes, potentially enabling more actionable prognostication and immunotherapy triage. (calsina2023genomicandimmune pages 4-5, bresser2024themolecularclassification pages 7-9, calsina2023genomicandimmune pages 1-2)
-2. **Theranostics implementation is expanding**: PRRT outcome datasets in PPGL now include nationwide cohorts with multi-year OS/PFS and long follow-up single-institution series; systematic reviews support high disease control rates (~80%). (kornerup2024effectsofpeptide pages 1-2, rubino2024peptidereceptorradionuclide pages 1-3, marretta2023responsetopeptide pages 1-2)
-3. **Imaging evidence is becoming more quantitative and comparative** (e.g., FDOPA vs DOTATOC performance differences for PCC localization), supporting practical algorithm refinement. (iversen2023[18f]fdopapetctis pages 1-2)
+## 15. Model organisms and experimental systems
 
----
+Common models include rat PC12 pheochromocytoma cells, mouse MPC cells and metastatic derivatives, human PPGL primary cultures, patient-derived xenografts, organoids/spheroids, SDHB/SDHD knockdown systems, and genetically engineered mice affecting Nf1, Ret, Vhl, Sdh genes, Hif2a/Epas1, or Myc pathways. Three-dimensional cultures better model gradients, extracellular matrix, and drug penetration than conventional monolayers. (OpenTargets Search: pheochromocytoma,paraganglioma)
 
-## Notes on evidence limits and curation gaps
-- **Ontology identifiers (MONDO/OMIM/Orphanet/ICD/MeSH)** and **variant-level ClinVar/gnomAD details** were not retrieved in this run, so they are intentionally not asserted.
-- Several relevant 2024 items surfaced as “unobtainable” in paper search (e.g., Endocrine Reviews imaging review; patient-reported burden), and therefore could not be used for evidence-backed statements here.
+Major limitations are difficulty maintaining differentiated human chromaffin cells, incomplete spontaneous metastasis, species-specific catecholamine biology, and failure of many single-gene mouse models to reproduce the complete human syndrome. Current best practice uses complementary systems: human tumor multi-omics for discovery; isogenic cell models for mechanism; 3-D cultures for microenvironment/drug screening; and xenograft or engineered-animal models for pharmacology and dissemination.
 
+## Evidence appraisal and authoritative interpretation
 
+The 2024 WHO-oriented molecular review emphasizes that all PPGLs are neoplasms with variable metastatic potential and that **“no single biomarker alone can reliably predict metastatic risk.”** [Published October 2024; DOI](https://doi.org/10.1007/s12022-024-09830-3). (t.2024pheochromocytomaanupdated pages 1-2)
+
+The 2024 pediatric consensus—developed by 43 international experts—places germline testing, multidisciplinary care, genotype-adapted imaging, and lifelong surveillance at the center of management. [Published September 2024; DOI](https://doi.org/10.1038/s41574-024-01024-5). (casey2024internationalconsensusstatement pages 1-2, casey2024internationalconsensusstatement pages 11-13)
+
+The clearest 2023–2024 advances are: broader universal paired germline/tumor sequencing; genotype-specific PET selection; prospective evidence for antiangiogenic TKIs; expansion of SSTR-directed theranostics; HIF-2α and DNA-repair-directed trials; and single-cell/multi-omics identification of microenvironment and resistance states. However, most treatment studies remain small because PPGL is rare, and several advanced-omics results are still preprints. (cascon2023geneticbasesof pages 1-2, t.2024pheochromocytomaanupdated pages 8-9)
+
+**Principal sources:** Cascón et al., *Journal of Molecular Endocrinology*, April 2023, [DOI 10.1530/JME-22-0167](https://doi.org/10.1530/jme-22-0167); Taïeb et al., *Lancet Diabetes & Endocrinology*, May 2023, [DOI 10.1016/S2213-8587(23)00038-4](https://doi.org/10.1016/S2213-8587(23)00038-4); Casey et al., *Nature Reviews Endocrinology*, September 2024, [DOI 10.1038/s41574-024-01024-5](https://doi.org/10.1038/s41574-024-01024-5); Giacché et al., October 2024, [DOI 10.3390/biomedicines12102385](https://doi.org/10.3390/biomedicines12102385); Saavedra et al., *Frontiers in Endocrinology*, December 13, 2024, [DOI 10.3389/fendo.2024.1433582](https://doi.org/10.3389/fendo.2024.1433582).
 
 References
 
-1. (bresser2024themolecularclassification pages 1-2): Carolijn J. M. de Bresser and Ronald R. de Krijger. The molecular classification of pheochromocytomas and paragangliomas: discovering the genomic and immune landscape of metastatic disease. Endocrine Pathology, 35:279-292, Oct 2024. URL: https://doi.org/10.1007/s12022-024-09830-3, doi:10.1007/s12022-024-09830-3. This article has 13 citations and is from a peer-reviewed journal.
+1. (t.2024pheochromocytomaanupdated pages 1-2): J. S. Saavedra T., Humberto Alejandro Nati-Castillo, L. A. Valderrama Cometa, Wilfredo A. Rivera-Martínez, Josué Asprilla, C. M. Castaño-Giraldo, Leonardo Sánchez S., Mishell Heredia-Espín, Marlon Arias-Intriago, and Juan S. Izquierdo-Condoy. Pheochromocytoma: an updated scoping review from clinical presentation to management and treatment. Frontiers in Endocrinology, Dec 2024. URL: https://doi.org/10.3389/fendo.2024.1433582, doi:10.3389/fendo.2024.1433582. This article has 47 citations.
 
-2. (t.2024pheochromocytomaanupdated pages 1-2): J. S. Saavedra T., Humberto Alejandro Nati-Castillo, L. A. Valderrama Cometa, Wilfredo A. Rivera-Martínez, Josué Asprilla, C. M. Castaño-Giraldo, Leonardo Sánchez S., Mishell Heredia-Espín, Marlon Arias-Intriago, and Juan S. Izquierdo-Condoy. Pheochromocytoma: an updated scoping review from clinical presentation to management and treatment. Frontiers in Endocrinology, Dec 2024. URL: https://doi.org/10.3389/fendo.2024.1433582, doi:10.3389/fendo.2024.1433582. This article has 32 citations.
+2. (casey2024internationalconsensusstatement pages 1-2): Ruth T Casey, Emile Hendriks, Cheri Deal, Steven G Waguespack, Verena Wiegering, Antje Redlich, Scott Akker, Rathi Prasad, Martin Fassnacht, Roderick Clifton-Bligh, Laurence Amar, Stefan Bornstein, Letizia Canu, Evangelia Charmandari, Alexandra Chrisoulidou, Maria Currás Freixes, Ronald De Krijger, Luisa De Sanctis, Antonio Fojo, Amol J Ghia, Angela Huebner, Vasilis Kosmoliaptsis, Michaela Kuhlen, Marco Raffaelli, Charlotte Lussey-Lepoutre, Stephen D Marks, Naris Nilubol, Mirko Parasiliti-Caprino, Henri HJLM Timmers, Anna Lena Zietlow, Mercedes Robledo, Anne-Paule Gimenez-Roqueplo, Ashley B Grossman, David Taïeb, Eamonn R Maher, Jacques WM Lenders, Graeme Eisenhofer, Camilo Jimenez, Karel Pacak, and Christina Pamporaki. International consensus statement on the diagnosis and management of phaeochromocytoma and paraganglioma in children and adolescents. JournalArticle, Sep 2024. URL: https://doi.org/10.17863/cam.111911, doi:10.17863/cam.111911. This article has 69 citations.
 
-3. (giacche2024pheochromocytoma–paragangliomasyndromea pages 1-2): Mara Giacché, Maria Chiara Tacchetti, Claudia Agabiti-Rosei, Francesco Torlone, Francesco Bandera, Claudia Izzi, and Enrico Agabiti-Rosei. Pheochromocytoma–paraganglioma syndrome: a multiform disease with different genotype and phenotype features. Biomedicines, 12:2385, Oct 2024. URL: https://doi.org/10.3390/biomedicines12102385, doi:10.3390/biomedicines12102385. This article has 7 citations.
+3. (cascon2023geneticbasesof pages 1-2): Alberto Cascón, Bruna Calsina, María Monteagudo, Sara Mellid, Alberto Díaz-Talavera, Maria Currás-Freixes, and Mercedes Robledo. Genetic bases of pheochromocytoma and paraganglioma. Journal of Molecular Endocrinology, Apr 2023. URL: https://doi.org/10.1530/jme-22-0167, doi:10.1530/jme-22-0167. This article has 92 citations and is from a peer-reviewed journal.
 
-4. (bima2024preventionandmanagement pages 4-5): Chiara Bima, Chiara Lopez, Gerdi Tuli, Jessica Munarin, Stefano Arata, Matteo Procopio, Martina Bollati, Mauro Maccario, Luisa De Sanctis, and Mirko Parasiliti-Caprino. Prevention and management of hypertensive crises in children with pheochromocytoma and paraganglioma. Frontiers in Endocrinology, Aug 2024. URL: https://doi.org/10.3389/fendo.2024.1460320, doi:10.3389/fendo.2024.1460320. This article has 13 citations.
+4. (t.2024pheochromocytomaanupdated pages 3-6): J. S. Saavedra T., Humberto Alejandro Nati-Castillo, L. A. Valderrama Cometa, Wilfredo A. Rivera-Martínez, Josué Asprilla, C. M. Castaño-Giraldo, Leonardo Sánchez S., Mishell Heredia-Espín, Marlon Arias-Intriago, and Juan S. Izquierdo-Condoy. Pheochromocytoma: an updated scoping review from clinical presentation to management and treatment. Frontiers in Endocrinology, Dec 2024. URL: https://doi.org/10.3389/fendo.2024.1433582, doi:10.3389/fendo.2024.1433582. This article has 47 citations.
 
-5. (richter2024patientsexand pages 1-2): Susan Richter and Nicole Bechmann. Patient sex and origin influence distribution of driver genes and clinical presentation of paraganglioma. Journal of the Endocrine Society, Feb 2024. URL: https://doi.org/10.1210/jendso/bvae038, doi:10.1210/jendso/bvae038. This article has 11 citations and is from a peer-reviewed journal.
+5. (t.2024pheochromocytomaanupdated pages 6-7): J. S. Saavedra T., Humberto Alejandro Nati-Castillo, L. A. Valderrama Cometa, Wilfredo A. Rivera-Martínez, Josué Asprilla, C. M. Castaño-Giraldo, Leonardo Sánchez S., Mishell Heredia-Espín, Marlon Arias-Intriago, and Juan S. Izquierdo-Condoy. Pheochromocytoma: an updated scoping review from clinical presentation to management and treatment. Frontiers in Endocrinology, Dec 2024. URL: https://doi.org/10.3389/fendo.2024.1433582, doi:10.3389/fendo.2024.1433582. This article has 47 citations.
 
-6. (giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6): Mara Giacché, Maria Chiara Tacchetti, Claudia Agabiti-Rosei, Francesco Torlone, Francesco Bandera, Claudia Izzi, and Enrico Agabiti-Rosei. Pheochromocytoma–paraganglioma syndrome: a multiform disease with different genotype and phenotype features. Biomedicines, 12:2385, Oct 2024. URL: https://doi.org/10.3390/biomedicines12102385, doi:10.3390/biomedicines12102385. This article has 7 citations.
+6. (casey2020geneticstratificationof pages 4-5): Ruth Casey, Hartmut PH Neumann, and Eamonn R Maher. Genetic stratification of inherited and sporadic phaeochromocytoma and paraganglioma: implications for precision medicine. Human molecular genetics, Oct 2020. URL: https://doi.org/10.1093/hmg/ddaa201, doi:10.1093/hmg/ddaa201. This article has 38 citations and is from a domain leading peer-reviewed journal.
 
-7. (giacche2024pheochromocytoma–paragangliomasyndromea pages 9-10): Mara Giacché, Maria Chiara Tacchetti, Claudia Agabiti-Rosei, Francesco Torlone, Francesco Bandera, Claudia Izzi, and Enrico Agabiti-Rosei. Pheochromocytoma–paraganglioma syndrome: a multiform disease with different genotype and phenotype features. Biomedicines, 12:2385, Oct 2024. URL: https://doi.org/10.3390/biomedicines12102385, doi:10.3390/biomedicines12102385. This article has 7 citations.
+7. (t.2024pheochromocytomaanupdated pages 7-8): J. S. Saavedra T., Humberto Alejandro Nati-Castillo, L. A. Valderrama Cometa, Wilfredo A. Rivera-Martínez, Josué Asprilla, C. M. Castaño-Giraldo, Leonardo Sánchez S., Mishell Heredia-Espín, Marlon Arias-Intriago, and Juan S. Izquierdo-Condoy. Pheochromocytoma: an updated scoping review from clinical presentation to management and treatment. Frontiers in Endocrinology, Dec 2024. URL: https://doi.org/10.3389/fendo.2024.1433582, doi:10.3389/fendo.2024.1433582. This article has 47 citations.
 
-8. (lin2022headandneck pages 1-2): Edward P. Lin, Bennett B. Chin, Lauren Fishbein, Toshio Moritani, Simone P. Montoya, Shehanaz Ellika, and Shawn Newlands. Head and neck paragangliomas: an update on the molecular classification, state-of-the-art imaging, and management recommendations. Radiology. Imaging cancer, 4 3:e210088, May 2022. URL: https://doi.org/10.1148/rycan.210088, doi:10.1148/rycan.210088. This article has 111 citations.
+8. (giacche2024pheochromocytoma–paragangliomasyndromea pages 10-12): Mara Giacché, Maria Chiara Tacchetti, Claudia Agabiti-Rosei, Francesco Torlone, Francesco Bandera, Claudia Izzi, and Enrico Agabiti-Rosei. Pheochromocytoma–paraganglioma syndrome: a multiform disease with different genotype and phenotype features. Oct 2024. URL: https://doi.org/10.3390/biomedicines12102385, doi:10.3390/biomedicines12102385. This article has 10 citations.
 
-9. (araujocastro2023localrecurrenceand pages 1-2): Marta Araujo-Castro, Iñigo García Sanz, César Mínguez Ojeda, Felicia Hanzu, Mireia Mora, Almudena Vicente, Concepción Blanco Carrera, Paz de Miguel Novoa, María del Carmen López García, Cristina Lamas, Laura Manjón-Miguélez, María del Castillo Tous, Pablo Rodríguez de Vera, Rebeca Barahona San Millán, Mónica Recasens, Mariana Tomé Fernández-Ladreda, Nuria Valdés, Paola Gracia Gimeno, Cristina Robles Lazaro, Theodora Michalopoulou, Cristina Álvarez Escolá, Rogelio García Centeno, Verónica Barca-Tierno, Aura D. Herrera-Martínez, and María Calatayud. Local recurrence and metastatic disease in pheochromocytomas and sympathetic paragangliomas. Frontiers in Endocrinology, Dec 2023. URL: https://doi.org/10.3389/fendo.2023.1279828, doi:10.3389/fendo.2023.1279828. This article has 13 citations.
+9. (cascon2023geneticbasesof pages 6-8): Alberto Cascón, Bruna Calsina, María Monteagudo, Sara Mellid, Alberto Díaz-Talavera, Maria Currás-Freixes, and Mercedes Robledo. Genetic bases of pheochromocytoma and paraganglioma. Journal of Molecular Endocrinology, Apr 2023. URL: https://doi.org/10.1530/jme-22-0167, doi:10.1530/jme-22-0167. This article has 92 citations and is from a peer-reviewed journal.
 
-10. (giacche2024pheochromocytoma–paragangliomasyndromea pages 12-14): Mara Giacché, Maria Chiara Tacchetti, Claudia Agabiti-Rosei, Francesco Torlone, Francesco Bandera, Claudia Izzi, and Enrico Agabiti-Rosei. Pheochromocytoma–paraganglioma syndrome: a multiform disease with different genotype and phenotype features. Biomedicines, 12:2385, Oct 2024. URL: https://doi.org/10.3390/biomedicines12102385, doi:10.3390/biomedicines12102385. This article has 7 citations.
+10. (cascon2023geneticbasesof pages 4-5): Alberto Cascón, Bruna Calsina, María Monteagudo, Sara Mellid, Alberto Díaz-Talavera, Maria Currás-Freixes, and Mercedes Robledo. Genetic bases of pheochromocytoma and paraganglioma. Journal of Molecular Endocrinology, Apr 2023. URL: https://doi.org/10.1530/jme-22-0167, doi:10.1530/jme-22-0167. This article has 92 citations and is from a peer-reviewed journal.
 
-11. (junior2023thepheochromocytomaparagangliomasyndrome pages 1-2): José Viana Lima Junior and Claudio Elias Kater. The pheochromocytoma/paraganglioma syndrome: an overview on mechanisms, diagnosis and management. International braz j urol, 49:307-319, Jun 2023. URL: https://doi.org/10.1590/s1677-5538.ibju.2023.0038, doi:10.1590/s1677-5538.ibju.2023.0038. This article has 59 citations.
+11. (cascon2023geneticbasesof pages 2-4): Alberto Cascón, Bruna Calsina, María Monteagudo, Sara Mellid, Alberto Díaz-Talavera, Maria Currás-Freixes, and Mercedes Robledo. Genetic bases of pheochromocytoma and paraganglioma. Journal of Molecular Endocrinology, Apr 2023. URL: https://doi.org/10.1530/jme-22-0167, doi:10.1530/jme-22-0167. This article has 92 citations and is from a peer-reviewed journal.
 
-12. (giacche2024pheochromocytoma–paragangliomasyndromea pages 2-4): Mara Giacché, Maria Chiara Tacchetti, Claudia Agabiti-Rosei, Francesco Torlone, Francesco Bandera, Claudia Izzi, and Enrico Agabiti-Rosei. Pheochromocytoma–paraganglioma syndrome: a multiform disease with different genotype and phenotype features. Biomedicines, 12:2385, Oct 2024. URL: https://doi.org/10.3390/biomedicines12102385, doi:10.3390/biomedicines12102385. This article has 7 citations.
+12. (cascon2023geneticbasesof pages 5-6): Alberto Cascón, Bruna Calsina, María Monteagudo, Sara Mellid, Alberto Díaz-Talavera, Maria Currás-Freixes, and Mercedes Robledo. Genetic bases of pheochromocytoma and paraganglioma. Journal of Molecular Endocrinology, Apr 2023. URL: https://doi.org/10.1530/jme-22-0167, doi:10.1530/jme-22-0167. This article has 92 citations and is from a peer-reviewed journal.
 
-13. (t.2024pheochromocytomaanupdated pages 3-6): J. S. Saavedra T., Humberto Alejandro Nati-Castillo, L. A. Valderrama Cometa, Wilfredo A. Rivera-Martínez, Josué Asprilla, C. M. Castaño-Giraldo, Leonardo Sánchez S., Mishell Heredia-Espín, Marlon Arias-Intriago, and Juan S. Izquierdo-Condoy. Pheochromocytoma: an updated scoping review from clinical presentation to management and treatment. Frontiers in Endocrinology, Dec 2024. URL: https://doi.org/10.3389/fendo.2024.1433582, doi:10.3389/fendo.2024.1433582. This article has 32 citations.
+13. (OpenTargets Search: pheochromocytoma,paraganglioma): Open Targets Query (pheochromocytoma,paraganglioma, 32 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
 
-14. (bima2024preventionandmanagement pages 2-4): Chiara Bima, Chiara Lopez, Gerdi Tuli, Jessica Munarin, Stefano Arata, Matteo Procopio, Martina Bollati, Mauro Maccario, Luisa De Sanctis, and Mirko Parasiliti-Caprino. Prevention and management of hypertensive crises in children with pheochromocytoma and paraganglioma. Frontiers in Endocrinology, Aug 2024. URL: https://doi.org/10.3389/fendo.2024.1460320, doi:10.3389/fendo.2024.1460320. This article has 13 citations.
+14. (giacche2024pheochromocytoma–paragangliomasyndromea pages 5-6): Mara Giacché, Maria Chiara Tacchetti, Claudia Agabiti-Rosei, Francesco Torlone, Francesco Bandera, Claudia Izzi, and Enrico Agabiti-Rosei. Pheochromocytoma–paraganglioma syndrome: a multiform disease with different genotype and phenotype features. Oct 2024. URL: https://doi.org/10.3390/biomedicines12102385, doi:10.3390/biomedicines12102385. This article has 10 citations.
 
-15. (giacche2024pheochromocytoma–paragangliomasyndromea pages 4-5): Mara Giacché, Maria Chiara Tacchetti, Claudia Agabiti-Rosei, Francesco Torlone, Francesco Bandera, Claudia Izzi, and Enrico Agabiti-Rosei. Pheochromocytoma–paraganglioma syndrome: a multiform disease with different genotype and phenotype features. Biomedicines, 12:2385, Oct 2024. URL: https://doi.org/10.3390/biomedicines12102385, doi:10.3390/biomedicines12102385. This article has 7 citations.
+15. (t.2024pheochromocytomaanupdated pages 8-9): J. S. Saavedra T., Humberto Alejandro Nati-Castillo, L. A. Valderrama Cometa, Wilfredo A. Rivera-Martínez, Josué Asprilla, C. M. Castaño-Giraldo, Leonardo Sánchez S., Mishell Heredia-Espín, Marlon Arias-Intriago, and Juan S. Izquierdo-Condoy. Pheochromocytoma: an updated scoping review from clinical presentation to management and treatment. Frontiers in Endocrinology, Dec 2024. URL: https://doi.org/10.3389/fendo.2024.1433582, doi:10.3389/fendo.2024.1433582. This article has 47 citations.
 
-16. (jeeyavudeen2024tumormetabolismin pages 1-3): Mohammad Sadiq Jeeyavudeen, Navin Mathiyalagan, Cornelius Fernandez James, and Joseph M. Pappachan. Tumor metabolism in pheochromocytomas: clinical and therapeutic implications. Exploration of Targeted Anti-tumor Therapy, 5:349-373, Apr 2024. URL: https://doi.org/10.37349/etat.2024.00222, doi:10.37349/etat.2024.00222. This article has 3 citations.
+16. (taieb2023clinicalconsensusguideline pages 19-21): David Taïeb, George B Wanna, Maleeha Ahmad, Charlotte Lussey-Lepoutre, Nancy D Perrier, Svenja Nölting, Laurence Amar, Henri J L M Timmers, Zachary G Schwam, Anthony L Estrera, Michael Lim, Erqi Liu Pollom, Lucas Vitzthum, Isabelle Bourdeau, Ruth T Casey, Frédéric Castinetti, Roderick Clifton-Bligh, Eleonora P M Corssmit, Ronald R de Krijger, Jaydira Del Rivero, Graeme Eisenhofer, Hans K Ghayee, Anne-Paule Gimenez-Roqueplo, Ashley Grossman, Alessio Imperiale, Jeroen C Jansen, Abhishek Jha, Michiel N Kerstens, Henricus P M Kunst, James K Liu, Eamonn R Maher, Daniele Marchioni, Leilani B Mercado-Asis, Ozgur Mete, Mitsuhide Naruse, Naris Nilubol, Neeta Pandit-Taskar, Frédéric Sebag, Akiyo Tanabe, Jiri Widimsky, Leah Meuter, Jacques W M Lenders, and Karel Pacak. Clinical consensus guideline on the management of phaeochromocytoma and paraganglioma in patients harbouring germline sdhd pathogenic variants. May 2023. URL: https://doi.org/10.1016/s2213-8587(23)00038-4, doi:10.1016/s2213-8587(23)00038-4. This article has 113 citations and is from a highest quality peer-reviewed journal.
 
-17. (bresser2024themolecularclassification pages 6-7): Carolijn J. M. de Bresser and Ronald R. de Krijger. The molecular classification of pheochromocytomas and paragangliomas: discovering the genomic and immune landscape of metastatic disease. Endocrine Pathology, 35:279-292, Oct 2024. URL: https://doi.org/10.1007/s12022-024-09830-3, doi:10.1007/s12022-024-09830-3. This article has 13 citations and is from a peer-reviewed journal.
+17. (casey2024internationalconsensusstatement pages 11-13): Ruth T Casey, Emile Hendriks, Cheri Deal, Steven G Waguespack, Verena Wiegering, Antje Redlich, Scott Akker, Rathi Prasad, Martin Fassnacht, Roderick Clifton-Bligh, Laurence Amar, Stefan Bornstein, Letizia Canu, Evangelia Charmandari, Alexandra Chrisoulidou, Maria Currás Freixes, Ronald De Krijger, Luisa De Sanctis, Antonio Fojo, Amol J Ghia, Angela Huebner, Vasilis Kosmoliaptsis, Michaela Kuhlen, Marco Raffaelli, Charlotte Lussey-Lepoutre, Stephen D Marks, Naris Nilubol, Mirko Parasiliti-Caprino, Henri HJLM Timmers, Anna Lena Zietlow, Mercedes Robledo, Anne-Paule Gimenez-Roqueplo, Ashley B Grossman, David Taïeb, Eamonn R Maher, Jacques WM Lenders, Graeme Eisenhofer, Camilo Jimenez, Karel Pacak, and Christina Pamporaki. International consensus statement on the diagnosis and management of phaeochromocytoma and paraganglioma in children and adolescents. JournalArticle, Sep 2024. URL: https://doi.org/10.17863/cam.111911, doi:10.17863/cam.111911. This article has 69 citations.
 
-18. (bresser2024themolecularclassification pages 7-9): Carolijn J. M. de Bresser and Ronald R. de Krijger. The molecular classification of pheochromocytomas and paragangliomas: discovering the genomic and immune landscape of metastatic disease. Endocrine Pathology, 35:279-292, Oct 2024. URL: https://doi.org/10.1007/s12022-024-09830-3, doi:10.1007/s12022-024-09830-3. This article has 13 citations and is from a peer-reviewed journal.
+## Artifacts
 
-19. (calsina2023genomicandimmune pages 1-2): Bruna Calsina, Elena Piñeiro-Yáñez, Ángel M. Martínez-Montes, Eduardo Caleiras, Ángel Fernández-Sanromán, María Monteagudo, Rafael Torres-Pérez, Coral Fustero-Torre, Marta Pulgarín-Alfaro, Eduardo Gil, Rocío Letón, Scherezade Jiménez, Santiago García-Martín, Maria Carmen Martin, Juan María Roldán-Romero, Javier Lanillos, Sara Mellid, María Santos, Alberto Díaz-Talavera, Ángeles Rubio, Patricia González, Barbara Hernando, Nicole Bechmann, Margo Dona, María Calatayud, Sonsoles Guadalix, Cristina Álvarez-Escolá, Rita M. Regojo, Javier Aller, Maria Isabel Del Olmo-Garcia, Adrià López-Fernández, Stephanie M. J. Fliedner, Elena Rapizzi, Martin Fassnacht, Felix Beuschlein, Marcus Quinkler, Rodrigo A. Toledo, Massimo Mannelli, Henri J. Timmers, Graeme Eisenhofer, Sandra Rodríguez-Perales, Orlando Domínguez, Geoffrey Macintyre, Maria Currás-Freixes, Cristina Rodríguez-Antona, Alberto Cascón, Luis J. Leandro-García, Cristina Montero-Conde, Giovanna Roncador, Juan Fernando García-García, Karel Pacak, Fátima Al-Shahrour, and Mercedes Robledo. Genomic and immune landscape of metastatic pheochromocytoma and paraganglioma. Nature Communications, Feb 2023. URL: https://doi.org/10.1038/s41467-023-36769-6, doi:10.1038/s41467-023-36769-6. This article has 85 citations and is from a highest quality peer-reviewed journal.
-
-20. (calsina2023genomicandimmune pages 4-5): Bruna Calsina, Elena Piñeiro-Yáñez, Ángel M. Martínez-Montes, Eduardo Caleiras, Ángel Fernández-Sanromán, María Monteagudo, Rafael Torres-Pérez, Coral Fustero-Torre, Marta Pulgarín-Alfaro, Eduardo Gil, Rocío Letón, Scherezade Jiménez, Santiago García-Martín, Maria Carmen Martin, Juan María Roldán-Romero, Javier Lanillos, Sara Mellid, María Santos, Alberto Díaz-Talavera, Ángeles Rubio, Patricia González, Barbara Hernando, Nicole Bechmann, Margo Dona, María Calatayud, Sonsoles Guadalix, Cristina Álvarez-Escolá, Rita M. Regojo, Javier Aller, Maria Isabel Del Olmo-Garcia, Adrià López-Fernández, Stephanie M. J. Fliedner, Elena Rapizzi, Martin Fassnacht, Felix Beuschlein, Marcus Quinkler, Rodrigo A. Toledo, Massimo Mannelli, Henri J. Timmers, Graeme Eisenhofer, Sandra Rodríguez-Perales, Orlando Domínguez, Geoffrey Macintyre, Maria Currás-Freixes, Cristina Rodríguez-Antona, Alberto Cascón, Luis J. Leandro-García, Cristina Montero-Conde, Giovanna Roncador, Juan Fernando García-García, Karel Pacak, Fátima Al-Shahrour, and Mercedes Robledo. Genomic and immune landscape of metastatic pheochromocytoma and paraganglioma. Nature Communications, Feb 2023. URL: https://doi.org/10.1038/s41467-023-36769-6, doi:10.1038/s41467-023-36769-6. This article has 85 citations and is from a highest quality peer-reviewed journal.
-
-21. (torresan2023longtermoutcomesafter pages 1-2): Francesca Torresan, Arianna Beber, Donatella Schiavone, Stefania Zovato, Francesca Galuppini, Filippo Crimì, Filippo Ceccato, and Maurizio Iacobone. Long-term outcomes after surgery for pheochromocytoma and sympathetic paraganglioma. Cancers, 15:2890, May 2023. URL: https://doi.org/10.3390/cancers15112890, doi:10.3390/cancers15112890. This article has 19 citations.
-
-22. (hose2023top2aexpressionin pages 1-2): Karolina Solhusløkk Höse, Adam Stenman, Fredrika Svahn, Catharina Larsson, and C. Christofer Juhlin. Top2a expression in pheochromocytoma and abdominal paraganglioma: a marker of poor clinical outcome? Endocrine Pathology, 34:129-141, Jan 2023. URL: https://doi.org/10.1007/s12022-022-09746-w, doi:10.1007/s12022-022-09746-w. This article has 10 citations and is from a peer-reviewed journal.
-
-23. (junior2023thepheochromocytomaparagangliomasyndrome pages 5-7): José Viana Lima Junior and Claudio Elias Kater. The pheochromocytoma/paraganglioma syndrome: an overview on mechanisms, diagnosis and management. International braz j urol, 49:307-319, Jun 2023. URL: https://doi.org/10.1590/s1677-5538.ibju.2023.0038, doi:10.1590/s1677-5538.ibju.2023.0038. This article has 59 citations.
-
-24. (giacche2024pheochromocytoma–paragangliomasyndromea pages 10-12): Mara Giacché, Maria Chiara Tacchetti, Claudia Agabiti-Rosei, Francesco Torlone, Francesco Bandera, Claudia Izzi, and Enrico Agabiti-Rosei. Pheochromocytoma–paraganglioma syndrome: a multiform disease with different genotype and phenotype features. Biomedicines, 12:2385, Oct 2024. URL: https://doi.org/10.3390/biomedicines12102385, doi:10.3390/biomedicines12102385. This article has 7 citations.
-
-25. (iversen2023[18f]fdopapetctis pages 1-2): Peter Iversen, Stine Kramer, Andreas Ebbehoj, Esben Søndergaard, Kirstine Stochholm, Per Løgstrup Poulsen, and Karin Hjorthaug. [18f]fdopa pet/ct is superior to [68ga]dotatoc pet/ct in diagnostic imaging of pheochromocytoma. EJNMMI Research, Dec 2023. URL: https://doi.org/10.1186/s13550-023-01056-4, doi:10.1186/s13550-023-01056-4. This article has 9 citations and is from a peer-reviewed journal.
-
-26. (ohmoto2024currentprospectsof pages 1-2): Akihiro Ohmoto, Naomi Hayashi, Shunji Takahashi, and Arisa Ueki. Current prospects of hereditary adrenal tumors: towards better clinical management. Hereditary Cancer in Clinical Practice, Mar 2024. URL: https://doi.org/10.1186/s13053-024-00276-6, doi:10.1186/s13053-024-00276-6. This article has 5 citations and is from a peer-reviewed journal.
-
-27. (lin2022headandneck pages 2-3): Edward P. Lin, Bennett B. Chin, Lauren Fishbein, Toshio Moritani, Simone P. Montoya, Shehanaz Ellika, and Shawn Newlands. Head and neck paragangliomas: an update on the molecular classification, state-of-the-art imaging, and management recommendations. Radiology. Imaging cancer, 4 3:e210088, May 2022. URL: https://doi.org/10.1148/rycan.210088, doi:10.1148/rycan.210088. This article has 111 citations.
-
-28. (kornerup2024effectsofpeptide pages 1-2): Linda Skibsted Kornerup, Mikkel Andreassen, Ulrich Knigge, Anne Kirstine Arveschoug, Per Løgstup Poulsen, Andreas Kjær, Peter Sandor Oturai, Henning Grønbæk, and Gitte Dam. Effects of peptide receptor radiotherapy in patients with advanced paraganglioma and pheochromocytoma: a nation-wide cohort study. Cancers, 16:1349, Mar 2024. URL: https://doi.org/10.3390/cancers16071349, doi:10.3390/cancers16071349. This article has 6 citations.
-
-29. (mitjavila2023efficacyof[177lu]ludotatate pages 1-2): Mercedes Mitjavila, Paula Jimenez-Fonseca, Pilar Belló, Virginia Pubul, Juan Carlos Percovich, Amparo Garcia-Burillo, Jorge Hernando, Javier Arbizu, Emilia Rodeño, Montserrat Estorch, Belén Llana, Maribel Castellón, Lina García-Cañamaque, Pablo Gajate, Maria Carmen Riesco, Maria Begoña Miguel, David Balaguer-Muñoz, Ana Custodio, Juana María Cano, Alexandra Repetto, Pilar Garcia-Alonso, Maria Angustias Muros, Jose Luis Vercher-Conejero, and Alberto Carmona-Bayonas. Efficacy of [177lu]lu-dotatate in metastatic neuroendocrine neoplasms of different locations: data from the septralu study. European Journal of Nuclear Medicine and Molecular Imaging, 50:2486-2500, Mar 2023. URL: https://doi.org/10.1007/s00259-023-06166-8, doi:10.1007/s00259-023-06166-8. This article has 57 citations and is from a highest quality peer-reviewed journal.
-
-30. (marretta2023responsetopeptide pages 1-2): Antonella Lucia Marretta, Alessandro Ottaiano, Domenico Iervolino, Alessandra Bracigliano, Ottavia Clemente, Francesca Di Gennaro, Roberto Tafuto, Mariachiara Santorsola, Secondo Lastoria, and Salvatore Tafuto. Response to peptide receptor radionuclide therapy in pheocromocytomas and paragangliomas: a systematic review and meta-analysis. Journal of Clinical Medicine, 12:1494, Feb 2023. URL: https://doi.org/10.3390/jcm12041494, doi:10.3390/jcm12041494. This article has 20 citations.
-
-31. (rubino2024peptidereceptorradionuclide pages 1-3): Manila Rubino, Giuseppe Danilo Di Stasio, Lisa Bodei, Stefano Papi, Paola Anna Rocca, Mahila Esmeralda Ferrari, Cristiana Iuliana Fodor, Vincenzo Bagnardi, Samuele Frassoni, Riccardo Mei, Nicola Fazio, Francesco Ceci, and Chiara Maria Grana. Peptide receptor radionuclide therapy with 177lu- or 90y-sstr peptides in malignant pheochromocytomas (pccs) and paragangliomas (pgls): results from a single institutional retrospective analysis. Endocrine, 84:704-710, Feb 2024. URL: https://doi.org/10.1007/s12020-024-03707-5, doi:10.1007/s12020-024-03707-5. This article has 6 citations and is from a peer-reviewed journal.
-
-32. (NCT03206060 chunk 1):  Lu-177-DOTATATE (Lutathera) in Therapy of Inoperable Pheochromocytoma/ Paraganglioma. National Cancer Institute (NCI). 2017. ClinicalTrials.gov Identifier: NCT03206060
-
-33. (NCT03206060 chunk 2):  Lu-177-DOTATATE (Lutathera) in Therapy of Inoperable Pheochromocytoma/ Paraganglioma. National Cancer Institute (NCI). 2017. ClinicalTrials.gov Identifier: NCT03206060
-
-34. (NCT02186678 chunk 1):  Comparison of Diagnostic Performances of 68Ga-DOTATATE PET-CT and 18F-FDOPA PET-CT in Paragangliomas and Pheochromocytomas Evaluation. Assistance Publique Hopitaux De Marseille. 2014. ClinicalTrials.gov Identifier: NCT02186678
-
-35. (NCT05948137 chunk 1): Jin-Sook Ryu. F-18 FDOPA PET/CT Versus I-123 MIBG Scintigraphy With SPECT/CT for the Diagnosis of Pheochromocytoma and Paraganglioma. Asan Medical Center. 2017. ClinicalTrials.gov Identifier: NCT05948137
+- [Edison artifact artifact-00](Pheochromocytoma_Paraganglioma-deep-research-falcon_artifacts/artifact-00.md)
