@@ -197,6 +197,49 @@ Rules:
   entry's `association_signals`
 - See "Structured-Database Reference Sources" below
 
+### Statistical Phenotype Distributions (`kb/phenotype_distributions/`)
+A separate LinkML schema (`src/dismech/schema/phenotype_distribution.yaml`,
+target class `PhenotypeDistributionCollection`) for the full statistical object
+behind a phenotype claim: the distribution of a phenotype, onset age, lab value,
+event count, or latent phenotype profile in a defined disease cohort. One record
+= one estimand, one phenotype, one disease, one stratum, one analysis.
+
+- **Distribution families** span binary occurrence (Bernoulli/binomial/Beta —
+  the statistical form of a `frequency:` band), continuous traits and onset ages
+  (normal/lognormal/gamma/Weibull/empirical quantiles), counts and rates
+  (Poisson/negative binomial), censored time-to-event (Kaplan-Meier/Weibull),
+  and compositional latent-profile weights (categorical/Dirichlet/
+  logistic-normal). Vector- and matrix-valued parameters carry concentration
+  vectors and mean/correlation structure.
+- **Common denominator, not one model's output.** Latent-phenotype modelling
+  iterates fast, so the model layer holds only what all model classes share
+  (component + weighted features, a weight distribution, optional covariate
+  dependence, quality metrics, `estimation_scope`, provenance). Family-specific
+  structure — gating blocks, masking rules, bespoke diagnostics — goes in
+  `model_properties` as name/value pairs, never a new first-class slot; a test
+  enforces this. `DistributionBin.suppressed` keeps a privacy-withheld bin
+  distinct from a reported zero.
+- **Evidence** follows SEPIO and reuses the vocabulary proposed in #7439
+  (`EvidenceLine` → `DataItem` → `Document`, with direction separate from
+  strength). `EvidenceDirectionEnum` copies `EvidenceItemSupportEnum`'s
+  permissible values verbatim; a test enforces they do not drift.
+- **Reliability**: `DomainReliability` (per source data domain, identified by
+  name never by position) and `IdentityAttestation` (row/person counts proving
+  one-row-per-person without identifiers), plus an enum-backed `bias_risks`.
+- **Import bridge**: each record declares `dismech_bindings` naming the target
+  entry, section, and `target_path`, and `just phenodist-rebuild` renders it to
+  `references_cache/PHENODIST_<record_id>.md` so a disease entry cites
+  `PHENODIST:<record_id>` and quotes a row — same mechanism as `ORPHA:`/`ICEES:`.
+  As with every cache file, NEVER hand-write one.
+- `just validate-phenotype-distributions` (part of `just qc`) runs schema
+  validation plus a lint for things LinkML cannot express (duplicate record ids,
+  mismatched `evidence_reference`, unresolvable `target_entry`, matrix dimension
+  mismatch, an interval that fails to bracket its point estimate, a
+  self-contradictory attestation, a frequency band the estimate contradicts).
+- Worked examples live in `examples/phenotype_distributions/` and carry
+  **synthetic** numbers; they are excluded from cache rebuild and must never be
+  cited. See [`docs/phenotype-distributions.md`](docs/phenotype-distributions.md).
+
 ### Validation Stack
 - **linkml-validate**: Schema conformance checking
 - **linkml-term-validator**: Validates ontology term references against authoritative sources (critical for catching AI hallucinations)

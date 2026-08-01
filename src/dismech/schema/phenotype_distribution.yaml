@@ -1,0 +1,2332 @@
+id: https://w3id.org/monarch-initiative/dismech/phenotype_distribution
+name: dismech_phenotype_distribution
+title: Disorder Mechanisms Statistical Phenotype Distribution Schema
+description: >-
+  A statistical distribution of a phenotype (or of a latent phenotype profile)
+  within a defined disease cohort, curated so it can be cited from a dismech
+  entry as evidence.
+
+  **Why this exists.** dismech records phenotype occurrence almost entirely as
+  the coarse HPO `FrequencyEnum` band (OBLIGATE / VERY_FREQUENT / FREQUENT /
+  OCCASIONAL / VERY_RARE) plus a free-text snippet. That throws away everything
+  a real cohort analysis produces: the denominator, the uncertainty, the shape
+  of an age-at-onset curve, the covariate conditioning, and the ascertainment
+  caveats that decide whether the number transfers to another population. This
+  schema keeps the full statistical object as a separate, citable artifact, and
+  binds it back to the dismech slot it informs — the same "keep the source
+  detail in the source table, bridge to it from the disease entry" pattern the
+  FDA surrogate-endpoint table already uses.
+
+  **What a record is.** One `PhenotypeDistributionRecord` = one estimand, for
+  one phenotype, in one disease, in one stratum, from one analysis. It carries
+  the distribution itself (`DistributionEstimate`), the cohort it came from
+  (`CohortDescriptor`), how it was stratified (`Stratum`), what is known about
+  the reliability of the underlying data domains (`DomainReliability`), a
+  SEPIO-shaped argument that connects the number to a proposition
+  (`EvidenceLine`), and an explicit import bridge to a dismech slot
+  (`DismechBinding`).
+
+  **Distribution coverage.** The `DistributionFamilyEnum` spans the four shapes
+  that actually occur in disease-phenotype data: binary occurrence (Bernoulli /
+  binomial / Beta posterior — the statistical form of a `frequency:` band),
+  continuous traits and onset ages (normal / lognormal / gamma / Weibull /
+  empirical quantiles), counts and rates (Poisson / negative binomial and their
+  zero-inflated forms), and compositional / latent-profile weights (categorical,
+  Dirichlet, logistic-normal). The compositional families are why the schema
+  supports vector- and matrix-valued parameters and per-covariate effects rather
+  than only scalar point estimates.
+
+  **Design principle: the common denominator, not one model's output.** Latent
+  phenotype modelling (see CHARMPheno, https://github.com/oneilsh/CHARMPheno,
+  for the reference implementation) is iterating fast — model classes, export
+  shapes, and even which diagnostics are trustworthy have all changed
+  repeatedly, with decisions reversed as evidence came in. A curation schema
+  that encoded one family's export would need revising every time that family
+  moved, and would quietly misrepresent the next one.
+
+  So the model layer here is restricted to what LDA, HDP, structural topic
+  models, matrix factorizations, mixtures, and their successors all share:
+
+  * a **component** with an identity, a label, and ranked weighted features;
+  * a **distribution of component weight** over a population, expressible as an
+    empirical distribution, a Dirichlet, or a logistic-normal;
+  * optional **covariate dependence** of component prevalence, recorded as a
+    coefficient plus the scale it lives on;
+  * **quality metrics** per component, as metric/value pairs;
+  * the **estimation scope** — how much data actually backed the component,
+    which is what a subpopulation-restricted fit changes;
+  * enough **provenance** to find the fit again.
+
+  Everything family-specific — block and arm layouts, masking rules,
+  optimization schedules, bespoke diagnostics — goes in `model_properties` as
+  name/value pairs, or in `notes`. A new export shape should be recordable
+  without a schema change; if it is not, the missing thing is probably not a
+  common denominator.
+
+  **Evidence modelling.** The evidence layer follows SEPIO
+  (https://sepio-framework.github.io/sepio-linkml/) and is deliberately
+  vocabulary-compatible with the SEPIO pilot proposed for the main dismech
+  schema in monarch-initiative/dismech#7439: an `EvidenceLine` is one argument
+  bearing a direction and a strength, holding one or more `DataItem`s (here the
+  quotable statistic), each `reported_in` a typed `Document`. Splitting
+  direction from strength matters more for statistics than for prose — a
+  precisely estimated null and an underpowered null point the same way with very
+  different force. `EvidenceDirectionEnum` reuses the permissible values of the
+  native dismech `EvidenceItemSupportEnum` verbatim so the two forms stay
+  mechanically inter-convertible.
+
+  **Reliability.** A distribution derived from EHR data is only as trustworthy
+  as the source domain (conditions vs. drugs vs. measurements vs. observations)
+  it was read out of, and a held-out supervised readout is honest only when each
+  analysed row is a distinct person — `IdentityAttestation` proves that without
+  exposing identifiers. `DomainReliability` records the assessment, but
+  `domain_role` is what a consumer should act on: where domain weighting has
+  been tested directly the headroom was small and not recoverable from
+  quantities read off the fitted model, so the useful conclusion is about
+  routing a domain to the diseases it serves, not blending it into every
+  estimate. (Both ideas come from the CHARMPheno domain-reliability work.)
+license: BSD-3-Clause
+
+see_also:
+  - https://github.com/oneilsh/CHARMPheno
+  - https://sepio-framework.github.io/sepio-linkml/
+  - https://github.com/monarch-initiative/dismech/issues/7439
+
+imports:
+  - linkml:types
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  dismech: https://w3id.org/monarch-initiative/dismech/
+  phenodist: https://w3id.org/monarch-initiative/dismech/phenotype_distribution/
+  HP: http://purl.obolibrary.org/obo/HP_
+  MONDO: http://purl.obolibrary.org/obo/MONDO_
+  LOINC: https://loinc.org/
+  xsd: http://www.w3.org/2001/XMLSchema#
+
+default_prefix: phenodist
+default_range: string
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+enums:
+
+  DistributionMeasureEnum:
+    description: >-
+      What quantity the distribution describes — the estimand. This is the
+      single most important field for deciding whether two records may be
+      compared: a penetrance and a clinic-cohort phenotype proportion are both
+      proportions, but they are not the same number.
+    permissible_values:
+      PHENOTYPE_PROPORTION:
+        title: Phenotype proportion
+        description: >-
+          Proportion of a disease cohort manifesting the phenotype. The
+          statistical form of a dismech `frequency:` band.
+      PENETRANCE:
+        title: Penetrance
+        description: >-
+          Proportion of genotype carriers manifesting the phenotype. Denominator
+          is carriers, not diagnosed cases — distinct from PHENOTYPE_PROPORTION
+          and highly sensitive to ascertainment.
+      AGE_AT_ONSET:
+        description: Age at first appearance of the phenotype.
+      AGE_AT_DIAGNOSIS:
+        description: Age at which the phenotype or disease was formally diagnosed.
+      AGE_AT_DEATH:
+        description: Age at death, or lifespan distribution.
+      TIME_TO_EVENT:
+        description: >-
+          Time from a defined index event to phenotype onset or another outcome;
+          use with a censoring-aware family (KAPLAN_MEIER, WEIBULL, EXPONENTIAL).
+      DURATION:
+        description: Duration of a phenotype episode or disease phase.
+      SEVERITY_GRADE:
+        description: Distribution over ordered severity categories or grades.
+      QUANTITATIVE_TRAIT:
+        description: Distribution of a continuous clinical trait (e.g. FEV1 percent predicted).
+      LABORATORY_VALUE:
+        description: >-
+          Distribution of a measured analyte. Complements — does not replace —
+          the dismech `reference_ranges` block, which records clinical decision
+          intervals rather than an observed cohort distribution.
+      EVENT_COUNT:
+        description: Number of events per individual over an observation window.
+      EVENT_RATE:
+        description: Events per unit person-time.
+      LATENT_PHENOTYPE_WEIGHT:
+        description: >-
+          Weight of a learned latent phenotype (topic / component) in a cohort's
+          profile, as produced by a LatentPhenotypeModel.
+      CODE_PROBABILITY:
+        description: >-
+          Probability of an individual clinical code given a latent phenotype
+          (the topic-word distribution of a topic model).
+      COMORBIDITY_CO_OCCURRENCE:
+        description: >-
+          Co-occurrence of a second condition within the disease cohort. Feeds
+          the dismech comorbidity `association_signals` block.
+      TREATMENT_RESPONSE:
+        description: Distribution of response to a treatment within the cohort.
+      OTHER:
+        description: Other estimand; describe it in `measure_description`.
+
+  DistributionFamilyEnum:
+    description: >-
+      Parametric family, or explicit non-parametric form, of the distribution.
+      Determines which `parameters` are expected — `parameterization_note`
+      records the convention used (e.g. gamma shape/rate vs. shape/scale), since
+      family alone does not disambiguate it.
+    permissible_values:
+      BERNOULLI:
+        description: Single binary outcome; parameter p.
+      BINOMIAL:
+        description: Count of successes in n trials; parameters n, p.
+      BETA:
+        description: >-
+          Distribution over a proportion; parameters alpha, beta. The natural
+          posterior for a phenotype proportion under a conjugate binomial model.
+      BETA_BINOMIAL:
+        description: Overdispersed binomial; parameters n, alpha, beta.
+      CATEGORICAL:
+        description: Distribution over unordered categories; parameter vector p.
+      MULTINOMIAL:
+        description: Counts across categories in n trials; parameters n, p vector.
+      DIRICHLET:
+        description: >-
+          Distribution over a simplex; concentration vector alpha. Used for
+          latent-phenotype mixture weights and as the conjugate prior for
+          categorical code distributions.
+      DIRICHLET_MULTINOMIAL:
+        description: Compound Dirichlet-multinomial for overdispersed category counts.
+      LOGISTIC_NORMAL:
+        description: >-
+          Simplex distribution induced by eta ~ Normal(mu, Sigma), theta =
+          softmax(eta). Unlike the Dirichlet it represents correlation between
+          components, which is why structural topic models use it; record mu as
+          a vector parameter and Sigma (or a unit-diagonal correlation R) as a
+          matrix parameter, and name any pinned reference component.
+      NORMAL:
+        description: Gaussian; parameters mean, sd.
+      MULTIVARIATE_NORMAL:
+        description: Gaussian over several correlated quantities; mean vector and covariance matrix.
+      LOGNORMAL:
+        description: >-
+          Log-transformed Gaussian; parameters meanlog, sdlog. Common for
+          right-skewed onset ages and durations.
+      GAMMA:
+        description: Positive continuous; shape plus rate or scale.
+      EXPONENTIAL:
+        description: Memoryless waiting time; rate parameter.
+      WEIBULL:
+        description: >-
+          Flexible time-to-event family; shape and scale. Shape > 1 encodes an
+          increasing hazard, the usual pattern for age-dependent penetrance.
+      POISSON:
+        description: Event counts; rate lambda.
+      NEGATIVE_BINOMIAL:
+        description: Overdispersed counts; mean and dispersion.
+      ZERO_INFLATED_POISSON:
+        description: Poisson with an excess-zero component.
+      ZERO_INFLATED_NEGATIVE_BINOMIAL:
+        description: Negative binomial with an excess-zero component.
+      UNIFORM:
+        description: Flat over an interval.
+      STUDENT_T:
+        description: Heavy-tailed continuous; location, scale, degrees of freedom.
+      MIXTURE:
+        description: >-
+          Finite mixture; record component families and weights in
+          `mixture_components`.
+      EMPIRICAL:
+        description: >-
+          Tabulated observed distribution with no parametric fit; populate
+          `bins` and/or `quantiles`.
+      KAPLAN_MEIER:
+        description: Non-parametric survival estimate; populate `time_to_event.curve`.
+      KERNEL_DENSITY:
+        description: Smoothed non-parametric density; record bandwidth as a parameter.
+      NONPARAMETRIC_QUANTILE:
+        description: Reported only as quantiles/percentiles; populate `quantiles`.
+      OTHER:
+        description: Other family; describe it in `parameterization_note`.
+
+  EstimationFrameworkEnum:
+    description: >-
+      How the distribution's parameters were obtained. Distinguishes a
+      frequentist confidence statement from a Bayesian posterior and, within the
+      Bayesian case, an exact posterior from a variational or Laplace
+      approximation — approximate posteriors are typically overconfident, which
+      matters when the interval is what a curator reads.
+    permissible_values:
+      FREQUENTIST_POINT:
+        description: Point estimate with a frequentist interval.
+      MAXIMUM_LIKELIHOOD:
+        description: Maximum-likelihood fit.
+      BAYESIAN_POSTERIOR:
+        description: Exact or conjugate Bayesian posterior.
+      MCMC_POSTERIOR:
+        description: Posterior approximated by Markov chain Monte Carlo sampling.
+      VARIATIONAL_POSTERIOR:
+        description: >-
+          Posterior approximated by variational inference (including stochastic
+          / online variational Bayes). Uncertainty is usually understated.
+      LAPLACE_APPROXIMATION:
+        description: >-
+          Gaussian approximation at the mode using the Hessian. Cheap and
+          common, and like variational inference it tends to understate spread.
+      BOOTSTRAP:
+        description: Resampling-based interval.
+      HELD_OUT_LIKELIHOOD_CALIBRATION:
+        description: >-
+          Parameter selected by maximizing held-out predictive likelihood. The
+          unbiased calibration path for a latent-model scale parameter, whose
+          in-fit estimate is biased by beta co-adapting to it during fitting.
+      EMPIRICAL_TABULATION:
+        description: Direct tabulation of observed data with no model fit.
+      META_ANALYTIC_POOLING:
+        description: Pooled across studies by meta-analysis.
+      EXPERT_ELICITATION:
+        description: >-
+          Elicited from expert judgement rather than data. Never let this stand
+          as the sole basis for a quantitative claim imported into dismech.
+      OTHER:
+        description: Other estimation approach.
+
+  PointEstimateTypeEnum:
+    description: Which summary statistic `point_estimate` reports.
+    permissible_values:
+      MEAN:
+        description: Arithmetic mean.
+      MEDIAN:
+        description: Median.
+      MODE:
+        description: Mode.
+      PROPORTION:
+        description: Observed proportion.
+      RATE:
+        description: Rate per unit person-time.
+      POSTERIOR_MEAN:
+        description: Mean of the posterior distribution.
+      POSTERIOR_MEDIAN:
+        description: Median of the posterior distribution.
+      MAP:
+        description: Maximum a posteriori estimate.
+
+  IntervalTypeEnum:
+    description: >-
+      What kind of interval `interval_lower` / `interval_upper` bound. A
+      confidence interval and a credible interval are not interchangeable and
+      must not be silently relabelled on import.
+    permissible_values:
+      CONFIDENCE:
+        description: Frequentist confidence interval.
+      CREDIBLE_EQUAL_TAILED:
+        description: Bayesian equal-tailed credible interval.
+      CREDIBLE_HPD:
+        description: Bayesian highest-posterior-density interval.
+      PREDICTION:
+        description: Prediction interval for a new observation.
+      TOLERANCE:
+        description: Tolerance interval covering a stated population fraction.
+      RANGE:
+        description: Observed minimum-maximum range.
+      IQR:
+        description: Interquartile range.
+
+  DataSourceTypeEnum:
+    description: Kind of data the cohort was drawn from.
+    permissible_values:
+      EHR:
+        description: Electronic health record data.
+      CLAIMS:
+        description: Administrative claims or billing data.
+      REGISTRY:
+        description: Disease-specific or population registry.
+      BIOBANK:
+        description: Biobank with linked health data.
+      NATURAL_HISTORY_STUDY:
+        description: Prospective natural-history study.
+      CLINICAL_TRIAL:
+        description: Interventional clinical trial.
+      CASE_SERIES:
+        description: Published case series or case reports.
+      SYSTEMATIC_REVIEW_META_ANALYSIS:
+        description: Pooled estimate from a systematic review or meta-analysis.
+      SURVEY:
+        description: Patient- or clinician-reported survey.
+      LITERATURE_AGGREGATE:
+        description: Aggregated from literature without formal meta-analysis.
+      SIMULATION:
+        description: Simulated or synthetic data.
+      OTHER:
+        description: Other data source.
+
+  AscertainmentEnum:
+    description: >-
+      How individuals entered the cohort. The dominant driver of transportability
+      for phenotype proportions and the usual reason a textbook frequency and an
+      EHR frequency disagree.
+    permissible_values:
+      POPULATION_BASED:
+        description: Unselected population or population registry.
+      CLINIC_BASED_REFERRAL:
+        description: >-
+          Specialist clinic or referral centre; enriched for severe or atypical
+          presentations.
+      PROBAND_ASCERTAINED:
+        description: >-
+          Families ascertained through an affected proband; inflates penetrance
+          unless corrected.
+      VOLUNTEER_REGISTRY:
+        description: Self-enrolled patient registry.
+      NEWBORN_SCREENING:
+        description: Detected by newborn or population screening; enriched for mild forms.
+      CONVENIENCE:
+        description: Convenience sample.
+      UNKNOWN:
+        description: Ascertainment not reported.
+
+  StratificationVariableEnum:
+    description: Variable a stratum is defined on.
+    permissible_values:
+      SEX:
+        description: Sex or gender stratum.
+      AGE:
+        description: Age band.
+      ANCESTRY:
+        description: Genetic ancestry or reported race/ethnicity.
+      GEOGRAPHY:
+        description: Country, region, or site.
+      GENOTYPE:
+        description: Genotype, variant class, or zygosity.
+      DISEASE_SUBTYPE:
+        description: Disease subtype; should match a dismech `has_subtypes[].name`.
+      DISEASE_STAGE:
+        description: Disease stage or severity class.
+      TREATMENT:
+        description: Treatment exposure or era.
+      CARE_SETTING:
+        description: Inpatient, outpatient, ICU, primary care.
+      CALENDAR_PERIOD:
+        description: Calendar time window.
+      OTHER:
+        description: Other stratifying variable.
+
+  MatrixKindEnum:
+    description: Semantics of a matrix-valued parameter.
+    permissible_values:
+      COVARIANCE:
+        description: Covariance matrix.
+      CORRELATION:
+        description: Unit-diagonal correlation matrix.
+      PRECISION:
+        description: Inverse covariance (precision) matrix.
+      CONCENTRATION:
+        description: Concentration parameters arranged as a matrix.
+      LOADING:
+        description: Factor or component loading matrix.
+      COEFFICIENT:
+        description: >-
+          Regression coefficient matrix, e.g. the STM covariate-by-component
+          matrix Gamma.
+      TRANSITION:
+        description: Transition-probability matrix.
+      OTHER:
+        description: Other matrix semantics.
+
+  ModelFamilyEnum:
+    description: >-
+      Coarse family label for the model that produced a latent phenotype. A
+      label only — no part of the schema branches on it, and `OTHER` plus a
+      `model_name` is always an acceptable answer for a family not listed here.
+      Variants within a family (gated, correlated, supervised, and so on) belong
+      in `model_properties`, not in new enum values.
+    permissible_values:
+      LATENT_DIRICHLET_ALLOCATION:
+        description: Latent Dirichlet allocation with a fixed component count.
+      HIERARCHICAL_DIRICHLET_PROCESS:
+        description: >-
+          Hierarchical Dirichlet process; the component count is inferred rather
+          than fixed in advance.
+      STRUCTURAL_TOPIC_MODEL:
+        description: >-
+          Topic model whose component prevalence depends on document covariates
+          through a logistic-normal prior.
+      GATED_STRUCTURAL_TOPIC_MODEL:
+        description: Structural topic model with hard masking of disallowed component-domain blocks.
+      NON_NEGATIVE_MATRIX_FACTORIZATION:
+        description: Non-negative matrix factorization.
+      MIXTURE_MODEL:
+        description: Finite mixture model.
+      LATENT_CLASS_ANALYSIS:
+        description: Latent class analysis.
+      AUTOENCODER:
+        description: Neural autoencoder embedding.
+      REGRESSION:
+        description: Regression model.
+      SURVIVAL_MODEL:
+        description: Survival or time-to-event model.
+      OTHER:
+        description: Other model family.
+
+  InferenceMethodEnum:
+    description: Algorithm used to fit the model.
+    permissible_values:
+      VARIATIONAL_BAYES:
+        description: Batch variational Bayes.
+      STOCHASTIC_VARIATIONAL_INFERENCE:
+        description: Online / mini-batch stochastic variational inference.
+      COLLAPSED_GIBBS:
+        description: Collapsed Gibbs sampling.
+      STOCHASTIC_EM:
+        description: Stochastic expectation-maximization.
+      LAPLACE_APPROXIMATION:
+        description: Laplace approximation at the mode.
+      EXPECTATION_MAXIMIZATION:
+        description: Expectation-maximization.
+      MAP:
+        description: Maximum a posteriori optimization.
+      MAXIMUM_LIKELIHOOD:
+        description: Maximum-likelihood optimization.
+      SPECTRAL_INITIALIZATION:
+        description: Spectral or anchor-word initialization.
+      OTHER:
+        description: Other inference algorithm.
+
+  ReliabilityBasisEnum:
+    description: What a domain reliability assessment rests on.
+    permissible_values:
+      SUPERVISED_HELDOUT_READOUT:
+        description: >-
+          Supervised prediction on held-out rows against a task the domain is
+          supposed to support. The only basis here that is actual task evidence.
+          Honest only with a valid identity attestation showing one row per
+          person.
+      NESTED_CROSS_VALIDATION:
+        description: Repeated nested cross-validation.
+      CROSS_VALIDATION:
+        description: Single-level cross-validation.
+      TEST_RETEST:
+        description: Test-retest or split-half stability.
+      EXTERNAL_REPLICATION:
+        description: Replication in an independent cohort or site.
+      TOPIC_COHERENCE:
+        description: Intrinsic component-coherence metric.
+      FITTED_STRUCTURAL_METRIC:
+        description: >-
+          A property read off the fitted model itself — structural
+          distinctiveness, token ownership, or their product. These are useful
+          *priors or inputs*, not substitutes for task evidence: when tested
+          against per-disease case-finding they underperformed both a fixed
+          domain baseline and directly learned weights. Never present a
+          reliability derived this way as if it were a validated weight.
+      EXPERT_REVIEW:
+        description: Expert clinical review of the domain's content.
+      UNASSESSED:
+        description: Reliability not assessed. Treat derived numbers as provisional.
+
+  ReadoutMetricEnum:
+    description: Metric reported for a reliability readout.
+    permissible_values:
+      AUROC:
+        description: Area under the receiver operating characteristic curve.
+      AUPRC:
+        description: Area under the precision-recall curve.
+      AVERAGE_PRECISION:
+        description: >-
+          Average precision. Preferred over AUROC for rare-disease case finding,
+          where AUROC hides the precision cost of a low-signal domain.
+      PAIR_COVERAGE:
+        description: >-
+          Fraction of top-feature pairs with nonzero co-occurrence support; the
+          companion to NPMI, which is undefined on zero-support pairs and so
+          silently penalizes rare phenotypes.
+      PREDICTIVE_GAIN:
+        description: Gain in held-out predictive likelihood attributable to a component.
+      ACCURACY:
+        description: Classification accuracy.
+      BALANCED_ACCURACY:
+        description: Balanced accuracy.
+      F1:
+        description: F1 score.
+      R2:
+        description: Coefficient of determination.
+      CONCORDANCE_INDEX:
+        description: Concordance (c-) index.
+      CALIBRATION_SLOPE:
+        description: Calibration slope.
+      BRIER_SCORE:
+        description: Brier score.
+      TOPIC_COHERENCE_NPMI:
+        description: Normalized pointwise mutual information topic coherence.
+      HELD_OUT_PERPLEXITY:
+        description: Held-out perplexity.
+      OTHER:
+        description: Other readout metric.
+
+  BiasRiskEnum:
+    description: >-
+      Known threats to the validity of a record. Enumerated rather than left to
+      prose so a curator can filter on them before importing a number, and so
+      "nobody checked" is visibly different from "checked and clean".
+    permissible_values:
+      ASCERTAINMENT_BIAS:
+        description: Cohort entry correlated with the phenotype being measured.
+      SELECTION_BIAS:
+        description: Non-representative selection into the analysed sample.
+      SURVIVORSHIP_BIAS:
+        description: Individuals with severe early outcomes are absent.
+      IMMORTAL_TIME_BIAS:
+        description: Follow-up time during which the outcome could not occur is misallocated.
+      PHENOTYPE_MISCLASSIFICATION:
+        description: Imperfect case or phenotype definition; codes are proxies for findings.
+      INCOMPLETE_FOLLOW_UP:
+        description: Censoring or loss to follow-up not fully accounted for.
+      SMALL_SAMPLE:
+        description: Sample too small for a stable estimate.
+      SPARSE_STRATUM:
+        description: The reported stratum is sparse even though the parent cohort is not.
+      UNADJUSTED_MULTIPLICITY:
+        description: Many hypotheses tested without multiple-testing correction.
+      SINGLE_SITE:
+        description: Single institution or health system; limited transportability.
+      NOT_EXTERNALLY_VALIDATED:
+        description: Never replicated outside the source cohort.
+      PRIVACY_NOISE_OR_SUPPRESSION:
+        description: >-
+          Counts perturbed or small cells suppressed for privacy, biasing tails
+          and rare strata.
+      MODEL_DEPENDENT:
+        description: >-
+          Estimate depends on modelling choices (component count, priors,
+          covariate design) that were not varied in sensitivity analysis.
+      WEAK_IDENTIFIABILITY:
+        description: >-
+          A parameter is only weakly identified by the data — an offset or
+          correlation whose level is confounded, or a block with too little
+          support to pin it down. Ordering may still be informative where the
+          absolute value is not.
+      SCALE_NOT_CALIBRATED:
+        description: >-
+          A latent scale or concentration parameter was taken from the fit
+          rather than calibrated against held-out prediction, so the spread it
+          implies is a fit artifact rather than the data's concentration.
+      DEGENERATE_IN_POPULATION:
+        description: >-
+          The quantity is near-constant in the reported population — typically
+          a rare-disease component whose whole-population distribution is a
+          spike at zero. The informative distribution is the within-subcohort
+          one; the population summary is technically correct and useless.
+      APPROXIMATE_POSTERIOR:
+        description: >-
+          Intervals come from a variational or Laplace approximation and are
+          likely too narrow.
+      OTHER:
+        description: Other bias risk; describe it in `caveats`.
+
+  DomainRoleEnum:
+    description: >-
+      How a data domain is actually used, which is a routing decision rather
+      than a weight. Multi-domain experiments repeatedly found that no fixed
+      combination rule beat the primary domain alone in aggregate, while a
+      secondary domain still rescued the specific diseases whose evidence lives
+      there. Recording the role keeps that distinction, instead of implying a
+      global weighting that does not exist.
+    permissible_values:
+      PRIMARY:
+        description: Carries most of the signal and is used for the majority of cases.
+      SPECIALIST:
+        description: >-
+          Weak in aggregate but decisive for a specific subset of diseases —
+          deploy by routing, not by blending into every estimate.
+      SUPPORTING:
+        description: Contributes marginally alongside the primary domain.
+      EXCLUDED:
+        description: >-
+          Assessed and left out because it degraded performance; record why in
+          `downweight_rationale`.
+      UNDETERMINED:
+        description: Role not yet assessed.
+
+  FrequencyClassEnum:
+    description: >-
+      HPO frequency band, so a proportion distribution can carry the coarse
+      dismech-native value it implies alongside the full estimate. Values and
+      `meaning`s match `FrequencyEnum` in the main dismech schema exactly.
+    permissible_values:
+      OBLIGATE:
+        title: Obligate (100%)
+        description: Present in all cases (100% of patients)
+        meaning: HP:0040280
+      VERY_FREQUENT:
+        title: Very frequent (80-99%)
+        description: Present in most cases (80-99% of patients)
+        meaning: HP:0040281
+      FREQUENT:
+        title: Frequent (30-79%)
+        description: Present in many cases (30-79% of patients)
+        meaning: HP:0040282
+      OCCASIONAL:
+        title: Occasional (5-29%)
+        description: Present in some cases (5-29% of patients)
+        meaning: HP:0040283
+      VERY_RARE:
+        title: Very rare (<5%)
+        description: Present in rare cases (<5% of patients)
+        meaning: HP:0040284
+
+  EvidenceDirectionEnum:
+    description: >-
+      Direction an evidence line points, relative to its target proposition.
+      Permissible values are copied verbatim from the native dismech
+      `EvidenceItemSupportEnum` so a SEPIO-form line and a native evidence item
+      say the same thing the same way and remain inter-convertible.
+    permissible_values:
+      SUPPORT:
+        title: Supports
+        description: The evidence supports the proposition.
+      REFUTE:
+        title: Refutes
+        description: The evidence contradicts the proposition.
+      PARTIAL:
+        title: Partially supports
+        description: The evidence partially or indirectly supports the proposition.
+      NO_EVIDENCE:
+        title: No evidence
+        description: The cited source contains nothing bearing on the proposition.
+      WRONG_STATEMENT:
+        title: Wrong statement
+        description: The proposition contains a demonstrable factual error.
+
+  EvidenceStrengthEnum:
+    description: >-
+      How forceful the evidence line is, independent of which way it points.
+      Matches the vocabulary proposed in monarch-initiative/dismech#7439.
+    permissible_values:
+      STRONG:
+        description: Large, well-powered, low-bias, and ideally replicated.
+      MODERATE:
+        description: Adequately powered with identified but bounded limitations.
+      WEAK:
+        description: Underpowered, single-source, or substantially confounded.
+      VERY_WEAK:
+        description: Anecdotal, exploratory, or heavily caveated.
+
+  DocumentTypeEnum:
+    description: >-
+      Type of the source document an evidence item was reported in. Matches the
+      vocabulary proposed in monarch-initiative/dismech#7439.
+    permissible_values:
+      PRIMARY_LITERATURE:
+        description: Primary research article.
+      REVIEW:
+        description: Review article.
+      PREPRINT:
+        description: Preprint.
+      CLINICAL_TRIAL_RECORD:
+        description: Trial registry record.
+      STRUCTURED_DATABASE:
+        description: Structured database record or table row.
+      PRACTICE_GUIDELINE:
+        description: Clinical practice guideline.
+      BOOK_OR_CHAPTER:
+        description: Book or book chapter.
+      DATA_ANALYSIS_REPORT:
+        description: >-
+          Analysis report, model bundle, or dashboard artifact rather than a
+          published document — the usual source for a model-derived record.
+      OTHER:
+        description: Other document type.
+
+  DataItemTypeEnum:
+    description: >-
+      Kind of information entity being interpreted as evidence. Extends the
+      #7439 vocabulary with the statistical item types this schema needs.
+    permissible_values:
+      TEXT_SPAN:
+        description: Quoted span of text.
+      MEASUREMENT:
+        description: A single measured value.
+      STATISTIC:
+        description: A summary statistic.
+      DISTRIBUTION_PARAMETER:
+        description: A fitted distribution parameter or parameter vector.
+      TABLE_ROW:
+        description: A row of a structured table.
+      IMAGE:
+        description: An image or figure.
+      OTHER:
+        description: Other information entity.
+
+  AgentTypeEnum:
+    description: Kind of agent responsible for an activity or assertion.
+    permissible_values:
+      PERSON:
+        description: An individual person.
+      ORGANIZATION:
+        description: An organization or consortium.
+      SOFTWARE:
+        description: A software agent or pipeline.
+
+  ActivityTypeEnum:
+    description: Kind of activity that produced a record or evidence line.
+    permissible_values:
+      STATISTICAL_ANALYSIS:
+        description: Statistical estimation from data.
+      MODEL_FITTING:
+        description: Fitting a latent-variable or predictive model.
+      DATA_EXTRACTION:
+        description: Extraction of reported statistics from a document.
+      META_ANALYSIS:
+        description: Pooling across studies.
+      CURATION:
+        description: Human or agent curation of the record.
+      VALIDATION:
+        description: Checking a record against its source.
+      OTHER:
+        description: Other activity.
+
+  DismechTargetKindEnum:
+    description: Kind of dismech artifact a record binds to.
+    permissible_values:
+      DISEASE:
+        description: A `kb/disorders/` entry.
+      MODULE:
+        description: A `kb/modules/` mechanism module.
+      GROUPING:
+        description: A `kb/groupings/` grouping.
+      COMORBIDITY:
+        description: A `kb/comorbidities/` entry.
+
+  DismechSectionEnum:
+    description: >-
+      Which slot of the target entry the record informs. Keeps the import
+      explicit: a record that cannot name the slot it feeds is not ready to be
+      imported.
+    permissible_values:
+      PHENOTYPE_FREQUENCY:
+        description: The `frequency:` value of a `phenotypes[]` entry.
+      PHENOTYPE_ONSET:
+        description: The `onset:` descriptor of a phenotype or the disease.
+      PHENOTYPE_SEVERITY:
+        description: The `severity:` qualifier of a phenotype.
+      PREVALENCE:
+        description: A disease-level `prevalence[]` record.
+      BIOCHEMICAL_REFERENCE_RANGE:
+        description: A `biochemical[].reference_ranges[]` entry.
+      PROGRESSION:
+        description: A `progression[]` stage or natural-history claim.
+      ASSOCIATION_SIGNAL:
+        description: An `association_signals[]` entry on a comorbidity.
+      SUBTYPE:
+        description: A `has_subtypes[]` entry.
+      GENETIC_CASE_FRACTION:
+        description: A `genetic[].case_fractions[]` entry.
+      TREATMENT_RESPONSE:
+        description: A `treatments[]` response claim.
+      PATHOPHYSIOLOGY:
+        description: A `pathophysiology[]` node or edge.
+      OTHER:
+        description: Other section.
+
+  ImportStatusEnum:
+    description: Lifecycle of the binding between a record and its dismech target.
+    permissible_values:
+      PROPOSED:
+        description: Suggested but not yet reviewed by a curator.
+      ACCEPTED:
+        description: Reviewed and cited from the target entry.
+      REJECTED:
+        description: Reviewed and declined; keep `binding_notes` explaining why.
+      SUPERSEDED:
+        description: Replaced by a better record; name it in `binding_notes`.
+      DEFERRED:
+        description: Plausible but blocked, usually on unresolved reliability concerns.
+
+# ---------------------------------------------------------------------------
+# Slots
+# ---------------------------------------------------------------------------
+
+slots:
+
+  # --- shared / identity ---
+  id:
+    description: Identifier of the entity.
+    identifier: false
+  label:
+    description: Human-readable label.
+  name:
+    description: Short name.
+  description:
+    description: Free-text description.
+  notes:
+    description: Curator notes.
+  version:
+    description: Version string.
+  url:
+    description: Resolvable URL.
+  sha256:
+    description: SHA-256 checksum of the referenced artifact, for reproducibility.
+  date:
+    description: ISO 8601 date or datetime.
+
+  # --- ontology terms ---
+  preferred_term:
+    description: >-
+      Display label for the annotated entity. May be more specific than the
+      bound ontology term's canonical label, following dismech convention.
+  term:
+    description: The bound ontology term.
+    range: Term
+  term_id:
+    description: CURIE of the ontology term.
+  term_label:
+    description: >-
+      Canonical label of the ontology term. Must match the authoritative label
+      exactly; verify with OAK before committing.
+
+  # --- collection ---
+  collection_id:
+    description: Stable identifier for this collection.
+    required: true
+  disease:
+    description: Disease the collection is about, when it is single-disease.
+    range: DiseaseContext
+  source:
+    description: Where the collection's numbers came from.
+    range: SourceDescriptor
+  model:
+    description: >-
+      The latent-variable model that produced the records, when they are
+      model-derived rather than read out of a publication.
+    range: LatentPhenotypeModel
+  domains:
+    description: Data domains the analysis drew on, with their reliability.
+    multivalued: true
+    range: ModelDomain
+    inlined_as_list: true
+  distributions:
+    description: The distribution records in this collection.
+    multivalued: true
+    range: PhenotypeDistributionRecord
+    inlined_as_list: true
+  tracked_issues:
+    description: Issue or PR URLs tracking curation of this collection.
+    multivalued: true
+  generated_date:
+    description: When the collection was generated or last regenerated.
+
+  # --- record ---
+  record_id:
+    description: >-
+      Stable, collection-unique identifier for this record. Cited from a dismech
+      entry as `PHENODIST:<record_id>`, and used as the filename stem of the
+      generated reference-cache file, so it must not be reused or renumbered.
+    required: true
+    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+  phenotype:
+    description: The phenotype whose distribution this is.
+    range: PhenotypeContext
+  latent_phenotype:
+    description: >-
+      The learned latent phenotype this record describes, for model-derived
+      records that do not map onto a single HPO term.
+    range: LatentPhenotype
+  measure_type:
+    description: The estimand — what quantity is distributed.
+    range: DistributionMeasureEnum
+    required: true
+  measure_description:
+    description: Free-text refinement of the estimand.
+  unit:
+    description: Unit of the measured quantity (e.g. years, mg/dL, events/year).
+  cohort:
+    description: The cohort the distribution was estimated in.
+    range: CohortDescriptor
+  strata:
+    description: >-
+      Covariate values defining this record's stratum. An empty list means the
+      record is for the whole cohort.
+    multivalued: true
+    range: Stratum
+    inlined_as_list: true
+  distribution:
+    description: The statistical distribution itself.
+    range: DistributionEstimate
+    required: true
+  comparison:
+    description: Contrast against a reference group, when one was estimated.
+    range: ComparisonEstimate
+  covariate_effects:
+    description: >-
+      Per-covariate effects on this record's quantity, for covariate-conditioned
+      models such as an STM's Gamma coefficients.
+    multivalued: true
+    range: CovariateEffect
+    inlined_as_list: true
+  implied_frequency_class:
+    description: >-
+      HPO frequency band implied by a proportion distribution, for direct
+      comparison with a dismech `frequency:` value. Derive it from the point
+      estimate and say so in `implied_frequency_basis`; do not assert a band the
+      interval does not support.
+    range: FrequencyClassEnum
+  implied_frequency_basis:
+    description: How the implied frequency band was derived, including which estimate was banded.
+  bias_risks:
+    description: Known threats to validity for this record.
+    multivalued: true
+    range: BiasRiskEnum
+  caveats:
+    description: Free-text caveats a curator must read before importing the number.
+    multivalued: true
+  evidence_lines:
+    description: SEPIO-shaped arguments connecting this record to propositions.
+    multivalued: true
+    range: EvidenceLine
+    inlined_as_list: true
+  dismech_bindings:
+    description: Bridges from this record to the dismech slots it informs.
+    multivalued: true
+    range: DismechBinding
+    inlined_as_list: true
+
+  # --- disease / phenotype context ---
+  disease_name:
+    description: >-
+      dismech entry name for the disease. Should match a `Disease.name` in
+      `kb/disorders/`.
+  disease_term:
+    description: MONDO term for the disease.
+    range: Term
+  subtype:
+    description: >-
+      dismech subtype this record is restricted to. Should match a
+      `has_subtypes[].name` in the target entry.
+  phenotype_term:
+    description: HPO term for the phenotype.
+    range: Term
+  loinc_term:
+    description: LOINC term for a measured analyte.
+    range: Term
+  phenotype_definition:
+    description: >-
+      How the phenotype was operationalized in the data — code sets, value
+      thresholds, required occurrence counts. Two studies reporting "the same"
+      phenotype at different frequencies usually differ here.
+  definition_ref:
+    description: >-
+      Reference to a `definitions[]` entry in the target dismech disease entry
+      that formalizes this phenotype definition.
+
+  # --- distribution estimate ---
+  family:
+    description: Parametric family or explicit non-parametric form.
+    range: DistributionFamilyEnum
+    required: true
+  parameterization_note:
+    description: >-
+      Which parameterization convention the parameters use (e.g. gamma
+      shape/rate vs. shape/scale, negative binomial mean/dispersion vs. r/p).
+      Required in practice whenever the family admits more than one.
+  estimation_framework:
+    description: How the parameters were obtained.
+    range: EstimationFrameworkEnum
+  parameters:
+    description: Fitted parameters, scalar, vector, or matrix valued.
+    multivalued: true
+    range: DistributionParameter
+    inlined_as_list: true
+  summary:
+    description: Human-readable summary statistics for the distribution.
+    range: DistributionSummary
+  bins:
+    description: Tabulated bins for an empirical or categorical distribution.
+    multivalued: true
+    range: DistributionBin
+    inlined_as_list: true
+  quantiles:
+    description: Reported quantiles of the distribution.
+    multivalued: true
+    range: Quantile
+    inlined_as_list: true
+  time_to_event:
+    description: Survival-specific summary for a time-to-event distribution.
+    range: TimeToEventEstimate
+  mixture_components:
+    description: Component distributions of a finite mixture, with their weights.
+    multivalued: true
+    range: MixtureComponent
+    inlined_as_list: true
+  support_lower:
+    description: Lower bound of the distribution's support.
+    range: float
+  support_upper:
+    description: Upper bound of the distribution's support.
+    range: float
+  discrete:
+    description: Whether the distribution is over a discrete quantity.
+    range: boolean
+  n_observations:
+    description: Number of observations the estimate rests on.
+    range: integer
+    minimum_value: 0
+  n_events:
+    description: Number of events or affected individuals.
+    range: integer
+    minimum_value: 0
+  n_censored:
+    description: Number of censored observations.
+    range: integer
+    minimum_value: 0
+  goodness_of_fit:
+    description: Goodness-of-fit or model-selection statistics for the fitted family.
+    multivalued: true
+    range: FitStatistic
+    inlined_as_list: true
+  software:
+    description: Software and version used for estimation.
+
+  # --- parameters ---
+  parameter_name:
+    description: Name of the parameter in the stated parameterization (e.g. alpha, shape, meanlog).
+    required: true
+  symbol:
+    description: Mathematical symbol for the parameter.
+  value:
+    description: Scalar value of the parameter.
+    range: float
+  vector_value:
+    description: >-
+      Vector value, ordered to match `index_labels` when that is given (e.g. a
+      Dirichlet concentration vector, or a logistic-normal mean over components).
+    multivalued: true
+    range: float
+  matrix_value:
+    description: Matrix value (e.g. a covariance or correlation matrix).
+    range: MatrixParameter
+  index_labels:
+    description: Labels for the entries of `vector_value`, in order.
+    multivalued: true
+  standard_error:
+    description: Standard error of the parameter estimate.
+    range: float
+  fixed:
+    description: Whether the parameter was fixed rather than estimated.
+    range: boolean
+
+  # --- matrix ---
+  matrix_kind:
+    description: Semantics of the matrix.
+    range: MatrixKindEnum
+    required: true
+  n_rows:
+    description: Number of rows.
+    range: integer
+    required: true
+    minimum_value: 1
+  n_columns:
+    description: Number of columns.
+    range: integer
+    required: true
+    minimum_value: 1
+  row_labels:
+    description: Row labels, in order.
+    multivalued: true
+  column_labels:
+    description: Column labels, in order.
+    multivalued: true
+  values:
+    description: >-
+      Matrix entries in row-major order; length must equal `n_rows` *
+      `n_columns`.
+    multivalued: true
+    range: float
+    required: true
+  positive_definite:
+    description: >-
+      Whether the matrix was verified positive definite. Sampling from a
+      logistic-normal requires it, and sub-blocks of a valid matrix are not
+      automatically valid themselves.
+    range: boolean
+  reference_component:
+    description: >-
+      Component pinned to a fixed value for identifiability, and therefore
+      excluded from the matrix. Compositional models generally need one; name it
+      so a consumer knows the matrix is over the remaining components.
+  identified:
+    description: >-
+      Whether the matrix's entries are identified by the data. A block estimated
+      from few observations, or one whose level is confounded with an offset,
+      may order pairs correctly while its absolute values mean little.
+    range: boolean
+  support_count:
+    description: >-
+      Number of observations supporting the matrix estimate. Where a component
+      is estimated from a subpopulation this is that subpopulation's size, not
+      the corpus size — the two routinely differ by orders of magnitude.
+    range: integer
+    minimum_value: 0
+
+  # --- summary ---
+  point_estimate:
+    description: Central estimate.
+    range: float
+  point_estimate_type:
+    description: Which statistic `point_estimate` is.
+    range: PointEstimateTypeEnum
+  interval_lower:
+    description: Lower bound of the reported interval.
+    range: float
+  interval_upper:
+    description: Upper bound of the reported interval.
+    range: float
+  interval_type:
+    description: Kind of interval reported.
+    range: IntervalTypeEnum
+  interval_level:
+    description: Nominal coverage of the interval as a proportion (0.95 for a 95% interval).
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+  standard_deviation:
+    description: Standard deviation of the distribution.
+    range: float
+  variance:
+    description: Variance of the distribution.
+    range: float
+  median:
+    description: Median of the distribution.
+    range: float
+  iqr_lower:
+    description: Lower quartile.
+    range: float
+  iqr_upper:
+    description: Upper quartile.
+    range: float
+  minimum_observed:
+    description: Smallest observed value.
+    range: float
+  maximum_observed:
+    description: Largest observed value.
+    range: float
+  skewness:
+    description: Skewness of the distribution.
+    range: float
+
+  # --- bins / quantiles ---
+  bin_label:
+    description: Label for the bin or category.
+  lower_bound:
+    description: Inclusive lower bound of the bin.
+    range: float
+  upper_bound:
+    description: Exclusive upper bound of the bin.
+    range: float
+  count:
+    description: Number of observations in the bin.
+    range: integer
+    minimum_value: 0
+  proportion:
+    description: Proportion of the cohort in the bin.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+  suppressed:
+    description: >-
+      Whether this bin's value was withheld because its cell count fell below a
+      privacy threshold. Distinguishes "small and hidden" from "not reported"
+      and from a true zero — a distinction that decides whether a tail can be
+      read at all. State the threshold in `notes`.
+    range: boolean
+  quantile:
+    description: Quantile level as a proportion (0.5 is the median).
+    range: float
+    required: true
+    minimum_value: 0.0
+    maximum_value: 1.0
+
+  # --- time to event ---
+  time_unit:
+    description: Unit of the time axis.
+  median_time_to_event:
+    description: Median time to event; omit when the curve does not reach 50%.
+    range: float
+  restricted_mean:
+    description: Restricted mean survival time.
+    range: float
+  restricted_mean_horizon:
+    description: Time horizon the restricted mean is computed over.
+    range: float
+  curve:
+    description: Points of the estimated survival or cumulative-incidence curve.
+    multivalued: true
+    range: SurvivalPoint
+    inlined_as_list: true
+  cumulative_incidence:
+    description: Whether `curve` reports cumulative incidence rather than survival.
+    range: boolean
+  competing_risks:
+    description: Competing risks accounted for, if any.
+    multivalued: true
+  time:
+    description: Time point on the curve.
+    range: float
+    required: true
+  at_risk:
+    description: Number at risk at this time point.
+    range: integer
+    minimum_value: 0
+  events_at_time:
+    description: Events observed at this time point.
+    range: integer
+    minimum_value: 0
+  probability:
+    description: Estimated probability at this time point.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+
+  # --- mixture ---
+  weight:
+    description: Mixture weight of the component.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+
+  # --- fit statistics ---
+  statistic_name:
+    description: Name of the fit statistic (e.g. AIC, WAIC, KS D, chi-square).
+    required: true
+  p_value:
+    description: P-value associated with the statistic, if any.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+
+  # --- cohort ---
+  cohort_id:
+    description: Identifier for the cohort within the collection.
+  data_source_type:
+    description: Kind of data the cohort was drawn from.
+    range: DataSourceTypeEnum
+  data_source_name:
+    description: Name of the specific data resource (e.g. All of Us, UK Biobank, a named registry).
+  ascertainment:
+    description: How individuals entered the cohort.
+    range: AscertainmentEnum
+  case_definition:
+    description: How disease cases were identified.
+  geography:
+    description: Country, region, or site the cohort was drawn from.
+  care_setting:
+    description: Care setting (primary care, tertiary referral, ICU, mixed).
+  n_individuals:
+    description: Number of individuals in the cohort.
+    range: integer
+    minimum_value: 0
+  person_time:
+    description: Total person-time of observation.
+    range: float
+  person_time_unit:
+    description: Unit of `person_time` (e.g. person-years).
+  observation_start:
+    description: Start of the observation window.
+  observation_end:
+    description: End of the observation window.
+  inclusion_criteria:
+    description: Inclusion criteria.
+    multivalued: true
+  exclusion_criteria:
+    description: Exclusion criteria.
+    multivalued: true
+  identity_attestation:
+    description: >-
+      Attestation that the analysed rows are one-per-person, without exposing
+      identifiers.
+    range: IdentityAttestation
+  row_count:
+    description: Number of analysed rows.
+    range: integer
+    minimum_value: 0
+  unique_person_count:
+    description: Number of distinct persons among those rows.
+    range: integer
+    minimum_value: 0
+  one_row_per_person:
+    description: >-
+      Whether every analysed row is a distinct person. Held-out folds are honest
+      only when this is true; a supervised readout without it should be rejected
+      rather than discounted.
+    range: boolean
+  attestation_method:
+    description: How the attestation was produced and by what.
+
+  # --- stratum ---
+  variable:
+    description: The stratifying variable.
+    range: StratificationVariableEnum
+    required: true
+  variable_label:
+    description: Source label for the variable, verbatim.
+  stratum_value:
+    description: Value of the variable defining this stratum (e.g. FEMALE, 40-49).
+
+  # --- comparison ---
+  reference_group:
+    description: The group this record's cohort or stratum is contrasted against.
+    range: ComparisonGroup
+  effect_measure:
+    description: Effect measure for the contrast (e.g. risk ratio, mean difference, standardized mean difference).
+  effect_value:
+    description: Value of the effect measure.
+    range: float
+  adjusted_for:
+    description: Covariates the contrast was adjusted for.
+    multivalued: true
+  fdr:
+    description: False-discovery-rate-adjusted p-value.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+
+  # --- covariate effects ---
+  covariate:
+    description: Covariate the effect is for.
+    required: true
+  covariate_level:
+    description: Level of a categorical covariate; omit for continuous covariates.
+  reference_level:
+    description: Reference level the effect is relative to.
+  coefficient:
+    description: Estimated coefficient.
+    range: float
+  coefficient_scale:
+    description: >-
+      Scale the coefficient lives on (e.g. logit-eta for an STM linear
+      predictor, log-odds, identity). Without this the number cannot be
+      interpreted.
+  component:
+    description: Model component the effect applies to.
+
+  # --- latent phenotype model ---
+  model_family:
+    description: Family of the model.
+    range: ModelFamilyEnum
+    required: true
+  model_name:
+    description: Name of the model or bundle.
+  n_components:
+    description: Number of components (topics) in the fitted model.
+    range: integer
+    minimum_value: 1
+  component_count_inferred:
+    description: Whether the component count was inferred rather than fixed.
+    range: boolean
+  vocabulary_size:
+    description: Number of distinct features in the model vocabulary.
+    range: integer
+    minimum_value: 1
+  covariate_formula:
+    description: >-
+      Design formula for covariate-conditioned prevalence (e.g. `~ age_bin *
+      sex`). Records exactly what the linear predictor conditions on.
+  inference_method:
+    description: Algorithm used to fit the model.
+    range: InferenceMethodEnum
+  hyperparameters:
+    description: >-
+      Model hyperparameters and their values, including any scale or
+      concentration parameter and its uncertainty. Uses the same
+      `DistributionParameter` shape as fitted parameters, so a hyperparameter
+      selected by held-out likelihood can carry its own interval.
+    multivalued: true
+    range: DistributionParameter
+    inlined_as_list: true
+  training_cohort:
+    description: Cohort the model was fitted on, when it differs from the record's cohort.
+    range: CohortDescriptor
+  contains_patient_data:
+    description: >-
+      Whether the distributed model artifact contains individual-level data.
+      Aggregate-only bundles can be shared where row-level data cannot.
+    range: boolean
+  artifact_url:
+    description: Location of the model bundle or analysis artifact.
+  fit_metrics:
+    description: Held-out or intrinsic quality metrics for the fitted model.
+    multivalued: true
+    range: ReliabilityReadout
+    inlined_as_list: true
+
+  # --- latent phenotype ---
+  component_id:
+    description: Identifier of the component within the model.
+    required: true
+  top_features:
+    description: Highest-probability features characterizing the component.
+    multivalued: true
+    range: WeightedFeature
+    inlined_as_list: true
+  mapped_phenotype_terms:
+    description: >-
+      HPO or MONDO terms a curator judges the component to correspond to. A
+      judgement about an unsupervised component, not a model output — keep the
+      basis in `mapping_basis`.
+    multivalued: true
+    range: TermDescriptor
+    inlined_as_list: true
+  mapping_basis:
+    description: How the component was mapped to ontology terms, and by whom.
+  component_quality:
+    description: >-
+      Quality tag the fit assigned to the component (e.g. `anchor` for one
+      dominated by the defining code, `phenotype` for a coherent clinical
+      pattern, `background` for diffuse content). An anchor component largely
+      restates its own diagnosis code and is weak evidence for anything beyond
+      the presence of that code.
+  estimation_scope:
+    description: >-
+      The subset of the corpus this component was actually estimated from, when
+      it is not the whole corpus. Covers any mechanism that restricts a
+      component to a subpopulation — a gated block or arm, a per-cohort fit, a
+      masked group — without committing to how a particular model implements it.
+      The number that matters downstream is how many documents backed the
+      estimate, not the mechanism's name.
+  estimation_scope_size:
+    description: Number of documents the component was estimated from.
+    range: integer
+    minimum_value: 0
+  corpus_prevalence:
+    description: >-
+      Share of the whole corpus this component accounts for. For a rare-disease
+      foreground component this is tiny by construction and is not the disease's
+      prevalence.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+  feature_id:
+    description: Identifier of the feature (e.g. an OMOP concept id or code CURIE).
+    required: true
+
+  # --- generic model properties ---
+  model_properties:
+    description: >-
+      Named properties of the fit that this schema does not model as first-class
+      slots. The escape hatch for model-class-specific structure — block or arm
+      layout, masking rules, step-size schedules, whatever a given model family
+      exports — so that a new or changed export shape does not require a schema
+      change to be recorded faithfully.
+    multivalued: true
+    range: ModelProperty
+    inlined_as_list: true
+  property_value:
+    description: Value of the property, as text. Numbers are written out.
+
+  # --- domains and reliability ---
+  domain_role:
+    description: How the domain is actually used.
+    range: DomainRoleEnum
+  domain_name:
+    description: >-
+      Name of the data domain (e.g. condition, drug, measurement, procedure).
+      Identify domains by name, never by position — positional identification
+      silently shifts when the domain order changes.
+  vocabulary:
+    description: Source vocabulary for the domain (e.g. SNOMED CT, RxNorm, LOINC).
+  n_features:
+    description: Number of features contributed by the domain.
+    range: integer
+    minimum_value: 0
+  reliability:
+    description: Reliability assessment for the domain.
+    range: DomainReliability
+  reliability_basis:
+    description: What the reliability assessment rests on.
+    range: ReliabilityBasisEnum
+    required: true
+  reliability_score:
+    description: >-
+      Summary reliability on a 0-1 scale, where higher is more reliable. Only
+      meaningful alongside `reliability_basis`.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+  readouts:
+    description: Individual reliability readouts backing the assessment.
+    multivalued: true
+    range: ReliabilityReadout
+    inlined_as_list: true
+  n_folds:
+    description: Number of cross-validation folds.
+    range: integer
+    minimum_value: 2
+  n_repeats:
+    description: Number of repeats of the cross-validation scheme.
+    range: integer
+    minimum_value: 1
+  metric:
+    description: Metric reported.
+    range: ReadoutMetricEnum
+    required: true
+  metric_value:
+    description: Value of the metric.
+    range: float
+  downweight_rationale:
+    description: >-
+      Why a domain is down-weighted or excluded, when it is. Records the
+      judgement so a later reviewer can disagree with it.
+
+  # --- source ---
+  source_name:
+    description: Name of the source.
+    required: true
+  source_type:
+    description: Kind of source the collection was built from.
+    range: DataSourceTypeEnum
+  source_version:
+    description: Version or snapshot identifier of the source.
+  retrieved_date:
+    description: When the source was retrieved.
+  license:
+    description: License or terms of use governing redistribution of the numbers.
+  primary_references:
+    description: Publications or records the collection is derived from (PMID, DOI, NCT CURIEs).
+    multivalued: true
+
+  # --- SEPIO evidence ---
+  evidence_line_id:
+    description: Identifier for the evidence line within the record.
+  target_proposition:
+    description: The claim this line bears on.
+    range: Proposition
+  direction_of_evidence_provided:
+    description: Which way the line points.
+    range: EvidenceDirectionEnum
+    required: true
+  strength_of_evidence_provided:
+    description: >-
+      How forceful the line is, independent of direction. A precisely estimated
+      null and an underpowered null share a direction but not a strength.
+    range: EvidenceStrengthEnum
+  score_of_evidence_provided:
+    description: Numeric score for the line, when a scoring rubric is in use.
+    range: float
+  evidence_line_type:
+    description: What kind of argument the line makes (e.g. cohort-frequency estimate, model-derived profile).
+  has_evidence_items:
+    description: The information entities interpreted as evidence by this line.
+    multivalued: true
+    range: DataItem
+    inlined_as_list: true
+  contributor:
+    description: Agents responsible for the line.
+    multivalued: true
+    range: Agent
+    inlined_as_list: true
+  specified_by:
+    description: Activity that produced the line.
+    range: Activity
+  proposition_id:
+    description: Identifier for the proposition.
+  subject:
+    description: Subject of the proposition (usually the disease).
+  predicate:
+    description: Predicate relating subject and object.
+  object:
+    description: Object of the proposition (usually the phenotype).
+  statement_text:
+    description: >-
+      The proposition in plain language, written so its truth value is
+      checkable.
+    required: true
+  data_item_id:
+    description: Identifier for the data item.
+  data_type:
+    description: Kind of information entity.
+    range: DataItemTypeEnum
+    required: true
+  item_value:
+    description: >-
+      The evidence content itself. For a TEXT_SPAN this is the verbatim quote
+      and must appear in the cached source; for a STATISTIC it is the rendered
+      statistic line.
+    required: true
+  numeric_value:
+    description: Numeric form of the item, when it has one.
+    range: float
+  reported_in:
+    description: The document this item was reported in.
+    range: Document
+  document_type:
+    description: Kind of source document.
+    range: DocumentTypeEnum
+  agent_type:
+    description: Kind of agent.
+    range: AgentTypeEnum
+  activity_type:
+    description: Kind of activity.
+    range: ActivityTypeEnum
+  performed_by:
+    description: Agents that performed the activity.
+    multivalued: true
+    range: Agent
+    inlined_as_list: true
+  activity_parameters:
+    description: Salient parameters of the activity.
+    multivalued: true
+
+  # --- dismech binding ---
+  target_kind:
+    description: Kind of dismech artifact targeted.
+    range: DismechTargetKindEnum
+    required: true
+  target_entry:
+    description: >-
+      Filename stem of the target entry (e.g. `Cystic_Fibrosis`), without the
+      `.yaml` extension.
+    required: true
+  target_section:
+    description: Slot of the target entry this record informs.
+    range: DismechSectionEnum
+    required: true
+  target_path:
+    description: >-
+      Path to the specific element within the target entry, using the dismech
+      `attaches_to` grammar (e.g. `phenotypes#Chronic sinusitis`).
+  evidence_reference:
+    description: >-
+      CURIE a curator writes in the target entry's `evidence:` block, of the
+      form `PHENODIST:<record_id>`. Resolves to the generated reference-cache
+      file for this record.
+    pattern: "^PHENODIST:[A-Za-z0-9][A-Za-z0-9._-]*$"
+  proposed_value:
+    description: Value this record proposes for the target slot.
+  import_status:
+    description: Lifecycle state of this binding.
+    range: ImportStatusEnum
+  binding_notes:
+    description: Why the binding is in its current state.
+
+# ---------------------------------------------------------------------------
+# Classes
+# ---------------------------------------------------------------------------
+
+classes:
+
+  PhenotypeDistributionCollection:
+    tree_root: true
+    description: >-
+      A set of statistical phenotype-distribution records sharing a source and,
+      usually, a disease. One collection is one analysis or one import: the
+      unit at which provenance, licensing, and model identity are constant.
+    slots:
+      - collection_id
+      - name
+      - description
+      - disease
+      - source
+      - model
+      - domains
+      - distributions
+      - generated_date
+      - tracked_issues
+      - notes
+    slot_usage:
+      distributions:
+        required: true
+
+  PhenotypeDistributionRecord:
+    description: >-
+      One estimand, one phenotype, one disease, one stratum, one analysis — the
+      unit that gets cited from a dismech entry.
+
+      Splitting strata into separate records rather than nesting them keeps each
+      record independently citable: a curator importing the female-specific
+      onset distribution cites exactly that, not a bundle they then have to
+      qualify in prose. Every record needs either a `phenotype` or a
+      `latent_phenotype`.
+    slots:
+      - record_id
+      - phenotype
+      - latent_phenotype
+      - measure_type
+      - measure_description
+      - unit
+      - cohort
+      - strata
+      - distribution
+      - comparison
+      - covariate_effects
+      - implied_frequency_class
+      - implied_frequency_basis
+      - bias_risks
+      - caveats
+      - evidence_lines
+      - dismech_bindings
+      - notes
+
+  DiseaseContext:
+    description: The disease a collection or record is about.
+    slots:
+      - disease_name
+      - disease_term
+      - subtype
+      - notes
+
+  PhenotypeContext:
+    description: >-
+      The phenotype whose distribution is being reported, together with how it
+      was operationalized. `phenotype_definition` is what makes two records
+      comparable; without it a difference in frequency cannot be distinguished
+      from a difference in definition.
+    slots:
+      - preferred_term
+      - phenotype_term
+      - loinc_term
+      - phenotype_definition
+      - definition_ref
+      - notes
+
+  Term:
+    description: An ontology term reference.
+    slots:
+      - term_id
+      - term_label
+    slot_usage:
+      term_id:
+        required: true
+      term_label:
+        required: true
+
+  TermDescriptor:
+    description: A display label bound to an ontology term, in dismech descriptor style.
+    slots:
+      - preferred_term
+      - term
+
+  DistributionEstimate:
+    description: >-
+      The statistical distribution itself: its family, its fitted parameters,
+      and a human-readable summary.
+
+      `summary` is intentionally redundant with `parameters` — parameters are
+      what a tool samples from, the summary is what a curator reads and what
+      gets rendered into the citable evidence line. Populate both when both are
+      available; populate the summary alone when a publication reports only
+      summary statistics.
+    slots:
+      - family
+      - parameterization_note
+      - estimation_framework
+      - parameters
+      - summary
+      - bins
+      - quantiles
+      - time_to_event
+      - mixture_components
+      - support_lower
+      - support_upper
+      - unit
+      - discrete
+      - n_observations
+      - n_events
+      - n_censored
+      - goodness_of_fit
+      - software
+      - notes
+
+  DistributionParameter:
+    description: >-
+      One parameter of a distribution — scalar, vector, or matrix valued.
+      Vector and matrix values are what let compositional and covariate-
+      conditioned models (Dirichlet concentrations, logistic-normal means and
+      covariances) be represented without flattening them into prose.
+    slots:
+      - parameter_name
+      - symbol
+      - value
+      - vector_value
+      - matrix_value
+      - index_labels
+      - standard_error
+      - interval_lower
+      - interval_upper
+      - interval_type
+      - interval_level
+      - fixed
+      - description
+
+  MatrixParameter:
+    description: >-
+      A matrix-valued parameter stored row-major with explicit dimensions and
+      labels.
+    slots:
+      - matrix_kind
+      - n_rows
+      - n_columns
+      - row_labels
+      - column_labels
+      - values
+      - positive_definite
+      - reference_component
+      - identified
+      - support_count
+      - description
+
+  DistributionSummary:
+    description: >-
+      Summary statistics for the distribution, in the units of the measured
+      quantity. `interval_type` and `interval_level` are not optional in
+      practice: an interval whose kind and coverage are unstated cannot be
+      compared with another one.
+    slots:
+      - point_estimate
+      - point_estimate_type
+      - interval_lower
+      - interval_upper
+      - interval_type
+      - interval_level
+      - standard_deviation
+      - variance
+      - median
+      - iqr_lower
+      - iqr_upper
+      - minimum_observed
+      - maximum_observed
+      - skewness
+      - unit
+      - notes
+
+  DistributionBin:
+    description: >-
+      One bin of an empirical distribution, or one category of a categorical
+      one. Bounds are half-open `[lower_bound, upper_bound)`, matching the
+      convention used by dismech `interpretation_bands`.
+    slots:
+      - bin_label
+      - lower_bound
+      - upper_bound
+      - count
+      - proportion
+      - suppressed
+      - interval_lower
+      - interval_upper
+      - phenotype_term
+      - notes
+
+  Quantile:
+    description: One reported quantile of the distribution.
+    slots:
+      - quantile
+      - value
+      - interval_lower
+      - interval_upper
+      - unit
+
+  TimeToEventEstimate:
+    description: >-
+      Survival-specific summary for a time-to-event distribution, including the
+      estimated curve. Age-dependent penetrance is a survival problem, not a
+      proportion problem, and reporting it as a single percentage discards the
+      age at which that percentage applies.
+    slots:
+      - time_unit
+      - median_time_to_event
+      - interval_lower
+      - interval_upper
+      - interval_type
+      - interval_level
+      - restricted_mean
+      - restricted_mean_horizon
+      - curve
+      - cumulative_incidence
+      - competing_risks
+      - notes
+
+  SurvivalPoint:
+    description: One point on a survival or cumulative-incidence curve.
+    slots:
+      - time
+      - at_risk
+      - events_at_time
+      - probability
+      - interval_lower
+      - interval_upper
+
+  MixtureComponent:
+    description: One component of a finite mixture distribution.
+    slots:
+      - name
+      - weight
+      - family
+      - parameters
+      - description
+
+  FitStatistic:
+    description: A goodness-of-fit or model-selection statistic.
+    slots:
+      - statistic_name
+      - value
+      - p_value
+      - description
+
+  CohortDescriptor:
+    description: >-
+      The population the distribution was estimated in. `ascertainment` and
+      `case_definition` carry most of the transportability information: the same
+      phenotype measured in a referral clinic and in a population registry
+      routinely differs several-fold, and that difference is real rather than an
+      inconsistency to be averaged away.
+    slots:
+      - cohort_id
+      - name
+      - description
+      - data_source_type
+      - data_source_name
+      - ascertainment
+      - case_definition
+      - definition_ref
+      - geography
+      - care_setting
+      - n_individuals
+      - person_time
+      - person_time_unit
+      - observation_start
+      - observation_end
+      - inclusion_criteria
+      - exclusion_criteria
+      - identity_attestation
+      - notes
+
+  IdentityAttestation:
+    description: >-
+      Assertion that the analysed rows are one-per-person, proving cardinality
+      and uniqueness without persisting identifiers or hashes. A supervised
+      held-out readout is only honest when each row is a distinct person; a
+      readout whose attestation is missing, false, or internally inconsistent
+      should be rejected rather than discounted.
+    slots:
+      - row_count
+      - unique_person_count
+      - one_row_per_person
+      - attestation_method
+      - notes
+
+  Stratum:
+    description: One covariate value defining the subgroup a record applies to.
+    slots:
+      - variable
+      - variable_label
+      - stratum_value
+      - lower_bound
+      - upper_bound
+      - unit
+      - term
+      - notes
+
+  ComparisonEstimate:
+    description: >-
+      A contrast between this record's group and a reference group. Kept
+      separate from `distribution` because a distribution and a contrast answer
+      different questions and carry different assumptions.
+    slots:
+      - reference_group
+      - effect_measure
+      - effect_value
+      - interval_lower
+      - interval_upper
+      - interval_type
+      - interval_level
+      - p_value
+      - fdr
+      - adjusted_for
+      - notes
+
+  ComparisonGroup:
+    description: The group a comparison is made against.
+    slots:
+      - name
+      - description
+      - strata
+      - n_individuals
+
+  CovariateEffect:
+    description: >-
+      Effect of one covariate on the quantity, for covariate-conditioned models.
+      In a structural topic model these are the entries of the coefficient
+      matrix Gamma, on the latent logit scale rather than the probability scale —
+      hence the mandatory `coefficient_scale`.
+    slots:
+      - covariate
+      - covariate_level
+      - reference_level
+      - component
+      - coefficient
+      - coefficient_scale
+      - standard_error
+      - interval_lower
+      - interval_upper
+      - interval_type
+      - interval_level
+      - p_value
+      - description
+
+  LatentPhenotypeModel:
+    description: >-
+      The unsupervised or semi-supervised model that produced model-derived
+      records.
+
+      Deliberately restricted to what every model class in this space has in
+      common: an identity, a component count, a vocabulary, an inference method,
+      a training cohort, quality metrics, and a pointer to the artifact. That is
+      enough to make a component interpretable later — a component index means
+      nothing without the fit that produced it — while staying stable as model
+      classes and their export shapes change. Anything specific to one family
+      goes in `model_properties` rather than a dedicated slot.
+    slots:
+      - model_name
+      - model_family
+      - version
+      - n_components
+      - component_count_inferred
+      - vocabulary_size
+      - covariate_formula
+      - inference_method
+      - hyperparameters
+      - model_properties
+      - training_cohort
+      - fit_metrics
+      - contains_patient_data
+      - artifact_url
+      - sha256
+      - software
+      - description
+      - notes
+
+  LatentPhenotype:
+    description: >-
+      One learned component of a LatentPhenotypeModel. A component is a
+      statistical object, not a disease concept; `mapped_phenotype_terms`
+      records a curator's judgement about what it corresponds to and
+      `mapping_basis` records how that judgement was reached. Do not import a
+      component's weight into a dismech phenotype slot without that mapping.
+    slots:
+      - component_id
+      - label
+      - description
+      - component_quality
+      - estimation_scope
+      - estimation_scope_size
+      - corpus_prevalence
+      - top_features
+      - mapped_phenotype_terms
+      - mapping_basis
+      - notes
+
+  WeightedFeature:
+    description: One feature and its weight within a latent phenotype.
+    slots:
+      - feature_id
+      - label
+      - weight
+      - domain_name
+
+  ModelProperty:
+    description: >-
+      One named property of a fit that the schema does not model explicitly.
+
+      Latent phenotype modelling is a fast-moving area, and export shapes change
+      faster than a curation schema should. Rather than growing a first-class
+      slot for each model class's structure — and inheriting its churn — anything
+      outside the common denominator is recorded here as a name/value pair with
+      an explanation. A consumer that understands a particular model family can
+      read these; a consumer that does not can still read the distribution.
+    slots:
+      - name
+      - property_value
+      - description
+    slot_usage:
+      name:
+        required: true
+      property_value:
+        required: true
+
+  ModelDomain:
+    description: >-
+      One data domain contributing features to an analysis, with its role and
+      reliability. Domains are identified by name rather than by position, so
+      that adding or reordering domains cannot silently reassign a reliability
+      assessment to the wrong data.
+    slots:
+      - domain_name
+      - vocabulary
+      - n_features
+      - domain_role
+      - reliability
+      - description
+    slot_usage:
+      domain_name:
+        required: true
+
+  DomainReliability:
+    description: >-
+      How much the analysis's use of a domain can bear. A phenotype distribution
+      read out of EHR condition codes and one read out of medication or
+      observation records are not equally trustworthy, and the difference is a
+      property of the domain rather than of the phenotype.
+
+      Read this as a caution flag, not as a weight. Where domain weighting has
+      been tested directly, the headroom has been small and not recoverable from
+      quantities read off the fitted model, and no fixed combination rule has
+      beaten the primary domain alone in aggregate — while a secondary domain
+      still rescued the individual diseases whose evidence lives in it. That is
+      a routing conclusion rather than a weighting one, which is why
+      `domain_role` sits alongside `reliability_score` and is the field a
+      consumer should act on.
+    slots:
+      - reliability_basis
+      - reliability_score
+      - readouts
+      - identity_attestation
+      - downweight_rationale
+      - notes
+
+  ReliabilityReadout:
+    description: One measured reliability or model-quality readout.
+    slots:
+      - metric
+      - metric_value
+      - interval_lower
+      - interval_upper
+      - interval_type
+      - interval_level
+      - n_folds
+      - n_repeats
+      - domain_name
+      - identity_attestation
+      - description
+
+  SourceDescriptor:
+    description: Where a collection's numbers came from, and under what terms.
+    slots:
+      - source_name
+      - source_type
+      - source_version
+      - url
+      - sha256
+      - retrieved_date
+      - license
+      - primary_references
+      - description
+
+  # --- SEPIO-aligned evidence layer ---
+
+  EvidenceLine:
+    description: >-
+      One independent argument bearing on a proposition, following SEPIO. The
+      line carries the direction and the strength; the `DataItem`s it holds
+      carry the content. Several items in one line make one argument jointly —
+      the distinction the flat dismech `evidence:` list cannot currently express.
+    slots:
+      - evidence_line_id
+      - target_proposition
+      - direction_of_evidence_provided
+      - strength_of_evidence_provided
+      - score_of_evidence_provided
+      - evidence_line_type
+      - has_evidence_items
+      - contributor
+      - specified_by
+      - description
+
+  Proposition:
+    description: >-
+      The claim an evidence line bears on, stated so its truth value is
+      checkable. Distributions are frequently cited in support of propositions
+      they only partly address — writing the proposition down makes that
+      visible.
+    slots:
+      - proposition_id
+      - subject
+      - predicate
+      - object
+      - statement_text
+
+  DataItem:
+    description: >-
+      A discrete information entity interpreted as evidence. For a text span,
+      `item_value` must be a verbatim quote that appears in the cached source,
+      matching dismech's snippet-verification requirement.
+    slots:
+      - data_item_id
+      - data_type
+      - item_value
+      - numeric_value
+      - unit
+      - reported_in
+      - description
+
+  Document:
+    description: A source document, with its identity and type.
+    slots:
+      - id
+      - document_type
+      - name
+      - url
+      - version
+      - date
+    slot_usage:
+      id:
+        description: >-
+          CURIE or URL identifying the document (e.g. `PMID:12345678`,
+          `DOI:10.1000/xyz`, `NCT01234567`).
+        required: true
+      name:
+        description: Title of the document.
+
+  Agent:
+    description: A person, organization, or software agent bearing responsibility.
+    slots:
+      - id
+      - name
+      - agent_type
+      - version
+      - url
+
+  Activity:
+    description: An action performed by an agent that produced a record or line.
+    slots:
+      - id
+      - name
+      - activity_type
+      - performed_by
+      - date
+      - software
+      - activity_parameters
+      - description
+
+  # --- import bridge ---
+
+  DismechBinding:
+    description: >-
+      The bridge from a distribution record to the dismech slot it informs.
+
+      Bindings are explicit and reviewable rather than inferred: a record states
+      which entry and slot it targets, what value it proposes, and where that
+      proposal stands. `evidence_reference` is the CURIE a curator writes in the
+      target entry's `evidence:` block, which resolves to the generated
+      reference-cache file for the record — the same citation mechanism as
+      `ORPHA:`, `CGGV:`, and `ICEES:`.
+    slots:
+      - target_kind
+      - target_entry
+      - target_section
+      - target_path
+      - evidence_reference
+      - proposed_value
+      - import_status
+      - binding_notes

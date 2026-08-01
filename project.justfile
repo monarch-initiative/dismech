@@ -4,6 +4,9 @@
 schema_path := "src/dismech/schema/dismech.yaml"
 history_schema_path := "src/dismech/schema/history.yaml"
 synthesis_schema_path := "src/dismech/schema/research_synthesis.yaml"
+phenodist_schema_path := "src/dismech/schema/phenotype_distribution.yaml"
+phenodist_dir := "kb/phenotype_distributions"
+phenodist_examples_dir := "examples/phenotype_distributions"
 kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
@@ -189,6 +192,42 @@ validate-synthesis-all:
     printf 'Validating %s research synthesis file(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
     uv run python -m dismech.research_synthesis "${files[@]}"
+
+# Validate a single statistical phenotype-distribution collection
+[group('QC')]
+validate-phenotype-distribution file:
+    uv run linkml-validate --schema {{phenodist_schema_path}} --target-class PhenotypeDistributionCollection {{file}}
+    uv run python -m dismech.phenotype_distribution {{file}}
+
+# Validate all statistical phenotype-distribution collections (kb + examples)
+[group('QC')]
+validate-phenotype-distributions:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=({{phenodist_dir}}/*.yaml {{phenodist_examples_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No phenotype distribution collections found."
+        exit 0
+    fi
+    printf 'Validating %s phenotype distribution collection(s).\n' "${#files[@]}"
+    uv run linkml-validate --schema {{phenodist_schema_path}} --target-class PhenotypeDistributionCollection "${files[@]}"
+    uv run python -m dismech.phenotype_distribution "${files[@]}"
+
+# Regenerate references_cache/PHENODIST_*.md for curated (kb/) collections.
+# Examples are deliberately excluded: their numbers are synthetic and must not
+# become citable. NEVER hand-write these cache files.
+[group('Data')]
+phenodist-rebuild:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=({{phenodist_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No curated phenotype distribution collections in {{phenodist_dir}}; nothing to rebuild."
+        exit 0
+    fi
+    uv run python -m dismech.phenotype_distribution --write-cache "${files[@]}"
 
 # Schema validation for all files (batched: one process startup for all files)
 [group('QC')]
@@ -587,7 +626,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all validate-phenotype-distributions qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
