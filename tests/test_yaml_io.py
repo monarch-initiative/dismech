@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+from pathlib import Path
 
 import pytest
 import yaml
@@ -37,11 +38,34 @@ def test_safe_load_path_reads_from_disk(tmp_path):
     assert yaml_io.safe_load_path(path) == yaml.safe_load(DOC)
 
 
-def test_safe_load_path_pins_utf8_rather_than_the_locale_default(tmp_path):
-    """Part of why the helper exists: non-ASCII must not depend on the locale."""
+def test_safe_load_path_pins_utf8_rather_than_the_locale_default(tmp_path, monkeypatch):
+    """Part of why the helper exists: non-ASCII must not depend on the locale.
+
+    Reading the file and asserting the text round-trips proves nothing on its own —
+    it passes against a bare ``read_text()`` too, because the locale encoding is
+    already UTF-8 on CI and most dev machines. To actually exercise the guarantee,
+    simulate a non-UTF-8 locale: a bare ``read_text()`` would mojibake or raise,
+    so the assertion only holds if the helper passes ``encoding`` explicitly.
+    """
+    content = "name: Béhçet Diseáse — ünicode\n"
     path = tmp_path / "disorder.yaml"
-    path.write_bytes("name: Béhçet Diseáse — ünicode\n".encode())
+    path.write_bytes(content.encode("utf-8"))
+
+    real_read_text = Path.read_text
+    seen: dict[str, object] = {}
+
+    def locale_bound_read_text(self, encoding=None, **kwargs):
+        # Stand in for a machine whose locale default is not UTF-8.
+        seen["encoding"] = encoding
+        return real_read_text(self, encoding=encoding or "cp1252", **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", locale_bound_read_text)
+
     assert yaml_io.safe_load_path(path)["name"] == "Béhçet Diseáse — ünicode"
+    assert seen["encoding"] == "utf-8", (
+        "safe_load_path must pass encoding explicitly rather than inheriting the "
+        "platform default, or non-ASCII KB content breaks on non-UTF-8 locales."
+    )
 
 
 def test_safe_load_is_safe_and_rejects_arbitrary_object_construction():
@@ -72,6 +96,6 @@ def test_libyaml_is_available_in_this_environment():
         "the pure-Python loader and whole-KB operations will be ~12x slower. Install "
         "a PyYAML wheel, or libyaml headers before building it from source."
     )
-    if os.environ.get("CI"):
+    if os.environ.get("CI", "").lower() not in ("", "0", "false"):
         pytest.fail(message)
     pytest.skip(message)

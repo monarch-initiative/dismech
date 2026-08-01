@@ -11,7 +11,7 @@ from dismech.perturb.simulate import (
     extract_model_variables,
     load_model_config,
 )
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load_path
 
 
 def _tellurium_available():
@@ -24,8 +24,7 @@ def ckd_disorder():
     yaml_path = Path("kb/disorders/CKD-Mineral_Bone_Disorder.yaml")
     if not yaml_path.exists():
         pytest.skip("CKD-MBD YAML not found")
-    with open(yaml_path) as f:
-        return safe_load(f)
+    return safe_load_path(yaml_path)
 
 
 @pytest.fixture
@@ -109,8 +108,7 @@ def test_extract_variables_from_yaml():
     if not yaml_path.exists():
         pytest.skip("CKD-MBD YAML not found")
 
-    with open(yaml_path) as f:
-        disorder = safe_load(f)
+    disorder = safe_load_path(yaml_path)
     var_mappings, thresholds = extract_model_variables(disorder, "BIOMD0000000613")
     assert len(var_mappings) > 0
     # Check dataset_identifier is populated
@@ -135,8 +133,7 @@ def test_load_config_with_disorder_yaml():
     if not yaml_path.exists() or not config_path.exists():
         pytest.skip("CKD-MBD files not found")
 
-    with open(yaml_path) as f:
-        disorder = safe_load(f)
+    disorder = safe_load_path(yaml_path)
     config = load_model_config(config_path, disorder=disorder)
     # Should use YAML-derived mappings (dataset_identifier populated)
     assert config.variable_mappings["Plasma_Ca"].dataset_identifier == "P"
@@ -155,8 +152,7 @@ def test_run_baseline_with_yaml_variables():
     config_path = Path("models/BIOMD0000000613.config.yaml")
     if not yaml_path.exists() or not config_path.exists():
         pytest.skip("CKD-MBD files not found")
-    with open(yaml_path) as f:
-        disorder = safe_load(f)
+    disorder = safe_load_path(yaml_path)
     config = load_model_config(config_path, disorder=disorder)
     result = run_perturbation(config, gfr=6.0)
     assert result.variables["Plasma_PTH"] > 0

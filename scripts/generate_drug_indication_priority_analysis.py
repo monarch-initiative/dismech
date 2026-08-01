@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -255,11 +255,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_yaml(path: Path) -> Any:
-    with path.open(encoding="utf-8") as stream:
-        return safe_load(stream)
-
-
 def load_mondo_priority_helpers() -> tuple[Any, Any, Any, Any]:
     sys.path.insert(0, str(REPO_ROOT / "src"))
     from dismech.compare.mondo_priority import (
@@ -273,7 +268,7 @@ def load_mondo_priority_helpers() -> tuple[Any, Any, Any, Any]:
 
 
 def load_source_diseases(path: Path) -> list[dict[str, Any]]:
-    payload = load_yaml(path)
+    payload = safe_load_path(path)
     if not isinstance(payload, dict):
         raise ValueError(f"Expected YAML object in {path}")
     diseases = payload.get("diseases")
