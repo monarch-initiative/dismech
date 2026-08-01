@@ -3,10 +3,14 @@
 Emits the inter-annotator agreement metrics reported in FINDINGS.md. Kept in the
 repo so the numbers are reproducible rather than asserted.
 
+Shared across all studies under experiments/interannotator/; the snapshots and
+report for each individual comparison live in a per-disease subdirectory.
+
 Usage:
     uv run python experiments/interannotator/compare.py \
-        experiments/interannotator/snapshots/FG_Syndrome_1.curator-A.merged-pr7254.yaml \
-        experiments/interannotator/snapshots/FG_Syndrome_1.curator-B.independent.yaml
+        experiments/interannotator/FG_Syndrome_1/FG_Syndrome_1.curator-A.merged-pr7254.yaml \
+        experiments/interannotator/FG_Syndrome_1/FG_Syndrome_1.curator-B.independent.yaml \
+        | tee experiments/interannotator/FG_Syndrome_1/metrics.txt
 
 Subsumption-aware phenotype matching shells out to OAK (`runoak ... ancestors`)
 against `sqlite:obo:hp`; pass --no-ontology to skip that and report strict

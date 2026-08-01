@@ -15,15 +15,15 @@ of a dismech entry is determined by the evidence and how much by the curator.
 
 | Path | Contents |
 |---|---|
-| `snapshots/FG_Syndrome_1.curator-A.merged-pr7254.yaml` | A, verbatim at `ba33465dd` |
-| `snapshots/FG_Syndrome_1.curator-B.independent.yaml` | B, verbatim as validated |
-| `compare.py` | The metric script — regenerates every number below |
-| `metrics.txt` | Its output, as run |
+| `FG_Syndrome_1.curator-A.merged-pr7254.yaml` | A, verbatim at `ba33465dd` |
+| `FG_Syndrome_1.curator-B.independent.yaml` | B, verbatim as validated |
+| `metrics.txt` | `compare.py` output, as run |
+| `../compare.py` | The metric script — regenerates every number below |
 
 ```bash
 uv run python experiments/interannotator/compare.py \
-  experiments/interannotator/snapshots/FG_Syndrome_1.curator-A.merged-pr7254.yaml \
-  experiments/interannotator/snapshots/FG_Syndrome_1.curator-B.independent.yaml
+  experiments/interannotator/FG_Syndrome_1/FG_Syndrome_1.curator-A.merged-pr7254.yaml \
+  experiments/interannotator/FG_Syndrome_1/FG_Syndrome_1.curator-B.independent.yaml
 ```
 
 ## Protocol, and how far it actually held

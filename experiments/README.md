@@ -15,11 +15,12 @@ outputs consumed as curation inputs. An experiment here may *cite* a report in
 
 ## Layout
 
-Each experiment gets a subdirectory containing, at minimum, a `FINDINGS.md`
-stating what was measured, how, and what the limits of the measurement are.
-Where an experiment computes metrics, the script that computes them belongs
-here too, so the numbers can be regenerated rather than trusted.
+Each experiment *type* gets a subdirectory holding its shared tooling and an index
+`README.md`. Within that, each individual run gets its own subdirectory containing
+its inputs and a `FINDINGS.md` stating what was measured, how, and what the limits
+of the measurement are. Scripts that compute metrics are committed alongside, so
+numbers can be regenerated rather than trusted.
 
-| Experiment | Question |
-|---|---|
-| [`interannotator/`](interannotator/) | How much of a dismech entry is determined by the evidence, and how much by the curator? Two independent curations of FG syndrome 1 (`MONDO:0010590`), compared. |
+| Experiment | Question | Runs |
+|---|---|---|
+| [`interannotator/`](interannotator/) | How much of a dismech entry is determined by the evidence, and how much by the curator? Each run curates one disease twice, independently, and measures where the versions agree. | 1 |
