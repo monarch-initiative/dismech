@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
-
-import math
 
 from dismech.perturb.results_export import (
     DEFAULT_OUTPUT_DIR,
