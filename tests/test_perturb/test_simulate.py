@@ -74,9 +74,20 @@ def test_variable_mappings_loaded(model_config):
 
 def test_phenotype_thresholds_loaded(model_config):
     """Test phenotype thresholds extracted from YAML mappings_list."""
-    # The exact total can change as CKD phenotype mappings are curated, but the
-    # model should keep a substantial threshold set loaded from YAML.
-    assert len(model_config.phenotype_thresholds) >= 8
+    # The exact total changes as CKD phenotype mappings are curated, so assert a
+    # usable set plus the specific thresholds this test and downstream code rely
+    # on — not a magic total that any curation PR can invalidate. The previous
+    # `>= 8` broke when #7183's CKD-MBD review removed the Bone pain (HP:0002653)
+    # mapping, which was a deliberate quality fix, and the failure only surfaced
+    # on the next unrelated PR that happened to change src/ or tests/.
+    assert len(model_config.phenotype_thresholds) >= 5
+    loaded = {pt.hp_id for pt in model_config.phenotype_thresholds}
+    assert loaded.issuperset(
+        {
+            "HP:0004349",  # Reduced bone mineral density, off the BMD variable
+            "HP:0003207",  # Arterial calcification, off Vascular_Calcification
+        }
+    ), f"expected core CKD-MBD thresholds to load from YAML; got {sorted(loaded)}"
     bmd = next(
         pt for pt in model_config.phenotype_thresholds if pt.hp_id == "HP:0004349"
     )
