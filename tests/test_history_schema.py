@@ -9,7 +9,7 @@ from linkml.validator import Validator
 from linkml.validator.plugins import JsonschemaValidationPlugin
 from linkml_runtime.utils.schemaview import SchemaView
 
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load_path
 
 ROOT_DIR = Path(__file__).parent.parent
 HISTORY_SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "history.yaml"
@@ -164,7 +164,7 @@ def test_committed_history_records_validate(validator):
     errors = []
     for path in history_files:
         report = validator.validate(
-            safe_load(path.read_text()), target_class="HistoryRecord"
+            safe_load_path(path), target_class="HistoryRecord"
         )
         errors.extend(
             f"{path.relative_to(ROOT_DIR)}: {result.message}"
@@ -180,7 +180,7 @@ def test_committed_history_records_follow_layout():
     assert history_files
 
     for path in history_files:
-        record = safe_load(path.read_text())
+        record = safe_load_path(path)
         target = record["target"]
         kind = target["kind"]
         slug = target["slug"]
@@ -260,6 +260,6 @@ def test_committed_history_records_do_not_use_migration_event():
 
     assert not list(HISTORY_DIR.glob("**/*legacy-import*.yaml"))
     for path in history_files:
-        record = safe_load(path.read_text())
+        record = safe_load_path(path)
         for event in record["events"]:
             assert event["type"] != "MIGRATION"

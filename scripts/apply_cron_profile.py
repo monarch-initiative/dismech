@@ -32,7 +32,7 @@ from pathlib import Path
 
 import yaml
 
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load, safe_load_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = REPO_ROOT / ".github" / "cron-profiles.yaml"
@@ -54,7 +54,7 @@ class ConfigError(RuntimeError):
 def load_config(path: Path) -> dict:
     if not path.exists():
         raise ConfigError(f"config not found: {path}")
-    data = safe_load(path.read_text()) or {}
+    data = safe_load_path(path) or {}
     profiles = data.get("profiles")
     if not isinstance(profiles, dict) or not profiles:
         raise ConfigError("config must define a non-empty `profiles:` mapping")
