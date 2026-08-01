@@ -511,6 +511,62 @@ def test_docs_prefix_list_matches_the_code_exactly() -> None:
     )
 
 
+def test_prose_domain_role_lists_are_complete() -> None:
+    """Any prose list of `domain_role` values must name all of them.
+
+    This omission has now been made twice from the same source text: `CLAUDE.md`
+    and `docs/phenotype-distributions.md` both listed four of five, dropping
+    `UNDETERMINED`. That is not a tidiness problem. The four survivors are all
+    *assessed* verdicts, so a curator with an unevaluated domain and no
+    `UNDETERMINED` in front of them reaches for `EXCLUDED`, which asserts the
+    domain was assessed and degraded performance — a claim they have no basis
+    for and nothing downstream can tell apart from a real one.
+
+    The check is deliberately wording-agnostic: it finds parenthesised
+    slash-separated backticked runs anywhere in either file and requires any run
+    already naming two or more roles to name them all. Prose can be rewritten
+    freely; it just cannot go back to being partial.
+    """
+    import re
+
+    roles = set(SchemaView(str(SCHEMA_PATH)).get_enum("DomainRoleEnum").permissible_values)
+
+    for path in (Path("CLAUDE.md"), Path("docs/phenotype-distributions.md")):
+        text = path.read_text(encoding="utf-8")
+        # Newlines are in the class because both files wrap these lists mid-run.
+        for group in re.findall(r"\(([^()]*`[A-Z_]+`[^()]*)\)", text, flags=re.DOTALL):
+            named = {v for v in re.findall(r"`([A-Z_]+)`", group) if v in roles}
+            # Two matches, not one: `PRIMARY` alone is a plausible word in some
+            # unrelated list, but two DomainRoleEnum values together are not a
+            # coincidence — that group is enumerating the enum.
+            if len(named) < 2:
+                continue
+            assert named == roles, (
+                f"{path} enumerates domain_role but omits {sorted(roles - named)}; "
+                "list every value or drop the parenthetical"
+            )
+
+
+def test_a_yaml_that_is_not_a_collection_is_rejected(tmp_path: Path) -> None:
+    """Silently treating the wrong file as an empty collection is worse than failing.
+
+    The failure mode is a clean bill of health for a run that checked nothing:
+    point the lint at the schema by mistake and it reports a record count and no
+    findings, which reads exactly like success.
+    """
+    not_a_collection = tmp_path / "wrong.yaml"
+    not_a_collection.write_text("id: https://example.org/x\nname: x\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="not a phenotype-distribution collection"):
+        load_collection(not_a_collection)
+
+    # The real schema is the file most likely to be passed by mistake.
+    with pytest.raises(ValueError, match="not a phenotype-distribution collection"):
+        load_collection(SCHEMA_PATH)
+
+    # And a genuine collection still loads.
+    assert load_collection(EXAMPLES_DIR / "cystic_fibrosis_illustrative.yaml").data
+
+
 def test_single_collection_rebuild_does_not_prune_other_collections() -> None:
     """Naming one collection file must not delete every other cache file."""
     from dismech.phenotype_distribution import _is_full_rebuild

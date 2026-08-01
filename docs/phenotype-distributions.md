@@ -241,8 +241,10 @@ underperformed both a fixed baseline and directly learned weights — and no fix
 combination rule beat the primary domain alone in aggregate, while a secondary
 domain still rescued the individual diseases whose evidence lives in it. That is
 a routing conclusion, which is why `domain_role` (`PRIMARY` / `SPECIALIST` /
-`SUPPORTING` / `EXCLUDED`) sits alongside `reliability_score` and is the field a
-consumer should act on.
+`SUPPORTING` / `EXCLUDED` / `UNDETERMINED`) sits alongside `reliability_score`
+and is the field a consumer should act on. Reach for `UNDETERMINED` when nobody
+has evaluated the domain — not `EXCLUDED`, which asserts it *was* assessed and
+degraded performance.
 
 `IdentityAttestation` asserts `row_count`, `unique_person_count`, and
 `one_row_per_person` without persisting identifiers. A held-out supervised

@@ -122,6 +122,15 @@ def load_collection(path: Path) -> Collection:
         data = _yaml.load(fh)
     if not isinstance(data, dict):
         raise ValueError(f"{path}: expected a mapping at the top level")
+    # A YAML file that is a mapping but not a collection would otherwise sail
+    # through as "a collection with 0 records" and be reported as checked. Naming
+    # the wrong file is the easy mistake here — the schema itself is a mapping,
+    # and passing it produces a clean-looking summary that verified nothing.
+    if "collection_id" not in data and "distributions" not in data:
+        raise ValueError(
+            f"{path}: not a phenotype-distribution collection "
+            "(no `collection_id` and no `distributions`)"
+        )
     return Collection(path=path, data=data)
 
 
