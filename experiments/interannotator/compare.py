@@ -53,16 +53,26 @@ def load(path: str) -> dict:
 def phenotype_map(entry: dict) -> dict[str, tuple[str | None, str | None, str | None]]:
     """HPO term id -> (entry name, frequency band, ontology label)."""
     out: dict[str, tuple[str | None, str | None, str | None]] = {}
+    collisions: list[str] = []
     for phenotype in entry.get("phenotypes") or []:
         descriptor = phenotype.get("phenotype_term") or {}
         term = descriptor.get("term") or {}
         term_id = term.get("id")
         if term_id:
+            if term_id in out:
+                # Same latent bug treatment_terms() had: keying by term id silently
+                # merges two phenotypes bound to one HP term (legitimate when a
+                # curator splits a term across subtypes). Surfaced rather than
+                # silently absorbed, because it would understate the phenotype count
+                # without changing anything visible in the output.
+                collisions.append(f"{term_id} ({out[term_id][0]} / {phenotype.get('name')})")
             out[term_id] = (
                 phenotype.get("name"),
                 phenotype.get("frequency"),
                 term.get("label"),
             )
+    for collision in collisions:
+        print(f"  WARNING: two phenotypes share one HP term, only the last is counted: {collision}")
     return out
 
 
@@ -133,6 +143,10 @@ def ancestors(term_id: str) -> set[str]:
         text=True,
         check=False,
     )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"runoak failed for {term_id} (exit {proc.returncode}): {proc.stderr.strip()}"
+        )
     found: set[str] = set()
     for line in proc.stdout.splitlines():
         parts = line.split("\t")
@@ -140,6 +154,12 @@ def ancestors(term_id: str) -> set[str]:
             found.add(parts[0])
             if len(parts) > 1:
                 _label_cache.setdefault(parts[0], parts[1])
+    if not found:
+        # A well-formed HP term is its own ancestor, so an empty closure means the
+        # lookup silently returned nothing. Failing loudly matters here: an empty
+        # set makes every subsumption test false, which would degrade the metric to
+        # strict identity while still printing a confident concept-agreement figure.
+        raise RuntimeError(f"empty ancestor closure for {term_id}; is sqlite:obo:hp available?")
     _ancestor_cache[term_id] = found
     return found
 
