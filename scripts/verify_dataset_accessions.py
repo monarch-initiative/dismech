@@ -102,7 +102,6 @@ UNSUPPORTED_PREFIXES = {
     "synapse": "Synapse entity pointer; access-controlled, no open metadata API",
     "clinvar": "variant database pointer, not a dataset accession",
     "morphic": "MorPhiC gene-level pointer, not a repository accession",
-    "phenopacket-store": "GitHub-hosted collection, no accession API",
     "https": "bare URL; replace with a repository CURIE",
     "http": "bare URL; replace with a repository CURIE",
 }
@@ -120,6 +119,8 @@ SHAPE = {
     "osdr": re.compile(r"^OSD-\d+$", re.IGNORECASE),
     "massive": re.compile(r"^MSV\d+$", re.IGNORECASE),
     "mgnify": re.compile(r"^MGYS\d+$", re.IGNORECASE),
+    # phenopacket-store cohorts are gene symbols or descriptive slugs
+    "phenopacket-store": re.compile(r"^[A-Za-z0-9_.\-]{2,40}$"),
 }
 
 # Alternate spellings seen in the KB -> canonical prefix
@@ -322,6 +323,35 @@ def resolve_mgnify(local_id: str, throttle: Throttle, api_key: str | None):
     return OK, attrs.get("study-name", ""), "", {}
 
 
+PPS_INDEX = REPO_ROOT / "data" / "phenopacket-store" / "cohort_index.json"
+_pps_cache: dict | None = None
+
+
+def resolve_phenopacket_store(local_id: str, throttle: Throttle, api_key: str | None):
+    """Resolve a phenopacket-store cohort against the committed release index.
+
+    Offline by design. The index is built from the pinned bulk release, so
+    verification needs no GitHub API call -- that endpoint is rate-limited to
+    60/hour unauthenticated and would throttle a whole-KB audit.
+    """
+    global _pps_cache
+    if _pps_cache is None:
+        try:
+            _pps_cache = json.loads(PPS_INDEX.read_text())
+        except (OSError, json.JSONDecodeError):
+            _pps_cache = {}
+    if not _pps_cache:
+        return UNSUPPORTED, "", "no local phenopacket-store index; run discover_phenopackets.py --refresh", {}
+    hit = _pps_cache.get(local_id)
+    if not hit:
+        return NOT_FOUND, "", f"no phenopacket-store cohort '{local_id}' in the indexed release", {}
+    diseases = hit.get("diseases") or {}
+    top = max(diseases.items(), key=lambda kv: kv[1])[0] if diseases else ""
+    label = (hit.get("labels") or {}).get(top, "")
+    title = f"{local_id} cohort: {label}" if label else f"{local_id} cohort"
+    return OK, title, "", {"n_cases": hit.get("n_cases"), "disease_ids": sorted(diseases)}
+
+
 RESOLVERS = {
     "geo": resolve_geo,
     "sra": resolve_sra,
@@ -334,6 +364,7 @@ RESOLVERS = {
     "osdr": resolve_osdr,
     "massive": resolve_massive,
     "mgnify": resolve_mgnify,
+    "phenopacket-store": resolve_phenopacket_store,
 }
 
 
