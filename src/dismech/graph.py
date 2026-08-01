@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 
 @dataclass
@@ -1229,7 +1229,7 @@ def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
         if yaml_path.name.endswith(".history.yaml"):
             continue
         with open(yaml_path) as f:
-            disorder = yaml.safe_load(f)
+            disorder = safe_load(f)
 
         graph = build_causal_graph(disorder)
         if graph.integrity_issues:
@@ -1270,7 +1270,7 @@ def main():
     elif args.show:
         yaml_path = Path(args.show)
         with open(yaml_path) as f:
-            disorder = yaml.safe_load(f)
+            disorder = safe_load(f)
 
         graph = build_causal_graph(disorder)
         mermaid_code = generate_mermaid(graph)
