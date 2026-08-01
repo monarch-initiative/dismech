@@ -392,6 +392,50 @@ The framework is generic. No Python code changes are needed to add a new disorde
 - A `*.config.yaml` with `gene_effects` and `coupling` for simulation plumbing
 - `downstream` edges in the disorder YAML connecting mechanisms to phenotypes
 
+## Exporting Scenarios as SED-ML / COMBINE Archives
+
+A `models/*.config.yaml` is, in substance, a private encoding of a SED-ML
+simulation experiment: each `scenarios` entry is a set of pre-simulation model
+changes, `coupling` is a uniform time course plus integrator settings, and the
+disorder YAML's `computational_models[].variables` are the observables to
+report. `dismech.perturb.sedml_export` translates that private encoding into the
+COMBINE standards, so any SED-ML-capable engine — COPASI, tellurium, VCell,
+AMICI, or [runBioSimulations](https://run.biosimulations.org/) in a browser —
+can run a dismech scenario with no dismech code in the loop.
+
+```bash
+just sedml-export                                 # all exportable configs
+just sedml-export --id urate_homeostasis --omex   # one model, plus the zipped archive
+just verify-sedml-export                          # re-run each archive and diff vs dismech-perturb
+```
+
+Each export writes `exports/sedml/<model_id>/` containing the SBML model, a
+`simulation.sedml` document (SED-ML L1V3) with one derived model, task, report
+and plot per scenario, and a COMBINE `manifest.xml`. With `--omex` it also zips
+that directory into `exports/sedml/<model_id>.omex` — deterministically, so a
+re-export of unchanged inputs is byte-identical. The archive directory is
+committed; the zip is derived and gitignored.
+
+**Scenario changes are resolved to absolute values.** `run_perturbation` applies
+changes in a fixed order — the severity dial (`scenarios[].gfr` →
+`coupling.gfr_parameter`) is set absolutely, then a gene effect multiplies its
+target, then `param_overrides` multiply theirs, each against the value in force
+at that step. Rather than encode that ordering in SED-ML, the exporter replays it
+against the SBML initial values and emits plain `changeAttribute` elements. So
+the gout combination scenario (`f_exc` set to 0.5, then multiplied by 1.6)
+exports as a single `f_exc = 0.8`, with the derivation recorded in the model's
+SED-ML `notes`.
+
+**Coupled models cannot be exported.** A config with an `extension_file` runs a
+base+extension co-simulation with Hill-type feedback applied between timesteps —
+a bespoke numerical scheme with no SED-ML equivalent. Those configs
+(`BIOMD0000000613`, the CKD-MBD multiscale model) are reported as skipped rather
+than mis-exported.
+
+`just verify-sedml-export` closes the loop: it runs every scenario through both
+paths — `run_perturbation` and the `.omex` executed by tellurium's SED-ML
+interpreter — and diffs the final value of each observable.
+
 ## Dependencies
 
 - **tellurium** — SBML/Antimony simulation via libroadrunner (optional; gracefully skipped if not installed)

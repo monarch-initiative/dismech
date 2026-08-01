@@ -2054,6 +2054,24 @@ g2p-compare-json gene:
 perturb file *args="":
     uv run python -m dismech.perturb {{file}} {{args}}
 
+# Export dismech-perturb model configs as SED-ML / COMBINE archives, so any
+# SED-ML-capable engine (COPASI, tellurium, VCell, runBioSimulations, ...) can
+# run a dismech scenario. Writes exports/sedml/<model_id>/ (committed) and,
+# with --omex, the zipped exports/sedml/<model_id>.omex (derived, gitignored).
+# Examples:
+#   just sedml-export
+#   just sedml-export --id urate_homeostasis --omex
+[group('Analysis')]
+sedml-export *args="":
+    uv run python -m dismech.perturb.sedml_export {{args}}
+
+# Check the exported archives reproduce dismech-perturb's own numbers by
+# running each .omex through tellurium's SED-ML interpreter and diffing.
+# Requires tellurium: uv pip install tellurium
+[group('Analysis')]
+verify-sedml-export *args="":
+    uv run python scripts/verify_sedml_export.py {{args}}
+
 # ============== Agent Helper Commands ==============
 # These commands help Claude Code agents explore the KB without requiring
 # manual permission approvals for common lookup patterns.

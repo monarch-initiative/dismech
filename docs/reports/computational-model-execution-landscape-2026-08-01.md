@@ -215,6 +215,13 @@ Ordered by effort-to-value:
 2. **Record a BioSimulators-compatible execution hint.** For any SBML/CellML model, note the
    BioModels/Physiome ID and whether an OMEX/SED-ML archive exists. That single fact is the
    difference between "cited" and "one `docker run` from reproducible".
+
+   *Done for the four runnable models* (2026-08-01): `just sedml-export` emits SED-ML L1V3 +
+   COMBINE archives from the `models/*.config.yaml` scenario definitions — see
+   [Exporting Scenarios as SED-ML / COMBINE Archives](../explanation/computational-models.md).
+   Three of the four export (43 scenarios); the CKD-MBD model does not, because its coupled
+   base+extension co-simulation with inter-step Hill feedback has no SED-ML equivalent — a
+   concrete instance of the §2.2 composition gap that Vivarium, not SED-ML, is the answer to.
 3. **Add a COBRApy execution path alongside `dismech-perturb`.** Metabolic models are dismech's
    largest category with zero runnable entries. The PKU Recon3D+PAH-knockout case is the obvious
    pilot: `cobra.io.read_sbml_model` → knock out PAH → FBA → read the phenylalanine flux, mapping
