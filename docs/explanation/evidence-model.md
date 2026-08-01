@@ -5,6 +5,14 @@ phenotype association, a treatment-mechanism link — can carry `evidence`. This
 explains what an evidence item *is* today, what job the model actually performs, and
 the direction in which we would like to extend it.
 
+!!! note "Experimental: SEPIO evidence representation"
+    A partial, additive [SEPIO](https://github.com/sepio-framework/sepio-linkml)
+    representation of the same evidence — one that separates the quoted information from
+    the argument made with it — is being piloted alongside this model. Nothing on this
+    page changes. See
+    [the SEPIO evidence pilot](sepio-evidence-pilot.md) and
+    [issue #7439](https://github.com/monarch-initiative/dismech/issues/7439).
+
 !!! tip "Slide deck"
     A companion walkthrough, worked on the Familial Hypercholesterolemia pathograph,
     is published as a slide deck:

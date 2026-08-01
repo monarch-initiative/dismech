@@ -727,6 +727,44 @@ validate-references file:
     @just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
+# EXPERIMENTAL (issue #7439): validate and render every SEPIO evidence-model pilot
+# fixture in kb/experimental/. Each fixture carries both the native and the SEPIO
+# representation of the same assertions, so the two can be compared on one page.
+# See docs/explanation/sepio-evidence-pilot.md.
+[group('QC')]
+sepio-pilot:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=(kb/experimental/*_SEPIO.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No SEPIO pilot fixtures found in kb/experimental/."
+        exit 1
+    fi
+    echo "Schema validation (${#files[@]} fixtures)..."
+    for file in "${files[@]}"; do
+        uv run linkml-validate --schema {{schema_path}} --target-class Disease "$file"
+    done
+    echo "Term validation..."
+    {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+    echo "Reference validation (both evidence forms)..."
+    {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    echo "Rendering..."
+    # The rendered pages are the whole point of the pilot -- they are the only place
+    # the two evidence forms can be compared side by side -- so unlike other derived
+    # HTML these snapshots ARE committed, under docs/examples/. Refreshing them here
+    # means a committed copy cannot silently drift from its fixture: re-run this
+    # recipe and `git diff` tells you whether anything moved.
+    for file in "${files[@]}"; do
+        uv run python -m dismech.render "$file"
+    done
+    for page in pages/disorders/*_SEPIO_evidence_pilot.html; do
+        base="$(basename "$page" _SEPIO_evidence_pilot.html)"
+        target="docs/examples/sepio-pilot-${base}.html"
+        cp "$page" "$target"
+        echo "Snapshot refreshed: $target"
+    done
+
 # Count reference/snippet pairs and re-verify each against references_cache/,
 # without running the (network-touching) validator. Advisory only: it reports
 # "Snippets checked: N/N verified" and never gates. Pass --strict to exit 1 on a

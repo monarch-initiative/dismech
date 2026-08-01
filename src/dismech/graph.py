@@ -638,10 +638,17 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     """Extract rich metadata from a disorder section item for pathograph tooltips."""
     meta: dict[str, Any] = {}
 
-    # Evidence count
+    # Evidence count. Counts native evidence items plus the evidence items carried
+    # by experimental SEPIO evidence lines (issue #7439) -- a node evidenced only in
+    # SEPIO form is evidenced, and reporting it as unevidenced here would be the same
+    # silent zero the snippet audit had to be fixed for.
     evidence = item.get("evidence", []) or []
-    if evidence:
-        meta["evidence_count"] = len(evidence)
+    count = len(evidence)
+    for line in item.get("has_evidence_lines", []) or []:
+        if isinstance(line, dict):
+            count += len(line.get("has_evidence_items", []) or [])
+    if count:
+        meta["evidence_count"] = count
 
     # Cell types
     cell_types = item.get("cell_types", []) or []
