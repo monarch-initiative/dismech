@@ -101,6 +101,7 @@ def ancestors(term_id: str) -> set[str]:
         ["uv", "run", "runoak", "-i", "sqlite:obo:hp", "ancestors", term_id],
         capture_output=True,
         text=True,
+        check=False,
     )
     found: set[str] = set()
     for line in proc.stdout.splitlines():
