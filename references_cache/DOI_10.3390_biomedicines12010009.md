@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12010009"
+reference_id: DOI:10.3390/biomedicines12010009
 title: Pathogenic Mechanisms and Therapeutic Approaches in Obesity-Related Knee Osteoarthritis
 authors:
 - Russka Shumnalieva
@@ -10,6 +10,7 @@ journal: Biomedicines
 year: '2023'
 doi: 10.3390/biomedicines12010009
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathogenic Mechanisms and Therapeutic Approaches in Obesity-Related Knee Osteoarthritis

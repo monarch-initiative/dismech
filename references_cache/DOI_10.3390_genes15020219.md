@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes15020219"
+reference_id: DOI:10.3390/genes15020219
 title: "Genetic Basis of Breast and Ovarian Cancer: Approaches and Lessons Learnt from Three Decades of Inherited Predisposition Testing"
 authors:
 - Valeria Barili
@@ -27,6 +27,7 @@ journal: Genes
 year: '2024'
 doi: 10.3390/genes15020219
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic Basis of Breast and Ovarian Cancer: Approaches and Lessons Learnt from Three Decades of Inherited Predisposition Testing

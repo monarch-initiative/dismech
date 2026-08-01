@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4103/tjo.tjo-d-24-00080"
+reference_id: DOI:10.4103/tjo.tjo-d-24-00080
 title: Phenotype and genetic spectrum of six Indian patients with bestrophinopathy
 authors:
 - Areeba Shakeel
@@ -13,6 +13,7 @@ journal: Taiwan Journal of Ophthalmology
 year: '2024'
 doi: 10.4103/tjo.tjo-d-24-00080
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Phenotype and genetic spectrum of six Indian patients with bestrophinopathy

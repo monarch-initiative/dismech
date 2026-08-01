@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms241411495"
+reference_id: DOI:10.3390/ijms241411495
 title: Therapeutical Options in ROS1—Rearranged Advanced Non Small Cell Lung Cancer
 authors:
 - Brigida Stanzione
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms241411495
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Therapeutical Options in ROS1—Rearranged Advanced Non Small Cell Lung Cancer

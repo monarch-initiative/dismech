@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252212015"
+reference_id: DOI:10.3390/ijms252212015
 title: A Small Intestinal Helminth Infection Alters Colonic Mucus and Shapes the Colonic Mucus Microbiome
 authors:
 - Thomas C. Mules
@@ -18,6 +18,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252212015
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Small Intestinal Helminth Infection Alters Colonic Mucus and Shapes the Colonic Mucus Microbiome
