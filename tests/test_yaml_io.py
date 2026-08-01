@@ -61,8 +61,13 @@ def test_safe_load_path_pins_utf8_rather_than_the_locale_default(tmp_path, monke
 
     monkeypatch.setattr(Path, "read_text", locale_bound_read_text)
 
+    # The real guarantee: correct text even when the platform default is not UTF-8.
     assert yaml_io.safe_load_path(path)["name"] == "Béhçet Diseáse — ünicode"
-    assert seen["encoding"] == "utf-8", (
+
+    # Belt and braces, deliberately soft. `.get` rather than `[...]` so a legitimate
+    # reimplementation (e.g. `path.open(encoding="utf-8")`, which never touches
+    # read_text) fails with this message instead of an unhelpful KeyError.
+    assert seen.get("encoding", "utf-8") == "utf-8", (
         "safe_load_path must pass encoding explicitly rather than inheriting the "
         "platform default, or non-ASCII KB content breaks on non-UTF-8 locales."
     )
