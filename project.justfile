@@ -569,6 +569,13 @@ check-enum-cache:
 check-enum-cache-offline:
     uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}} --offline
 
+# Report non-canonical CURIE ordering in enum and ontology term caches.
+# Phase 0 is advisory/read-only: warnings do not fail until the coordinated
+# cache normalization cutover enables strict ordering.
+[group('QC')]
+check-cache-order:
+    uv run python -m dismech.enum_cache --cache-dir cache --check-order
+
 # Pre-provision the sqlite:obo:* ontology DBs (with resume/retry) that term
 # validation needs, so a flaky/blocked download does not abort validation
 # mid-run. Fetch all, or only the named ontologies:
@@ -2005,7 +2012,7 @@ normalize-cache:
     for f in cache/enums/*.csv; do
         header=$(head -1 "$f")
         tmp="$tmp_dir/$(basename "$f")"
-        tail -n+2 "$f" | grep -E '^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_./-]+$' | sort -u > "$tmp"
+        tail -n+2 "$f" | grep -E '^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_./-]+$' | LC_ALL=C sort -u > "$tmp"
         echo "$header" > "$f"
         cat "$tmp" >> "$f"
     done
