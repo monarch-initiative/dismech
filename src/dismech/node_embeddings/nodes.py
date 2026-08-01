@@ -7,7 +7,7 @@ import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-import yaml
+from dismech.yaml_io import safe_load
 
 
 def _term_labels(obj, out: list[str]) -> None:
@@ -57,7 +57,7 @@ def iter_nodes(kb_dir: str = "kb/disorders") -> Iterator[PathoNode]:
         if path.endswith(".history.yaml"):
             continue
         try:
-            doc = yaml.safe_load(open(path))
+            doc = safe_load(open(path))
         except Exception:
             continue
         if not isinstance(doc, dict):
