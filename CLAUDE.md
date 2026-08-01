@@ -216,9 +216,10 @@ event count, or latent phenotype profile in a defined disease cohort. One record
   else here is HPO/MONDO-centric. Latent phenotype profiles currently range over
   **OMOP concept IDs** (harmonized All of Us data); future work may range over
   source terminologies (ICD, LOINC, RxNorm, SNOMED). A mappable MONDO/HP subset
-  is a distant and deliberately lossy option, not the default. Every domain
-  should therefore declare `feature_namespace` (`FeatureNamespaceEnum`) — the
-  schema does not require it, but the lint warns when it is missing and errors
+  is a distant and deliberately lossy option, not the default. Every domain of a
+  **model-derived** collection should therefore declare `feature_namespace`
+  (`FeatureNamespaceEnum`) — the schema does not require it, but for a
+  collection with a `model:` block the lint warns when it is missing and errors
   when a feature's `domain_name` cannot resolve to one — never read a component's
   `top_features` as HPO terms. Any ontology term on a component lives in
   `mapped_phenotype_terms` and is a curator's mapping judgement, not model
@@ -240,7 +241,9 @@ event count, or latent phenotype profile in a defined disease cohort. One record
 - **Reliability**: `ModelDomain` is the per-source-data-domain object, always
   identified by name and never by position; `DomainReliability` is the
   assessment nested on its `reliability` slot. **Act on `domain_role`**
-  (`PRIMARY` / `SPECIALIST` / `EXCLUDED` / `SUPPORTING`), not on
+  (`PRIMARY` / `SPECIALIST` / `SUPPORTING` / `EXCLUDED` / `UNDETERMINED` —
+  use `UNDETERMINED` for a domain nobody has evaluated, *not* `EXCLUDED`, which
+  asserts it was assessed and degraded performance), not on
   `reliability_score`: tested domain weighting had little recoverable headroom,
   so the useful conclusion is routing a domain to the diseases it serves, not
   blending it into every estimate. Plus `IdentityAttestation` (row/person counts
