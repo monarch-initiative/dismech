@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/circep.120.008712"
+reference_id: DOI:10.1161/circep.120.008712
 title: Cardiac Emerinopathy
 authors:
 - Taisuke Ishikawa
@@ -30,6 +30,7 @@ journal: "Circulation: Arrhythmia and Electrophysiology"
 year: '2020'
 doi: 10.1161/circep.120.008712
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cardiac Emerinopathy

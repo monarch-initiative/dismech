@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000445088"
+reference_id: DOI:10.1159/000445088
 title: "Disorders of Sex Development with Testicular Differentiation in SRY-Negative 46,XX Individuals: Clinical and Genetic Aspects"
 authors:
 - Romina P. Grinspon
@@ -8,6 +8,7 @@ journal: Sexual Development
 year: '2016'
 doi: 10.1159/000445088
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Disorders of Sex Development with Testicular Differentiation in SRY-Negative 46,XX Individuals: Clinical and Genetic Aspects

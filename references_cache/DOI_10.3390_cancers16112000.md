@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16112000"
+reference_id: DOI:10.3390/cancers16112000
 title: "Epstein–Barr Virus and Clinico-Endoscopic Characteristics of Gastric Remnant Cancers Compared to Proximal Non-Remnant Cancers: A Population-Based Study"
 authors:
 - Erling A. Bringeland
@@ -12,6 +12,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16112000
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epstein–Barr Virus and Clinico-Endoscopic Characteristics of Gastric Remnant Cancers Compared to Proximal Non-Remnant Cancers: A Population-Based Study

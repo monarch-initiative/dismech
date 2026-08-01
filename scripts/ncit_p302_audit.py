@@ -37,12 +37,11 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
-
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from dismech.structured_sources.ontology_edges import OntologyEdgeSource  # noqa: E402
+from dismech.structured_sources.ontology_edges import OntologyEdgeSource
+from dismech.yaml_io import safe_load
 
 _KB_DIR = _REPO_ROOT / "kb" / "disorders"
 _MANIFEST = _REPO_ROOT / "data" / "ncit-edges" / "MANIFEST.yaml"
@@ -61,7 +60,7 @@ def _load_disorders() -> list[_Disorder]:
     for path in sorted(glob.glob(str(_KB_DIR / "*.yaml"))):
         try:
             with open(path, encoding="utf-8") as fh:
-                d = yaml.safe_load(fh)
+                d = safe_load(fh)
         except Exception:
             continue
         if not isinstance(d, dict) or not d.get("name"):

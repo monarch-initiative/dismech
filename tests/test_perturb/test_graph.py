@@ -1,17 +1,17 @@
 """Tests for causal graph extraction with perturbation enrichment."""
 
-import yaml
 from pathlib import Path
 
 import pytest
 
 from dismech.perturb.graph import (
+    CausalEdgeEnriched,
+    PerturbationGraph,
     build_perturbation_graph,
     extract_causal_edges,
-    PerturbationGraph,
-    CausalEdgeEnriched,
     trace_causal_paths,
 )
+from dismech.yaml_io import safe_load
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def ckd_mbd_disorder():
     if not path.exists():
         pytest.skip("CKD-MBD YAML not found")
     with open(path) as f:
-        return yaml.safe_load(f)
+        return safe_load(f)
 
 
 def test_build_perturbation_graph(ckd_mbd_disorder):

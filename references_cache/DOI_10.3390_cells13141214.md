@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13141214"
+reference_id: DOI:10.3390/cells13141214
 title: Navigating the CRISPR/Cas Landscape for Enhanced Diagnosis and Treatment of Wilson’s Disease
 authors:
 - Woong Choi
@@ -9,6 +9,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13141214
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Navigating the CRISPR/Cas Landscape for Enhanced Diagnosis and Treatment of Wilson’s Disease

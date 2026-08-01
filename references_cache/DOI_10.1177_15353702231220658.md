@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/15353702231220658"
+reference_id: DOI:10.1177/15353702231220658
 title: Inflammation and mitochondria in the pathogenesis of chronic Chagas disease cardiomyopathy
 authors:
 - João Paulo Silva Nunes
@@ -12,6 +12,7 @@ journal: Experimental Biology and Medicine
 year: '2023'
 doi: 10.1177/15353702231220658
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Inflammation and mitochondria in the pathogenesis of chronic Chagas disease cardiomyopathy
