@@ -18,23 +18,15 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-# Prefer the libyaml-backed C loader (~12x faster than the pure-Python loader).
-# The standard PyYAML Linux wheel used on GitHub's ubuntu-latest runner bundles
-# libyaml, so this path is taken in CI; the SafeLoader fallback keeps rendering
-# correct if libyaml is ever unavailable. See issue #5198.
-try:  # pragma: no cover - exercised implicitly wherever YAML is loaded
-    from yaml import CSafeLoader as _FastYamlLoader
-except ImportError:  # pragma: no cover - only when libyaml is not built
-    from yaml import SafeLoader as _FastYamlLoader
-
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
+from dismech.yaml_io import safe_load, safe_load_path
 
-
-def _fast_yaml_load(stream):
-    """Parse YAML from a file object or string using the fastest safe loader."""
-    return yaml.load(stream, Loader=_FastYamlLoader)
+# Module-local alias kept so existing call sites read unchanged. The
+# libyaml-vs-pure-Python loader choice now lives in dismech.yaml_io
+# (introduced in issue #5198, consolidated in #7502).
+_fast_yaml_load = safe_load
 
 
 @lru_cache(maxsize=8)
@@ -2671,7 +2663,7 @@ def _scan_research_syntheses(research_dir: Path) -> list[dict]:
     syntheses: list[dict] = []
     for path in sorted(research_dir.glob("*-research-synthesis.yaml")):
         try:
-            data = yaml.safe_load(path.read_text()) or {}
+            data = safe_load_path(path) or {}
         except yaml.YAMLError:
             continue
         slug = data.get("disease") or path.name[: -len("-research-synthesis.yaml")]
@@ -3810,7 +3802,7 @@ def _nih_topic_display() -> dict[str, dict]:
     if not _NIH_TOPICS_ENUM_PATH.exists():
         return {}
     with _NIH_TOPICS_ENUM_PATH.open(encoding="utf-8") as fh:
-        doc = yaml.safe_load(fh) or {}
+        doc = safe_load(fh) or {}
     pvs = (
         (doc.get("enums") or {})
         .get("NIHResearchPriorityEnum", {})

@@ -35,9 +35,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from dismech.export.utils import discover_disorder_files
+from dismech.yaml_io import safe_load_path
 
 DISMECH_BASE_URL = "https://dismech.monarchinitiative.org/pages/disorders"
 
@@ -95,7 +94,7 @@ def emc_row_for_disorder(yaml_path: Path) -> dict[str, str] | None:
 
     A disorder is eligible when ``disease_term.term.id`` is a ``MONDO:`` CURIE.
     """
-    data: dict[str, Any] = yaml.safe_load(yaml_path.read_text()) or {}
+    data: dict[str, Any] = safe_load_path(yaml_path) or {}
     mondo_id, mondo_label = _resolve_mondo(data)
     if not mondo_id:
         return None
