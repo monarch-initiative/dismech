@@ -12,8 +12,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from dismech.compare.mondo_export import (
     DEFAULT_MONDO_DB_PATH,
     _connect_mondo_db,
@@ -22,6 +20,7 @@ from dismech.compare.mondo_export import (
     _query_single_value_map,
 )
 from dismech.render import curie_to_url, slugify
+from dismech.yaml_io import safe_load
 
 UNCURATED_BLOCK_START = "<!-- DISMECH-UNCURATED-START -->"
 UNCURATED_BLOCK_END = "<!-- DISMECH-UNCURATED-END -->"
@@ -116,7 +115,7 @@ def _iter_disorder_files(kb_dir: Path) -> Iterable[Path]:
 def _load_disorders(kb_dir: Path) -> list[tuple[Path, dict[str, Any]]]:
     disorders: list[tuple[Path, dict[str, Any]]] = []
     for disorder_path in _iter_disorder_files(kb_dir):
-        disorder = yaml.safe_load(disorder_path.read_text(encoding="utf-8")) or {}
+        disorder = safe_load(disorder_path.read_text(encoding="utf-8")) or {}
         if isinstance(disorder, dict):
             disorders.append((disorder_path, disorder))
     return disorders
