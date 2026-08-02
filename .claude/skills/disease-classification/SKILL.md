@@ -209,6 +209,13 @@ lists each disorder **exactly once**. So:
 - Watch for cross-group traps: FGFR3 craniosynostosis is group 33, not
   group 1; Hajdu-Cheney is group 28 (osteolysis), not group 25;
   brachydactyly-hypertension is group 38, not group 15.
+- **Entities the nosology flags but declines to decompose** get the group on
+  the entity only. Fanconi anemia (group 39) is the worked case: its gene
+  column reads "Several" and the group footnote says the complementation
+  groups are "acknowledged but not further listed". That is a caveat about
+  genetic decomposition, not about membership — so assign group 39 to Fanconi
+  anemia, note the caveat, and do not invent per-complementation-group
+  placements.
 
 ```yaml
 classifications:
@@ -221,6 +228,12 @@ classifications:
       2019 revision (Mortier et al., PMID:31633310), Table 1 group 1
       "FGFR3 chondrodysplasia group"; listed as "Achondroplasia".
 ```
+
+Groups carry no `meaning:`; three carry a `close_mappings:` to a MONDO
+class (groups 1, 8 and 16 — the gene-defined series). A candidate MONDO
+class is rejected whenever it contains an entity ISDS lists in a
+*different* group, so do not add mappings without running that check.
+See `docs/isds-skeletal-nosology.md` for the accepted and rejected sets.
 
 As with ICIMD, record provenance in `notes:` and prefer it over
 `evidence:`. The paper's PubMed record is **abstract-only**, so no

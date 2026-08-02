@@ -107,10 +107,65 @@ alongside them, not instead of them:
 - `mechanistic_category` — ISDS group 9 members are ciliopathies, which is a
   mechanism statement rather than a nosology placement.
 
-Groups are **not** ontology-bound. No `meaning:` is asserted, because several
-groups have no MONDO equivalent and, where a superficially similar MONDO
-grouping term exists, its extension usually differs from the ISDS group's
-membership. Asserting an inexact mapping would be worse than asserting none.
+## MONDO mappings
+
+No group carries a `meaning:`. A `meaning:` would assert that the value *is*
+an ontology class, which is never quite true: the ISDS group is a curated list,
+the MONDO class is a defined extension, and the two rarely coincide. Where a
+MONDO class denotes the same disease family, it is recorded as
+`close_mappings:` instead.
+
+**Three of 42 groups are mapped.** The bar is deliberately high — a candidate
+is rejected if the MONDO class contains any entity that ISDS itself lists in a
+*different* group, since such a mapping would silently contradict the
+committee's own placement:
+
+| Group | MONDO | Why it survives |
+|-------|-------|-----------------|
+| 1 FGFR3 chondrodysplasia | `MONDO:0019685` FGFR3-related chondrodysplasia | Contains the group's members and, crucially, *excludes* the FGFR3 craniosynostoses (Muenke, Crouzon with acanthosis nigricans) that ISDS puts in group 33 |
+| 8 TRPV4 | `MONDO:0018240` TRPV4-related bone disorder | All descendants are group-8 members; parastremmatic dwarfism appears in the group's own SEMD Maroteaux row |
+| 16 Acromesomelic dysplasias | `MONDO:0019696` acromesomelic dysplasia | All descendants are either group-16 members or entities ISDS does not list at all |
+
+Rejected candidates, recorded so nobody re-proposes them:
+
+| Group | Rejected MONDO | Straddle |
+|-------|----------------|----------|
+| 2 | `MONDO:0022800` type 2 collagenopathy | contains SMD 'corner fracture' type (group 12) |
+| 15 | `MONDO:0019695` acromelic dysplasia | contains pseudohypoparathyroidism type 1A (group 38), terminal osseous dysplasia (group 7) |
+| 23 | `MONDO:0017198` osteopetrosis | contains melorheostosis and osteopathia striata with cranial sclerosis (group 24) |
+| 33 | `MONDO:0015338` syndromic craniosynostosis | contains cranioectodermal dysplasia (group 9) |
+
+Groups 10, 19, 21, 25 and 27 have no usable class at all: either the nearest
+MONDO term is obsolete (chondrodysplasia punctata) or it is *narrower* than the
+ISDS group, which mixes in entities falling outside it — group 25, for
+instance, holds cutis laxa and Singleton-Merten alongside osteogenesis
+imperfecta.
+
+Note the asymmetry that makes `close_mappings` the right relation: in every
+mapped case MONDO is **broader**, because ISDS lists only entities meeting its
+inclusion criteria. A mapping is rejected not for breadth but for *crossing*
+into another group.
+
+## Entities the nosology lists but declines to decompose
+
+Fanconi anemia is the worked precedent. It is listed in group 39, but it is the
+only Table 1 row whose name carries a "(see note below)" pointer and the only
+one whose gene column reads "Several" rather than naming loci. The group-39
+footnote says the complex genetic basis of Fanconi anemia and its
+complementation groups "is acknowledged but not further listed in this
+nosology", referring readers to OMIM or specialized reviews.
+
+Read that precisely: the caveat is about **genetic decomposition, not
+membership**. The committee does not question whether Fanconi anemia belongs in
+the nosology — it lists it in group 39 without qualification on that point, and
+its skeletal phenotype (radial ray and thumb reduction defects) is exactly what
+group 39 is for. What it declines to do is enumerate FA-A, FA-C, FA-D2 and the
+rest.
+
+The curation rule that follows: assign the group to the **entity**, record the
+committee's caveat in `notes:`, and do not derive per-complementation-group
+placements from Table 1. Apply the same treatment to any future row the
+committee flags this way.
 
 ## Refreshing to a later revision
 
