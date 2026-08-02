@@ -193,8 +193,8 @@ Three rules follow from how the nosology is built:
    No exact-quote snippet from the abstract can support a per-disorder group
    placement — the abstract states only that the nosology exists and contains
    771 entries across 552 genes in 41 groups. Quoting it for a specific
-   assignment would be a
-   snippet that does not support its claim. This mirrors the ICIMD convention.
+   assignment would be a snippet that does not support its claim. This mirrors
+   the ICIMD convention.
 
 ### Cross-group traps
 
@@ -214,8 +214,33 @@ cite a group by *name and revision*, never by a bare number.)
 | Weyers acrofacial (acrodental) dysostosis | 35 craniofacial dysostoses | 10 skeletal ciliopathies (with Ellis-van Creveld) |
 | Spondylodysplastic Ehlers-Danlos syndrome | types 1 (B4GALT7) and 2 (B3GALT6) → 5 multiple joint dislocations; type 3 (SLC39A13) → 13 SE(M)D | one group for all three |
 | Acrodysostosis (PRKAR1A, PDE4D) | 17 acromelic dysplasias | 28 PTH signaling — see below |
+| Albright hereditary osteodystrophy (GNAS) | 17 acromelic dysplasias | 19 syndromic brachydactylies (its 2019 placement, under the name "Pseudohypoparathyroidism type IA"), or 28 PTH signaling |
 
-The last row is a live trap in the other direction. Acrodysostosis is
+The GNAS row is a rename *and* a move, which makes it easy to miss: OMIM 103580
+appears in the 2019 revision as `Pseudohypoparathyroidism type IA` in group 38
+(brachydactylies with extraskeletal manifestations) and in the 2023 revision as
+`Albright hereditary osteodystrophy, GNAS-related` in group 17. Searching the
+2023 table for "pseudohypoparathyroidism" returns nothing — the entity did not
+disappear, it was renamed. The nosology's only other GNAS entries are polyostotic
+fibrous dysplasia / McCune-Albright and progressive osseous heteroplasia, both in
+group 30. **No GNAS disorder is in group 28.**
+
+For the two dismech entries this affects:
+
+- `Pseudohypoparathyroidism` **is** assigned to group 17, scoped by its `notes:`
+  to the PHP1A subtype — that subtype is the listed entity (OMIM 103580). PHP1B
+  and PHP2 are not in the nosology at all, so the dismech entry is broader than
+  its counterpart; the note says so rather than implying the whole umbrella was
+  transcribed.
+- `Pseudopseudohypoparathyroidism` is **deliberately left unassigned**. Its OMIM
+  (612463) has no row in the 2023 table. Do not read that omission as a claim
+  that PPHP falls outside the nosology's scope — the listed row's *label* is
+  Albright hereditary osteodystrophy, which PPHP manifests (AHO without hormone
+  resistance), so label and OMIM disagree about coverage. Assigning on the label
+  would be inference; the honest state is unassigned. If a future revision lists
+  PPHP separately, group 17 is where it would go.
+
+The Acrodysostosis row is a live trap in the other direction. Acrodysostosis is
 mechanistically a PTH/PTHrP-signalling disorder, so group 28 looks right — but
 the 2023 table lists both `Acrodysostosis, PRKAR1A-related` and `Acrodysostosis,
 PDE4D-related` under **group 17, acromelic dysplasias**. Group 28 contains the
@@ -261,7 +286,7 @@ Rejected candidates, recorded so nobody re-proposes them:
 | Group | Rejected MONDO | Straddle |
 |-------|----------------|----------|
 | 2 | `MONDO:0022800` type 2 collagenopathy | contains SMD 'corner fracture' type, listed in the SMD group (12) |
-| 17 | `MONDO:0019695` acromelic dysplasia | contains pseudohypoparathyroidism type 1A and terminal osseous dysplasia, listed in other groups |
+| 17 | `MONDO:0019695` acromelic dysplasia | contains the trichorhinophalangeal syndromes and Langer-Giedion (moved to group 19 in 2023), terminal osseous dysplasia (group 6), and short-rib thoracic dysplasia 9 (group 10). The earlier rationale also cited pseudohypoparathyroidism type 1A — that no longer applies, because 2023 renamed it Albright hereditary osteodystrophy and placed it *inside* group 17 |
 | 24 | `MONDO:0017198` osteopetrosis | contains melorheostosis and osteopathia striata with cranial sclerosis, now in the osteosclerotic group (25) |
 | 34 | `MONDO:0015338` syndromic craniosynostosis | contains cranioectodermal dysplasia, a skeletal ciliopathy (group 10) |
 
