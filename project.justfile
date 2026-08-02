@@ -765,11 +765,13 @@ update-folded-hyphen-baseline:
 # Guard against NEW degenerate evidence snippets in kb/ -- bare terms too short
 # to carry a claim (e.g. snippet: 'Strabismus'), which support nothing and are
 # usually lifted from a table that never survives text extraction (#7450).
-# Pipe-delimited structured-source rows are exempt; a baseline grandfathers the
-# pre-existing backlog, so this fails only on new ones.
+# Pipe-delimited structured-source rows are exempt; the pre-existing backlog is
+# grandfathered against origin/main (like CI), so this fails only on new ones.
+# resolve_baseline() falls back to the committed baseline if origin/main is not
+# present locally, so `just qc` and CI agree.
 [group('QC')]
 check-snippet-length:
-    uv run python scripts/check_snippet_length.py
+    uv run python scripts/check_snippet_length.py --against-ref origin/main
 
 # List every short snippet, baselined or not (triage view).
 [group('QC')]
