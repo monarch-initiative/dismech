@@ -245,8 +245,8 @@ See `docs/isds-skeletal-nosology.md` for the accepted and rejected sets.
 As with ICIMD, record provenance in `notes:` and prefer it over
 `evidence:`. The paper's PubMed record is **abstract-only**, so no
 exact-quote snippet from it can support a specific group placement —
-the abstract states only that the nosology exists and has 461 disorders
-in 42 groups. Quote it only if you are supporting *that* framework
+the abstract states only that the nosology exists and has 771 entries
+across 552 genes in 41 groups. Quote it only if you are supporting *that* framework
 claim, never a per-disorder assignment.
 
 To list the groups:
