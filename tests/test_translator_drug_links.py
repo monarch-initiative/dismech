@@ -122,7 +122,7 @@ def _message() -> dict:
 
 
 def _by_id(candidates):
-    return {candidate.chem_id: candidate for candidate in candidates}
+    return {candidate.node_id: candidate for candidate in candidates}
 
 
 def test_build_query_requests_creative_mode():
@@ -215,8 +215,8 @@ def test_curated_agents_reads_curies_and_names():
 
 
 def test_annotate_curated_matches_through_equivalent_identifiers():
-    candidate = tdl.Candidate(chem_id="CHEBI:45783", name="Imatinib", equivalent_ids=["NCIT:C62035"])
-    novel = tdl.Candidate(chem_id="CHEBI:1234", name="Speculatinib")
+    candidate = tdl.Candidate(node_id="CHEBI:45783", name="Imatinib", equivalent_ids=["NCIT:C62035"])
+    novel = tdl.Candidate(node_id="CHEBI:1234", name="Speculatinib")
 
     tdl.annotate_curated([candidate, novel], {"NCIT:C62035": "imatinib"}, {})
     assert candidate.curated_as == "imatinib"
@@ -226,7 +226,7 @@ def test_annotate_curated_matches_through_equivalent_identifiers():
 
 
 def test_annotate_curated_falls_back_to_name_match():
-    candidate = tdl.Candidate(chem_id="CHEBI:45783", name="Imatinib")
+    candidate = tdl.Candidate(node_id="CHEBI:45783", name="Imatinib")
     tdl.annotate_curated([candidate], {}, {"imatinib": "Imatinib"})
     assert candidate.curated_as == "Imatinib"
 
@@ -475,6 +475,152 @@ def test_write_hypothesis_report_emits_frontmatter_and_citations(tmp_path):
     assert parsed["template_variables"]["hypothesis_status"] == "CANONICAL"
     assert "# body" in text
     assert "1. PMID:11287973" in citations.read_text()
+
+
+def test_build_pathfinder_query_uses_the_paths_element():
+    """The QPath spec: constraints carry intermediate_categories; predicates are a hint."""
+    query = tdl.build_pathfinder_query(DRUG, DISEASE, intermediate_categories=["biolink:Gene"])
+    graph = query["message"]["query_graph"]
+    assert "edges" not in graph
+    path = graph["paths"]["p0"]
+    assert (path["subject"], path["object"]) == ("n0", "n1")
+    assert path["constraints"] == [{"intermediate_categories": ["biolink:Gene"]}]
+    assert graph["nodes"]["n0"]["ids"] == [DRUG]
+
+
+def test_build_pathfinder_query_omits_unconstrained_intermediates():
+    path = tdl.build_pathfinder_query(DRUG, DISEASE)["message"]["query_graph"]["paths"]["p0"]
+    assert "constraints" not in path
+
+
+def test_build_regulation_query_puts_direction_on_the_qualifier_set():
+    query = tdl.build_regulation_query(gene_curie=GENE, direction="decreased")
+    graph = query["message"]["query_graph"]
+    edge = graph["edges"]["e"]
+    assert graph["nodes"]["gene"]["ids"] == [GENE]
+    assert "ids" not in graph["nodes"]["chem"]  # the chemical is the answer
+    assert edge["predicates"] == ["biolink:affects"]  # direction is NOT in the predicate
+    qualifiers = {q["qualifier_type_id"]: q["qualifier_value"] for q in edge["qualifier_constraints"][0]["qualifier_set"]}
+    assert qualifiers["biolink:object_direction_qualifier"] == "decreased"
+    assert qualifiers["biolink:object_aspect_qualifier"] == "activity_or_abundance"
+
+
+def test_build_regulation_query_can_pin_either_end():
+    inverse = tdl.build_regulation_query(chemical_curie=DRUG, direction="increased")
+    nodes = inverse["message"]["query_graph"]["nodes"]
+    assert nodes["chem"]["ids"] == [DRUG]
+    assert "ids" not in nodes["gene"]  # the gene is the answer
+    with pytest.raises(ValueError):
+        tdl.build_regulation_query()
+
+
+def test_extract_candidates_can_answer_a_non_disease_template():
+    """The regulation templates bind chem/gene, not chem/disease."""
+    message = {
+        "knowledge_graph": {
+            "nodes": {DRUG: {"name": "imatinib"}, GENE: {"name": "ABL1"}},
+            "edges": {
+                "e1": {
+                    "subject": DRUG,
+                    "object": GENE,
+                    "predicate": "biolink:affects",
+                    "sources": [{"resource_id": "infores:ctd", "resource_role": "primary_knowledge_source"}],
+                    "attributes": [{"attribute_type_id": "biolink:knowledge_level", "value": "knowledge_assertion"}],
+                }
+            },
+        },
+        "results": [
+            {
+                "node_bindings": {"chem": [{"id": DRUG}], "gene": [{"id": GENE}]},
+                "analyses": [{"score": 1.0, "edge_bindings": {"e": [{"id": "e1"}]}}],
+            }
+        ],
+    }
+    candidates = tdl.extract_candidates(message, answer_key="chem", pinned_key="gene")
+    assert [c.node_id for c in candidates] == [DRUG]
+    assert candidates[0].asserted is True
+
+
+def _pathfinder_message() -> dict:
+    """Pathfinder returns each route as an unordered bag of edges in an aux graph."""
+    return {
+        "knowledge_graph": {
+            "nodes": {
+                DRUG: {"name": "Imatinib", "categories": ["biolink:ChemicalEntity"]},
+                "NCBIGene:2263": {"name": "SIN3A", "categories": ["biolink:Gene"]},
+                "NCBIGene:613": {"name": "BCR", "categories": ["biolink:Gene"]},
+                "CHEBI:31941": {"name": "Oxaliplatin", "categories": ["biolink:ChemicalEntity"]},
+                DISEASE: {"name": "CML", "categories": ["biolink:Disease"]},
+            },
+            "edges": {
+                # Deliberately out of order, and the middle hop runs backwards.
+                "b": {"subject": "NCBIGene:613", "object": "NCBIGene:2263", "predicate": "biolink:interacts_with"},
+                "c": {"subject": "NCBIGene:613", "object": DISEASE, "predicate": "biolink:affects"},
+                "a": {"subject": DRUG, "object": "NCBIGene:2263", "predicate": "biolink:affects"},
+                "x": {"subject": DRUG, "object": "CHEBI:31941", "predicate": "biolink:interacts_with"},
+                "y": {"subject": "CHEBI:31941", "object": DISEASE, "predicate": "biolink:contributes_to"},
+            },
+        },
+        "auxiliary_graphs": {"a_1": {"edges": ["b", "c", "a"]}, "a_2": {"edges": ["x", "y"]}},
+        "results": [
+            {
+                "node_bindings": {"n0": [{"id": DRUG}], "n1": [{"id": DISEASE}]},
+                "analyses": [
+                    {"score": 0.74, "path_bindings": {"p0": [{"id": "a_1"}]}},
+                    {"score": 0.69, "path_bindings": {"p0": [{"id": "a_2"}]}},
+                ],
+            }
+        ],
+    }
+
+
+def test_order_path_edges_walks_an_unordered_bag_into_a_chain():
+    message = _pathfinder_message()
+    edges = message["knowledge_graph"]["edges"]
+    chain = tdl.order_path_edges(["b", "c", "a"], edges, DRUG, DISEASE)
+    assert chain == [("a", True), ("b", False), ("c", True)]  # middle hop traversed backwards
+
+
+def test_order_path_edges_returns_nothing_when_the_bag_is_disconnected():
+    edges = _pathfinder_message()["knowledge_graph"]["edges"]
+    assert tdl.order_path_edges(["b"], edges, DRUG, DISEASE) == []
+
+
+def test_extract_pathfinder_paths_renders_ordered_chains():
+    # The 0.69 route hops through another drug and is dropped by default.
+    paths = tdl.extract_pathfinder_paths(_pathfinder_message(), start=DRUG, end=DISEASE)
+    assert [path.score for path in paths] == [0.74]
+    # The middle hop is walked backwards, so it points back rather than being flipped.
+    assert paths[0].render() == (
+        "Imatinib --affects--> SIN3A | SIN3A <--interacts_with-- BCR | BCR --affects--> CML"
+    )
+    assert paths[0].intermediates == ["NCBIGene:2263", "NCBIGene:613"]
+    assert paths[0].name == "SIN3A > BCR"
+
+
+def test_extract_pathfinder_paths_drops_co_target_routes_by_default():
+    """A route whose intermediate is another drug is a co-target artifact, not mechanism."""
+    assert [path.name for path in tdl.extract_pathfinder_paths(_pathfinder_message(), start=DRUG, end=DISEASE)] == [
+        "SIN3A > BCR"
+    ]
+    kept = tdl.extract_pathfinder_paths(
+        _pathfinder_message(), start=DRUG, end=DISEASE, include_chemical_intermediates=True
+    )
+    assert [path.name for path in kept] == ["SIN3A > BCR", "Oxaliplatin"]
+
+
+def test_chemical_intermediates_are_caught_without_an_explicit_chemicalentity_category():
+    """Node categories are often partial: a drug may only carry biolink:MolecularEntity."""
+    message = _pathfinder_message()
+    message["knowledge_graph"]["nodes"]["CHEBI:31941"]["categories"] = ["biolink:MolecularEntity"]
+    assert [path.name for path in tdl.extract_pathfinder_paths(message, start=DRUG, end=DISEASE)] == ["SIN3A > BCR"]
+
+
+def test_annotate_paths_matches_any_intermediate_on_a_multi_hop_route():
+    paths = tdl.extract_pathfinder_paths(_pathfinder_message(), start=DRUG, end=DISEASE)
+    entry = {"genetic": [{"name": "BCR", "gene_term": {"term": {"id": "hgnc:1014", "label": "BCR"}}}]}
+    tdl.annotate_paths(paths, *tdl.curated_mechanism_index(entry))
+    assert paths[0].curated_as == "genetic: BCR"  # matched on the second intermediate
 
 
 class _StubARS:

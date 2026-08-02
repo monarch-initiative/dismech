@@ -1614,6 +1614,19 @@ translator-drug-paths file drug *args="":
 translator-hypothesis file drug hypothesis_group_id *args="":
     uv run python scripts/translator_drug_links.py {{file}} --drug {{drug}} --hypothesis {{hypothesis_group_id}} {{args}}
 
+# The Translator UI's up/down-regulation template. Direction rides on the Biolink
+# qualifier set, not the predicate. Gene symbols are resolved against human only.
+# Examples:
+#   just translator-regulators ABL1                          # chemicals that decrease ABL1
+#   just translator-regulators TP53 --direction increased
+#   just translator-regulators NCBIGene:25 kb/disorders/Chronic_Myeloid_Leukemia.yaml
+# For the inverse (genes regulated BY a chemical) use --regulated-by:
+#   uv run python scripts/translator_drug_links.py --regulated-by imatinib --direction decreased
+# Chemicals that up- or down-regulate a gene, via the NCATS Translator
+[group('Research')]
+translator-regulators gene *args="":
+    uv run python scripts/translator_drug_links.py --regulates {{gene}} {{args}}
+
 # ============== Structured-database reference sources ==============
 #
 # Structured sources (e.g. Orphanet) ingest a knowledge base and emit

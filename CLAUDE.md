@@ -163,6 +163,19 @@ just translator-drug-paths kb/disorders/Chronic_Myeloid_Leukemia.yaml imatinib
 just translator-drug-paths kb/disorders/Asthma.yaml montelukast --via process --new-only
 ```
 
+A third mode covers the UI's **up/down-regulation templates**, which line up with
+dismech's `modifier: INCREASED`/`DECREASED` and `treatment_effect:
+INHIBITS`/`ACTIVATES`. The direction rides on the Biolink qualifier set, not the
+predicate:
+
+```bash
+just translator-regulators ABL1                        # chemicals that decrease ABL1
+just translator-regulators TP53 --direction increased
+```
+
+Gene-symbol lookups are pinned to human (`NCBITaxon:9606`) — an unrestricted
+name-resolver lookup for `ABL1` returns the dog orthologue first.
+
 Path mode also runs as a **hypothesis-investigation provider** under the slug
 `translator`, writing
 `kb/hypotheses/<Disorder>/<hypothesis_group_id>/translator.md` (+ its

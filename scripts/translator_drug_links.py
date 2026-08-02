@@ -29,6 +29,7 @@ import json
 import re
 import sys
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -43,6 +44,7 @@ ARS_UI_URL = "https://ui.transltr.io/main/results"
 CI_UI_URL = "https://ui.ci.transltr.io/main/results"
 NAME_RESOLVER_URL = "https://name-resolution-sri.renci.org/lookup"
 NODE_NORM_URL = "https://nodenormalization-sri.renci.org/get_normalized_nodes"
+HUMAN_TAXON = "NCBITaxon:9606"
 
 DEFAULT_TIMEOUT_SECONDS = 900
 DEFAULT_POLL_SECONDS = 15
@@ -66,6 +68,20 @@ VIA_CATEGORIES = {
 }
 DEFAULT_VIA = "gene"
 
+# A node's `categories` list is frequently partial -- a drug often comes back as
+# `biolink:MolecularEntity` with no `biolink:ChemicalEntity` -- so a route hopping
+# through another drug can only be recognized by testing the whole family.
+CHEMICAL_CATEGORIES = frozenset(
+    {
+        "biolink:ChemicalEntity",
+        "biolink:ChemicalMixture",
+        "biolink:Drug",
+        "biolink:MolecularEntity",
+        "biolink:MolecularMixture",
+        "biolink:SmallMolecule",
+    }
+)
+
 PUBLICATION_PATTERNS = (
     (re.compile(r"(?:^|/)(?:pubmed/|PMID[:_])(\d+)", re.IGNORECASE), "PMID:{}"),
     (re.compile(r"(?:^|/)PMC(\d+)", re.IGNORECASE), "PMC{}"),
@@ -83,7 +99,7 @@ PUBLICATION_PATTERNS = (
 class Candidate:
     """One ranked chemical answer for the queried disease."""
 
-    chem_id: str
+    node_id: str
     name: str
     score: float | None = None
     knowledge_levels: set[str] = field(default_factory=set)
@@ -116,9 +132,20 @@ class Hop:
     object_name: str
     sources: list[str] = field(default_factory=list)
     publications: list[str] = field(default_factory=list)
+    # True when the route traverses this edge against the direction it was asserted in.
+    reverse: bool = False
 
     def render(self) -> str:
-        return f"{self.subject_name} --{self.predicate.replace('biolink:', '')}--> {self.object_name}"
+        """Render left-to-right along the route, but never flip the asserted direction.
+
+        A route legitimately walks an edge backwards; rewriting `BCR -interacts_with-> SIN3A`
+        as `SIN3A -interacts_with-> BCR` would misreport what the source actually claims,
+        so a reversed hop keeps its subject on the right and points the arrow back.
+        """
+        predicate = self.predicate.replace("biolink:", "")
+        if self.reverse:
+            return f"{self.object_name} <--{predicate}-- {self.subject_name}"
+        return f"{self.subject_name} --{predicate}--> {self.object_name}"
 
 
 @dataclass
@@ -134,6 +161,9 @@ class PathCandidate:
     publications: list[str] = field(default_factory=list)
     equivalent_ids: list[str] = field(default_factory=list)
     curated_as: str | None = None
+    # Pathfinder routes run through several intermediates; the two-hop query has one.
+    intermediates: list[str] = field(default_factory=list)
+    intermediate_names: list[str] = field(default_factory=list)
 
     @property
     def status(self) -> str:
@@ -200,6 +230,91 @@ def build_path_query(
     }
 
 
+def build_pathfinder_query(
+    subject_curie: str,
+    object_curie: str,
+    *,
+    intermediate_categories: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build a TRAPI Pathfinder query — the UI's "how are these two related?" mode.
+
+    Unlike the two-hop lookup this asks the ARS for arbitrary-length routes and
+    lets it combine lookup and inferred reasoning. `predicates` on a QPath is an
+    intent hint, not a filter; the real constraint is `intermediate_categories`,
+    which every returned path must pass through.
+    """
+    path: dict[str, Any] = {
+        "subject": "n0",
+        "object": "n1",
+        "predicates": ["biolink:related_to"],
+    }
+    if intermediate_categories:
+        path["constraints"] = [{"intermediate_categories": list(intermediate_categories)}]
+    return {
+        "message": {
+            "query_graph": {
+                "nodes": {
+                    "n0": {"ids": [subject_curie], "categories": ["biolink:ChemicalEntity"]},
+                    "n1": {"ids": [object_curie], "categories": ["biolink:Disease"]},
+                },
+                "paths": {"p0": path},
+            }
+        }
+    }
+
+
+def build_regulation_query(
+    *,
+    gene_curie: str | None = None,
+    chemical_curie: str | None = None,
+    direction: str = "decreased",
+    aspect: str = "activity_or_abundance",
+) -> dict[str, Any]:
+    """Build the UI's up/down-regulation template as a qualified creative query.
+
+    Pin the gene to ask *which chemicals* regulate it; pin the chemical to ask
+    *which genes* it regulates. The direction rides on the Biolink qualifier set
+    rather than the predicate, which stays `biolink:affects`.
+    """
+    if bool(gene_curie) == bool(chemical_curie):
+        raise ValueError("Pin exactly one of gene_curie or chemical_curie.")
+    chem_node: dict[str, Any] = {"categories": ["biolink:ChemicalEntity"]}
+    gene_node: dict[str, Any] = {"categories": ["biolink:Gene"]}
+    if chemical_curie:
+        chem_node["ids"] = [chemical_curie]
+    if gene_curie:
+        gene_node["ids"] = [gene_curie]
+    return {
+        "message": {
+            "query_graph": {
+                "nodes": {"chem": chem_node, "gene": gene_node},
+                "edges": {
+                    "e": {
+                        "subject": "chem",
+                        "object": "gene",
+                        "predicates": ["biolink:affects"],
+                        "qualifier_constraints": [
+                            {
+                                "qualifier_set": [
+                                    {
+                                        "qualifier_type_id": "biolink:object_aspect_qualifier",
+                                        "qualifier_value": aspect,
+                                    },
+                                    {
+                                        "qualifier_type_id": "biolink:object_direction_qualifier",
+                                        "qualifier_value": direction,
+                                    },
+                                ]
+                            }
+                        ],
+                        "knowledge_type": "inferred",
+                    }
+                },
+            }
+        }
+    }
+
+
 # --------------------------------------------------------------------------
 # ARS client
 # --------------------------------------------------------------------------
@@ -254,6 +369,13 @@ def pending_agents(trace: dict[str, Any]) -> list[str]:
     ]
 
 
+def _clean_pk(value: Any) -> str | None:
+    """The ARS returns a missing merged version as the string "None", not as null."""
+    if not value or str(value).strip().lower() in {"none", "null"}:
+        return None
+    return str(value)
+
+
 def summarize_trace(trace: dict[str, Any]) -> str:
     """One-line-per-agent status summary for the progress log."""
     parts = []
@@ -281,7 +403,7 @@ def poll_for_merged(
     last_change = time.monotonic()
     while True:
         trace = client.trace(pk)
-        merged_pk = trace.get("merged_version") or merged_pk
+        merged_pk = _clean_pk(trace.get("merged_version")) or merged_pk
         status = trace.get("status")
         if verbose:
             print(f"  [{status}] {summarize_trace(trace)}", file=sys.stderr)
@@ -369,12 +491,19 @@ def _score(result: dict[str, Any]) -> float | None:
     return max(scores) if scores else None
 
 
-def extract_candidates(message: dict[str, Any]) -> list[Candidate]:
-    """Collapse TRAPI results into one Candidate per chemical, best score first.
+def extract_candidates(
+    message: dict[str, Any],
+    *,
+    answer_key: str = "chem",
+    pinned_key: str = "disease",
+) -> list[Candidate]:
+    """Collapse TRAPI results into one Candidate per answer node, best score first.
 
-    Only edges that directly connect the answer chemical to the queried disease
+    Only edges that directly connect the answer node to the pinned node
     contribute provenance; mechanism-path edges reached through support graphs
-    describe *how* a prediction was made, not whether the drug treats the disease.
+    describe *how* a prediction was made, not whether the claim holds. The two
+    keys name the query-graph nodes: `chem`/`disease` for the treats template,
+    `chem`/`gene` (or `gene`/`chem`) for the up/down-regulation templates.
     """
     knowledge_graph = message.get("knowledge_graph") or {}
     nodes = knowledge_graph.get("nodes") or {}
@@ -382,14 +511,14 @@ def extract_candidates(message: dict[str, Any]) -> list[Candidate]:
 
     by_chem: dict[str, Candidate] = {}
     for result in message.get("results") or []:
-        chem_ids = _node_ids(result, "chem")
-        disease_ids = _node_ids(result, "disease")
+        chem_ids = _node_ids(result, answer_key)
+        disease_ids = _node_ids(result, pinned_key)
         if not chem_ids:
             continue
         primary = sorted(chem_ids)[0]
         candidate = by_chem.get(primary)
         if candidate is None:
-            candidate = Candidate(chem_id=primary, name=(nodes.get(primary) or {}).get("name") or primary)
+            candidate = Candidate(node_id=primary, name=(nodes.get(primary) or {}).get("name") or primary)
             by_chem[primary] = candidate
 
         score = _score(result)
@@ -451,6 +580,140 @@ def _edge_provenance(edge: dict[str, Any]) -> tuple[list[str], list[str]]:
     return sources, publications
 
 
+def order_path_edges(
+    edge_ids: list[str],
+    edges: dict[str, Any],
+    start: str,
+    end: str,
+) -> list[tuple[str, bool]]:
+    """Order a Pathfinder auxiliary graph into a chain from `start` to `end`.
+
+    Pathfinder returns each route as an unordered *bag* of edges, so it has to be
+    walked back into a readable chain. Returns (edge_id, forward) pairs for the
+    shortest traversal, treating edges as undirected — a route legitimately runs
+    against edge direction (`gene <-interacts_with- drug`). Empty when the bag
+    does not actually connect the two endpoints.
+    """
+    adjacency: dict[str, list[tuple[str, str, bool]]] = {}
+    for edge_id in edge_ids:
+        edge = edges.get(edge_id)
+        if not edge:
+            continue
+        subject, obj = edge.get("subject"), edge.get("object")
+        if not subject or not obj:
+            continue
+        adjacency.setdefault(subject, []).append((obj, edge_id, True))
+        adjacency.setdefault(obj, []).append((subject, edge_id, False))
+
+    queue: deque[tuple[str, list[tuple[str, bool]], set[str]]] = deque([(start, [], {start})])
+    while queue:
+        node, chain, seen = queue.popleft()
+        if node == end:
+            return chain
+        for next_node, edge_id, forward in adjacency.get(node, []):
+            if next_node in seen:
+                continue
+            queue.append((next_node, [*chain, (edge_id, forward)], seen | {next_node}))
+    return []
+
+
+def extract_pathfinder_paths(
+    message: dict[str, Any],
+    *,
+    start: str,
+    end: str,
+    include_chemical_intermediates: bool = False,
+) -> list[PathCandidate]:
+    """Turn Pathfinder `path_bindings` into ordered, renderable mechanism chains.
+
+    Routes through another drug are dropped by default. `intermediate_categories`
+    only requires that a listed category appears *somewhere* on the route, so a
+    gene-constrained Pathfinder query still returns drug > gene > rival-drug >
+    disease routes -- co-prescription and shared-target artifacts that crowd out
+    the mechanism the caller asked about.
+    """
+    knowledge_graph = message.get("knowledge_graph") or {}
+    nodes = knowledge_graph.get("nodes") or {}
+    edges = knowledge_graph.get("edges") or {}
+    auxiliary = message.get("auxiliary_graphs") or {}
+
+    def name_of(curie: str) -> str:
+        return (nodes.get(curie) or {}).get("name") or curie
+
+    paths: list[PathCandidate] = []
+    seen_chains: set[tuple[str, ...]] = set()
+    for result in message.get("results") or []:
+        for analysis in result.get("analyses") or []:
+            for bindings in (analysis.get("path_bindings") or {}).values():
+                for binding in bindings:
+                    graph_id = binding.get("id")
+                    chain = order_path_edges(
+                        list((auxiliary.get(graph_id) or {}).get("edges") or []), edges, start, end
+                    )
+                    if not chain:
+                        continue
+
+                    hops: list[Hop] = []
+                    intermediates: list[str] = []
+                    intermediate_names: list[str] = []
+                    sources: set[str] = set()
+                    publications: list[str] = []
+                    for edge_id, forward in chain:
+                        edge = edges[edge_id]
+                        edge_sources, edge_publications = _edge_provenance(edge)
+                        subject, obj = edge["subject"], edge["object"]
+                        hops.append(
+                            Hop(
+                                subject=subject,
+                                subject_name=name_of(subject),
+                                predicate=edge.get("predicate", ""),
+                                object=obj,
+                                object_name=name_of(obj),
+                                sources=edge_sources,
+                                publications=edge_publications,
+                                reverse=not forward,
+                            )
+                        )
+                        sources.update(edge_sources)
+                        for publication in edge_publications:
+                            if publication not in publications:
+                                publications.append(publication)
+                        # The node the route arrives at, which is the edge's
+                        # subject when the hop is traversed backwards.
+                        arrival = obj if forward else subject
+                        if arrival not in (start, end):
+                            intermediates.append(arrival)
+                            intermediate_names.append(name_of(arrival))
+
+                    signature = tuple(intermediates)
+                    if signature in seen_chains:
+                        continue
+                    # Routes that hop through another drug are co-target artifacts,
+                    # not mechanism; the UI shows them, curation rarely wants them.
+                    if not include_chemical_intermediates and any(
+                        CHEMICAL_CATEGORIES.intersection((nodes.get(curie) or {}).get("categories") or [])
+                        for curie in intermediates
+                    ):
+                        continue
+                    seen_chains.add(signature)
+
+                    score = analysis.get("score")
+                    paths.append(
+                        PathCandidate(
+                            node_id=intermediates[0] if intermediates else str(graph_id),
+                            name=" > ".join(intermediate_names) or str(graph_id),
+                            score=float(score) if isinstance(score, int | float) else None,
+                            hops=hops,
+                            sources=sources,
+                            publications=publications,
+                            intermediates=intermediates,
+                            intermediate_names=intermediate_names,
+                        )
+                    )
+
+    return sorted(paths, key=lambda p: (-(p.score or 0.0), p.name.lower()))
+
+
 def extract_paths(message: dict[str, Any], *, via_categories: list[str] | None = None) -> list[PathCandidate]:
     """Collapse two-hop TRAPI results into one PathCandidate per intermediate node.
 
@@ -478,7 +741,13 @@ def extract_paths(message: dict[str, Any], *, via_categories: list[str] | None =
 
         path = by_node.get(mid_id)
         if path is None:
-            path = PathCandidate(node_id=mid_id, name=node.get("name") or mid_id, categories=categories)
+            path = PathCandidate(
+                node_id=mid_id,
+                name=node.get("name") or mid_id,
+                categories=categories,
+                intermediates=[mid_id],
+                intermediate_names=[node.get("name") or mid_id],
+            )
             by_node[mid_id] = path
 
         for analysis in result.get("analyses") or []:
@@ -562,7 +831,7 @@ def annotate_curated(candidates: list[Candidate], by_curie: dict[str, str], by_n
     """Mark candidates already present in the entry, by equivalent CURIE or by name."""
     for candidate in candidates:
         candidate.curated_as = _match_curated(
-            [candidate.chem_id, *candidate.equivalent_ids], candidate.name, by_curie, by_name
+            [candidate.node_id, *candidate.equivalent_ids], candidate.name, by_curie, by_name
         )
 
 
@@ -604,9 +873,17 @@ def curated_mechanism_index(disease: dict[str, Any]) -> tuple[dict[str, str], di
 
 
 def annotate_paths(paths: list[PathCandidate], by_curie: dict[str, str], by_name: dict[str, str]) -> None:
-    """Mark path intermediates the entry already models."""
+    """Mark paths whose intermediates the entry already models."""
     for path in paths:
-        path.curated_as = _match_curated([path.node_id, *path.equivalent_ids], path.name, by_curie, by_name)
+        path.curated_as = _match_curated(
+            [path.node_id, *path.intermediates, *path.equivalent_ids], path.name, by_curie, by_name
+        )
+        if path.curated_as is None:
+            for label in path.intermediate_names:
+                match = by_name.get(label.strip().lower())
+                if match:
+                    path.curated_as = match
+                    break
 
 
 def drug_target_mechanisms(disease: dict[str, Any], curated_as: str | None) -> list[str]:
@@ -691,12 +968,12 @@ def merge_equivalents(candidates: list[Candidate], normalized: dict[str, dict[st
     """Collapse candidates that normalize to the same chemical (e.g. salt vs base forms)."""
     merged: dict[str, Candidate] = {}
     for candidate in candidates:
-        entry = normalized.get(candidate.chem_id) or {}
-        key = entry.get("id") or candidate.chem_id
+        entry = normalized.get(candidate.node_id) or {}
+        key = entry.get("id") or candidate.node_id
         candidate.equivalent_ids = list(entry.get("equivalents") or [])
         target = merged.get(key)
         if target is None:
-            candidate.chem_id = key
+            candidate.node_id = key
             candidate.name = entry.get("label") or candidate.name
             merged[key] = candidate
             continue
@@ -745,11 +1022,13 @@ def render_markdown(
     complete: bool,
     entry_path: str | None,
     generated_at: str,
+    title: str = "Translator drug-link leads",
+    pinned_role: str = "Disease",
 ) -> str:
     lines = [
-        f"# Translator drug-link leads: {disease_label or disease_curie}",
+        f"# {title}: {disease_label or disease_curie}",
         "",
-        f"- Disease: `{disease_curie}`" + (f" ({disease_label})" if disease_label else ""),
+        f"- {pinned_role}: `{disease_curie}`" + (f" ({disease_label})" if disease_label else ""),
         f"- dismech entry: `{entry_path}`" if entry_path else "- dismech entry: (none supplied)",
         f"- ARS pk: `{pk}`",
         f"- Translator UI: {ui_url}",
@@ -780,13 +1059,13 @@ def render_markdown(
         score = f"{candidate.score:.2f}" if candidate.score is not None else ""
         sources = ", ".join(sorted(candidate.sources)[:3])
         lines.append(
-            f"| {index} | {candidate.status} | {candidate.name} | `{candidate.chem_id}` | "
+            f"| {index} | {candidate.status} | {candidate.name} | `{candidate.node_id}` | "
             f"{score} | {level} | {', '.join(evidence_bits)} | {sources} |"
         )
 
     lines += ["", "## Candidate detail", ""]
     for index, candidate in enumerate(candidates, start=1):
-        lines.append(f"### {index}. {candidate.name} (`{candidate.chem_id}`) — {candidate.status}")
+        lines.append(f"### {index}. {candidate.name} (`{candidate.node_id}`) — {candidate.status}")
         if candidate.curated_as:
             lines.append(f"- Already curated as: **{candidate.curated_as}**")
         if candidate.score is not None:
@@ -977,7 +1256,7 @@ def render_tsv(candidates: list[Candidate]) -> str:
                     str(index),
                     candidate.status,
                     candidate.name,
-                    candidate.chem_id,
+                    candidate.node_id,
                     f"{candidate.score:.4f}" if candidate.score is not None else "",
                     "asserted" if candidate.asserted else "predicted",
                     candidate.approval_status or "",
@@ -1001,7 +1280,7 @@ def render_json(candidates: list[Candidate], **meta: Any) -> str:
                 "rank": index,
                 "status": candidate.status,
                 "name": candidate.name,
-                "curie": candidate.chem_id,
+                "curie": candidate.node_id,
                 "score": candidate.score,
                 "knowledge_levels": sorted(candidate.knowledge_levels),
                 "asserted": candidate.asserted,
@@ -1158,6 +1437,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=f"Intermediate node type for path mode (default {DEFAULT_VIA}).",
     )
     paths.add_argument(
+        "--pathfinder",
+        action="store_true",
+        help="Use the ARS Pathfinder query (the UI's 'how are these related?' mode) instead of the "
+        "two-hop lookup: arbitrary-length routes, ARS-ordered. Only the CI ARS supports it, so "
+        "this implies --ci.",
+    )
+    paths.add_argument(
+        "--include-chemical-intermediates",
+        action="store_true",
+        help="Pathfinder only: keep routes that hop through another drug. These are co-target "
+        "and co-prescription artifacts and are dropped by default, because they otherwise "
+        "crowd out the mechanism routes entirely.",
+    )
+    paths.add_argument(
         "--hypothesis",
         help="Write the path report as a provider report for this mechanistic_hypotheses "
         "group id, under kb/hypotheses/<Disorder>/<id>/translator.md (implies path mode).",
@@ -1167,7 +1460,47 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=str(DEFAULT_HYPOTHESIS_ROOT),
         help=f"Root for hypothesis provider reports (default {DEFAULT_HYPOTHESIS_ROOT}).",
     )
+    regulation = parser.add_argument_group("regulation templates (chemical <-> gene)")
+    regulation.add_argument(
+        "--regulates",
+        metavar="GENE",
+        help="Ask which chemicals up/down-regulate this gene (CURIE or symbol).",
+    )
+    regulation.add_argument(
+        "--regulated-by",
+        metavar="CHEMICAL",
+        help="Ask which genes this chemical up/down-regulates (CURIE or name).",
+    )
+    regulation.add_argument(
+        "--direction",
+        choices=("increased", "decreased"),
+        default="decreased",
+        help="Regulation direction (default decreased).",
+    )
     return parser.parse_args(argv)
+
+
+def resolve_gene_name(name: str, *, limit: int = 5) -> list[tuple[str, str]]:
+    """Look a human gene symbol up in the SRI name resolver, best match first.
+
+    `only_taxa` is not optional here: an unrestricted lookup for ABL1 returns the
+    dog orthologue first, which would silently answer a different question.
+    """
+    response = httpx.get(
+        NAME_RESOLVER_URL,
+        params={
+            "string": name,
+            "biolink_type": "biolink:Gene",
+            "only_taxa": HUMAN_TAXON,
+            "limit": limit,
+        },
+        timeout=60.0,
+        follow_redirects=True,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    rows = payload.get("results", payload) if isinstance(payload, dict) else payload
+    return [(row["curie"], row.get("label") or "") for row in rows or [] if row.get("curie")]
 
 
 def resolve_chemical_name(name: str, *, limit: int = 5) -> list[tuple[str, str]]:
@@ -1223,6 +1556,96 @@ def _emit(rendered: str, output: str | None) -> None:
         sys.stdout.write(rendered)
 
 
+def _resolve(value: str, resolver, label: str) -> tuple[str, str]:
+    """Accept a CURIE as-is, otherwise resolve a name through the SRI resolver."""
+    if ":" in value:
+        return value, ""
+    matches = resolver(value)
+    if not matches:
+        raise SystemExit(f"Could not resolve '{value}' to a {label} CURIE.")
+    curie, resolved = matches[0]
+    print(f"Resolved '{value}' -> {curie} ({resolved})", file=sys.stderr)
+    for other, other_label in matches[1:]:
+        print(f"  other candidate: {other} ({other_label})", file=sys.stderr)
+    return curie, resolved
+
+
+def run_regulation_mode(args: argparse.Namespace, entry: dict[str, Any] | None) -> int:
+    """The UI's up/down-regulation templates: chemicals <-> gene, with a direction."""
+    if args.regulates and args.regulated_by:
+        raise SystemExit("Pass either --regulates (pin a gene) or --regulated-by (pin a chemical), not both.")
+
+    if args.regulates:
+        pinned_curie, pinned_label = _resolve(args.regulates, resolve_gene_name, "gene")
+        query = build_regulation_query(gene_curie=pinned_curie, direction=args.direction)
+        answer_key, pinned_key = "chem", "gene"
+        question = f"chemicals that {args.direction} the activity/abundance of {pinned_label or pinned_curie}"
+    else:
+        pinned_curie, pinned_label = _resolve(args.regulated_by, resolve_chemical_name, "chemical")
+        query = build_regulation_query(chemical_curie=pinned_curie, direction=args.direction)
+        answer_key, pinned_key = "gene", "chem"
+        question = f"genes whose activity/abundance is {args.direction} by {pinned_label or pinned_curie}"
+
+    client = ARSClient(CI_ARS_URL if args.ci else args.ars_url)
+    try:
+        pk, merged_pk, complete = _run_query(client, args, query)
+        message = (client.message(merged_pk).get("fields") or {}).get("data", {}).get("message") or {}
+    finally:
+        client.close()
+
+    if args.save_raw:
+        Path(args.save_raw).write_text(json.dumps(message, indent=2), encoding="utf-8")
+
+    candidates = extract_candidates(message, answer_key=answer_key, pinned_key=pinned_key)
+    if candidates:
+        candidates = merge_equivalents(candidates, normalize_curies([c.node_id for c in candidates]))
+    if entry is not None:
+        # Chemicals check against curated treatments; genes against curated mechanism.
+        index = curated_agents(entry) if answer_key == "chem" else curated_mechanism_index(entry)
+        annotate_curated(candidates, *index)
+
+    if args.asserted_only:
+        candidates = [candidate for candidate in candidates if candidate.asserted]
+    if args.new_only:
+        candidates = [candidate for candidate in candidates if not candidate.curated_as]
+    total = len(candidates)
+    candidates = candidates[: args.top]
+    if total > len(candidates):
+        print(f"Showing top {len(candidates)} of {total} answers (raise with --top).", file=sys.stderr)
+
+    ui_url = f"{CI_UI_URL if args.ci else ARS_UI_URL}?q={pk}"
+    generated_at = datetime.now(UTC).isoformat()
+    if args.format == "json":
+        rendered = render_json(
+            candidates,
+            question=question,
+            pinned=pinned_curie,
+            direction=args.direction,
+            ars_pk=pk,
+            ui_url=ui_url,
+            complete=complete,
+            entry=args.entry,
+            generated_at=generated_at,
+        )
+    elif args.format == "tsv":
+        rendered = render_tsv(candidates)
+    else:
+        rendered = render_markdown(
+            candidates,
+            disease_curie=pinned_curie,
+            disease_label=question,
+            pk=pk,
+            ui_url=ui_url,
+            complete=complete,
+            entry_path=args.entry,
+            generated_at=generated_at,
+            title="Translator regulation leads",
+            pinned_role="Question",
+        )
+    _emit(rendered, args.output)
+    return 0
+
+
 def run_paths_mode(args: argparse.Namespace, entry: dict[str, Any] | None, disease: tuple[str, str]) -> int:
     """Pair mode: drug + disease -> ranked mechanism paths through an intermediate."""
     disease_curie, disease_label = disease
@@ -1243,7 +1666,16 @@ def run_paths_mode(args: argparse.Namespace, entry: dict[str, Any] | None, disea
         hypothesis = find_hypothesis(entry, args.hypothesis)
 
     via_categories = VIA_CATEGORIES[args.via]
-    query = build_path_query(disease_curie, drug_curie, via_categories=via_categories)
+    if args.pathfinder:
+        # Only the CI ARS answers Pathfinder today; prod ARAs reject the shape.
+        args.ci = True
+        query = build_pathfinder_query(
+            drug_curie,
+            disease_curie,
+            intermediate_categories=None if args.via == "any" else via_categories,
+        )
+    else:
+        query = build_path_query(disease_curie, drug_curie, via_categories=via_categories)
     started = datetime.now(UTC)
     client = ARSClient(CI_ARS_URL if args.ci else args.ars_url)
     try:
@@ -1256,15 +1688,29 @@ def run_paths_mode(args: argparse.Namespace, entry: dict[str, Any] | None, disea
     if args.save_raw:
         Path(args.save_raw).write_text(json.dumps(message, indent=2), encoding="utf-8")
 
-    paths = extract_paths(message, via_categories=via_categories)
+    if args.pathfinder:
+        paths = extract_pathfinder_paths(
+            message,
+            start=drug_curie,
+            end=disease_curie,
+            include_chemical_intermediates=args.include_chemical_intermediates,
+        )
+    else:
+        paths = extract_paths(message, via_categories=via_categories)
     nodes = (message.get("knowledge_graph") or {}).get("nodes") or {}
     drug_label = drug_label or (nodes.get(drug_curie) or {}).get("name") or ""
     disease_label = disease_label or (nodes.get(disease_curie) or {}).get("name") or ""
 
     if paths:
-        normalized = normalize_curies([path.node_id for path in paths])
+        # A Pathfinder route has several intermediates; each is a cross-reference target.
+        every_intermediate = sorted({curie for path in paths for curie in (path.intermediates or [path.node_id])})
+        normalized = normalize_curies(every_intermediate)
         for path in paths:
-            path.equivalent_ids = list((normalized.get(path.node_id) or {}).get("equivalents") or [])
+            path.equivalent_ids = [
+                equivalent
+                for curie in (path.intermediates or [path.node_id])
+                for equivalent in (normalized.get(curie) or {}).get("equivalents") or []
+            ]
 
     curated_drug, curated_targets = None, []
     if entry is not None:
@@ -1347,8 +1793,8 @@ def run_paths_mode(args: argparse.Namespace, entry: dict[str, Any] | None, disea
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    if not (args.entry or args.mondo or args.name or args.pk):
-        raise SystemExit("Provide a disorder YAML path, --mondo, --name, or --pk.")
+    if not (args.entry or args.mondo or args.name or args.pk or args.regulates or args.regulated_by):
+        raise SystemExit("Provide a disorder YAML path, --mondo, --name, --pk, --regulates, or --regulated-by.")
 
     entry: dict[str, Any] | None = None
     disease_curie = args.mondo
@@ -1365,8 +1811,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Resolved '{args.name}' -> {disease_curie} ({disease_label})", file=sys.stderr)
         for curie, label in matches[1:]:
             print(f"  other candidate: {curie} ({label})", file=sys.stderr)
-    if not disease_curie and not args.pk:
+    if not disease_curie and not args.pk and not (args.regulates or args.regulated_by):
         raise SystemExit("No disease CURIE resolved; pass --mondo.")
+
+    if args.regulates or args.regulated_by:
+        return run_regulation_mode(args, entry)
 
     if args.drug or args.hypothesis:
         if not args.drug:
@@ -1401,7 +1850,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if candidates:
-        candidates = merge_equivalents(candidates, normalize_curies([c.chem_id for c in candidates]))
+        candidates = merge_equivalents(candidates, normalize_curies([c.node_id for c in candidates]))
     if entry is not None:
         annotate_curated(candidates, *curated_agents(entry))
 

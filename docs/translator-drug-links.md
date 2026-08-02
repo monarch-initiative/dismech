@@ -7,6 +7,20 @@ from the repo. It has two modes:
 | ---- | -------- | ------ |
 | **Links** (`just translator-drug-links`) | *"What drugs may treat this disease?"* | one disease |
 | **Paths** (`just translator-drug-paths`) | *"By what mechanism might this drug act on this disease?"* | a disease-**drug pair** |
+| **Regulation** (`just translator-regulators`) | *"What chemicals up/down-regulate this gene?"* (and the inverse) | a gene or a chemical |
+
+These mirror the templated questions the Translator UI offers. Coverage against
+the UI's own menu:
+
+| UI feature | Here |
+| ---------- | ---- |
+| "What drugs may treat this disease?" | `just translator-drug-links` |
+| "What chemicals up/downregulate this gene?" | `just translator-regulators GENE --direction …` |
+| "What genes does this chemical up/downregulate?" | `--regulated-by CHEMICAL` |
+| Pathfinder ("how are these two related?") | `just translator-drug-paths … --pathfinder` |
+| Filter by approval / sort by evidence | `--asserted-only`, approval + phase columns |
+| Per-result evidence (publications, sources) | per-hop `sources` and PMIDs |
+| Saved workspaces, sharing, login | not replicated — the ARS pk in every report is the shareable handle |
 
 Paths mode can additionally be run as a **hypothesis-investigation provider**
 (`just translator-hypothesis`), writing its report into `kb/hypotheses/` beside
@@ -206,6 +220,69 @@ evidence *bundles* (all the direct drug-disease edges, look-alike diseases, a ba
 of disease genes), not chains — which is why paths mode issues an explicit
 two-hop query instead of mining them. And the TRAPI Pathfinder query shape is
 rejected by every ARA on the prod ARS today (400/422), so it is not used.
+
+### Pathfinder
+
+`--pathfinder` swaps the hand-built two-hop lookup for the ARS's own Pathfinder
+query — the UI's "how are these two related?" mode. It returns arbitrary-length
+routes and lets the ARS combine lookup and inferred reasoning:
+
+```bash
+just translator-drug-paths kb/disorders/Chronic_Myeloid_Leukemia.yaml imatinib --pathfinder
+```
+
+Three things to know before relying on it:
+
+* **CI only.** Every prod ARA rejects the query shape (400/422); only
+  `ars.ci.transltr.io` answers it, so the flag implies `--ci`. That is why the
+  CI UI is worth keeping open alongside the prod one.
+* **Routes come back unordered.** A Pathfinder answer is a *bag* of edges in an
+  auxiliary graph, not a chain, so the tool walks it back into an ordered route
+  from drug to disease. A hop traversed against its asserted direction is
+  rendered pointing backwards (`SIN3A <--interacts_with-- BCR`) rather than
+  silently flipped — the arrow always shows what the source actually claims.
+* **Co-target routes are dropped by default.** `intermediate_categories` only
+  requires that a gene appear *somewhere* on the route, so an unfiltered
+  imatinib→CML Pathfinder run returns `imatinib → PDGFRB → ABL1 → ponatinib →
+  CML` and nine more of the same shape: every top route detours through a rival
+  TKI. Those are co-prescription and shared-target artifacts, so routes through
+  another drug are excluded unless you pass `--include-chemical-intermediates`.
+
+Given the CI-only status and the noise, the two-hop default remains the one to
+reach for; Pathfinder is worth it when you want multi-hop routes the two-hop
+query structurally cannot see.
+
+## Regulation mode: the up/down-regulation templates
+
+```bash
+just translator-regulators ABL1                       # chemicals that decrease ABL1
+just translator-regulators TP53 --direction increased
+just translator-drug-links --regulated-by imatinib --direction decreased
+```
+
+The direction rides on the Biolink **qualifier set**
+(`object_direction_qualifier: decreased`, `object_aspect_qualifier:
+activity_or_abundance`), not on the predicate, which stays `biolink:affects`.
+Pin the gene to ask which chemicals regulate it; pin the chemical
+(`--regulated-by`) to ask which genes it regulates.
+
+This is the mode that lines up most directly with the dismech data model: a
+pathophysiology node's `biological_processes` and `genes` carry
+`modifier: INCREASED`/`DECREASED`, and a treatment's `target_mechanisms` carries
+`treatment_effect: INHIBITS`/`ACTIVATES`. Asking "what decreases ABL1 activity"
+returns imatinib, ponatinib, dasatinib and nilotinib in rank order — the
+`INHIBITS` set for the CML kinase node.
+
+Answers are cross-referenced like the other modes: chemical answers against the
+entry's curated treatments, gene answers against its curated mechanism.
+
+!!! warning "Gene lookups are pinned to human"
+
+    An unrestricted name-resolver lookup for `ABL1` returns the **dog**
+    orthologue (`NCBIGene:491292`) ahead of the human gene, which would answer a
+    different question without complaining. Symbol lookups therefore force
+    `only_taxa=NCBITaxon:9606`. Pass an explicit CURIE if you want another
+    species.
 
 ## Translator as a hypothesis provider
 
