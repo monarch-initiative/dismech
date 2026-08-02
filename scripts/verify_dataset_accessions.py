@@ -119,6 +119,7 @@ SHAPE = {
     "osdr": re.compile(r"^OSD-\d+$", re.IGNORECASE),
     "massive": re.compile(r"^MSV\d+$", re.IGNORECASE),
     "mgnify": re.compile(r"^MGYS\d+$", re.IGNORECASE),
+    "metabolomics_workbench": re.compile(r"^ST\d+$", re.IGNORECASE),
     # phenopacket-store cohorts are gene symbols or descriptive slugs
     "phenopacket-store": re.compile(r"^[A-Za-z0-9_.\-]{2,40}$"),
 }
@@ -323,6 +324,22 @@ def resolve_mgnify(local_id: str, throttle: Throttle, api_key: str | None):
     return OK, attrs.get("study-name", ""), "", {}
 
 
+def resolve_metabolomics_workbench(local_id: str, throttle: Throttle, api_key: str | None):
+    """Resolve a Metabolomics Workbench study (ST######) via its REST API."""
+    data = http_json(
+        f"https://www.metabolomicsworkbench.org/rest/study/study_id/"
+        f"{urllib.parse.quote(local_id)}/summary"
+    )
+    if not data or not isinstance(data, dict) or not data.get("study_id"):
+        return NOT_FOUND, "", f"no Metabolomics Workbench study {local_id}", {}
+    extra = {}
+    for src, dst in (("number_of_samples", "sample_count"), ("analysis_type", "analysis_type"),
+                     ("species", "organism")):
+        if data.get(src):
+            extra[dst] = data[src]
+    return OK, data.get("study_title", ""), "", extra
+
+
 PPS_INDEX = REPO_ROOT / "data" / "phenopacket-store" / "cohort_index.json"
 _pps_cache: dict | None = None
 
@@ -365,6 +382,7 @@ RESOLVERS = {
     "massive": resolve_massive,
     "mgnify": resolve_mgnify,
     "phenopacket-store": resolve_phenopacket_store,
+    "metabolomics_workbench": resolve_metabolomics_workbench,
 }
 
 
