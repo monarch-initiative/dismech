@@ -193,10 +193,20 @@ validate-synthesis-all:
     uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
     uv run python -m dismech.research_synthesis "${files[@]}"
 
-# Validate a single statistical phenotype-distribution collection
+# Validate a single phenotype-distribution collection or profile set
 [group('QC')]
 validate-phenotype-distribution file:
-    uv run linkml-validate --schema {{phenodist_schema_path}} --target-class PhenotypeDistributionCollection {{file}}
+    #!/usr/bin/env bash
+    set -e
+    # Same payload dispatch as the plural recipe: two shapes share this
+    # directory, and validating one against the other's tree root reports a wall
+    # of spurious errors that reads as a malformed file.
+    if grep -qE '^profiles:' {{file}}; then
+        target=ProfileSet
+    else
+        target=PhenotypeDistributionCollection
+    fi
+    uv run linkml-validate --schema {{phenodist_schema_path}} --target-class "$target" {{file}}
     uv run python -m dismech.phenotype_distribution --check-terms {{file}}
 
 # Validate all statistical phenotype-distribution collections (kb + examples)

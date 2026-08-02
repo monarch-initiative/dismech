@@ -817,6 +817,29 @@ def test_profiles_carry_no_model_layer() -> None:
     for name in slots:
         assert "prevalence" not in name, f"{name} reintroduces `prevalence`"
 
+    # Names alone are not enough. The deletion was complete in the class and
+    # slot definitions while the schema's own prose still described the removed
+    # layer end to end — including a de-OMOP'd class whose docstring still said
+    # "One OMOP concept", one line above the guard meant to prevent that. Prose
+    # drift is this PR's dominant defect mode, so the guard reads prose.
+    prose = [sv.schema.description or ""]
+    for name, cls in sv.all_classes().items():
+        prose.append(f"{name}: {cls.description or ''}")
+    for name, slot in sv.all_slots().items():
+        prose.append(f"{name}: {slot.description or ''}")
+    for name, enum in sv.all_enums().items():
+        prose.append(f"{name}: {enum.description or ''}")
+        for pv_name, pv in (enum.permissible_values or {}).items():
+            prose.append(f"{name}.{pv_name}: {pv.description or ''}")
+    blob = "\n".join(prose)
+
+    stale = sorted(n for n in gone if n in blob)
+    assert not stale, f"schema prose still describes deleted classes: {stale}"
+    for dead_slot in ("model_properties", "feature_namespace", "domain_role"):
+        assert dead_slot not in blob, (
+            f"schema prose still refers to the deleted slot `{dead_slot}`"
+        )
+
 
 def test_codes_are_generic_with_a_declared_vocabulary() -> None:
     """No OMOP-shaped field names.
@@ -914,3 +937,35 @@ def test_profile_rendering_is_deterministic(profile_set_path: Path) -> None:
         render_profile_body(load_collection(profile_set_path), p) for p in coll.profiles
     ]
     assert first == second
+
+
+def test_a_profile_share_requires_its_denominator(profile_set_path: Path) -> None:
+    """A share without a denominator is silently incomparable.
+
+    The reason this slot is `profile_share` rather than `prevalence` is
+    denominator hygiene, so leaving the denominator to free-text prose gave up
+    the point: a share over a whole corpus and a share over one disease arm
+    differ by orders of magnitude and look identical.
+    """
+
+    def mutate(data):
+        data["profile_source"].pop("share_denominator")
+
+    assert "share_denominator" in _error_messages(_mutate(profile_set_path, mutate))
+
+
+def test_profile_shares_cannot_exceed_the_mass_they_divide(
+    profile_set_path: Path,
+) -> None:
+    """Only an upper bound is meaningful.
+
+    Real exports are top-N, so shares falling short of 1 is the normal case —
+    but shares totalling more than the fit's whole mass is the same
+    impossibility the per-distribution check already catches.
+    """
+
+    def mutate(data):
+        data["profiles"][0]["profile_share"] = 0.7
+        data["profiles"][1]["profile_share"] = 0.7
+
+    assert "above 1.0" in _error_messages(_mutate(profile_set_path, mutate))

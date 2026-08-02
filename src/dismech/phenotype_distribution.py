@@ -814,6 +814,19 @@ def lint_profile(
     def warn(msg: str) -> None:
         out.append(Issue(coll.path, pid, "WARNING", msg))
 
+    # A share without its denominator is uninterpretable, and silently
+    # incomparable with the next set's — the exact hazard the slot is named
+    # `profile_share` rather than `prevalence` to avoid.
+    if profile.get("profile_share") is not None:
+        source = profile.get("profile_source") or coll.data.get("profile_source") or {}
+        if not source.get("share_denominator"):
+            err(
+                "profile declares a `profile_share` but its source declares no "
+                "`share_denominator`; a share over a whole corpus and a share "
+                "over one disease arm can differ by orders of magnitude and "
+                "look identical"
+            )
+
     if not (profile.get("disease") or {}).get("disease_term"):
         warn(
             "profile declares no `disease.disease_term`; a profile is keyed to "
@@ -889,6 +902,23 @@ def lint_collections(
 
     seen: dict[str, Path] = {}
     for coll in collections:
+        shares = [
+            p["profile_share"]
+            for p in coll.profiles
+            if isinstance(p.get("profile_share"), (int, float))
+        ]
+        # Only an upper bound is meaningful: real exports are top-N, so shares
+        # falling short of 1 is the normal case, but exceeding it is not.
+        if shares and sum(shares) > 1.001:
+            result.issues.append(
+                Issue(
+                    coll.path,
+                    "",
+                    "ERROR",
+                    f"profile shares sum to {sum(shares):.3f}, above 1.0; shares "
+                    "divide one fit's mass and cannot total more than it",
+                )
+            )
         for profile in coll.profiles:
             result.n_records += 1
             pid = str(profile.get("profile_id", ""))

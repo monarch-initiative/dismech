@@ -2,9 +2,9 @@ id: https://w3id.org/monarch-initiative/dismech/phenotype_distribution
 name: dismech_phenotype_distribution
 title: Disorder Mechanisms Statistical Phenotype Distribution Schema
 description: >-
-  A statistical distribution of a phenotype (or of a latent phenotype profile)
-  within a defined disease cohort, curated so it can be cited from a dismech
-  entry as evidence.
+  Two shapes for phenotype data that dismech records too coarsely, curated so
+  either can be cited from a disease entry as evidence: the full statistical
+  object behind a literature estimate, and an EHR-derived phenotype profile.
 
   **Why this exists.** dismech records phenotype occurrence almost entirely as
   the coarse HPO `FrequencyEnum` band (OBLIGATE / VERY_FREQUENT / FREQUENT /
@@ -20,52 +20,49 @@ description: >-
   **What a record is.** One `PhenotypeDistributionRecord` = one estimand, for
   one phenotype, in one disease, in one stratum, from one analysis. It carries
   the distribution itself (`DistributionEstimate`), the cohort it came from
-  (`CohortDescriptor`), how it was stratified (`Stratum`), what is known about
-  the reliability of the underlying data domains (`DomainReliability`), a
-  SEPIO-shaped argument that connects the number to a proposition
-  (`EvidenceLine`), and an explicit import bridge to a dismech slot
-  (`DismechBinding`).
+  (`CohortDescriptor`), how it was stratified (`Stratum`), a SEPIO-shaped
+  argument that connects the number to a proposition (`EvidenceLine`), and an
+  explicit import bridge to a dismech slot (`DismechBinding`).
 
-  **Distribution coverage.** The `DistributionFamilyEnum` spans the four shapes
-  that actually occur in disease-phenotype data: binary occurrence (Bernoulli /
+  **Distribution coverage.** The `DistributionFamilyEnum` spans the shapes that
+  actually occur in disease-phenotype data: binary occurrence (Bernoulli /
   binomial / Beta posterior — the statistical form of a `frequency:` band),
   continuous traits and onset ages (normal / lognormal / gamma / Weibull /
   empirical quantiles), counts and rates (Poisson / negative binomial and their
-  zero-inflated forms), and compositional / latent-profile weights (categorical,
+  zero-inflated forms), and compositional weights over a simplex (categorical,
   Dirichlet, logistic-normal). The compositional families are why the schema
   supports vector- and matrix-valued parameters and per-covariate effects rather
   than only scalar point estimates.
 
-  **Design principle: the common denominator, not one model's output.** Latent
-  phenotype modelling (see CHARMPheno, https://github.com/oneilsh/CHARMPheno,
-  for the reference implementation) is iterating fast — model classes, export
-  shapes, and even which diagnostics are trustworthy have all changed
-  repeatedly, with decisions reversed as evidence came in. A curation schema
-  that encoded one family's export would need revising every time that family
-  moved, and would quietly misrepresent the next one.
+  **What a profile is.** One `Profile` = one interpretable pattern in one
+  disease cohort: a label, a MONDO term, and one weighted-code distribution per
+  clinical domain. A profile points at a single MONDO term, so nesting and
+  overlap between cohorts is MONDO's subclass tree — which dismech already
+  renders — rather than a cohort vocabulary of this schema's own.
 
-  So the model layer here is restricted to what LDA, HDP, structural topic
-  models, matrix factorizations, mixtures, and their successors all share:
+  **Design principle: a disease page, not a model report.** An earlier draft of
+  this schema carried a full model layer: component counts, inference methods,
+  hyperparameters, per-domain reliability, cohort arms and the denominators
+  attached to them. That was the wrong altitude twice over. Per-domain weights,
+  reliability, and precision/recall are model *evaluation* rather than
+  disease-page content; and they are the fastest-moving part of the pipeline, so
+  a curation schema encoding them would need revising every time the models
+  moved. That layer is gone. Anything model-specific now lives in
+  `ProfileSource`, including an open `profile_metadata` key/value map, so the
+  models can be reshaped freely without touching the profile contract.
 
-  * a **component** with an identity, a label, and ranked weighted features
-    over a **declared feature namespace** — profiles are distributions over
-    *clinical codes*, currently OMOP concept IDs, not over MONDO or HPO terms.
-    That mapping is lossy and is not what the models emit, so the namespace is
-    declared per domain rather than assumed;
-  * a **distribution of component weight** over a population, expressible as an
-    empirical distribution, a Dirichlet, or a logistic-normal;
-  * optional **covariate dependence** of component weight, recorded as a
-    coefficient plus the scale it lives on;
-  * **quality metrics** per component, as metric/value pairs;
-  * the **estimation scope** — how much data actually backed the component,
-    which is what a subpopulation-restricted fit changes;
-  * enough **provenance** to find the fit again.
+  The profile shape follows the proposal by the author of the models that
+  produce this data (see the CHARMPheno repository in `see_also`); the reasoning
+  is recorded here because the more elaborate alternative was built first and
+  did not survive review.
 
-  Everything family-specific — block and arm layouts, masking rules,
-  optimization schedules, bespoke diagnostics — goes in `model_properties` as
-  name/value pairs, or in `notes`. A new export shape should be recordable
-  without a schema change; if it is not, the missing thing is probably not a
-  common denominator.
+  **Codes are opaque; the vocabulary is declared.** A profile's `code` is a bare
+  identifier in whatever system `code_vocabulary` names — an OMOP concept id, an
+  ICD-10-CM code, a LOINC code. Two lessons are encoded there: do not put a
+  source-vocabulary CURIE in a code field, because that proved brittle; and do
+  not name the fields after one vocabulary either, because data may arrive coded
+  in another. Profiles range over **clinical codes, not ontology terms**, so a
+  consumer that reads them as HPO because dismech is HPO-centric is wrong.
 
   **Evidence modelling.** The evidence layer follows SEPIO
   (https://sepio-framework.github.io/sepio-linkml/) and is deliberately
@@ -77,18 +74,15 @@ description: >-
   precisely estimated null and an underpowered null point the same way with very
   different force. `EvidenceDirectionEnum` reuses the permissible values of the
   native dismech `EvidenceItemSupportEnum` verbatim so the two forms stay
-  mechanically inter-convertible.
+  mechanically inter-convertible. Both shapes share it, and both share the
+  `PHENODIST:` cache bridge that makes them citable.
 
-  **Reliability.** A distribution derived from EHR data is only as trustworthy
-  as the source domain (conditions vs. drugs vs. measurements vs. observations)
-  it was read out of, and a held-out supervised readout is honest only when each
-  analysed row is a distinct person — `IdentityAttestation` proves that without
-  exposing identifiers. `DomainReliability` records the assessment, but
-  `domain_role` is what a consumer should act on: where domain weighting has
-  been tested directly the headroom was small and not recoverable from
-  quantities read off the fitted model, so the useful conclusion is about
-  routing a domain to the diseases it serves, not blending it into every
-  estimate. (Both ideas come from the CHARMPheno domain-reliability work.)
+  **Weights are not prevalences.** In neither shape. The topic-model literature
+  calls a component's share of mass its "prevalence"; here `prevalence` means
+  what dismech's own `prevalence[]` block means — patients over a stated
+  denominator of patients at risk — so the slots are `profile_share` and
+  `code_weight`, and neither is convertible to an occurrence rate.
+
 license: BSD-3-Clause
 
 see_also:
@@ -164,7 +158,8 @@ enums:
       LATENT_PHENOTYPE_WEIGHT:
         description: >-
           Weight of a learned latent phenotype (topic / component) in a cohort's
-          profile, as produced by a LatentPhenotypeModel.
+          profile. A `ProfileSet` records this as `profile_share`; the measure
+          type remains for a distribution record whose estimand is such a weight.
       CODE_PROBABILITY:
         description: >-
           Probability of an individual clinical code given a latent phenotype
@@ -576,7 +571,10 @@ enums:
           HPO phenotype terms. As with MONDO, lossy relative to source clinical
           codes and not the default feature space.
       OTHER:
-        description: Another identifier system; name it in `feature_namespace_detail`.
+        description: >-
+          Another identifier system. Name it in the version field beside this
+          one — `code_vocabulary_version` on a code distribution, or
+          `identification_vocabulary_detail` on a cohort-identification step.
 
   CohortIdentificationRoleEnum:
     description: >-
@@ -1516,10 +1514,10 @@ slots:
   identification_vocabulary:
     description: >-
       Vocabulary this step operates in. Shares `CodeVocabularyEnum` with
-      `feature_namespace` deliberately: identification and feature spaces are
-      drawn from the same universe of terminologies, and sharing the value space
-      is what lets a consumer see at a glance that a cohort was identified in
-      MONDO while its profiles are emitted over OMOP concept IDs.
+      `code_vocabulary` deliberately: the vocabulary a cohort is *identified*
+      with and the one its codes are *drawn from* come from the same universe of
+      terminologies, and sharing the value space is what lets a consumer see at
+      a glance that a cohort was identified in MONDO while its codes are OMOP.
     range: CodeVocabularyEnum
   identification_vocabulary_detail:
     description: >-
@@ -1781,17 +1779,30 @@ slots:
     range: ValueQualifierEnum
   profile_share:
     description: >-
-      Share of the cohort's profile mass this profile accounts for.
+      Share of the fitted mass this profile accounts for, over the denominator
+      named in `profile_source.share_denominator`.
 
-      Deliberately not called a prevalence. Shares across the profiles of one
-      cohort are compositional — they divide the fit's mass — whereas a
-      prevalence counts patients against a stated denominator of patients at
-      risk, which is what dismech's own `prevalence[]` block means. Rendering
-      one next to the other under the same word would invite exactly the
-      comparison that does not hold.
+      Deliberately not called a prevalence. Shares are compositional — they
+      divide a fit's mass — whereas a prevalence counts patients against a
+      stated denominator of patients at risk, which is what dismech's own
+      `prevalence[]` block means. Rendering one beside the other under the same
+      word would invite exactly the comparison that does not hold.
+
+      Which is why the denominator is not optional prose. The whole reason this
+      slot has a different name is denominator hygiene, so leaving the
+      denominator unstated would give up the point: a share over a whole corpus
+      and a share over one disease arm can differ by three orders of magnitude
+      and look identical here. Two shares are comparable only when their sets
+      declare the same denominator.
     range: float
     minimum_value: 0.0
     maximum_value: 1.0
+  share_denominator:
+    description: >-
+      What every `profile_share` in this set is a fraction of — the whole
+      analysed corpus, one disease arm, one cohort. Required whenever any
+      profile carries a `profile_share`, because the number is uninterpretable
+      and silently incomparable without it.
   resource:
     description: Name of the resource or pipeline that produced the profiles.
   method:
@@ -2218,8 +2229,9 @@ classes:
       something different: an interpretable summary of what co-occurs in a
       disease cohort, exported from a fitted model for a disease page to show.
 
-      Modelled on the proposal in monarch-initiative/dismech#7612 by the author
-      of the models that produce this data, and small on purpose. An earlier
+      Modelled on the proposal by the author of the models that produce this
+      data (CHARMPheno, `docs/proposals/dismech-profiles`; see `see_also`), and
+      small on purpose. An earlier
       draft of this schema grew a full model layer — component counts,
       inference methods, per-domain reliability, cohort arms — and that was the
       wrong call twice over: it is model *evaluation* rather than disease-page
@@ -2293,7 +2305,10 @@ classes:
         required: true
 
   WeightedCode:
-    description: One OMOP concept and its weight within a distribution.
+    description: >-
+      One code and its weight within a distribution. The code is opaque and its
+      system is declared on the enclosing `CodeDistribution` — nothing here
+      assumes OMOP, or any other single vocabulary.
     slots:
       - code
       - code_label
@@ -2321,6 +2336,7 @@ classes:
       - dataset
       - dataset_version
       - cohort_size
+      - share_denominator
       - model_version
       - url
       - primary_references

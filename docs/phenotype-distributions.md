@@ -203,10 +203,17 @@ The topic-model literature calls a component's share of corpus mass its
 "prevalence". This schema never does, in either shape. In a disease knowledge
 base `prevalence` means a count of patients carrying a label over a stated
 denominator of patients at risk, and dismech has a `prevalence[]` block that
-means exactly that. A profile's share is a fraction of fitted model mass; the two
-are not convertible, and rendering one beside the other under the same word
-invites a comparison that does not hold. The slots are `profile_share` and
+means exactly that. A profile's share is a fraction of fitted mass; the two are
+not convertible, and rendering one beside the other under the same word invites
+a comparison that does not hold. The slots are `profile_share` and
 `code_weight`.
+
+Because denominator hygiene is the whole reason for the different name,
+`profile_source.share_denominator` states what the shares are a fraction of —
+the whole analysed corpus, one disease arm, one cohort — and the lint requires
+it wherever any `profile_share` appears. Two shares are comparable only when
+their sets declare the same denominator; without it, a corpus-wide share and an
+arm-wide share differ by orders of magnitude and look identical.
 
 `code_weight` is a code's mass *within its own distribution*, which is not the
 frequency of that finding among patients — the confusion worth guarding hardest
