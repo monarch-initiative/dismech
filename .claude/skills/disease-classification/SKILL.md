@@ -120,8 +120,8 @@ enum.
   Metabolic Disorders (ICIMD) category/group. Apply to inherited
   metabolic disorders (inborn errors of metabolism). Multivalued. See
   the dedicated section below.
-- **`isds_skeletal_category`** — ISDS Nosology group for genetic
-  skeletal disorders (skeletal dysplasias, dysostoses, metabolic bone
+- **`isds_skeletal_category`** — ISDS Nosology group (2023 revision) for
+  genetic skeletal disorders (skeletal dysplasias, dysostoses, metabolic bone
   disorders, skeletal malformation/reduction syndromes). Multivalued in
   the schema, but a single ISDS-listed disorder takes exactly one group.
   See the dedicated section below.
@@ -188,11 +188,13 @@ for k, pv in sv.get_enum('ICIMDEnum').permissible_values.items():
 For genetic skeletal disorders, assign the group from
 `ISDSNosologyGroupEnum` (defined in
 `src/dismech/schema/classifications/isds_skeletal_nosology.yaml`,
-transcribed from the ISDS Nosology and Classification of Genetic
-Skeletal Disorders, 2019 revision — Mortier et al., **PMID:31633310**).
-That revision lists 461 disorders in 42 groups, mixing molecular
-(groups 1-8), radiographic (groups 10-14), and anatomical/pathogenetic
-(craniosynostosis, brachydactyly, osteolysis) organizing principles.
+transcribed from the ISDS Nosology of Genetic Skeletal Disorders, 2023
+revision — Unger et al., **PMID:36779427**). That revision lists 771
+entries across 552 genes in 41 groups, mixing molecular, radiographic,
+and anatomical/pathogenetic organizing principles. It supersedes the
+2019 revision (Mortier et al., PMID:31633310), whose group names are
+retained as `structured_aliases` and whose four dissolved groups are
+retained as `deprecated` values — **never assign a deprecated value**.
 
 The enum is **flat**, not hierarchical, and the nosology deliberately
 lists each disorder **exactly once**. So:
@@ -206,9 +208,13 @@ lists each disorder **exactly once**. So:
   Table 1 (and is not an unambiguous subtype or synonym of a Table 1
   disorder), leave the slot empty — plenty of disorders with skeletal
   phenotypes were deliberately not included.
-- Watch for cross-group traps: FGFR3 craniosynostosis is group 33, not
-  group 1; Hajdu-Cheney is group 28 (osteolysis), not group 25;
-  brachydactyly-hypertension is group 38, not group 15.
+- Watch for cross-group traps: FGFR3 craniosynostosis belongs to the
+  craniosynostosis group, not the FGFR3 group; Hajdu-Cheney is
+  osteolysis, not OI/bone fragility; brachydactyly-hypertension is a
+  syndromic brachydactyly, not acromelic.
+- **Group numbers are not stable across revisions** — the brachydactyly
+  groups moved from 37/38 to 18/19 between 2019 and 2023. Cite the
+  group by name and revision in `notes:`, never by bare number.
 - **Entities the nosology flags but declines to decompose** get the group on
   the entity only. Fanconi anemia (group 39) is the worked case: its gene
   column reads "Several" and the group footnote says the complementation
@@ -224,13 +230,14 @@ classifications:
   isds_skeletal_category:
   - classification_value: fgfr3_chondrodysplasia
     notes: >-
-      ISDS Nosology and Classification of Genetic Skeletal Disorders,
-      2019 revision (Mortier et al., PMID:31633310), Table 1 group 1
-      "FGFR3 chondrodysplasia group"; listed as "Achondroplasia".
+      ISDS Nosology of Genetic Skeletal Disorders, 2023 revision
+      (Unger et al., PMID:36779427), group 1 "FGFR3 chondrodysplasias";
+      listed as "Achondroplasia, FGFR3-related".
 ```
 
 Groups carry no `meaning:`; three carry a `close_mappings:` to a MONDO
-class (groups 1, 8 and 16 — the gene-defined series). A candidate MONDO
+class (FGFR3 chondrodysplasias, TRPV4 disorders, and acromesomelic
+dysplasias — the gene-defined series). A candidate MONDO
 class is rejected whenever it contains an entity ISDS lists in a
 *different* group, so do not add mappings without running that check.
 See `docs/isds-skeletal-nosology.md` for the accepted and rejected sets.
