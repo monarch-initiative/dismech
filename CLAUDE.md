@@ -1384,13 +1384,24 @@ canonical causal gene (`RO:0004003`) and OMIM xref, and prints one of four verdi
 | Verdict | Meaning | Action |
 |---------|---------|--------|
 | `PASS` | The canonical gene dominates the report's gene mentions. | Proceed to the normal reference/term verification. |
-| `WARN` | The canonical gene is present but a rival gene is also discussed substantively, or the report's OMIM IDs disagree with the MONDO xref, or no genes were found. | Exclude the rival entity's sections before curating (the Temtamy pattern). |
+| `WARN` | The canonical gene is present but a rival gene is also discussed substantively; or the report's OMIM IDs disagree with the MONDO xref; or no genes were found; or the canonical gene appears fewer than 3 times; or a lookup the verdict depends on failed. | Exclude the rival entity's sections before curating (the Temtamy pattern), and resolve any reported lookup failure. |
 | `FAIL` | The canonical gene is absent while another gene is discussed substantively. | **Discard the report entirely — do NOT cherry-pick from it** (the Lichtenstein-Knorr pattern). |
-| `SKIP` | MONDO records no causal gene (complex/multifactorial disease or a grouping term). | The automated check cannot discriminate — run the manual steps below. |
+| `SKIP` | MONDO genuinely records no causal gene (complex/multifactorial disease or a grouping term). | The automated check cannot discriminate — run the manual steps below. |
 
 The recipe exits non-zero on `FAIL` (and on `WARN` too with `--strict`), so it can gate a
-curation script. Add `--json` for machine-readable output. A `WARN`/`SKIP` verdict is not
-a clearance — fall back to the manual checks:
+curation script. Add `--json` for machine-readable output.
+
+**Read a degraded run as a degraded run.** The tool is deliberately biased away from
+both a false clearance and a false "discard": an unreachable HGNC adapter falls back to
+a noisier heuristic lexicon and *says so* on the `lexicon:` line (pass `--require-hgnc`
+to hard-error instead — use this if you ever gate CI on it); a MONDO lookup that
+*errors* is reported as a failed lookup on a `! lookup failed :` line and caps the
+verdict at `WARN`, rather than being reported as an affirmative "no causal gene"; and a
+causal gene whose symbol cannot be resolved produces `WARN`, never `FAIL`. HGNC alias
+symbols count towards the canonical gene, so a report that writes `NHE1` throughout is
+not mistaken for a wrong-entity report about `SLC9A1`.
+
+A `WARN`/`SKIP` verdict is not a clearance — fall back to the manual checks:
 
 1. Pull the authoritative MONDO record for the intended disease:
    ```bash

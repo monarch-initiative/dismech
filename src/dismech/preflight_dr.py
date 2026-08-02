@@ -30,15 +30,35 @@ Verdicts
 ``WARN``
     The canonical gene is present but a rival gene is also discussed
     substantively, or the report's OMIM IDs disagree with the MONDO xref, or
-    no genes could be found at all. This is the Temtamy pattern (PR #3835):
-    a single report mixing C12orf57 and CHSY1 content. Sections about the
-    rival entity must be excluded before curating.
+    no genes could be found at all, or the canonical gene is mentioned fewer
+    than ``min_signal`` times, or a lookup the verdict depends on failed. This
+    is the Temtamy pattern (PR #3835): a single report mixing C12orf57 and
+    CHSY1 content. Sections about the rival entity must be excluded before
+    curating.
 ``PASS``
     The canonical gene dominates the report's gene mentions.
 ``SKIP``
     MONDO records no causal gene for this entity (complex/multifactorial
     disease, or a grouping term). The check cannot discriminate; fall back to
     the manual OMIM/synonym preflight.
+
+Failure directions
+------------------
+This is a safety gate, so every degraded path is biased *away* from a clean
+bill of health and away from a spurious "discard the report":
+
+* If the HGNC lexicon cannot be reached, the run does not quietly stop
+  recognising gene symbols (which would turn the Lichtenstein-Knorr ``FAIL``
+  into a ``WARN``). It falls back to :class:`HeuristicLexicon` and says so.
+* If a MONDO lookup *fails*, that is reported as a failure rather than as an
+  affirmative "MONDO records no causal gene", and it caps the verdict at
+  ``WARN``.
+* If the canonical gene's symbol cannot be resolved to something a report
+  could plausibly contain (i.e. it is still a bare CURIE), the verdict is
+  ``WARN`` — never ``FAIL``, which would tell the curator to bin a correct
+  report.
+* A single incidental mention of the canonical gene is not enough for
+  ``PASS``; ``min_signal`` applies to the expected gene as well as to rivals.
 """
 from __future__ import annotations
 
@@ -57,9 +77,21 @@ GENE_RELATION = "RO:0004003"
 # hyphenated forms (BCR-ABL1, HLA-B), and the mixed-case chromosome-open-reading-
 # frame form (C12orf57) that a naive all-caps pattern misses -- and C12orf57 is
 # precisely the gene at issue in the Temtamy NEC case.
+#
+# The pattern is case-sensitive by design, which means an ALL-CAPS heading can
+# smuggle an ordinary English word in as a "gene" (CAT, SET, SPARC and IMPACT
+# are all real HGNC symbols). Note the direction of that bias: such a token can
+# only ever be a *rival*, so at worst it inflates a rival past ``min_signal``
+# and produces a spurious WARN. It can never suppress the expected gene, and so
+# can never manufacture a FAIL.
 GENE_TOKEN_RE = re.compile(
     r"\b(?:C\d{1,2}orf\d{1,3}|[A-Z][A-Z0-9]{1,9}(?:-[A-Z0-9]{1,6})?)\b"
 )
+
+# A CURIE that survived symbol resolution, e.g. "HGNC:11071". If the canonical
+# gene is still shaped like this, no DR report will ever mention it, so the
+# gene-frequency comparison is meaningless rather than damning.
+CURIE_SHAPED_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.]*:\S+$")
 
 # OMIM / MIM identifiers as they appear in DR prose: "OMIM:616291", "OMIM 616291",
 # "MIM #605282", "(MIM 616354)".
@@ -120,10 +152,18 @@ class MondoRecord:
 
     id: str
     label: str = ""
-    definition: str = ""
     genes: tuple[str, ...] = ()
     omim_ids: tuple[str, ...] = ()
-    synonyms: tuple[str, ...] = ()
+    #: Entries of :attr:`genes` that could not be resolved to a gene *symbol*
+    #: and are still bare CURIEs. A report can never mention these, so they
+    #: must not be read as evidence that the report is about another disease.
+    unresolved_genes: tuple[str, ...] = ()
+    #: Canonical symbol -> previous/alias symbols from HGNC. A report that
+    #: says "NHE1" is still talking about SLC9A1.
+    gene_aliases: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    #: Human-readable descriptions of lookups that *failed* (as opposed to
+    #: lookups that legitimately returned nothing). Never silently dropped.
+    lookup_errors: tuple[str, ...] = ()
 
 
 @dataclass
@@ -140,10 +180,26 @@ class PreflightResult:
     report_omim: list[str]
     reasons: list[str] = field(default_factory=list)
     lexicon: str = "hgnc"
+    #: Why a degraded lexicon is in use, if it is. Empty for a live HGNC run
+    #: and for a deliberate ``--no-hgnc`` run.
+    lexicon_note: str = ""
+    #: Alias symbol -> count, for aliases that actually occur in the report.
+    alias_mentions: dict[str, int] = field(default_factory=dict)
+    #: Lookups that failed while assembling the comparison (see MondoRecord).
+    lookup_errors: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
         return self.verdict in (PASS, SKIP)
+
+
+class LexiconUnavailable(RuntimeError):
+    """The HGNC gene-symbol lexicon could not be reached.
+
+    Raised rather than swallowed: a lexicon that silently rejects every token
+    makes the report look gene-free, which downgrades a ``FAIL`` to a ``WARN``
+    -- exactly the wrong direction for a safety gate.
+    """
 
 
 class HgncLexicon:
@@ -155,23 +211,54 @@ class HgncLexicon:
 
     name = "hgnc"
 
+    #: A symbol the adapter must be able to resolve for the lexicon to be
+    #: considered live. It is the canonical gene of NEC case 1.
+    PROBE_SYMBOL = "SLC9A1"
+
     def __init__(self, adapter=None):
         self._adapter = adapter
         self._cache: dict[str, bool] = {}
 
     def _get_adapter(self):
         if self._adapter is None:
-            from oaklib import get_adapter
+            try:
+                from oaklib import get_adapter
 
-            self._adapter = get_adapter("sqlite:obo:hgnc")
+                self._adapter = get_adapter("sqlite:obo:hgnc")
+            except Exception as exc:  # pragma: no cover - install/network failure
+                raise LexiconUnavailable(
+                    f"could not open the HGNC adapter (sqlite:obo:hgnc): {exc}"
+                ) from exc
         return self._adapter
+
+    def probe(self) -> None:
+        """Raise :class:`LexiconUnavailable` unless the adapter really answers.
+
+        Checked once up front so a dead adapter is reported as a dead adapter
+        rather than as "this report mentions no genes".
+        """
+        adapter = self._get_adapter()
+        try:
+            hits = list(adapter.curies_by_label(self.PROBE_SYMBOL))
+        except Exception as exc:  # pragma: no cover - adapter/network failure
+            raise LexiconUnavailable(
+                f"the HGNC adapter failed to answer a lookup: {exc}"
+            ) from exc
+        if not hits:
+            raise LexiconUnavailable(
+                f"the HGNC adapter did not resolve the probe symbol "
+                f"{self.PROBE_SYMBOL}; it is empty or not the expected ontology"
+            )
 
     def __contains__(self, symbol: str) -> bool:
         if symbol not in self._cache:
+            adapter = self._get_adapter()
             try:
-                hits = list(self._get_adapter().curies_by_label(symbol))
-            except Exception:  # pragma: no cover - adapter/network failure
-                hits = []
+                hits = list(adapter.curies_by_label(symbol))
+            except Exception as exc:  # pragma: no cover - adapter/network failure
+                raise LexiconUnavailable(
+                    f"the HGNC adapter failed while looking up {symbol!r}: {exc}"
+                ) from exc
             self._cache[symbol] = bool(hits)
         return self._cache[symbol]
 
@@ -184,8 +271,28 @@ class HeuristicLexicon:
 
     name = "heuristic"
 
+    def __init__(self, reason: str = ""):
+        #: Why HGNC was not used, surfaced in the report output.
+        self.reason = reason
+
     def __contains__(self, symbol: str) -> bool:
         return symbol.upper() not in NON_GENE_TOKENS
+
+
+def default_lexicon(*, allow_fallback: bool = True):
+    """Return a live HGNC lexicon, or an explicitly-degraded heuristic one.
+
+    The fallback is *labelled* (``lexicon: heuristic (HGNC unavailable)`` in
+    the output) so a degraded run can never be mistaken for a clean one.
+    """
+    lexicon = HgncLexicon()
+    try:
+        lexicon.probe()
+    except LexiconUnavailable as exc:
+        if not allow_fallback:
+            raise
+        return HeuristicLexicon(reason=str(exc))
+    return lexicon
 
 
 def strip_curies(text: str) -> str:
@@ -211,61 +318,162 @@ def extract_omim_ids(text: str) -> set[str]:
     return set(OMIM_RE.findall(text))
 
 
-def fetch_mondo_record(mondo_id: str, adapter=None) -> MondoRecord:
-    """Look up the label, definition, causal gene(s), and OMIM xrefs for a MONDO term.
+def _is_curie_shaped(value: str) -> bool:
+    """True if ``value`` still looks like ``PREFIX:LOCALID`` rather than a symbol."""
+    return bool(CURIE_SHAPED_RE.match(value))
+
+
+def _symbol_like(value: str) -> bool:
+    """True if ``value`` could plausibly be matched in report prose as a gene."""
+    match = GENE_TOKEN_RE.fullmatch(value)
+    return bool(match) and value.upper() not in NON_GENE_TOKENS
+
+
+def fetch_mondo_record(mondo_id: str, adapter=None, hgnc_adapter=None) -> MondoRecord:
+    """Look up the label, causal gene(s), and OMIM xrefs for a MONDO term.
 
     The causal gene comes from the ``RO:0004003`` relation. Contrary to an
     earlier note in ``CLAUDE.md``, the local ``sqlite:obo:mondo`` adapter does
-    expose this relation, so the definition text is only a fallback for terms
-    that lack the edge.
+    expose this relation.
+
+    The relation's object is an HGNC CURIE, so it has to be resolved to a
+    symbol before it can be compared against report prose. MONDO usually
+    carries the label, but when it does not the HGNC adapter is asked; if that
+    also fails the CURIE is recorded in
+    :attr:`MondoRecord.unresolved_genes` so the caller can refuse to draw a
+    conclusion from it. Every lookup that *errors* (as opposed to legitimately
+    returning nothing) is recorded in :attr:`MondoRecord.lookup_errors`.
     """
     if adapter is None:
         from oaklib import get_adapter
 
         adapter = get_adapter("sqlite:obo:mondo")
 
-    label = adapter.label(mondo_id) or ""
+    errors: list[str] = []
+
+    # The HGNC adapter is only needed to repair a missing label or to pull
+    # aliases, so it is built lazily and its absence is not fatal.
+    hgnc_state: dict[str, object] = {"adapter": hgnc_adapter, "tried": hgnc_adapter is not None}
+
+    def _hgnc():
+        if not hgnc_state["tried"]:
+            hgnc_state["tried"] = True
+            try:
+                from oaklib import get_adapter
+
+                hgnc_state["adapter"] = get_adapter("sqlite:obo:hgnc")
+            except Exception as exc:  # pragma: no cover - install/network failure
+                errors.append(f"HGNC adapter unavailable for symbol resolution: {exc}")
+                hgnc_state["adapter"] = None
+        return hgnc_state["adapter"]
+
     try:
-        definition = adapter.definition(mondo_id) or ""
-    except Exception:  # pragma: no cover - adapter variance
-        definition = ""
+        label = adapter.label(mondo_id) or ""
+    except Exception as exc:  # pragma: no cover - adapter variance
+        errors.append(f"label lookup for {mondo_id} failed: {exc}")
+        label = ""
 
     genes: list[str] = []
+    unresolved: list[str] = []
+    aliases: dict[str, tuple[str, ...]] = {}
     try:
-        for _subject, predicate, obj in adapter.relationships([mondo_id]):
-            if predicate != GENE_RELATION:
-                continue
-            symbol = adapter.label(obj) or obj
-            if symbol not in genes:
-                genes.append(symbol)
-    except Exception:  # pragma: no cover - adapter variance
-        pass
+        relationships = list(adapter.relationships([mondo_id]))
+    except Exception as exc:
+        errors.append(
+            f"causal-gene lookup ({GENE_RELATION}) for {mondo_id} failed: {exc}"
+        )
+        relationships = []
+
+    for _subject, predicate, obj in relationships:
+        if predicate != GENE_RELATION:
+            continue
+        symbol, resolved = _resolve_gene_symbol(obj, adapter, _hgnc, errors)
+        if symbol in genes:
+            continue
+        genes.append(symbol)
+        if not resolved:
+            unresolved.append(symbol)
+            continue
+        gene_aliases = _gene_aliases(obj, _hgnc, errors)
+        if gene_aliases:
+            aliases[symbol] = gene_aliases
 
     omim_ids: list[str] = []
     try:
-        for _predicate, target in adapter.simple_mappings_by_curie(mondo_id) or []:
-            if not str(target).upper().startswith("OMIM:"):
-                continue
-            digits = str(target).split(":", 1)[1].strip()
-            if digits.isdigit() and digits not in omim_ids:
-                omim_ids.append(digits)
-    except Exception:  # pragma: no cover - adapter variance
-        pass
-
-    synonyms: list[str] = []
-    try:
-        synonyms = [str(s) for s in (adapter.entity_aliases(mondo_id) or [])]
-    except Exception:  # pragma: no cover - adapter variance
-        pass
+        mappings = adapter.simple_mappings_by_curie(mondo_id) or []
+    except Exception as exc:
+        errors.append(f"OMIM xref lookup for {mondo_id} failed: {exc}")
+        mappings = []
+    for _predicate, target in mappings:
+        if not str(target).upper().startswith("OMIM:"):
+            continue
+        digits = str(target).split(":", 1)[1].strip()
+        if digits.isdigit() and digits not in omim_ids:
+            omim_ids.append(digits)
 
     return MondoRecord(
         id=mondo_id,
         label=label,
-        definition=definition,
         genes=tuple(genes),
         omim_ids=tuple(omim_ids),
-        synonyms=tuple(synonyms),
+        unresolved_genes=tuple(unresolved),
+        gene_aliases=aliases,
+        lookup_errors=tuple(errors),
     )
+
+
+def _resolve_gene_symbol(curie, adapter, hgnc_getter, errors: list[str]) -> tuple[str, bool]:
+    """Resolve an ``RO:0004003`` object to a gene symbol.
+
+    Returns ``(symbol_or_curie, resolved)``. ``resolved`` is False when the
+    best available value is still a bare CURIE -- a state that must produce a
+    WARN rather than a FAIL, because no correct report would contain it.
+    """
+    curie = str(curie)
+    try:
+        symbol = adapter.label(curie) or ""
+    except Exception as exc:  # pragma: no cover - adapter variance
+        errors.append(f"gene-symbol lookup for {curie} failed in MONDO: {exc}")
+        symbol = ""
+
+    if not symbol or _is_curie_shaped(symbol):
+        hgnc = hgnc_getter()
+        if hgnc is not None:
+            try:
+                symbol = hgnc.label(curie) or symbol
+            except Exception as exc:  # pragma: no cover - adapter variance
+                errors.append(f"gene-symbol lookup for {curie} failed in HGNC: {exc}")
+
+    if not symbol or _is_curie_shaped(symbol):
+        errors.append(
+            f"could not resolve {curie} to a gene symbol; "
+            "the gene-frequency comparison cannot be made against a bare CURIE"
+        )
+        return curie, False
+    return symbol, True
+
+
+def _gene_aliases(curie, hgnc_getter, errors: list[str]) -> tuple[str, ...]:
+    """Previous/alias symbols for a gene, so ``NHE1`` still counts for ``SLC9A1``.
+
+    Aliases are filtered to symbol-shaped tokens the report scanner could
+    actually produce; free-text names ("sodium/hydrogen exchanger 1") are
+    dropped because :data:`GENE_TOKEN_RE` would never emit them.
+    """
+    hgnc = hgnc_getter()
+    if hgnc is None:
+        return ()
+    try:
+        raw = hgnc.entity_aliases(str(curie)) or []
+    except Exception as exc:  # pragma: no cover - adapter variance
+        errors.append(f"alias lookup for {curie} failed: {exc}")
+        return ()
+    seen: list[str] = []
+    for alias in raw:
+        alias = str(alias).strip()
+        if _symbol_like(alias) and alias not in seen:
+            seen.append(alias)
+    return tuple(seen)
 
 
 def assess(
@@ -277,17 +485,35 @@ def assess(
     min_signal: int = DEFAULT_MIN_SIGNAL,
     rival_ratio: float = DEFAULT_RIVAL_RATIO,
     lexicon_name: str = "hgnc",
+    lexicon_note: str = "",
 ) -> PreflightResult:
     """Compare a report's gene mentions against a MONDO entity's canonical gene."""
     report_omim = report_omim or set()
     expected = list(record.genes)
-    expected_mentions = {g: gene_counts.get(g, 0) for g in expected}
-    expected_total = sum(expected_mentions.values())
+    unresolved = set(record.unresolved_genes)
+    resolvable = [g for g in expected if g not in unresolved]
 
+    # An alias mention counts towards its canonical gene: a report that writes
+    # "NHE1" throughout is still about SLC9A1, and must not be binned as NEC.
+    alias_mentions: dict[str, int] = {}
+    expected_mentions: dict[str, int] = {}
+    alias_symbols: set[str] = set()
+    for gene in expected:
+        total = gene_counts.get(gene, 0)
+        for alias in record.gene_aliases.get(gene, ()):
+            alias_symbols.add(alias)
+            hits = gene_counts.get(alias, 0)
+            if hits:
+                alias_mentions[alias] = alias_mentions.get(alias, 0) + hits
+                total += hits
+        expected_mentions[gene] = total
+    expected_total = sum(expected_mentions[g] for g in resolvable)
+
+    claimed = set(expected) | alias_symbols
     rivals = [
         (sym, n)
         for sym, n in gene_counts.most_common()
-        if sym not in set(expected) and n >= min_signal
+        if sym not in claimed and n >= min_signal
     ]
 
     result = PreflightResult(
@@ -302,9 +528,25 @@ def assess(
         expected_omim=list(record.omim_ids),
         report_omim=sorted(report_omim),
         lexicon=lexicon_name,
+        lexicon_note=lexicon_note,
+        alias_mentions=alias_mentions,
+        lookup_errors=list(record.lookup_errors),
     )
 
+    def _cap_at_warn() -> None:
+        """A lookup that errored must never leave the run looking clean."""
+        if result.lookup_errors and result.verdict in (PASS, SKIP):
+            result.verdict = WARN
+
     if not expected:
+        if record.lookup_errors:
+            result.verdict = WARN
+            result.reasons.append(
+                f"The causal-gene lookup for {record.id} did not complete, so it is "
+                "unknown whether MONDO records a gene. This is a failed lookup, not "
+                "an absent edge — fix the adapter or run the manual preflight."
+            )
+            return result
         result.verdict = SKIP
         result.reasons.append(
             f"MONDO records no causal gene ({GENE_RELATION}) for {record.id} "
@@ -313,7 +555,16 @@ def assess(
         )
         return result
 
-    expected_str = "/".join(expected)
+    if not resolvable:
+        result.verdict = WARN
+        result.reasons.append(
+            f"Could not resolve {', '.join(sorted(unresolved))} to a gene symbol, so "
+            "the report's gene mentions cannot be compared against it. This is a "
+            "lookup failure, not evidence about the report — run the manual preflight."
+        )
+        return result
+
+    expected_str = "/".join(resolvable)
 
     if expected_total == 0 and rivals:
         result.verdict = FAIL
@@ -331,12 +582,29 @@ def assess(
             f"No gene mentions found at all, so {expected_str} could not be "
             "confirmed. Verify the report's disease identity manually."
         )
+        _cap_at_warn()
         return result
 
-    result.verdict = PASS
-    result.reasons.append(
-        f"Expected gene {expected_str} is mentioned {expected_total} times."
-    )
+    if expected_total < min_signal:
+        result.verdict = WARN
+        result.reasons.append(
+            f"Expected gene {expected_str} is mentioned only {expected_total} "
+            f"time(s), below the {min_signal}-mention threshold for a substantive "
+            "discussion. A passing mention in a citation title or pathway list is "
+            "not evidence the report is about this disease — verify manually."
+        )
+    else:
+        result.verdict = PASS
+        result.reasons.append(
+            f"Expected gene {expected_str} is mentioned {expected_total} times."
+        )
+
+    if alias_mentions:
+        result.reasons.append(
+            "Counted HGNC alias mention(s) towards the canonical gene: "
+            + ", ".join(f"{sym}={n}" for sym, n in sorted(alias_mentions.items()))
+            + "."
+        )
 
     if rivals and rivals[0][1] >= expected_total * rival_ratio:
         result.verdict = WARN
@@ -347,6 +615,15 @@ def assess(
             "mix in a second disease entity — exclude those sections before curating."
         )
 
+    if unresolved:
+        if result.verdict == PASS:
+            result.verdict = WARN
+        result.reasons.append(
+            f"{record.id} records a further causal gene "
+            f"({', '.join(sorted(unresolved))}) that could not be resolved to a "
+            "symbol and was therefore excluded from the comparison."
+        )
+
     if record.omim_ids and report_omim and not (set(record.omim_ids) & report_omim):
         if result.verdict == PASS:
             result.verdict = WARN
@@ -355,6 +632,12 @@ def assess(
             f"{record.id} xrefs OMIM {', '.join(record.omim_ids)}."
         )
 
+    _cap_at_warn()
+    if result.lookup_errors:
+        result.reasons.append(
+            "Some ontology lookups failed, so this verdict is incomplete: "
+            + "; ".join(result.lookup_errors)
+        )
     return result
 
 
@@ -369,9 +652,16 @@ def preflight(
 ) -> PreflightResult:
     """Run the full NEC preflight on a report file against a MONDO ID."""
     text = Path(report_path).read_text(encoding="utf-8")
-    lexicon = lexicon if lexicon is not None else HgncLexicon()
+    lexicon = lexicon if lexicon is not None else default_lexicon()
     record = fetch_mondo_record(mondo_id, adapter=adapter)
-    counts = extract_gene_mentions(text, lexicon)
+    try:
+        counts = extract_gene_mentions(text, lexicon)
+    except LexiconUnavailable as exc:
+        # The adapter died mid-run (it answered the probe, then stopped). Never
+        # continue with a lexicon that rejects everything: that empties the gene
+        # counts and silently downgrades a FAIL to a WARN.
+        lexicon = HeuristicLexicon(reason=str(exc))
+        counts = extract_gene_mentions(text, lexicon)
     return assess(
         record,
         counts,
@@ -380,6 +670,7 @@ def preflight(
         min_signal=min_signal,
         rival_ratio=rival_ratio,
         lexicon_name=getattr(lexicon, "name", "custom"),
+        lexicon_note=getattr(lexicon, "reason", ""),
     )
 
 
@@ -394,6 +685,9 @@ def format_report(result: PreflightResult) -> str:
             f"{g}={n}" for g, n in sorted(result.expected_mentions.items())
         )
         lines.append(f"  mentions        : {mentions}")
+    if result.alias_mentions:
+        aliases = ", ".join(f"{g}={n}" for g, n in sorted(result.alias_mentions.items()))
+        lines.append(f"  alias mentions  : {aliases}")
     if result.top_genes:
         top = ", ".join(f"{g}={n}" for g, n in result.top_genes[:5])
         lines.append(f"  top genes       : {top}")
@@ -405,7 +699,10 @@ def format_report(result: PreflightResult) -> str:
             f"  OMIM (report)   : {', '.join(result.report_omim[:8]) or '-'}"
         )
     if result.lexicon != "hgnc":
-        lines.append(f"  lexicon         : {result.lexicon} (HGNC unavailable)")
+        suffix = f" (HGNC unavailable: {result.lexicon_note})" if result.lexicon_note else ""
+        lines.append(f"  lexicon         : {result.lexicon}{suffix}")
+    for error in result.lookup_errors:
+        lines.append(f"  ! lookup failed : {error}")
     for reason in result.reasons:
         lines.append(f"  - {reason}")
     return "\n".join(lines)
@@ -432,6 +729,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Skip HGNC validation of gene tokens (offline heuristic mode; noisier).",
     )
     parser.add_argument(
+        "--require-hgnc",
+        action="store_true",
+        help=(
+            "Fail loudly instead of falling back to the heuristic lexicon when the "
+            "HGNC adapter is unavailable (use this when gating CI)."
+        ),
+    )
+    parser.add_argument(
         "--min-signal",
         type=int,
         default=DEFAULT_MIN_SIGNAL,
@@ -452,10 +757,21 @@ def main(argv: list[str] | None = None) -> int:
     if not mondo.upper().startswith("MONDO:"):
         parser.error(f"expected a MONDO CURIE, got {args.mondo!r}")
 
+    if args.no_hgnc and args.require_hgnc:
+        parser.error("--no-hgnc and --require-hgnc are mutually exclusive")
+
+    if args.no_hgnc:
+        lexicon = HeuristicLexicon()
+    else:
+        try:
+            lexicon = default_lexicon(allow_fallback=not args.require_hgnc)
+        except LexiconUnavailable as exc:
+            parser.exit(2, f"error: {exc}\n")
+
     result = preflight(
         args.report,
         mondo,
-        lexicon=HeuristicLexicon() if args.no_hgnc else None,
+        lexicon=lexicon,
         min_signal=args.min_signal,
         rival_ratio=args.rival_ratio,
     )
