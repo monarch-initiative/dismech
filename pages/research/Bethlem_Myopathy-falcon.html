@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bethlem myopathy · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Bethlem myopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Bethlem myopathy</h1>
+                
+                <p class="report-subtitle">Bethlem Myopathy: Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0008029" target="_blank" rel="noopener noreferrer">MONDO:0008029</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">29 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Bethlem Myopathy: Disease Characteristics Research Report</h1>
+<p><strong>Scope and evidence basis.</strong> This report treats Bethlem myopathy (BM) as the mild end of the collagen-VI-related dystrophy (COL6-RD) spectrum. Evidence is primarily aggregated disease-level literature, specialist cohorts, family studies, experimental models, and ClinicalTrials.gov records—not routine EHR-derived data. Exact HPO/GO/CL/UBERON accessions should be validated against the current ontology release before database import; names below are suggested mappings.</p>
+<h2>Executive summary</h2>
+<p>Bethlem myopathy is a rare, chronic Mendelian muscle/connective-tissue disorder caused by pathogenic variants in <strong>COL6A1, COL6A2, or COL6A3</strong>. It is usually autosomal dominant but can be recessive. The characteristic combination is slowly progressive axial/proximal weakness, early distal laxity followed by contractures—particularly long finger flexors, elbows, ankles, knees, and neck—and variably abnormal skin. Ambulation is generally retained into adulthood, although meaningful weakness, wheelchair use, and restrictive respiratory disease occur in a subset. Cardiac involvement is not a usual primary feature. Open Targets recognizes all three genes as associated with <a href="http://purl.obolibrary.org/obo/MONDO_0008029" target="_blank" rel="noopener noreferrer">MONDO:0008029</a> (OpenTargets Search: Bethlem myopathy-COL6A1,COL6A2,COL6A3).</p>
+<p>No approved disease-modifying treatment exists. Current practice is multidisciplinary supportive management, especially contracture prevention, mobility preservation, respiratory surveillance, and noninvasive ventilation when indicated. Experimental approaches target defective autophagy/mitophagy, mitochondrial permeability-transition-pore dysfunction, abnormal extracellular-matrix signaling, or the causal allele.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>High-value entry</th>
+<th>Suggested ontology/identifier</th>
+<th>Evidence/notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease definition</td>
+<td>Bethlem myopathy; mild end of the collagen VI-related dystrophy/myopathy spectrum with slowly progressive muscle weakness and contractures</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0008029" target="_blank" rel="noopener noreferrer">MONDO:0008029</a>; <a href="https://bioregistry.io/OMIM:158810" target="_blank" rel="noopener noreferrer">OMIM:158810</a>; suggested disease family: collagen VI-related dystrophy</td>
+<td>Human disease-level resources and cohorts support BM as a COL6-related disorder with axial/proximal weakness, contractures, distal laxity, and possible respiratory involvement (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-1-2">bonnemann2011thecollagenvirelateda pages 1-2</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Synonyms</td>
+<td>Bethlem myopathy (BM); Bethlem muscular dystrophy; collagen VI-related myopathy, Bethlem phenotype</td>
+<td>Suggested text synonyms only</td>
+<td>BM is used consistently in clinical and mechanistic literature; nomenclature often placed within COL6-RM/COL6-RD spectrum (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Disease evidence granularity</td>
+<td>Aggregated disease-level knowledge plus individual-patient and cohort evidence</td>
+<td>Suggested evidence model: disease-level + human cohort + case-level</td>
+<td>Current understanding comes from aggregated reviews plus single-center cohorts and family reports, not EHR-derived population studies (<a href="#ref-merlini2023newclinicaland-pages-14-15">merlini2023newclinicaland pages 14-15</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-1-2">bonnemann2011thecollagenvirelateda pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Causal genes</td>
+<td>COL6A1, COL6A2, COL6A3</td>
+<td>HGNC gene symbols; Open Targets disease-target support for Bethlem myopathy</td>
+<td>Strong gene-disease association across multiple evidence sources; collagen VI microfibril defects are causal (OpenTargets Search: Bethlem myopathy-COL6A1,COL6A2,COL6A3, <a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>Usually autosomal dominant; recessive forms also reported in collagen VI-related myopathy spectrum including Bethlem presentations</td>
+<td>Suggested HPO inheritance terms: Autosomal dominant inheritance; Autosomal recessive inheritance</td>
+<td>Foundational review describes classic AD BM; more recent genetic literature and cohorts show both dominant and recessive mechanisms in COL6 disease spectrum (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-1-2">bonnemann2011thecollagenvirelateda pages 1-2</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Representative pathogenic variant classes</td>
+<td>Missense (including glycine substitutions in triple-helical domain), splice-site/intronic, exon-skipping, small deletions, CNVs, dominant-negative assembly-competent variants, biallelic loss-of-function alleles</td>
+<td>Suggested sequence ontology names only: missense_variant, splice_donor_variant, intron_variant, inframe_deletion, copy_number_variant</td>
+<td>Standard sequencing may miss intronic/CNV events; fibroblast/RNA studies help resolve splicing and secretion defects (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Molecular defect</td>
+<td>Defective collagen VI assembly/secretion and extracellular microfibril network organization</td>
+<td>Suggested GO/CC: extracellular matrix; collagen-containing extracellular matrix</td>
+<td>Collagen VI chains assemble into monomers, dimers, tetramers, then extracellular microfibrils; mutations disrupt matrix organization and cell-matrix integrity (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>, <a href="#ref-mohassel2023collagentypevi-pages-1-6">mohassel2023collagentypevi pages 1-6</a>)</td>
+</tr>
+<tr>
+<td>Hallmark phenotype</td>
+<td>Axial and proximal muscle weakness</td>
+<td>Suggested HPO: proximal muscle weakness; axial muscle weakness</td>
+<td>Core phenotype across reviews and cohorts; BM patients remain ambulant into adulthood by definition in one 2023 cohort (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Hallmark phenotype</td>
+<td>Finger flexor/interphalangeal contractures</td>
+<td>Suggested HPO: flexion contracture of finger; camptodactyly-like term if locally used</td>
+<td>Long finger flexor contractures are a classic clue and help distinguish from some differentials (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>)</td>
+</tr>
+<tr>
+<td>Hallmark phenotype</td>
+<td>Elbow, knee, ankle, neck contractures; rigid spine in some patients</td>
+<td>Suggested HPO: elbow contracture; knee flexion contracture; ankle contracture; neck flexion contracture; rigid spine</td>
+<td>Contractures are often progressive and may outweigh weakness in some phenotypic variants (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Hallmark phenotype</td>
+<td>Distal joint laxity / hyperlaxity, especially earlier in life</td>
+<td>Suggested HPO: distal joint hypermobility</td>
+<td>Early laxity transitioning to later contractures is part of classic natural history (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-1-2">bonnemann2011thecollagenvirelateda pages 1-2</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Hallmark phenotype</td>
+<td>Skin changes</td>
+<td>Suggested HPO terms by use-case: abnormal skin morphology; keloid tendency; follicular hyperkeratosis</td>
+<td>Skin involvement is recognized in collagen VI disorders and can aid differential diagnosis (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>)</td>
+</tr>
+<tr>
+<td>Respiratory phenotype</td>
+<td>Restrictive respiratory involvement; risk of nocturnal hypoventilation/respiratory insufficiency</td>
+<td>Suggested HPO: restrictive ventilatory defect; respiratory insufficiency; sleep hypoventilation</td>
+<td>In 2023 cohort, 45% of BM had FVC &lt;70% predicted; restrictive pattern reported in 2023 variant cohort; monitoring is recommended (<a href="#ref-merlini2023newclinicaland-pages-14-15">merlini2023newclinicaland pages 14-15</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Cardiac phenotype</td>
+<td>Cardiac involvement uncommon/rare</td>
+<td>Suggested HPO: cardiomyopathy only when present</td>
+<td>Cardiac function was normal in all patients of one 2023 COL6 cohort; historical review notes only rare coincidental findings (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Onset / course</td>
+<td>Prenatal-to-adult onset; often childhood or adolescence; slowly progressive; weakness may be stable/improve in puberty then worsen later</td>
+<td>Suggested HPO onset/course labels: congenital onset; childhood onset; adult onset; progressive</td>
+<td>Reviews and 2023 cohorts support broad onset window and slow progression; some older adults require walking aids (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Rare disease; prevalence estimate 0.77 per 100,000 reported from Newcastle dataset</td>
+<td>Suggested epidemiology note only</td>
+<td>Widely cited historical prevalence estimate; contemporary global prevalence/incidence remain uncertain (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-1-2">bonnemann2011thecollagenvirelateda pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Functional statistics</td>
+<td>In 33 BM patients, only one-third had knee extension strength &gt;50% predicted; only one-tenth had elbow flexion &gt;50% predicted</td>
+<td>Suggested measurement terms only</td>
+<td>Useful contemporary quantitative severity anchors from 2023 single-center cohort (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Mobility prognosis</td>
+<td>Ambulation usually preserved into adulthood, but wheelchair use can occur</td>
+<td>Suggested HPO: impaired ambulation; wheelchair dependence</td>
+<td>2023 cohort reported 15% of BM patients used wheelchairs, higher than historic pre-gene-discovery series (<a href="#ref-merlini2023newclinicaland-pages-14-15">merlini2023newclinicaland pages 14-15</a>)</td>
+</tr>
+<tr>
+<td>Primary anatomy affected</td>
+<td>Skeletal muscle, especially limb-girdle/axial musculature</td>
+<td>Suggested UBERON: skeletal muscle tissue; limb muscle; trunk muscle</td>
+<td>BM is primarily a musculoskeletal/connective tissue disorder affecting muscle function and surrounding ECM (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>)</td>
+</tr>
+<tr>
+<td>Secondary anatomy affected</td>
+<td>Tendons, joint capsules, fascia, diaphragm, skin</td>
+<td>Suggested UBERON names only: tendon, joint capsule, muscle fascia, diaphragm, skin</td>
+<td>Contractures and restrictive pulmonary disease implicate periarticular connective tissue and diaphragm/chest wall mechanics (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>)</td>
+</tr>
+<tr>
+<td>Relevant cell types</td>
+<td>Muscle fibroblasts / fibroadipogenic precursor-like stromal cells; skeletal myofibers; satellite cells</td>
+<td>Suggested CL names only: fibroblast, skeletal muscle fiber cell, satellite cell</td>
+<td>Collagen VI is produced largely by fibroblastic interstitial cells rather than myofibers; disease is partly non-cell-autonomous and affects satellite-cell reserve (<a href="#ref-mohassel2023collagentypevi-pages-38-41">mohassel2023collagentypevi pages 38-41</a>, <a href="#ref-mohassel2023collagentypevi-pages-1-6">mohassel2023collagentypevi pages 1-6</a>)</td>
+</tr>
+<tr>
+<td>Subcellular/localization</td>
+<td>Endoplasmic reticulum (assembly), sarcolemma-ECM interface, mitochondria, autophagosome/lysosome system</td>
+<td>Suggested GO cellular component names only</td>
+<td>Pathophysiology spans collagen assembly, ECM anchorage, mitochondrial pore dysregulation, and autophagy/mitophagy defects (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>, <a href="#ref-bernardi2013mitochondrialdysfunctionand-pages-1-2">bernardi2013mitochondrialdysfunctionand pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Core mechanism</td>
+<td>ECM disorganization and impaired collagen VI microfibril network compromise mechanical stability and signaling</td>
+<td>Suggested GO: extracellular matrix organization; cell-matrix adhesion</td>
+<td>Supported by 2023 pathology study showing ECM disorganization and sarcolemmal alterations (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Core mechanism</td>
+<td>Mitochondrial permeability transition pore dysregulation with latent mitochondrial dysfunction and apoptosis</td>
+<td>Suggested GO: regulation of mitochondrial membrane permeability; intrinsic apoptotic signaling pathway</td>
+<td>Major established disease mechanism from mouse and human studies; targetable by cyclophilin/PTP inhibition (<a href="#ref-bernardi2013mitochondrialdysfunctionand-pages-1-2">bernardi2013mitochondrialdysfunctionand pages 1-2</a>, <a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Core mechanism</td>
+<td>Defective autophagy/mitophagy with accumulation of dysfunctional organelles</td>
+<td>Suggested GO: autophagy; mitophagy; macroautophagy</td>
+<td>A central conserved mechanism across Col6-null mice and patient tissue/fibroblasts (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>, <a href="#ref-bernardi2013mitochondrialdysfunctionand-pages-1-2">bernardi2013mitochondrialdysfunctionand pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Core mechanism</td>
+<td>AKT-mTOR pathway activation associated with impaired autophagic flux</td>
+<td>Suggested GO/pathway names only: AKT signaling; mTOR signaling</td>
+<td>Demonstrated in Col6a1-null fibroblasts as part of autophagy dysregulation (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>)</td>
+</tr>
+<tr>
+<td>Core mechanism</td>
+<td>Reduced satellite-cell self-renewal / regeneration defects</td>
+<td>Suggested GO: skeletal muscle satellite cell activation; muscle regeneration</td>
+<td>Relevant downstream mechanism in collagen VI deficiency models (<a href="#ref-mohassel2023collagentypevi-pages-6-10">mohassel2023collagentypevi pages 6-10</a>, <a href="#ref-mohassel2023collagentypevi-pages-38-41">mohassel2023collagentypevi pages 38-41</a>)</td>
+</tr>
+<tr>
+<td>Emerging mechanism (2023)</td>
+<td>Altered TGF-beta bioavailability in collagen VI-deficient skeletal muscle ECM</td>
+<td>Suggested GO/pathway name only: transforming growth factor beta signaling pathway</td>
+<td>2023 preprint proposes early TGF-beta dysregulation as an upstream matrix-signaling defect; emerging, not yet fully settled (<a href="#ref-mohassel2023collagentypevi-pages-6-10">mohassel2023collagentypevi pages 6-10</a>, <a href="#ref-mohassel2023collagentypevi-pages-1-6">mohassel2023collagentypevi pages 1-6</a>)</td>
+</tr>
+<tr>
+<td>Molecular profiling</td>
+<td>Deep RNA profiling identified CLOCK/molecular clock signatures in collagen VI myopathy</td>
+<td>Suggested pathway/process names only: circadian rhythm; transcriptional dysregulation</td>
+<td>Evidence is from broader collagen VI myopathy work rather than BM-only cohorts (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>)</td>
+</tr>
+<tr>
+<td>Serum/lab testing</td>
+<td>CK often normal to mildly elevated, though higher values can occur in congenital/severe cases</td>
+<td>Suggested lab descriptor only</td>
+<td>2023 series reported CK 2-10× in many, normal in some, and a markedly elevated congenital case (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Electrophysiology</td>
+<td>EMG typically supportive of myopathy rather than diagnostic</td>
+<td>Suggested test term only: electromyography</td>
+<td>Specific quantitative EMG data were not well captured in retrieved evidence; use as supportive test, not defining biomarker (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>)</td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>Muscle MRI pattern with perifascial fatty/connective-tissue replacement, notably rectus femoris and vastus lateralis; ultrasound 'central cloud' sign in rectus femoris</td>
+<td>Suggested RadLex/ontology names only: muscle MRI; muscle ultrasonography</td>
+<td>Pattern-recognition imaging supports diagnosis and differential diagnosis (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>)</td>
+</tr>
+<tr>
+<td>Biopsy/pathology</td>
+<td>Variable dystrophic/myopathic changes; fiber size variability/disproportion, internal nuclei, interstitial fibrosis, relatively scarce necrosis</td>
+<td>Suggested pathology terms only</td>
+<td>2023 pathology cohort confirmed ECM disorganization and variable collagen VI distribution (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Protein studies</td>
+<td>Collagen VI immunofluorescence/immunohistochemistry on muscle biopsy or fibroblasts</td>
+<td>Suggested assay term only</td>
+<td>Can correlate with severity, but may be near-normal in milder BM; serial biopsies may show age-related increase in expression (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>)</td>
+</tr>
+<tr>
+<td>Cellular diagnostics</td>
+<td>Dermal fibroblast culture with collagen VI secretion/deposition analysis; RT-PCR for splicing defects</td>
+<td>Suggested assay terms only</td>
+<td>Especially useful when genomic sequencing is negative or variant interpretation is uncertain (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>)</td>
+</tr>
+<tr>
+<td>Molecular testing strategy</td>
+<td>First-line NGS panel or exome-based testing of COL6A1/COL6A2/COL6A3; add RNA studies and CNV analysis when needed</td>
+<td>Suggested testing stack only: gene panel, WES, RNA analysis, MLPA/SNP array/CGH</td>
+<td>Standard sequencing misses some intronic and copy-number defects; deep intronic COL6A2 mutation detected by custom CGH with RNA confirmation (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>)</td>
+</tr>
+<tr>
+<td>Differential diagnosis</td>
+<td>Emery-Dreifuss muscular dystrophy, limb-girdle muscular dystrophies, other congenital muscular dystrophies/connective-tissue myopathies</td>
+<td>Suggested MONDO/HPO names only</td>
+<td>Finger flexor contractures plus skin features and characteristic imaging favor collagen VI disease (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>)</td>
+</tr>
+<tr>
+<td>Surveillance</td>
+<td>Regular respiratory function testing, sleep studies when indicated, orthopedic/contracture/scoliosis monitoring, strength and mobility assessment</td>
+<td>Suggested clinical care concepts only</td>
+<td>Restrictive respiratory disease may emerge despite relatively mild limb weakness; contractures are progressive (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>)</td>
+</tr>
+<tr>
+<td>Supportive management</td>
+<td>Stretching, physiotherapy, dynamic splinting, orthotics, mobility aids</td>
+<td>Suggested NCIT-style terms: Physical Therapy; Splinting; Orthotic Device Use</td>
+<td>Mainstay care is supportive and multidisciplinary; progression rarely fully stops (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>)</td>
+</tr>
+<tr>
+<td>Orthopedic interventions</td>
+<td>Achilles tendon release/selective contracture surgery; scoliosis bracing/surgery in selected cases</td>
+<td>Suggested NCIT-style terms: Tendon Release Surgery; Orthopedic Surgical Procedure; Spinal Bracing</td>
+<td>Surgery may preserve ambulation in some BM patients but recurrence of contracture is common (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>)</td>
+</tr>
+<tr>
+<td>Respiratory management</td>
+<td>Noninvasive ventilation when needed; pulmonary monitoring</td>
+<td>Suggested NCIT-style terms: Noninvasive Ventilation; Pulmonary Function Test</td>
+<td>Respiratory compromise is less severe than UCMD on average but clinically important in a substantial subset (<a href="#ref-merlini2023newclinicaland-pages-14-15">merlini2023newclinicaland pages 14-15</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Pharmacologic/targeted management status</td>
+<td>No approved disease-modifying therapy specific for BM</td>
+<td>Suggested status label only</td>
+<td>Reviews and 2023 papers still state no effective curative therapy is available; translational options are under study (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>)</td>
+</tr>
+<tr>
+<td>Experimental therapy</td>
+<td>Cyclosporin A / cyclophilin inhibition to normalize mitochondrial dysfunction and apoptosis</td>
+<td>Suggested NCIT-style terms: Cyclosporine; Mitochondrial Permeability Transition Pore Inhibition</td>
+<td>Supported by human proof-of-concept and animal studies, but not established standard-of-care disease modification (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-bernardi2013mitochondrialdysfunctionand-pages-1-2">bernardi2013mitochondrialdysfunctionand pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Experimental therapy</td>
+<td>Low-protein diet to activate autophagy</td>
+<td>Suggested NCIT-style terms: Dietary Intervention; Low Protein Diet</td>
+<td>Phase II pilot enrolled 8 adults with collagen VI-related myopathies; aimed to increase Beclin 1/autophagy markers (NCT01438788 chunk 1)</td>
+</tr>
+<tr>
+<td>Experimental therapy</td>
+<td>Pterostilbene/autophagy induction; splice correction; CRISPR allele-specific editing</td>
+<td>Suggested NCIT-style terms: Nutraceutical Therapy; Splice-Switching Therapy; CRISPR-Cas Gene Editing</td>
+<td>Preclinical/experimental only; 2024 fibroblast CRISPR study restored extracellular collagen VI network in UCMD cells, conceptually relevant across dominant COL6 disease (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>)</td>
+</tr>
+<tr>
+<td>Prevention / genetic counseling</td>
+<td>Cascade testing, reproductive counseling, prenatal diagnosis possible once familial variant/mechanism known</td>
+<td>Suggested concepts only: genetic counseling; prenatal testing; family screening</td>
+<td>Especially important given frequent dominant inheritance and intrafamilial variability (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-1-2">bonnemann2011thecollagenvirelateda pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Trial / registry</td>
+<td>NCT01438788 – Low Protein Diet in Patients With Collagen VI Related Myopathies; Phase II; completed; enrollment 8</td>
+<td>ClinicalTrials.gov: NCT01438788</td>
+<td>Open-label pilot of normocaloric low-protein diet (0.6-0.8 g/kg/day) to reactivate autophagy (NCT01438788 chunk 1)</td>
+</tr>
+<tr>
+<td>Trial / imaging</td>
+<td>NCT03693898 – MR in Patients With Collagen VI Related Myopathies; recruiting/interventional diagnostic; enrollment 20</td>
+<td>ClinicalTrials.gov: NCT03693898</td>
+<td>MRI Dixon fat fraction plus strength testing in confirmed Bethlem/Ulrich disease (NCT03693898 chunk 1)</td>
+</tr>
+<tr>
+<td>Trial / registry</td>
+<td>NCT04020159 – Global Registry for COL6-related Dystrophies; observational prospective registry; target enrollment 1000</td>
+<td>ClinicalTrials.gov: NCT04020159</td>
+<td>Annual questionnaire-based global registry collecting genetics, motor/respiratory function, QoL, pain, imaging and hospitalization data; useful for trial readiness (NCT04020159 chunk 1)</td>
+</tr>
+<tr>
+<td>Other relevant study</td>
+<td>NCT01403402 – Congenital Muscle Disease Study of Patient and Family Reported Medical Information</td>
+<td>ClinicalTrials.gov: NCT01403402</td>
+<td>Broader congenital muscle disease registry relevant for patient-reported natural history, though not BM-specific in retrieved evidence (OpenTargets Search: Bethlem myopathy-COL6A1,COL6A2,COL6A3)</td>
+</tr>
+<tr>
+<td>Model organism</td>
+<td>Col6a1-null mouse</td>
+<td>Suggested model name only</td>
+<td>Recapitulates mild myopathic phenotype, mitochondrial dysfunction, apoptosis, defective autophagy; useful for therapy testing but milder than severe human disease (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>, <a href="#ref-bernardi2013mitochondrialdysfunctionand-pages-1-2">bernardi2013mitochondrialdysfunctionand pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Model organism</td>
+<td>Col6a2-null mouse (2023 characterization)</td>
+<td>Suggested model name only</td>
+<td>Shows early postnatal atrophy/weakness, mild dystrophic changes, impaired regeneration, sarcolemmal fragility, and emerging TGF-beta dysregulation (<a href="#ref-mohassel2023collagentypevi-pages-6-10">mohassel2023collagentypevi pages 6-10</a>, <a href="#ref-mohassel2023collagentypevi-pages-1-6">mohassel2023collagentypevi pages 1-6</a>)</td>
+</tr>
+<tr>
+<td>Model organism</td>
+<td>Zebrafish col6a1 exon-targeted morphants</td>
+<td>Suggested model name only</td>
+<td>Exon 13 perturbation produced a milder BM-like phenotype; CsA improved motor deficits in severe UCMD-like model (<a href="#ref-telfer2010zebrafishmodelsof-pages-1-2">telfer2010zebrafishmodelsof pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Cellular model</td>
+<td>Patient dermal fibroblasts / myoblasts</td>
+<td>Suggested model name only</td>
+<td>Widely used for diagnostic secretion/deposition assays and mechanistic studies of autophagy and mitochondrial defects (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>)</td>
+</tr>
+<tr>
+<td>Gene-editing model</td>
+<td>CRISPR-corrected patient fibroblasts restoring collagen VI microfilament network</td>
+<td>Suggested model/intervention name only</td>
+<td>2024 proof-of-principle in dominant COL6A1 UCMD fibroblasts supports translational feasibility of allele-targeted editing for COL6 disorders (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>)</td>
+</tr>
+<tr>
+<td>Knowledge gaps</td>
+<td>Contemporary population prevalence, penetrance estimates, formal QoL datasets, and validated prognostic biomarkers remain limited for BM specifically</td>
+<td>Suggested curation flag only</td>
+<td>Evidence base remains dominated by specialist cohorts and mixed-spectrum COL6 studies rather than large prospective BM-only studies (<a href="#ref-merlini2023newclinicaland-pages-14-15">merlini2023newclinicaland pages 14-15</a>, NCT04020159 chunk 1)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This compact table summarizes the most actionable Bethlem myopathy knowledge-base elements across identifiers, genes, phenotypes, mechanisms, diagnosis, management, trials, and models. It is designed for rapid curation and highlights where exact ontology IDs are suggested versus where only ontology names are appropriate.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and nomenclature</h3>
+<p>BM is a relatively mild, slowly progressive collagen-VI-related myopathy characterized by axial and proximal weakness, contractures, distal joint laxity, and skin manifestations. Onset can range from prenatal life to adulthood; retention of walking into adult life is often used as an operational distinction from intermediate and Ullrich phenotypes (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>).</p>
+<p><strong>Identifiers and synonyms</strong></p>
+<ul>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0008029" target="_blank" rel="noopener noreferrer">MONDO:0008029</a>.</li>
+<li><strong>OMIM/MIM:</strong> 158810.</li>
+<li><strong>Orphanet:</strong> Bethlem myopathy is represented within Orphanet’s collagen-VI-related disease nomenclature; the exact current ORPHA accession should be verified before ingestion.</li>
+<li><strong>MeSH:</strong> generally indexed through <em>Muscular Diseases</em>, <em>Muscular Dystrophies</em>, and collagen type VI rather than a consistently used BM-specific descriptor.</li>
+<li><strong>ICD-10:</strong> no specific BM code; commonly mapped to congenital/hereditary myopathy or muscular-dystrophy categories according to local coding rules.</li>
+<li><strong>ICD-11:</strong> map under congenital myopathy/muscular dystrophy; a dedicated universally implemented BM code was not established in the retrieved evidence.</li>
+<li><strong>Synonyms:</strong> Bethlem myopathy, Bethlem muscular dystrophy, collagen VI-related myopathy—Bethlem phenotype, mild collagen VI-related dystrophy.</li>
+</ul>
+<p>BM was described in 1976 as an autosomal-dominant early-onset “benign” myopathy with contractures; causal collagen-VI variants were identified during 1996–1998. “Benign” is now discouraged because respiratory and functional morbidity may be substantial (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-1-2">bonnemann2011thecollagenvirelateda pages 1-2</a>).</p>
+<h2>2. Etiology, risk, and protective factors</h2>
+<h3>Causal factors</h3>
+<p>The primary cause is a <strong>germline pathogenic variant</strong> in <strong>COL6A1, COL6A2, or COL6A3</strong>, genes encoding the α1(VI), α2(VI), and α3(VI) chains of collagen VI. Pathogenic mechanisms include monoallelic assembly-competent variants producing dominant-negative microfibrils and biallelic loss-of-function, splice, or structural variants that reduce or abolish collagen production. Both dominant and recessive molecular defects are established across the spectrum (OpenTargets Search: Bethlem myopathy-COL6A1,COL6A2,COL6A3, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>, <a href="#ref-mohassel2023collagentypevi-pages-1-6">mohassel2023collagentypevi pages 1-6</a>).</p>
+<h3>Genetic risk factors</h3>
+<p>Risk is determined principally by inheriting or acquiring a pathogenic COL6 allele. Relevant variant classes include glycine substitutions in the triple-helical region, missense variants, exon-skipping splice variants, nonsense/frameshift alleles, in-frame deletions, deep-intronic variants, and copy-number changes. Dominant-negative variants near the amino-terminal portion of the triple helix can interfere with assembly; biallelic null alleles generally reduce chain availability. Examples described in the literature include dominant <strong>COL6A1 p.Lys121Arg</strong> and <strong>COL6A2 p.Asp630Asn</strong>, although any individual variant requires contemporary ACMG/AMP and ClinVar review (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>).</p>
+<p>Variant frequencies are usually extremely low or absent in population databases because BM is rare and pathogenic alleles are family-specific. No single population allele frequency should be generalized. Variant-level gnomAD frequency, ClinVar assertions, segregation, RNA effect, and collagen secretion/deposition should be curated separately.</p>
+<h3>Environmental, lifestyle, infectious, and protective factors</h3>
+<p>There is no evidence that toxin, infection, smoking, alcohol, diet, occupation, radiation, sex, or another environmental exposure causes BM. Activity, nutrition, respiratory infection, surgery, immobilization, and weight may alter functional burden or complications but do not create the disease. No validated genetic protective allele, modifier gene, diet, medication, or exposure prevents penetrance. Apparent gene–environment effects are therefore best framed as <strong>modification of functional reserve</strong>, not causation. Avoiding prolonged immobility, maintaining safe activity, and prompt respiratory care are tertiary prevention measures, not primary protection.</p>
+<h2>3. Phenotypes</h2>
+<h3>Musculoskeletal manifestations</h3>
+<ul>
+<li><strong>Axial and proximal weakness:</strong> usually mild-to-moderate early, chronic and slowly progressive; pelvic-girdle, shoulder-girdle, neck, and trunk muscles are prominent. Suggested HPO: <em>Proximal muscle weakness</em>, <em>Axial muscle weakness</em>, <em>Muscular hypotonia</em> when present.</li>
+<li><strong>Contractures:</strong> long finger flexors/interphalangeal joints are particularly characteristic; elbows, Achilles tendons/ankles, knees, hips, neck, and spine may be involved. Suggested HPO: <em>Flexion contracture of finger</em>, <em>Elbow flexion contracture</em>, <em>Knee flexion contracture</em>, <em>Achilles tendon contracture</em>, <em>Rigid spine</em> (<a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>).</li>
+<li><strong>Distal hyperlaxity:</strong> often more evident in childhood and may transition to contracture with age. Suggested HPO: <em>Distal joint hypermobility</em> (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-1-2">bonnemann2011thecollagenvirelateda pages 1-2</a>).</li>
+<li><strong>Motor delay, difficulty running/climbing stairs/rising, and reduced endurance:</strong> variable; walking is usually achieved and retained into adulthood.</li>
+<li><strong>Scoliosis/kyphosis and rigid spine:</strong> less severe than in classic Ullrich disease but clinically relevant in some patients.</li>
+<li><strong>Myopathic facies/ptosis:</strong> occasional rather than defining. In one mixed 15-patient COL6 cohort, rigid spine occurred in four and myopathic face with ptosis in three (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>).</li>
+</ul>
+<p>Contemporary quantitative evidence shows that “mild” does not mean trivial. In a 2023 cohort of 33 BM patients, only one-third retained knee-extension strength above 50% predicted and only one-tenth retained elbow-flexion strength above 50%. Forty-five percent had FVC below 70% predicted, and 15% used wheelchairs (<a href="#ref-merlini2023newclinicaland-pages-14-15">merlini2023newclinicaland pages 14-15</a>, <a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>).</p>
+<h3>Respiratory manifestations</h3>
+<p>Restrictive impairment results from respiratory-muscle/diaphragmatic weakness and chest-wall stiffness. Nocturnal hypoventilation, sleep-disordered breathing, ineffective cough, and eventual respiratory insufficiency can occur, although ventilator dependence is much less common than in Ullrich disease. Suggested HPO: <em>Restrictive ventilatory defect</em>, <em>Respiratory insufficiency</em>, <em>Sleep hypoventilation</em>. A 2023 mixed COL6 cohort found restrictive respiratory involvement in 6/15 patients, including two severe cases; one had obstructive sleep apnea (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>). Historical expert analysis recommends pulmonary function and sleep monitoring even when limb weakness appears mild (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>).</p>
+<h3>Skin and connective-tissue manifestations</h3>
+<p>Follicular hyperkeratosis, abnormal scarring/keloids, soft or velvety skin, and other subtle connective-tissue changes may occur. Skin findings support a COL6 diagnosis and help distinguish it from Emery–Dreifuss muscular dystrophy. Suggested HPO: <em>Follicular hyperkeratosis</em>, <em>Keloids</em>, <em>Abnormality of skin morphology</em> (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>).</p>
+<h3>Laboratory and cardiac findings</h3>
+<p>Creatine kinase is often normal or mildly elevated. In a 2023 mixed cohort it was normal in three patients and commonly 2–10× elevated, with an exceptional 60× congenital case; such marked elevation should prompt careful differential diagnosis (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>). EMG is usually myopathic and nonspecific. Cardiac disease is not considered a typical direct manifestation: cardiac testing was normal throughout that 2023 cohort, and historical reviews describe only rare possibly coincidental abnormalities (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>).</p>
+<h3>Quality of life</h3>
+<p>Contractures impair hand use, dressing, transfers, gait, and self-care; weakness and fatigue restrict schooling, employment, recreation, and community participation; respiratory support and orthopedic procedures increase care burden. BM-specific EQ-5D, SF-36, or PROMIS datasets remain sparse. The global registry collects pain, hospitalization, mobility, respiratory, medication, imaging, and quality-of-life data, but mature published BM-specific estimates were unavailable (NCT04020159 chunk 1).</p>
+<h2>4. Genetic and molecular information</h2>
+<h3>Genes and chromosomes</h3>
+<ul>
+<li><strong>COL6A1</strong> and <strong>COL6A2:</strong> chromosome 21; encode α1(VI) and α2(VI).</li>
+<li><strong>COL6A3:</strong> chromosome 2; encodes α3(VI).</li>
+</ul>
+<p>COL6A1/A2/A3 form the canonical heterotrimer. Although COL6A4–COL6A6 encode additional collagen-VI-like chains, they are not established primary BM genes. Open Targets reports disease associations only for COL6A1/A2/A3 in BM (OpenTargets Search: Bethlem myopathy-COL6A1,COL6A2,COL6A3).</p>
+<h3>Variant interpretation</h3>
+<p>Variants must be classified individually under ACMG/AMP criteria. Important evidence includes rarity, affected-domain location, segregation, de novo status, RNA splicing, collagen-VI secretion/deposition, and microfibril morphology. Germline origin is expected; BM is not a somatic neoplasm. Germline or parental mosaicism is possible and should be considered when an apparently de novo dominant variant recurs, although its frequency is unknown.</p>
+<p>Standard sequencing historically detected only approximately 60–65% of clinically diagnosed BM, partly because deep-intronic and copy-number variants were missed. A deep-intronic <strong>COL6A2</strong> deletion was detected by custom CGH and shown by RNA analysis to cause monoallelic transcription, illustrating the need for complementary assays (DOI 10.1186/1471-2350-11-44).</p>
+<h3>Modifiers, epigenetics, and chromosomal abnormalities</h3>
+<p>Marked intrafamilial variability suggests genetic, developmental, and environmental modifiers, but no modifier gene is clinically validated. There is no established BM-specific epigenetic signature used diagnostically. Large deletions/CNVs involving COL6 loci can be causal, but recurrent aneuploidy, translocation, or inversion is not characteristic. Conventional karyotyping and FISH are therefore low-yield unless another chromosomal disorder is suspected.</p>
+<h2>5. Environmental information</h2>
+<p>BM has no infectious agent, zoonotic trigger, toxicant, or occupational cause. Lifestyle does not determine occurrence. Exercise should be individualized: moderate, non-eccentric aerobic activity may support conditioning, whereas overwork, pain-provoking eccentric loading, falls, and prolonged immobilization should be avoided. Vaccination against respiratory pathogens follows standard neuromuscular respiratory-risk practice but does not prevent BM itself.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Upstream causal chain</h3>
+<ol>
+<li>A pathogenic COL6A1/A2/A3 allele alters chain quantity or structure.</li>
+<li>In the endoplasmic reticulum, α1/α2/α3 chains normally assemble into approximately 500-kDa monomers, then disulfide-linked dimers and tetramers; secreted tetramers form extracellular beaded microfibrils.</li>
+<li>Mutant or absent chains impair secretion, microfibril assembly, or interaction with collagens I/II, fibronectin, glycosaminoglycans, and proteoglycans.</li>
+<li>The muscle interstitial/basement-membrane matrix becomes disorganized and mechanically/signally abnormal.</li>
+<li>Sarcolemmal stress, dysregulated calcium handling, mitochondrial permeability-transition-pore opening, reduced ATP production, and apoptosis injure myofibers.</li>
+<li>Defective autophagy/mitophagy fails to clear damaged mitochondria; impaired regeneration and fibrosis compound weakness and contractures (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>, <a href="#ref-bernardi2013mitochondrialdysfunctionand-pages-1-2">bernardi2013mitochondrialdysfunctionand pages 1-2</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>).</li>
+</ol>
+<p>A 2023 human pathology series directly documented heterogeneous collagen-VI distribution, extracellular-matrix disorganization, sarcolemmal alterations, internal nuclei, fiber-size variation, and interstitial fibrosis. Its abstract states that combined histological, immunological, and ultrastructural methods are “<strong>pivotal in the diagnosis of COL6 patients</strong>” (published March 2023; DOI 10.3390/ijms24065551) (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>).</p>
+<h3>Cellular pathways</h3>
+<p><strong>Mitochondria and apoptosis.</strong> Persistent mPTP opening promotes depolarization, swelling, impaired bioenergetics, and intrinsic apoptosis. Cyclosporin A/cyclophilin-D inhibition normalizes several defects in cells and models, supporting causality rather than mere association (<a href="#ref-telfer2010zebrafishmodelsof-pages-1-2">telfer2010zebrafishmodelsof pages 1-2</a>, <a href="#ref-bernardi2013mitochondrialdysfunctionand-pages-1-2">bernardi2013mitochondrialdysfunctionand pages 1-2</a>, <a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>).</p>
+<p><strong>Autophagy/mitophagy.</strong> Reduced BECN1/Beclin-1 and BNIP3 signaling and abnormal AKT–mTOR activity diminish autophagic flux. Dysfunctional mitochondria accumulate, amplifying oxidative and apoptotic stress. Suggested GO: <em>autophagy</em>, <em>mitophagy</em>, <em>regulation of mitochondrial membrane permeability</em>, <em>intrinsic apoptotic signaling</em> (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>).</p>
+<p><strong>Regeneration.</strong> Collagen VI supports satellite-cell self-renewal and regenerative niches. Deficiency reduces regenerative reserve and delays repair. Suggested cells: fibroblast/fibroadipogenic progenitor, skeletal myofiber, satellite cell; suggested GO: <em>skeletal muscle tissue regeneration</em> (<a href="#ref-mohassel2023collagentypevi-pages-6-10">mohassel2023collagentypevi pages 6-10</a>, <a href="#ref-mohassel2023collagentypevi-pages-38-41">mohassel2023collagentypevi pages 38-41</a>).</p>
+<p><strong>TGF-β signaling—emerging evidence.</strong> A June 2023 Col6a2-null mouse preprint proposed that collagen VI regulates TGF-β bioavailability and that matrix deficiency produces early TGF-β dysregulation. This is biologically coherent with fibrosis but remains less established than mitochondrial/autophagy mechanisms and should be annotated as preclinical/emerging (<a href="#ref-mohassel2023collagentypevi-pages-6-10">mohassel2023collagentypevi pages 6-10</a>, <a href="#ref-mohassel2023collagentypevi-pages-1-6">mohassel2023collagentypevi pages 1-6</a>).</p>
+<h3>Molecular profiling</h3>
+<p>Deep RNA profiling of patient and Col6a1-null muscle identified CLOCK and molecular-clock gene signatures (2016; DOI 10.1242/jcs.175927). These are research signatures, not validated biomarkers. Proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, and multi-omic BM-specific datasets remain limited. The principal reproducible biochemical abnormalities are defective collagen deposition, mitochondrial dysfunction, and altered autophagic markers.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>The primary organ is <strong>skeletal muscle</strong>, especially axial, pelvic-girdle, shoulder-girdle, and proximal limb musculature; diaphragm and intercostal muscles may be affected secondarily. Tendons, fascia, joint capsules, skin, and muscle connective tissue contribute to contractures and tissue stiffness. Disease is typically bilateral and relatively symmetric, although severity between muscles varies.</p>
+<p>Suggested mappings include <strong>UBERON:</strong> skeletal muscle tissue, diaphragm, tendon, muscle fascia, joint capsule, skin; <strong>CL:</strong> fibroblast, skeletal muscle fiber, skeletal muscle satellite cell, fibroadipogenic progenitor; <strong>GO cellular components:</strong> collagen-containing extracellular matrix, basement membrane, endoplasmic reticulum, mitochondrial inner membrane, autophagosome, lysosome.</p>
+<h2>8. Temporal development</h2>
+<p>Onset may be congenital, childhood, adolescent, or adult and is usually insidious. Congenital presentations can include hypotonia, torticollis, hip dislocation, clubfoot, or delayed milestones. Childhood may show distal laxity and modest weakness; contractures become progressively more prominent. Weakness may appear stable or improve around puberty, followed by slow deterioration from the third or fourth decade. Historical series suggest approximately two-thirds of patients older than 60 require some ambulation assistance (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-6-7">bonnemann2011thecollagenvirelateda pages 6-7</a>).</p>
+<p>BM is lifelong and generally progressive, not episodic or relapsing-remitting. There is no true spontaneous remission. Critical intervention windows include early maintenance of range of motion, timely correction of function-threatening contractures, and detection of nocturnal hypoventilation before daytime respiratory failure.</p>
+<h2>9. Inheritance and population</h2>
+<p>Classic BM is <strong>autosomal dominant</strong>, frequently with variable expressivity; recessive BM-like presentations are also established. Penetrance is high for many clearly pathogenic dominant variants but can be age-dependent and mild, so apparently unaffected adults need careful examination. Anticipation is not established. Consanguinity increases risk for biallelic disease but is irrelevant to most dominant families.</p>
+<p>A Newcastle estimate placed prevalence at <strong>0.77 per 100,000</strong>; modern incidence, carrier frequency, and population-specific prevalence are uncertain (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-1-2">bonnemann2011thecollagenvirelateda pages 1-2</a>). There is no established sex bias or endemic geography. Founder variants may occur in individual populations, but most families have private variants. The 2024 report of a recessive COL6A2 splice variant in a consanguineous Saudi family illustrates population-specific ascertainment rather than proven increased regional prevalence.</p>
+<h2>10. Diagnostics</h2>
+<h3>Clinical assessment</h3>
+<p>Suspect BM when chronic proximal/axial weakness coexists with long finger-flexor or Achilles contractures, early distal laxity, characteristic skin findings, preserved adult ambulation, and a dominant family history. Assess range of motion, MRC/quantitative strength, gait, transfers, six-minute walk where feasible, pulmonary function sitting and supine, cough strength, oximetry/capnography, and sleep symptoms.</p>
+<h3>Tests</h3>
+<ul>
+<li><strong>CK:</strong> normal or mildly elevated in typical disease; marked elevation warrants broader evaluation.</li>
+<li><strong>EMG/NCS:</strong> myopathic EMG; nerve conduction usually normal.</li>
+<li><strong>Pulmonary:</strong> serial FVC, maximal inspiratory/expiratory pressures, peak cough flow, sleep oximetry/capnography or polysomnography.</li>
+<li><strong>Cardiac:</strong> baseline ECG/echocardiogram is reasonable, especially before anesthesia or if symptoms/family history exist, but routine progressive cardiomyopathy is not characteristic.</li>
+<li><strong>Muscle MRI:</strong> perifascial fatty/connective-tissue replacement, especially the rectus femoris “central shadow/central cloud” and peripheral vastus lateralis pattern. Ultrasound can show a rectus-femoris central cloud (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>).</li>
+<li><strong>Biopsy:</strong> variable myopathic/dystrophic change, fiber-size disproportion, internal nuclei, fibrosis, and relatively limited necrosis. Collagen-VI immunostaining may be subtly abnormal or apparently normal in mild BM, so normal staining does not exclude disease (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>, <a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>).</li>
+<li><strong>Fibroblast assay:</strong> dermal fibroblasts can demonstrate abnormal collagen secretion/deposition; RT-PCR can reveal exon skipping or deep-intronic effects (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>).</li>
+</ul>
+<h3>Genetic testing algorithm</h3>
+<ol>
+<li>Use a neuromuscular/congenital-myopathy panel including <strong>COL6A1, COL6A2, COL6A3</strong>, with robust CNV calling, or exome/genome sequencing.</li>
+<li>Confirm and segregate candidate variants; determine de novo versus inherited status.</li>
+<li>For VUS or negative sequencing with a strong phenotype, add fibroblast collagen studies and RNA sequencing/targeted RT-PCR.</li>
+<li>Use MLPA, exon-level array/CGH, or genome sequencing for deletions, duplications, structural and deep-intronic variants.</li>
+<li>WGS is particularly useful after nondiagnostic panel/WES because it interrogates intronic and structural variation. CMA, karyotype, FISH, mtDNA testing, and repeat-expansion testing are not routine unless the phenotype suggests another diagnosis (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>).</li>
+</ol>
+<h3>Differential diagnosis</h3>
+<p>Key alternatives are Emery–Dreifuss muscular dystrophy/LMNA-related disease, LAMA2-related dystrophy, SEPN1/SELENON myopathy, RYR1-related congenital myopathy, LMNA congenital muscular dystrophy, other limb-girdle muscular dystrophies, Ehlers–Danlos/connective-tissue disorders, and myosclerosis myopathy. Long finger-flexor contractures, skin changes, collagen-VI MRI pattern, absence of significant primary cardiomyopathy, and COL6 molecular evidence favor BM (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-12-14">bonnemann2011thecollagenvirelateda pages 12-14</a>).</p>
+<h3>Screening</h3>
+<p>There is no population or newborn screening program. Once a familial variant is known, cascade testing, targeted prenatal diagnosis, and preimplantation genetic testing are possible. Asymptomatic relatives require age-aware counseling because expression can be subtle.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Life expectancy is often near normal in mild BM if respiratory complications are recognized, but robust survival-rate or mortality estimates are unavailable. Most patients remain ambulant into adulthood; late walking aids or wheelchair use occur. In the 2023 cohort, wheelchair use was 15%, underscoring a broader severity range than historic pre-molecular series (<a href="#ref-merlini2023newclinicaland-pages-14-15">merlini2023newclinicaland pages 14-15</a>).</p>
+<p>Major morbidity includes progressive weakness, hand and lower-limb contractures, falls, reduced endurance, scoliosis/rigid spine, pain, impaired self-care, and restrictive respiratory disease. Cardiac mortality is not typical. Prognostic factors include respiratory trajectory, severity and distribution of contractures, quantitative strength, mutation mechanism, and phenotype position within the COL6 continuum. No validated circulating prognostic biomarker exists. Collagen immunofluorescence correlates with phenotype at group level but is age-dependent and unsuitable as a stand-alone prognostic marker: serial biopsies showed increasing expression over time, an important consideration for genetic-correction trials (<a href="#ref-merlini2023newclinicaland-pages-14-15">merlini2023newclinicaland pages 14-15</a>, <a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>).</p>
+<h2>12. Treatment and current applications</h2>
+<h3>Standard supportive care</h3>
+<ul>
+<li><strong>Physiotherapy and occupational therapy:</strong> daily gentle stretching, range-of-motion maintenance, posture, safe low-impact aerobic conditioning, energy conservation, and adaptive equipment. Suggested NCIT concepts: <em>Physical Therapy</em>, <em>Occupational Therapy</em>, <em>Exercise Intervention</em>.</li>
+<li><strong>Splints/orthoses:</strong> dynamic finger splints and ankle-foot orthoses where tolerated. Suggested NCIT: <em>Splinting</em>, <em>Orthotic Device</em>.</li>
+<li><strong>Orthopedic surgery:</strong> selected Achilles-tendon or other contracture release may preserve walking, but recurrence is common; scoliosis bracing is temporizing and surgery requires specialist respiratory/anesthetic planning (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>).</li>
+<li><strong>Respiratory care:</strong> regular pulmonary/sleep surveillance, airway-clearance support, cough-assist when indicated, prompt infection treatment, and nocturnal noninvasive ventilation for hypoventilation. Suggested NCIT: <em>Pulmonary Function Test</em>, <em>Noninvasive Ventilation</em>.</li>
+<li><strong>Nutrition/pain/bone health:</strong> maintain healthy weight and adequate nutrition; treat pain and osteoporosis risk conventionally. Avoid unmonitored protein restriction.</li>
+</ul>
+<h3>Experimental pharmacologic and nutritional strategies</h3>
+<p><strong>Cyclosporin A and non-immunosuppressive cyclophilin inhibitors.</strong> Human proof-of-concept and animal/cellular studies show correction of mitochondrial dysfunction and apoptosis, but immunosuppression and limited clinical efficacy evidence preclude routine disease-modifying use. NIM811 and related mPTP modulators remain preclinical (<a href="#ref-bernardi2013mitochondrialdysfunctionand-pages-1-2">bernardi2013mitochondrialdysfunctionand pages 1-2</a>, <a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>).</p>
+<p><strong>Autophagy activation.</strong> A one-year pilot low-protein diet increased autophagic markers and was reported safe/tolerable in seven analyzed adults, with preserved body composition and function and reduced myofiber apoptosis. The abstract states: “<strong>These data provide evidence that a low-protein diet is able to activate autophagy and is safe and tolerable in patients with COL6 myopathies</strong>” (published November 2016; DOI 10.1080/15548627.2016.1231279). This was mechanistic proof-of-concept, not evidence for routine clinical efficacy. Pterostilbene improved pathology in Col6-deficient mice but remains preclinical.</p>
+<p><strong>Gene/RNA therapy.</strong> Allele-specific silencing, splice correction, and CRISPR disruption/correction are experimental. A November 2024 fibroblast study achieved 32% editing of a dominant mutant COL6A1 allele with negligible wild-type editing and restored collagen secretion and microfibril ultrastructure; it involved UCMD fibroblasts, so translation to BM and muscle in vivo remains unproven (DOI 10.3390/biom14111412).</p>
+<p>There is no established pharmacogenomic dosing algorithm, approved gene therapy, cell therapy, ASO, or combination regimen for BM.</p>
+<h3>Clinical studies and real-world infrastructure</h3>
+<ul>
+<li><strong>NCT01438788:</strong> completed Phase II, open-label low-protein-diet pilot; eight adults; 0.6–0.8 g protein/kg/day; Beclin-1/autophagy endpoint (NCT01438788 chunk 1). URL: <a href="https://clinicaltrials.gov/study/NCT01438788" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT01438788</a></li>
+<li><strong>NCT03693898:</strong> diagnostic MRI study, planned n=20 adults with BM/Ullrich disease; Dixon MRI fat fraction and strength testing (NCT03693898 chunk 1). URL: <a href="https://clinicaltrials.gov/study/NCT03693898" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT03693898</a></li>
+<li><strong>NCT04020159:</strong> prospective Global Registry for COL6-related Dystrophies, target n=1,000; annual genetics, motor, respiratory, contracture, pain, hospitalization, QoL, medication, and imaging data (NCT04020159 chunk 1). URL: <a href="https://clinicaltrials.gov/study/NCT04020159" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT04020159</a></li>
+</ul>
+<p>Status labels should be rechecked live because registry records retrieved here had differing historical and aggregate status displays.</p>
+<h2>13. Prevention</h2>
+<p>Primary prevention through lifestyle or vaccination is impossible because BM is genetic. <strong>Secondary prevention</strong> consists of family recognition, cascade testing, early molecular diagnosis, and surveillance before irreversible contractures or respiratory failure. <strong>Tertiary prevention</strong> includes stretching/orthoses, fall prevention, bone health, respiratory vaccination, airway clearance, sleep assessment, and timely ventilation.</p>
+<p>Genetic counseling should cover autosomal-dominant and recessive possibilities, variable expressivity, de novo and mosaic recurrence risk, and reproductive options. Targeted prenatal diagnosis and preimplantation genetic testing are possible once the familial pathogenic variant is established; older approaches included haplotype analysis and chorionic-villus collagen-VI staining (<a href="#ref-bonnemann2011thecollagenvirelateda-pages-14-15">bonnemann2011thecollagenvirelateda pages 14-15</a>).</p>
+<h2>14. Other species and natural disease</h2>
+<p>The causal genes are evolutionarily conserved across vertebrates. Relevant taxa include <strong>Mus musculus</strong> (NCBI Taxon 10090) and <strong>Danio rerio</strong> (7955). No well-established naturally occurring companion-animal or wildlife disease equivalent to human Bethlem myopathy was identified in the retrieved literature; veterinary breed ontology mapping is therefore not applicable. BM is not transmissible or zoonotic.</p>
+<h2>15. Model organisms and experimental systems</h2>
+<h3>Mouse</h3>
+<p><strong>Col6a1−/− mice</strong> lack collagen-VI assembly/secretion and show myopathy, abnormal mitochondria, spontaneous myofiber apoptosis, defective autophagy/mitophagy, and impaired regeneration. They are highly useful for mechanistic and drug studies but have a milder motor phenotype than severe human COL6 disease (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>, <a href="#ref-bernardi2013mitochondrialdysfunctionand-pages-1-2">bernardi2013mitochondrialdysfunctionand pages 1-2</a>).</p>
+<p>A <strong>Col6a2−/− model</strong>, characterized in 2023, showed early postnatal atrophy and weakness, fiber-size variability, central nuclei, delayed regeneration, sarcolemmal fragility, and altered TGF-β bioavailability. This supports matrix-signaling and non-cell-autonomous mechanisms; the work was initially reported as a preprint and requires appropriate evidence grading (<a href="#ref-mohassel2023collagentypevi-pages-6-10">mohassel2023collagentypevi pages 6-10</a>, <a href="#ref-mohassel2023collagentypevi-pages-1-6">mohassel2023collagentypevi pages 1-6</a>).</p>
+<h3>Zebrafish</h3>
+<p>Exon-specific <strong>col6a1 morphants</strong> produced severe UCMD-like disease when exon 9 was targeted and a milder BM-like phenotype with exon 13 targeting. Severe morphants had abnormal mitochondria and increased cell death; cyclosporin A improved motor function but not sarcolemmal membrane damage. The model is valuable for rapid in-vivo pharmacology but transient morpholino biology and developmental timing limit direct human extrapolation. The abstract reports that the authors generated “<strong>zebrafish models of the collagen VI myopathies</strong>” and that CsA “<strong>improved the motor deficits</strong>” in the severe model (published March 2010; DOI 10.1093/hmg/ddq126) (<a href="#ref-telfer2010zebrafishmodelsof-pages-1-2">telfer2010zebrafishmodelsof pages 1-2</a>).</p>
+<h3>Cellular systems</h3>
+<p>Patient dermal fibroblasts and myoblasts support collagen secretion/deposition assays, RNA studies, mitochondrial/autophagy phenotyping, and editing experiments. Col6a1-null mouse fibroblasts show impaired autophagosome clearance, defective Parkin-dependent mitophagy, AKT–mTOR activation, and increased apoptosis under nutrient stress; adhesion to purified collagen VI improves autophagic flux, demonstrating an extracellular instructive signal (<a href="#ref-castagnaro2018extracellularcollagenvi-pages-10-14">castagnaro2018extracellularcollagenvi pages 10-14</a>). Patient-derived iPSC, organoid, single-cell, and spatial models are promising but not yet mature enough for routine BM annotation.</p>
+<h2>Recent developments, expert interpretation, and evidence gaps</h2>
+<p>The strongest 2023 clinical advance was quantitative phenotyping in a 69-person COL6 cohort, including 33 BM patients. It demonstrated unexpectedly substantial strength and pulmonary deficits and age-dependent collagen-VI immunofluorescence, directly affecting endpoint and biopsy interpretation in future trials (<a href="#ref-merlini2023newclinicaland-pages-14-15">merlini2023newclinicaland pages 14-15</a>, <a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>). A separate March 2023 human study identified three previously unreported variants among 14 pathogenic variants and emphasized integrating genetics with histology, immunology, and ultrastructure (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>). Emerging 2023 work links collagen VI to TGF-β bioavailability, while 2024 CRISPR work provides allele-selective fibroblast rescue; both are translationally important but not clinical therapies.</p>
+<p>Authoritative expert consensus is that BM should be managed as a multisystem neuromuscular/connective-tissue disorder, not dismissed as a benign contracture syndrome. Key unresolved issues are contemporary prevalence and incidence, variant-specific penetrance, validated BM-specific patient-reported outcomes, prospective respiratory trajectories, circulating biomarkers, and controlled disease-modifying trials. Most mechanistic data derive from mixed COL6 phenotypes or models; phenotype-specific extrapolation should therefore be labeled explicitly.</p>
+<h3>Selected primary/recent sources</h3>
+<ol>
+<li>Merlini L et al. <em>New Clinical and Immunofluorescence Data of Collagen VI-Related Myopathy: A Single Center Cohort of 69 Patients.</em> <strong>August 2023.</strong> DOI/URL: <a href="https://doi.org/10.3390/ijms241512474" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms241512474</a> (<a href="#ref-merlini2023newclinicaland-pages-14-15">merlini2023newclinicaland pages 14-15</a>, <a href="#ref-merlini2023newclinicaland-pages-1-2">merlini2023newclinicaland pages 1-2</a>)</li>
+<li>Zanotti S et al. <em>Extracellular Matrix Disorganization and Sarcolemmal Alterations in COL6-Related Myopathy Patients with New Variants of COL6 Genes.</em> <strong>March 2023.</strong> DOI/URL: <a href="https://doi.org/10.3390/ijms24065551" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24065551</a> (<a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-2-3">zanotti2023extracellularmatrixdisorganization pages 2-3</a>, <a href="#ref-zanotti2023extracellularmatrixdisorganization-pages-1-2">zanotti2023extracellularmatrixdisorganization pages 1-2</a>)</li>
+<li>Mohassel P et al. <em>Collagen type VI regulates TGFβ bioavailability in skeletal muscle.</em> <strong>June 2023 preprint.</strong> DOI/URL: <a href="https://doi.org/10.1101/2023.06.22.545964" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/2023.06.22.545964</a> (<a href="#ref-mohassel2023collagentypevi-pages-6-10">mohassel2023collagentypevi pages 6-10</a>, <a href="#ref-mohassel2023collagentypevi-pages-1-6">mohassel2023collagentypevi pages 1-6</a>)</li>
+<li>Telfer WR et al. <em>Zebrafish models of collagen VI-related myopathies.</em> <strong>March 2010.</strong> DOI/URL: <a href="https://doi.org/10.1093/hmg/ddq126" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/hmg/ddq126</a> (<a href="#ref-telfer2010zebrafishmodelsof-pages-1-2">telfer2010zebrafishmodelsof pages 1-2</a>)</li>
+<li>Bernardi P, Bonaldo P. <em>Mitochondrial dysfunction and defective autophagy in the pathogenesis of collagen VI muscular dystrophies.</em> <strong>May 2013.</strong> DOI/URL: <a href="https://doi.org/10.1101/cshperspect.a011387" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/cshperspect.a011387</a> (<a href="#ref-bernardi2013mitochondrialdysfunctionand-pages-1-2">bernardi2013mitochondrialdysfunctionand pages 1-2</a>)</li>
+</ol>
+<p><strong>PMID note:</strong> PMID values were not consistently exposed in the retrieved full-text metadata. To avoid erroneous identifiers, DOI and direct registry URLs are supplied above; database curators should resolve PMIDs through Crossref/PubMed during ingestion.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-opentargets-search-bethlem-myopathy-col6a1-col6a2-col6a3"></a>(OpenTargets Search: Bethlem myopathy-COL6A1,COL6A2,COL6A3): Open Targets Query (Bethlem myopathy-COL6A1,COL6A2,COL6A3, 13 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-merlini2023newclinicaland-pages-1-2"></a>(merlini2023newclinicaland pages 1-2): Luciano Merlini, Patrizia Sabatelli, Francesca Gualandi, Edoardo Redivo, Alberto Di Martino, and Cesare Faldini. New clinical and immunofluorescence data of collagen vi-related myopathy: a single center cohort of 69 patients. International Journal of Molecular Sciences, 24:12474, Aug 2023. URL: <a href="https://doi.org/10.3390/ijms241512474" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms241512474</a>, <a href="https://doi.org/10.3390/ijms241512474" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms241512474</a>. This article has 21 citations.</p>
+</li>
+<li>
+<p><a id="ref-bonnemann2011thecollagenvirelateda-pages-1-2"></a>(bonnemann2011thecollagenvirelateda pages 1-2): Carsten G. Bönnemann. The collagen vi-related myopathies ullrich congenital muscular dystrophy and bethlem myopathy. Handbook of clinical neurology, 101:81-96, Jan 2011. URL: <a href="https://doi.org/10.1016/b978-0-08-045031-5.00005-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/b978-0-08-045031-5.00005-0</a>, <a href="https://doi.org/10.1016/b978-0-08-045031-5.00005-0" target="_blank" rel="noopener noreferrer">doi:10.1016/b978-0-08-045031-5.00005-0</a>. This article has 154 citations.</p>
+</li>
+<li>
+<p><a id="ref-zanotti2023extracellularmatrixdisorganization-pages-1-2"></a>(zanotti2023extracellularmatrixdisorganization pages 1-2): Simona Zanotti, Francesca Magri, Sabrina Salani, Laura Napoli, Michela Ripolone, Dario Ronchi, Francesco Fortunato, Patrizia Ciscato, Daniele Velardo, Maria Grazia D’Angelo, Francesca Gualandi, Vincenzo Nigro, Monica Sciacco, Stefania Corti, Giacomo Pietro Comi, and Daniela Piga. Extracellular matrix disorganization and sarcolemmal alterations in col6-related myopathy patients with new variants of col6 genes. International Journal of Molecular Sciences, 24:5551, Mar 2023. URL: <a href="https://doi.org/10.3390/ijms24065551" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24065551</a>, <a href="https://doi.org/10.3390/ijms24065551" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms24065551</a>. This article has 15 citations.</p>
+</li>
+<li>
+<p><a id="ref-merlini2023newclinicaland-pages-14-15"></a>(merlini2023newclinicaland pages 14-15): Luciano Merlini, Patrizia Sabatelli, Francesca Gualandi, Edoardo Redivo, Alberto Di Martino, and Cesare Faldini. New clinical and immunofluorescence data of collagen vi-related myopathy: a single center cohort of 69 patients. International Journal of Molecular Sciences, 24:12474, Aug 2023. URL: <a href="https://doi.org/10.3390/ijms241512474" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms241512474</a>, <a href="https://doi.org/10.3390/ijms241512474" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms241512474</a>. This article has 21 citations.</p>
+</li>
+<li>
+<p><a id="ref-bonnemann2011thecollagenvirelateda-pages-14-15"></a>(bonnemann2011thecollagenvirelateda pages 14-15): Carsten G. Bönnemann. The collagen vi-related myopathies ullrich congenital muscular dystrophy and bethlem myopathy. Handbook of clinical neurology, 101:81-96, Jan 2011. URL: <a href="https://doi.org/10.1016/b978-0-08-045031-5.00005-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/b978-0-08-045031-5.00005-0</a>, <a href="https://doi.org/10.1016/b978-0-08-045031-5.00005-0" target="_blank" rel="noopener noreferrer">doi:10.1016/b978-0-08-045031-5.00005-0</a>. This article has 154 citations.</p>
+</li>
+<li>
+<p><a id="ref-castagnaro2018extracellularcollagenvi-pages-10-14"></a>(castagnaro2018extracellularcollagenvi pages 10-14): Silvia Castagnaro, Martina Chrisam, Matilde Cescon, Paola Braghetta, Paolo Grumati, and Paolo Bonaldo. Extracellular collagen vi has prosurvival and autophagy instructive properties in mouse fibroblasts. Frontiers in Physiology, Aug 2018. URL: <a href="https://doi.org/10.3389/fphys.2018.01129" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fphys.2018.01129</a>, <a href="https://doi.org/10.3389/fphys.2018.01129" target="_blank" rel="noopener noreferrer">doi:10.3389/fphys.2018.01129</a>. This article has 53 citations.</p>
+</li>
+<li>
+<p><a id="ref-mohassel2023collagentypevi-pages-1-6"></a>(mohassel2023collagentypevi pages 1-6): Payam Mohassel, Jachinta Rooney, Yaqun Zou, Kory Johnson, Gina Norato, Hailey Hearn, Matthew A Nalls, Pomi Yun, Tracy Ogata, Sarah Silverstein, David A Sleboda, Thomas J Roberts, Daniel B Rifkin, and Carsten G Bönnemann. Collagen type vi regulates tgfβ bioavailability in skeletal muscle. bioRxiv, Jun 2023. URL: <a href="https://doi.org/10.1101/2023.06.22.545964" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/2023.06.22.545964</a>, <a href="https://doi.org/10.1101/2023.06.22.545964" target="_blank" rel="noopener noreferrer">doi:10.1101/2023.06.22.545964</a>. This article has 5 citations.</p>
+</li>
+<li>
+<p><a id="ref-bonnemann2011thecollagenvirelateda-pages-6-7"></a>(bonnemann2011thecollagenvirelateda pages 6-7): Carsten G. Bönnemann. The collagen vi-related myopathies ullrich congenital muscular dystrophy and bethlem myopathy. Handbook of clinical neurology, 101:81-96, Jan 2011. URL: <a href="https://doi.org/10.1016/b978-0-08-045031-5.00005-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/b978-0-08-045031-5.00005-0</a>, <a href="https://doi.org/10.1016/b978-0-08-045031-5.00005-0" target="_blank" rel="noopener noreferrer">doi:10.1016/b978-0-08-045031-5.00005-0</a>. This article has 154 citations.</p>
+</li>
+<li>
+<p><a id="ref-bonnemann2011thecollagenvirelateda-pages-12-14"></a>(bonnemann2011thecollagenvirelateda pages 12-14): Carsten G. Bönnemann. The collagen vi-related myopathies ullrich congenital muscular dystrophy and bethlem myopathy. Handbook of clinical neurology, 101:81-96, Jan 2011. URL: <a href="https://doi.org/10.1016/b978-0-08-045031-5.00005-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/b978-0-08-045031-5.00005-0</a>, <a href="https://doi.org/10.1016/b978-0-08-045031-5.00005-0" target="_blank" rel="noopener noreferrer">doi:10.1016/b978-0-08-045031-5.00005-0</a>. This article has 154 citations.</p>
+</li>
+<li>
+<p><a id="ref-zanotti2023extracellularmatrixdisorganization-pages-2-3"></a>(zanotti2023extracellularmatrixdisorganization pages 2-3): Simona Zanotti, Francesca Magri, Sabrina Salani, Laura Napoli, Michela Ripolone, Dario Ronchi, Francesco Fortunato, Patrizia Ciscato, Daniele Velardo, Maria Grazia D’Angelo, Francesca Gualandi, Vincenzo Nigro, Monica Sciacco, Stefania Corti, Giacomo Pietro Comi, and Daniela Piga. Extracellular matrix disorganization and sarcolemmal alterations in col6-related myopathy patients with new variants of col6 genes. International Journal of Molecular Sciences, 24:5551, Mar 2023. URL: <a href="https://doi.org/10.3390/ijms24065551" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24065551</a>, <a href="https://doi.org/10.3390/ijms24065551" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms24065551</a>. This article has 15 citations.</p>
+</li>
+<li>
+<p><a id="ref-mohassel2023collagentypevi-pages-38-41"></a>(mohassel2023collagentypevi pages 38-41): Payam Mohassel, Jachinta Rooney, Yaqun Zou, Kory Johnson, Gina Norato, Hailey Hearn, Matthew A Nalls, Pomi Yun, Tracy Ogata, Sarah Silverstein, David A Sleboda, Thomas J Roberts, Daniel B Rifkin, and Carsten G Bönnemann. Collagen type vi regulates tgfβ bioavailability in skeletal muscle. bioRxiv, Jun 2023. URL: <a href="https://doi.org/10.1101/2023.06.22.545964" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/2023.06.22.545964</a>, <a href="https://doi.org/10.1101/2023.06.22.545964" target="_blank" rel="noopener noreferrer">doi:10.1101/2023.06.22.545964</a>. This article has 5 citations.</p>
+</li>
+<li>
+<p><a id="ref-bernardi2013mitochondrialdysfunctionand-pages-1-2"></a>(bernardi2013mitochondrialdysfunctionand pages 1-2): P. Bernardi and P. Bonaldo. Mitochondrial dysfunction and defective autophagy in the pathogenesis of collagen vi muscular dystrophies. Cold Spring Harbor perspectives in biology, 5 5:a011387, May 2013. URL: <a href="https://doi.org/10.1101/cshperspect.a011387" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/cshperspect.a011387</a>, <a href="https://doi.org/10.1101/cshperspect.a011387" target="_blank" rel="noopener noreferrer">doi:10.1101/cshperspect.a011387</a>. This article has 91 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mohassel2023collagentypevi-pages-6-10"></a>(mohassel2023collagentypevi pages 6-10): Payam Mohassel, Jachinta Rooney, Yaqun Zou, Kory Johnson, Gina Norato, Hailey Hearn, Matthew A Nalls, Pomi Yun, Tracy Ogata, Sarah Silverstein, David A Sleboda, Thomas J Roberts, Daniel B Rifkin, and Carsten G Bönnemann. Collagen type vi regulates tgfβ bioavailability in skeletal muscle. bioRxiv, Jun 2023. URL: <a href="https://doi.org/10.1101/2023.06.22.545964" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/2023.06.22.545964</a>, <a href="https://doi.org/10.1101/2023.06.22.545964" target="_blank" rel="noopener noreferrer">doi:10.1101/2023.06.22.545964</a>. This article has 5 citations.</p>
+</li>
+<li>
+<p><a id="ref-nct01438788-chunk-1"></a>(NCT01438788 chunk 1):  Low Protein Diet in Patients With Collagen VI Related Myopathies. Istituto Ortopedico Rizzoli. 2011. ClinicalTrials.gov Identifier: NCT01438788</p>
+</li>
+<li>
+<p><a id="ref-nct03693898-chunk-1"></a>(NCT03693898 chunk 1): Ruth Salim. MR in Patients With Collagen VI Related Myopathies. Ruth Salim. 2018. ClinicalTrials.gov Identifier: NCT03693898</p>
+</li>
+<li>
+<p><a id="ref-nct04020159-chunk-1"></a>(NCT04020159 chunk 1):  Global Registry for COL6-related Dystrophies. Newcastle-upon-Tyne Hospitals NHS Trust. 2018. ClinicalTrials.gov Identifier: NCT04020159</p>
+</li>
+<li>
+<p><a id="ref-telfer2010zebrafishmodelsof-pages-1-2"></a>(telfer2010zebrafishmodelsof pages 1-2): W. R. Telfer, A. Busta, Carsten G. Bönnemann, Eva L. Feldman, and James J. Dowling. Zebrafish models of collagen vi-related myopathies. Human Molecular Genetics, 19:2433-2444, Mar 2010. URL: <a href="https://doi.org/10.1093/hmg/ddq126" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/hmg/ddq126</a>, <a href="https://doi.org/10.1093/hmg/ddq126" target="_blank" rel="noopener noreferrer">doi:10.1093/hmg/ddq126</a>. This article has 127 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Bethlem_Myopathy-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Beta-Ketothiolase_Deficiency-openscientist.html">← Beta-Ketothiolase Deficiency (OpenScientist)</a>
+                
+                
+                <a href="Bilateral_Striopallidodentate_Calcinosis-cyberian-codex.html">Bilateral Striopallidodentate Calcinosis (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Bethlem_myopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Bethlem_Myopathy-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
