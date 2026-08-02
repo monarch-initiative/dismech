@@ -1589,6 +1589,31 @@ translator-drug-links *args="":
 translator-drug-gaps file *args="":
     uv run python scripts/translator_drug_links.py {{file}} --asserted-only --new-only {{args}}
 
+# Pins BOTH ends of the query and returns drug -> intermediate -> disease routes, each
+# hop carrying its own predicate, knowledge sources and PMIDs. Intermediates already
+# modelled in the entry (genes, GO processes) are flagged, so the report reads as
+# "mechanism you have" vs "mechanism you don't".
+# Examples:
+#   just translator-drug-paths kb/disorders/Chronic_Myeloid_Leukemia.yaml imatinib
+#   just translator-drug-paths kb/disorders/Asthma.yaml CHEBI:50730 --via process
+#   just translator-drug-paths kb/disorders/Asthma.yaml montelukast --new-only --top 40
+# Leads, not evidence — see docs/translator-drug-links.md
+# Mechanism paths between a drug and a disease, via the NCATS Translator
+[group('Research')]
+translator-drug-paths file drug *args="":
+    uv run python scripts/translator_drug_links.py {{file}} --drug {{drug}} {{args}}
+
+# Writes the path report as a provider report under
+# kb/hypotheses/<Disorder>/<hypothesis_group_id>/translator.md (plus its .citations.md),
+# so it joins the same review path as OpenScientist/Falcon reports: assess it with the
+# review-hypothesis-exploration skill, then `just validate-hypothesis-assessment`.
+# Example:
+#   just translator-hypothesis kb/disorders/Siderius_Type_X-Linked_Intellectual_Disability.yaml sirolimus mtor_targeting
+# Run Translator as a hypothesis-investigation provider for one drug-mechanism hypothesis
+[group('Research')]
+translator-hypothesis file drug hypothesis_group_id *args="":
+    uv run python scripts/translator_drug_links.py {{file}} --drug {{drug}} --hypothesis {{hypothesis_group_id}} {{args}}
+
 # ============== Structured-database reference sources ==============
 #
 # Structured sources (e.g. Orphanet) ingest a knowledge base and emit

@@ -53,6 +53,19 @@ DEFAULT_TOP = 25
 MAX_PUBLICATIONS_PER_CANDIDATE = 8
 MAX_TRIALS_PER_CANDIDATE = 5
 
+# Intermediate node types a mechanism path may run through, for --via.
+VIA_CATEGORIES = {
+    "gene": ["biolink:Gene"],
+    "protein": ["biolink:Protein"],
+    "gene-or-protein": ["biolink:Gene", "biolink:Protein"],
+    "pathway": ["biolink:Pathway"],
+    "process": ["biolink:BiologicalProcessOrActivity"],
+    "phenotype": ["biolink:PhenotypicFeature"],
+    "chemical": ["biolink:ChemicalEntity"],
+    "any": ["biolink:NamedThing"],
+}
+DEFAULT_VIA = "gene"
+
 PUBLICATION_PATTERNS = (
     (re.compile(r"(?:^|/)(?:pubmed/|PMID[:_])(\d+)", re.IGNORECASE), "PMID:{}"),
     (re.compile(r"(?:^|/)PMC(\d+)", re.IGNORECASE), "PMC{}"),
@@ -92,6 +105,44 @@ class Candidate:
         return "CURATED" if self.curated_as else "NEW"
 
 
+@dataclass
+class Hop:
+    """One edge of a mechanism path, in the direction the source asserts it."""
+
+    subject: str
+    subject_name: str
+    predicate: str
+    object: str
+    object_name: str
+    sources: list[str] = field(default_factory=list)
+    publications: list[str] = field(default_factory=list)
+
+    def render(self) -> str:
+        return f"{self.subject_name} --{self.predicate.replace('biolink:', '')}--> {self.object_name}"
+
+
+@dataclass
+class PathCandidate:
+    """A drug -> intermediate -> disease mechanism path proposed by Translator."""
+
+    node_id: str
+    name: str
+    categories: list[str] = field(default_factory=list)
+    score: float | None = None
+    hops: list[Hop] = field(default_factory=list)
+    sources: set[str] = field(default_factory=set)
+    publications: list[str] = field(default_factory=list)
+    equivalent_ids: list[str] = field(default_factory=list)
+    curated_as: str | None = None
+
+    @property
+    def status(self) -> str:
+        return "IN ENTRY" if self.curated_as else "NEW"
+
+    def render(self) -> str:
+        return " | ".join(hop.render() for hop in self.hops)
+
+
 # --------------------------------------------------------------------------
 # Query construction (pure)
 # --------------------------------------------------------------------------
@@ -114,6 +165,36 @@ def build_query(disease_curie: str, *, predicate: str = "biolink:treats", inferr
                     "chem": {"categories": ["biolink:ChemicalEntity"]},
                 },
                 "edges": {"e": edge},
+            }
+        }
+    }
+
+
+def build_path_query(
+    disease_curie: str,
+    drug_curie: str,
+    *,
+    via_categories: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build a two-hop TRAPI lookup: drug -> intermediate -> disease.
+
+    Both ends are pinned, so every answer is a candidate mechanism *path* rather
+    than a ranked drug. Predicates are left open: constraining them drops real
+    routes (`physically_interacts_with` vs `affects` vs `interacts_with` are all
+    used for the same drug-target relation across knowledge providers).
+    """
+    return {
+        "message": {
+            "query_graph": {
+                "nodes": {
+                    "chem": {"ids": [drug_curie], "categories": ["biolink:ChemicalEntity"]},
+                    "mid": {"categories": list(via_categories or VIA_CATEGORIES[DEFAULT_VIA])},
+                    "disease": {"ids": [disease_curie], "categories": ["biolink:Disease"]},
+                },
+                "edges": {
+                    "e1": {"subject": "chem", "object": "mid"},
+                    "e2": {"subject": "mid", "object": "disease"},
+                },
             }
         }
     }
@@ -352,6 +433,89 @@ def extract_candidates(message: dict[str, Any]) -> list[Candidate]:
     return sorted(by_chem.values(), key=lambda c: (-(c.score or 0.0), c.name.lower()))
 
 
+def _edge_provenance(edge: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """Primary knowledge sources and normalized publications for one KG edge."""
+    sources = [
+        str(source["resource_id"]).replace("infores:", "")
+        for source in edge.get("sources") or []
+        if source.get("resource_role") == "primary_knowledge_source" and source.get("resource_id")
+    ]
+    publications: list[str] = []
+    for attribute in edge.get("attributes") or []:
+        if attribute.get("attribute_type_id") != "biolink:publications":
+            continue
+        for item in _as_list(attribute.get("value")):
+            reference = normalize_publication(item)
+            if reference and reference not in publications:
+                publications.append(reference)
+    return sources, publications
+
+
+def extract_paths(message: dict[str, Any], *, via_categories: list[str] | None = None) -> list[PathCandidate]:
+    """Collapse two-hop TRAPI results into one PathCandidate per intermediate node.
+
+    Each answer is a drug -> intermediate -> disease route. Answers are grouped by
+    the intermediate, because the same gene is typically reached by several
+    equivalent predicate spellings across knowledge providers.
+    """
+    knowledge_graph = message.get("knowledge_graph") or {}
+    nodes = knowledge_graph.get("nodes") or {}
+    edges = knowledge_graph.get("edges") or {}
+    wanted = set(via_categories or [])
+
+    by_node: dict[str, PathCandidate] = {}
+    for result in message.get("results") or []:
+        mid_ids = _node_ids(result, "mid")
+        if not mid_ids:
+            continue
+        mid_id = sorted(mid_ids)[0]
+        node = nodes.get(mid_id) or {}
+        categories = list(node.get("categories") or [])
+        # ARAs occasionally answer with an off-category intermediate (a biologic
+        # returned for a Gene slot); keep the answer honest to what was asked.
+        if wanted and categories and not wanted.intersection(categories):
+            continue
+
+        path = by_node.get(mid_id)
+        if path is None:
+            path = PathCandidate(node_id=mid_id, name=node.get("name") or mid_id, categories=categories)
+            by_node[mid_id] = path
+
+        for analysis in result.get("analyses") or []:
+            score = analysis.get("score")
+            if isinstance(score, int | float) and (path.score is None or score > path.score):
+                path.score = float(score)
+
+            hops: list[Hop] = []
+            for edge_key in sorted((analysis.get("edge_bindings") or {}).keys()):
+                for binding in (analysis.get("edge_bindings") or {})[edge_key]:
+                    edge = edges.get(binding.get("id"))
+                    if not edge:
+                        continue
+                    sources, publications = _edge_provenance(edge)
+                    hops.append(
+                        Hop(
+                            subject=edge.get("subject", ""),
+                            subject_name=(nodes.get(edge.get("subject")) or {}).get("name")
+                            or edge.get("subject", ""),
+                            predicate=edge.get("predicate", ""),
+                            object=edge.get("object", ""),
+                            object_name=(nodes.get(edge.get("object")) or {}).get("name") or edge.get("object", ""),
+                            sources=sources,
+                            publications=publications,
+                        )
+                    )
+                    path.sources.update(sources)
+                    for publication in publications:
+                        if publication not in path.publications:
+                            path.publications.append(publication)
+                    break  # one representative edge per query-graph hop
+            if len(hops) > len(path.hops):
+                path.hops = hops
+
+    return sorted(by_node.values(), key=lambda p: (-(p.score or 0.0), p.name.lower()))
+
+
 # --------------------------------------------------------------------------
 # dismech cross-reference (pure)
 # --------------------------------------------------------------------------
@@ -379,17 +543,87 @@ def curated_agents(disease: dict[str, Any]) -> tuple[dict[str, str], dict[str, s
     return by_curie, by_name
 
 
+def _match_curated(
+    curies: list[str],
+    name: str,
+    by_curie: dict[str, str],
+    by_name: dict[str, str],
+) -> str | None:
+    """First CURIE hit (case-insensitive: dismech writes `hgnc:`, Translator `HGNC:`), else a name hit."""
+    folded = {curie.lower(): label for curie, label in by_curie.items()}
+    for curie in curies:
+        match = folded.get(curie.lower())
+        if match:
+            return match
+    return by_name.get(name.strip().lower())
+
+
 def annotate_curated(candidates: list[Candidate], by_curie: dict[str, str], by_name: dict[str, str]) -> None:
     """Mark candidates already present in the entry, by equivalent CURIE or by name."""
     for candidate in candidates:
-        for curie in [candidate.chem_id, *candidate.equivalent_ids]:
-            if curie in by_curie:
-                candidate.curated_as = by_curie[curie]
-                break
-        else:
-            match = by_name.get(candidate.name.strip().lower())
-            if match:
-                candidate.curated_as = match
+        candidate.curated_as = _match_curated(
+            [candidate.chem_id, *candidate.equivalent_ids], candidate.name, by_curie, by_name
+        )
+
+
+def curated_mechanism_index(disease: dict[str, Any]) -> tuple[dict[str, str], dict[str, str]]:
+    """Return (curie -> where, lowercased name -> where) for mechanism entities the entry models.
+
+    Covers the disease-level `genetic:` list and every gene, biological process,
+    molecular function, and chemical entity bound on a pathophysiology node, so a
+    Translator path can be reported as "already in your pathograph" vs new.
+    """
+    by_curie: dict[str, str] = {}
+    by_name: dict[str, str] = {}
+
+    def record(descriptor: Any, where: str) -> None:
+        if not isinstance(descriptor, dict):
+            return
+        term = descriptor.get("term") or {}
+        curie = (term.get("id") or "").strip()
+        if curie:
+            by_curie.setdefault(curie, where)
+        for label in (descriptor.get("preferred_term"), term.get("label")):
+            if label:
+                by_name.setdefault(str(label).strip().lower(), where)
+
+    for gene in disease.get("genetic") or []:
+        where = f"genetic: {gene.get('name') or ''}".strip().rstrip(":")
+        record(gene.get("gene_term"), where)
+        if gene.get("name"):
+            by_name.setdefault(str(gene["name"]).strip().lower(), where)
+
+    for node in disease.get("pathophysiology") or []:
+        where = f"pathophysiology: {node.get('name') or ''}".strip().rstrip(":")
+        for slot in ("genes", "biological_processes", "molecular_functions", "chemical_entities", "gene_products"):
+            for descriptor in node.get(slot) or []:
+                record(descriptor, where)
+        record(node.get("gene"), where)
+
+    return by_curie, by_name
+
+
+def annotate_paths(paths: list[PathCandidate], by_curie: dict[str, str], by_name: dict[str, str]) -> None:
+    """Mark path intermediates the entry already models."""
+    for path in paths:
+        path.curated_as = _match_curated([path.node_id, *path.equivalent_ids], path.name, by_curie, by_name)
+
+
+def drug_target_mechanisms(disease: dict[str, Any], curated_as: str | None) -> list[str]:
+    """The pathophysiology nodes the entry already says this treatment acts on."""
+    targets: list[str] = []
+    for treatment in disease.get("treatments") or []:
+        names = {str(treatment.get("name") or "").strip().lower()}
+        for agent in (treatment.get("treatment_term") or {}).get("therapeutic_agent") or []:
+            names.add(str(agent.get("preferred_term") or "").strip().lower())
+        if curated_as and curated_as.strip().lower() not in names:
+            continue
+        for mechanism in treatment.get("target_mechanisms") or []:
+            label = mechanism.get("target")
+            effect = mechanism.get("treatment_effect")
+            if label:
+                targets.append(f"{label} ({effect})" if effect else str(label))
+    return targets
 
 
 # --------------------------------------------------------------------------
@@ -579,6 +813,147 @@ def render_markdown(
     return "\n".join(lines).rstrip() + "\n"
 
 
+PATH_DISCLAIMER = (
+    "These paths are **machine-generated leads**, not curated mechanism. Each hop is a "
+    "single knowledge-provider assertion — text-mined co-occurrence (`semmeddb`) sits "
+    "beside curated pharmacology (`drugcentral`, `dgidb`) with no distinction in the "
+    "ranking. A path is a hypothesis to check against primary literature, and every "
+    "PMID below still has to go through `just fetch-reference` + "
+    "`just validate-references` before it can support anything in an entry."
+)
+
+
+def render_paths_markdown(
+    paths: list[PathCandidate],
+    *,
+    drug_curie: str,
+    drug_label: str,
+    disease_curie: str,
+    disease_label: str,
+    via: str,
+    pk: str,
+    ui_url: str,
+    complete: bool,
+    entry_path: str | None,
+    curated_drug: str | None,
+    curated_targets: list[str],
+    generated_at: str,
+) -> str:
+    lines = [
+        f"# Translator mechanism paths: {drug_label or drug_curie} -> {disease_label or disease_curie}",
+        "",
+        f"- Drug: `{drug_curie}`" + (f" ({drug_label})" if drug_label else ""),
+        f"- Disease: `{disease_curie}`" + (f" ({disease_label})" if disease_label else ""),
+        f"- Intermediate node type: `{via}`",
+        f"- dismech entry: `{entry_path}`" if entry_path else "- dismech entry: (none supplied)",
+    ]
+    if curated_drug:
+        lines.append(f"- Entry already curates this drug as: **{curated_drug}**")
+        if curated_targets:
+            lines.append(f"  - declared `target_mechanisms`: {'; '.join(curated_targets)}")
+        else:
+            lines.append("  - no `target_mechanisms` declared — the paths below are candidates for it")
+    elif entry_path:
+        lines.append("- Entry does not yet curate this drug.")
+    lines += [
+        f"- ARS pk: `{pk}`",
+        f"- Translator UI: {ui_url}",
+        f"- Generated: {generated_at}",
+        f"- Paths: {len(paths)}",
+    ]
+    if not complete:
+        lines.append("- **Partial**: the ARS run had not fully settled when this report was rendered.")
+    lines += [
+        "",
+        f"> {PATH_DISCLAIMER}",
+        "",
+        "| # | Intermediate | In entry? | Score | Path | Sources |",
+        "| - | ------------ | --------- | ----- | ---- | ------- |",
+    ]
+    for index, path in enumerate(paths, start=1):
+        score = f"{path.score:.2f}" if path.score is not None else ""
+        where = path.curated_as or "—"
+        lines.append(
+            f"| {index} | {path.name} (`{path.node_id}`) | {where} | {score} | "
+            f"{path.render()} | {', '.join(sorted(path.sources)[:3])} |"
+        )
+
+    lines += ["", "## Path detail", ""]
+    for index, path in enumerate(paths, start=1):
+        lines.append(f"### {index}. via {path.name} (`{path.node_id}`) — {path.status}")
+        if path.curated_as:
+            lines.append(f"- Entry already models this as: **{path.curated_as}**")
+        if path.score is not None:
+            lines.append(f"- Translator score: {path.score:.3f}")
+        for hop in path.hops:
+            detail = f"- {hop.render()}"
+            if hop.sources:
+                detail += f"  \n  - asserted by: {', '.join(sorted(set(hop.sources)))}"
+            if hop.publications:
+                shown = hop.publications[:MAX_PUBLICATIONS_PER_CANDIDATE]
+                detail += f"  \n  - publications: {', '.join(f'`{p}`' for p in shown)}"
+            lines.append(detail)
+        pmids = [p for p in path.publications if p.startswith("PMID:")]
+        if pmids:
+            lines.append(f"- Verify first: `just fetch-reference {pmids[0]}`")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_paths_tsv(paths: list[PathCandidate]) -> str:
+    header = ["rank", "intermediate", "curie", "in_entry", "score", "path", "publications", "sources"]
+    rows = ["\t".join(header)]
+    for index, path in enumerate(paths, start=1):
+        rows.append(
+            "\t".join(
+                [
+                    str(index),
+                    path.name,
+                    path.node_id,
+                    path.curated_as or "",
+                    f"{path.score:.4f}" if path.score is not None else "",
+                    path.render(),
+                    "|".join(path.publications[:MAX_PUBLICATIONS_PER_CANDIDATE]),
+                    "|".join(sorted(path.sources)),
+                ]
+            )
+        )
+    return "\n".join(rows) + "\n"
+
+
+def render_paths_json(paths: list[PathCandidate], **meta: Any) -> str:
+    payload = {
+        **meta,
+        "disclaimer": PATH_DISCLAIMER,
+        "paths": [
+            {
+                "rank": index,
+                "intermediate": path.name,
+                "curie": path.node_id,
+                "categories": path.categories,
+                "in_entry": path.curated_as,
+                "score": path.score,
+                "hops": [
+                    {
+                        "subject": hop.subject,
+                        "subject_name": hop.subject_name,
+                        "predicate": hop.predicate,
+                        "object": hop.object,
+                        "object_name": hop.object_name,
+                        "sources": hop.sources,
+                        "publications": hop.publications,
+                    }
+                    for hop in path.hops
+                ],
+                "publications": path.publications[:MAX_PUBLICATIONS_PER_CANDIDATE],
+                "sources": sorted(path.sources),
+            }
+            for index, path in enumerate(paths, start=1)
+        ],
+    }
+    return json.dumps(payload, indent=2) + "\n"
+
+
 def render_tsv(candidates: list[Candidate]) -> str:
     header = [
         "rank",
@@ -644,6 +1019,103 @@ def render_json(candidates: list[Candidate], **meta: Any) -> str:
 
 
 # --------------------------------------------------------------------------
+# Hypothesis-provider output (kb/hypotheses/<Disease>/<hypothesis_id>/translator.md)
+# --------------------------------------------------------------------------
+
+PROVIDER_SLUG = "translator"
+DEFAULT_HYPOTHESIS_ROOT = Path("kb/hypotheses")
+
+
+def find_hypothesis(disease: dict[str, Any], hypothesis_group_id: str) -> dict[str, Any]:
+    """Look up one `mechanistic_hypotheses` entry, listing the alternatives on a miss."""
+    hypotheses = disease.get("mechanistic_hypotheses") or []
+    for hypothesis in hypotheses:
+        if str(hypothesis.get("hypothesis_group_id") or "").casefold() == hypothesis_group_id.casefold():
+            return hypothesis
+    available = ", ".join(str(h.get("hypothesis_group_id")) for h in hypotheses if h.get("hypothesis_group_id"))
+    raise SystemExit(
+        f"No mechanistic_hypotheses entry with hypothesis_group_id '{hypothesis_group_id}'. "
+        f"Available: {available or '(none in this entry)'}"
+    )
+
+
+def hypothesis_report_paths(root: Path, disorder_slug: str, hypothesis_group_id: str) -> tuple[Path, Path]:
+    """Report and citations paths, matching the deep-research provider convention."""
+    directory = root / disorder_slug / hypothesis_group_id
+    report = directory / f"{PROVIDER_SLUG}.md"
+    return report, report.with_name(f"{report.name}.citations.md")
+
+
+def build_hypothesis_frontmatter(
+    *,
+    hypothesis: dict[str, Any],
+    disease_name: str,
+    query: dict[str, Any],
+    ars_url: str,
+    pk: str,
+    merged_pk: str,
+    citation_count: int,
+    started_at: str,
+    ended_at: str,
+    duration_seconds: float,
+) -> dict[str, Any]:
+    """Provenance frontmatter in the shape the provider pipeline already reads."""
+    return {
+        "provider": PROVIDER_SLUG,
+        "model": "ncats-translator-ars",
+        "cached": False,
+        "start_time": started_at,
+        "end_time": ended_at,
+        "duration_seconds": round(duration_seconds, 2),
+        "citation_count": citation_count,
+        "template_variables": {
+            "disease_name": disease_name,
+            "hypothesis_group_id": hypothesis.get("hypothesis_group_id"),
+            "hypothesis_label": hypothesis.get("hypothesis_label") or hypothesis.get("hypothesis_group_id"),
+            "hypothesis_status": hypothesis.get("status"),
+        },
+        "provider_config": {
+            "ars_url": ars_url,
+            "ars_pk": pk,
+            "merged_pk": merged_pk,
+            "query_graph": query["message"]["query_graph"],
+        },
+    }
+
+
+def render_citations(references: list[str], *, query_description: str) -> str:
+    """Citations sidecar: the query, then the numbered references the paths rest on."""
+    lines = [
+        "# Citations for Translator path query",
+        "",
+        f"**Query:** {query_description}",
+        "",
+        "Every reference below is an unverified lead carried over from a knowledge-provider",
+        "edge annotation. Fetch each with `just fetch-reference <ID>` before citing it.",
+        "",
+        "## Citations",
+        "",
+    ]
+    lines += [f"{index}. {reference}" for index, reference in enumerate(references, start=1)] or ["(none)"]
+    return "\n".join(lines) + "\n"
+
+
+def write_hypothesis_report(
+    report_path: Path,
+    citations_path: Path,
+    *,
+    frontmatter: dict[str, Any],
+    body: str,
+    references: list[str],
+    query_description: str,
+) -> None:
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    header = yaml.safe_dump(frontmatter, sort_keys=False, allow_unicode=True).rstrip()
+    report_path.write_text(f"---\n{header}\n---\n\n{body}", encoding="utf-8")
+    citations_path.write_text(render_citations(references, query_description=query_description), encoding="utf-8")
+
+
+# --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
 
@@ -672,7 +1144,44 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--format", choices=("markdown", "json", "tsv"), default="markdown", help="Output format.")
     parser.add_argument("--output", help="Write the report to this path instead of stdout.")
     parser.add_argument("--save-raw", help="Also save the merged TRAPI message to this path.")
+
+    paths = parser.add_argument_group("mechanism paths (drug-disease pair)")
+    paths.add_argument(
+        "--drug",
+        help="Switch to path mode: a chemical CURIE (CHEBI:45783) or name (imatinib). "
+        "Returns drug -> intermediate -> disease mechanism paths instead of ranked drugs.",
+    )
+    paths.add_argument(
+        "--via",
+        choices=sorted(VIA_CATEGORIES),
+        default=DEFAULT_VIA,
+        help=f"Intermediate node type for path mode (default {DEFAULT_VIA}).",
+    )
+    paths.add_argument(
+        "--hypothesis",
+        help="Write the path report as a provider report for this mechanistic_hypotheses "
+        "group id, under kb/hypotheses/<Disorder>/<id>/translator.md (implies path mode).",
+    )
+    paths.add_argument(
+        "--hypothesis-root",
+        default=str(DEFAULT_HYPOTHESIS_ROOT),
+        help=f"Root for hypothesis provider reports (default {DEFAULT_HYPOTHESIS_ROOT}).",
+    )
     return parser.parse_args(argv)
+
+
+def resolve_chemical_name(name: str, *, limit: int = 5) -> list[tuple[str, str]]:
+    """Look a drug name up in the SRI name resolver, best match first."""
+    response = httpx.get(
+        NAME_RESOLVER_URL,
+        params={"string": name, "biolink_type": "biolink:ChemicalEntity", "limit": limit},
+        timeout=60.0,
+        follow_redirects=True,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    rows = payload.get("results", payload) if isinstance(payload, dict) else payload
+    return [(row["curie"], row.get("label") or "") for row in rows or [] if row.get("curie")]
 
 
 def _load_entry(path: str) -> dict[str, Any]:
@@ -686,6 +1195,154 @@ def _disease_from_entry(entry: dict[str, Any], path: str) -> tuple[str, str]:
     if not curie:
         raise SystemExit(f"{path} has no disease_term.term.id; pass --mondo explicitly.")
     return curie, term.get("label") or entry.get("name") or ""
+
+
+def _run_query(client: ARSClient, args: argparse.Namespace, query: dict[str, Any] | None) -> tuple[str, str, bool]:
+    """Submit (or replay) a query and poll to a merged result set."""
+    if args.pk:
+        pk = args.pk
+    else:
+        assert query is not None
+        pk = client.submit(query)
+        print(f"Submitted to {client.base_url} as pk {pk}", file=sys.stderr)
+    merged_pk, complete = poll_for_merged(
+        client,
+        pk,
+        timeout_seconds=args.timeout,
+        poll_seconds=args.poll_interval,
+        stall_seconds=args.stall_seconds,
+    )
+    return pk, merged_pk, complete
+
+
+def _emit(rendered: str, output: str | None) -> None:
+    if output:
+        Path(output).write_text(rendered, encoding="utf-8")
+        print(f"Wrote {output}", file=sys.stderr)
+    else:
+        sys.stdout.write(rendered)
+
+
+def run_paths_mode(args: argparse.Namespace, entry: dict[str, Any] | None, disease: tuple[str, str]) -> int:
+    """Pair mode: drug + disease -> ranked mechanism paths through an intermediate."""
+    disease_curie, disease_label = disease
+    drug_curie, drug_label = args.drug, ""
+    if ":" not in drug_curie:
+        matches = resolve_chemical_name(drug_curie)
+        if not matches:
+            raise SystemExit(f"Could not resolve '{args.drug}' to a chemical CURIE.")
+        drug_curie, drug_label = matches[0]
+        print(f"Resolved '{args.drug}' -> {drug_curie} ({drug_label})", file=sys.stderr)
+        for curie, label in matches[1:]:
+            print(f"  other candidate: {curie} ({label})", file=sys.stderr)
+
+    hypothesis: dict[str, Any] | None = None
+    if args.hypothesis:
+        if entry is None:
+            raise SystemExit("--hypothesis needs a disorder YAML path so the hypothesis id can be resolved.")
+        hypothesis = find_hypothesis(entry, args.hypothesis)
+
+    via_categories = VIA_CATEGORIES[args.via]
+    query = build_path_query(disease_curie, drug_curie, via_categories=via_categories)
+    started = datetime.now(UTC)
+    client = ARSClient(CI_ARS_URL if args.ci else args.ars_url)
+    try:
+        pk, merged_pk, complete = _run_query(client, args, query)
+        message = (client.message(merged_pk).get("fields") or {}).get("data", {}).get("message") or {}
+    finally:
+        client.close()
+    ended = datetime.now(UTC)
+
+    if args.save_raw:
+        Path(args.save_raw).write_text(json.dumps(message, indent=2), encoding="utf-8")
+
+    paths = extract_paths(message, via_categories=via_categories)
+    nodes = (message.get("knowledge_graph") or {}).get("nodes") or {}
+    drug_label = drug_label or (nodes.get(drug_curie) or {}).get("name") or ""
+    disease_label = disease_label or (nodes.get(disease_curie) or {}).get("name") or ""
+
+    if paths:
+        normalized = normalize_curies([path.node_id for path in paths])
+        for path in paths:
+            path.equivalent_ids = list((normalized.get(path.node_id) or {}).get("equivalents") or [])
+
+    curated_drug, curated_targets = None, []
+    if entry is not None:
+        annotate_paths(paths, *curated_mechanism_index(entry))
+        agent_curie, agent_name = curated_agents(entry)
+        drug_equivalents = list((normalize_curies([drug_curie]).get(drug_curie) or {}).get("equivalents") or [])
+        curated_drug = _match_curated([drug_curie, *drug_equivalents], drug_label, agent_curie, agent_name)
+        curated_targets = drug_target_mechanisms(entry, curated_drug)
+
+    if args.new_only:
+        paths = [path for path in paths if not path.curated_as]
+    total = len(paths)
+    paths = paths[: args.top]
+    if total > len(paths):
+        print(f"Showing top {len(paths)} of {total} paths (raise with --top).", file=sys.stderr)
+
+    ui_url = f"{CI_UI_URL if args.ci else ARS_UI_URL}?q={pk}"
+    meta = {
+        "drug_curie": drug_curie,
+        "drug_label": drug_label,
+        "disease_curie": disease_curie,
+        "disease_label": disease_label,
+        "via": args.via,
+        "pk": pk,
+        "ui_url": ui_url,
+        "complete": complete,
+    }
+    if args.format == "json":
+        rendered = render_paths_json(paths, entry=args.entry, generated_at=ended.isoformat(), **meta)
+    elif args.format == "tsv":
+        rendered = render_paths_tsv(paths)
+    else:
+        rendered = render_paths_markdown(
+            paths,
+            entry_path=args.entry,
+            curated_drug=curated_drug,
+            curated_targets=curated_targets,
+            generated_at=ended.isoformat(),
+            **meta,
+        )
+
+    if hypothesis is not None:
+        disorder_slug = Path(args.entry).stem
+        report_path, citations_path = hypothesis_report_paths(
+            Path(args.hypothesis_root), disorder_slug, str(hypothesis["hypothesis_group_id"])
+        )
+        references: list[str] = []
+        for path in paths:
+            for reference in path.publications:
+                if reference not in references:
+                    references.append(reference)
+        write_hypothesis_report(
+            report_path,
+            citations_path,
+            frontmatter=build_hypothesis_frontmatter(
+                hypothesis=hypothesis,
+                disease_name=str(entry.get("name") or disease_label) if entry else disease_label,
+                query=query,
+                ars_url=client.base_url,
+                pk=pk,
+                merged_pk=merged_pk,
+                citation_count=len(references),
+                started_at=started.isoformat(),
+                ended_at=ended.isoformat(),
+                duration_seconds=(ended - started).total_seconds(),
+            ),
+            body=rendered,
+            references=references,
+            query_description=(
+                f"TRAPI two-hop lookup {drug_curie} -> {args.via} -> {disease_curie} "
+                f"against the NCATS Translator ARS (pk {pk})."
+            ),
+        )
+        print(f"Wrote {report_path} and {citations_path}", file=sys.stderr)
+        return 0
+
+    _emit(rendered, args.output)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -711,30 +1368,20 @@ def main(argv: list[str] | None = None) -> int:
     if not disease_curie and not args.pk:
         raise SystemExit("No disease CURIE resolved; pass --mondo.")
 
-    base_url = CI_ARS_URL if args.ci else args.ars_url
+    if args.drug or args.hypothesis:
+        if not args.drug:
+            raise SystemExit("--hypothesis is a path-mode option; pass --drug as well.")
+        return run_paths_mode(args, entry, (disease_curie or "", disease_label))
+
     ui_base = CI_UI_URL if args.ci else ARS_UI_URL
-    client = ARSClient(base_url)
+    client = ARSClient(CI_ARS_URL if args.ci else args.ars_url)
     try:
-        if args.pk:
-            pk = args.pk
-            merged_pk, complete = poll_for_merged(
-                client,
-                pk,
-                timeout_seconds=args.timeout,
-                poll_seconds=args.poll_interval,
-                stall_seconds=args.stall_seconds,
-            )
-        else:
-            query = build_query(disease_curie, predicate=args.predicate, inferred=not args.no_inferred)
-            pk = client.submit(query)
-            print(f"Submitted {disease_curie} to {base_url} as pk {pk}", file=sys.stderr)
-            merged_pk, complete = poll_for_merged(
-                client,
-                pk,
-                timeout_seconds=args.timeout,
-                poll_seconds=args.poll_interval,
-                stall_seconds=args.stall_seconds,
-            )
+        query = (
+            None
+            if args.pk
+            else build_query(disease_curie, predicate=args.predicate, inferred=not args.no_inferred)
+        )
+        pk, merged_pk, complete = _run_query(client, args, query)
         message = (client.message(merged_pk).get("fields") or {}).get("data", {}).get("message") or {}
     finally:
         client.close()
@@ -794,11 +1441,7 @@ def main(argv: list[str] | None = None) -> int:
             generated_at=generated_at,
         )
 
-    if args.output:
-        Path(args.output).write_text(rendered, encoding="utf-8")
-        print(f"Wrote {args.output}", file=sys.stderr)
-    else:
-        sys.stdout.write(rendered)
+    _emit(rendered, args.output)
     return 0
 
 

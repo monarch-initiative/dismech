@@ -1,7 +1,21 @@
 # Translator Disease-Drug Link Explorer
 
-`just translator-drug-links` queries the **NCATS Biomedical Translator** for the
-drugs that may treat a disease, and reports them as ranked curation *leads*.
+`scripts/translator_drug_links.py` queries the **NCATS Biomedical Translator**
+from the repo. It has two modes:
+
+| Mode | Question | Target |
+| ---- | -------- | ------ |
+| **Links** (`just translator-drug-links`) | *"What drugs may treat this disease?"* | one disease |
+| **Paths** (`just translator-drug-paths`) | *"By what mechanism might this drug act on this disease?"* | a disease-**drug pair** |
+
+Paths mode can additionally be run as a **hypothesis-investigation provider**
+(`just translator-hypothesis`), writing its report into `kb/hypotheses/` beside
+the OpenScientist/Falcon reports — see [Translator as a hypothesis provider](#translator-as-a-hypothesis-provider).
+
+## Links mode
+
+`just translator-drug-links` asks for the drugs that may treat a disease, and
+reports them as ranked curation *leads*.
 
 It is the programmatic equivalent of typing a disease into
 [ui.transltr.io](https://ui.transltr.io/) (or the CI instance,
@@ -133,6 +147,112 @@ bosutinib, omacetaxine and hydroxyurea are accepted CML therapies the entry does
 not yet carry. The `predicted` rows (indirubin here) are repurposing hypotheses:
 interesting, and exactly the class of claim that needs primary literature before
 it can appear in an entry at all.
+
+## Paths mode: a disease-drug pair in, mechanism paths out
+
+```bash
+just translator-drug-paths kb/disorders/Chronic_Myeloid_Leukemia.yaml imatinib
+just translator-drug-paths kb/disorders/Asthma.yaml CHEBI:50730 --via process
+just translator-drug-paths kb/disorders/Asthma.yaml montelukast --new-only --top 40
+```
+
+Both ends of the query are pinned, so every answer is a **route** rather than a
+ranked drug: `drug -> intermediate -> disease`, with each hop carrying its own
+predicate, primary knowledge sources and PMIDs.
+
+```
+| # | Intermediate         | In entry?      | Score | Path                                                                        |
+| 1 | ABL1 (`NCBIGene:25`) | genetic: ABL1  | 0.78  | imatinib --affects--> ABL1 | ABL1 --target_for--> chronic myelogenous leukemia |
+| 3 | PDGFRA (`NCBIGene:5156`) | —          | 0.67  | imatinib --directly_physically_interacts_with--> PDGFRA | PDGFRA --gene_associated_with_condition--> ... |
+| 4 | ABCB1 (`NCBIGene:5243`) | —          | 0.66  | imatinib --directly_physically_interacts_with--> ABCB1 | ABCB1 --gene_associated_with_condition--> ... |
+```
+
+`--via` picks the intermediate node type: `gene` (default), `protein`,
+`gene-or-protein`, `pathway`, `process`, `phenotype`, `chemical`, `any`.
+Predicates are deliberately left open — `physically_interacts_with`, `affects`
+and `interacts_with` are all used for the same drug-target relation by different
+providers, so constraining the predicate silently drops real routes.
+
+**"In entry?"** resolves the intermediate against what the disorder entry
+already models: `genetic[].gene_term`, and the `genes`, `biological_processes`,
+`molecular_functions`, `chemical_entities` and `gene_products` bound on any
+pathophysiology node. Matching is CURIE-first through the SRI normalizer
+(Translator answers in `NCBIGene:`, dismech curates `hgnc:`), falling back to an
+exact name. So the report reads as *mechanism you already model* vs *mechanism
+you don't* — and a top-ranked route showing `—` is often a binding gap rather
+than a new mechanism (the CML entry names its fusion gene "BCR-ABL1" with no
+gene CURIE, so ABL1 shows as new).
+
+When the drug is already a curated treatment, the header also prints its
+declared `target_mechanisms`, which is the claim the paths should be read
+against:
+
+```
+- Entry already curates this drug as: **imatinib**
+  - declared `target_mechanisms`: Constitutive Tyrosine Kinase Activation (INHIBITS)
+```
+
+### What paths mode is not
+
+Ranking mixes provenance of very different quality — text-mined co-occurrence
+(`semmeddb`) is scored alongside curated pharmacology (`drugcentral`, `dgidb`,
+`chembl`). A high-scoring route is a **hypothesis about mechanism**, and the
+per-hop `sources` column is the first thing to read. Reversed hops appear too
+(`ABCG2 --interacts_with--> imatinib`): direction is a property of the asserting
+source, not a claim about causality.
+
+Two other things worth knowing: the ARS's own creative-mode "support graphs" are
+evidence *bundles* (all the direct drug-disease edges, look-alike diseases, a bag
+of disease genes), not chains — which is why paths mode issues an explicit
+two-hop query instead of mining them. And the TRAPI Pathfinder query shape is
+rejected by every ARA on the prod ARS today (400/422), so it is not used.
+
+## Translator as a hypothesis provider
+
+dismech already has a provider pipeline for mechanistic-hypothesis
+investigation: a report lands at
+`kb/hypotheses/<Disorder>/<hypothesis_group_id>/<provider>.md`, gets reviewed
+with the `review-hypothesis-exploration` skill into an
+`assessments/<provider>-assessment-by-<assessor>.yaml` sidecar, and only then
+does anything reach the disorder YAML (see
+[Hypothesis Report Assessments](hypothesis-report-assessments.md)).
+
+Translator plugs into that pipeline as the provider slug **`translator`** — the
+non-LLM member of the set. Where OpenScientist reasons over literature, this
+returns knowledge-graph routes:
+
+```bash
+just translator-hypothesis kb/disorders/Siderius_Type_X-Linked_Intellectual_Disability.yaml \
+    sirolimus mtor_targeting
+```
+
+writes:
+
+```text
+kb/hypotheses/Siderius_Type_X-Linked_Intellectual_Disability/mtor_targeting/
+  translator.md               # frontmatter (provider, timings, ARS pk, query graph) + the path report
+  translator.md.citations.md  # the numbered PMIDs the paths rest on
+```
+
+The `hypothesis_group_id` must exist in the entry's `mechanistic_hypotheses`
+(the script lists the available ids on a miss). Because the report is named for
+its provider, `just research-hypotheses --missing-provider translator` picks up
+the coverage gap for free, and the report renders on the disorder page like any
+other hypothesis report.
+
+Review it exactly like an LLM provider report — with one extra caveat specific
+to this provider: a `report_quote` in the assessment sidecar will be quoting a
+*graph assertion*, not a sentence from a paper.
+
+**Absence is a result.** The committed worked example above is a negative one,
+and deliberately so. The `mtor_targeting` hypothesis (status `EMERGING`) rests
+on a single Phf8-knockout mouse study in which rapamycin reversed the
+phenotype. Translator returns just two weak routes from sirolimus to the
+disease, through **FGD1** and **UBE2B**, both from a drug-response correlation
+KP — neither through PHF8, RSK1, or mTOR itself. That "no independent
+knowledge-graph route supports this mechanism" is exactly the kind of finding
+worth recording in an assessment sidecar, and it is one an LLM provider is
+much less likely to state plainly.
 
 ## Where it fits
 

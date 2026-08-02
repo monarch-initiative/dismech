@@ -1395,6 +1395,19 @@ DEEP_RESEARCH_PROVIDERS: list[_ProviderEntry] = [
         "pill": {"border": "#f3c2b3", "background": "#fdf2ee", "color": "#b8451f"},
     },
     {
+        "key": "translator",
+        "name": "NCATS Translator",
+        "match_keys": ("translator",),
+        "humanize": {"translator": "NCATS Translator"},
+        "url": "https://ui.transltr.io/",
+        "prefix": "",
+        "description": (
+            "Knowledge-graph mechanism paths from the NCATS Biomedical Translator ARS "
+            "(TRAPI queries, not a language model); reports are machine-generated leads."
+        ),
+        "pill": {"border": "#a7d8e8", "background": "#eff9fd", "color": "#0f5d78"},
+    },
+    {
         "key": "fallback",
         "name": "Fallback",
         "match_keys": ("fallback",),

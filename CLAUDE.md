@@ -153,6 +153,28 @@ just translator-drug-links --mondo MONDO:0004979 --top 40
 just translator-drug-links --pk <ars-pk>                # re-render an earlier run
 ```
 
+A second mode takes a **disease-drug pair** and returns mechanism *paths*
+(`drug -> intermediate -> disease`, each hop with its own predicate, knowledge
+sources and PMIDs), flagging which intermediates the entry already models as
+genes/GO processes:
+
+```bash
+just translator-drug-paths kb/disorders/Chronic_Myeloid_Leukemia.yaml imatinib
+just translator-drug-paths kb/disorders/Asthma.yaml montelukast --via process --new-only
+```
+
+Path mode also runs as a **hypothesis-investigation provider** under the slug
+`translator`, writing
+`kb/hypotheses/<Disorder>/<hypothesis_group_id>/translator.md` (+ its
+`.citations.md`) exactly like the OpenScientist/Falcon reports, so it feeds the
+same `review-hypothesis-exploration` → `just validate-hypothesis-assessment`
+review path and shows up in `just research-hypotheses --missing-provider translator`:
+
+```bash
+just translator-hypothesis kb/disorders/Siderius_Type_X-Linked_Intellectual_Disability.yaml \
+    sirolimus mtor_targeting
+```
+
 **Output is LEADS, never evidence.** Translator answers are aggregated and
 partly model-inferred and carry no quotable snippet, so they are subject to the
 same discipline as deep-research output: fetch every PMID with

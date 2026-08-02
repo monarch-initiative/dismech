@@ -21,6 +21,9 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+import yaml
+
 ROOT = Path(__file__).parent.parent
 SCRIPT_PATH = ROOT / "scripts" / "translator_drug_links.py"
 SPEC = importlib.util.spec_from_file_location("translator_drug_links", SCRIPT_PATH)
@@ -252,6 +255,226 @@ def test_render_markdown_carries_the_leads_not_evidence_warning():
     assert "lead, not evidence" in rendered
     assert "just fetch-reference PMID:11287973" in rendered
     assert "test-pk" in rendered
+
+
+DRUG = "CHEBI:45783"
+GENE = "NCBIGene:25"
+
+
+def _path_message() -> dict:
+    """A miniature two-hop message: one on-category gene path, one off-category answer."""
+    return {
+        "query_graph": {"nodes": {"chem": {"ids": [DRUG]}, "mid": {}, "disease": {"ids": [DISEASE]}}},
+        "knowledge_graph": {
+            "nodes": {
+                DRUG: {"name": "imatinib", "categories": ["biolink:ChemicalEntity"]},
+                GENE: {"name": "ABL1", "categories": ["biolink:Gene"]},
+                "CHEBI:8888": {"name": "bevacizumab", "categories": ["biolink:ChemicalEntity"]},
+                DISEASE: {"name": "chronic myelogenous leukemia, BCR-ABL1 positive"},
+            },
+            "edges": {
+                "hop1": {
+                    "subject": DRUG,
+                    "object": GENE,
+                    "predicate": "biolink:physically_interacts_with",
+                    "sources": [{"resource_id": "infores:dgidb", "resource_role": "primary_knowledge_source"}],
+                    "attributes": [{"attribute_type_id": "biolink:publications", "value": ["PMID:11287973"]}],
+                },
+                "hop2": {
+                    "subject": GENE,
+                    "object": DISEASE,
+                    "predicate": "biolink:genetically_associated_with",
+                    "sources": [{"resource_id": "infores:disgenet", "resource_role": "primary_knowledge_source"}],
+                    "attributes": [{"attribute_type_id": "biolink:publications", "value": ["PMID:2406902"]}],
+                },
+                "offcat1": {"subject": "CHEBI:8888", "object": DRUG, "predicate": "biolink:interacts_with"},
+                "offcat2": {"subject": "CHEBI:8888", "object": DISEASE, "predicate": "biolink:treats"},
+            },
+        },
+        "results": [
+            {
+                "node_bindings": {
+                    "chem": [{"id": DRUG}],
+                    "mid": [{"id": GENE}],
+                    "disease": [{"id": DISEASE}],
+                },
+                "analyses": [
+                    {"score": 0.4, "edge_bindings": {"e1": [{"id": "hop1"}], "e2": [{"id": "hop2"}]}},
+                    {"score": 0.78, "edge_bindings": {"e1": [{"id": "hop1"}], "e2": [{"id": "hop2"}]}},
+                ],
+            },
+            {
+                "node_bindings": {
+                    "chem": [{"id": DRUG}],
+                    "mid": [{"id": "CHEBI:8888"}],
+                    "disease": [{"id": DISEASE}],
+                },
+                "analyses": [{"score": 0.61, "edge_bindings": {"e1": [{"id": "offcat1"}], "e2": [{"id": "offcat2"}]}}],
+            },
+        ],
+    }
+
+
+def _cml_entry() -> dict:
+    return {
+        "name": "Chronic Myeloid Leukemia",
+        "genetic": [
+            {"name": "ABL1", "gene_term": {"preferred_term": "ABL1", "term": {"id": "hgnc:76", "label": "ABL1"}}}
+        ],
+        "pathophysiology": [
+            {
+                "name": "Constitutive Tyrosine Kinase Activation",
+                "biological_processes": [
+                    {"preferred_term": "peptidyl-tyrosine phosphorylation", "term": {"id": "GO:0018108"}}
+                ],
+            }
+        ],
+        "treatments": [
+            {
+                "name": "Imatinib",
+                "treatment_term": {"therapeutic_agent": [{"preferred_term": "imatinib", "term": {"id": "CHEBI:45783"}}]},
+                "target_mechanisms": [
+                    {"target": "Constitutive Tyrosine Kinase Activation", "treatment_effect": "INHIBITS"}
+                ],
+            }
+        ],
+        "mechanistic_hypotheses": [
+            {"hypothesis_group_id": "canonical_bcr_abl1_model", "hypothesis_label": "BCR-ABL1 model", "status": "CANONICAL"}
+        ],
+    }
+
+
+def test_build_path_query_pins_both_ends():
+    query = tdl.build_path_query(DISEASE, DRUG, via_categories=["biolink:Gene"])
+    graph = query["message"]["query_graph"]
+    assert graph["nodes"]["chem"]["ids"] == [DRUG]
+    assert graph["nodes"]["disease"]["ids"] == [DISEASE]
+    assert graph["nodes"]["mid"]["categories"] == ["biolink:Gene"]
+    assert set(graph["edges"]) == {"e1", "e2"}
+    # Predicates stay open: providers spell the drug-target relation many ways.
+    assert "predicates" not in graph["edges"]["e1"]
+
+
+def test_extract_paths_groups_by_intermediate_and_keeps_best_score():
+    paths = tdl.extract_paths(_path_message(), via_categories=["biolink:Gene"])
+    assert [path.node_id for path in paths] == [GENE]
+    path = paths[0]
+    assert path.score == 0.78
+    assert path.render() == (
+        "imatinib --physically_interacts_with--> ABL1 | ABL1 --genetically_associated_with--> "
+        "chronic myelogenous leukemia, BCR-ABL1 positive"
+    )
+    assert path.publications == ["PMID:11287973", "PMID:2406902"]
+    assert path.sources == {"dgidb", "disgenet"}
+
+
+def test_extract_paths_drops_off_category_intermediates():
+    """An ARA answering a Gene slot with a biologic must not be reported as a gene path."""
+    unfiltered = tdl.extract_paths(_path_message())
+    assert {path.node_id for path in unfiltered} == {GENE, "CHEBI:8888"}
+    filtered = tdl.extract_paths(_path_message(), via_categories=["biolink:Gene"])
+    assert {path.node_id for path in filtered} == {GENE}
+
+
+def test_curated_mechanism_index_covers_genes_and_pathophysiology():
+    by_curie, by_name = tdl.curated_mechanism_index(_cml_entry())
+    assert by_curie["hgnc:76"] == "genetic: ABL1"
+    assert by_curie["GO:0018108"] == "pathophysiology: Constitutive Tyrosine Kinase Activation"
+    assert by_name["abl1"] == "genetic: ABL1"
+
+
+def test_annotate_paths_matches_hgnc_case_insensitively():
+    """dismech writes `hgnc:76`; the SRI normalizer returns `HGNC:76`."""
+    path = tdl.PathCandidate(node_id=GENE, name="ABL1", equivalent_ids=["HGNC:76", "UniProtKB:P00519"])
+    novel = tdl.PathCandidate(node_id="NCBIGene:9429", name="ABCG2", equivalent_ids=["HGNC:74"])
+
+    tdl.annotate_paths([path, novel], *tdl.curated_mechanism_index(_cml_entry()))
+    assert path.curated_as == "genetic: ABL1"
+    assert path.status == "IN ENTRY"
+    assert novel.curated_as is None
+    assert novel.status == "NEW"
+
+
+def test_drug_target_mechanisms_reports_declared_targets():
+    assert tdl.drug_target_mechanisms(_cml_entry(), "imatinib") == [
+        "Constitutive Tyrosine Kinase Activation (INHIBITS)"
+    ]
+    assert tdl.drug_target_mechanisms(_cml_entry(), "dasatinib") == []
+
+
+def test_render_paths_markdown_shows_the_path_and_the_warning():
+    paths = tdl.extract_paths(_path_message(), via_categories=["biolink:Gene"])
+    tdl.annotate_paths(paths, *tdl.curated_mechanism_index(_cml_entry()))
+    rendered = tdl.render_paths_markdown(
+        paths,
+        drug_curie=DRUG,
+        drug_label="imatinib",
+        disease_curie=DISEASE,
+        disease_label="chronic myeloid leukemia",
+        via="gene",
+        pk="test-pk",
+        ui_url="https://ui.transltr.io/main/results?q=test-pk",
+        complete=True,
+        entry_path="kb/disorders/Chronic_Myeloid_Leukemia.yaml",
+        curated_drug="imatinib",
+        curated_targets=["Constitutive Tyrosine Kinase Activation (INHIBITS)"],
+        generated_at="2026-08-02T00:00:00Z",
+    )
+    assert "machine-generated leads" in rendered
+    assert "--physically_interacts_with--> ABL1" in rendered
+    assert "genetic: ABL1" in rendered
+    assert "Constitutive Tyrosine Kinase Activation (INHIBITS)" in rendered
+
+
+def test_find_hypothesis_matches_and_lists_alternatives_on_a_miss():
+    entry = _cml_entry()
+    assert tdl.find_hypothesis(entry, "canonical_bcr_abl1_model")["status"] == "CANONICAL"
+    with pytest.raises(SystemExit) as error:
+        tdl.find_hypothesis(entry, "no_such_model")
+    assert "canonical_bcr_abl1_model" in str(error.value)
+
+
+def test_hypothesis_report_paths_follow_the_provider_convention():
+    report, citations = tdl.hypothesis_report_paths(
+        Path("kb/hypotheses"), "Chronic_Myeloid_Leukemia", "canonical_bcr_abl1_model"
+    )
+    assert report == Path("kb/hypotheses/Chronic_Myeloid_Leukemia/canonical_bcr_abl1_model/translator.md")
+    assert citations == report.with_name("translator.md.citations.md")
+
+
+def test_write_hypothesis_report_emits_frontmatter_and_citations(tmp_path):
+    entry = _cml_entry()
+    hypothesis = entry["mechanistic_hypotheses"][0]
+    report, citations = tdl.hypothesis_report_paths(tmp_path, "Chronic_Myeloid_Leukemia", "canonical_bcr_abl1_model")
+    frontmatter = tdl.build_hypothesis_frontmatter(
+        hypothesis=hypothesis,
+        disease_name="Chronic Myeloid Leukemia",
+        query=tdl.build_path_query(DISEASE, DRUG),
+        ars_url="https://ars-prod.transltr.io",
+        pk="test-pk",
+        merged_pk="merged-pk",
+        citation_count=2,
+        started_at="2026-08-02T00:00:00+00:00",
+        ended_at="2026-08-02T00:04:00+00:00",
+        duration_seconds=240.0,
+    )
+    tdl.write_hypothesis_report(
+        report,
+        citations,
+        frontmatter=frontmatter,
+        body="# body\n",
+        references=["PMID:11287973", "PMID:2406902"],
+        query_description="two-hop lookup",
+    )
+
+    text = report.read_text()
+    assert text.startswith("---\nprovider: translator\n")
+    parsed = yaml.safe_load(text.split("---")[1])
+    assert parsed["citation_count"] == 2
+    assert parsed["provider_config"]["ars_pk"] == "test-pk"
+    assert parsed["template_variables"]["hypothesis_status"] == "CANONICAL"
+    assert "# body" in text
+    assert "1. PMID:11287973" in citations.read_text()
 
 
 class _StubARS:
