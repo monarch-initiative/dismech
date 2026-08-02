@@ -112,11 +112,36 @@ ADAMTSL2-related" — replacing list numberings and eponyms, which the committee
 considers "more informative and less prone to errors."
 
 That is a claim about *disease-entity naming and identity*, not about this
-classification axis, and it is deliberately **not** imported into dismech entry
-naming by this schema. Whether dismech should adopt dyadic naming is a
-scope/identity question for the
-[design-decision register](explanation/design-decisions.md), not something to
-absorb silently into a classification enum.
+classification axis, so dyadic names are **not** adopted as dismech entry
+`name:` values. They are instead recorded as **synonyms**, which captures the
+naming without committing dismech to it — whether dismech should adopt dyadic
+naming as primary remains a scope/identity question for the
+[design-decision register](explanation/design-decisions.md).
+
+50 entries carry a dyadic synonym, added under a deliberately strict 1:1 rule:
+
+- the entry's name stem must match a 2023 row stem (dyadic suffix stripped),
+- the row's gene must be one of the entry's curated genes, and
+- **exactly one** 2023 row may match that stem.
+
+The third condition does the real work. Where 2023 splits an entity into several
+gene-specific rows, the dyadic names denote *subtypes*, not synonyms of the
+whole — Coffin-Siris (5 rows), Cornelia de Lange (5), Meckel (6), Loeys-Dietz
+(6), Adams-Oliver (6), geleophysic dysplasia (3), sclerosteosis (SOST and LRP4).
+Attaching any single one of those to the umbrella entry would assert a false
+identity, so those 19 entries are skipped.
+
+Two cases are worth knowing about:
+
+- **Multiple sulfatase deficiency** is excluded because the published table
+  reads "Multiple sulfatase deficiency, SUMF-related" while its own gene column
+  says `SUMF1`. Recording a misspelt gene symbol as a searchable synonym would
+  do more harm than the synonym is worth.
+- **Spondylodysplastic Ehlers-Danlos syndrome** is excluded because the dismech
+  entry is a three-gene umbrella (B3GALT6, B4GALT7, SLC39A13) that the 2023
+  revision splits across three rows in *two different groups* (5 and 13). That
+  also means its current group assignment needs re-checking in the verification
+  pass.
 
 ### Known gap
 
