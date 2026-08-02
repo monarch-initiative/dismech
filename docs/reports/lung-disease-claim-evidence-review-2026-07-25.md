@@ -1,4 +1,4 @@
-# Claim–Evidence Audit: 10 Lung Disease Entries (2026-07-25)
+# Claim–Evidence Review: 10 Lung Disease Entries (2026-07-25)
 
 Correctness review of ten primarily-pulmonary `kb/disorders/` entries, focused on
 whether each evidence `snippet` actually supports the claim it is attached to.
@@ -174,11 +174,12 @@ simply wrong.
 
 *Fix:* raise to `FREQUENT` (30–79%) and re-label both items `SUPPORT`.
 
-### 3. NSCLC `progression[0]` has no claim text and seven off-topic citations
+### 3. NSCLC `progression[0]` has a structured-only claim and seven off-topic citations
 
-`Non-Small_Cell_Lung_Cancer.yaml` `progression[0:Onset]` carries **no `description` or
-`notes`** — there is no claim — yet seven evidence items hang off it, all `NO_EVIDENCE`.
-Two are grossly off-topic:
+`Non-Small_Cell_Lung_Cancer.yaml` `progression[0:Onset]` states its claim only as
+structured fields — `phase: Onset` with `age_range: 60-80` — with **no prose
+`description` or `notes`** to say what the evidence is meant to support. Seven evidence
+items hang off it, all `NO_EVIDENCE`. Two are grossly off-topic:
 
 - `PMID:38377969` — *multiple sclerosis* disease-progression modelling
 - `PMID:34911717` — *early-onset colorectal cancer in Lynch syndrome*
@@ -187,8 +188,10 @@ These are citation-relevance failures, not evidence. An `NO_EVIDENCE` item whose
 explanation reads "the study focuses on multiple sclerosis" carries no information and
 should be deleted, not retained.
 
-*Fix:* write an actual onset claim (the record's implied claim is age 60–80 at onset, for
-which PMID:15477641 is a reasonable partial source) and delete the MS and Lynch citations.
+*Fix:* add a prose claim matching the structured `age_range` (PMID:15477641 — "*over 50%
+of all patients with NSCLC are 65 years of age or older*" — is a reasonable partial
+source, and would be `PARTIAL` rather than `NO_EVIDENCE` against a stated claim), and
+delete the MS and Lynch citations.
 
 ### 4. NSCLC has a duplicated `Bone Pain` phenotype
 
@@ -235,10 +238,30 @@ institutional-repository resolutions (`inserm.hal.science` → PMID:38847551,
 spot-checked and are correct, so this is not a blanket problem with the OpenAlex path —
 but it is undetectable by current QC.
 
-*Suggested fix:* re-fetch the file, and add a cheap cross-check to
-`check-reference-cache-frontmatter` — e.g. flag any full-text body sharing implausibly few
-content words with its own `title`/abstract. A whole-corpus sweep for the same failure
-mode is warranted beyond these ten entries.
+**It is not an isolated file.** A corpus-wide sweep (title-word overlap: what fraction of
+a record's own `title:` words appear anywhere in its fetched body) surfaces four more
+caches at 0% overlap, of which a spot-check confirms at least one is the identical failure
+mode:
+
+```
+DOI_10.1186_s12890-024-03371-5.md
+  title:         Evolution of treatment strategies for solid tumors with RET
+                 rearrangement … Non-small Cell Lung Cancer (NSCLC)
+  full_text_url: https://purehost.bath.ac.uk/…/2014_02_07_Apereo_Europe_2014.pdf
+  body:          "Cope, J 2014, 'Training researchers with Sakai',
+                  Esup Day 17 & Apereo Europe 2014, Paris…"
+```
+
+Also flagged at 0%: `DOI_10.1038_ejhg.2014.61.md`, `DOI_10.1055_s-0045-1806986.md`,
+`DOI_10.11588_heidok.00035789.md`. (Four `url_…accessdata.fda.gov…` hits are false
+positives — their `title` *is* a URL, so title-overlap is meaningless for them.)
+
+*Suggested fix:* re-fetch the affected files, and add a cheap cross-check to
+`check-reference-cache-frontmatter`. **Caveat on the detector:** title-word overlap did
+*not* catch PMID:31922885, because these caches concatenate a correct PubMed abstract with
+the wrong full-text body — the title words are present in the abstract half. A robust check
+needs to score the *fetched body* separately from the abstract, or add a language-ID
+signal. Both the finding and this blind spot are worth their own issue.
 
 ### 5. NSCLC `ROS1` frequency band contradicts its own snippet
 
@@ -341,24 +364,31 @@ figures are all clinically conventional — but they should either get a source 
 
 ---
 
-## Process observation: DOI references bypass CI snippet validation
+## Process observation: DOI references are skipped by the reference validator
 
-`conf/reference_validator_config.yaml` lists `DOI` in `skip_prefixes`, so
-`linkml-reference-validator` performs **zero** checks on DOI-referenced evidence. On
-`Bronchiectasis`, whose evidence is mostly DOI-based, the validator reports:
+`conf/reference_validator_config.yaml:33` lists `DOI` in `skip_prefixes`, so
+`linkml-reference-validator` does not snippet-check DOI-referenced evidence. On
+`Bronchiectasis`, whose evidence is mostly DOI-based, the wrapper reports:
 
 ```
 Validation Summary:
   Files validated: 1
   Total checks: 0
   All validations passed!
+  Snippets checked: 5/20 verified against cached references (15 skipped by prefix)
 ```
 
-"All validations passed" here means "nothing was validated". Across the ten entries this
-covers **20 evidence items** (plus 1 `PPR:` preprint). All 20 have populated
-`references_cache/DOI_*.md` files, and independently checking them confirms every snippet
-is an exact substring — so there is **no data defect**, but the CI signal is misleading.
-Since the cache exists, DOI could be removed from `skip_prefixes` and validated like PMID.
+Read the **last** line, not the `Total checks: 0`. Per CLAUDE.md and issue #7252,
+`Total checks` counts *issues found*, so it is 0 on any clean run; the affirmative signal
+is the `Snippets checked: N/N` line that `scripts/run_reference_validator.sh` appends.
+Here it says plainly what happened: **5 of 20 items were verified and 15 were skipped by
+prefix.**
+
+So the gap is real but narrower than "nothing was validated": across the ten entries,
+**20 DOI-referenced items** (plus 1 `PPR:` preprint) are exempt from snippet checking.
+All 20 have populated `references_cache/DOI_*.md` files, and independently checking them
+confirms every snippet is an exact substring — so there is **no data defect**. Since the
+caches exist, `DOI` could be removed from `skip_prefixes` and validated like `PMID`.
 
 ## What is exemplary
 
@@ -394,7 +424,18 @@ Worth preserving as curation patterns:
 6. **Re-quote, don't re-label** — the four rescued items above (COPD alveolar destruction
    ×2, chronic inflammation, air pollution): swap the abstract sentence for the on-point
    full-text sentence and raise `PARTIAL` → `SUPPORT`. While re-quoting alveolar
-   destruction, consider a `conforms_to: emphysema_protease_antiprotease_imbalance#…` edge
+   destruction, consider a `conforms_to: emphysema_protease_antiprotease_imbalance#…` edge.
+
+   > ⚠️ **Hyphen-wrap hazard when quoting PDF-derived caches.** The validator normalises
+   > runs of whitespace, so an ordinary line wrap inside a snippet is safe — but
+   > PDF-extracted bodies are *hyphen-split* at line ends (`paren-\nchyma`,
+   > `air-\nways`), and those hyphens are real characters in the cache. A snippet
+   > spanning one **will fail** `validate-references`. `PMID_32493486.md` has ~280 such
+   > lines, `PMID_11993785.md` ~77, `PMID_37461046.md` ~10. Either choose a quote that
+   > sits within one line, or verify with `just validate-references <file>` before
+   > committing. (This report's own Method §4 de-hyphenates before matching, which is why
+   > it could find these sentences in the first place — curators quoting them do not get
+   > that for free.)
 7. Replace the genuinely wrong citations in findings 8–9 (PMID:33533174, PMID:32361678,
    PMID:24707174)
 8. NSCLC / Asthma / COPD — backfill `evidence_source` (367 items)
