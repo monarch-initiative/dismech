@@ -45,6 +45,15 @@ Each audited class's is-a descendants are typed:
 | `ACQUIRED` | label names the acquiring process (senile, drug-induced, traumatic, diabetic, …) |
 | `UNSPECIFIED` | everything else — morphological/clinical subdivisions, groupers |
 
+Each descendant gets **exactly one** tier: the signals are not independent flags but are tested
+in precedence order `INFECTIOUS > SUSCEPTIBILITY > MENDELIAN > SOMATIC > ACQUIRED >
+UNMAPPED_LOCUS`. Two of those orderings carry the argument. Susceptibility outranks Mendelian,
+so an OMIM `{braces}` risk locus that MONDO has nonetheless given a gene relation is counted as
+a risk locus, not as a Mendelian disease — the distinction this whole audit turns on. And the
+gene relation outranks the ACQUIRED label test, so a gene-defined disease whose label happens
+to contain "diabetic" is not miscounted as acquired. The practical consequence for anyone
+summing columns out of the TSV: a class can appear in `R` while also carrying a gene.
+
 Descendants alone would miss the most important members. MONDO deliberately keeps OMIM
 `{susceptibility}` entries **out** of the is-a tree of the disease they predispose to: they are
 `is_a MONDO:0020573 inherited disease susceptibility`, with an explicit `excluded_subClassOf`
