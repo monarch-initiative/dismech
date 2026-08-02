@@ -135,6 +135,10 @@ For comprehensive biomedical literature research, we recommend **Edison Scientif
 
 (The Edison literature tool was originally called Falcon, hence the filenames this makes will be called `*-falcon.md`)
 
+Note that the Edison API key, unlike other keys, should be written as just the plain key, not with the "keyname:" prefix.
+WRONG: EDISON_API_KEY=Edison-for-dismech2:asdfjlkajsdfklasjdf
+RIGHT: EDISON_API_KEY=asdfjlkajsdfklasjdf
+
 Note: if you are affiliated with an academic institution you should be able to request bonus credits with Edison
 
 **Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details).
@@ -271,6 +275,9 @@ hit the ceiling. Prefer a **new session per disorder or small themed batch**,
 then let it finish; you can archive finished sessions from the sidebar to keep
 the list tidy. The environment config is reused automatically, so a new session
 costs you nothing to set up.
+
+**Tip: how to find (and potentially restart) your archived sessions.** In the sidebar, click the toggle icon next to Recents,
+choose "Status", and change from "Active" to "Archived" or "All".
 
 ## Curation Model: AI-Assisted with Human Oversight
 

@@ -9,6 +9,13 @@ This module verifies that every tracked enum cache row still belongs to the
 current schema enum, with enum cache reads disabled during the check.  It also
 provides a read-only ordering audit for both enum membership and ontology term
 caches.
+
+Sibling module: ``dismech.term_cache_integrity`` owns the *structural* half of
+``cache/**`` — CSV field counts, CURIE shape, label/timestamp well-formedness,
+duplicate CURIEs — for both ``cache/<ontology>/terms.csv`` and
+``cache/enums/*.csv``. This module owns the *semantic* half (membership,
+reachability) plus ordering. Keep new cache checks in whichever of the two
+fits rather than adding a third scanner.
 """
 
 from __future__ import annotations
