@@ -192,13 +192,20 @@ def _layout_errors(record: dict, path: Path) -> list[str]:
     errors = []
 
     if superseded_by:
-        successor_path = ROOT_DIR / superseded_by["path"]
-        if not successor_path.exists():
+        successor_slug = superseded_by.get("slug")
+        successor_rel = superseded_by.get("path")
+        if not successor_slug or not successor_rel:
+            return [f"{rel} target.superseded_by needs both a slug and a path"]
+        if not (ROOT_DIR / successor_rel).exists():
             errors.append(
-                f"{rel} target.superseded_by path does not exist: "
-                f"{superseded_by['path']}"
+                f"{rel} target.superseded_by path does not exist: {successor_rel}"
             )
-        slug = superseded_by["slug"]
+        if Path(successor_rel).stem != successor_slug:
+            errors.append(
+                f"{rel} target.superseded_by slug '{successor_slug}' does not match "
+                f"the stem of its path '{successor_rel}'"
+            )
+        slug = successor_slug
     elif not (ROOT_DIR / target["path"]).exists():
         errors.append(f"{rel} target does not exist")
 
@@ -270,6 +277,29 @@ def test_layout_rejects_missing_target_without_superseded_by():
     assert any("target does not exist" in error for error in errors)
 
 
+def test_layout_rejects_superseded_by_slug_path_mismatch():
+    record = _supersession_record("kb/disorders/Marfan_Syndrome.yaml")  # slug says Asthma
+    path = HISTORY_DIR / "disorders" / "Asthma" / "2026-08-02T020640Z-codex-abc123.yaml"
+
+    errors = _layout_errors(record, path)
+    assert any("does not match the stem of its path" in error for error in errors)
+
+
+def test_layout_rejects_incomplete_superseded_by_block():
+    record = {
+        "target": {
+            "kind": "disorder",
+            "slug": "Old_Name",
+            "path": "kb/disorders/Old_Name.yaml",
+            "superseded_by": {"reason": "no slug or path"},
+        }
+    }
+    path = HISTORY_DIR / "disorders" / "Asthma" / "2026-08-02T020640Z-codex-abc123.yaml"
+
+    errors = _layout_errors(record, path)
+    assert any("needs both a slug and a path" in error for error in errors)
+
+
 def test_layout_requires_record_directory_to_follow_successor_slug():
     record = _supersession_record("kb/disorders/Asthma.yaml")
     path = HISTORY_DIR / "disorders" / "Old_Name" / "2026-08-02T020640Z-codex-abc123.yaml"
@@ -338,6 +368,39 @@ def test_superseded_by_requires_slug_and_path(validator):
     report = validator.validate(record, target_class="HistoryRecord")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert errors, "Expected validation error for superseded_by without slug/path"
+
+
+def test_superseded_by_requires_reason(validator):
+    """The escape hatch must carry its own justification, visible in review."""
+    record = {
+        "history_version": 1,
+        "target": {
+            "kind": "disorder",
+            "slug": "Old_Name",
+            "path": "kb/disorders/Old_Name.yaml",
+            "superseded_by": {
+                "slug": "Asthma",
+                "path": "kb/disorders/Asthma.yaml",
+            },
+        },
+        "session": {
+            "id": "2026-05-31T174412Z-codex-a3f9c2",
+            "timestamp": "2026-05-31T17:44:12Z",
+            "actors": [{"type": "ai_agent", "name": "codex"}],
+        },
+        "events": [
+            {
+                "type": "CREATE",
+                "outcome": "changed",
+                "summary": "Create: Old Name",
+                "details": "Created under the pre-rename slug.",
+            }
+        ],
+    }
+
+    report = validator.validate(record, target_class="HistoryRecord")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert errors, "Expected validation error for superseded_by without a reason"
 
 
 @pytest.mark.parametrize(
