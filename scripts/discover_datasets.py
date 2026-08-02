@@ -55,9 +55,16 @@ USER_AGENT = "dismech-dataset-discovery (https://github.com/monarch-initiative/d
 
 # GEO's free-text "gdstype" -> the schema's DatasetTypeEnum. Order matters: the
 # first match wins, so put the more specific assay first.
+#
+# IMPORTANT: `gdstype` is a small controlled vocabulary and it does NOT
+# distinguish assay resolution. Every single-cell, single-nucleus and spatial
+# series is labelled "Expression profiling by high throughput sequencing", and
+# ATAC-seq is labelled "Genome binding/occupancy profiling by high throughput
+# sequencing" -- the same value as ChIP-seq. So `gdstype` alone cannot yield
+# SINGLE_CELL_RNA_SEQ, SPATIAL_TRANSCRIPTOMICS or ATAC_SEQ, and an earlier
+# version of this table silently mapped 156 such series to BULK_RNA_SEQ or
+# CHIP_SEQ. `refine_data_type` below recovers them from the series text.
 GDSTYPE_TO_ENUM: list[tuple[str, str]] = [
-    ("single cell", "SINGLE_CELL_RNA_SEQ"),
-    ("spatial", "SPATIAL_TRANSCRIPTOMICS"),
     ("methylation profiling", "METHYLATION"),
     ("genome methylation", "METHYLATION"),
     ("genome binding/occupancy", "CHIP_SEQ"),
@@ -73,6 +80,38 @@ GDSTYPE_TO_ENUM: list[tuple[str, str]] = [
     ("non-coding rna profiling by high throughput sequencing", "BULK_RNA_SEQ"),
     ("genome variation profiling by high throughput sequencing", "WGS"),
 ]
+
+# Assay signatures GEO's `gdstype` cannot express, recovered from the series
+# title and summary. Order matters: a spatial single-cell study is spatial.
+ASSAY_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\b(spatial(ly)?[- ]?(resolved|transcriptom\w*)?|visium|geomx|merfish|"
+                r"xenium|cosmx|slide[- ]?seq|stereo[- ]?seq)\b", re.IGNORECASE), "SPATIAL_TRANSCRIPTOMICS"),
+    (re.compile(r"\b(atac[- ]?seq|scatac|cut&tag|cut ?& ?run|cut&run)\b", re.IGNORECASE), "ATAC_SEQ"),
+    (re.compile(r"\b(single[- ]cell|single[- ]nucleus|single[- ]nuclei|sc ?rna[- ]?seq|"
+                r"sn ?rna[- ]?seq|scrna|snrna|cite[- ]?seq|10x genomics|droplet[- ]based)\b",
+                re.IGNORECASE), "SINGLE_CELL_RNA_SEQ"),
+]
+
+# `gdstype` values that describe only the broad modality, so the series text is
+# the better authority when it names a specific assay.
+UNSPECIFIC_GDSTYPES = ("expression profiling", "genome binding/occupancy", "other")
+
+
+def refine_data_type(gds_type: str, text: str, mapped: str) -> str:
+    """Upgrade a coarse `gdstype` mapping using the series' own title/summary.
+
+    Only fires when `gdstype` is one of the broad values that cannot express
+    assay resolution, so an explicit GEO label (methylation, proteomics, GWAS)
+    is never overridden by a stray word in a summary.
+    """
+    low = (gds_type or "").lower()
+    if mapped and not any(u in low for u in UNSPECIFIC_GDSTYPES):
+        return mapped
+    for pattern, enum in ASSAY_PATTERNS:
+        if pattern.search(text or ""):
+            return enum
+    return mapped
+
 
 # Words that indicate the samples are patient material rather than a cell line.
 PRIMARY_TISSUE_HINTS = (
@@ -474,7 +513,9 @@ def discover(slug: str, limit: int, per_query: int, use_synonyms: bool) -> list[
                 release_date=doc.get("pdat") or "",
                 matched_query=label,
             )
-            cand.data_type = map_data_type(cand.gds_type)
+            cand.data_type = refine_data_type(
+                cand.gds_type, f"{cand.title} {cand.summary}", map_data_type(cand.gds_type)
+            )
             score_candidate(cand, phrases, wordsets, cores)
             seen[acc] = cand
 
