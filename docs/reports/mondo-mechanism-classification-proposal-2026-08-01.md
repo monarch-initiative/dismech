@@ -652,7 +652,8 @@ grouping: `Macroautophagy_Deficiency_Disorders` (added in this PR; 5 members,
 `NECESSARY`, `skos:broadMatch` → `MONDO:0021179`, explicitly provisional pending
 the scoping decision in the caveat above). Note the 5 members are 4 distinct
 diseases — the VCP-MSP / IBMPFD pair is flagged in-file as substantially
-overlapping — and only 2 carry no partial-mechanism caveat.
+overlapping — and, counted at that same disease level, only 2 of the 4 carry no
+partial-mechanism caveat (3 of the 5 member entries, before the VCP pair collapses).
 
 **Candidate MONDO members (5 in dismech).**
 `MONDO:0008178` / `MONDO:0000507` inclusion body myopathy with Paget disease of
