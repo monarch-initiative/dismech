@@ -1512,6 +1512,61 @@ snippet matching the wrong cached paper.
 `references_cache/*.md`. If a cache file is wrong or malformed, regenerate it
 with `just fetch-reference <ID>` instead of patching the frontmatter manually.
 
+## CRITICAL: Term Cache Files — NEVER Write Manually
+
+`cache/<ontology>/terms.csv` may only be written by `linkml-term-validator` —
+i.e. as a side effect of `just validate-terms` / `just validate` — and sorted by
+`just normalize-cache`. **Never hand-write or append rows, and never build rows
+by string concatenation.** This is the term-cache twin of the
+`references_cache/*.md` rule above, and it has the same root cause: the cache is
+a *derived artifact standing in for an authority*, so a cache that lies makes
+validation circular.
+
+**Why concatenation specifically (dismech#7682):** hundreds of committed labels
+contain a comma — MONDO's `, dominant` / `, recessive` / `, type N` conventions
+are the bulk of it. A row built by string concatenation instead of a CSV writer:
+
+```
+MONDO:0012013,Weill-Marchesani syndrome 2, dominant,2026-08-01T04:30:00.000000
+```
+
+is a **four-field** row. `csv.reader` takes the label as
+`Weill-Marchesani syndrome 2` and `retrieved_at` as `" dominant"` — the label is
+silently truncated at the comma. The dangerous second stage is a later "repair"
+pass that rewrites the malformed row as a well-formed three-field row: that
+**cements the truncation as clean-looking data**, and from then on
+`just validate-terms` reports the truncated label as ontology truth and confirms
+the YAML against the corruption that produced it.
+
+**If a row is wrong, delete it and regenerate** — do not retype the label or the
+timestamp:
+
+```bash
+# 1. Delete the offending row from cache/<ontology>/terms.csv
+# 2. Re-derive it from OAK by validating a KB file that references the term
+just validate-terms kb/disorders/YourFile.yaml
+# 3. Confirm the cache is structurally sound again
+just check-term-cache-integrity
+```
+
+**Deterministic cache contract check (dismech#7682):**
+`just check-term-cache-integrity` validates every `cache/*/terms.csv`: the
+header, that each row parses to exactly three fields (`>3` is the truncation
+signature above), that `curie` is a `PREFIX:LOCALID` matching its cache
+directory, that `label` is non-empty, that `retrieved_at` is an ISO-8601 date
+*and* time, and that no CURIE is duplicated within a file. It applies the same
+shape/field-count/duplicate rules to the single-column `cache/enums/*.csv`
+dynamic-enum membership caches, which stand in for an authority the same way —
+`linkml-term-validator` uses them as the positive-hit set for `reachable_from`,
+so a clobbered CURIE there silently changes what passes enum validation.
+It runs as part of `just qc` before the heavier validators.
+Like the reference-cache check, this is **only** a structural check — it does
+not re-derive labels from OAK, so `just validate-terms` remains the last line of
+defence, and a *repaired* truncation is still invisible to it. When reviewing a
+cache diff, be suspicious of rows sharing one synthetic timestamp (e.g. several
+rows all at `...T00:00:00.000000`): that is the fingerprint of ad-hoc seeding,
+and those labels should be checked against the ontology rather than the cache.
+
 ## Structured-Database Reference Sources
 
 In addition to fetched literature references (PMID, DOI, NCT), dismech ingests
