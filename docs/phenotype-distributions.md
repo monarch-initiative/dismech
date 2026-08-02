@@ -258,7 +258,11 @@ identification_steps:
 A cohort identified by one term in one vocabulary is a one-step chain; the point
 of the list is that it does not have to be. Where a fit splits the population
 into arms, `cohorts[].arms` names them and `associated_components` says which
-components each arm backs — the thing that stops a foreground component
+components each arm backs — or `associated_component_ranges` for a contiguous
+block, since block-structured fits assign components in runs (`0-79` shared,
+`80-99` foreground) and eighty enumerated ids is noise nobody maintains. Ranges
+are inclusive at both ends and expand before every check, so a ranged claim is
+exactly as checked as an enumerated one — the thing that stops a foreground component
 estimated from 0.5% of the corpus being read against the whole-corpus
 denominator.
 

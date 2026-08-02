@@ -312,7 +312,11 @@ def _check_interval(
     point = summary.get("point_estimate")
     # Degrade to a lint finding rather than a traceback if YAML hands us a
     # string where a number belongs.
-    for name, val in (("interval_lower", lower), ("interval_upper", upper), ("point_estimate", point)):
+    for name, val in (
+        ("interval_lower", lower),
+        ("interval_upper", upper),
+        ("point_estimate", point),
+    ):
         if val is not None and not isinstance(val, (int, float)):
             return f"{name} is {val!r}, which is not a number"
     if lower is not None and upper is not None and lower > upper:
@@ -494,7 +498,12 @@ def check_terms(
                     continue
                 if actual is None:
                     issues.append(
-                        Issue(coll.path, rid, "ERROR", f"{where}: {term_id} does not exist")
+                        Issue(
+                            coll.path,
+                            rid,
+                            "ERROR",
+                            f"{where}: {term_id} does not exist",
+                        )
                     )
                 elif actual != label:
                     issues.append(
@@ -574,7 +583,10 @@ def lint_record(
             "description has one source of truth"
         )
     elif not ref and not inline:
-        warn("record declares no cohort; a distribution without a population is unreadable")
+        warn(
+            "record declares no cohort; a distribution without a population is "
+            "unreadable"
+        )
 
     dist = record.get("distribution") or {}
 
@@ -648,7 +660,10 @@ def lint_record(
                     f"{point} falls in the {expected} band"
                 )
         if not record.get("implied_frequency_basis"):
-            warn("`implied_frequency_class` is set without an `implied_frequency_basis`")
+            warn(
+                "`implied_frequency_class` is set without an "
+                "`implied_frequency_basis`"
+            )
 
     for binding in record.get("dismech_bindings") or []:
         ref = binding.get("evidence_reference")
@@ -666,7 +681,11 @@ def lint_record(
                     f"binding targets {kind} entry {entry!r}, which does not "
                     f"resolve to a file in {_TARGET_DIRS[kind].relative_to(REPO_ROOT)}"
                 )
-        if binding.get("import_status") in {"REJECTED", "DEFERRED", "SUPERSEDED"} and not (
+        if binding.get("import_status") in {
+            "REJECTED",
+            "DEFERRED",
+            "SUPERSEDED",
+        } and not (
             binding.get("binding_notes")
         ):
             warn(
@@ -849,7 +868,9 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
             continue
         if str(cid) in declared:
             out.append(
-                Issue(coll.path, "", "ERROR", f"duplicate cohort_id {cid!r} in `cohorts`")
+                Issue(
+                    coll.path, "", "ERROR", f"duplicate cohort_id {cid!r} in `cohorts`"
+                )
             )
         declared.add(str(cid))
         for message in _attestation_errors(cohort, f"cohorts[{cid}]"):
@@ -898,9 +919,28 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
             keyed_cohorts.append((_cohort_key(rec["cohort"]), rec["cohort"]))
 
     claims_by_cohort: dict[str, set[str]] = {}
+    # Every cohort the collection actually declares, so "declares no arms" can
+    # be told apart from "not a cohort at all".
+    known_keys = {key for key, _ in keyed_cohorts} | declared
+    cohort_by_key = {key: cohort for key, cohort in keyed_cohorts}
     n_components = model.get("n_components")
 
     for key, cohort in keyed_cohorts:
+        # The docs already require an inline cohort that differs from its parent
+        # to carry its own `cohort_id`; nothing enforced it. It matters most when
+        # the cohort declares arms, because then its identity decides which
+        # components a record is measured against — and an unnamed cohort can
+        # only be reported as `<inline cohort>`.
+        if cohort.get("arms") and not cohort.get("cohort_id"):
+            out.append(
+                Issue(
+                    coll.path,
+                    "",
+                    "ERROR",
+                    "an inline cohort declaring `arms` has no `cohort_id`; give "
+                    "it one so its arms can be attributed and reported",
+                )
+            )
         arm_names: set[str] = set()
         claimed_by: dict[str, str] = {}
         for arm in cohort.get("arms") or []:
@@ -939,7 +979,8 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
                             coll.path,
                             "",
                             "ERROR",
-                            f"in cohort {key!r}, component(s) {shown}{more} are "
+                            f"in cohort {_cohort_label(key, cohort)}, "
+                            f"component(s) {shown}{more} are "
                             f"claimed by both arm {other!r} and arm {name!r}; a "
                             "component backed by two sub-populations of one "
                             "cohort has no single denominator",
@@ -958,32 +999,38 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
     # Once a cohort's arms claim components, a component of a record in that
     # cohort claimed by none of them has an unstated denominator. Resolved
     # against the record's OWN cohort, falling back to the fit's training cohort
-    # (components belong to the model, so its arms are what backed them) and
-    # only then to the union.
+    # (components belong to the model, so its arms are what backed them).
+    #
+    # A cohort that exists but declares no arms has affirmatively said nothing,
+    # which is different from a record that resolves to no cohort at all — only
+    # the latter falls back to the union. Collapsing the two let an unrelated
+    # cohort's arms decide a record they say nothing about.
     for rec in coll.records:
         cid = (rec.get("latent_phenotype") or {}).get("component_id")
         if cid is None:
             continue
-        for key in _record_cohort_keys(rec, training_key):
-            claims = claims_by_cohort.get(key)
-            if claims:
-                if str(cid) not in claims:
-                    out.append(
-                        Issue(
-                            coll.path,
-                            str(rec.get("record_id", "")),
-                            "WARNING",
-                            f"component {cid!r} is not listed by any arm of "
-                            f"cohort {key!r}, so which sub-population backs it "
-                            "is unstated",
-                        )
+        resolved = [
+            key for key in _record_cohort_keys(rec, training_key) if key in known_keys
+        ]
+        chosen = next((k for k in resolved if claims_by_cohort.get(k)), None)
+        if chosen is not None:
+            if str(cid) not in claims_by_cohort[chosen]:
+                out.append(
+                    Issue(
+                        coll.path,
+                        str(rec.get("record_id", "")),
+                        "WARNING",
+                        f"component {cid!r} is not listed by any arm of cohort "
+                        f"{_cohort_label(chosen, cohort_by_key.get(chosen))}, so "
+                        "which sub-population backs it is unstated",
                     )
-                break
-        else:
-            # No cohort in the record's chain declares claiming arms; the union
-            # is the only statement available, and if it too is empty the
-            # collection simply does not use arms.
-            union = set().union(*claims_by_cohort.values()) if claims_by_cohort else set()
+                )
+        elif not resolved:
+            # No cohort in the record's chain is declared, so the union of every
+            # arm's claims is the only statement available.
+            union: set[str] = set()
+            for claims in claims_by_cohort.values():
+                union |= claims
             if union and str(cid) not in union:
                 out.append(
                     Issue(
@@ -998,9 +1045,24 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
 
 
 def _cohort_key(cohort: dict[str, Any]) -> str:
-    """Stable identity for a cohort, named or inline."""
+    """Stable identity for a cohort, named or inline.
+
+    An inline cohort without a `cohort_id` is keyed by object identity, not by
+    its label. Deriving identity from a name repeated the very bug this keying
+    was introduced to fix, one level up: two nameless or same-named inline
+    cohorts merged their claims, so whether a component was reported depended on
+    what a curator called the cohort rather than on the data.
+    """
     cid = cohort.get("cohort_id")
-    return str(cid) if cid else f"<inline {cohort.get('name') or 'cohort'}>"
+    return str(cid) if cid else f"<inline:{id(cohort):x}>"
+
+
+def _cohort_label(key: str, cohort: dict[str, Any] | None) -> str:
+    """Human-readable name for a cohort in a message, given its opaque key."""
+    if not key.startswith("<inline:"):
+        return repr(key)
+    name = (cohort or {}).get("name")
+    return f"<inline cohort {name!r}>" if name else "<inline cohort>"
 
 
 def _component_sort_key(cid: str) -> tuple[int, Any]:
@@ -1020,6 +1082,7 @@ def _record_cohort_keys(
     if training_key and training_key not in keys:
         keys.append(training_key)
     return keys
+
 
 def _arm_component_claims(
     coll: Collection, arm: dict[str, Any], name: Any, n_components: Any
@@ -1414,7 +1477,10 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
         ):
             if summary.get(key) is not None:
                 lines.append(_row([label, summary.get(key)]))
-        if summary.get("interval_lower") is not None or summary.get("interval_upper") is not None:
+        if (
+            summary.get("interval_lower") is not None
+            or summary.get("interval_upper") is not None
+        ):
             lines.append(_row(["Interval", _interval_text(summary)]))
         lines.append("")
 
@@ -1449,7 +1515,9 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
         for p in params:
             labels = p.get("index_labels")
             if p.get("vector_value") and labels:
-                lines.append(f"### Parameter {_fmt(p.get('parameter_name'))} by component")
+                lines.append(
+                    f"### Parameter {_fmt(p.get('parameter_name'))} by component"
+                )
                 lines.append("")
                 lines.append("| COMPONENT | VALUE |")
                 for label, value in zip(labels, p["vector_value"]):
@@ -1461,8 +1529,12 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
                 lines.append("")
                 rows = matrix.get("n_rows") or 0
                 cols = matrix.get("n_columns") or 0
-                row_labels = matrix.get("row_labels") or [f"r{i + 1}" for i in range(rows)]
-                col_labels = matrix.get("column_labels") or [f"c{i + 1}" for i in range(cols)]
+                row_labels = matrix.get("row_labels") or [
+                    f"r{i + 1}" for i in range(rows)
+                ]
+                col_labels = matrix.get("column_labels") or [
+                    f"c{i + 1}" for i in range(cols)
+                ]
                 lines.append("| | " + " | ".join(_fmt(c) for c in col_labels) + " |")
                 values = matrix["values"]
                 for i, rlabel in enumerate(row_labels):
@@ -1518,11 +1590,16 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
         ):
             if tte.get(key) is not None:
                 lines.append(_row([label, tte.get(key)]))
-        if tte.get("interval_lower") is not None or tte.get("interval_upper") is not None:
+        if (
+            tte.get("interval_lower") is not None
+            or tte.get("interval_upper") is not None
+        ):
             lines.append(_row(["Interval", _interval_text(tte)]))
         lines.append("")
         if tte.get("curve"):
-            lines.append("| TIME | AT_RISK | EVENTS | PROBABILITY | CI_LOWER | CI_UPPER |")
+            lines.append(
+                "| TIME | AT_RISK | EVENTS | PROBABILITY | CI_LOWER | CI_UPPER |"
+            )
             for pt in tte["curve"]:
                 lines.append(
                     _row(
@@ -1542,7 +1619,9 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
     if effects:
         lines.append("## Covariate effects")
         lines.append("")
-        lines.append("| COVARIATE | LEVEL | REFERENCE | COMPONENT | COEFFICIENT | SE | SCALE |")
+        lines.append(
+            "| COVARIATE | LEVEL | REFERENCE | COMPONENT | COEFFICIENT | SE | SCALE |"
+        )
         for e in effects:
             lines.append(
                 _row(
@@ -1790,7 +1869,9 @@ def write_cache_files(
     """
     collections = list(collections)
     illustrative = [
-        c.path.name for c in collections if c.data.get("provenance_tier") == "ILLUSTRATIVE"
+        c.path.name
+        for c in collections
+        if c.data.get("provenance_tier") == "ILLUSTRATIVE"
     ]
     if illustrative:
         raise ValueError(

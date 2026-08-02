@@ -1238,3 +1238,101 @@ def test_intra_cohort_overlap_is_reported_once_per_arm_pair(
     assert "in cohort 'CHARMPHENO-POPULATION-EDS'" in message
     assert "+75 more" in message
     assert "arm 'eds'" in message and "arm 'background'" in message
+
+
+def test_inline_cohort_identity_does_not_come_from_its_label(
+    eds_collection_path: Path,
+) -> None:
+    """Two inline cohorts are distinct even when nameless or same-named.
+
+    Keying inline cohorts by label repeated, one level up, the bug the
+    cohort-scoped rewrite fixed: whether a component was reported depended on
+    what a curator happened to call the cohort rather than on the data.
+    """
+
+    def two_inline_cohorts(name_a: str | None, name_b: str | None):
+        def mutate(data):
+            data["model"].pop("training_cohort_ref", None)
+            for rec in data["distributions"]:
+                rec.pop("cohort_ref", None)
+            owner = next(
+                r
+                for r in data["distributions"]
+                if (r.get("latent_phenotype") or {}).get("component_id") == "96"
+            )
+            other = next(
+                r
+                for r in data["distributions"]
+                if (r.get("latent_phenotype") or {}).get("component_id") == "91"
+            )
+            # The owner of 96 is in a cohort whose arm does NOT claim 96.
+            owner["cohort"] = {
+                "cohort_id": "OWNER",
+                "n_individuals": 5,
+                "arms": [{"arm_name": "a", "associated_components": ["80"]}],
+            }
+            other["cohort"] = {
+                "cohort_id": "OTHER",
+                "n_individuals": 5,
+                "arms": [{"arm_name": "b", "associated_components": ["96", "91"]}],
+            }
+            for rec, label in ((owner, name_a), (other, name_b)):
+                rec["cohort"].pop("cohort_id")
+                if label:
+                    rec["cohort"]["name"] = label
+
+        return mutate
+
+    # Whatever the labels, the owner's own cohort must decide: it does not claim
+    # 96, so 96 is reported — and the neighbour's claim must not cover it.
+    for labels in ((None, None), ("Clinic subset", "Clinic subset"), ("A", "B")):
+        warnings = _warning_messages(
+            _mutate(eds_collection_path, two_inline_cohorts(*labels))
+        )
+        assert "component '96' is not listed by any arm" in warnings, labels
+
+
+def test_an_inline_cohort_with_arms_must_carry_a_cohort_id(
+    eds_collection_path: Path,
+) -> None:
+    """The documented rule, made real.
+
+    The docs already said an inline cohort that differs from its parent needs
+    its own `cohort_id`; nothing enforced it, and identity decides which
+    components a record is measured against.
+    """
+
+    def mutate(data):
+        data["distributions"][0].pop("cohort_ref", None)
+        data["distributions"][0]["cohort"] = {
+            "name": "Unnamed subset",
+            "n_individuals": 5,
+            "arms": [{"arm_name": "a", "associated_components": ["96"]}],
+        }
+
+    assert "has no `cohort_id`" in _error_messages(_mutate(eds_collection_path, mutate))
+
+
+def test_a_cohort_declaring_no_arms_is_not_measured_against_another(
+    eds_collection_path: Path,
+) -> None:
+    """Saying nothing is not the same as having nothing said about you.
+
+    `claims_by_cohort.get(key)` returned None both for a cohort with no claiming
+    arms and for a key matching no cohort, so a record whose own cohort declared
+    no arms fell through to the union and was judged by an unrelated cohort's.
+    """
+
+    def mutate(data):
+        data["cohorts"][0].pop("arms")
+        data["cohorts"].append(
+            {
+                "cohort_id": "AN-UNRELATED-COHORT",
+                "n_individuals": 9,
+                "arms": [{"arm_name": "x", "associated_components": ["0"]}],
+            }
+        )
+
+    assert "not listed by any" not in _warning_messages(
+        _mutate(eds_collection_path, mutate)
+    )

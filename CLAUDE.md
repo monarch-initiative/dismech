@@ -229,8 +229,11 @@ event count, or latent phenotype profile in a defined disease cohort. One record
   SKOS `mapping_relation` → `EXPANSION` over the SNOMED hierarchy), while the
   profiles are still emitted over OMOP concept IDs. Where a fit splits the
   population into arms, declare them as `cohorts[].arms` with
-  `associated_components`: a foreground component estimated from 0.5% of the
-  corpus must not be read against the whole-corpus denominator.
+  `associated_components` (or `associated_component_ranges` for a contiguous
+  block such as `0-79` — inclusive both ends, expanded before every check, so
+  enumerating eighty ids is never necessary): a foreground component estimated
+  from 0.5% of the corpus must not be read against the whole-corpus denominator.
+  An inline cohort that declares arms must carry its own `cohort_id`.
 - **Declare a shared cohort once.** A cohort used by more than one record goes in
   the collection-level `cohorts:` list and is referenced with `cohort_ref`
   (`model.training_cohort_ref` for the fit's own cohort). Inline `cohort:` is for
