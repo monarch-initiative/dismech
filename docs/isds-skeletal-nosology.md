@@ -77,9 +77,19 @@ craniosynostosis_syndromes:
     Group 34 (2023 revision): Syndromes featuring craniosynostosis. ...
 ```
 
-38 of the 41 groups carry such an alias. The three that do not — metaphyseal
-dysplasias, spondylometaphyseal dysplasias, severe spondylodysplastic dysplasias
-— kept both their name *and* their number across the two revisions.
+**34 of the 41** active groups carry such an alias. The seven that do not split
+into two distinct cases:
+
+- **Four kept both their name *and* their number** across the two revisions, so
+  there is nothing to alias: metaphyseal dysplasias, spondylometaphyseal
+  dysplasias, severe spondylodysplastic dysplasias, and acromesomelic dysplasias.
+- **Three are genuinely new in 2023** and have no 2019 name to record:
+  proteoglycan core protein disorders, osteosclerotic disorders, and skeletal
+  disorders of parathyroid hormone signaling cascade. (The first two are the
+  *merge targets* of the four deprecated groups; the third is new outright.)
+
+The four deprecated 2019 values also carry aliases, which is why a naive count
+over all 45 permissible values returns 38 rather than 34.
 
 **Dissolved groups are deprecated, not deleted.** When a revision merges a group
 away rather than renaming it, the old value is kept with `deprecated:` and
@@ -190,14 +200,29 @@ Three rules follow from how the nosology is built:
 The gene most associated with a disorder is often *not* what decides its group.
 Frequently mis-assigned cases:
 
-| Disorder | Correct group | Tempting but wrong |
-|----------|---------------|--------------------|
-| Crouzon with acanthosis nigricans, Muenke craniosynostosis | 33 (craniosynostosis) | 1 (FGFR3) |
-| LADD syndrome | 41 (polydactyly-syndactyly-triphalangism) | 1 (FGFR3) |
-| Hajdu-Cheney syndrome | 28 (osteolysis) | 25 (decreased bone density) |
-| Brachydactyly-hypertension (Bilginturan) | 38 (brachydactyly with extraskeletal features) | 15 (acromelic) |
-| Weyers acrofacial (acrodental) dysostosis | 34 (craniofacial dysostoses) | 9 (skeletal ciliopathies, with Ellis-van Creveld) |
-| Spondylodysplastic Ehlers-Danlos syndrome | 13 (SLC39A13) / 25 (B4GALT7) | one group for both |
+All numbers below are **2023** group numbers. (Their 2019 equivalents differ —
+see [Revision handling](#revision-handling) — which is why the guidance is to
+cite a group by *name and revision*, never by a bare number.)
+
+| Disorder | Correct group (2023) | Tempting but wrong |
+|----------|----------------------|--------------------|
+| Crouzon with acanthosis nigricans, Muenke craniosynostosis | 34 syndromes featuring craniosynostosis | 1 FGFR3 chondrodysplasias |
+| LADD syndrome | 40 polydactyly-syndactyly-triphalangism | 1 FGFR3 chondrodysplasias |
+| Hajdu-Cheney syndrome | 29 osteolysis | 26 OI and bone fragility |
+| Brachydactyly-hypertension (Bilginturan) | 19 brachydactylies as part of syndromes | 17 acromelic dysplasias |
+| Weyers acrofacial (acrodental) dysostosis | 35 craniofacial dysostoses | 10 skeletal ciliopathies (with Ellis-van Creveld) |
+| Spondylodysplastic Ehlers-Danlos syndrome | types 1 (B4GALT7) and 2 (B3GALT6) → 5 multiple joint dislocations; type 3 (SLC39A13) → 13 SE(M)D | one group for all three |
+| Acrodysostosis (PRKAR1A, PDE4D) | 17 acromelic dysplasias | 28 PTH signaling — see below |
+
+The last row is a live trap in the other direction. Acrodysostosis is
+mechanistically a PTH/PTHrP-signalling disorder, so group 28 looks right — but
+the 2023 table lists both `Acrodysostosis, PRKAR1A-related` and `Acrodysostosis,
+PDE4D-related` under **group 17, acromelic dysplasias**. Group 28 contains the
+PTHR1/SIK3/PTHLH disorders (Jansen and Csukasi-Krakow metaphyseal dysplasia,
+Blomstrand dysplasia, Eiken dysplasia, PTHLH brachydactyly and osteolysis).
+Reasoning from mechanism to placement is exactly the inference this axis must
+not make: the nosology is a transcription of expert placement, not a derivation
+from pathway.
 
 ## Relationship to other classification axes
 
@@ -219,7 +244,7 @@ the MONDO class is a defined extension, and the two rarely coincide. Where a
 MONDO class denotes the same disease family, it is recorded as
 `close_mappings:` instead.
 
-**Three of 42 groups are mapped.** The bar is deliberately high — a candidate
+**Three of the 41 groups are mapped.** The bar is deliberately high — a candidate
 is rejected if the MONDO class contains any entity that ISDS itself lists in a
 *different* group, since such a mapping would silently contradict the
 committee's own placement:
