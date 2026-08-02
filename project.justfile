@@ -569,6 +569,13 @@ check-enum-cache:
 check-enum-cache-offline:
     uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}} --offline
 
+# Report non-canonical CURIE ordering in enum and ontology term caches.
+# Phase 0 is advisory/read-only: warnings do not fail until the coordinated
+# cache normalization cutover enables strict ordering.
+[group('QC')]
+check-cache-order:
+    uv run python -m dismech.enum_cache --cache-dir cache --check-order
+
 # Pre-provision the sqlite:obo:* ontology DBs (with resume/retry) that term
 # validation needs, so a flaky/blocked download does not abort validation
 # mid-run. Fetch all, or only the named ontologies:
@@ -758,11 +765,13 @@ update-folded-hyphen-baseline:
 # Guard against NEW degenerate evidence snippets in kb/ -- bare terms too short
 # to carry a claim (e.g. snippet: 'Strabismus'), which support nothing and are
 # usually lifted from a table that never survives text extraction (#7450).
-# Pipe-delimited structured-source rows are exempt; a baseline grandfathers the
-# pre-existing backlog, so this fails only on new ones.
+# Pipe-delimited structured-source rows are exempt; the pre-existing backlog is
+# grandfathered against origin/main (like CI), so this fails only on new ones.
+# resolve_baseline() falls back to the committed baseline if origin/main is not
+# present locally, so `just qc` and CI agree.
 [group('QC')]
 check-snippet-length:
-    uv run python scripts/check_snippet_length.py
+    uv run python scripts/check_snippet_length.py --against-ref origin/main
 
 # List every short snippet, baselined or not (triage view).
 [group('QC')]
@@ -915,6 +924,12 @@ gen-browser-data:
 [group('Browser')]
 gen-discussions-data:
     uv run python -m dismech.export.discussions_export
+
+# Generate computational-models browser data.js from disorder + module models
+[group('Browser')]
+gen-models-data:
+    uv run python -m dismech.export.models_export
+
 # Generate Mondo-keyed pathograph JSON artifact (for runtime embedding, e.g. Monarch pages)
 [group('Browser')]
 gen-pathographs:
@@ -922,7 +937,7 @@ gen-pathographs:
 
 # Serve the browser app locally
 [group('Browser')]
-serve-browser: gen-browser-data gen-discussions-data
+serve-browser: gen-browser-data gen-discussions-data gen-models-data
     @echo "Starting local server at http://localhost:8000/app/"
     uv run python -m http.server 8000
 
@@ -1030,7 +1045,7 @@ gen-schema-docs:
 
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-nih-topics-page gen-schema-docs
+gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-models-data gen-pages gen-grouping-pages gen-project-pages gen-nih-topics-page gen-schema-docs
     @echo "Generated browser data, pathographs, disorder/comorbidity/grouping/project pages, and schema docs"
 
 # ============== KGX Export ==============
@@ -2005,7 +2020,7 @@ normalize-cache:
     for f in cache/enums/*.csv; do
         header=$(head -1 "$f")
         tmp="$tmp_dir/$(basename "$f")"
-        tail -n+2 "$f" | grep -E '^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_./-]+$' | sort -u > "$tmp"
+        tail -n+2 "$f" | grep -E '^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_./-]+$' | LC_ALL=C sort -u > "$tmp"
         echo "$header" > "$f"
         cat "$tmp" >> "$f"
     done
@@ -2067,6 +2082,33 @@ g2p-compare-json gene:
 [group('Analysis')]
 perturb file *args="":
     uv run python -m dismech.perturb {{file}} {{args}}
+
+# Export dismech-perturb model configs as SED-ML / COMBINE archives, so any
+# SED-ML-capable engine (COPASI, tellurium, VCell, runBioSimulations, ...) can
+# run a dismech scenario. Writes exports/sedml/<model_id>/ (committed) and,
+# with --omex, the zipped exports/sedml/<model_id>.omex (derived, gitignored).
+# Examples:
+#   just sedml-export
+#   just sedml-export --id urate_homeostasis --omex
+[group('Analysis')]
+sedml-export *args="":
+    uv run python -m dismech.perturb.sedml_export {{args}}
+
+# Run every dismech-perturb scenario and persist the results (final observable
+# values, fold change vs baseline, and the HP phenotypes the curated thresholds
+# activate) to exports/model_runs/<model_id>.json. Derived artifact, committed
+# so the disorder pages can render it; regenerate rather than hand-edit.
+# Requires tellurium: uv pip install tellurium
+[group('Analysis')]
+gen-model-results *args="":
+    uv run python -m dismech.perturb.results_export {{args}}
+
+# Check the exported archives reproduce dismech-perturb's own numbers by
+# running each .omex through tellurium's SED-ML interpreter and diffing.
+# Requires tellurium: uv pip install tellurium
+[group('Analysis')]
+verify-sedml-export *args="":
+    uv run python scripts/verify_sedml_export.py {{args}}
 
 # ============== Agent Helper Commands ==============
 # These commands help Claude Code agents explore the KB without requiring
