@@ -1114,4 +1114,7 @@ def test_backticked_identifiers_in_schema_prose_resolve() -> None:
     # catch, one level up. `metadata` was exactly that under the narrower
     # pattern: allowlisted, and unreachable.
     stale = sorted(elsewhere - seen)
-    assert not stale, f"allowlist entries no prose references: {stale}"
+    assert not stale, (
+        f"allowlist entries with no prose references, so the exemption has "
+        f"outlived the text that needed it: {stale}"
+    )
