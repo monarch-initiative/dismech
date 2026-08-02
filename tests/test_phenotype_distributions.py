@@ -25,9 +25,17 @@ from dismech.phenotype_distribution import (
 )
 from dismech.reference_cache_frontmatter import main as frontmatter_main
 
-SCHEMA_PATH = Path("src/dismech/schema/phenotype_distribution.yaml")
-EXAMPLES_DIR = Path("examples/phenotype_distributions")
-KB_DIR = Path("kb/phenotype_distributions")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+SCHEMA_PATH = REPO_ROOT / "src" / "dismech" / "schema" / "phenotype_distribution.yaml"
+NATIVE_SCHEMA_PATH = REPO_ROOT / "src" / "dismech" / "schema" / "dismech.yaml"
+#: Prose that repeats a list the code also enforces. Kept repo-relative because
+#: `git show HEAD:<path>` resolves from the repo root; join onto REPO_ROOT for a
+#: working-tree read, so the guards survive pytest being invoked from elsewhere.
+CLAUDE_MD_PATH = Path("CLAUDE.md")
+DOCS_PATH = Path("docs/phenotype-distributions.md")
+EXAMPLES_DIR = REPO_ROOT / "examples" / "phenotype_distributions"
+KB_DIR = REPO_ROOT / "kb" / "phenotype_distributions"
 
 TARGET_CLASS = "PhenotypeDistributionCollection"
 
@@ -68,7 +76,7 @@ def test_evidence_direction_values_match_native_dismech_support_enum() -> None:
     silently break that.
     """
     sv = SchemaView(str(SCHEMA_PATH))
-    native = SchemaView("src/dismech/schema/dismech.yaml")
+    native = SchemaView(str(NATIVE_SCHEMA_PATH))
     ours = set(sv.get_enum("EvidenceDirectionEnum").permissible_values)
     theirs = set(native.get_enum("EvidenceItemSupportEnum").permissible_values)
     assert ours == theirs
@@ -77,7 +85,7 @@ def test_evidence_direction_values_match_native_dismech_support_enum() -> None:
 def test_frequency_class_values_match_native_frequency_enum() -> None:
     """Implied frequency bands must be the same bands dismech already uses."""
     sv = SchemaView(str(SCHEMA_PATH))
-    native = SchemaView("src/dismech/schema/dismech.yaml")
+    native = SchemaView(str(NATIVE_SCHEMA_PATH))
     ours = sv.get_enum("FrequencyClassEnum").permissible_values
     theirs = native.get_enum("FrequencyEnum").permissible_values
     assert set(ours) == set(theirs)
@@ -367,7 +375,7 @@ def test_clinical_trial_quotes_resolve_to_the_right_cache_file() -> None:
     """
     from dismech.phenotype_distribution import _cache_path_for
 
-    cache = Path("references_cache")
+    cache = REPO_ROOT / "references_cache"
     assert _cache_path_for("clinicaltrials:NCT00000146", cache) == (
         cache / "clinicaltrials_NCT00000146.md"
     )
@@ -382,7 +390,7 @@ def _verifiable_prefix_bullet() -> str:
     Bounded to the bullet itself — a fixed character window trails into the
     following bullet, where an unrelated mention would satisfy the check.
     """
-    docs = Path("docs/phenotype-distributions.md").read_text(encoding="utf-8")
+    docs = (REPO_ROOT / DOCS_PATH).read_text(encoding="utf-8")
     lines = docs.splitlines()
     starts = [i for i, ln in enumerate(lines) if "citing a fetchable document" in ln]
     assert starts, (
@@ -526,6 +534,7 @@ def _committed_text(path: Path) -> str | None:
             ["git", "show", f"HEAD:{path.as_posix()}"],
             capture_output=True,
             check=True,
+            cwd=REPO_ROOT,
         )
     except (OSError, subprocess.CalledProcessError):
         return None
@@ -592,7 +601,7 @@ def test_prose_domain_role_lists_are_complete() -> None:
             )
         return found
 
-    for path in (Path("CLAUDE.md"), Path("docs/phenotype-distributions.md")):
+    for path in (CLAUDE_MD_PATH, DOCS_PATH):
         # The working tree is checked so a curator editing prose sees their own
         # drift before committing it — but only for completeness, never as the
         # anchor. Anchoring here is what makes "delete the list" a green escape
@@ -601,7 +610,9 @@ def test_prose_domain_role_lists_are_complete() -> None:
         # blanks this repo's `CLAUDE.md` section, which would fire for a reason
         # having nothing to do with the docs and invite whoever hit it to weaken
         # a working guard.
-        assert_complete(path, "working tree", path.read_text(encoding="utf-8"))
+        assert_complete(
+            path, "working tree", (REPO_ROOT / path).read_text(encoding="utf-8")
+        )
 
         # Everything that actually gates is asserted against the committed blob:
         # it is what CI checks out and what readers get, and it is unaffected by
@@ -798,7 +809,7 @@ def test_example_collections_are_not_citable_from_kb_entries() -> None:
     assert example_ids
 
     cited = set()
-    for path in Path("kb").rglob("*.yaml"):
+    for path in (REPO_ROOT / "kb").rglob("*.yaml"):
         text = path.read_text(encoding="utf-8")
         if "PHENODIST:" not in text:
             continue
@@ -810,7 +821,7 @@ def test_example_collections_are_not_citable_from_kb_entries() -> None:
     committed = [
         p.name
         for rid in example_ids
-        if (p := Path("references_cache") / f"PHENODIST_{rid}.md").exists()
+        if (p := REPO_ROOT / "references_cache" / f"PHENODIST_{rid}.md").exists()
     ]
     assert not committed, f"illustrative cache files are committed: {sorted(committed)}"
 
@@ -990,12 +1001,26 @@ def test_discrete_by_family_map_covers_the_enum() -> None:
             lambda data: data["distributions"][0]["distribution"].update(discrete=False),
         )
     )
-    for source, text in (
+    sources: list[tuple[str, str]] = [
         ("the `discrete` slot description", slot_description),
         ("the lint warning", warning_text),
-        ("CLAUDE.md", Path("CLAUDE.md").read_text(encoding="utf-8")),
-        ("the docs", Path("docs/phenotype-distributions.md").read_text(encoding="utf-8")),
+    ]
+    # Prose files are read at HEAD, not from the working tree, for the reason
+    # `_committed_text` exists: a checkout with unrelated local mutation would
+    # otherwise fail this guard on content that is correct as committed. Its
+    # sibling `test_prose_domain_role_lists_are_complete` was moved onto the
+    # committed blob for exactly this, and reading the working tree here
+    # reintroduced what that change removed.
+    for label, path in (
+        ("CLAUDE.md", CLAUDE_MD_PATH),
+        ("the docs", DOCS_PATH),
     ):
+        committed = _committed_text(path)
+        if committed is None:  # not a git checkout (sdist, vendored tree)
+            continue
+        sources.append((label, committed))
+
+    for source, text in sources:
         missing = [f for f in open_support if f not in text]
         assert not missing, f"{source} omits open-support families: {sorted(missing)}"
 
@@ -1051,14 +1076,16 @@ def test_arm_components_within_range_but_unreported_are_not_flagged(
     assert lint_collections([coll]).issues == []
 
 
-def test_catch_all_arm_covers_components_no_arm_enumerates(
+def test_a_ranged_arm_claim_covers_components_without_enumerating_them(
     eds_collection_path: Path,
 ) -> None:
-    """A background arm should not have to enumerate eighty ids.
+    """A background arm states `0-79` as a block, not eighty ids — and stays checked.
 
-    Without the flag, the first record for a shared background component would
-    be reported as having no arm, and the obvious fix would be to paste the
-    list in.
+    The first attempt at this ergonomic was a `backs_remaining_components`
+    boolean, which stood the reverse check down for the entire collection: a
+    foreground component dropped from the `eds` arm then fell to the catch-all
+    silently, attributing 959 people's component to 190,917. A range keeps the
+    convenience and the check, so both halves are asserted here together.
     """
 
     def add_background_record(data):
@@ -1069,15 +1096,64 @@ def test_catch_all_arm_covers_components_no_arm_enumerates(
         record.pop("evidence_lines", None)
         data["distributions"].append(record)
 
+    # Covered by the background arm's 0-79 range: no complaint.
     assert "not listed by any cohort arm" not in _warning_messages(
         _mutate(eds_collection_path, add_background_record)
     )
 
-    def add_record_and_drop_the_flag(data):
+    # And the substitution the range must not hide.
+    def drop_a_foreground_component(data):
         add_background_record(data)
         for arm in data["cohorts"][0]["arms"]:
-            arm.pop("backs_remaining_components", None)
+            if arm["arm_name"] == "eds":
+                arm["associated_components"].remove("96")
 
-    assert "not listed by any cohort arm" in _warning_messages(
-        _mutate(eds_collection_path, add_record_and_drop_the_flag)
+    assert "component '96' is not listed by any cohort arm" in _warning_messages(
+        _mutate(eds_collection_path, drop_a_foreground_component)
+    )
+
+
+def test_lint_flags_a_component_range_that_leaves_the_model(
+    eds_collection_path: Path,
+) -> None:
+    """A bad range is reported once, as a range.
+
+    Expanding first and validating after buried the actual mistake under a
+    hundred out-of-range ids and twenty spurious overlaps with the arm next
+    door, which is how a lint teaches people to ignore it.
+    """
+
+    def widen(data):
+        for arm in data["cohorts"][0]["arms"]:
+            if arm["arm_name"] == "background":
+                arm["associated_component_ranges"][0]["range_upper"] = 200
+
+    errors = lint_collections([_mutate(eds_collection_path, widen)]).errors
+    assert len(errors) == 1, [e.message for e in errors]
+    assert "leaves the [0, 100) range" in errors[0].message
+
+    def invert(data):
+        for arm in data["cohorts"][0]["arms"]:
+            if arm["arm_name"] == "background":
+                arm["associated_component_ranges"][0].update(
+                    range_lower=79, range_upper=0
+                )
+
+    errors = lint_collections([_mutate(eds_collection_path, invert)]).errors
+    assert len(errors) == 1, [e.message for e in errors]
+    assert "lower bound exceeds its upper bound" in errors[0].message
+
+
+def test_lint_flags_a_component_claimed_by_two_arms(
+    eds_collection_path: Path,
+) -> None:
+    """Two arms claiming one component is two denominators for one number."""
+
+    def overlap(data):
+        for arm in data["cohorts"][0]["arms"]:
+            if arm["arm_name"] == "eds":
+                arm["associated_components"].append("12")
+
+    assert "claimed by both arm" in _error_messages(
+        _mutate(eds_collection_path, overlap)
     )

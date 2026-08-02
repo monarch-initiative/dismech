@@ -886,7 +886,7 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
 
     claimed_components: set[str] = set()
     any_arm_claims_components = False
-    an_arm_backs_the_rest = False
+    claimed_by: dict[str, str] = {}
     n_components = model.get("n_components")
 
     for cohort in every_cohort:
@@ -905,16 +905,30 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
                 )
             if name:
                 arm_names.add(str(name))
-                claimed_components.update(
-                    str(c) for c in arm.get("associated_components") or []
+                claimed, claim_issues = _arm_component_claims(
+                    coll, arm, name, n_components
                 )
-                if arm.get("associated_components"):
+                out.extend(claim_issues)
+                if claimed:
                     any_arm_claims_components = True
-                if arm.get("backs_remaining_components"):
-                    an_arm_backs_the_rest = True
-                out.extend(
-                    _check_arm_component_bounds(coll, arm, name, n_components)
-                )
+                # Two arms claiming one component is two denominators for one
+                # number, which is the ambiguity the arm block exists to remove.
+                for cid in claimed:
+                    other = claimed_by.get(cid)
+                    if other is not None and other != str(name):
+                        out.append(
+                            Issue(
+                                coll.path,
+                                "",
+                                "ERROR",
+                                f"component {cid!r} is claimed by both arm "
+                                f"{other!r} and arm {name!r}; a component backed "
+                                "by two sub-populations has no single denominator",
+                            )
+                        )
+                    else:
+                        claimed_by[cid] = str(name)
+                claimed_components.update(claimed)
             for step in arm.get("identification_steps") or []:
                 out.extend(_check_identification_step(coll, step, f"arm {name!r}"))
         for step in cohort.get("identification_steps") or []:
@@ -925,10 +939,8 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
             )
 
     # Once any arm claims components, a component claimed by none has an
-    # unstated denominator — the failure the arm block exists to prevent. An arm
-    # that declares itself the catch-all covers the remainder, so a background
-    # arm does not have to enumerate eighty ids to say "the rest".
-    if any_arm_claims_components and not an_arm_backs_the_rest:
+    # unstated denominator — the failure the arm block exists to prevent.
+    if any_arm_claims_components:
         for rec in coll.records:
             cid = (rec.get("latent_phenotype") or {}).get("component_id")
             if cid is not None and str(cid) not in claimed_components:
@@ -944,32 +956,33 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
     return out
 
 
-def _check_arm_component_bounds(
-    coll: Collection,
-    arm: dict[str, Any],
-    name: Any,
-    n_components: Any,
-) -> list[Issue]:
-    """Check an arm's component ids against the model's own component count.
+def _arm_component_claims(
+    coll: Collection, arm: dict[str, Any], name: Any, n_components: Any
+) -> tuple[set[str], list[Issue]]:
+    """Every component id an arm claims, from explicit ids and expanded ranges.
 
-    The decidable half of the foreign key. "No record describes this id" is not
-    an error — an arm names components of the model, and most collections report
-    records for a handful of them — but an id outside the model's declared range
-    is wrong regardless of how many records exist, and so is a non-numeric id
-    among numeric ones. Both are what a typo in a hand-written list looks like.
+    Ranges are expanded here rather than handled separately so that everything
+    downstream — disjointness, and the reverse "which arm backs this component"
+    check — sees one set and cannot treat a ranged claim as weaker than an
+    enumerated one.
+
+    Validation happens before expansion, and a range that fails it is dropped
+    rather than expanded. Reporting a bad range once as a range is the whole
+    point: expanding `[0, 200]` against a 100-component model first would bury
+    the actual mistake under a hundred out-of-range ids and twenty spurious
+    overlaps with the arm next door.
     """
-    claimed = [str(c) for c in arm.get("associated_components") or []]
-    if not claimed or not isinstance(n_components, int):
-        return []
-    # Only index-style ids can be bounds-checked; a collection using opaque
-    # component names is out of scope rather than wrong.
-    numeric = [c for c in claimed if c.lstrip("-").isdigit()]
-    if not numeric:
-        return []
-
     out: list[Issue] = []
-    for cid in claimed:
-        if cid not in numeric:
+    claimed: set[str] = set()
+
+    explicit = [str(c) for c in arm.get("associated_components") or []]
+    numeric = [c for c in explicit if c.lstrip("-").isdigit()]
+    for cid in explicit:
+        # Only index-style ids can be bounds-checked; a collection using opaque
+        # component names is out of scope rather than wrong.
+        if not isinstance(n_components, int) or not numeric:
+            claimed.add(cid)
+        elif cid not in numeric:
             out.append(
                 Issue(
                     coll.path,
@@ -990,7 +1003,41 @@ def _check_arm_component_bounds(
                     f"[0, {n_components}) range of the declared model",
                 )
             )
-    return out
+        else:
+            claimed.add(cid)
+
+    for block in arm.get("associated_component_ranges") or []:
+        lower = block.get("range_lower")
+        upper = block.get("range_upper")
+        if not isinstance(lower, int) or not isinstance(upper, int):
+            continue
+        if lower > upper:
+            out.append(
+                Issue(
+                    coll.path,
+                    "",
+                    "ERROR",
+                    f"arm {name!r} declares component range [{lower}, {upper}], "
+                    "whose lower bound exceeds its upper bound",
+                )
+            )
+            continue
+        if isinstance(n_components, int) and not (
+            0 <= lower and upper < n_components
+        ):
+            out.append(
+                Issue(
+                    coll.path,
+                    "",
+                    "ERROR",
+                    f"arm {name!r} declares component range [{lower}, {upper}], "
+                    f"which leaves the [0, {n_components}) range of the "
+                    "declared model",
+                )
+            )
+            continue
+        claimed.update(str(i) for i in range(lower, upper + 1))
+    return claimed, out
 
 
 def _check_identification_step(
