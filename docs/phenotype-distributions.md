@@ -97,6 +97,16 @@ convention whenever the family admits more than one.
 Use `EMPIRICAL` with `bins`/`quantiles` when a publication reports only a
 histogram or percentiles. Do not fit a family the source did not fit.
 
+The family also fixes support discreteness for all but six values, so leave
+`discrete` unset unless the family is one of `EMPIRICAL`, `MIXTURE`,
+`KAPLAN_MEIER`, `NONPARAMETRIC_QUANTILE`, `UNIFORM`, or `OTHER` — the cases
+where a tabulation may be over counts or over bins of a continuous quantity and
+a consumer genuinely cannot tell. Restating what `CATEGORICAL` or `GAMMA`
+already settles just gives the two a chance to disagree; the lint errors on a
+contradiction and warns on a repetition. A test pins this list against the enum,
+because a family added to the enum but not to the lint's map would silently stop
+being checked and would falsify every prose copy of the six.
+
 ### Time to event is not a proportion
 
 Age-dependent penetrance reported as "60% by adulthood" throws away the age the

@@ -919,6 +919,9 @@ def test_lint_warns_when_a_component_belongs_to_no_arm(
         for arm in data["cohorts"][0]["arms"]:
             if arm["arm_name"] == "eds":
                 arm["associated_components"] = ["80"]
+            # The background arm is the declared catch-all; without dropping the
+            # flag it legitimately covers the components dropped above.
+            arm.pop("backs_remaining_components", None)
 
     assert "not listed by any cohort arm" in _warning_messages(
         _mutate(eds_collection_path, mutate)
@@ -942,4 +945,139 @@ def test_lint_warns_when_discrete_merely_restates_its_family(
 
     assert "restates what family BETA already fixes" in _warning_messages(
         _mutate(cf_collection_path, mutate)
+    )
+
+
+def test_discrete_by_family_map_covers_the_enum() -> None:
+    """The map and its four prose copies must not drift from the enum.
+
+    A family added to the enum but not the map lands in the "support is open"
+    bucket by omission: the lint silently stops checking it, and the six-value
+    list repeated in the slot description, the warning text, `CLAUDE.md`, and
+    the docs all become wrong with no signal.
+    """
+    from dismech.phenotype_distribution import _DISCRETE_BY_FAMILY
+
+    sv = SchemaView(str(SCHEMA_PATH))
+    families = set(sv.get_enum("DistributionFamilyEnum").permissible_values)
+
+    unmapped = families - set(_DISCRETE_BY_FAMILY)
+    open_support = {
+        "EMPIRICAL",
+        "KAPLAN_MEIER",
+        "MIXTURE",
+        "NONPARAMETRIC_QUANTILE",
+        "OTHER",
+        "UNIFORM",
+    }
+    assert unmapped == open_support, (
+        "families whose support the family itself does not fix changed; update "
+        "_DISCRETE_BY_FAMILY and every prose copy of the list together. "
+        f"Unexpectedly unmapped: {sorted(unmapped - open_support)}; "
+        f"unexpectedly mapped: {sorted(open_support - unmapped)}"
+    )
+    assert not set(_DISCRETE_BY_FAMILY) - families, (
+        "_DISCRETE_BY_FAMILY maps a family the enum does not define: "
+        f"{sorted(set(_DISCRETE_BY_FAMILY) - families)}"
+    )
+
+    # The prose copies name the same six, so a reader is never told a different
+    # list from the one the lint enforces.
+    slot_description = sv.get_slot("discrete").description or ""
+    warning_text = _warning_messages(
+        _mutate(
+            EXAMPLES_DIR / "cystic_fibrosis_illustrative.yaml",
+            lambda data: data["distributions"][0]["distribution"].update(discrete=False),
+        )
+    )
+    for source, text in (
+        ("the `discrete` slot description", slot_description),
+        ("the lint warning", warning_text),
+        ("CLAUDE.md", Path("CLAUDE.md").read_text(encoding="utf-8")),
+        ("the docs", Path("docs/phenotype-distributions.md").read_text(encoding="utf-8")),
+    ):
+        missing = [f for f in open_support if f not in text]
+        assert not missing, f"{source} omits open-support families: {sorted(missing)}"
+
+
+def test_lint_flags_an_arm_component_outside_the_model_range(
+    eds_collection_path: Path,
+) -> None:
+    """Appending a bogus id, not replacing a real one.
+
+    The reverse check only fires when a *record's* component goes unclaimed, so
+    an arm listing all its real components plus one typo was silent. Bounds are
+    the decidable half: "no record describes this id" is normal (the arm names
+    twenty components, three have records), but an id outside the declared
+    model's range is wrong however few records exist.
+    """
+
+    def append_bogus(data):
+        for arm in data["cohorts"][0]["arms"]:
+            if arm["arm_name"] == "eds":
+                arm["associated_components"].append("T999-DOES-NOT-EXIST")
+
+    assert "matches no component index" in _error_messages(
+        _mutate(eds_collection_path, append_bogus)
+    )
+
+    def append_out_of_range(data):
+        for arm in data["cohorts"][0]["arms"]:
+            if arm["arm_name"] == "eds":
+                arm["associated_components"].append("100")
+
+    assert "outside the [0, 100) range" in _error_messages(
+        _mutate(eds_collection_path, append_out_of_range)
+    )
+
+
+def test_arm_components_within_range_but_unreported_are_not_flagged(
+    eds_collection_path: Path,
+) -> None:
+    """The normal case must stay silent, or the check is unusable.
+
+    The EDS arm lists twenty foreground components and the collection reports
+    records for three. Treating the other seventeen as dangling references would
+    fire on correct data.
+    """
+    coll = load_collection(eds_collection_path)
+    reported = {
+        str(r["latent_phenotype"]["component_id"])
+        for r in coll.records
+        if r.get("latent_phenotype")
+    }
+    arm = next(a for a in coll.data["cohorts"][0]["arms"] if a["arm_name"] == "eds")
+    assert len(set(arm["associated_components"]) - reported) > 10
+    assert lint_collections([coll]).issues == []
+
+
+def test_catch_all_arm_covers_components_no_arm_enumerates(
+    eds_collection_path: Path,
+) -> None:
+    """A background arm should not have to enumerate eighty ids.
+
+    Without the flag, the first record for a shared background component would
+    be reported as having no arm, and the obvious fix would be to paste the
+    list in.
+    """
+
+    def add_background_record(data):
+        record = copy.deepcopy(data["distributions"][2])
+        record["record_id"] = "CHARMPHENO-EDS-T12-CODEPROB-001"
+        record["latent_phenotype"]["component_id"] = "12"
+        record.pop("dismech_bindings", None)
+        record.pop("evidence_lines", None)
+        data["distributions"].append(record)
+
+    assert "not listed by any cohort arm" not in _warning_messages(
+        _mutate(eds_collection_path, add_background_record)
+    )
+
+    def add_record_and_drop_the_flag(data):
+        add_background_record(data)
+        for arm in data["cohorts"][0]["arms"]:
+            arm.pop("backs_remaining_components", None)
+
+    assert "not listed by any cohort arm" in _warning_messages(
+        _mutate(eds_collection_path, add_record_and_drop_the_flag)
     )

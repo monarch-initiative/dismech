@@ -815,10 +815,21 @@ def _check_feature_namespaces(coll: Collection) -> list[Issue]:
 def _check_cohorts(coll: Collection) -> list[Issue]:
     """Check collection-level cohorts, their arms, and references into them.
 
-    Arms and their component subsets are the place a gated fit's denominators
-    live: a foreground component estimated from 0.5% of the corpus is only safe
-    to read if the arm that backs it is named and resolvable. A dangling
-    reference here silently restores the whole-corpus denominator.
+    Arms and their component subsets are where a gated fit's denominators live:
+    a foreground component estimated from 0.5% of the corpus is only safe to
+    read if the arm backing it is named.
+
+    `associated_components` is checked in both directions, but not
+    symmetrically, because the two directions are not equally decidable. An arm
+    names components *of the model*, and a collection normally reports records
+    for only a few of them — the EDS arm legitimately lists all twenty
+    foreground components while three have records — so "no record describes
+    this id" cannot distinguish a typo from the normal case. What is decidable
+    is the model's own bound: with numeric component ids and a declared
+    `n_components`, an id outside ``[0, n_components)`` is wrong no matter how
+    few records exist. In the other direction, a record whose component no arm
+    claims is flagged, which is what catches the dangerous typo — substituting
+    ``69`` for ``96`` leaves component 96 unclaimed and warns.
     """
     out: list[Issue] = []
     declared: set[str] = set()
@@ -875,6 +886,8 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
 
     claimed_components: set[str] = set()
     any_arm_claims_components = False
+    an_arm_backs_the_rest = False
+    n_components = model.get("n_components")
 
     for cohort in every_cohort:
         arm_names: set[str] = set()
@@ -897,6 +910,11 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
                 )
                 if arm.get("associated_components"):
                     any_arm_claims_components = True
+                if arm.get("backs_remaining_components"):
+                    an_arm_backs_the_rest = True
+                out.extend(
+                    _check_arm_component_bounds(coll, arm, name, n_components)
+                )
             for step in arm.get("identification_steps") or []:
                 out.extend(_check_identification_step(coll, step, f"arm {name!r}"))
         for step in cohort.get("identification_steps") or []:
@@ -907,8 +925,10 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
             )
 
     # Once any arm claims components, a component claimed by none has an
-    # unstated denominator — the failure the arm block exists to prevent.
-    if any_arm_claims_components:
+    # unstated denominator — the failure the arm block exists to prevent. An arm
+    # that declares itself the catch-all covers the remainder, so a background
+    # arm does not have to enumerate eighty ids to say "the rest".
+    if any_arm_claims_components and not an_arm_backs_the_rest:
         for rec in coll.records:
             cid = (rec.get("latent_phenotype") or {}).get("component_id")
             if cid is not None and str(cid) not in claimed_components:
@@ -921,6 +941,55 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
                         "which sub-population backs it is unstated",
                     )
                 )
+    return out
+
+
+def _check_arm_component_bounds(
+    coll: Collection,
+    arm: dict[str, Any],
+    name: Any,
+    n_components: Any,
+) -> list[Issue]:
+    """Check an arm's component ids against the model's own component count.
+
+    The decidable half of the foreign key. "No record describes this id" is not
+    an error — an arm names components of the model, and most collections report
+    records for a handful of them — but an id outside the model's declared range
+    is wrong regardless of how many records exist, and so is a non-numeric id
+    among numeric ones. Both are what a typo in a hand-written list looks like.
+    """
+    claimed = [str(c) for c in arm.get("associated_components") or []]
+    if not claimed or not isinstance(n_components, int):
+        return []
+    # Only index-style ids can be bounds-checked; a collection using opaque
+    # component names is out of scope rather than wrong.
+    numeric = [c for c in claimed if c.lstrip("-").isdigit()]
+    if not numeric:
+        return []
+
+    out: list[Issue] = []
+    for cid in claimed:
+        if cid not in numeric:
+            out.append(
+                Issue(
+                    coll.path,
+                    "",
+                    "ERROR",
+                    f"arm {name!r} lists component {cid!r} among otherwise "
+                    "numeric component ids; it matches no component index of a "
+                    f"{n_components}-component model",
+                )
+            )
+        elif not 0 <= int(cid) < n_components:
+            out.append(
+                Issue(
+                    coll.path,
+                    "",
+                    "ERROR",
+                    f"arm {name!r} lists component {cid!r}, outside the "
+                    f"[0, {n_components}) range of the declared model",
+                )
+            )
     return out
 
 
