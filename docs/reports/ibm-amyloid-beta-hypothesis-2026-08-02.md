@@ -136,6 +136,14 @@ vicious circle"* — amyloid as consequence and amplifier, not initiator. This i
    amyloid burden predicts functional decline independently of T cell infiltrate and TDP-43
    cryptic exon burden.
 
+4. **Rendering.** A DEPRECATED hypothesis now renders an explicit "Overturned model —
+   shown for reference, not as current mechanism" callout stating that DisMech does not
+   assert the model and that citation volume does not decide standing; an evidence-balance
+   row shows the SUPPORT / PARTIAL / REFUTE split (here 3 / 2 / 6); and hypothesis chips on
+   pathophysiology nodes and causal edges carry the deprecated status so a node in a retired
+   group is not read as current. The policy is recorded as design decision
+   [§6a](../explanation/design-decisions.md).
+
 Deliberately **not** done: no `conforms_to` edge to the `amyloidogenesis` module was added.
 That module models genuine amyloid-deposit formation (AL, ATTR, AA, Alzheimer), and declaring
 conformance would assert as curated fact precisely the claim this exploration finds

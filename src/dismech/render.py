@@ -631,6 +631,39 @@ def _coerce_string_list(value: object) -> list[str]:
     return [str(value)]
 
 
+#: Order in which evidence-balance chips are shown on a hypothesis box.
+_HYPOTHESIS_EVIDENCE_ORDER = (
+    "SUPPORT",
+    "PARTIAL",
+    "REFUTE",
+    "WRONG_STATEMENT",
+    "NO_EVIDENCE",
+)
+
+
+def _hypothesis_evidence_tally(hypothesis: dict) -> list[dict]:
+    """Count a hypothesis's evidence items by ``supports`` value.
+
+    A DEPRECATED hypothesis often still carries more supporting than refuting
+    citations, because the supporting literature accumulated over decades before
+    the refutation landed. Surfacing the split makes that asymmetry visible
+    instead of letting a reader infer standing from citation volume.
+    """
+    evidence = hypothesis.get("evidence") or []
+    if not isinstance(evidence, list):
+        return []
+    counts: dict[str, int] = defaultdict(int)
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        supports = str(item.get("supports") or "").strip().upper()
+        if supports:
+            counts[supports] += 1
+    ordered = [key for key in _HYPOTHESIS_EVIDENCE_ORDER if key in counts]
+    ordered += sorted(key for key in counts if key not in _HYPOTHESIS_EVIDENCE_ORDER)
+    return [{"supports": key, "count": counts[key]} for key in ordered]
+
+
 def _annotate_hypothesis_group_links(disorder: dict) -> None:
     """Attach anchors and visible cross-links for mechanistic hypothesis groups."""
     hypotheses = disorder.get("mechanistic_hypotheses") or []
@@ -650,6 +683,7 @@ def _annotate_hypothesis_group_links(disorder: dict) -> None:
         hypothesis["_anchor_id"] = _make_anchor_id("hypothesis", hypothesis_id)
         hypothesis["_pathograph_links"] = []
         hypothesis["_research_reports"] = []
+        hypothesis["_evidence_tally"] = _hypothesis_evidence_tally(hypothesis)
         hypotheses_by_id.setdefault(hypothesis_id, hypothesis)
 
     pathophysiology_by_name: dict[str, dict] = {}
