@@ -587,7 +587,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -748,6 +748,19 @@ count-verified-snippets *args:
 check-reference-cache-frontmatter:
     @just fix-references-cache
     uv run python -m dismech.reference_cache_frontmatter references_cache
+
+# Catches the ad-hoc-seeding corruption in #7682: a row built by string
+# concatenation whose label contains a comma parses to >3 fields and is
+# silently truncated at that comma, and a later "repair" pass cements the
+# truncation as clean-looking data that `just validate-terms` then reports as
+# ontology truth. Also covers cache/enums/*.csv, the dynamic-enum membership
+# caches, which stand in for an authority the same way. Structural facts only
+# -- it does NOT re-derive labels from OAK, so `just validate-terms` remains
+# the last line of defence. Runs in `qc` before the heavier data validators.
+# Deterministically validate the structure of cache/*/terms.csv + enums (#7682).
+[group('QC')]
+check-term-cache-integrity:
+    uv run python -m dismech.term_cache_integrity cache
 
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
