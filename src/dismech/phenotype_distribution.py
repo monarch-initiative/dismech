@@ -855,7 +855,10 @@ def lint_profile(
         # was not — and unlike a prose keyword it is derivable from the same
         # file, so the claim can simply be checked. Opt-in: a description
         # without the phrase is untouched.
-        claimed = re.search(r"sum to ~([\d.]+)", dist.get("description") or "")
+        # `[\d.]+` would swallow a sentence-final period and hand `float()` a
+        # string like "0.73.", turning a lint finding into a traceback out of a
+        # `just qc` gate — a worse failure than the drift being guarded against.
+        claimed = re.search(r"sum to ~(\d+(?:\.\d+)?)", dist.get("description") or "")
         if claimed and abs(float(claimed.group(1)) - total) >= 0.005:
             err(
                 f"{domain} distribution description says the weights sum to "

@@ -1024,3 +1024,76 @@ def test_a_distribution_description_cannot_misstate_its_own_sum(
         dist["description"] = "The eight highest-probability codes."
 
     assert lint_collections([_mutate(profile_set_path, silent)]).errors == []
+
+    # Sentence-final, which both phrasings above dodge. `[\d.]+` captured the
+    # period too and handed `float()` "0.73.", turning a lint finding into a
+    # traceback out of a `just qc` gate — a worse failure than the drift.
+    def trailing_period_correct(data):
+        dist = data["profiles"][0]["code_distributions"][0]
+        dist["description"] = "Top codes, so the weights sum to ~0.73."
+
+    assert (
+        lint_collections([_mutate(profile_set_path, trailing_period_correct)]).errors
+        == []
+    )
+
+    def trailing_period_wrong(data):
+        dist = data["profiles"][0]["code_distributions"][0]
+        dist["description"] = "Top codes, so the weights sum to ~0.42."
+
+    assert "they sum to 0.72693" in _error_messages(
+        _mutate(profile_set_path, trailing_period_wrong)
+    )
+
+
+def test_backticked_identifiers_in_schema_prose_resolve() -> None:
+    """A deleted slot must not survive as an option in someone's prose.
+
+    Four deletions in this schema have now left residue, each one layer further
+    out than the last guard could see: classes, then slots, then descriptions
+    mentioning removed machinery, then this — a class description still offering
+    `latent_phenotype` as an alternative that no longer exists, three cleanup
+    commits after the slot went. `gen-doc` publishes class descriptions, so a
+    reader is handed a choice the schema cannot honour.
+
+    Scoped to backticked snake_case tokens, which in this file are how slots are
+    referred to. The allowlist is names that are real but live elsewhere; each
+    needs a reason, and a growing allowlist is itself the signal that this check
+    has outlived its scope.
+    """
+    import re as _re
+
+    sv = SchemaView(str(SCHEMA_PATH))
+    known: set[str] = (
+        set(sv.all_slots())
+        | set(sv.all_classes())
+        | set(sv.all_enums())
+        | set(sv.all_types())
+    )
+    for enum in sv.all_enums().values():
+        known |= set(enum.permissible_values or {})
+
+    elsewhere = {
+        # Real slots, but in the main dismech schema rather than this one.
+        "attaches_to",
+        "interpretation_bands",
+        # A LinkML metaslot, and an export field of an external tool.
+        "see_also",
+        "metadata",
+    }
+
+    descriptions: list[tuple[str, str]] = [("schema", sv.schema.description or "")]
+    for name, cls in sv.all_classes().items():
+        descriptions.append((f"class {name}", cls.description or ""))
+    for name, slot in sv.all_slots().items():
+        descriptions.append((f"slot {name}", slot.description or ""))
+
+    dangling: list[str] = []
+    for where, text in descriptions:
+        for token in _re.findall(r"`([a-z][a-z0-9]*(?:_[a-z0-9]+)+)`", text):
+            if token not in known and token not in elsewhere:
+                dangling.append(f"{where} -> `{token}`")
+    assert not dangling, (
+        "schema prose references identifiers that resolve to nothing: "
+        f"{sorted(set(dangling))}"
+    )
