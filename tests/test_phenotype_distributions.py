@@ -470,7 +470,7 @@ def test_lint_rejects_a_quote_whose_reference_is_not_cached(
 
 
 def test_zero_point_estimate_implies_no_frequency_band() -> None:
-    """"Never observed" is a different claim from "<5%"."""
+    """ "Never observed" is a different claim from "<5%"."""
     from dismech.phenotype_distribution import _implied_band
 
     assert _implied_band(0.0) is None
@@ -769,7 +769,6 @@ def _second_cohort(arm_name: str, **arm_extra) -> dict:
     }
 
 
-
 # ---------------------------------------------------------------------------
 # EHR-derived profiles
 # ---------------------------------------------------------------------------
@@ -912,7 +911,6 @@ def test_profile_rendering_is_deterministic(profile_set_path: Path) -> None:
     coll = load_collection(profile_set_path)
     first = [render_profile_body(coll, p) for p in coll.profiles]
     second = [
-        render_profile_body(load_collection(profile_set_path), p)
-        for p in coll.profiles
+        render_profile_body(load_collection(profile_set_path), p) for p in coll.profiles
     ]
     assert first == second

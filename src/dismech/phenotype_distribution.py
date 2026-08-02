@@ -287,9 +287,7 @@ def _entry_names(directory: Path) -> set[str]:
     if not directory.is_dir():
         return set()
     return {
-        p.stem
-        for p in directory.glob("*.yaml")
-        if not p.name.endswith(".history.yaml")
+        p.stem for p in directory.glob("*.yaml") if not p.name.endswith(".history.yaml")
     }
 
 
@@ -665,8 +663,7 @@ def lint_record(
                 )
         if not record.get("implied_frequency_basis"):
             warn(
-                "`implied_frequency_class` is set without an "
-                "`implied_frequency_basis`"
+                "`implied_frequency_class` is set without an `implied_frequency_basis`"
             )
 
     for binding in record.get("dismech_bindings") or []:
@@ -689,9 +686,7 @@ def lint_record(
             "REJECTED",
             "DEFERRED",
             "SUPERSEDED",
-        } and not (
-            binding.get("binding_notes")
-        ):
+        } and not (binding.get("binding_notes")):
             warn(
                 f"binding is {binding.get('import_status')} without "
                 "`binding_notes` explaining why"
@@ -755,7 +750,6 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
                 )
             )
     return out
-
 
 
 def _check_identification_step(
@@ -1461,8 +1455,10 @@ def render_profile_body(coll: Collection, profile: dict[str, Any]) -> str:
             _row(
                 [
                     "Disease",
-                    f"{_fmt(disease.get('disease_name'))} "
-                    f"({_term(disease.get('disease_term'))})",
+                    (
+                        f"{_fmt(disease.get('disease_name'))} "
+                        f"({_term(disease.get('disease_term'))})"
+                    ),
                 ]
             )
         )
