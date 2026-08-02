@@ -243,6 +243,7 @@ def baseline_from_ref(ref: str, root: Path = ROOT) -> Counter | None:
         proc = subprocess.run(
             ["git", "-C", str(root), "archive", "--format=tar", ref, "--", scan_rel],
             capture_output=True,
+            check=False,  # returncode is handled explicitly below (PLW1510)
         )
     except (FileNotFoundError, OSError) as exc:
         print(f"snippet baseline: git archive for {ref!r} could not run: {exc}",
