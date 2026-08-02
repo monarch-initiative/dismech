@@ -1056,10 +1056,19 @@ def test_backticked_identifiers_in_schema_prose_resolve() -> None:
     commits after the slot went. `gen-doc` publishes class descriptions, so a
     reader is handed a choice the schema cannot honour.
 
-    Scoped to backticked snake_case tokens, which in this file are how slots are
-    referred to. The allowlist is names that are real but live elsewhere; each
-    needs a reason, and a growing allowlist is itself the signal that this check
-    has outlived its scope.
+    Scoped to backticked lowercase tokens, which in this file are how slots are
+    referred to. An earlier version required an underscore, which left 62
+    single-word slots invisible — including `phenotype`, the other half of the
+    very sentence that prompted this check: had the deletion gone the other way,
+    the guard would have stayed silent.
+
+    The allowlist is names that are real but live elsewhere. All five are the
+    same kind — cross-schema or cross-tool references — and that sameness is the
+    bar. An allowlist accumulating *different* kinds of exception is the signal
+    this check has outlived its scope; one growing within a single category is
+    not. Entries are also asserted to be live, so an exemption cannot outlive
+    the prose that needed it, which is the residue pattern this file keeps
+    producing.
     """
     import re as _re
 
@@ -1077,6 +1086,7 @@ def test_backticked_identifiers_in_schema_prose_resolve() -> None:
         # Real slots, but in the main dismech schema rather than this one.
         "attaches_to",
         "interpretation_bands",
+        "prevalence",
         # A LinkML metaslot, and an export field of an external tool.
         "see_also",
         "metadata",
@@ -1089,11 +1099,19 @@ def test_backticked_identifiers_in_schema_prose_resolve() -> None:
         descriptions.append((f"slot {name}", slot.description or ""))
 
     dangling: list[str] = []
+    seen: set[str] = set()
     for where, text in descriptions:
-        for token in _re.findall(r"`([a-z][a-z0-9]*(?:_[a-z0-9]+)+)`", text):
+        for token in _re.findall(r"`([a-z][a-z0-9_]*)`", text):
+            seen.add(token)
             if token not in known and token not in elsewhere:
                 dangling.append(f"{where} -> `{token}`")
     assert not dangling, (
         "schema prose references identifiers that resolve to nothing: "
         f"{sorted(set(dangling))}"
     )
+
+    # An exemption that matches nothing is the same residue this guard exists to
+    # catch, one level up. `metadata` was exactly that under the narrower
+    # pattern: allowlisted, and unreachable.
+    stale = sorted(elsewhere - seen)
+    assert not stale, f"allowlist entries no prose references: {stale}"
