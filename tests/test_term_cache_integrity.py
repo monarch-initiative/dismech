@@ -10,6 +10,7 @@ from dismech.term_cache_integrity import (
     Finding,
     check_cache_file,
     check_enum_cache_file,
+    discover_cache_files,
     scan_cache_dir,
 )
 
@@ -333,6 +334,18 @@ def test_scan_cache_dir_covers_enum_caches(tmp_path: Path):
     findings = scan_cache_dir(tmp_path)
     assert len(findings) == 1, _reasons(findings)
     assert findings[0].path.parent.name == "enums"
+
+
+def test_enums_dir_is_never_scanned_as_a_term_cache(tmp_path: Path):
+    """A ``cache/enums/terms.csv`` would match both globs and be scanned twice
+    under two contradictory contracts. No such file should exist, but the
+    discovery split must make it impossible rather than merely unlikely."""
+    _write_enum_cache(tmp_path, "terms", "HP:0001250\n")
+    term_caches, enum_caches = discover_cache_files(tmp_path)
+    assert term_caches == []
+    assert [p.name for p in enum_caches] == ["terms.csv"]
+    # Scanned once, under the single-column enum contract, so it passes.
+    assert scan_cache_dir(tmp_path) == []
 
 
 def test_scan_cache_dir_reports_every_ontology(tmp_path: Path):

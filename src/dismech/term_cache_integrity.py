@@ -63,6 +63,7 @@ from __future__ import annotations
 import csv
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -173,13 +174,12 @@ def _scan_rows(
     path: Path,
     rows: list[list[str]],
     expected_header: list[str],
-    row_checker,
+    row_checker: Callable[[list[str]], list[str]],
 ) -> list[Finding]:
     """Shared header / per-row / duplicate-CURIE scan for both cache shapes."""
     findings: list[Finding] = []
 
-    header_ok = rows[0] == expected_header
-    if not header_ok:
+    if rows[0] != expected_header:
         findings.append(
             Finding(
                 path=path,
@@ -265,12 +265,28 @@ def check_enum_cache_file(path: Path) -> list[Finding]:
     return _scan_rows(path, rows, EXPECTED_ENUM_HEADER, _check_enum_row)
 
 
+def discover_cache_files(cache_dir: Path) -> tuple[list[Path], list[Path]]:
+    """Return the (term cache, enum cache) files under ``cache_dir``.
+
+    Single source of truth for what gets scanned, so the ``OK:`` coverage line
+    can never disagree with what was actually checked. The ``enums`` exclusion
+    keeps a hypothetical ``cache/enums/terms.csv`` from matching both globs and
+    being scanned twice under two contradictory contracts.
+    """
+    term_caches = sorted(
+        path for path in cache_dir.glob("*/terms.csv") if path.parent.name != "enums"
+    )
+    enum_caches = sorted((cache_dir / "enums").glob("*.csv"))
+    return term_caches, enum_caches
+
+
 def scan_cache_dir(cache_dir: Path) -> list[Finding]:
     """Scan every ontology term cache and dynamic-enum membership cache."""
+    term_caches, enum_caches = discover_cache_files(cache_dir)
     findings: list[Finding] = []
-    for path in sorted(cache_dir.glob("*/terms.csv")):
+    for path in term_caches:
         findings.extend(check_cache_file(path))
-    for path in sorted((cache_dir / "enums").glob("*.csv")):
+    for path in enum_caches:
         findings.extend(check_enum_cache_file(path))
     return findings
 
@@ -282,8 +298,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {cache_dir} is not a directory", file=sys.stderr)
         return 2
 
-    term_caches = sorted(cache_dir.glob("*/terms.csv"))
-    enum_caches = sorted((cache_dir / "enums").glob("*.csv"))
+    term_caches, enum_caches = discover_cache_files(cache_dir)
     findings = scan_cache_dir(cache_dir)
     if not findings:
         print(
