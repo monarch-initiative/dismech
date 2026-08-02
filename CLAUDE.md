@@ -138,6 +138,23 @@ the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #52
 
 ### Scripts (`scripts/`)
 
+### Curation Experiments (`experiments/`)
+
+Measurements *about* the knowledge base rather than content *of* it — inter-annotator
+consistency studies, curation-methodology pilots. Not KB content, and deliberately
+outside `kb/` so no validator, `just` recipe, or test in `tests/test_data.py` picks
+the files up: several are snapshots of `Disease` entries that would otherwise collide
+on the unique-`name` check.
+
+This is **not** `research/` (deep-research provider outputs consumed as curation
+inputs) and **not** `docs/reports/` (analysis of the KB's content). An experiment here
+may cite either, but its own artifacts live in this tree.
+
+Each experiment type gets a subdirectory holding shared tooling plus an index
+`README.md`; each individual run gets its own subdirectory with its inputs and a
+`FINDINGS.md`. Scripts that compute metrics are committed alongside so numbers can be
+regenerated rather than trusted. See [`experiments/README.md`](experiments/README.md).
+
 ### Research Artifacts (`research/`)
 
 **`research/` is ONLY for deep-research outputs — do not hand-place files here.**
@@ -265,6 +282,7 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `aortopathy_tgfbeta_dysregulation` — Conserved heritable thoracic aortic aneurysm/dissection (TAAD) pattern: aortic-wall ECM or smooth-muscle contractile-apparatus defect → paradoxically increased TGF-beta signaling dysregulation → medial degeneration (smooth muscle cell depletion + elastic fiber fragmentation) and wall weakening → progressive aortic dilation/aneurysm → aortic dissection and rupture. Conforming disorder nodes substitute the disorder-specific primary lesion (FBN1 microfibril deficiency in Marfan/Shprintzen-Goldberg; TGFBR1/2, SMAD3, TGFB2/3 in Loeys-Dietz; COL3A1 in vascular Ehlers-Danlos; SLC2A10 in arterial tortuosity; ACTA2/MYH11/MYLK/PRKG1 in nonsyndromic familial TAAD). Key conformance target: `aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation`
 - `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
 - `renal_cystogenesis` — Conserved epithelial (tubular) renal cyst-formation pattern, the cystogenic-machinery complement of `ciliopathy_dysfunction` (which covers the broader Hedgehog/PCP developmental arm but not the cAMP-CFTR cyst-fluid pathway): polycystin/primary-cilium signaling loss (PKD1/PKD2, and ciliary lesions in ARPKD/nephronophthisis/syndromic ciliopathies) → fall in cilium-dependent calcium → cAMP and vasopressin-V2R signaling activation → cyst-lining epithelial proliferation and CFTR-mediated transepithelial fluid secretion → progressive cyst expansion and kidney enlargement → nephron loss and progressive kidney failure. Carries the vasopressin-V2R-antagonist (tolvaptan) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` to link back to the cAMP/V2R node). Deliberately scoped to cAMP-driven tubular cystogenesis; mechanistically unrelated cysts (arachnoid, dermoid, parasitic hydatid, neoplastic cystadenoma, developmental cavitation) are out of scope. Flagship conformer: Autosomal_Dominant_Polycystic_Kidney_Disease (full-chain conformance across all five module nodes); Polycystic_Kidney_Disease conforms at the cAMP/V2R and proliferation/secretion nodes. Key conformance target: `renal_cystogenesis#Cyst-Lining Epithelial Proliferation and Transepithelial Fluid Secretion`
+- `glymphatic_dysfunction` — Conserved brain waste-clearance module: loss of sleep-dependent glymphatic drive (slow-wave sleep, interstitial-space expansion, falling noradrenergic tone) → perivascular AQP4 depolarization and reduced periarterial CSF influx → impaired perivascular CSF-ISF exchange and solute clearance → accumulation of aggregation-prone interstitial proteins (amyloid-beta, tau, alpha-synuclein) → neuroinflammation and progressive neurodegeneration. Sits *upstream* of `amyloidogenesis` (this module sets the precursor concentration; that one models nucleation/deposition) and is distinct from `loss_of_proteostasis` (intracellular degradation capacity, not extracellular perivascular clearance). Carries two curated competing `mechanistic_hypotheses` rather than a single settled chain — `convective_glymphatic_transport` (CANONICAL, AQP4-dependent bulk flow) vs `diffusive_parenchymal_transport` (ALTERNATIVE, size-dependent diffusion, AQP4-independent) — plus a `HUMAN_MODEL_MISMATCH` discussion (anaesthetic regimen, invasive tracer delivery, and species scale all determine measured influx) and a `KNOWLEDGE_GAP` on imaging-surrogate validation (a low DTI-ALPS index is not a measurement of glymphatic dysfunction). Worked conformer: Alzheimer_Disease (`Glymphatic Clearance Failure` node, `glymphatic_clearance_model` EMERGING hypothesis, kept separate from the BBB/LRP1 `vascular_bbb_clearance_model` route). Key conformance target: `glymphatic_dysfunction#Impaired Perivascular CSF-ISF Exchange and Solute Clearance`
 - `granuloma_formation` — Conserved granuloma-formation ("Xogenesis") pattern recurring across mycobacterial infection (TB, leprosy), fungal infection, sarcoidosis, Crohn disease, berylliosis, and foreign-body reactions: persistent indigestible stimulus an individual macrophage cannot eradicate → Th1/TNF-driven macrophage recruitment and activation → epithelioid transformation and multinucleated giant-cell formation (macrophage fusion) → organized (± caseating) granuloma assembly → tissue containment versus destruction and fibrosis. Carries the TNF-inhibitor drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the TNF/macrophage-activation node — therapeutic in sterile granulomatous disease, reactivates latent TB). Xogenesis anchor: forms MPATH:847 granuloma (`OGMS:0000078` via `OGMS:0000081` derivation). Key conformance target: `granuloma_formation#Epithelioid Transformation and Multinucleated Giant Cell Formation`
 - `thrombogenesis` — Conserved thrombus-formation ("Xogenesis") pattern recurring across venous thromboembolism, arterial thrombosis (MI, stroke), cancer-associated thrombosis, and antiphospholipid syndrome: Virchow's triad (endothelial injury, stasis, hypercoagulability) → platelet adhesion, activation, and aggregation → coagulation cascade activation and thrombin-driven fibrin formation → fibrin-platelet thrombus propagation and vascular occlusion → thromboembolism and ischemic tissue injury. Carries the anticoagulant (factor Xa / thrombin inhibition) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the coagulation node). Xogenesis anchor: forms a thrombus (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:125 thrombosis — MPATH lacks a distinct thrombus continuant, a noted OBO gap) at UBERON:0001981 blood vessel. Key conformance target: `thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation`
 - `atherogenesis` — Conserved atheroma/atherosclerotic-plaque formation ("Xogenesis") pattern recurring across coronary artery disease, ischemic stroke, and peripheral artery disease: endothelial dysfunction and subendothelial LDL (apoB-lipoprotein) retention → monocyte recruitment and macrophage foam-cell formation → smooth-muscle-cell phenotypic switching and fibrofatty plaque formation → advanced atheroma with necrotic core and fibrous cap → plaque rupture, thrombosis, and ischemic events (feeds `thrombogenesis`). Carries the LDL-lowering (statin) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the LDL-retention trigger). Xogenesis anchor: forms an atheroma (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:28 atherosclerosis — MPATH lacks a distinct atheroma continuant, a noted OBO gap) at UBERON:0001637 artery. Key conformance target: `atherogenesis#Smooth Muscle Cell Switching and Fibrofatty Plaque Formation`
@@ -1439,6 +1457,19 @@ just gen-dashboard
 
 The dashboard shows priority curation targets - the 10 files with lowest compliance scores.
 
+## Ontology and Enum Cache Ordering
+
+Committed CSVs under `cache/` must remain in canonical CURIE order. Treat these
+files as tool-generated: `just normalize-cache` is the sanctioned way to write
+their final committed form after validation or cache population. Use
+`just check-cache-order` for a read-only ordering report. During Phase 0 this
+report is advisory only and exits successfully even when it finds disorder.
+
+**Never append rows at end-of-file or hand-place rows to avoid reorder churn.**
+That creates a shared terminal Git hunk and causes repeated conflicts across
+concurrent curation PRs. If normalization reveals unrelated existing churn,
+surface it rather than reverting the canonical ordering.
+
 
 
 ## CRITICAL: Reference Cache Files — NEVER Create Manually
@@ -1737,6 +1768,8 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
+| `exports/model_runs/*.json` | YES | Derived `dismech-perturb` results the disorder pages render; regenerate with `just gen-model-results` (needs tellurium), never hand-edit |
+| `exports/sedml/<model_id>/` | YES | Derived SED-ML + COMBINE archive contents (text, reviewable); regenerate with `just sedml-export` |
 | `src/`, `scripts/`, `tests/`, `conf/` | YES | Source code |
 | `extension/**` (incl. generated `icons/*.png`) | YES | Browser extension ships unbuilt/unpacked, so its generated icons are committed — a deliberate exception to the "don't commit derived files" rule |
 
@@ -1747,6 +1780,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `pages/disorders/*.html` | NO | Derived — regenerated by downstream CI after merge |
 | `dashboard/*.html` | NO | Derived — generated by `just gen-dashboard` |
 | `docs/` HTML output | NO | Derived — regenerated by CI |
+| `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 
 ### Never force-push someone else's branch
 If a PR was authored by another contributor, **do not** force-push, rebase, or reset their branch. Instead:
