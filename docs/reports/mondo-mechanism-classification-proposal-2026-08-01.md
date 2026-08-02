@@ -3,7 +3,9 @@
 **Date:** 2026-08-01
 **Status:** Proposal for MONDO review — no MONDO edits made
 **Source KB:** dismech (`kb/modules/`, `kb/disorders/`, `kb/groupings/`)
-**MONDO snapshot:** local OAK `sqlite:obo:mondo` (`~/.data/oaklib/mondo.db`, fetched 2026-08-01)
+**MONDO snapshot:** local OAK `sqlite:obo:mondo`, fetched 2026-08-01 — 31,886
+labelled `MONDO:` classes, 3,968 deprecated. See §6 for the fingerprint check and
+reproduction commands; re-verify before filing any new-term request.
 
 ---
 
@@ -45,12 +47,44 @@ cross-disease family rather than a one-off.
 - **RASopathy** is logically defined:
   `MONDO:0000001 and (RO:0004021 some GO:0007265)`, with the
   `MONDO:patterns/basis_in_disruption_of_process` design pattern generating the
-  synonym `disorder of Ras protein signal transduction`. Nine of the ten
-  proposals below can be minted the same way, and each cites a **verified GO term**.
+  synonym `disorder of Ras protein signal transduction`. **Seven** of the ten
+  proposals below can be minted the same way (#2, #3, #4, #5, #6, #7, #9), and
+  each cites a **verified GO term**. The remaining three (#1, #8, #10)
+  deliberately propose no `RO:0004021` axiom — see the next bullet and their
+  individual entries.
 - **proteostasis deficiencies** (`MONDO:0021179`) carries *no* `RO:0004021`
   axiom — it is a textual grouping with asserted children. That is the precedent
   for proposal #1, whose mechanism (toxic-metabolite accumulation under catabolic
   stress) is a convergence pattern rather than one GO process, and for proposal #8.
+
+### `RO:0004021` is direction-agnostic — read the axioms as necessary conditions
+
+This constrains every logical definition below and is stated once here rather
+than repeated ten times. `RO:0004021 basis_in_disruption_of_process` says the
+disease has its basis in a *disruption of* the named process; it does not encode
+**which direction** the process is perturbed. A proposed axiom therefore cannot
+distinguish gain from loss of function, and will admit disorders that perturb the
+same process the opposite way from the textual definition:
+
+- **#7 (`GO:0007224` smoothened signaling pathway)** — the textual definition says
+  "constitutive activation", but the loss-of-signaling disorders satisfy the axiom
+  equally. This KB already contains such counterexamples annotated with
+  `GO:0007224`: `Holoprosencephaly_12_With_or_Without_Pancreatic_Agenesis`,
+  `Brachydactyly_Type_A1`, and `Smith-Lemli-Opitz_syndrome`.
+- **#3 (`GO:0008543` FGFR signaling pathway)** — the definition says
+  "constitutively active or ligand-hypersensitive", but FGFR *loss*-of-function
+  disease (`Kallmann_Syndrome`, FGFR1 LOF) satisfies the axiom.
+- **#9 (`GO:0016236` macroautophagy)** — §3.9's own gap evidence notes that
+  MONDO's existing `autophag*` terms describe *excessive* autophagy; those satisfy
+  the axiom too.
+
+**Consequence for the new-term requests:** either write the textual definitions
+direction-neutrally, or state explicitly in each NTR that the `RO:0004021` axiom
+is a **necessary condition only** and that directionality is carried by the
+textual definition. Do not present these axioms as equivalence axioms. Where MONDO
+wants direction encoded, a `positive/negative regulation of ...` GO child (e.g.
+`GO:0045879 negative regulation of smoothened signaling pathway`, already used by
+the dismech module) is the better anchor.
 
 ---
 
@@ -76,22 +110,31 @@ phrase. The searches that *did* hit are reported per-node under "MONDO gap
 evidence", because those adjacent classes are what a MONDO curator will need to
 reconcile against.
 
-**Candidates excluded by the filter** (recorded so the work isn't repeated):
+**Candidates excluded by the filter** (recorded so the work isn't repeated). The
+**Conformers** column is distinct-file counts, the same metric used in §3 and §4;
+the node-occurrence count is shown alongside because the two differ substantially
+and an earlier draft of this table mistakenly reported nodes:
 
-| dismech module | Conformers | Excluded because MONDO already has |
-|---|---|---|
-| `lysosomal_substrate_accumulation` | 85 | `lysosomal storage disease` |
-| `ciliopathy_dysfunction` | 68 | `MONDO:0005308 ciliopathy` |
-| `complex_iv_assembly_deficiency` | 61 | `mitochondrial complex IV deficiency` |
-| `congenital_disorder_of_glycosylation` | 26 | `MONDO:0017740` / CDG classes |
-| `amyloidogenesis` | 39 | `MONDO:0019065 amyloidosis` (under proteostasis deficiencies) |
-| `heme_biosynthesis_porphyria` | 10 | `porphyria` |
-| `microtubule_dependent_neuronal_migration_failure` | 22 | `MONDO:0100153 tubulinopathy` |
-| `er_protein_storage_disease` | — | `MONDO:0027749 serpinopathy` |
-| `cranial_suture_premature_fusion` | 5 | `craniosynostosis` |
-| `renal_cystogenesis` | 7 | `cystic kidney disease` |
-| `drug_hypersensitivity_scar` | 9 | `MONDO:0005594 severe cutaneous adverse reaction` |
-| `granuloma_formation` | 7 | `granulomatous disease` classes |
+| dismech module | Conformers (files) | (nodes) | Excluded because MONDO already has |
+|---|---|---|---|
+| `lysosomal_substrate_accumulation` | 44 | 85 | `lysosomal storage disease` |
+| `ciliopathy_dysfunction` | 28 | 68 | `MONDO:0005308 ciliopathy` |
+| `complex_iv_assembly_deficiency` | 23 | 61 | `mitochondrial complex IV deficiency` |
+| `congenital_disorder_of_glycosylation` | 11 | 26 | `MONDO:0017740` / CDG classes |
+| `microtubule_dependent_neuronal_migration_failure` | 9 | 22 | `MONDO:0100153 tubulinopathy` |
+| `amyloidogenesis` | 5 | 39 | `MONDO:0019065 amyloidosis` (under proteostasis deficiencies) |
+| `heme_biosynthesis_porphyria` | 3 | 10 | `porphyria` |
+| `cranial_suture_premature_fusion` | 2 | 5 | `craniosynostosis` |
+| `renal_cystogenesis` | 2 | 7 | `cystic kidney disease` |
+| `drug_hypersensitivity_scar` | 2 | 9 | `MONDO:0005594 severe cutaneous adverse reaction` |
+| `granuloma_formation` | 2 | 7 | `granulomatous disease` classes |
+| `er_protein_storage_disease` | 1 | 1 | `MONDO:0027749 serpinopathy` |
+
+Note that on the corrected metric several excluded modules are **smaller** than
+the proposals in §3 — `amyloidogenesis` has 5 conforming files, fewer than seven
+of the ten proposals. This does not change any exclusion: every row above was
+excluded because MONDO already carries an equivalent class, never because of its
+size. Size is used only to *rank* the surviving candidates.
 
 ---
 
@@ -117,15 +160,35 @@ catabolic stress (intercurrent illness, fasting, surgery, or a protein load),
 precipitating acute metabolic decompensation — metabolic acidosis, hyperammonemia,
 and/or hypoglycemia — and consequent acute encephalopathy and multiorgan crisis.
 
-**Why this is a genuine mechanism class.** This is the *Saudubray* axis, the
-single most operationally important division in clinical metabolic medicine: it
-separates disorders that present as an acute reversible crisis requiring emergency
-protocols (stop protein, give glucose, scavenge ammonia, dialyse) from the
-"energy-deficiency" and "complex-molecule" classes that do not. MONDO currently
-scatters these diseases across `urea cycle disorder`, `classic organic aciduria`,
-`disorder of fatty acid oxidation and ketogenesis`, and amino-acid disorders —
-partitioned by *which substrate* rather than by *how the disease behaves*. The
-intoxication axis cuts across all four.
+**Why this is a genuine mechanism class.** The clinically decisive division in
+metabolic medicine is not *which substrate* accumulates but *how the disease
+behaves*: whether it presents as an acute, potentially reversible crisis requiring
+emergency protocols (stop protein, reverse catabolism with glucose, scavenge
+ammonia, dialyse). MONDO currently scatters these disorders across `urea cycle
+disorder`, `classic organic aciduria`, `disorder of fatty acid oxidation and
+ketogenesis`, and amino-acid disorders — a substrate partition that cross-cuts the
+behavioural one, so no MONDO query can currently return "the disorders that
+decompensate acutely."
+
+**Naming caveat — do not label this "Saudubray group 1" without narrowing it.**
+An earlier draft leaned on the Saudubray classification, which is the standard
+reference for this axis. That attribution is only partly accurate for the member
+list as curated: Saudubray places fatty-acid-oxidation and ketogenesis defects in
+the **energy-deficiency** group, not the intoxication group, yet `MONDO:0015515`
+(CPT II) and `MONDO:0011614` (HMG-CoA synthase) are listed below; and
+`MONDO:0018820` (TANGO2) fits neither classical group. Two honest options for the
+NTR, and MONDO should pick one explicitly:
+
+1. **Keep the broader membership and use a behaviour-based label** — e.g. *acute
+   metabolic decompensation disorder* — dropping the claim of strict Saudubray
+   equivalence. This is the option the member list below actually supports, and is
+   the one recommended here.
+2. **Keep the "intoxication-type" label** and drop the FAO/ketogenesis members
+   plus TANGO2, aligning the class strictly with Saudubray group 1.
+
+The same choice applies to the dismech grouping
+`kb/groupings/Intoxication-Type_Inborn_Errors_of_Metabolism.yaml`, which currently
+takes option 1's membership under option 2's name and should be reconciled.
 
 **dismech provenance.** `kb/modules/metabolic_intoxication_decompensation.yaml` —
 node chain: Enzymatic Block in Intermediary Metabolism → Toxic Metabolite
@@ -153,6 +216,12 @@ disorder entries** — the largest non-excluded module in the KB.
 `MONDO:0002012` methylmalonic acidemia ·
 `MONDO:0010703` ornithine carbamoyltransferase deficiency ·
 `MONDO:0018820` recurrent metabolic encephalomyopathic crises-rhabdomyolysis (TANGO2)
+
+Note for curators: `MONDO:0018820` (TANGO2) appears in **both** this proposal and
+#2 (cardiac channelopathy) — it causes metabolic crises *and* a
+QT-prolonging ventricular arrhythmia. That is biologically correct and an argument
+for multi-parenting rather than a conflict, exactly as flagged for
+`MONDO:0008222` Andersen-Tawil syndrome in §3.2.
 
 **MONDO gap evidence.** `"intoxication"` matches 24 MONDO terms — *all* are
 exogenous poisoning (lead, cocaine, botulinum toxin, ackee fruit, digitalis); none
@@ -235,9 +304,19 @@ to RASopathy anywhere in the ontology and the most obviously missing sibling: a
 named receptor-tyrosine-kinase signaling family, with a shared gain-of-function
 direction, a shared downstream cascade (which is *literally the RAS-MAPK cascade*
 that RASopathy is defined on), a coherent two-compartment skeletal phenotype, and
-a shared therapeutic strategy — the CNP/NPR2 analogue vosoritide and FGFR-pathway
-antagonists work across the class, which is the practical payoff of naming it.
+a shared therapeutic *strategy* — FGFR-pathway antagonism. That payoff should be
+stated carefully: the CNP/NPR2 analogue vosoritide is approved for achondroplasia
+only, and its extension to hypochondroplasia and the craniosynostosis members is
+under investigation rather than established. The class-level claim is that these
+disorders share a druggable node, not that any one drug is approved across them.
 MONDO currently has ~30 `FGFR*-related` per-gene terms and no class over them.
+
+*Why not a child of RASopathy?* The shared downstream cascade invites the
+question. The answer is ontological: `GO:0008543` (FGFR signaling pathway) is not
+a subclass of `GO:0007265` (Ras protein signal transduction) in GO, so the axioms
+do not subsume, and the two classes are distinguished by the *lesion* (receptor
+tyrosine kinase vs. RAS-pathway component) rather than by the shared effector arm.
+They should be siblings on the mechanism axis, not parent and child.
 
 **dismech provenance.** `kb/modules/fgfr_gain_of_function_skeletal_dysplasia.yaml`
 — Constitutive FGFR Activation → Sustained MAPK/STAT Signaling → {Growth-Plate
@@ -552,7 +631,12 @@ Damage and Age-Related Disease. **5 conforming disorder entries.**
 bone and frontotemporal dementia (*VCP*) · `MONDO:0008029` Bethlem myopathy ·
 `MONDO:0004976` amyotrophic lateral sclerosis · `MONDO:0005180` Parkinson disease.
 Recommended additions per the caveat above: Vici syndrome (*EPG5*), BPAN
-(*WDR45*), *ATG7*-related disorder.
+(*WDR45*), *ATG7*-related disorder. Conversely, `MONDO:0008029` Bethlem myopathy
+is the first member that should **drop** under the tight-scoping recommendation:
+it is a COL6 extracellular-matrix defect in which the autophagy block is a
+downstream consequence rather than a primary lesion in the machinery. Note also
+that `MONDO:0008178` and `MONDO:0000507` are two distinct MONDO classes curated as
+two distinct dismech entries, not one entry with two ids.
 
 **MONDO gap evidence.** `"macroautophagy"`, `"autophagy disorder"`: **0 hits**
 across labels, synonyms, and definitions. `"autophag"` matches only 3 individual
@@ -567,8 +651,9 @@ the opposite direction, so they are not even candidate members.
 - **Proposed label:** `BBSome-opathy`
 - **Synonyms:** BBSome complex disorder; BBSome trafficking disorder; disorder of BBSome-dependent ciliary trafficking
 - **Proposed parents:** `MONDO:0005308 ciliopathy`
-- **Logical definition:** `MONDO:0000001 and (RO:0004021 some GO:0032465)` is **not**
-  recommended. Prefer a complex-scoped textual definition, or — if GO gains a
+- **Logical definition:** no axiom recommended. (`GO:0032465` — *regulation of
+  cytokinesis* — appeared in an earlier draft and is simply wrong for this class;
+  it is named here only so the discarded option is not re-proposed.) Prefer a complex-scoped textual definition, or — if GO gains a
   suitable term — a `BBSome-mediated ciliary trafficking` process. GO currently has
   `GO:0034464 BBSome` as a **cellular component** ("a ciliary protein complex
   involved in cilium biogenesis"), not a process, so the cleanest logical form is
@@ -628,14 +713,23 @@ synonyms, and definition text — despite MONDO carrying 25+ Bardet-Biedl and
 | 5 | centrosomopathy | `RO:0004021 some GO:0007098` | `MONDO:7770011` + hereditary disease | `neural_progenitor_centrosome_spindle_dysfunction` | 8 | 0 / 0 / 0 |
 | 6 | meiotic recombination failure disorder | `RO:0004021 some GO:0007131` | `MONDO:7770011` + reproductive | `meiotic_prophase_failure` | 7 | 0 / 0 / 0 |
 | 7 | Hedgehog pathway signaling disease | `RO:0004021 some GO:0007224` | `MONDO:7770011` | `hedgehog_pathway_activation` | 5 | 0 / 0 / 0 |
-| 8 | polyglutamine expansion disease | *textual* (synucleinopathy precedent) | `MONDO:0021179` | `polyglutamine_expansion_proteotoxicity` | 4 (+grouping) | 0 / 0 / 0 |
+| 8 | polyglutamine expansion disease | *textual* (proteostasis-deficiencies style; synucleinopathy/TDP-43 sibling precedent) | `MONDO:0021179` | `polyglutamine_expansion_proteotoxicity` | 4 (+grouping) | 0 / 0 / 0 |
 | 9 | macroautophagy deficiency disorder | `RO:0004021 some GO:0016236` | `MONDO:0021179` | `disabled_macroautophagy` | 5 | 0 / 0 / 0 |
 | 10 | BBSome-opathy | complex-scoped; GO process term needed | `MONDO:0005308 ciliopathy` | `bbsome_trafficking` | 3 (+grouping) | 0 / 0 / 0 |
 
-Adopting all ten would take `MONDO:7770011 disease by molecular mechanism` from
-5 children to 12 direct children (8 of the 10 attach there; #8 and #9 attach under
-`proteostasis deficiencies`, #4 under `synaptopathy`, #10 under `ciliopathy` — all
-of which are themselves already on the mechanism axis).
+Eight of the ten list `MONDO:7770011` among their proposed parents — #1, #2, #3,
+#4, #5, #6, #7, and #9 — so adopting all ten would take
+`MONDO:7770011 disease by molecular mechanism` from **5 to 13 direct children**.
+Several are deliberately multi-parented: #4 also under `MONDO:0021017
+synaptopathy`, #9 also under `MONDO:0021179 proteostasis deficiencies`. Only two
+do **not** attach to the mechanism axis directly — #8 (under `proteostasis
+deficiencies`) and #10 (under `MONDO:0005308 ciliopathy`).
+
+Of those secondary parents, `proteostasis deficiencies` and `ciliopathy` are
+themselves children of `MONDO:7770011`, but **`MONDO:0021017 synaptopathy` is
+not** — it currently sits only under `MONDO:0005071 nervous system disorder`.
+Whether to place `synaptopathy` on the mechanism axis as part of adopting #4 is a
+separate question for MONDO, not something this proposal assumes.
 
 ---
 
@@ -657,33 +751,81 @@ despite thin dismech backing: MONDO already has spondylocostal dysostosis 1–6
 typed by the exact segmentation-clock genes (*DLL3*, *MESP2*, *LFNG*, *HES7*,
 *TBX6*), so the member set is pre-built and only the parent class is missing.
 
-**Side finding — four dismech entries lack a `disease_term`**, surfaced while
-assembling member lists: `NDE1-related_Microcephaly_Lissencephaly`,
-`KATNB1-related_Cortical_Malformation`, `TUBB_TUBB5-related_Microcephaly` (§3.5),
-and `MCM9-related_gametogenic_failure` (§3.6). These are either unmapped-to-MONDO
-dismech entries or genuine MONDO new-term candidates; either way they are dismech
-curation gaps worth their own issue.
+**Side finding — unmapped dismech entries.** Assembling the member lists surfaced
+entries that cannot be aligned to MONDO. Two distinct gaps, which an earlier draft
+conflated:
+
+- **No top-level `disease_term:` at all — 19 files** across the KB, including
+  `NDE1-related_Microcephaly_Lissencephaly`, `KATNB1-related_Cortical_Malformation`,
+  and `TUBB_TUBB5-related_Microcephaly` (all §3.5 members).
+- **A `disease_term:` with a `preferred_term` but no bound `term:` id — e.g.
+  `MCM9-related_gametogenic_failure`** (§3.6), which carries
+  `disease_term: {preferred_term: MCM9-related gametogenic failure}` and so is
+  *not* missing the slot, only the identifier. An earlier draft wrongly listed it
+  in the first category.
+
+Measured against the KB at the time of writing (1,795 disorder files): 19 files
+with no top-level `disease_term:`, and 17 with no `MONDO:` identifier anywhere in
+the file. Both counts move as curation proceeds — re-measure before filing. These
+are dismech curation gaps (or genuine MONDO new-term candidates) and are worth
+their own issue, quoting the re-measured numbers rather than these.
 
 ---
 
 ## 6. Reproducing this analysis
 
+**Snapshot provenance.** Every MONDO claim in this document (the five children of
+`MONDO:7770011`, the 240 `RO:0004021` axioms, the obsoletion of `MONDO:0021016`,
+and all zero-hit results) was computed against a single local snapshot. MONDO
+publishes no version IRI date in the OAK SQLite build, so the snapshot is
+identified by fingerprint:
+
+| Property | Value |
+|---|---|
+| Source | OAK `sqlite:obo:mondo` (downloads the then-current release) |
+| Fetched | 2026-08-01 |
+| Local path | `$HOME/.data/oaklib/mondo.db` (`/root/.data/oaklib/mondo.db` in this environment) |
+| Labelled `MONDO:` classes | 31,886 |
+| Deprecated `MONDO:` classes | 3,968 |
+
+Re-running against a later release may give different counts. **Re-verify before
+filing any new-term request** — the three-pass exclusion check below is the step
+that matters most, and it is only meaningful if it can actually be re-run.
+
 ```bash
-# MONDO mechanism axis — direct children
+# 0. Fingerprint the snapshot you are actually using, and compare to the table above.
+MONDO_DB="$HOME/.data/oaklib/mondo.db"
 uv run python -c "
-import sqlite3; c=sqlite3.connect('/root/.data/oaklib/mondo.db')
-for r in c.execute(\"SELECT e.subject,s.value FROM edge e LEFT JOIN rdfs_label_statement s ON s.subject=e.subject WHERE e.object='MONDO:7770011' AND e.predicate='rdfs:subClassOf'\"): print(r)"
+import sqlite3, sys; c = sqlite3.connect(sys.argv[1])
+q = lambda s: c.execute(s).fetchone()[0]
+print('labelled classes:', q(\"SELECT count(*) FROM rdfs_label_statement WHERE subject LIKE 'MONDO:%'\"))
+print('deprecated      :', q(\"SELECT count(*) FROM statements WHERE predicate='owl:deprecated' AND subject LIKE 'MONDO:%'\"))
+" "$MONDO_DB"
 
-# dismech module backing — conforming disorder files per module
-grep -rl "conforms_to:.*<module_name>#" kb/disorders/
+# 1. MONDO mechanism axis — direct children of 'disease by molecular mechanism'
+uv run python -c "
+import sqlite3, sys; c = sqlite3.connect(sys.argv[1])
+for r in c.execute(\"\"\"SELECT e.subject, s.value FROM edge e
+  LEFT JOIN rdfs_label_statement s ON s.subject = e.subject
+  WHERE e.object = 'MONDO:7770011' AND e.predicate = 'rdfs:subClassOf'\"\"\"): print(r)
+" "$MONDO_DB"
 
-# GO anchor verification
+# 2. Three-pass exclusion check for one mechanism phrase (label / synonym / definition)
+uv run python -c "
+import sqlite3, sys; c = sqlite3.connect(sys.argv[1]); pat = sys.argv[2].lower()
+rows = c.execute(\"\"\"SELECT subject, value FROM statements WHERE value IS NOT NULL
+  AND subject LIKE 'MONDO:%' AND predicate IN ('rdfs:label','oio:hasExactSynonym',
+  'oio:hasRelatedSynonym','oio:hasBroadSynonym','oio:hasNarrowSynonym','IAO:0000115')\"\"\").fetchall()
+hits = {s for s, v in rows if pat in v.lower()}
+print(f'{sys.argv[2]!r}: {len(hits)} hit(s)'); [print(' ', h) for h in sorted(hits)[:10]]
+" "$MONDO_DB" "BBSome"
+
+# 3. dismech module backing — DISTINCT FILE count (the metric used in §2, §3 and §4)
+grep -rl "conforms_to:.*bbsome_trafficking#" kb/disorders/ | wc -l
+
+# 4. GO anchor verification
 uv run runoak -i sqlite:obo:go info GO:0086001
 ```
-
-The three-pass MONDO exclusion check (label / synonym / definition text) is the
-step that matters most and is the one to re-run before filing any new-term
-request, since MONDO moves quickly.
 
 ---
 
