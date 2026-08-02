@@ -192,7 +192,8 @@ Three rules follow from how the nosology is built:
 3. **Use `notes:`, not `evidence:`.** The paper's PubMed record is abstract-only.
    No exact-quote snippet from the abstract can support a per-disorder group
    placement — the abstract states only that the nosology exists and contains
-   461 disorders in 42 groups. Quoting it for a specific assignment would be a
+   771 entries across 552 genes in 41 groups. Quoting it for a specific
+   assignment would be a
    snippet that does not support its claim. This mirrors the ICIMD convention.
 
 ### Cross-group traps
