@@ -21,6 +21,10 @@ its inputs and a `FINDINGS.md` stating what was measured, how, and what the limi
 of the measurement are. Scripts that compute metrics are committed alongside, so
 numbers can be regenerated rather than trusted.
 
+Where a run's validity depends on what the operator knew before starting, the limits
+are **pre-registered** — committed before the run, not written up after it. See
+[`interannotator/`](interannotator/) for the worked form.
+
 | Experiment | Question | Runs |
 |---|---|---|
 | [`interannotator/`](interannotator/) | How much of a dismech entry is determined by the evidence, and how much by the curator? Each run curates one disease twice, independently, and measures where the versions agree. | 1 |
