@@ -22,7 +22,8 @@ something CI would catch.
 
 The anti-hallucination stack is doing its job. What it cannot see is whether a
 *real, correctly quoted* sentence is *about the claim it is filed under*. That is
-where all the defects are.
+where all the defects are. (The `Total checks: 0` line the reference validator prints
+is not evidence of a gap — see Method below.)
 
 ## A. Confirmed defects (wrong, not merely thin)
 
@@ -304,9 +305,14 @@ unconnected.
 
 - Snippet fidelity was checked by replicating `SupportingTextValidator.normalize_text` and
   `_split_query` from the installed `linkml-reference-validator` against `references_cache/`
-  (punctuation-stripping, `...`-splitting, order-independent substring match), because
-  `linkml-reference-validator validate data` reported "Total checks: 0" in this environment —
-  worth investigating separately, since it means a CI run here would pass vacuously.
+  (punctuation-stripping, `...`-splitting, order-independent substring match) to get a
+  per-snippet accounting. Note that `linkml-reference-validator validate data` reports
+  "Total checks: 0" on a clean file because that counter reports *issues found*, not
+  snippets examined — the affirmative signal is the `Snippets checked: N/N verified
+  against cached references` line, available standalone via
+  `just count-verified-snippets <file>` (see CLAUDE.md, "Reading the reference-validation
+  summary", and issue #7252). An earlier draft of this report read the zero as evidence
+  that validation was running vacuously; that was wrong, and no validator change is needed.
 - Term validation used `scripts/run_term_validator.sh validate-data … --labels`.
 - Alternative HPO terms were located with `runoak -i sqlite:obo:hp search`; MONDO placement
   with `runoak -i sqlite:obo:mondo ancestors`.
@@ -320,7 +326,18 @@ present in cached snippets (D3, D4 partial). Section D1/D2 (uncited gene blocks 
 evidence-free pathophysiology nodes) remains open — those need per-disease literature curation
 rather than an edit.
 
-Post-fix validation: schema 10/10 `No issues found`; term validation 10/10 passed;
-snippet fidelity 482 → 471 items, all verifying; reference-cache frontmatter contract OK.
-Two references were newly fetched via `linkml-reference-validator cache reference`
-(`PMID:15753610`, `PMID:32430436`); no cache file was hand-edited.
+Subsequent review rounds on PR #7476 corrected three things in the fixes themselves: the
+`evidence_source: OTHER` tags on the new prevalence records were retagged `HUMAN_CLINICAL`
+(pooled human epidemiology is clinical evidence regardless of publication format); curation
+meta-commentary was removed from user-facing `description`/`notes`/`context` fields, which
+render on the public disorder pages; and the mechanistic biology this review had deleted from
+the Ankylosing_Spondylitis "Mechanical Stress at Entheses" node was restored with a real
+supporting citation rather than left excised — a better resolution than removal. Part of D1 is
+now closed: the five Migraine gene entries carry HGNC `gene_term` bindings, and the mixed
+human/mouse Fibromyalgia snippet was split so each item carries one `evidence_source`.
+
+Post-fix validation: schema 10/10 `No issues found`; term validation 10/10 passed; full
+`tests/test_data.py` suite 16,782 passed; every snippet verifying via
+`just count-verified-snippets`; reference-cache frontmatter contract OK. Three references were
+newly fetched via the project's fetch path (`PMID:15753610`, `PMID:32430436`, `PMID:33547227`);
+no cache file was hand-edited.
