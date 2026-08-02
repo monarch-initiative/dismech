@@ -120,6 +120,11 @@ enum.
   Metabolic Disorders (ICIMD) category/group. Apply to inherited
   metabolic disorders (inborn errors of metabolism). Multivalued. See
   the dedicated section below.
+- **`isds_skeletal_category`** — ISDS Nosology group for genetic
+  skeletal disorders (skeletal dysplasias, dysostoses, metabolic bone
+  disorders, skeletal malformation/reduction syndromes). Multivalued in
+  the schema, but a single ISDS-listed disorder takes exactly one group.
+  See the dedicated section below.
 
 ## ICIMD (`icimd_category`) — inherited metabolic disorders
 
@@ -175,6 +180,63 @@ from linkml_runtime.utils.schemaview import SchemaView
 sv = SchemaView('src/dismech/schema/dismech.yaml')
 for k, pv in sv.get_enum('ICIMDEnum').permissible_values.items():
     print(('  ' if pv.is_a else '') + k + (f'  (is_a {pv.is_a})' if pv.is_a else '  [CATEGORY]'))
+"
+```
+
+## ISDS Nosology (`isds_skeletal_category`) — genetic skeletal disorders
+
+For genetic skeletal disorders, assign the group from
+`ISDSNosologyGroupEnum` (defined in
+`src/dismech/schema/classifications/isds_skeletal_nosology.yaml`,
+transcribed from the ISDS Nosology and Classification of Genetic
+Skeletal Disorders, 2019 revision — Mortier et al., **PMID:31633310**).
+That revision lists 461 disorders in 42 groups, mixing molecular
+(groups 1-8), radiographic (groups 10-14), and anatomical/pathogenetic
+(craniosynostosis, brachydactyly, osteolysis) organizing principles.
+
+The enum is **flat**, not hierarchical, and the nosology deliberately
+lists each disorder **exactly once**. So:
+
+- **Assign one group.** The slot is multivalued only for an entry that
+  lumps several distinct nosology disorders. Do not add a second group
+  because the biology overlaps — Table 1 handles overlap with "see
+  also" cross-references, not dual membership.
+- **Only assign to listed disorders.** This is a transcription of an
+  expert nosology, not an inference engine. If the entry is not in
+  Table 1 (and is not an unambiguous subtype or synonym of a Table 1
+  disorder), leave the slot empty — plenty of disorders with skeletal
+  phenotypes were deliberately not included.
+- Watch for cross-group traps: FGFR3 craniosynostosis is group 33, not
+  group 1; Hajdu-Cheney is group 28 (osteolysis), not group 25;
+  brachydactyly-hypertension is group 38, not group 15.
+
+```yaml
+classifications:
+  harrisons_chapter:
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+  isds_skeletal_category:
+  - classification_value: fgfr3_chondrodysplasia
+    notes: >-
+      ISDS Nosology and Classification of Genetic Skeletal Disorders,
+      2019 revision (Mortier et al., PMID:31633310), Table 1 group 1
+      "FGFR3 chondrodysplasia group"; listed as "Achondroplasia".
+```
+
+As with ICIMD, record provenance in `notes:` and prefer it over
+`evidence:`. The paper's PubMed record is **abstract-only**, so no
+exact-quote snippet from it can support a specific group placement —
+the abstract states only that the nosology exists and has 461 disorders
+in 42 groups. Quote it only if you are supporting *that* framework
+claim, never a per-disorder assignment.
+
+To list the groups:
+
+```bash
+uv run python -c "
+from linkml_runtime.utils.schemaview import SchemaView
+sv = SchemaView('src/dismech/schema/dismech.yaml')
+for k, pv in sv.get_enum('ISDSNosologyGroupEnum').permissible_values.items():
+    print(k, '-', (pv.description or '').split('.')[0])
 "
 ```
 
