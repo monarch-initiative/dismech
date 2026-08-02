@@ -43,7 +43,7 @@ def wanted_type(record: dict) -> str:
     return ""
 
 
-def fix_file(path: Path, dry_run: bool) -> list[tuple[str, str, str]]:
+def fix_file(path: Path, dry_run: bool, allowed: set[str] | None = None) -> list[tuple[str, str, str]]:
     text = path.read_text(newline="")
     doc = yaml.safe_load(text) or {}
     changes: list[tuple[str, str, str]] = []
@@ -53,6 +53,8 @@ def fix_file(path: Path, dry_run: bool) -> list[tuple[str, str, str]]:
             continue
         acc = str(rec.get("accession", ""))
         if not acc.startswith("geo:"):
+            continue
+        if allowed is not None and acc not in allowed:
             continue
         want = wanted_type(rec)
         if not want or rec.get("data_type") == want:
@@ -109,12 +111,19 @@ def fix_file(path: Path, dry_run: bool) -> list[tuple[str, str, str]]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--accessions-file", type=Path,
+                    help="restrict to these accessions (one per line), so a batch branch "
+                         "corrects only the records it introduced")
     args = ap.parse_args()
+
+    allowed = None
+    if args.accessions_file:
+        allowed = {ln.strip() for ln in args.accessions_file.read_text().splitlines() if ln.strip()}
 
     total = 0
     by_type: dict[str, int] = {}
     for path in sorted(KB_DIR.glob("*.yaml")):
-        for acc, old, want in fix_file(path, args.dry_run):
+        for acc, old, want in fix_file(path, args.dry_run, allowed):
             total += 1
             by_type[want] = by_type.get(want, 0) + 1
             print(f"  {path.stem:44s} {acc:16s} {old:26s} -> {want}")
