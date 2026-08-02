@@ -623,6 +623,46 @@ def test_annotate_paths_matches_any_intermediate_on_a_multi_hop_route():
     assert paths[0].curated_as == "genetic: BCR"  # matched on the second intermediate
 
 
+def test_identity_mismatch_flags_a_conflated_graph_node(monkeypatch):
+    """The merged KG labels CHEBI:15724 (TMAO) as L-asparagine, a different molecule."""
+    monkeypatch.setattr(tdl, "resolve_chemical_name", lambda name, limit=1: [("CHEBI:17196", "L-asparagine")])
+    monkeypatch.setattr(tdl, "normalize_curies", lambda curies: {"CHEBI:17196": {"id": "CHEBI:17196"}})
+    warning = tdl.identity_mismatch("CHEBI:15724", "L-asparagine", {"CHEBI:15724": {"id": "CHEBI:15724"}})
+    assert warning is not None
+    assert "CHEBI:17196" in warning and "L-asparagine" in warning
+
+
+def test_identity_mismatch_accepts_a_salt_form(monkeypatch):
+    """CHEBI:45783 coming back as "imatinib methanesulfonate" is the same entity."""
+    monkeypatch.setattr(tdl, "resolve_chemical_name", lambda name, limit=1: [("CHEBI:31690", "imatinib methanesulfonate")])
+    monkeypatch.setattr(tdl, "normalize_curies", lambda curies: {"CHEBI:31690": {"id": "CHEBI:50730"}})
+    assert tdl.identity_mismatch("CHEBI:45783", "imatinib methanesulfonate", {"CHEBI:45783": {"id": "CHEBI:50730"}}) is None
+
+
+def test_identity_mismatch_is_silent_without_a_graph_label():
+    assert tdl.identity_mismatch("CHEBI:15724", "", {}) is None
+
+
+def test_resolve_prefers_an_exact_label_match_over_resolver_rank():
+    """The SRI resolver ranks "trimethylamine" above "trimethylamine N-oxide" for the
+    latter query — a different molecule, and its metabolic precursor."""
+    ranked = [("CHEBI:18139", "trimethylamine"), ("CHEBI:15724", "trimethylamine N-oxide")]
+    curie, label = tdl._resolve("trimethylamine N-oxide", lambda _name: ranked, "chemical")
+    assert (curie, label) == ("CHEBI:15724", "trimethylamine N-oxide")
+
+
+def test_resolve_falls_back_to_rank_when_nothing_matches_exactly():
+    ranked = [("CHEBI:18139", "trimethylamine"), ("CHEBI:15724", "trimethylamine N-oxide")]
+    assert tdl._resolve("TMAO", lambda _name: ranked, "chemical")[0] == "CHEBI:18139"
+
+
+def test_resolve_passes_curies_through_untouched():
+    def _explode(_name):  # a CURIE must never hit the network
+        raise AssertionError("resolver called for a CURIE")
+
+    assert tdl._resolve("CHEBI:15724", _explode, "chemical") == ("CHEBI:15724", "")
+
+
 class _StubARS:
     """Minimal ARS stand-in: replays a fixed sequence of trace payloads."""
 

@@ -968,6 +968,37 @@ def normalize_curies(curies: list[str]) -> dict[str, dict[str, Any]]:
     return normalized
 
 
+def identity_mismatch(curie: str, graph_label: str, normalized: dict[str, dict[str, Any]]) -> str | None:
+    """Warn when the knowledge graph's label for a queried CURIE is a different entity.
+
+    Named Entity Confusion inside the graph: querying `CHEBI:15724`
+    (trimethylamine N-oxide) returns a node the merged KG labels *L-asparagine*,
+    and its edges carry a mixture of both molecules' publications. A synonym or
+    salt form is fine — `CHEBI:45783` coming back as "imatinib methanesulfonate"
+    normalizes to the same preferred identifier — so the test is whether the
+    graph's label resolves back to the same entity, not whether the strings match.
+    """
+    if not graph_label:
+        return None
+    expected = (normalized.get(curie) or {}).get("id") or curie
+    try:
+        matches = resolve_chemical_name(graph_label, limit=1)
+    except httpx.HTTPError:  # non-fatal: the guard is best-effort
+        return None
+    if not matches:
+        return None
+    reverse = normalize_curies([matches[0][0]])
+    actual = (reverse.get(matches[0][0]) or {}).get("id") or matches[0][0]
+    if actual == expected:
+        return None
+    return (
+        f"The knowledge graph labels `{curie}` as **{graph_label}**, which resolves to "
+        f"`{actual}` — a different entity from the one queried (`{expected}`). Answers for "
+        "this node may mix two chemicals' assertions; check the publications on every "
+        "edge before using any of it."
+    )
+
+
 def merge_equivalents(candidates: list[Candidate], normalized: dict[str, dict[str, Any]]) -> list[Candidate]:
     """Collapse candidates that normalize to the same chemical (e.g. salt vs base forms)."""
     merged: dict[str, Candidate] = {}
@@ -1121,6 +1152,7 @@ def render_paths_markdown(
     curated_drug: str | None,
     curated_targets: list[str],
     generated_at: str,
+    identity_warning: str | None = None,
 ) -> str:
     lines = [
         f"# Translator mechanism paths: {drug_label or drug_curie} -> {disease_label or disease_curie}",
@@ -1150,6 +1182,10 @@ def render_paths_markdown(
         "",
         f"> {PATH_DISCLAIMER}",
         "",
+    ]
+    if identity_warning:
+        lines += [f"> :warning: **Entity mismatch.** {identity_warning}", ""]
+    lines += [
         "| # | Intermediate | In entry? | Score | Path | Sources |",
         "| - | ------------ | --------- | ----- | ---- | ------- |",
     ]
@@ -1561,16 +1597,32 @@ def _emit(rendered: str, output: str | None) -> None:
 
 
 def _resolve(value: str, resolver, label: str) -> tuple[str, str]:
-    """Accept a CURIE as-is, otherwise resolve a name through the SRI resolver."""
+    """Accept a CURIE as-is, otherwise resolve a name through the SRI resolver.
+
+    An exact label match always wins over the resolver's own ranking. The
+    resolver scores partial matches highly, so "trimethylamine N-oxide" comes
+    back ranked *below* plain "trimethylamine" -- its own metabolic precursor,
+    and a different molecule entirely. Silently querying the wrong entity is the
+    worst failure this tool can have, so prefer the exact hit when one exists.
+    """
     if ":" in value:
         return value, ""
     matches = resolver(value)
     if not matches:
         raise SystemExit(f"Could not resolve '{value}' to a {label} CURIE.")
-    curie, resolved = matches[0]
-    print(f"Resolved '{value}' -> {curie} ({resolved})", file=sys.stderr)
-    for other, other_label in matches[1:]:
-        print(f"  other candidate: {other} ({other_label})", file=sys.stderr)
+    exact = [row for row in matches if row[1].strip().casefold() == value.strip().casefold()]
+    curie, resolved = (exact or matches)[0]
+    if exact and (curie, resolved) != matches[0]:
+        print(
+            f"Resolved '{value}' -> {curie} ({resolved}) on an exact label match, "
+            f"ahead of the resolver's top hit {matches[0][0]} ({matches[0][1]}).",
+            file=sys.stderr,
+        )
+    else:
+        print(f"Resolved '{value}' -> {curie} ({resolved})", file=sys.stderr)
+    for other, other_label in matches:
+        if (other, other_label) != (curie, resolved):
+            print(f"  other candidate: {other} ({other_label})", file=sys.stderr)
     return curie, resolved
 
 
@@ -1653,15 +1705,7 @@ def run_regulation_mode(args: argparse.Namespace, entry: dict[str, Any] | None) 
 def run_paths_mode(args: argparse.Namespace, entry: dict[str, Any] | None, disease: tuple[str, str]) -> int:
     """Pair mode: drug + disease -> ranked mechanism paths through an intermediate."""
     disease_curie, disease_label = disease
-    drug_curie, drug_label = args.drug, ""
-    if ":" not in drug_curie:
-        matches = resolve_chemical_name(drug_curie)
-        if not matches:
-            raise SystemExit(f"Could not resolve '{args.drug}' to a chemical CURIE.")
-        drug_curie, drug_label = matches[0]
-        print(f"Resolved '{args.drug}' -> {drug_curie} ({drug_label})", file=sys.stderr)
-        for curie, label in matches[1:]:
-            print(f"  other candidate: {curie} ({label})", file=sys.stderr)
+    drug_curie, drug_label = _resolve(args.drug, resolve_chemical_name, "chemical")
 
     hypothesis: dict[str, Any] | None = None
     if args.hypothesis:
@@ -1702,7 +1746,11 @@ def run_paths_mode(args: argparse.Namespace, entry: dict[str, Any] | None, disea
     else:
         paths = extract_paths(message, via_categories=via_categories)
     nodes = (message.get("knowledge_graph") or {}).get("nodes") or {}
-    drug_label = drug_label or (nodes.get(drug_curie) or {}).get("name") or ""
+    graph_drug_label = (nodes.get(drug_curie) or {}).get("name") or ""
+    warning = identity_mismatch(drug_curie, graph_drug_label, normalize_curies([drug_curie]))
+    if warning:
+        print(f"  WARNING: {warning}", file=sys.stderr)
+    drug_label = drug_label or graph_drug_label
     disease_label = disease_label or (nodes.get(disease_curie) or {}).get("name") or ""
 
     if paths:
@@ -1753,6 +1801,7 @@ def run_paths_mode(args: argparse.Namespace, entry: dict[str, Any] | None, disea
             curated_drug=curated_drug,
             curated_targets=curated_targets,
             generated_at=ended.isoformat(),
+            identity_warning=warning,
             **meta,
         )
 

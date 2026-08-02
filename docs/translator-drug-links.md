@@ -281,6 +281,30 @@ returns imatinib, ponatinib, dasatinib and nilotinib in rank order — the
 Answers are cross-referenced like the other modes: chemical answers against the
 entry's curated treatments, gene answers against its curated mechanism.
 
+!!! danger "Entity confusion reaches inside the graph"
+
+    Two silent identity failures were found while testing, and both are guarded
+    now — but the class of problem is worth knowing about.
+
+    **Resolution.** The SRI name resolver ranks partial matches highly, so
+    `trimethylamine N-oxide` came back ranked *below* plain `trimethylamine` —
+    its own metabolic precursor. An exact label match now always wins over the
+    resolver's ranking.
+
+    **The graph itself.** Querying `CHEBI:15724` (trimethylamine N-oxide, per
+    ChEBI) returns a merged-KG node labelled **L-asparagine** (`CHEBI:17196`),
+    and the publications on a single one of its edges are a mix of both
+    molecules: PMID:27554055 and PMID:26079268 are asparagine studies,
+    PMID:31715585 and PMID:35676936 are TMAO studies. Two chemicals' assertions
+    are merged under one node. Every mode now cross-checks the graph's label for
+    the queried CURIE by resolving it back — a salt form or synonym passes, a
+    different entity raises a prominent **Entity mismatch** banner in the report.
+
+    This is the [Named Entity Confusion](https://github.com/monarch-initiative/dismech/blob/main/CLAUDE.md)
+    failure mode the project already documents for deep research, appearing in a
+    knowledge graph instead of a language model — and it is exactly why
+    Translator output is filed as leads.
+
 !!! warning "Gene lookups are pinned to human"
 
     An unrestricted name-resolver lookup for `ABL1` returns the **dog**
