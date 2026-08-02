@@ -1257,6 +1257,13 @@ discover-arrayexpress *args="":
 discover-omicsdi *args="":
     @uv run python scripts/discover_omicsdi.py {{args}}
 
+# Find PRIDE (proteomics) and MetaboLights (metabolomics) datasets naming the
+# disease in their own title. These assay types matter most for metabolic and
+# rare disease, which transcriptomic archives cover poorly.
+[group('Research')]
+discover-ebi-omics *args="":
+    @uv run python scripts/discover_ebi_omics.py {{args}}
+
 # Deep research on a disorder using specified provider
 # Examples:
 #   just research-disorder perplexity Marfan_Syndrome

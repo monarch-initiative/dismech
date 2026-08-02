@@ -61,6 +61,10 @@ from pathlib import Path
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from disease_title_match import compile_phrases, entry_phrases, match_title
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 KB_DIR = REPO_ROOT / "kb" / "disorders"
 DATA_DIR = REPO_ROOT / "data" / "phenopacket-store"
@@ -105,16 +109,22 @@ def build_index() -> dict:
                 continue
             c = cohorts[cohort]
             c["n_cases"] += 1
+            # Count each disease once per *case*. A phenopacket usually codes
+            # the same disease in both `diseases` and `interpretations`, and
+            # adding both double-counted every case.
+            case_diseases: dict[str, str] = {}
             for dz in pk.get("diseases") or []:
                 term = dz.get("term") or {}
                 if term.get("id"):
-                    c["diseases"][term["id"]] += 1
-                    c["labels"][term["id"]] = term.get("label", "")
+                    case_diseases[term["id"]] = term.get("label", "")
             for interp in pk.get("interpretations") or []:
                 term = (interp.get("diagnosis") or {}).get("disease") or {}
                 if term.get("id"):
-                    c["diseases"][term["id"]] += 1
-                    c["labels"][term["id"]] = term.get("label", "")
+                    case_diseases.setdefault(term["id"], term.get("label", ""))
+            for did, lab in case_diseases.items():
+                c["diseases"][did] += 1
+                if lab:
+                    c["labels"][did] = lab
             for ref in (pk.get("metaData") or {}).get("externalReferences") or []:
                 if str(ref.get("id", "")).startswith("PMID:"):
                     c["pmids"][ref["id"]] += 1
@@ -199,6 +209,16 @@ def match_entry(slug: str, index: dict, xcache: dict) -> list[dict]:
     mondo = (((entry.get("disease_term") or {}).get("term") or {}).get("id") or "").strip()
     accepted = set(mondo_xrefs(mondo, xcache))
 
+    # Fallback identity check: MONDO frequently lacks xrefs to *numbered
+    # subtype* OMIM entries, so a cohort coded "Bardet-Biedl syndrome 1" fails
+    # the xref test against an entry bound to generic Bardet-Biedl syndrome.
+    # When the cohort's own disease LABEL names the entry's disease, that is
+    # the same identity evidence by another route. It stays strict: it uses the
+    # same word-boundary phrases and sibling-qualifier veto as title matching,
+    # so "Hypochondroplasia" still does not match "Achondroplasia".
+    phrases, cores = entry_phrases(entry, slug)
+    patterns = compile_phrases(phrases)
+
     results = []
     for gene in entry_genes(entry):
         c = index.get(gene)
@@ -206,6 +226,23 @@ def match_entry(slug: str, index: dict, xcache: dict) -> list[dict]:
             continue
         coded = set(c["diseases"])
         overlap = coded & accepted
+
+        label_hits = []
+        if not overlap:
+            for did, lab in (c["labels"] or {}).items():
+                if not lab:
+                    continue
+                matched, conflict = match_title(lab, patterns, cores)
+                if matched and not conflict:
+                    label_hits.append(f"{did} ({lab})")
+
+        if overlap:
+            relevance = "DISEASE_ID_MATCH"
+        elif label_hits:
+            relevance = "DISEASE_LABEL_MATCH"
+        else:
+            relevance = "GENE_ONLY"
+
         results.append(
             {
                 "cohort": gene,
@@ -215,8 +252,8 @@ def match_entry(slug: str, index: dict, xcache: dict) -> list[dict]:
                 "labels": c["labels"],
                 "pmids": sorted(c["pmids"]),
                 "n_hpo_terms": c["n_hpo_terms"],
-                "relevance": "DISEASE_ID_MATCH" if overlap else "GENE_ONLY",
-                "matched_ids": sorted(overlap),
+                "relevance": relevance,
+                "matched_ids": sorted(overlap) if overlap else label_hits,
                 "entry_mondo": mondo,
             }
         )
@@ -224,29 +261,58 @@ def match_entry(slug: str, index: dict, xcache: dict) -> list[dict]:
 
 
 def to_record(m: dict, disease_name: str, release: str) -> dict:
-    top_id, _ = max(m["diseases"].items(), key=lambda kv: kv[1])
-    label = m["labels"].get(top_id, "")
+    """Build a Dataset record scoped to the *matched* disease, not the cohort.
+
+    A phenopacket-store cohort is keyed by gene, and one gene can carry several
+    distinct diseases: the LMNA cohort holds 259 cases spanning familial partial
+    lipodystrophy, Emery-Dreifuss muscular dystrophy and more. Titling the record
+    with the cohort's most frequent disease, and reporting the whole cohort's
+    case count, would both misdescribe what is relevant to this entry. So the
+    matched disease drives the title, and the sample count is that disease's
+    own case count.
+    """
+    matched_id = ""
+    for token in m.get("matched_ids") or []:
+        matched_id = token.split(" ")[0]
+        if matched_id in m["diseases"]:
+            break
+    if matched_id not in m["diseases"]:
+        matched_id = max(m["diseases"].items(), key=lambda kv: kv[1])[0] if m["diseases"] else ""
+
+    label = m["labels"].get(matched_id, "")
+    n_matched = m["diseases"].get(matched_id, m["n_cases"])
+    multi = len(m["diseases"]) > 1
+
     rec = {
         "accession": f"phenopacket-store:{m['cohort']}",
-        "title": f"phenopacket-store {m['cohort']} cohort: {label}" if label else f"phenopacket-store {m['cohort']} cohort",
+        "title": (f"phenopacket-store {m['cohort']} cohort: {label}" if label
+                  else f"phenopacket-store {m['cohort']} cohort"),
         "description": (
-            f"GA4GH phenopacket cohort for {m['cohort']}, comprising {m['n_cases']} published "
-            f"case-level phenopackets coded to {top_id} ({label}) with {m['n_hpo_terms']} distinct "
-            f"HPO terms across the cohort. Each case is curated from a peer-reviewed report and "
-            f"carries its source PMID."
+            f"GA4GH phenopacket cases for {label or matched_id} from the {m['cohort']} cohort: "
+            f"{n_matched} published case-level phenopackets coded to {matched_id}"
+            + (f", within a gene-keyed cohort of {m['n_cases']} cases spanning "
+               f"{len(m['diseases'])} {m['cohort']}-associated diseases" if multi else "")
+            + f". The cohort carries {m['n_hpo_terms']} distinct HPO terms overall, and each case "
+              f"is curated from a peer-reviewed report with its source PMID."
         ),
         "organism": {"preferred_term": "human", "term": {"id": "NCBITaxon:9606", "label": "Homo sapiens"}},
         "data_type": "PHENOPACKETS",
-        "sample_count": m["n_cases"],
+        "sample_count": n_matched,
     }
     if m["pmids"]:
         rec["publication"] = m["pmids"][0]
+
     today = dt.datetime.now(dt.UTC).date().isoformat()
+    how = ("the cohort's coded disease is an OMIM/Orphanet xref of the entry's MONDO term"
+           if m["relevance"] == "DISEASE_ID_MATCH"
+           else "the cohort's coded disease label names this entry's disease (MONDO carries no "
+                "xref to this numbered subtype, so identity was established on the label)")
     rec["notes"] = (
-        f"Matched to this entry by disease identifier, not by name: the cohort's coded disease "
-        f"({', '.join(m['matched_ids'])}) is an xref of the entry's MONDO term {m['entry_mondo']}. "
-        f"phenopacket-store release {release}; indexed {today}. "
-        f"Source PMIDs: {', '.join(m['pmids'][:8])}{' and others' if len(m['pmids']) > 8 else ''}."
+        f"Matched to this entry by disease identity, not by dataset name: {how}. "
+        f"Matched disease: {'; '.join(m['matched_ids'])}. Entry MONDO term: {m['entry_mondo']}. "
+        + (f"Cohort spans {len(m['diseases'])} diseases of {m['cohort']}; sample_count is the "
+           f"matched disease's own case count, not the cohort total. " if multi else "")
+        + f"phenopacket-store release {release}; indexed {today}."
     )
     return rec
 
@@ -289,7 +355,8 @@ def main() -> int:
     proposals, n_direct, n_gene = [], 0, 0
     for i, slug in enumerate(slugs, 1):
         matches = match_entry(slug, index, xcache)
-        direct = [m for m in matches if m["relevance"] == "DISEASE_ID_MATCH"]
+        ok_tiers = ("DISEASE_ID_MATCH", "DISEASE_LABEL_MATCH")
+        direct = [m for m in matches if m["relevance"] in ok_tiers]
         gene_only = [m for m in matches if m["relevance"] == "GENE_ONLY"]
         n_direct += len(direct)
         n_gene += len(gene_only)
@@ -305,10 +372,10 @@ def main() -> int:
                 "disease_name": disease_name,
                 "n_candidates": len(matches),
                 "records": [
-                    {"approved": m["relevance"] == "DISEASE_ID_MATCH",
+                    {"approved": m["relevance"] in ok_tiers,
                      "relevance": m["relevance"],
                      "matched_ids": m["matched_ids"],
-                     "reject_reason": None if m["relevance"] == "DISEASE_ID_MATCH" else
+                     "reject_reason": None if m["relevance"] in ok_tiers else
                                       f"gene {m['gene']} matches but the cohort codes "
                                       f"{sorted(m['diseases'])} , not an xref of {m['entry_mondo']}",
                      "record": to_record(m, disease_name, release)}
@@ -317,7 +384,7 @@ def main() -> int:
             })
         if not args.out:
             for m in matches:
-                flag = "OK " if m["relevance"] == "DISEASE_ID_MATCH" else "GENE"
+                flag = {"DISEASE_ID_MATCH": "ID  ", "DISEASE_LABEL_MATCH": "LABEL"}.get(m["relevance"], "GENE")
                 ids = ", ".join(f"{k}={v}" for k, v in list(m["diseases"].items())[:3])
                 print(f"  [{flag}] {slug}: cohort {m['cohort']}  n={m['n_cases']}  {ids}")
         if args.slugs_file and i % 50 == 0:

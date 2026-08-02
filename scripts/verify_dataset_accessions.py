@@ -124,6 +124,10 @@ SHAPE = {
     "phenopacket-store": re.compile(r"^[A-Za-z0-9_.\-]{2,40}$"),
 }
 
+# Prefixes whose accession pattern is too permissive to serve as a fallback
+# when another prefix's shape check fails (see verify_one).
+NON_FALLBACK_PREFIXES = {"phenopacket-store"}
+
 # Alternate spellings seen in the KB -> canonical prefix
 PREFIX_ALIASES = {
     "nasa_osdr": "osdr",
@@ -430,7 +434,16 @@ def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | N
         # record in a sibling repository (the common case is a BioProject
         # accession filed as `sra:`). Re-resolve against the repository whose
         # shape it actually matches, and report the correction.
-        actual = next((p for p, pat in SHAPE.items() if pat.match(local_id) and p in RESOLVERS), "")
+        #
+        # phenopacket-store is excluded as a fallback target: its cohorts are
+        # gene symbols and free-form slugs, so its pattern matches almost any
+        # string and it would capture every mis-shaped accession. A legacy
+        # `pride:PAD000024` was being reported as a missing phenopacket cohort.
+        actual = next(
+            (p for p, pat in SHAPE.items()
+             if p not in NON_FALLBACK_PREFIXES and pat.match(local_id) and p in RESOLVERS),
+            "",
+        )
         if not actual:
             res.status = MALFORMED
             res.detail = f"'{local_id}' does not match the {prefix} accession pattern"
