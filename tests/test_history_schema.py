@@ -228,14 +228,17 @@ def test_committed_history_records_follow_layout():
     assert not errors, "\n".join(errors)
 
 
-def _supersession_record(successor_path: str) -> dict:
+def _supersession_record(successor_path: str, successor_slug: str | None = None) -> dict:
+    """Record whose target was renamed. The successor slug defaults to the path
+    stem so each negative test below has a single cause; only the slug/stem
+    mismatch test overrides it."""
     return {
         "target": {
             "kind": "disorder",
             "slug": "Old_Name",
             "path": "kb/disorders/Old_Name.yaml",
             "superseded_by": {
-                "slug": "Asthma",
+                "slug": successor_slug or Path(successor_path).stem,
                 "path": successor_path,
             },
         }
@@ -257,7 +260,8 @@ def test_layout_rejects_superseded_by_pointing_at_missing_target():
     )
 
     errors = _layout_errors(record, path)
-    assert any("superseded_by path does not exist" in error for error in errors)
+    assert len(errors) == 1, f"expected a single cause, got: {errors}"
+    assert "superseded_by path does not exist" in errors[0]
 
 
 def test_layout_rejects_missing_target_without_superseded_by():
@@ -278,11 +282,14 @@ def test_layout_rejects_missing_target_without_superseded_by():
 
 
 def test_layout_rejects_superseded_by_slug_path_mismatch():
-    record = _supersession_record("kb/disorders/Marfan_Syndrome.yaml")  # slug says Asthma
+    record = _supersession_record(
+        "kb/disorders/Marfan_Syndrome.yaml", successor_slug="Asthma"
+    )
     path = HISTORY_DIR / "disorders" / "Asthma" / "2026-08-02T020640Z-codex-abc123.yaml"
 
     errors = _layout_errors(record, path)
-    assert any("does not match the stem of its path" in error for error in errors)
+    assert len(errors) == 1, f"expected a single cause, got: {errors}"
+    assert "does not match the stem of its path" in errors[0]
 
 
 def test_layout_rejects_incomplete_superseded_by_block():
