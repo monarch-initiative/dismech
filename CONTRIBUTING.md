@@ -135,6 +135,10 @@ For comprehensive biomedical literature research, we recommend **Edison Scientif
 
 (The Edison literature tool was originally called Falcon, hence the filenames this makes will be called `*-falcon.md`)
 
+Note that the Edison API key, unlike other keys, should be written as just the plain key, not with the "keyname:" prefix.
+WRONG: EDISON_API_KEY=Edison-for-dismech2:asdfjlkajsdfklasjdf
+RIGHT: EDISON_API_KEY=asdfjlkajsdfklasjdf
+
 Note: if you are affiliated with an academic institution you should be able to request bonus credits with Edison
 
 **Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details).
