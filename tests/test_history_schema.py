@@ -175,23 +175,169 @@ def test_committed_history_records_validate(validator):
     assert not errors
 
 
+def _layout_errors(record: dict, path: Path) -> list[str]:
+    """Check one history record's target against the on-disk repository layout.
+
+    History records are append-only, so a record whose target was later renamed
+    keeps its original ``slug``/``path``. Such a record documents the move with
+    ``target.superseded_by``; the successor is then what must exist on disk, and
+    the record files live under the successor's slug directory. Without
+    ``superseded_by``, a missing target is an ordinary error and still fails.
+    """
+    rel = path.relative_to(ROOT_DIR)
+    target = record["target"]
+    kind = target["kind"]
+    slug = target["slug"]
+    superseded_by = target.get("superseded_by")
+    errors = []
+
+    if superseded_by:
+        successor_path = ROOT_DIR / superseded_by["path"]
+        if not successor_path.exists():
+            errors.append(
+                f"{rel} target.superseded_by path does not exist: "
+                f"{superseded_by['path']}"
+            )
+        slug = superseded_by["slug"]
+    elif not (ROOT_DIR / target["path"]).exists():
+        errors.append(f"{rel} target does not exist")
+
+    if kind in KIND_DIRS:
+        expected_parent = HISTORY_DIR / KIND_DIRS[kind] / slug
+        if path.parent != expected_parent:
+            errors.append(f"{rel} should live under {expected_parent.relative_to(ROOT_DIR)}")
+
+    return errors
+
+
 def test_committed_history_records_follow_layout():
     history_files = sorted(HISTORY_DIR.glob("**/*.yaml"))
     assert history_files
 
+    errors = []
     for path in history_files:
-        record = safe_load_path(path)
-        target = record["target"]
-        kind = target["kind"]
-        slug = target["slug"]
-        target_path = ROOT_DIR / target["path"]
+        errors.extend(_layout_errors(safe_load_path(path), path))
 
-        assert target_path.exists(), (
-            f"{path.relative_to(ROOT_DIR)} target does not exist"
-        )
-        if kind in KIND_DIRS:
-            expected_parent = HISTORY_DIR / KIND_DIRS[kind] / slug
-            assert path.parent == expected_parent
+    assert not errors, "\n".join(errors)
+
+
+def _supersession_record(successor_path: str) -> dict:
+    return {
+        "target": {
+            "kind": "disorder",
+            "slug": "Old_Name",
+            "path": "kb/disorders/Old_Name.yaml",
+            "superseded_by": {
+                "slug": "Asthma",
+                "path": successor_path,
+            },
+        }
+    }
+
+
+def test_layout_accepts_renamed_target_with_superseded_by():
+    record = _supersession_record("kb/disorders/Asthma.yaml")
+    path = HISTORY_DIR / "disorders" / "Asthma" / "2026-08-02T020640Z-codex-abc123.yaml"
+
+    assert _layout_errors(record, path) == []
+
+
+def test_layout_rejects_superseded_by_pointing_at_missing_target():
+    record = _supersession_record("kb/disorders/Does_Not_Exist.yaml")
+    path = (
+        HISTORY_DIR / "disorders" / "Does_Not_Exist"
+        / "2026-08-02T020640Z-codex-abc123.yaml"
+    )
+
+    errors = _layout_errors(record, path)
+    assert any("superseded_by path does not exist" in error for error in errors)
+
+
+def test_layout_rejects_missing_target_without_superseded_by():
+    record = {
+        "target": {
+            "kind": "disorder",
+            "slug": "Does_Not_Exist",
+            "path": "kb/disorders/Does_Not_Exist.yaml",
+        }
+    }
+    path = (
+        HISTORY_DIR / "disorders" / "Does_Not_Exist"
+        / "2026-08-02T020640Z-codex-abc123.yaml"
+    )
+
+    errors = _layout_errors(record, path)
+    assert any("target does not exist" in error for error in errors)
+
+
+def test_layout_requires_record_directory_to_follow_successor_slug():
+    record = _supersession_record("kb/disorders/Asthma.yaml")
+    path = HISTORY_DIR / "disorders" / "Old_Name" / "2026-08-02T020640Z-codex-abc123.yaml"
+
+    errors = _layout_errors(record, path)
+    assert any("should live under" in error for error in errors)
+
+
+def test_history_record_with_superseded_by_validates(validator):
+    record = {
+        "history_version": 1,
+        "target": {
+            "kind": "disorder",
+            "slug": "Old_Name",
+            "path": "kb/disorders/Old_Name.yaml",
+            "superseded_by": {
+                "slug": "Asthma",
+                "path": "kb/disorders/Asthma.yaml",
+                "reason": "Retargeted mid-curation; the old name is not an independent entity.",
+            },
+        },
+        "session": {
+            "id": "2026-05-31T174412Z-codex-a3f9c2",
+            "timestamp": "2026-05-31T17:44:12Z",
+            "actors": [{"type": "ai_agent", "name": "codex"}],
+        },
+        "events": [
+            {
+                "type": "CREATE",
+                "outcome": "changed",
+                "summary": "Create: Old Name",
+                "details": "Created under the pre-rename slug.",
+            }
+        ],
+    }
+
+    report = validator.validate(record, target_class="HistoryRecord")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
+
+
+def test_superseded_by_requires_slug_and_path(validator):
+    record = {
+        "history_version": 1,
+        "target": {
+            "kind": "disorder",
+            "slug": "Old_Name",
+            "path": "kb/disorders/Old_Name.yaml",
+            "superseded_by": {"reason": "missing slug and path"},
+        },
+        "session": {
+            "id": "2026-05-31T174412Z-codex-a3f9c2",
+            "timestamp": "2026-05-31T17:44:12Z",
+            "actors": [{"type": "ai_agent", "name": "codex"}],
+        },
+        "events": [
+            {
+                "type": "CREATE",
+                "outcome": "changed",
+                "summary": "Create: Old Name",
+                "details": "Created under the pre-rename slug.",
+            }
+        ],
+    }
+
+    report = validator.validate(record, target_class="HistoryRecord")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert errors, "Expected validation error for superseded_by without slug/path"
 
 
 @pytest.mark.parametrize(
@@ -252,6 +398,17 @@ def test_new_history_scaffolder_requires_slug_for_kb_kinds():
     )
     with pytest.raises(SystemExit):
         module.build_record(args)
+
+
+def test_new_history_scaffolder_warns_on_missing_target():
+    module = _load_new_history_module()
+
+    existing = KB_DISORDERS_DIR / "Asthma.yaml"
+    assert module.target_missing_warning(str(existing)) is None
+
+    warning = module.target_missing_warning(str(KB_DISORDERS_DIR / "Does_Not_Exist.yaml"))
+    assert warning is not None
+    assert "does not exist yet" in warning
 
 
 def test_committed_history_records_do_not_use_migration_event():

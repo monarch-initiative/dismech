@@ -97,6 +97,42 @@ events:
       edit was made, future follow-up suggestions, or links in prose.
 ```
 
+## Renamed or retargeted targets
+
+History records are **append-only**: once written, a record's `target.slug` and
+`target.path` describe the object as it stood during that session and are not
+rewritten later. When an entry is renamed, retargeted, or merged — for example a
+disorder curated under one name that curation then shows is not an independent
+entity — the earlier records keep pointing at the pre-rename path, which no
+longer exists on disk.
+
+Record the move with `target.superseded_by` instead of editing the original
+fields:
+
+```yaml
+target:
+  kind: disorder
+  slug: Fanconi-Ichthyosis-Dysmorphism_Syndrome
+  path: kb/disorders/Fanconi-Ichthyosis-Dysmorphism_Syndrome.yaml
+  superseded_by:
+    slug: Arthrogryposis-Renal_Dysfunction-Cholestasis_Syndrome
+    path: kb/disorders/Arthrogryposis-Renal_Dysfunction-Cholestasis_Syndrome.yaml
+    reason: >-
+      The 2001 ARC series (PMID:11668108) subsumes FID, so the entry was
+      retargeted by the next session in the same PR.
+```
+
+`slug` and `path` are required inside the block; `reason` is optional but should
+say why the target moved. The record files themselves move into the successor's
+directory (`history/disorders/<successor-slug>/`) so all sessions for one entry
+stay together.
+
+`tests/test_history_schema.py::test_committed_history_records_follow_layout`
+enforces this: a record whose `target.path` is missing passes **only** if
+`target.superseded_by.path` resolves to an existing file, so an ordinary bad
+slug still fails loudly. `just new-history` also warns at authoring time when
+the target path does not exist yet.
+
 ## Event Types
 
 Use the smallest useful vocabulary:
