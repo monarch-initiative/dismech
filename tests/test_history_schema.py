@@ -278,7 +278,8 @@ def test_layout_rejects_missing_target_without_superseded_by():
     )
 
     errors = _layout_errors(record, path)
-    assert any("target does not exist" in error for error in errors)
+    assert len(errors) == 1, f"expected a single cause, got: {errors}"
+    assert "target does not exist" in errors[0]
 
 
 def test_layout_rejects_superseded_by_slug_path_mismatch():
