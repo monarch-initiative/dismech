@@ -969,3 +969,58 @@ def test_profile_shares_cannot_exceed_the_mass_they_divide(
         data["profiles"][1]["profile_share"] = 0.7
 
     assert "above 1.0" in _error_messages(_mutate(profile_set_path, mutate))
+
+
+def test_the_schema_carries_no_orphan_definitions() -> None:
+    """A deleted class must take its slots with it.
+
+    The model layer was removed class by class, and `DomainReliability`'s
+    cross-validation slots plus `ModelProperty`'s value slot outlived their only
+    owners — as did `TermDescriptor`, a second unused spelling of the descriptor
+    pattern sitting beside the `term_id`/`term_label` shape actually in use.
+    `gen-doc` publishes orphans, so a reader sees contract where there is
+    residue, and the prose guard cannot see them: a slot wired to nothing is
+    neither a stale name in prose nor a class still in `all_classes()`.
+    """
+    sv = SchemaView(str(SCHEMA_PATH))
+
+    used = {slot for cn in sv.all_classes() for slot in sv.class_slots(cn)}
+    orphan_slots = sorted(set(sv.all_slots()) - used)
+    assert not orphan_slots, f"slots defined but used by no class: {orphan_slots}"
+
+    ranges = {
+        sv.induced_slot(slot, cn).range
+        for cn in sv.all_classes()
+        for slot in sv.class_slots(cn)
+    }
+    roots = {c for c in sv.all_classes() if sv.get_class(c).tree_root}
+    orphan_classes = sorted(
+        c
+        for c in sv.all_classes()
+        if c not in ranges and c not in roots and not sv.class_children(c)
+    )
+    assert not orphan_classes, f"classes reachable from nothing: {orphan_classes}"
+
+
+def test_a_distribution_description_cannot_misstate_its_own_sum(
+    profile_set_path: Path,
+) -> None:
+    """The one claim in the file that is checkable arithmetic, checked.
+
+    "the weights sum to ~0.73" drifted twice by hand — a code was added and the
+    sentence was not. Unlike a prose keyword, this is a number derivable from
+    the same file, so it does not need to be trusted.
+    """
+
+    def mutate(data):
+        dist = data["profiles"][0]["code_distributions"][0]
+        dist["description"] = "Top codes, so the weights sum to ~0.42 rather than 1."
+
+    assert "they sum to 0.72693" in _error_messages(_mutate(profile_set_path, mutate))
+
+    # A description making no such claim is untouched.
+    def silent(data):
+        dist = data["profiles"][0]["code_distributions"][0]
+        dist["description"] = "The eight highest-probability codes."
+
+    assert lint_collections([_mutate(profile_set_path, silent)]).errors == []

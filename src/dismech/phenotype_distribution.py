@@ -32,6 +32,7 @@ Never hand-write or hand-edit one — regenerate with
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
@@ -849,7 +850,19 @@ def lint_profile(
                 f"{domain} distribution weights sum to {total:.3f}, above 1.0; "
                 "a categorical distribution cannot carry more than its own mass"
             )
-        elif total < 0.999 and not dist.get("truncated"):
+        # A description that states its own sum must state it correctly. This
+        # number has drifted twice by hand — a code was added and the sentence
+        # was not — and unlike a prose keyword it is derivable from the same
+        # file, so the claim can simply be checked. Opt-in: a description
+        # without the phrase is untouched.
+        claimed = re.search(r"sum to ~([\d.]+)", dist.get("description") or "")
+        if claimed and abs(float(claimed.group(1)) - total) >= 0.005:
+            err(
+                f"{domain} distribution description says the weights sum to "
+                f"~{claimed.group(1)}, but they sum to {total:.5f}"
+            )
+
+        if total < 0.999 and not dist.get("truncated"):
             warn(
                 f"{domain} distribution weights sum to {total:.3f} but the "
                 "distribution is not marked `truncated: true`; a top-N export "
