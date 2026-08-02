@@ -237,10 +237,20 @@ def test_baseline_from_ref_returns_none_for_an_unknown_ref(tmp_path):
     assert baseline_from_ref("no-such-ref-deadbeef", root=tmp_path) is None
 
 
-def test_resolve_baseline_prefers_the_ref_over_the_committed_file(monkeypatch):
+def test_resolve_baseline_prefers_the_explicit_ref_over_env_and_committed_file(monkeypatch):
+    seen = {}
     sentinel = Counter({"kb/x.yaml\tfoo": 3})
-    monkeypatch.setattr(csl, "baseline_from_ref", lambda ref, **kw: sentinel)
-    assert resolve_baseline("origin/somewhere") is sentinel
+
+    def fake(ref, **kw):
+        seen["ref"] = ref
+        return sentinel
+
+    monkeypatch.setattr(csl, "baseline_from_ref", fake)
+    # An explicit argument must win over the env var (opposite direction from
+    # test_resolve_baseline_reads_the_env_var) and the *right* ref must be used.
+    monkeypatch.setenv(BASELINE_REF_ENV, "origin/from-env")
+    assert resolve_baseline("origin/explicit") is sentinel
+    assert seen["ref"] == "origin/explicit"
 
 
 def test_resolve_baseline_reads_the_env_var(monkeypatch):

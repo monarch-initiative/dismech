@@ -255,12 +255,20 @@ def baseline_from_ref(ref: str, root: Path = ROOT) -> Counter | None:
         return None
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
-        with tarfile.open(fileobj=io.BytesIO(proc.stdout)) as tar:
-            # filter="data" is the safe extraction policy that becomes the
-            # default in Python 3.14; set it explicitly to silence the 3.13
-            # DeprecationWarning and pin behavior. The archive is git-authored
-            # (kb/ only), so "data" never rejects a legitimate member.
-            tar.extractall(tmp_path, filter="data")
+        try:
+            with tarfile.open(fileobj=io.BytesIO(proc.stdout)) as tar:
+                # filter="data" is the safe extraction policy that becomes the
+                # default in Python 3.14; set it explicitly to silence the 3.13
+                # DeprecationWarning and pin behavior. The archive is git-authored
+                # (kb/ only), so "data" never rejects a legitimate member.
+                tar.extractall(tmp_path, filter="data")
+        except tarfile.TarError as exc:
+            # Should be unreachable -- git archive exits non-zero on a bad ref or
+            # missing pathspec -- but a truncated/empty stream with returncode 0
+            # must degrade to the fallback, never crash the gate.
+            print(f"snippet baseline: unreadable archive for {ref!r}: {exc}",
+                  file=sys.stderr)
+            return None
         findings = scan_repo(scan_dir=tmp_path / scan_rel, rel_to=tmp_path)
     return count_by_key(findings)
 
@@ -371,8 +379,16 @@ def main(argv=None) -> int:
         for rel, location, words, snippet in new:
             print(f"{rel}:{location}: {words} word(s): {snippet!r}")
         print(f"\n{len(new)} new finding(s). Pipe-delimited structured-source rows")
-        print("(ORPHA/ClinGen/ICEES/NCIT tables) are exempt. If a finding is")
-        print("genuinely unavoidable, run --update-baseline to grandfather it.")
+        print("(ORPHA/ClinGen/ICEES/NCIT tables) are exempt.")
+        if args.against_ref or os.environ.get(BASELINE_REF_ENV):
+            # A ref baseline (CI) never reads tests/snippet_length_baseline.txt,
+            # so --update-baseline would pass locally, still fail CI, and commit
+            # churn to the shared snapshot this ratchet exists to stop touching.
+            print("Grandfathering is unavailable when checking against a ref: fix")
+            print("the snippet (quote the sentence) or drop the evidence block.")
+        else:
+            print("If a finding is genuinely unavoidable, run --update-baseline")
+            print("to grandfather it.")
         return 1
     print(
         f"OK: no new snippets under {MIN_SNIPPET_WORDS} words "
