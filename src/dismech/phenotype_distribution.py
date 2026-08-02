@@ -74,6 +74,34 @@ _PROPORTION_MEASURES = {"PHENOTYPE_PROPORTION", "PENETRANCE"}
 #: Estimands that may describe a whole latent mixture rather than one phenotype.
 _MIXTURE_MEASURES = {"LATENT_PHENOTYPE_WEIGHT", "CODE_PROBABILITY"}
 
+#: Support discreteness implied by the distribution family, where the family
+#: settles it. Families absent from this map genuinely leave it open — an
+#: EMPIRICAL tabulation may be over counts or over bins of a continuous
+#: quantity — and are the only ones where `discrete` carries information.
+_DISCRETE_BY_FAMILY = {
+    "BERNOULLI": True,
+    "BINOMIAL": True,
+    "BETA_BINOMIAL": True,
+    "CATEGORICAL": True,
+    "MULTINOMIAL": True,
+    "DIRICHLET_MULTINOMIAL": True,
+    "POISSON": True,
+    "NEGATIVE_BINOMIAL": True,
+    "ZERO_INFLATED_POISSON": True,
+    "ZERO_INFLATED_NEGATIVE_BINOMIAL": True,
+    "BETA": False,
+    "DIRICHLET": False,
+    "LOGISTIC_NORMAL": False,
+    "NORMAL": False,
+    "MULTIVARIATE_NORMAL": False,
+    "LOGNORMAL": False,
+    "GAMMA": False,
+    "EXPONENTIAL": False,
+    "WEIBULL": False,
+    "STUDENT_T": False,
+    "KERNEL_DENSITY": False,
+}
+
 #: Document prefixes whose quoted text must be verifiable against the cache.
 #: Clinical trials are cited as ``clinicaltrials:NCT12345678`` and cached as
 #: ``clinicaltrials_NCT12345678.md`` — a bare ``NCT`` prefix would both miss the
@@ -114,6 +142,29 @@ class Collection:
     @property
     def records(self) -> list[dict[str, Any]]:
         return list(self.data.get("distributions") or [])
+
+    @property
+    def cohorts(self) -> dict[str, dict[str, Any]]:
+        """Collection-level cohorts, keyed by ``cohort_id``."""
+        out: dict[str, dict[str, Any]] = {}
+        for cohort in self.data.get("cohorts") or []:
+            if isinstance(cohort, dict) and cohort.get("cohort_id"):
+                out[str(cohort["cohort_id"])] = cohort
+        return out
+
+    def resolve_cohort(self, node: dict[str, Any]) -> dict[str, Any]:
+        """Return the cohort for a record (or model), inline or by reference.
+
+        A referenced cohort renders exactly as an inline one would, so moving a
+        shared cohort up to the collection does not change any cited body.
+        """
+        inline = node.get("cohort") or node.get("training_cohort")
+        if inline:
+            return dict(inline)
+        ref = node.get("cohort_ref") or node.get("training_cohort_ref")
+        if ref:
+            return dict(self.cohorts.get(str(ref)) or {})
+        return {}
 
 
 def load_collection(path: Path) -> Collection:
@@ -501,12 +552,55 @@ def lint_record(
         else:
             err("record has neither a `phenotype` nor a `latent_phenotype`")
 
+    # A cohort is declared once and referenced, or described inline — not both.
+    declared = coll.cohorts
+    ref = record.get("cohort_ref")
+    inline = record.get("cohort") or {}
+    if ref and inline:
+        err(
+            "record sets both `cohort` and `cohort_ref`; the two would have to "
+            "be kept in sync by hand, so only one is allowed"
+        )
+    elif ref and str(ref) not in declared:
+        known = ", ".join(sorted(declared)) or "none declared"
+        err(
+            f"`cohort_ref` {ref!r} does not resolve to a cohort in the "
+            f"collection's `cohorts` ({known})"
+        )
+    elif inline and str(inline.get("cohort_id") or "") in declared:
+        warn(
+            f"record describes cohort {inline.get('cohort_id')!r} inline even "
+            "though the collection declares it; use `cohort_ref` so the "
+            "description has one source of truth"
+        )
+    elif not ref and not inline:
+        warn("record declares no cohort; a distribution without a population is unreadable")
+
     dist = record.get("distribution") or {}
 
     for param in dist.get("parameters") or []:
         msg = _check_matrix(param)
         if msg:
             err(msg)
+
+    # `discrete` earns its place only where the family leaves it open.
+    declared_discrete = dist.get("discrete")
+    family = dist.get("family")
+    if declared_discrete is not None and family in _DISCRETE_BY_FAMILY:
+        implied = _DISCRETE_BY_FAMILY[family]
+        if bool(declared_discrete) != implied:
+            err(
+                f"`discrete: {bool(declared_discrete)}` contradicts family "
+                f"{family}, whose support is "
+                f"{'discrete' if implied else 'continuous'} by definition"
+            )
+        else:
+            warn(
+                f"`discrete` restates what family {family} already fixes; omit "
+                "it and set it only for families that leave the support open "
+                "(EMPIRICAL, MIXTURE, KAPLAN_MEIER, NONPARAMETRIC_QUANTILE, "
+                "UNIFORM, OTHER)"
+            )
 
     summary = dist.get("summary") or {}
     msg = _check_interval(summary)
@@ -533,17 +627,8 @@ def lint_record(
             )
 
     # Identity attestations must not contradict themselves.
-    for att, where in _iter_attestations(record):
-        rows = att.get("row_count")
-        persons = att.get("unique_person_count")
-        one_per = att.get("one_row_per_person")
-        if one_per and rows is not None and persons is not None and rows != persons:
-            err(
-                f"{where}: identity attestation claims one row per person but "
-                f"reports {rows} rows for {persons} persons"
-            )
-        if persons is not None and rows is not None and persons > rows:
-            err(f"{where}: attestation reports more persons ({persons}) than rows ({rows})")
+    for message in _attestation_errors(record):
+        err(message)
 
     # A proportion's implied frequency band must match its own point estimate.
     band = record.get("implied_frequency_class")
@@ -598,6 +683,30 @@ def lint_record(
             "and 'checked and clean' should not look the same"
         )
 
+    return out
+
+
+def _attestation_errors(node: Any, where: str = "record") -> list[str]:
+    """Messages for every self-contradictory identity attestation under ``node``.
+
+    Shared between the record lint and the collection-level cohort lint: an
+    attestation is just as wrong when it sits on a cohort hoisted up to the
+    collection, and hoisting a cohort must not quietly move it out of scope.
+    """
+    out: list[str] = []
+    for att, at in _iter_attestations(node, where):
+        rows = att.get("row_count")
+        persons = att.get("unique_person_count")
+        one_per = att.get("one_row_per_person")
+        if one_per and rows is not None and persons is not None and rows != persons:
+            out.append(
+                f"{at}: identity attestation claims one row per person but "
+                f"reports {rows} rows for {persons} persons"
+            )
+        if persons is not None and rows is not None and persons > rows:
+            out.append(
+                f"{at}: attestation reports more persons ({persons}) than rows ({rows})"
+            )
     return out
 
 
@@ -703,6 +812,158 @@ def _check_feature_namespaces(coll: Collection) -> list[Issue]:
     return out
 
 
+def _check_cohorts(coll: Collection) -> list[Issue]:
+    """Check collection-level cohorts, their arms, and references into them.
+
+    Arms and their component subsets are the place a gated fit's denominators
+    live: a foreground component estimated from 0.5% of the corpus is only safe
+    to read if the arm that backs it is named and resolvable. A dangling
+    reference here silently restores the whole-corpus denominator.
+    """
+    out: list[Issue] = []
+    declared: set[str] = set()
+
+    for cohort in coll.data.get("cohorts") or []:
+        cid = cohort.get("cohort_id")
+        if not cid:
+            out.append(
+                Issue(
+                    coll.path,
+                    "",
+                    "ERROR",
+                    "a cohort in `cohorts` has no `cohort_id`, so no record can "
+                    "reference it",
+                )
+            )
+            continue
+        if str(cid) in declared:
+            out.append(
+                Issue(coll.path, "", "ERROR", f"duplicate cohort_id {cid!r} in `cohorts`")
+            )
+        declared.add(str(cid))
+        for message in _attestation_errors(cohort, f"cohorts[{cid}]"):
+            out.append(Issue(coll.path, "", "ERROR", message))
+
+    model = coll.data.get("model") or {}
+    ref = model.get("training_cohort_ref")
+    if ref and model.get("training_cohort"):
+        out.append(
+            Issue(
+                coll.path,
+                "",
+                "ERROR",
+                "model sets both `training_cohort` and `training_cohort_ref`",
+            )
+        )
+    elif ref and str(ref) not in declared:
+        out.append(
+            Issue(
+                coll.path,
+                "",
+                "ERROR",
+                f"model `training_cohort_ref` {ref!r} does not resolve to a "
+                "cohort in `cohorts`",
+            )
+        )
+
+    every_cohort = list(coll.data.get("cohorts") or [])
+    if model.get("training_cohort"):
+        every_cohort.append(model["training_cohort"])
+    for rec in coll.records:
+        if rec.get("cohort"):
+            every_cohort.append(rec["cohort"])
+
+    claimed_components: set[str] = set()
+    any_arm_claims_components = False
+
+    for cohort in every_cohort:
+        arm_names: set[str] = set()
+        for arm in cohort.get("arms") or []:
+            name = arm.get("arm_name")
+            if name and str(name) in arm_names:
+                out.append(
+                    Issue(
+                        coll.path,
+                        "",
+                        "ERROR",
+                        f"duplicate arm_name {name!r} in cohort "
+                        f"{cohort.get('cohort_id')!r}",
+                    )
+                )
+            if name:
+                arm_names.add(str(name))
+                claimed_components.update(
+                    str(c) for c in arm.get("associated_components") or []
+                )
+                if arm.get("associated_components"):
+                    any_arm_claims_components = True
+            for step in arm.get("identification_steps") or []:
+                out.extend(_check_identification_step(coll, step, f"arm {name!r}"))
+        for step in cohort.get("identification_steps") or []:
+            out.extend(
+                _check_identification_step(
+                    coll, step, f"cohort {cohort.get('cohort_id')!r}"
+                )
+            )
+
+    # Once any arm claims components, a component claimed by none has an
+    # unstated denominator — the failure the arm block exists to prevent.
+    if any_arm_claims_components:
+        for rec in coll.records:
+            cid = (rec.get("latent_phenotype") or {}).get("component_id")
+            if cid is not None and str(cid) not in claimed_components:
+                out.append(
+                    Issue(
+                        coll.path,
+                        str(rec.get("record_id", "")),
+                        "WARNING",
+                        f"component {cid!r} is not listed by any cohort arm, so "
+                        "which sub-population backs it is unstated",
+                    )
+                )
+    return out
+
+
+def _check_identification_step(
+    coll: Collection, step: dict[str, Any], where: str
+) -> list[Issue]:
+    """Check that a cohort-identification step carries what its role needs."""
+    out: list[Issue] = []
+    role = step.get("step_role")
+    if role == "MAPPING" and not step.get("mapping_relation"):
+        out.append(
+            Issue(
+                coll.path,
+                "",
+                "WARNING",
+                f"{where}: MAPPING step declares no `mapping_relation`; an "
+                "exact-synonym crossing and a broad-match crossing do not "
+                "select the same patients",
+            )
+        )
+    if role == "EXPANSION" and not step.get("expansion_direction"):
+        out.append(
+            Issue(
+                coll.path,
+                "",
+                "WARNING",
+                f"{where}: EXPANSION step declares no `expansion_direction`; "
+                "walking up and walking down produce different cohorts",
+            )
+        )
+    if role in {"SEED", "MAPPING"} and not step.get("identification_terms"):
+        out.append(
+            Issue(
+                coll.path,
+                "",
+                "WARNING",
+                f"{where}: {role} step lists no `identification_terms`, so the "
+                "cohort cannot be reproduced from this record",
+            )
+        )
+    return out
+
+
 def lint_collections(
     collections: Iterable[Collection],
     cache_dir: Path = DEFAULT_CACHE_DIR,
@@ -714,6 +975,7 @@ def lint_collections(
 
     for coll in collections:
         result.issues.extend(_check_feature_namespaces(coll))
+        result.issues.extend(_check_cohorts(coll))
 
     seen: dict[str, Path] = {}
     for coll, record in iter_records(collections):
@@ -870,7 +1132,7 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
         lines.append(_row(["Phenotype definition", pheno.get("phenotype_definition")]))
     lines.append("")
 
-    cohort = record.get("cohort") or {}
+    cohort = coll.resolve_cohort(record)
     if cohort:
         lines.append("## Cohort")
         lines.append("")
@@ -1153,7 +1415,7 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
             ("Quality", "component_quality"),
             ("Estimation scope", "estimation_scope"),
             ("Estimation scope size", "estimation_scope_size"),
-            ("Corpus prevalence", "corpus_prevalence"),
+            ("Corpus share", "corpus_share"),
         ):
             if latent.get(key) is not None:
                 lines.append(_row([label, latent.get(key)]))

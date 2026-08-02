@@ -54,7 +54,7 @@ description: >-
     declared per domain rather than assumed;
   * a **distribution of component weight** over a population, expressible as an
     empirical distribution, a Dirichlet, or a logistic-normal;
-  * optional **covariate dependence** of component prevalence, recorded as a
+  * optional **covariate dependence** of component weight, recorded as a
     coefficient plus the scale it lives on;
   * **quality metrics** per component, as metric/value pairs;
   * the **estimation scope** — how much data actually backed the component,
@@ -106,6 +106,7 @@ prefixes:
   HP: http://purl.obolibrary.org/obo/HP_
   MONDO: http://purl.obolibrary.org/obo/MONDO_
   LOINC: https://loinc.org/
+  skos: http://www.w3.org/2004/02/skos/core#
   xsd: http://www.w3.org/2001/XMLSchema#
 
 default_prefix: phenodist
@@ -182,7 +183,16 @@ enums:
       Parametric family, or explicit non-parametric form, of the distribution.
       Determines which `parameters` are expected — `parameterization_note`
       records the convention used (e.g. gamma shape/rate vs. shape/scale), since
-      family alone does not disambiguate it.
+      family alone does not disambiguate it. It also determines support
+      discreteness for all but a handful of values, which is why `discrete`
+      should be left unset except for the families that leave it open.
+
+      Values are local rather than bound to a distribution ontology. ProbOnto is
+      the obvious mapping target and worth revisiting: it is not in the
+      constrained ontology set dismech validates against, so no OAK adapter
+      could check a `meaning` here and an unverifiable identifier is worse than
+      none. Adding the adapter and back-filling `meaning`s is tracked rather
+      than guessed at.
     permissible_values:
       BERNOULLI:
         description: Single binary outcome; parameter p.
@@ -457,8 +467,11 @@ enums:
           than fixed in advance.
       STRUCTURAL_TOPIC_MODEL:
         description: >-
-          Topic model whose component prevalence depends on document covariates
-          through a logistic-normal prior.
+          Topic model whose component weight depends on document covariates
+          through a logistic-normal prior. The topic-model literature calls that
+          weight a topic's "prevalence"; this schema does not, because in a
+          disease knowledge base `prevalence` already means a count of patients
+          over a stated denominator.
       NON_NEGATIVE_MATRIX_FACTORIZATION:
         description: Non-negative matrix factorization.
       MIXTURE_MODEL:
@@ -574,6 +587,17 @@ enums:
       Known threats to the validity of a record. Enumerated rather than left to
       prose so a curator can filter on them before importing a number, and so
       "nobody checked" is visibly different from "checked and clean".
+
+      Mostly epidemiological, and that is the point: ascertainment, selection,
+      survivorship, immortal time, single-site provenance and phenotype
+      misclassification are properties of how the cohort was assembled, and no
+      amount of model metadata implies them — a flawlessly specified fit over a
+      referral-clinic cohort is still a referral-clinic estimate. The handful of
+      values that do describe the fit (`MODEL_DEPENDENT`,
+      `APPROXIMATE_POSTERIOR`, `SCALE_NOT_CALIBRATED`, `WEAK_IDENTIFIABILITY`)
+      are here because the flag is per-record: one record from a fit may rest on
+      a weakly identified parameter while its neighbours do not, and a
+      collection-level note cannot say which.
     permissible_values:
       ASCERTAINMENT_BIAS:
         description: Cohort entry correlated with the phenotype being measured.
@@ -680,6 +704,96 @@ enums:
           codes and not the default feature space.
       OTHER:
         description: Another identifier system; name it in `feature_namespace_detail`.
+
+  CohortIdentificationRoleEnum:
+    description: >-
+      What one step in a cohort-identification chain does.
+
+      Cohort identification is rarely a single vocabulary lookup. A recent fit
+      names its target in MONDO, crosses to SNOMED CT through exact-synonym
+      mappings, and only then walks the SNOMED hierarchy to assemble the sub-
+      and super-cohorts it actually places patients into. Each of those moves
+      can change who is in the cohort, and each is a different kind of move, so
+      the chain is recorded step by step rather than flattened into one
+      vocabulary name.
+    permissible_values:
+      SEED:
+        description: >-
+          The concept the cohort is nominally about, in the vocabulary a human
+          would name it in — typically MONDO here.
+      MAPPING:
+        description: >-
+          Crossing from one vocabulary to another. Record how tight the
+          crossing is in `mapping_relation`: an exact-synonym crossing and a
+          broad-match crossing do not select the same patients.
+      EXPANSION:
+        description: >-
+          Walking a hierarchy to gather descendants or ancestors of the terms
+          already selected. Record which way in `expansion_direction`.
+      RESTRICTION:
+        description: >-
+          Narrowing the selection by a further condition (an observation
+          window, a code count, a required second criterion).
+      EXCLUSION:
+        description: Removing a subset from the selection.
+
+  ConceptMappingRelationEnum:
+    description: >-
+      Tightness of a crossing between vocabularies, using the SKOS mapping
+      relations dismech already uses for disease cross-references. This is the
+      difference between a cohort that means what its seed term means and one
+      that has quietly drifted.
+    permissible_values:
+      EXACT_MATCH:
+        description: Concepts are interchangeable across the two vocabularies.
+        meaning: skos:exactMatch
+      CLOSE_MATCH:
+        description: Concepts are close enough to interchange in some applications.
+        meaning: skos:closeMatch
+      BROAD_MATCH:
+        description: The target concept is broader than the source; the cohort widens.
+        meaning: skos:broadMatch
+      NARROW_MATCH:
+        description: The target concept is narrower than the source; the cohort shrinks.
+        meaning: skos:narrowMatch
+      RELATED_MATCH:
+        description: Associative rather than hierarchical; weakest basis for a cohort.
+        meaning: skos:relatedMatch
+
+  HierarchyExpansionEnum:
+    description: >-
+      Which way a hierarchy walk went. Descendant expansion is the common case
+      and widens a cohort downward; ancestor expansion builds the super-cohort
+      a sub-cohort is contrasted against.
+    permissible_values:
+      SELF:
+        description: The listed terms only, with no hierarchy walk.
+      DESCENDANTS:
+        description: Strict descendants of the listed terms.
+      SELF_AND_DESCENDANTS:
+        description: The listed terms together with their descendants.
+      ANCESTORS:
+        description: Strict ancestors of the listed terms.
+      SELF_AND_ANCESTORS:
+        description: The listed terms together with their ancestors.
+
+  CohortArmRoleEnum:
+    description: >-
+      What an arm is for. Recorded because a component estimated only from a
+      foreground arm is backed by that arm's documents, not by the corpus, and
+      a consumer that cannot tell the arms apart will read the wrong
+      denominator.
+    permissible_values:
+      BACKGROUND:
+        description: >-
+          The general population the analysis runs over, subject only to base
+          data-availability criteria.
+      FOREGROUND:
+        description: A disease-specific arm the analysis targets.
+      COMPARATOR:
+        description: An arm existing to be contrasted against another.
+      OTHER:
+        description: Another arm role; describe it in `description`.
 
   ProvenanceTierEnum:
     description: >-
@@ -1027,8 +1141,22 @@ slots:
   unit:
     description: Unit of the measured quantity (e.g. years, mg/dL, events/year).
   cohort:
-    description: The cohort the distribution was estimated in.
+    description: >-
+      The cohort the distribution was estimated in, described inline. Use this
+      only for a cohort specific to one record; when several records share a
+      cohort, declare it once in the collection's `cohorts` and point at it with
+      `cohort_ref`.
     range: CohortDescriptor
+  cohort_ref:
+    description: >-
+      `cohort_id` of a cohort declared in the collection's `cohorts`.
+
+      Most collections estimate every record in the same cohort, and repeating
+      its description on each record makes the copies look like independent
+      assertions that a reader then has to diff. Declaring the cohort once and
+      referencing it keeps one source of truth; the rendered reference-cache
+      body resolves the reference, so a cited record still shows its cohort in
+      full. Mutually exclusive with an inline `cohort`.
   strata:
     description: >-
       Covariate values defining this record's stratum. An empty list means the
@@ -1151,7 +1279,17 @@ slots:
     description: Upper bound of the distribution's support.
     range: float
   discrete:
-    description: Whether the distribution is over a discrete quantity.
+    description: >-
+      Whether the distribution is over a discrete quantity.
+
+      Redundant for most families and should be omitted there: CATEGORICAL is
+      discrete and GAMMA is continuous by definition, and restating it invites
+      the two to disagree. Set it only for the families that genuinely do not
+      determine it — EMPIRICAL, MIXTURE, KAPLAN_MEIER, NONPARAMETRIC_QUANTILE,
+      UNIFORM, OTHER — where a tabulation may be over bins of a continuous
+      quantity or over counts and a consumer cannot tell which. The lint errors
+      on a value that contradicts its family and warns on one that merely
+      repeats it.
     range: boolean
   n_observations:
     description: Number of observations the estimate rests on.
@@ -1391,8 +1529,18 @@ slots:
     maximum_value: 1.0
 
   # --- cohort ---
+  cohorts:
+    description: >-
+      Cohorts declared once for the whole collection and referenced from records
+      by `cohort_ref`, so that a shared cohort is described in one place rather
+      than copied onto every record.
+    multivalued: true
+    range: CohortDescriptor
+    inlined_as_list: true
   cohort_id:
-    description: Identifier for the cohort within the collection.
+    description: >-
+      Identifier for the cohort within the collection. Required on a cohort
+      declared in `cohorts`, since that is what `cohort_ref` resolves against.
   data_source_type:
     description: Kind of data the cohort was drawn from.
     range: DataSourceTypeEnum
@@ -1515,8 +1663,11 @@ slots:
     minimum_value: 1
   covariate_formula:
     description: >-
-      Design formula for covariate-conditioned prevalence (e.g. `~ age_bin *
-      sex`). Records exactly what the linear predictor conditions on.
+      Design formula for covariate-conditioned component weight (e.g. `~ age_bin
+      * sex`). Records exactly what the linear predictor conditions on, and so
+      what every `CovariateEffect` coefficient in the collection is relative to;
+      a coefficient read without its design formula is uninterpretable, which is
+      why this is a first-class slot rather than a `model_properties` entry.
   inference_method:
     description: Algorithm used to fit the model.
     range: InferenceMethodEnum
@@ -1530,8 +1681,14 @@ slots:
     range: DistributionParameter
     inlined_as_list: true
   training_cohort:
-    description: Cohort the model was fitted on, when it differs from the record's cohort.
+    description: >-
+      Cohort the model was fitted on, described inline. Use `training_cohort_ref`
+      instead when the cohort is one of the collection's declared `cohorts`.
     range: CohortDescriptor
+  training_cohort_ref:
+    description: >-
+      `cohort_id` of the collection-level cohort the model was fitted on.
+      Mutually exclusive with an inline `training_cohort`.
   contains_patient_data:
     description: >-
       Whether the distributed model artifact contains individual-level data.
@@ -1583,11 +1740,17 @@ slots:
     description: Number of documents the component was estimated from.
     range: integer
     minimum_value: 0
-  corpus_prevalence:
+  corpus_share:
     description: >-
-      Share of the whole corpus this component accounts for. For a rare-disease
-      foreground component this is tiny by construction and is not the disease's
-      prevalence.
+      Share of the whole corpus's weight that this component accounts for.
+
+      Deliberately NOT called a prevalence. A prevalence is a count of patients
+      carrying a label over a stated denominator of patients at risk; this is a
+      fraction of fitted model mass over a denominator of documents, and the two
+      are not convertible. For a rare-disease foreground component the number is
+      tiny by construction — an artifact of how much corpus the component was
+      given, not an estimate of how many people have the disease. Anything that
+      reads this slot as an occurrence rate is reading it wrong.
     range: float
     minimum_value: 0.0
     maximum_value: 1.0
@@ -1610,13 +1773,75 @@ slots:
       SNOMED edition and release date, or the system named when
       `feature_namespace` is OTHER. Not the ICD revision: that is an enum value
       (`ICD9CM` / `ICD10CM` / `ICD11`) precisely so it does not live in prose.
-  cohort_identification_vocabulary:
+  identification_steps:
     description: >-
-      Vocabulary used to *identify* the cohort, when it differs from the
-      feature space the distribution ranges over. These are routinely different
-      and the difference is easy to lose: a recent fit identifies its target
-      cohort with MONDO and places patients automatically with SNOMED, while
-      the profiles it produces are over OMOP concept IDs.
+      Ordered chain of steps by which the cohort (or arm) was identified.
+
+      The vocabulary used to *identify* a cohort is routinely not the feature
+      space the distribution ranges over, and the crossing between them is
+      rarely one hop: a recent fit names its target in MONDO, crosses to SNOMED
+      CT through exact-synonym mappings, walks the SNOMED hierarchy to assemble
+      sub- and super-cohorts, and still emits profiles over OMOP concept IDs.
+      Each hop can change who is in the cohort, so each is recorded rather than
+      collapsed into a single vocabulary name. A cohort identified by one term
+      in one vocabulary is simply a one-step chain.
+    multivalued: true
+    range: CohortIdentificationStep
+    inlined_as_list: true
+  step_role:
+    description: What this step does to the selection.
+    range: CohortIdentificationRoleEnum
+    required: true
+  identification_vocabulary:
+    description: >-
+      Vocabulary this step operates in. Shares `FeatureNamespaceEnum` with
+      `feature_namespace` deliberately: identification and feature spaces are
+      drawn from the same universe of terminologies, and sharing the value space
+      is what lets a consumer see at a glance that a cohort was identified in
+      MONDO while its profiles are emitted over OMOP concept IDs.
+    range: FeatureNamespaceEnum
+  identification_vocabulary_detail:
+    description: >-
+      Free-text refinement of the step's vocabulary — the SNOMED edition and
+      release date, the OMOP vocabulary release, or the system named when
+      `identification_vocabulary` is OTHER.
+  identification_terms:
+    description: >-
+      The concrete term identifiers used at this step (e.g. `MONDO:0020066`, or
+      the OMOP concept id a gate is defined on). Listing them makes the cohort
+      reproducible; a step described only in prose is not.
+    multivalued: true
+  mapping_relation:
+    description: >-
+      For a MAPPING step, how tight the crossing between vocabularies is.
+    range: ConceptMappingRelationEnum
+  expansion_direction:
+    description: For an EXPANSION step, which way the hierarchy was walked.
+    range: HierarchyExpansionEnum
+  arms:
+    description: >-
+      Named sub-populations the analysis identifies within this cohort, each
+      with its own identification chain and, for a model-derived collection, the
+      subset of components estimated from it.
+    multivalued: true
+    range: CohortArm
+    inlined_as_list: true
+  arm_name:
+    description: Name of the arm, unique within the cohort.
+    required: true
+  arm_role:
+    description: What the arm is for.
+    range: CohortArmRoleEnum
+  associated_components:
+    description: >-
+      `component_id` values of the latent phenotypes associated with this arm.
+
+      A gated or block-structured fit does not estimate every component from
+      every document: a foreground arm holding 0.5% of the corpus backs its own
+      components and nothing else. Naming the association here is what stops a
+      consumer reading a foreground component's numbers against the whole-corpus
+      denominator.
+    multivalued: true
 
   # --- generic model properties ---
   model_properties:
@@ -1844,6 +2069,7 @@ classes:
       - source
       - model
       - domains
+      - cohorts
       - distributions
       - generated_date
       - tracked_issues
@@ -1870,6 +2096,7 @@ classes:
       - measure_description
       - unit
       - cohort
+      - cohort_ref
       - strata
       - distribution
       - comparison
@@ -2102,7 +2329,8 @@ classes:
       - data_source_name
       - ascertainment
       - case_definition
-      - cohort_identification_vocabulary
+      - identification_steps
+      - arms
       - definition_ref
       - geography
       - care_setting
@@ -2115,6 +2343,50 @@ classes:
       - exclusion_criteria
       - identity_attestation
       - notes
+
+  CohortIdentificationStep:
+    description: >-
+      One move in the chain that turns a disease name into a set of patients.
+
+      Kept as an ordered list of typed steps rather than a single free-text
+      vocabulary name because each move is a place the cohort can silently stop
+      meaning what its seed term means — a broad-match crossing, or a descendant
+      expansion over a hierarchy that groups differently from the source, both
+      change who is counted without changing the label on the cohort.
+    slots:
+      - step_role
+      - identification_vocabulary
+      - identification_vocabulary_detail
+      - identification_terms
+      - mapping_relation
+      - expansion_direction
+      - n_individuals
+      - description
+    slot_usage:
+      step_role:
+        required: true
+
+  CohortArm:
+    description: >-
+      A named sub-population within a cohort, with its own identification chain
+      and its own component subset.
+
+      Analyses over a general population routinely carry a background arm and
+      one or more disease-specific foreground arms, identified by different
+      chains and backing different components. Modelling the arm explicitly
+      keeps a foreground component's denominator attached to the arm that
+      produced it instead of leaving it to be inferred from the corpus size.
+    slots:
+      - arm_name
+      - arm_role
+      - description
+      - n_individuals
+      - identification_steps
+      - associated_components
+      - notes
+    slot_usage:
+      arm_name:
+        required: true
 
   IdentityAttestation:
     description: >-
@@ -2201,6 +2473,17 @@ classes:
       nothing without the fit that produced it — while staying stable as model
       classes and their export shapes change. Anything specific to one family
       goes in `model_properties` rather than a dedicated slot.
+
+      A slot is first-class here only if it clears three bars: every model class
+      in scope can answer it, it has a machine-readable type worth validating,
+      and independent exporters would otherwise spell it differently. That last
+      bar is why `n_components`, `vocabulary_size`, `inference_method` and
+      `component_count_inferred` are not `model_properties` entries — as free
+      name/value pairs they arrive as `K`, `n_topics`, and `num_components`, and
+      no query spans two collections. `covariate_formula` is here because every
+      `CovariateEffect` coefficient in the collection is relative to it. The
+      fast path stays optional: a model class with no fixed component count
+      simply omits the slot, and nothing about it is unrecordable.
     slots:
       - model_name
       - model_family
@@ -2213,6 +2496,7 @@ classes:
       - hyperparameters
       - model_properties
       - training_cohort
+      - training_cohort_ref
       - fit_metrics
       - contains_patient_data
       - artifact_url
@@ -2235,7 +2519,7 @@ classes:
       - component_quality
       - estimation_scope
       - estimation_scope_size
-      - corpus_prevalence
+      - corpus_share
       - top_features
       - mapped_phenotype_terms
       - mapping_basis
@@ -2275,6 +2559,13 @@ classes:
       reliability. Domains are identified by name rather than by position, so
       that adding or reordering domains cannot silently reassign a reliability
       assessment to the wrong data.
+
+      List the domains the analysis used. A domain that was assessed and left
+      out does not have to appear at all — omission is the normal way to say a
+      domain is not in play, and `EXCLUDED` exists for the narrower case where
+      recording the negative result is worth something, e.g. to stop the next
+      person re-adding a domain that has already been shown to hurt. Do not read
+      an absent domain as `UNDETERMINED`.
     slots:
       - domain_name
       - vocabulary

@@ -55,6 +55,90 @@ domains:
       collection must not leave this UNASSESSED for a domain it derives
       numbers from.
 
+cohorts:
+- cohort_id: SYNTH-CF-EHR
+  name: Synthetic CF EHR cohort
+  data_source_type: EHR
+  data_source_name: Synthetic health system extract
+  ascertainment: CLINIC_BASED_REFERRAL
+  case_definition: >-
+    Two or more CF diagnosis codes on distinct dates, or one code plus a
+    confirmatory sweat chloride result.
+  geography: Synthetic
+  care_setting: Mixed inpatient and outpatient
+  n_individuals: 1240
+  observation_start: '2010-01-01'
+  observation_end: '2024-12-31'
+  identity_attestation:
+    row_count: 1240
+    unique_person_count: 1240
+    one_row_per_person: true
+    attestation_method: >-
+      Counts asserted by the extract job; no identifiers or hashes persisted.
+  identification_steps:
+  # Illustrating the full multi-vocabulary chain: name the disease in an
+  # ontology, cross to the terminology the data are coded in, then walk that
+  # terminology's hierarchy. Each hop can change who is counted, so each is a
+  # step rather than a single "identification vocabulary" string.
+  - step_role: SEED
+    identification_vocabulary: MONDO
+    identification_terms:
+    - MONDO:0009061
+    description: The disease as a human would name it.
+  - step_role: MAPPING
+    identification_vocabulary: SNOMED_CT
+    identification_vocabulary_detail: SNOMED CT International, synthetic release
+    identification_terms:
+    - SNOMEDCT:190905008
+    mapping_relation: EXACT_MATCH
+    description: >-
+      Crossed on an exact-synonym mapping, so the SNOMED selection still means
+      what the MONDO seed means. A BROAD_MATCH here would widen the cohort
+      without changing its label — which is the thing this slot exists to make
+      visible.
+  - step_role: EXPANSION
+    identification_vocabulary: SNOMED_CT
+    expansion_direction: SELF_AND_DESCENDANTS
+    description: >-
+      Sub-cohorts are assembled by walking down from the mapped concept. Walking
+      up instead would build the super-cohort this one is contrasted against.
+  - step_role: RESTRICTION
+    description: >-
+      Two codes on distinct dates, or one plus a confirmatory sweat chloride.
+      The restriction is the same rule stated in `case_definition`; it appears
+      here as a step so the chain is complete end to end.
+- cohort_id: SYNTH-CF-NBS
+  name: Synthetic newborn-screened CF cohort
+  data_source_type: REGISTRY
+  ascertainment: NEWBORN_SCREENING
+  n_individuals: 860
+  geography: Synthetic
+  person_time: 7420.0
+  person_time_unit: person-years
+  identification_steps:
+  - step_role: SEED
+    identification_vocabulary: MONDO
+    identification_terms:
+    - MONDO:0009061
+    description: >-
+      Registry entry follows a positive newborn screen and diagnostic
+      confirmation, so no terminology crossing is involved — a one-step chain is
+      the normal case, and the point of the list is that it does not have to be.
+- cohort_id: SYNTH-CF-DIAG
+  name: Synthetic diagnostic sweat-test series
+  data_source_type: EHR
+  ascertainment: CLINIC_BASED_REFERRAL
+  n_individuals: 512
+  identification_steps:
+  - step_role: SEED
+    identification_vocabulary: LOINC
+    identification_terms:
+    - LOINC:2077-6
+    description: >-
+      Identified by the test performed rather than by a disease term: the series
+      is everyone who had a quantitative sweat chloride, which is why it is a
+      separate cohort from the diagnosed one and not a stratum of it.
+
 generated_date: '2026-07-31'
 
 tracked_issues:
@@ -77,26 +161,7 @@ distributions:
       At least one recorded diagnosis of exocrine pancreatic insufficiency, or
       a dispensed pancreatic enzyme replacement therapy on two or more distinct
       dates at least 30 days apart.
-  cohort:
-    cohort_id: SYNTH-CF-EHR
-    name: Synthetic CF EHR cohort
-    data_source_type: EHR
-    data_source_name: Synthetic health system extract
-    ascertainment: CLINIC_BASED_REFERRAL
-    case_definition: >-
-      Two or more CF diagnosis codes on distinct dates, or one code plus a
-      confirmatory sweat chloride result.
-    geography: Synthetic
-    care_setting: Mixed inpatient and outpatient
-    n_individuals: 1240
-    observation_start: '2010-01-01'
-    observation_end: '2024-12-31'
-    identity_attestation:
-      row_count: 1240
-      unique_person_count: 1240
-      one_row_per_person: true
-      attestation_method: >-
-        Counts asserted by the extract job; no identifiers or hashes persisted.
+  cohort_ref: SYNTH-CF-EHR
   distribution:
     family: BETA
     parameterization_note: >-
@@ -107,7 +172,6 @@ distributions:
     n_events: 1069
     support_lower: 0.0
     support_upper: 1.0
-    discrete: false
     parameters:
     - parameter_name: alpha
       symbol: α
@@ -229,13 +293,7 @@ distributions:
     preferred_term: Cystic fibrosis diagnosis
     phenotype_definition: >-
       Date of the first qualifying CF diagnosis code, relative to date of birth.
-  cohort:
-    cohort_id: SYNTH-CF-NBS
-    name: Synthetic newborn-screened CF cohort
-    data_source_type: REGISTRY
-    ascertainment: NEWBORN_SCREENING
-    n_individuals: 860
-    geography: Synthetic
+  cohort_ref: SYNTH-CF-NBS
   distribution:
     family: LOGNORMAL
     parameterization_note: >-
@@ -245,7 +303,6 @@ distributions:
     estimation_framework: MAXIMUM_LIKELIHOOD
     n_observations: 860
     support_lower: 0.0
-    discrete: false
     unit: years
     parameters:
     - parameter_name: meanlog
@@ -340,14 +397,7 @@ distributions:
       The bound HPO term is broader than the operational definition; this is the
       normal case, and it is why `phenotype_definition` is the field that
       determines comparability rather than the term.
-  cohort:
-    cohort_id: SYNTH-CF-NBS
-    name: Synthetic newborn-screened CF cohort
-    data_source_type: REGISTRY
-    ascertainment: NEWBORN_SCREENING
-    n_individuals: 860
-    person_time: 7420.0
-    person_time_unit: person-years
+  cohort_ref: SYNTH-CF-NBS
   distribution:
     family: KAPLAN_MEIER
     estimation_framework: EMPIRICAL_TABULATION
@@ -423,13 +473,20 @@ distributions:
       An inpatient admission or home-IV course with a respiratory indication and
       at least 10 days of intravenous antibiotics.
   cohort:
-    cohort_id: SYNTH-CF-EHR
-    name: Synthetic CF EHR cohort
+    cohort_id: SYNTH-CF-EHR-ADULT-FEMALE
+    name: Adult women within the synthetic CF EHR cohort
     data_source_type: EHR
     ascertainment: CLINIC_BASED_REFERRAL
     n_individuals: 318
     person_time: 1590.0
     person_time_unit: person-years
+    notes: >-
+      The subset of SYNTH-CF-EHR selected by this record's `strata`, described
+      inline rather than by `cohort_ref` because its denominator differs: 318
+      women contributing 1,590 person-years, not the parent cohort's 1,240
+      people. Re-declaring the parent's id with a different count would make two
+      incompatible cohorts share one identity — inline is for a population
+      specific to one record, `cohort_ref` for a shared one.
   strata:
   - variable: SEX
     variable_label: sex
@@ -448,7 +505,6 @@ distributions:
     estimation_framework: MAXIMUM_LIKELIHOOD
     n_observations: 1590
     n_events: 2130
-    discrete: true
     support_lower: 0.0
     parameters:
     - parameter_name: mu
@@ -522,18 +578,12 @@ distributions:
     phenotype_definition: >-
       Highest sweat chloride concentration from a quantitative pilocarpine
       iontophoresis test with an adequate sweat weight.
-  cohort:
-    cohort_id: SYNTH-CF-DIAG
-    name: Synthetic diagnostic sweat-test series
-    data_source_type: EHR
-    ascertainment: CLINIC_BASED_REFERRAL
-    n_individuals: 512
+  cohort_ref: SYNTH-CF-DIAG
   distribution:
     family: NORMAL
     parameterization_note: Mean and standard deviation on the mmol/L scale.
     estimation_framework: MAXIMUM_LIKELIHOOD
     n_observations: 512
-    discrete: false
     unit: mmol/L
     parameters:
     - parameter_name: mean

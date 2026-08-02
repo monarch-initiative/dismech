@@ -12,7 +12,8 @@ description: >-
   The bundle is a gated block-wise correlated structural topic model over the
   whole (sampled) population: 191,876 one-document-per-person records, K=100
   (80 shared background components + 20 Ehlers-Danlos foreground components),
-  a 5,000-code vocabulary, and a sex-at-birth and age prevalence covariate.
+  a 5,000-code vocabulary, and sex-at-birth and age covariates on component
+  weight.
   Persons with a first EDS diagnosis (OMOP 79145 and descendants) contribute
   their 365-day post-diagnosis window and are gated into the `eds` arm — 0.4998%
   of documents; everyone else contributes a deterministic random 365-day window
@@ -20,7 +21,7 @@ description: >-
   only.
 
   **Provenance and status.** Every number below — theta histograms, percentiles,
-  NPMI, pair coverage, corpus prevalence, code probabilities, covariate
+  NPMI, pair coverage, corpus share, code probabilities, covariate
   coefficients, correlations, the eta scale and its standard error — is
   transcribed from that bundle's `phenotypes.json`, `model.json`,
   `covariate_effects.json`, `correlation.json`, `corpus_stats.json`,
@@ -34,13 +35,14 @@ description: >-
   **Common denominator, not one export shape.** The schema's model layer holds
   only what every latent-phenotype model class shares — components with weighted
   features, a weight distribution, optional covariate dependence, quality
-  metrics, estimation scope, provenance. This bundle's gated block structure is
-  specific to one family and is recorded in `model_properties` as name/value
-  pairs rather than in dedicated slots, and each component's `estimation_scope`
-  carries the thing a consumer actually needs from gating: that these components
-  were estimated from ~959 documents, not from 191,876. A different model class,
-  or the next iteration of this one, should be recordable here without a schema
-  change.
+  metrics, estimation scope, provenance. The *mechanism* of this bundle's gating
+  is specific to one family and is recorded in `model_properties` as name/value
+  pairs rather than in dedicated slots. What gating produces, though, is cohort
+  structure and not model structure, so the two arms and the components each one
+  backs are declared in `cohorts[].arms`: that is what stops a consumer reading
+  a foreground component — estimated from 959 documents — against the
+  191,876-document corpus. A different model class, or the next iteration of
+  this one, should be recordable here without a schema change.
 
   Five records exercise the parts of the schema that scalar estimates cannot
   express, and each is chosen to demonstrate a different failure mode a curator
@@ -114,16 +116,12 @@ model:
   - name: gating_variable
     property_value: source_cohort
     description: >-
-      Document variable assigning each document to an arm. Recorded as a model
-      property rather than a schema slot: gating is one family's way of
-      restricting components to a subpopulation, and what a consumer needs
-      downstream is each component's `estimation_scope`, not the mechanism.
-  - name: gating_arms
-    property_value: 'eds (0.4998% of documents); background-only (99.5002%)'
-  - name: component_blocks
-    property_value: >-
-      components 0-79 shared background fitted across all 191,876 documents;
-      components 80-99 EDS foreground estimated from the eds arm only
+      Document variable assigning each document to an arm; each arm's components
+      are masked out of the other arm's documents. The mechanism is
+      family-specific and stays here. Which sub-populations it produces and
+      which components each one backs is cohort structure rather than model
+      structure, and lives in `cohorts[].arms` — see the `eds` and `background`
+      arms.
   - name: correlation_reference_component
     property_value: '0'
     description: Pinned to zero for identifiability; the exported correlation matrix is 99x99.
@@ -162,28 +160,58 @@ model:
   - metric: PREDICTIVE_GAIN
     metric_value: 0.391025641025641
     description: Presence-based predictive gain for component 93.
-  training_cohort:
-    cohort_id: CHARMPHENO-POPULATION-EDS
-    name: CHARMPheno sampled population with gated EDS arm
-    data_source_type: EHR
-    data_source_name: OMOP condition and observation records
-    ascertainment: POPULATION_BASED
-    case_definition: >-
-      First EDS diagnosis by OMOP concept 79145 and descendants; the document is
-      the 365-day window following that diagnosis. Background documents are a
-      deterministic random 365-day window anchored on one of the person's own
-      condition eras, so they capture real activity rather than an empty year.
-    cohort_identification_vocabulary: >-
-      OMOP (the cohort is defined by concept 79145 and descendants; the
-      vocabulary is what this slot records, the definition belongs in
-      `case_definition`). Note this differs from later
-      CHARMPheno work, which identifies the target cohort with MONDO and places
-      patients automatically with SNOMED — the identification vocabulary is a
-      moving part and is not the same thing as the OMOP feature space the
-      profiles range over.
-    n_individuals: 191876
-    notes: >-
-      One document per person, disjoint arms. Mean 45.2 codes per document.
+  training_cohort_ref: CHARMPHENO-POPULATION-EDS
+
+cohorts:
+- cohort_id: CHARMPHENO-POPULATION-EDS
+  name: CHARMPheno sampled population with gated EDS arm
+  data_source_type: EHR
+  data_source_name: OMOP condition and observation records
+  ascertainment: POPULATION_BASED
+  case_definition: >-
+    First EDS diagnosis by OMOP concept 79145 and descendants; the document is
+    the 365-day window following that diagnosis. Background documents are a
+    deterministic random 365-day window anchored on one of the person's own
+    condition eras, so they capture real activity rather than an empty year.
+  n_individuals: 191876
+  identification_steps:
+  - step_role: SEED
+    identification_vocabulary: OMOP_CONCEPT_ID
+    identification_terms:
+    - OMOP:79145
+    description: >-
+      This bundle names its target directly in OMOP rather than crossing from a
+      disease ontology. Later CHARMPheno work seeds in MONDO and crosses to
+      SNOMED CT before placing patients, which is why the chain is recorded step
+      by step: the identification route is a moving part, and it is not the OMOP
+      feature space the profiles range over.
+  - step_role: EXPANSION
+    identification_vocabulary: OMOP_CONCEPT_ID
+    expansion_direction: SELF_AND_DESCENDANTS
+    description: >-
+      Descendants of 79145 are included, so the gated arm is EDS at the umbrella
+      level even though individual components resolve to specific types.
+  arms:
+  - arm_name: eds
+    arm_role: FOREGROUND
+    n_individuals: 959
+    description: >-
+      Persons with a first EDS diagnosis, contributing their 365-day
+      post-diagnosis window — 0.4998% of documents. Every component below is
+      estimated from this arm alone, which is the denominator a consumer needs
+      and the one the corpus size would hide.
+    associated_components: ['80', '81', '82', '83', '84', '85', '86', '87', '88',
+      '89', '90', '91', '92', '93', '94', '95', '96', '97', '98', '99']
+  - arm_name: background
+    arm_role: BACKGROUND
+    n_individuals: 190917
+    description: >-
+      Everyone else — 99.5002% of documents — carrying the 80 shared background
+      components (0-79) only. Not enumerated in `associated_components`: the
+      collection reports no background component, and listing eighty ids to say
+      "all the others" would be noise.
+  notes: >-
+    One document per person, disjoint arms. Mean 45.2 codes per document.
 
 domains:
 - domain_name: condition
@@ -230,12 +258,7 @@ distributions:
     Exported prior weight (alpha) across the 20 Ehlers-Danlos foreground
     components — the compositional, vector-valued form that no scalar estimate
     can carry.
-  cohort:
-    cohort_id: CHARMPHENO-POPULATION-EDS
-    name: CHARMPheno sampled population with gated EDS arm
-    data_source_type: EHR
-    ascertainment: POPULATION_BASED
-    n_individuals: 191876
+  cohort_ref: CHARMPHENO-POPULATION-EDS
   distribution:
     family: CATEGORICAL
     parameterization_note: >-
@@ -247,7 +270,6 @@ distributions:
       80 shared background components.
     estimation_framework: VARIATIONAL_POSTERIOR
     n_observations: 191876
-    discrete: true
     parameters:
     - parameter_name: alpha
       symbol: alpha
@@ -282,7 +304,15 @@ distributions:
   bias_risks:
   - MODEL_DEPENDENT
   - APPROXIMATE_POSTERIOR
+  - ASCERTAINMENT_BIAS
+  - PHENOTYPE_MISCLASSIFICATION
   caveats:
+  - >-
+    Entry into the EDS arm requires a recorded EDS diagnosis code, and
+    hypermobile EDS is both under-diagnosed and diagnosed late. Who reaches the
+    arm therefore correlates with the phenotype being modelled — a threat that
+    lives in how the cohort was assembled, not in how the model was fitted, and
+    that no amount of model metadata would imply.
   - >-
     These are prior weights from the fit, not observed proportions of patients.
     They say how much of the model's foreground capacity each component
@@ -318,7 +348,7 @@ distributions:
       EDS arm only (documents whose source_cohort is `eds`), 0.4998% of the
       191,876-document corpus.
     estimation_scope_size: 959
-    corpus_prevalence: 5.9490516396083624e-05
+    corpus_share: 5.9490516396083624e-05
     description: >-
       Bundle description: "Hypermobile Ehlers-Danlos syndrome (type 3) with
       marked joint hyperextension, recurrent musculoskeletal pain and
@@ -336,12 +366,7 @@ distributions:
       term:
         term_id: MONDO:0007523
         term_label: Ehlers-Danlos syndrome, hypermobility type
-  cohort:
-    cohort_id: CHARMPHENO-POPULATION-EDS
-    name: CHARMPheno sampled population with gated EDS arm
-    data_source_type: EHR
-    ascertainment: POPULATION_BASED
-    n_individuals: 191876
+  cohort_ref: CHARMPHENO-POPULATION-EDS
   distribution:
     family: EMPIRICAL
     parameterization_note: >-
@@ -450,7 +475,7 @@ distributions:
       EDS arm only (documents whose source_cohort is `eds`), 0.4998% of the
       191,876-document corpus.
     estimation_scope_size: 959
-    corpus_prevalence: 5.9490516396083624e-05
+    corpus_share: 5.9490516396083624e-05
     mapping_basis: >-
       As for the theta record: the component is dominated by its own diagnosis
       code, which makes the mapping obvious and the component weak evidence for
@@ -493,12 +518,7 @@ distributions:
       label: Pain in right hip joint
       weight: 0.02428
       domain_name: condition
-  cohort:
-    cohort_id: CHARMPHENO-POPULATION-EDS
-    name: CHARMPheno sampled population with gated EDS arm
-    data_source_type: EHR
-    ascertainment: POPULATION_BASED
-    n_individuals: 191876
+  cohort_ref: CHARMPHENO-POPULATION-EDS
   distribution:
     family: CATEGORICAL
     parameterization_note: >-
@@ -506,7 +526,6 @@ distributions:
       highest-probability codes are tabulated, so the listed proportions do not
       sum to 1.
     estimation_framework: VARIATIONAL_POSTERIOR
-    discrete: true
     bins:
     - bin_label: 'OMOP:4148925 Ehlers-Danlos syndrome, type 3'
       proportion: 0.50527
@@ -558,7 +577,7 @@ distributions:
     - data_item_id: CHARMPHENO-EDS-T96-CODEPROB-001-DI1
       data_type: DISTRIBUTION_PARAMETER
       item_value: >-
-        Component 96, quality anchor, corpus prevalence 5.95e-05; top code
+        Component 96, quality anchor, corpus share 5.95e-05; top code
         Ehlers-Danlos syndrome, type 3 (OMOP 4148925) at 0.50527, NPMI 0.2331,
         pair coverage 0.7842.
       reported_in:
@@ -601,7 +620,7 @@ distributions:
     component_quality: phenotype
     estimation_scope: EDS arm only, 0.4998% of the 191,876-document corpus.
     estimation_scope_size: 959
-    corpus_prevalence: 0.00011972462747401996
+    corpus_share: 0.00011972462747401996
     description: >-
       Bundle description: "Dysautonomia in Ehlers-Danlos syndrome, dominated by
       postural orthostatic tachycardia, orthostatic hypotension,
@@ -660,12 +679,7 @@ distributions:
       label: Palpitations
       weight: 0.02577
       domain_name: condition
-  cohort:
-    cohort_id: CHARMPHENO-POPULATION-EDS
-    name: CHARMPheno sampled population with gated EDS arm
-    data_source_type: EHR
-    ascertainment: POPULATION_BASED
-    n_individuals: 191876
+  cohort_ref: CHARMPHENO-POPULATION-EDS
   distribution:
     family: CATEGORICAL
     parameterization_note: >-
@@ -673,7 +687,6 @@ distributions:
       highest-probability codes are tabulated, so the proportions do not sum
       to 1.
     estimation_framework: VARIATIONAL_POSTERIOR
-    discrete: true
     bins:
     - bin_label: 'OMOP:444070 Tachycardia'
       proportion: 0.15634
@@ -701,7 +714,7 @@ distributions:
         consistent with this being the most widely shared pattern in the arm.
   bias_risks:
   - MODEL_DEPENDENT
-  - SINGLE_SITE
+  - NOT_EXTERNALLY_VALIDATED
   - PHENOTYPE_MISCLASSIFICATION
   caveats:
   - >-
@@ -734,7 +747,7 @@ distributions:
     - data_item_id: CHARMPHENO-EDS-T91-CODEPROB-001-DI1
       data_type: DISTRIBUTION_PARAMETER
       item_value: >-
-        Component 91, quality phenotype, corpus prevalence 1.197e-04; top codes
+        Component 91, quality phenotype, corpus share 1.197e-04; top codes
         Tachycardia 0.15634, Cardiac arrhythmia 0.12954, Ehlers-Danlos syndrome
         0.12820, Postural orthostatic tachycardia syndrome 0.11381, Orthostatic
         hypotension 0.09624; NPMI 0.1834, pair coverage 0.9895.
@@ -763,16 +776,17 @@ distributions:
 - record_id: CHARMPHENO-EDS-T93-LOGISTICNORMAL-F63-001
   measure_type: LATENT_PHENOTYPE_WEIGHT
   measure_description: >-
-    Prevalence of component 93 for a 63-year-old female document, on the latent
-    eta scale, with the exported correlation structure over the EDS foreground
-    components.
+    Weight of component 93 for a 63-year-old female document, on the latent eta
+    scale, with the exported correlation structure over the EDS foreground
+    components. The STM literature would call this the component's "prevalence";
+    it is not one, and the schema does not use the word for it.
   latent_phenotype:
     component_id: '93'
     label: EDS hypermobility with pain and dysautonomia
     component_quality: phenotype
     estimation_scope: EDS arm only, 0.4998% of the 191,876-document corpus.
     estimation_scope_size: 959
-    corpus_prevalence: 8.390437345493796e-05
+    corpus_share: 8.390437345493796e-05
     description: >-
       Bundle description: "Hypermobile EDS phenotype characterized by chronic
       widespread musculoskeletal and myofascial pain with multiple joint
@@ -790,12 +804,7 @@ distributions:
       term:
         term_id: HP:0012532
         term_label: Chronic pain
-  cohort:
-    cohort_id: CHARMPHENO-POPULATION-EDS
-    name: CHARMPheno sampled population with gated EDS arm
-    data_source_type: EHR
-    ascertainment: POPULATION_BASED
-    n_individuals: 191876
+  cohort_ref: CHARMPHENO-POPULATION-EDS
   strata:
   - variable: SEX
     variable_label: sex
@@ -818,7 +827,6 @@ distributions:
       correlation matrix is 99x99. The scale of Sigma is set by the exported
       eta_scale of 5.2724.
     estimation_framework: LAPLACE_APPROXIMATION
-    discrete: false
     parameters:
     - parameter_name: eta_linear_predictor
       symbol: (Gamma^T x)_93
@@ -870,11 +878,11 @@ distributions:
     coefficient: -0.28399
     coefficient_scale: latent logit (eta), relative to the pinned reference component 0
     description: >-
-      Negative for male, i.e. the component is more prevalent in female
+      Negative for male, i.e. the component carries more weight in female
       documents — matching the bundle's own description. A coefficient on the
       eta scale is not a probability difference and must be pushed through the
-      softmax alongside every other component before it says anything about
-      prevalence.
+      softmax alongside every other component before it says anything about how
+      often the pattern occurs.
   - covariate: age
     component: '93'
     coefficient: -0.00788

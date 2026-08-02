@@ -223,9 +223,31 @@ event count, or latent phenotype profile in a defined disease cohort. One record
   when a feature's `domain_name` cannot resolve to one — never read a component's
   `top_features` as HPO terms. Any ontology term on a component lives in
   `mapped_phenotype_terms` and is a curator's mapping judgement, not model
-  output. Keep this separate from `cohort_identification_vocabulary`, which is
-  routinely a different vocabulary (recent fits identify cohorts with MONDO and
-  place patients with SNOMED while still emitting OMOP-coded profiles).
+  output. Keep this separate from how the *cohort* was identified, which is
+  routinely a different vocabulary and rarely a single hop: `identification_steps`
+  records the chain step by step (`SEED` in MONDO → `MAPPING` to SNOMED CT with a
+  SKOS `mapping_relation` → `EXPANSION` over the SNOMED hierarchy), while the
+  profiles are still emitted over OMOP concept IDs. Where a fit splits the
+  population into arms, declare them as `cohorts[].arms` with
+  `associated_components`: a foreground component estimated from 0.5% of the
+  corpus must not be read against the whole-corpus denominator.
+- **Declare a shared cohort once.** A cohort used by more than one record goes in
+  the collection-level `cohorts:` list and is referenced with `cohort_ref`
+  (`model.training_cohort_ref` for the fit's own cohort). Inline `cohort:` is for
+  a population specific to one record — and if it differs from the parent cohort,
+  give it its own `cohort_id` rather than re-declaring the parent's with a
+  different denominator. The rendered cache body resolves references, so a cited
+  record still shows its cohort in full.
+- **Weights are not prevalences.** The topic-model literature calls a component's
+  share of corpus mass its "prevalence"; this schema never does, because
+  `prevalence` already means patients over a stated denominator of patients at
+  risk (and dismech has a `prevalence[]` block that means exactly that). The slot
+  is `corpus_share`, and covariate coefficients act on *component weight*.
+- **Do not restate what the family fixes.** `DistributionFamilyEnum` settles
+  support discreteness for all but a handful of values, so set `discrete:` only
+  for `EMPIRICAL`, `MIXTURE`, `KAPLAN_MEIER`, `NONPARAMETRIC_QUANTILE`,
+  `UNIFORM`, and `OTHER`. The lint errors on a value contradicting its family and
+  warns on one that merely repeats it.
 - **Common denominator, not one model's output.** Latent-phenotype modelling
   iterates fast, so the model layer holds only what all model classes share
   (component + weighted features, a weight distribution, optional covariate

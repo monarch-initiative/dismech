@@ -126,7 +126,7 @@ factorizations, mixtures, and their successors all share:
 |---|---|
 | A component with an identity, label, and ranked weighted features | `LatentPhenotype` + `WeightedFeature` |
 | A distribution of component weight over a population | `DistributionEstimate` (`EMPIRICAL`, `DIRICHLET`, `LOGISTIC_NORMAL`, …) |
-| Optional covariate dependence of prevalence | `CovariateEffect` |
+| Optional covariate dependence of component weight | `CovariateEffect` |
 | Per-component quality metrics | `ReliabilityReadout` |
 | How much data actually backed the component | `LatentPhenotype.estimation_scope` (+ `_size`) |
 | Enough provenance to find the fit again | `LatentPhenotypeModel` |
@@ -140,19 +140,47 @@ model:
   model_properties:
   - name: gating_variable
     property_value: source_cohort
-  - name: component_blocks
-    property_value: components 0-79 shared background; components 80-99 EDS foreground
+  - name: correlation_reference_component
+    property_value: '0'
 ```
+
+Note where the line falls: the *mechanism* of gating is family-specific and
+belongs here, but the sub-populations it produces and the components each one
+backs are cohort structure, and belong in `cohorts[].arms`.
 
 A new export shape should be recordable without a schema change. If it is not,
 the missing thing is probably not a common denominator. A test asserts that
 family-specific structure has not crept back into `LatentPhenotypeModel` as
 first-class slots.
 
+A slot earns a place on `LatentPhenotypeModel` only if it clears three bars:
+every model class in scope can answer it, it has a machine-readable type worth
+validating, and independent exporters would otherwise spell it differently. That
+last bar is what keeps `n_components`, `vocabulary_size`, `inference_method` and
+`component_count_inferred` out of `model_properties` — as free name/value pairs
+they would arrive as `K`, `n_topics`, and `num_components`, and no query could
+span two collections. `covariate_formula` is there because every
+`CovariateEffect` coefficient in a collection is relative to it. Anything that
+fails a bar goes in `model_properties`, and the fast path stays optional: a model
+class without a fixed component count simply omits the slot.
+
+### Weights are not prevalences
+
+The topic-model literature calls a component's share of corpus mass its
+"prevalence". This schema never does. In a disease knowledge base `prevalence`
+means a count of patients carrying a label over a stated denominator of patients
+at risk, and dismech has a `prevalence[]` block that means exactly that. A
+component weight is a fraction of fitted model mass over a denominator of
+documents; the two are not convertible, and for a gated rare-disease component
+the weight is mostly a statement about how much corpus the component was given.
+So the slot is `corpus_share`, covariate coefficients act on *component weight*,
+and where the source's own wording is quoted the example says explicitly that
+the word does not carry its usual meaning.
+
 `estimation_scope` is the one place where a mechanism like gating does need to
 leave a trace, because what a consumer needs downstream is not the mechanism but
-its consequence: a component estimated from a 0.5%-prevalence arm is backed by
-~959 documents, not by the 191,876-document corpus.
+its consequence: a component estimated from an arm holding 0.5% of the corpus is
+backed by ~959 documents, not by the 191,876-document corpus.
 
 ### Compositional distributions
 
@@ -162,7 +190,7 @@ parameters:
 * **Dirichlet / categorical** — a concentration or weight vector over
   components. Store it as a `DistributionParameter` with `vector_value` and
   `index_labels`.
-* **Logistic-normal** — component prevalence conditioned on covariates and
+* **Logistic-normal** — component weight conditioned on covariates and
   sampled as `eta ~ Normal(mu, Sigma); theta = softmax(eta)`. Store `mu` as a
   vector parameter and the correlation matrix as a `MatrixParameter`, naming the
   pinned `reference_component` and recording `identified` and `support_count`.
@@ -195,16 +223,51 @@ not the default — so a reader who assumes a component's top features are HPO
 terms, because dismech is HPO-centric, is wrong today for every existing
 profile.
 
-Keep this separate from the vocabulary used to *identify* the cohort, which is
-routinely different and drifting independently: recent fits identify the target
-cohort with MONDO and place patients automatically with SNOMED while still
-producing profiles over OMOP concept IDs. `CohortDescriptor.cohort_identification_vocabulary`
-records that side.
+Keep this separate from how the *cohort* was identified, which is routinely a
+different vocabulary and rarely a single hop. A recent fit names its target in
+MONDO, crosses to SNOMED CT through exact-synonym mappings, walks the SNOMED
+hierarchy to assemble sub- and super-cohorts, and still emits profiles over OMOP
+concept IDs. `CohortDescriptor.identification_steps` records that as an ordered
+chain rather than one vocabulary name, because every hop is a place the cohort
+can stop meaning what its seed term means:
+
+```yaml
+identification_steps:
+- step_role: SEED
+  identification_vocabulary: MONDO
+  identification_terms: [MONDO:0009061]
+- step_role: MAPPING
+  identification_vocabulary: SNOMED_CT
+  identification_terms: [SNOMEDCT:190905008]
+  mapping_relation: EXACT_MATCH      # a BROAD_MATCH here would widen the cohort
+- step_role: EXPANSION
+  identification_vocabulary: SNOMED_CT
+  expansion_direction: SELF_AND_DESCENDANTS
+```
+
+A cohort identified by one term in one vocabulary is a one-step chain; the point
+of the list is that it does not have to be. Where a fit splits the population
+into arms, `cohorts[].arms` names them and `associated_components` says which
+components each arm backs — the thing that stops a foreground component
+estimated from 0.5% of the corpus being read against the whole-corpus
+denominator.
+
+### Declare a shared cohort once
+
+A cohort used by more than one record goes in the collection-level `cohorts:`
+list and is referenced by `cohort_ref` (`model.training_cohort_ref` for the fit's
+own cohort). Copying the same description onto every record makes the copies look
+like independent assertions a reader then has to diff, and lets them drift.
+Inline `cohort:` is for a population specific to one record — and when that
+population differs from the parent cohort, it needs its own `cohort_id` rather
+than a re-declaration of the parent's with a different denominator. The rendered
+reference-cache body resolves references, so a cited record still shows its
+cohort in full and moving a cohort up does not change any cited text.
 
 ### A component is not a disease concept
 
 `LatentPhenotype` separates what the model produced (`top_features`,
-`component_quality`, `corpus_prevalence`) from a curator's judgement about what
+`component_quality`, `corpus_share`) from a curator's judgement about what
 it means (`mapped_phenotype_terms` plus a stated `mapping_basis`). Never import
 a component weight into a phenotype slot without that mapping — and note that
 even with it, a component's code probability is conditional on the component, so
@@ -242,9 +305,16 @@ combination rule beat the primary domain alone in aggregate, while a secondary
 domain still rescued the individual diseases whose evidence lives in it. That is
 a routing conclusion, which is why `domain_role` (`PRIMARY` / `SPECIALIST` /
 `SUPPORTING` / `EXCLUDED` / `UNDETERMINED`) sits alongside `reliability_score`
-and is the field a consumer should act on. Reach for `UNDETERMINED` when nobody
-has evaluated the domain — not `EXCLUDED`, which asserts it *was* assessed and
-degraded performance.
+and is the field a consumer should act on. `PRIMARY` versus `SPECIALIST` is the
+distinction the readout work actually produced, and without it two listed
+domains give a consumer no signal that one carries essentially all of it.
+
+List the domains the analysis used. A domain assessed and left out need not
+appear at all — omission is the ordinary way to say a domain is not in play, and
+`EXCLUDED` is for the narrower case where the negative result is worth recording,
+e.g. to stop the next person re-adding a domain already shown to hurt. Reach for
+`UNDETERMINED` when nobody has evaluated the domain; do not read an absent domain
+as `UNDETERMINED`.
 
 `IdentityAttestation` asserts `row_count`, `unique_person_count`, and
 `one_row_per_person` without persisting identifiers. A held-out supervised
@@ -418,7 +488,7 @@ line so the two evidence strengths sit side by side.
 `population_eds` bundle, a gated block-wise correlated STM over 191,876
 one-document-per-person records with K=100 (80 shared background + 20
 Ehlers-Danlos foreground components). Every number — theta histograms, NPMI,
-pair coverage, corpus prevalence, code probabilities, covariate coefficients,
+pair coverage, corpus share, code probabilities, covariate coefficients,
 correlations, the eta scale and its standard error — is transcribed from the
 bundle's exported JSON. What is curator judgement, and marked as such, is the
 mapping from an unsupervised component to a dismech phenotype.

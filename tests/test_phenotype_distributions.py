@@ -111,6 +111,7 @@ def test_model_layer_stays_at_the_common_denominator() -> None:
         "hyperparameters",
         "model_properties",
         "training_cohort",
+        "training_cohort_ref",
         "fit_metrics",
         "contains_patient_data",
         "artifact_url",
@@ -230,7 +231,7 @@ def test_lint_flags_self_contradictory_identity_attestation(
     cf_collection_path: Path,
 ) -> None:
     def mutate(data):
-        att = data["distributions"][0]["cohort"]["identity_attestation"]
+        att = data["cohorts"][0]["identity_attestation"]
         att["unique_person_count"] = 900
 
     assert "one row per person" in _error_messages(_mutate(cf_collection_path, mutate))
@@ -812,3 +813,133 @@ def test_example_collections_are_not_citable_from_kb_entries() -> None:
         if (p := Path("references_cache") / f"PHENODIST_{rid}.md").exists()
     ]
     assert not committed, f"illustrative cache files are committed: {sorted(committed)}"
+
+
+# ---------------------------------------------------------------------------
+# Cohort declaration, references, and identification chains
+# ---------------------------------------------------------------------------
+
+
+def test_lint_flags_unresolvable_cohort_ref(cf_collection_path: Path) -> None:
+    def mutate(data):
+        data["distributions"][0]["cohort_ref"] = "SYNTH-NO-SUCH-COHORT"
+
+    assert "does not resolve to a cohort" in _error_messages(
+        _mutate(cf_collection_path, mutate)
+    )
+
+
+def test_lint_flags_cohort_declared_both_inline_and_by_reference(
+    cf_collection_path: Path,
+) -> None:
+    """One cohort, one source of truth — the duplication this slot removes."""
+
+    def mutate(data):
+        data["distributions"][0]["cohort"] = {"cohort_id": "SYNTH-CF-EHR"}
+
+    assert "both `cohort` and `cohort_ref`" in _error_messages(
+        _mutate(cf_collection_path, mutate)
+    )
+
+
+def test_lint_warns_when_a_record_re_declares_a_collection_cohort(
+    cf_collection_path: Path,
+) -> None:
+    def mutate(data):
+        record = data["distributions"][0]
+        record.pop("cohort_ref")
+        record["cohort"] = {"cohort_id": "SYNTH-CF-EHR", "n_individuals": 1240}
+
+    assert "use `cohort_ref`" in _warning_messages(_mutate(cf_collection_path, mutate))
+
+
+def test_referenced_cohort_renders_the_same_as_an_inline_one(
+    cf_collection_path: Path,
+) -> None:
+    """Hoisting a shared cohort must not change a single cited byte.
+
+    Cache bodies are quoted as evidence snippets, so a purely organizational
+    move that altered the rendered text would silently invalidate citations.
+    """
+    coll = load_collection(cf_collection_path)
+    record = coll.records[0]
+    by_reference = render_body(coll, record)
+
+    inlined = Collection(path=coll.path, data=copy.deepcopy(coll.data))
+    target = inlined.records[0]
+    target["cohort"] = copy.deepcopy(inlined.cohorts[target.pop("cohort_ref")])
+    inlined.data.pop("cohorts")
+
+    assert render_body(inlined, inlined.records[0]) == by_reference
+
+
+def test_lint_flags_model_training_cohort_ref_that_does_not_resolve(
+    eds_collection_path: Path,
+) -> None:
+    def mutate(data):
+        data["model"]["training_cohort_ref"] = "NOPE"
+
+    assert "training_cohort_ref" in _error_messages(_mutate(eds_collection_path, mutate))
+
+
+def test_lint_warns_when_a_mapping_step_omits_its_relation(
+    cf_collection_path: Path,
+) -> None:
+    """An exact-synonym crossing and a broad-match crossing are different cohorts."""
+
+    def mutate(data):
+        for step in data["cohorts"][0]["identification_steps"]:
+            if step["step_role"] == "MAPPING":
+                step.pop("mapping_relation")
+
+    assert "mapping_relation" in _warning_messages(_mutate(cf_collection_path, mutate))
+
+
+def test_lint_warns_when_an_expansion_step_omits_its_direction(
+    cf_collection_path: Path,
+) -> None:
+    def mutate(data):
+        for step in data["cohorts"][0]["identification_steps"]:
+            if step["step_role"] == "EXPANSION":
+                step.pop("expansion_direction")
+
+    assert "expansion_direction" in _warning_messages(_mutate(cf_collection_path, mutate))
+
+
+def test_lint_warns_when_a_component_belongs_to_no_arm(
+    eds_collection_path: Path,
+) -> None:
+    """A component with no arm has an unstated denominator.
+
+    The gated EDS components are estimated from 959 documents; read against the
+    191,876-document corpus they mean something else entirely.
+    """
+
+    def mutate(data):
+        for arm in data["cohorts"][0]["arms"]:
+            if arm["arm_name"] == "eds":
+                arm["associated_components"] = ["80"]
+
+    assert "not listed by any cohort arm" in _warning_messages(
+        _mutate(eds_collection_path, mutate)
+    )
+
+
+def test_lint_flags_discrete_contradicting_its_family(cf_collection_path: Path) -> None:
+    def mutate(data):
+        data["distributions"][0]["distribution"]["discrete"] = True
+
+    assert "contradicts family BETA" in _error_messages(
+        _mutate(cf_collection_path, mutate)
+    )
+
+
+def test_lint_warns_when_discrete_merely_restates_its_family(
+    cf_collection_path: Path,
+) -> None:
+    def mutate(data):
+        data["distributions"][0]["distribution"]["discrete"] = False
+
+    assert "restates what family BETA already fixes" in _warning_messages(
+        _mutate(cf_collection_path, mutate)
+    )
